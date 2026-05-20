@@ -48,6 +48,22 @@ export function createServer(): express.Express {
     }),
   );
 
+  // ── Test-only auth endpoint ────────────────────────────────────────────────
+  // Lets integration tests establish a session without going through Discord OAuth.
+  // Only mounted in NODE_ENV=test — never reachable in production.
+  if (process.env.NODE_ENV === 'test') {
+    app.post('/test/login', (req, res) => {
+      const { userId, managedGuildIds = [] } = req.body as {
+        userId: string;
+        managedGuildIds?: string[];
+      };
+      req.session.userId = userId;
+      req.session.managedGuildIds = managedGuildIds as string[];
+      req.session.managedGuildsCachedAt = Date.now() + 10 * 60_000; // 10 min future
+      req.session.save(() => res.json({ ok: true }));
+    });
+  }
+
   // ── Request logger ─────────────────────────────────────────────────────────
 
   app.use((req, _res, next) => {

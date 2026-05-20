@@ -24,9 +24,11 @@ build/
 .DS_Store
 Thumbs.db
 
-# Prisma SQLite dev database
+# Prisma SQLite databases (dev and test)
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 
 # User-uploaded files
 apps/api/uploads/
