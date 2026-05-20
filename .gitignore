@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Environment files – never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma SQLite dev database
+*.db
+*.db-journal
+
+# User-uploaded files
+apps/api/uploads/
+
+# Logs
+logs/
+*.log
+npm-debug.log*

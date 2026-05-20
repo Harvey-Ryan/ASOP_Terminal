@@ -1,0 +1,329 @@
+// Prisma schema for Discord Event Manager
+//
+// Default provider: SQLite (zero-config local dev)
+// To switch to PostgreSQL:
+//   1. Change provider below to "postgresql"
+//   2. Set DATABASE_URL=postgresql://user:pass@localhost:5432/dem
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── User & Auth ───────────────────────────────────────────────────────────────
+
+/// Application user – one record per Discord account that has logged in.
+model User {
+  id            String   @id @default(cuid())
+  discordId     String   @unique     // Discord snowflake
+  username      String
+  discriminator String
+  globalName    String?
+  avatar        String?
+  email         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accounts     Account[]
+  guildMembers GuildMember[]
+  templates    EventTemplate[]
+}
+
+/// OAuth tokens for a user/provider pair.
+/// Supports multiple providers in the future (e.g. a second Discord account).
+model Account {
+  id                String   @id @default(cuid())
+  provider          String   // "discord"
+  providerAccountId String   // Discord user snowflake
+  accessToken       String
+  refreshToken      String?
+  expiresAt         Int?     // Unix timestamp
+  tokenType         String?
+  scope             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ── Guild ────────────────────────────────────────────────────────────────────
+
+/// A Discord server the app has been introduced to.
+/// All event data is strictly scoped by guildId (the Discord snowflake).
+model Guild {
+  id        String   @id @default(cuid())
+  guildId   String   @unique   // Discord snowflake – the canonical multi-tenant key
+  name      String
+  icon      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings  GuildSettings?
+  members   GuildMember[]
+  templates EventTemplate[]
+}
+
+/// The role a User holds within a Guild.
+/// SQLite stores this as a plain string; PostgreSQL uses a native enum.
+model GuildMember {
+  id        String   @id @default(cuid())
+  /// OWNER | ADMIN | ORGANIZER | MEMBER
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId  String
+  guildId String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guild   Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, guildId])
+  @@index([guildId])
+}
+
+/// Per-guild configuration for bot features and channel routing.
+/// Created on first bot interaction; all fields are optional until configured.
+model GuildSettings {
+  id              String   @id @default(cuid())
+  /// Discord channel snowflake for posting forum threads
+  forumChannelId  String?
+  /// Discord channel snowflake for Discord Scheduled Events
+  eventChannelId  String?
+  /// Discord category snowflake for auto-created voice channels
+  voiceCategoryId String?
+  /// Discord channel snowflake for loot roll output
+  lootChannelId   String?
+  timezone        String   @default("UTC")
+  /// JSON: string[] — Discord role snowflake IDs allowed to create events (empty = admin-only)
+  eventCreatorRoles String @default("[]")
+  /// JSON: string[] — Discord role snowflake IDs allowed to edit module settings (empty = admin-only)
+  moduleEditorRoles String @default("[]")
+  /// JSON: string[] — Discord role snowflake IDs allowed to view events and loot on the dashboard
+  viewerRoles       String @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  guildId String @unique
+  guild   Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+
+/// A scheduled event within a guild.
+model Event {
+  id             String    @id @default(cuid())
+  guildId        String
+  name           String
+  description    String?
+  /// Free-text assembly location shown in the embed and Discord event
+  musterPoint    String?
+  startTime      DateTime
+  endTime        DateTime?
+
+  discordEventId  String?
+  threadId        String?
+  /// Discord message snowflake for the roster embed (first message in the thread)
+  rosterMessageId String?
+  /// JSON: string[] — Discord VC channel snowflakes created for this event
+  vcIds           String   @default("[]")
+
+  /// DAILY | WEEKLY | BIWEEKLY | MONTHLY — null means one-off
+  recurType       String?
+  /// JSON: {name:string,count:number}[] — role slots defined by the organiser
+  roles           String   @default("[]")
+  /// JSON: string[] — VC names to create 30 min before start
+  vcNames         String   @default("[]")
+  /// URL path to cover image stored in the server image library
+  imageUrl        String?
+
+  /// PENDING | ACTIVE | ENDED | COMPLETED
+  status          String   @default("PENDING")
+  /// Last time at least one event VC had a member present (for inactivity detection)
+  lastVcActivityAt DateTime?
+  /// Set when the admin completes the loot prompt on the web dashboard
+  hadLoot         Boolean?
+  lootNotes       String?
+  /// JSON: string[] — Discord user IDs that were active in event VCs when the event ended
+  vcAttendees     String   @default("[]")
+  /// JSON: string[] — user IDs confirmed as attendees after the audit
+  confirmedAttendees String?
+  /// Set by the bot after it finishes VC cleanup / thread archiving
+  botCleanedUp    Boolean  @default(false)
+
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  rsvps     EventRsvp[]
+  reminders EventReminder[]
+
+  @@index([guildId])
+  @@index([startTime])
+  @@index([status])
+}
+
+/// A roster entry — created when a user clicks Interested or a role button.
+model EventRsvp {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  username  String
+  /// null = Unassigned; otherwise the role name the user claimed
+  role      String?
+  updatedAt DateTime @default(now()) @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+}
+
+/// A scheduled reminder for an event.
+model EventReminder {
+  id      String   @id @default(cuid())
+  eventId String
+  sendAt  DateTime
+  sent    Boolean  @default(false)
+  /// FORUM = post in thread; DM = direct-message all roster members
+  type    String   @default("FORUM")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([sendAt, sent])
+}
+
+/// A per-server image uploaded via the web dashboard.
+model ServerImage {
+  id        String   @id @default(cuid())
+  guildId   String
+  filename  String
+  /// Web-accessible URL path, e.g. /uploads/{guildId}/{filename}
+  url       String
+  createdAt DateTime @default(now())
+
+  @@index([guildId])
+}
+
+// ── Loot ─────────────────────────────────────────────────────────────────────
+
+/// One loot distribution session per event.
+model LootSession {
+  id         String   @id @default(cuid())
+  eventId    String   @unique
+  guildId    String
+  /// RANDOM_ROLL | DKP | SNAKE_DRAFT
+  method     String   @default("RANDOM_ROLL")
+  /// OPEN | COMPLETED
+  status     String   @default("OPEN")
+  /// JSON: string[] — userId order for snake draft
+  draftOrder String   @default("[]")
+  /// DKP points awarded to each confirmed attendee on completion
+  dkpAward   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  items LootItem[]
+
+  @@index([guildId])
+}
+
+model LootItem {
+  id                 String   @id @default(cuid())
+  sessionId          String
+  name               String
+  quantity           Int      @default(1)
+  excludePrevWinners Boolean  @default(false)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  session     LootSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignments LootAssignment[]
+
+  @@index([sessionId])
+}
+
+/// One winner record per item (quantity > 1 can have multiple rows).
+model LootAssignment {
+  id         String   @id @default(cuid())
+  itemId     String
+  userId     String
+  username   String
+  rollValue  Int?
+  dkpSpent   Int?
+  pickNumber Int?
+  assignedAt DateTime @default(now())
+
+  item LootItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+/// Running DKP balance per guild member.
+model DkpBalance {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  username  String
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  transactions DkpTransaction[]
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+}
+
+model DkpTransaction {
+  id        String   @id @default(cuid())
+  balanceId String
+  guildId   String
+  userId    String
+  username  String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  balance DkpBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+
+  @@index([balanceId])
+  @@index([guildId, userId])
+}
+
+// ── Event Templates ───────────────────────────────────────────────────────────
+
+/// A reusable event blueprint scoped to a single guild.
+/// rosterSlots and reminderMinutes are stored as JSON for schema flexibility.
+/// See @dem/shared for the RosterSlot type definition.
+model EventTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  imageUrl    String?
+
+  // JSON: RosterSlot[]  – [{ id, name, emoji?, maxCount, required }]
+  rosterSlots     String @default("[]")
+  // JSON: number[]      – minutes before event start, e.g. [1440, 60, 15]
+  reminderMinutes String @default("[1440,60]")
+
+  defaultDuration Int?    // minutes
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  guildId     String
+  guild       Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@index([guildId])
+  @@index([createdById])
+}

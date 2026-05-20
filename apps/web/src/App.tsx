@@ -1,0 +1,45 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { ServerPage } from './pages/ServerPage';
+import { EventCreatePage } from './pages/events/EventCreatePage';
+import { EventAuditPage } from './pages/events/EventAuditPage';
+import { LootPage } from './pages/events/LootPage';
+import { ModuleEventBotPage } from './pages/settings/ModuleEventBotPage';
+import { BotSettingsPage } from './pages/settings/BotSettingsPage';
+import { PermissionsPage } from './pages/settings/PermissionsPage';
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { ProtectedRoute } from './components/ProtectedRoute';
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Protected – all dashboard routes share the sidebar layout */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+          <Route path="servers/:guildId" element={<ServerPage />} />
+          <Route path="servers/:guildId/events/new" element={<EventCreatePage />} />
+          <Route path="servers/:guildId/events/:eventId/audit" element={<EventAuditPage />} />
+          <Route path="servers/:guildId/events/:eventId/loot" element={<LootPage />} />
+          <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
+          <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
+          <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
+        </Route>
+
+        {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
