@@ -183,7 +183,7 @@ authRouter.get('/me', requireAuth, async (req, res) => {
 
 // ── POST /api/auth/logout ─────────────────────────────────────────────────────
 
-authRouter.post('/logout', (req, res) => {
+authRouter.post('/logout', requireAuth, (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       res.status(500).json({ success: false, error: 'Logout failed' } satisfies ApiResponse);

@@ -4,11 +4,15 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { triggerBot } from '../../lib/triggerBot.js';
+import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse, CreateEventBody, EventDto, EventRole } from '@dem/shared';
 
 export const eventsRouter = Router();
 
 type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true } }>;
+
+const RECUR_TYPES = ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'] as const;
 
 // ── GET /api/guilds/:guildId/events ───────────────────────────────────────────
 
@@ -107,17 +111,32 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
       }
     }
 
-    if (!body.name?.trim() || !body.startTime) {
-      res.status(400).json({ success: false, error: 'name and startTime are required' } satisfies ApiResponse);
-      return;
-    }
-
-    const startTime = new Date(body.startTime);
-    const endTime = body.endTime ? new Date(body.endTime) : undefined;
-
-    if (isNaN(startTime.getTime()) || (endTime && isNaN(endTime.getTime()))) {
-      res.status(400).json({ success: false, error: 'Invalid date value' } satisfies ApiResponse);
-      return;
+    // Validate input
+    let name: string;
+    let startTime: Date;
+    let endTime: Date | undefined;
+    try {
+      name = requireStr(body.name, 'name', 200);
+      optStr(body.description, 'description', 2000);
+      optStr(body.musterPoint, 'musterPoint', 300);
+      optStr(body.imageUrl, 'imageUrl', 1000);
+      if (!body.startTime) throw new ValidationError('startTime is required');
+      startTime = new Date(body.startTime);
+      if (isNaN(startTime.getTime())) throw new ValidationError('startTime is not a valid date');
+      endTime = body.endTime ? new Date(body.endTime) : undefined;
+      if (endTime && isNaN(endTime.getTime())) throw new ValidationError('endTime is not a valid date');
+      optEnum(body.recurType, 'recurType', RECUR_TYPES);
+      if (body.vcNames !== undefined) optStrArr(body.vcNames, 'vcNames', 10, 100);
+      if (body.roles !== undefined && !Array.isArray(body.roles))
+        throw new ValidationError('roles must be an array');
+      if (Array.isArray(body.roles) && body.roles.length > 50)
+        throw new ValidationError('roles must have at most 50 items');
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        res.status(400).json({ success: false, error: err.message } satisfies ApiResponse);
+        return;
+      }
+      throw err;
     }
 
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
@@ -125,7 +144,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
     const event = await prisma.event.create({
       data: {
         guildId,
-        name: body.name.trim(),
+        name: body.name!.trim(),
         description: body.description?.trim() || null,
         musterPoint: body.musterPoint?.trim() || null,
         startTime,
@@ -148,11 +167,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
     ].filter((r) => r.sendAt > now);
     if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
 
-    // Trigger immediate Discord setup — fire and forget, scheduler is the fallback
-    const botUrl = process.env['BOT_INTERNAL_URL'];
-    if (botUrl) {
-      fetch(`${botUrl}/trigger/event/${event.id}`, { method: 'POST' }).catch(() => null);
-    }
+    triggerBot(`/trigger/event/${event.id}`);
 
     res.status(201).json({ success: true, data: toDto(event) } satisfies ApiResponse<EventDto>);
   } catch (err) {
@@ -183,10 +198,7 @@ eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res)
 
   await prisma.event.update({ where: { id: eventId }, data: { status: 'ENDED' } });
 
-  const botUrl = process.env['BOT_INTERNAL_URL'];
-  if (botUrl) {
-    fetch(`${botUrl}/trigger/end/${eventId}`, { method: 'POST' }).catch(() => null);
-  }
+  triggerBot(`/trigger/end/${eventId}`);
 
   res.json({ success: true, message: 'Event ending — bot will clean up shortly' } satisfies ApiResponse);
 });
@@ -195,11 +207,6 @@ eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res)
 
 eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
-  const { hadLoot, lootNotes, confirmedAttendees } = req.body as {
-    hadLoot: boolean;
-    lootNotes?: string;
-    confirmedAttendees?: string[];
-  };
 
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
@@ -215,6 +222,27 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
     res.status(409).json({ success: false, error: 'Event must be in ENDED status to complete' } satisfies ApiResponse);
     return;
   }
+
+  // Validate complete body
+  const body = req.body as { hadLoot?: unknown; lootNotes?: unknown; confirmedAttendees?: unknown };
+  try {
+    if (body.lootNotes !== undefined) optStr(body.lootNotes, 'lootNotes', 2000);
+    if (body.confirmedAttendees !== undefined) optStrArr(body.confirmedAttendees, 'confirmedAttendees', 500, 30);
+    if (body.hadLoot !== undefined && typeof body.hadLoot !== 'boolean')
+      throw new ValidationError('hadLoot must be a boolean');
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse);
+      return;
+    }
+    throw err;
+  }
+
+  const { hadLoot, lootNotes, confirmedAttendees } = body as {
+    hadLoot?: boolean;
+    lootNotes?: string;
+    confirmedAttendees?: string[];
+  };
 
   await prisma.event.update({
     where: { id: eventId },
@@ -259,4 +287,3 @@ function toDto(event: EventWithRsvps): EventDto {
     botCleanedUp: event.botCleanedUp,
   };
 }
-

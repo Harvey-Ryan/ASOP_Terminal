@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
-import type { TestAgent } from 'supertest/agent.js';
+type TestAgent = ReturnType<typeof request.agent>;
 import { PrismaClient } from '@prisma/client';
 import { createServer } from '../server/app.js';
 import { createUser, createGuild, createGuildSettings } from './factories.js';

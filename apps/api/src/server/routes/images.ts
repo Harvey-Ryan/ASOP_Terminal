@@ -82,7 +82,9 @@ imagesRouter.post('/:guildId/images', requireAuth, (req, res, next) => {
     const upload = uploadsFor(guildId);
     upload.single('image')(req, res, async (err) => {
       if (err) {
-        res.status(400).json({ success: false, error: err.message } satisfies ApiResponse);
+        // Only expose multer's own error messages; suppress OS/filesystem details
+        const message = err instanceof multer.MulterError ? err.message : 'Upload failed';
+        res.status(400).json({ success: false, error: message } satisfies ApiResponse);
         return;
       }
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { ValidationError, optStr, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const settingsRouter = Router();
@@ -188,13 +189,31 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
 
 settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  const body = req.body as {
+  const raw = req.body as Record<string, unknown>;
+
+  // Validate before checking permissions
+  let body: {
     forumChannelId?: string | null;
     voiceCategoryId?: string | null;
     eventCreatorRoles?: string[];
     moduleEditorRoles?: string[];
     viewerRoles?: string[];
   };
+  try {
+    body = {
+      forumChannelId:    raw.forumChannelId !== undefined ? optStr(raw.forumChannelId, 'forumChannelId', 30) : undefined,
+      voiceCategoryId:   raw.voiceCategoryId !== undefined ? optStr(raw.voiceCategoryId, 'voiceCategoryId', 30) : undefined,
+      eventCreatorRoles: raw.eventCreatorRoles !== undefined ? optStrArr(raw.eventCreatorRoles, 'eventCreatorRoles', 100, 30) : undefined,
+      moduleEditorRoles: raw.moduleEditorRoles !== undefined ? optStrArr(raw.moduleEditorRoles, 'moduleEditorRoles', 100, 30) : undefined,
+      viewerRoles:       raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
+    };
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse);
+      return;
+    }
+    throw err;
+  }
 
   // moduleEditorRoles and viewerRoles are admin-only fields — require full guild manager
   const needsAdmin = body.moduleEditorRoles !== undefined || body.viewerRoles !== undefined;

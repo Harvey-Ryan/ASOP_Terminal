@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import type { TestAgent } from 'supertest/agent.js';
+type TestAgent = ReturnType<typeof request.agent>;
 import { PrismaClient } from '@prisma/client';
 import { createServer } from '../server/app.js';
 import { createUser, createGuild, createEvent, createLootSession, createLootItem } from './factories.js';

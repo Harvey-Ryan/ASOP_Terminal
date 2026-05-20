@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
-import type { TestAgent } from 'supertest/agent.js';
+type TestAgent = ReturnType<typeof request.agent>;
 import { createServer } from '../server/app.js';
 import { createUser, createGuild, createEvent } from './factories.js';
 

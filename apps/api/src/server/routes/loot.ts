@@ -4,14 +4,13 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { triggerBot } from '../../lib/triggerBot.js';
+import { ValidationError, requireStr, optStrArr, optEnum, optNonNegInt, optPosInt } from '../../lib/validate.js';
 import type {
   ApiResponse,
   LootSessionDto,
   LootItemDto,
   DkpBalanceDto,
-  CreateLootSessionBody,
-  AddLootItemBody,
-  AssignLootItemBody,
   LootMethod,
 } from '@dem/shared';
 
@@ -20,6 +19,8 @@ export const lootRouter = Router();
 type SessionWithItems = Prisma.LootSessionGetPayload<{
   include: { items: { include: { assignments: true } } };
 }>;
+
+const LOOT_METHODS = ['RANDOM_ROLL', 'DKP', 'SNAKE_DRAFT'] as const;
 
 // ── DTO helpers ───────────────────────────────────────────────────────────────
 
@@ -94,10 +95,22 @@ lootRouter.get('/:guildId/events/:eventId/loot', requireAuth, async (req, res) =
 
 lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
-  const { method = 'RANDOM_ROLL', dkpAward = 0 } = req.body as Partial<CreateLootSessionBody>;
+  const body = req.body as Record<string, unknown>;
 
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  let method: LootMethod;
+  let dkpAward: number;
+  try {
+    method = optEnum(body.method, 'method', LOOT_METHODS) ?? 'RANDOM_ROLL';
+    dkpAward = optNonNegInt(body.dkpAward, 'dkpAward') ?? 0;
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
   }
 
   const existing = await fetchSession(eventId);
@@ -110,7 +123,6 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
     res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse); return;
   }
 
-  // Default snake draft order to confirmed attendees (randomised)
   const attendees: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
   const shuffled = [...attendees].sort(() => Math.random() - 0.5);
 
@@ -126,10 +138,26 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
 
 lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
-  const { method, dkpAward, draftOrder } = req.body as { method?: LootMethod; dkpAward?: number; draftOrder?: string[] };
+  const body = req.body as Record<string, unknown>;
 
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  let method: LootMethod | undefined;
+  let dkpAward: number | undefined;
+  let draftOrder: string[] | undefined;
+  try {
+    method = optEnum(body.method, 'method', LOOT_METHODS);
+    dkpAward = optNonNegInt(body.dkpAward, 'dkpAward');
+    draftOrder = body.draftOrder !== undefined
+      ? optStrArr(body.draftOrder, 'draftOrder', 500, 30)
+      : undefined;
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
   }
 
   const existing = await prisma.lootSession.findUnique({ where: { eventId } });
@@ -153,14 +181,25 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
 // ── POST add item ─────────────────────────────────────────────────────────────
 
 lootRouter.post('/:guildId/events/:eventId/loot/items', requireAuth, async (req, res) => {
-  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
-  const { name, quantity = 1, excludePrevWinners = false } = req.body as AddLootItemBody;
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string; itemId: string };
+  const body = req.body as Record<string, unknown>;
 
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
-  if (!name?.trim()) {
-    res.status(400).json({ success: false, error: 'Item name is required' } satisfies ApiResponse); return;
+
+  let name: string;
+  let quantity: number;
+  let excludePrevWinners: boolean;
+  try {
+    name = requireStr(body.name, 'name', 200);
+    quantity = optPosInt(body.quantity, 'quantity') ?? 1;
+    excludePrevWinners = typeof body.excludePrevWinners === 'boolean' ? body.excludePrevWinners : false;
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
   }
 
   const session = await prisma.lootSession.findUnique({ where: { eventId } });
@@ -170,7 +209,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items', requireAuth, async (req,
 
   const count = await prisma.lootItem.count({ where: { sessionId: session.id } });
   const item = await prisma.lootItem.create({
-    data: { sessionId: session.id, name: name.trim(), quantity, excludePrevWinners, sortOrder: count },
+    data: { sessionId: session.id, name, quantity, excludePrevWinners, sortOrder: count },
     include: { assignments: true },
   });
 
@@ -187,10 +226,30 @@ lootRouter.post('/:guildId/events/:eventId/loot/items', requireAuth, async (req,
 
 lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
-  const updates = req.body as Partial<AddLootItemBody & { sortOrder: number }>;
+  const body = req.body as Record<string, unknown>;
 
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  let name: string | undefined;
+  let quantity: number | undefined;
+  let excludePrevWinners: boolean | undefined;
+  let sortOrder: number | undefined;
+  try {
+    if (body.name !== undefined) name = requireStr(body.name, 'name', 200);
+    quantity = optPosInt(body.quantity, 'quantity');
+    if (body.excludePrevWinners !== undefined) {
+      if (typeof body.excludePrevWinners !== 'boolean')
+        throw new ValidationError('excludePrevWinners must be a boolean');
+      excludePrevWinners = body.excludePrevWinners;
+    }
+    sortOrder = optNonNegInt(body.sortOrder, 'sortOrder');
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
   }
 
   const session = await prisma.lootSession.findUnique({ where: { eventId } });
@@ -201,10 +260,10 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, as
   const item = await prisma.lootItem.update({
     where: { id: itemId, sessionId: session.id },
     data: {
-      ...(updates.name ? { name: updates.name.trim() } : {}),
-      ...(updates.quantity !== undefined ? { quantity: updates.quantity } : {}),
-      ...(updates.excludePrevWinners !== undefined ? { excludePrevWinners: updates.excludePrevWinners } : {}),
-      ...(updates.sortOrder !== undefined ? { sortOrder: updates.sortOrder } : {}),
+      ...(name !== undefined ? { name } : {}),
+      ...(quantity !== undefined ? { quantity } : {}),
+      ...(excludePrevWinners !== undefined ? { excludePrevWinners } : {}),
+      ...(sortOrder !== undefined ? { sortOrder } : {}),
     },
     include: { assignments: true },
   });
@@ -285,7 +344,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/roll', requireAuth
 
   const winner = rolls[0]!;
 
-  // Clear previous assignment for this item, then create new one
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
   await prisma.lootAssignment.create({
     data: { itemId, userId: winner.userId, username: winner.username, rollValue: winner.rollValue },
@@ -298,13 +356,26 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/roll', requireAuth
 
 lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
-  const { userId, username, dkpSpent, pickNumber } = req.body as AssignLootItemBody;
+  const body = req.body as Record<string, unknown>;
 
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
-  if (!userId || !username) {
-    res.status(400).json({ success: false, error: 'userId and username are required' } satisfies ApiResponse); return;
+
+  let userId: string;
+  let username: string;
+  let dkpSpent: number | undefined;
+  let pickNumber: number | undefined;
+  try {
+    userId = requireStr(body.userId, 'userId', 30);
+    username = requireStr(body.username, 'username', 100);
+    dkpSpent = optNonNegInt(body.dkpSpent, 'dkpSpent');
+    pickNumber = optNonNegInt(body.pickNumber, 'pickNumber');
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
   }
 
   const session = await prisma.lootSession.findUnique({ where: { eventId } });
@@ -354,7 +425,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
   const confirmedIds: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
   const usernameMap = new Map(event.rsvps.map((r) => [r.userId, r.username]));
 
-  // Award DKP to all confirmed attendees
   if (session.dkpAward > 0) {
     for (const userId of confirmedIds) {
       const username = usernameMap.get(userId) ?? userId;
@@ -362,7 +432,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
     }
   }
 
-  // Deduct DKP from item winners (DKP method only)
   if (session.method === 'DKP') {
     for (const item of session.items) {
       for (const a of item.assignments) {
@@ -375,18 +444,12 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
 
   await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
 
-  // Trigger bot announcement
-  const botUrl = process.env['BOT_INTERNAL_URL'];
-  if (botUrl) {
-    fetch(`${botUrl}/trigger/loot/${session.id}`, { method: 'POST' }).catch(() => null);
-  }
+  triggerBot(`/trigger/loot/${session.id}`);
 
   res.json({ success: true, message: 'Loot session completed' } satisfies ApiResponse);
 });
 
 // ── GET recent loot ───────────────────────────────────────────────────────────
-// Returns the single most-recent loot session for the guild, with all items
-// and their winners, so the dashboard can show a grouped per-event view.
 
 lootRouter.get('/:guildId/loot/recent', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
@@ -394,7 +457,6 @@ lootRouter.get('/:guildId/loot/recent', requireAuth, async (req, res) => {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
-  // Most-recent session that has at least one assigned item
   const session = await prisma.lootSession.findFirst({
     where: { guildId, items: { some: { assignments: { some: {} } } } },
     orderBy: { updatedAt: 'desc' },
