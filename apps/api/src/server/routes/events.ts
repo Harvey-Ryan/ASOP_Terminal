@@ -74,10 +74,11 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
       const settingsId = guildRecord?.settings?.id;
       let allowedRoles: string[] = [];
       if (settingsId) {
-        const rows = await prisma.$queryRaw<{ eventCreatorRoles: string }[]>`
-          SELECT eventCreatorRoles FROM GuildSettings WHERE id = ${settingsId}
-        `;
-        allowedRoles = JSON.parse(rows[0]?.eventCreatorRoles ?? '[]') as string[];
+        const settings = await prisma.guildSettings.findUnique({
+          where: { id: settingsId },
+          select: { eventCreatorRoles: true },
+        });
+        allowedRoles = JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[];
       }
 
       let hasPermission = false;

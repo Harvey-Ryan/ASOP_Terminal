@@ -102,10 +102,7 @@ settingsRouter.get('/:guildId/channels', requireAuth, async (req, res) => {
   }
 });
 
-// ── Raw-SQL helpers ───────────────────────────────────────────────────────────
-// eventCreatorRoles and moduleEditorRoles were added after the last prisma
-// generate, so we access them via $queryRaw / $executeRaw to avoid
-// PrismaClientValidationError or a missing-column issue on stale clients.
+// ── Permission fields helpers ─────────────────────────────────────────────────
 
 interface PermissionFields {
   eventCreatorRoles: string[];
@@ -114,13 +111,14 @@ interface PermissionFields {
 }
 
 async function readPermissionFields(settingsId: string): Promise<PermissionFields> {
-  const rows = await prisma.$queryRaw<{ eventCreatorRoles: string; moduleEditorRoles: string; viewerRoles: string }[]>`
-    SELECT eventCreatorRoles, moduleEditorRoles, viewerRoles FROM GuildSettings WHERE id = ${settingsId}
-  `;
+  const settings = await prisma.guildSettings.findUnique({
+    where: { id: settingsId },
+    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true },
+  });
   return {
-    eventCreatorRoles: JSON.parse(rows[0]?.eventCreatorRoles ?? '[]') as string[],
-    moduleEditorRoles: JSON.parse(rows[0]?.moduleEditorRoles ?? '[]') as string[],
-    viewerRoles:       JSON.parse(rows[0]?.viewerRoles       ?? '[]') as string[],
+    eventCreatorRoles: JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[],
+    moduleEditorRoles: JSON.parse(settings?.moduleEditorRoles ?? '[]') as string[],
+    viewerRoles:       JSON.parse(settings?.viewerRoles       ?? '[]') as string[],
   };
 }
 
@@ -216,33 +214,24 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       return;
     }
 
-    // Upsert the fields the generated Prisma client knows about
     const s = await prisma.guildSettings.upsert({
       where: { guildId: guild.id },
       update: {
         ...(body.forumChannelId !== undefined ? { forumChannelId: body.forumChannelId } : {}),
         ...(body.voiceCategoryId !== undefined ? { voiceCategoryId: body.voiceCategoryId } : {}),
+        ...(body.eventCreatorRoles !== undefined ? { eventCreatorRoles: JSON.stringify(body.eventCreatorRoles) } : {}),
+        ...(body.moduleEditorRoles !== undefined ? { moduleEditorRoles: JSON.stringify(body.moduleEditorRoles) } : {}),
+        ...(body.viewerRoles !== undefined ? { viewerRoles: JSON.stringify(body.viewerRoles) } : {}),
       },
       create: {
         guildId: guild.id,
         forumChannelId: body.forumChannelId ?? null,
         voiceCategoryId: body.voiceCategoryId ?? null,
+        eventCreatorRoles: JSON.stringify(body.eventCreatorRoles ?? []),
+        moduleEditorRoles: JSON.stringify(body.moduleEditorRoles ?? []),
+        viewerRoles: JSON.stringify(body.viewerRoles ?? []),
       },
     });
-
-    // Write JSON-array fields via raw SQL — works even with a stale Prisma client
-    if (body.eventCreatorRoles !== undefined) {
-      const encoded = JSON.stringify(body.eventCreatorRoles);
-      await prisma.$executeRaw`UPDATE GuildSettings SET eventCreatorRoles = ${encoded} WHERE id = ${s.id}`;
-    }
-    if (body.moduleEditorRoles !== undefined) {
-      const encoded = JSON.stringify(body.moduleEditorRoles);
-      await prisma.$executeRaw`UPDATE GuildSettings SET moduleEditorRoles = ${encoded} WHERE id = ${s.id}`;
-    }
-    if (body.viewerRoles !== undefined) {
-      const encoded = JSON.stringify(body.viewerRoles);
-      await prisma.$executeRaw`UPDATE GuildSettings SET viewerRoles = ${encoded} WHERE id = ${s.id}`;
-    }
 
     const { eventCreatorRoles, moduleEditorRoles, viewerRoles } = await readPermissionFields(s.id);
     res.json({

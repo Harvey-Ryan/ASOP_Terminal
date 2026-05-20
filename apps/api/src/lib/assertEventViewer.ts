@@ -13,12 +13,13 @@ export async function assertEventViewer(req: Express.Request, guildId: string): 
   const settingsId = guild?.settings?.id;
   if (!settingsId) return false;
 
-  const rows = await prisma.$queryRaw<{ eventCreatorRoles: string; viewerRoles: string }[]>`
-    SELECT eventCreatorRoles, viewerRoles FROM GuildSettings WHERE id = ${settingsId}
-  `;
+  const settings = await prisma.guildSettings.findUnique({
+    where: { id: settingsId },
+    select: { eventCreatorRoles: true, viewerRoles: true },
+  });
   const allowed = [
-    ...JSON.parse(rows[0]?.eventCreatorRoles ?? '[]') as string[],
-    ...JSON.parse(rows[0]?.viewerRoles ?? '[]') as string[],
+    ...JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[],
+    ...JSON.parse(settings?.viewerRoles ?? '[]') as string[],
   ];
   if (allowed.length === 0) return false;
 
