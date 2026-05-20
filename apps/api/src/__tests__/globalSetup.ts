@@ -1,21 +1,13 @@
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// __dirname = apps/api/src/__tests__  →  ../../  =  apps/api
 const API_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-export const TEST_DB = resolve(API_DIR, 'prisma/test.db');
-export const TEST_DB_URL = `file:${TEST_DB}`;
+const TEST_DB_URL = 'postgresql://dem:dem_test_password@localhost:5433/dem_test';
 
 export async function setup() {
-  // Always start from a clean slate
-  for (const f of [TEST_DB, `${TEST_DB}-journal`, `${TEST_DB}-shm`, `${TEST_DB}-wal`]) {
-    if (existsSync(f)) rmSync(f);
-  }
-
-  console.log('[test] Creating test database at', TEST_DB);
-  execSync('npx prisma db push --skip-generate', {
+  console.log('[test] Applying migrations to test database...');
+  execSync('npx prisma migrate deploy', {
     env: { ...process.env, DATABASE_URL: TEST_DB_URL },
     stdio: 'inherit',
     cwd: API_DIR,
@@ -24,7 +16,5 @@ export async function setup() {
 }
 
 export async function teardown() {
-  for (const f of [TEST_DB, `${TEST_DB}-journal`, `${TEST_DB}-shm`, `${TEST_DB}-wal`]) {
-    if (existsSync(f)) rmSync(f);
-  }
+  // Postgres test DB is persistent; nothing to clean up between runs
 }

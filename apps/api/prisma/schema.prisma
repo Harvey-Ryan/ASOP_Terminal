@@ -1,16 +1,11 @@
 // Prisma schema for Discord Event Manager
-//
-// Default provider: SQLite (zero-config local dev)
-// To switch to PostgreSQL:
-//   1. Change provider below to "postgresql"
-//   2. Set DATABASE_URL=postgresql://user:pass@localhost:5432/dem
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -72,7 +67,6 @@ model Guild {
 }
 
 /// The role a User holds within a Guild.
-/// SQLite stores this as a plain string; PostgreSQL uses a native enum.
 model GuildMember {
   id        String   @id @default(cuid())
   /// OWNER | ADMIN | ORGANIZER | MEMBER

@@ -1,14 +1,3 @@
-/**
- * Settings API tests — the most critical file for the Postgres migration.
- *
- * The three role fields (eventCreatorRoles, moduleEditorRoles, viewerRoles) are
- * currently stored as JSON strings in SQLite and accessed via $queryRaw / $executeRaw.
- * On Postgres these become native String[] columns accessed via normal Prisma queries.
- *
- * Every test here documents the expected behavior contract so that after the migration
- * we can run this suite and confirm nothing broke.
- */
-
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import type { TestAgent } from 'supertest/agent.js';
@@ -30,83 +19,93 @@ async function makeManagerAgent(guildDiscordId: string): Promise<[TestAgent, str
   return [agent, user.id];
 }
 
-// ── Raw SQL JSON field round-trips ─────────────────────────────────────────
-// These tests directly verify the $queryRaw / $executeRaw paths that will be
-// replaced by normal Prisma queries when we switch to Postgres.
+// ── GuildSettings role field round-trips (Prisma) ──────────────────────────
+// Verify the JSON-as-String fields behave correctly at the Prisma layer.
 
-describe('GuildSettings JSON role fields — raw SQL paths', () => {
+describe('GuildSettings JSON role fields — Prisma queries', () => {
   it('eventCreatorRoles defaults to an empty array', async () => {
     const guild = await createGuild();
     const settings = await createGuildSettings(guild.id);
 
-    const rows = await prisma.$queryRaw<{ eventCreatorRoles: string }[]>`
-      SELECT eventCreatorRoles FROM GuildSettings WHERE id = ${settings.id}
-    `;
-    expect(JSON.parse(rows[0]!.eventCreatorRoles)).toEqual([]);
+    const row = await prisma.guildSettings.findUnique({
+      where: { id: settings.id },
+      select: { eventCreatorRoles: true },
+    });
+    expect(JSON.parse(row!.eventCreatorRoles)).toEqual([]);
   });
 
-  it('eventCreatorRoles round-trips via $executeRaw / $queryRaw', async () => {
+  it('eventCreatorRoles round-trips via Prisma update / findUnique', async () => {
     const guild = await createGuild();
     const settings = await createGuildSettings(guild.id);
     const roles = ['111111111111111111', '222222222222222222'];
 
-    await prisma.$executeRaw`
-      UPDATE GuildSettings SET eventCreatorRoles = ${JSON.stringify(roles)} WHERE id = ${settings.id}
-    `;
+    await prisma.guildSettings.update({
+      where: { id: settings.id },
+      data: { eventCreatorRoles: JSON.stringify(roles) },
+    });
 
-    const rows = await prisma.$queryRaw<{ eventCreatorRoles: string }[]>`
-      SELECT eventCreatorRoles FROM GuildSettings WHERE id = ${settings.id}
-    `;
-    expect(JSON.parse(rows[0]!.eventCreatorRoles)).toEqual(roles);
+    const row = await prisma.guildSettings.findUnique({
+      where: { id: settings.id },
+      select: { eventCreatorRoles: true },
+    });
+    expect(JSON.parse(row!.eventCreatorRoles)).toEqual(roles);
   });
 
-  it('moduleEditorRoles round-trips via $executeRaw / $queryRaw', async () => {
+  it('moduleEditorRoles round-trips via Prisma update / findUnique', async () => {
     const guild = await createGuild();
     const settings = await createGuildSettings(guild.id);
     const roles = ['333333333333333333'];
 
-    await prisma.$executeRaw`
-      UPDATE GuildSettings SET moduleEditorRoles = ${JSON.stringify(roles)} WHERE id = ${settings.id}
-    `;
+    await prisma.guildSettings.update({
+      where: { id: settings.id },
+      data: { moduleEditorRoles: JSON.stringify(roles) },
+    });
 
-    const rows = await prisma.$queryRaw<{ moduleEditorRoles: string }[]>`
-      SELECT moduleEditorRoles FROM GuildSettings WHERE id = ${settings.id}
-    `;
-    expect(JSON.parse(rows[0]!.moduleEditorRoles)).toEqual(roles);
+    const row = await prisma.guildSettings.findUnique({
+      where: { id: settings.id },
+      select: { moduleEditorRoles: true },
+    });
+    expect(JSON.parse(row!.moduleEditorRoles)).toEqual(roles);
   });
 
-  it('viewerRoles round-trips via $executeRaw / $queryRaw', async () => {
+  it('viewerRoles round-trips via Prisma update / findUnique', async () => {
     const guild = await createGuild();
     const settings = await createGuildSettings(guild.id);
     const roles = ['444444444444444444', '555555555555555555', '666666666666666666'];
 
-    await prisma.$executeRaw`
-      UPDATE GuildSettings SET viewerRoles = ${JSON.stringify(roles)} WHERE id = ${settings.id}
-    `;
+    await prisma.guildSettings.update({
+      where: { id: settings.id },
+      data: { viewerRoles: JSON.stringify(roles) },
+    });
 
-    const rows = await prisma.$queryRaw<{ viewerRoles: string }[]>`
-      SELECT viewerRoles FROM GuildSettings WHERE id = ${settings.id}
-    `;
-    expect(JSON.parse(rows[0]!.viewerRoles)).toEqual(roles);
+    const row = await prisma.guildSettings.findUnique({
+      where: { id: settings.id },
+      select: { viewerRoles: true },
+    });
+    expect(JSON.parse(row!.viewerRoles)).toEqual(roles);
   });
 
   it('all three role fields are independent — writing one does not corrupt others', async () => {
     const guild = await createGuild();
     const settings = await createGuildSettings(guild.id);
 
-    await prisma.$executeRaw`UPDATE GuildSettings SET eventCreatorRoles  = ${JSON.stringify(['r1'])} WHERE id = ${settings.id}`;
-    await prisma.$executeRaw`UPDATE GuildSettings SET moduleEditorRoles  = ${JSON.stringify(['r2'])} WHERE id = ${settings.id}`;
-    await prisma.$executeRaw`UPDATE GuildSettings SET viewerRoles        = ${JSON.stringify(['r3'])} WHERE id = ${settings.id}`;
+    await prisma.guildSettings.update({
+      where: { id: settings.id },
+      data: {
+        eventCreatorRoles: JSON.stringify(['r1']),
+        moduleEditorRoles: JSON.stringify(['r2']),
+        viewerRoles:       JSON.stringify(['r3']),
+      },
+    });
 
-    const rows = await prisma.$queryRaw<{
-      eventCreatorRoles: string;
-      moduleEditorRoles: string;
-      viewerRoles: string;
-    }[]>`SELECT eventCreatorRoles, moduleEditorRoles, viewerRoles FROM GuildSettings WHERE id = ${settings.id}`;
+    const row = await prisma.guildSettings.findUnique({
+      where: { id: settings.id },
+      select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true },
+    });
 
-    expect(JSON.parse(rows[0]!.eventCreatorRoles)).toEqual(['r1']);
-    expect(JSON.parse(rows[0]!.moduleEditorRoles)).toEqual(['r2']);
-    expect(JSON.parse(rows[0]!.viewerRoles)).toEqual(['r3']);
+    expect(JSON.parse(row!.eventCreatorRoles)).toEqual(['r1']);
+    expect(JSON.parse(row!.moduleEditorRoles)).toEqual(['r2']);
+    expect(JSON.parse(row!.viewerRoles)).toEqual(['r3']);
   });
 });
 
@@ -144,8 +143,13 @@ describe('GET /:guildId/settings', () => {
   it('returns stored role arrays correctly', async () => {
     const guild = await createGuild();
     const settings = await createGuildSettings(guild.id);
-    await prisma.$executeRaw`UPDATE GuildSettings SET eventCreatorRoles = ${JSON.stringify(['ec-1'])} WHERE id = ${settings.id}`;
-    await prisma.$executeRaw`UPDATE GuildSettings SET viewerRoles       = ${JSON.stringify(['vr-1', 'vr-2'])} WHERE id = ${settings.id}`;
+    await prisma.guildSettings.update({
+      where: { id: settings.id },
+      data: {
+        eventCreatorRoles: JSON.stringify(['ec-1']),
+        viewerRoles: JSON.stringify(['vr-1', 'vr-2']),
+      },
+    });
 
     const [agent] = await makeManagerAgent(guild.guildId);
     const res = await agent.get(`/api/guilds/${guild.guildId}/settings`);
@@ -171,7 +175,6 @@ describe('PATCH /:guildId/settings', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.eventCreatorRoles).toEqual(roles);
 
-    // Verify persisted via GET
     const get = await agent.get(`/api/guilds/${guild.guildId}/settings`);
     expect(get.body.data.eventCreatorRoles).toEqual(roles);
   });
@@ -231,7 +234,6 @@ describe('PATCH /:guildId/settings', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject(payload);
 
-    // Verify all persisted values survive a re-read
     const get = await agent.get(`/api/guilds/${guild.guildId}/settings`);
     expect(get.body.data).toMatchObject(payload);
   });
@@ -279,26 +281,24 @@ describe('PATCH /:guildId/settings', () => {
 });
 
 // ── Permission checks using role-based access ──────────────────────────────
-// These tests verify the assertEventViewer path that reads viewerRoles + eventCreatorRoles
-// via $queryRaw and then checks a Discord member's roles via fetch.
 
 describe('Role-based event access (assertEventViewer)', () => {
   it('allows a user with a configured viewerRole to list events', async () => {
     const guild = await createGuild();
     const user = await createUser();
-    // Set up settings with a viewerRole
     const settings = await createGuildSettings(guild.id);
     const viewerRoleId = 'viewer-snowflake-999';
-    await prisma.$executeRaw`UPDATE GuildSettings SET viewerRoles = ${JSON.stringify([viewerRoleId])} WHERE id = ${settings.id}`;
+    await prisma.guildSettings.update({
+      where: { id: settings.id },
+      data: { viewerRoles: JSON.stringify([viewerRoleId]) },
+    });
 
-    // Mock Discord members endpoint to return the viewer role
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ roles: [viewerRoleId] }),
     }));
 
     const agent = request.agent(app);
-    // NOT a manager — managedGuildIds is empty
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
 
     const res = await agent.get(`/api/guilds/${guild.guildId}/events`);
@@ -319,7 +319,6 @@ describe('Role-based event access (assertEventViewer)', () => {
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
 
     const res = await agent.get(`/api/guilds/${guild.guildId}/events`);
-    // No viewer/creator roles configured → only managers can access
     expect(res.status).toBe(403);
   });
 });
