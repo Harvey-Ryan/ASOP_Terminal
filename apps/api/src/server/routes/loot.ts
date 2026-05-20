@@ -349,6 +349,8 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/roll', requireAuth
     data: { itemId, userId: winner.userId, username: winner.username, rollValue: winner.rollValue },
   });
 
+  triggerBot(`/trigger/complete/${eventId}`);
+
   res.json({ success: true, data: { rolls, winner } } satisfies ApiResponse);
 });
 
@@ -390,6 +392,8 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
     },
   });
 
+  triggerBot(`/trigger/complete/${eventId}`);
+
   res.json({ success: true } satisfies ApiResponse);
 });
 
@@ -401,6 +405,9 @@ lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', require
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
+
+  triggerBot(`/trigger/complete/${eventId}`);
+
   res.json({ success: true } satisfies ApiResponse);
 });
 

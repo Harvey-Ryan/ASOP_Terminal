@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { eventsApi } from '@/api/events';
+import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
 import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole } from '@dem/shared';
@@ -89,7 +90,7 @@ function EventModal({ event, guildId, onClose, onEnd, isEnding }: {
         </div>
 
         {/* Embed accent fields */}
-        <div className="mx-5 mt-4 rounded-md border-l-4 border-[#5865f2] bg-muted/40 p-3 space-y-3">
+        <div className="mx-5 mt-4 rounded-md border-l-4 border-primary bg-muted/40 p-3 space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide mb-0.5">🕐 When</p>
             <p className="text-sm">
@@ -204,70 +205,57 @@ function EventModal({ event, guildId, onClose, onEnd, isEnding }: {
   );
 }
 
-// ── Event card ────────────────────────────────────────────────────────────────
+// ── Event row (Fleet Manager style) ──────────────────────────────────────────
 
-function EventCard({ event, onClick }: { event: EventDto; onClick: () => void }) {
+function EventCard({ event, userId, onClick }: { event: EventDto; userId?: string; onClick: () => void }) {
   const start = new Date(event.startTime);
   const month = start.toLocaleDateString('en', { month: 'short' });
   const day = start.getDate();
-  const time = start.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
-  const roles: EventRole[] = event.roles ?? [];
+  const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const location = event.musterPoint ?? '—';
+  const userRsvp = userId ? event.rsvps.find((r) => r.userId === userId) : undefined;
 
   return (
     <button
       onClick={onClick}
-      className="w-full text-left flex items-start gap-4 rounded-xl border border-border bg-card p-4 hover:bg-accent/40 transition-colors"
+      className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
     >
-      {/* Date badge */}
-      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <span className="text-[10px] font-semibold uppercase leading-none">{month}</span>
-        <span className="text-xl font-bold leading-tight">{day}</span>
+      {/* Date */}
+      <div className="w-20 shrink-0 flex flex-col items-center px-4 py-3 text-center">
+        <span className="text-[14px] font-bold uppercase leading-none opacity-75">{month}</span>
+        <span className="text-[24px] font-bold leading-tight">{day}</span>
       </div>
 
-      {/* Info */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium truncate">{event.name}</p>
-          {STATUS_BADGE[event.status] && (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[event.status]}`}>
-              {event.status}
-            </span>
-          )}
-          {event.status === 'PENDING' && event.discordEventId == null && (
-            <span className="text-xs text-yellow-500">Discord sync pending…</span>
-          )}
-        </div>
+      {/* Time */}
+      <div className="w-28 shrink-0 px-4 py-3">
+        <span className="text-[21px] font-medium">{time}</span>
+      </div>
 
-        <p className="text-sm text-muted-foreground">
-          {time}
-          {event.recurType && ` · ${RECUR_LABELS[event.recurType] ?? event.recurType}`}
-          {event.musterPoint && ` · 📍 ${event.musterPoint}`}
-        </p>
-
-        {roles.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {roles.map((r) => (
-              <span key={r.name} className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-                {r.name} ×{r.count}
-              </span>
-            ))}
-          </div>
+      {/* Event */}
+      <div className="flex-1 px-4 py-3 min-w-0">
+        <p className="font-semibold truncate text-[21px] leading-tight">{event.name}</p>
+        {event.recurType && (
+          <p className="text-[15px] opacity-60 truncate">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
         )}
       </div>
 
-      {/* Thumbnail */}
-      {event.imageUrl && (
-        <img
-          src={`${API_BASE}${event.imageUrl}`}
-          alt=""
-          className="h-12 w-12 shrink-0 rounded-md object-cover"
-        />
-      )}
-
-      {/* Roster count */}
-      <span className="shrink-0 text-sm text-muted-foreground self-center" title="Roster size">
-        👥 {event.rsvpCounts.total}
-      </span>
+      {/* Location + Status + Role + Actions — 1/3 of total width */}
+      <div className="w-1/3 shrink-0 flex items-center">
+        <div className="flex-[2] px-4 py-3 hidden lg:flex items-center justify-center overflow-hidden">
+          <span className="text-[21px] truncate">{location}</span>
+        </div>
+        <div className="flex-1 px-4 py-3 hidden sm:flex items-center justify-center">
+          <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
+        </div>
+        <div className="flex-1 px-4 py-3 hidden md:flex items-center justify-center overflow-hidden">
+          <span className="text-[21px] truncate">{userRsvp?.role ?? '—'}</span>
+        </div>
+        <div className="flex-1 px-4 py-3 flex justify-end">
+          <span className="rounded p-1.5 bg-primary text-primary-foreground group-hover:bg-background group-hover:text-primary transition-colors">
+            <ChevronsRight className="h-12 w-12 stroke-[3]" />
+          </span>
+        </div>
+      </div>
     </button>
   );
 }
@@ -341,7 +329,19 @@ function RecentLootCard({ guildId }: { guildId: string }) {
 export function ServerPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
-  const { guilds } = useAuth();
+  const { user, guilds } = useAuth();
+
+  const [darkness, setDarkness] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    setDarkness(loadShade(user.id));
+  }, [user?.id]);
+
+  function handleDarknessChange(val: number) {
+    setDarkness(val);
+    applyShade(val);
+    if (user?.id) saveShade(user.id, val);
+  }
   const guild = guilds.find((g) => g.id === guildId);
   const isManager = !!guild && canManageGuild(guild);
   const queryClient = useQueryClient();
@@ -388,69 +388,96 @@ export function ServerPage() {
 
       {/* Responsive two-column layout: events left, loot right */}
       <div className={`grid grid-cols-1 gap-6 items-start${isManager ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
-        {/* Events card */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          {/* Card header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Events</h2>
+        {/* Events panel – Fleet Manager style */}
+        <div className="overflow-hidden rounded-xl border border-border">
+          {/* Hazard stripe */}
+          <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2" />
+
+          {/* Header bar */}
+          <div className="flex items-center justify-between bg-card px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-bold uppercase tracking-widest text-white px-6">Event Manager</span>
+              <div className="flex gap-1">
+                {(['upcoming', 'completed'] as Tab[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                      tab === t
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
-            {isManager && (
-              <Button asChild size="sm">
-                <Link to={`/dashboard/servers/${guildId}/events/new`}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Create Event
-                </Link>
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2" title="Adjust gold shade">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hidden sm:block">Shade</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={darkness}
+                  onChange={(e) => handleDarknessChange(Number(e.target.value))}
+                  className="w-24 cursor-pointer"
+                  style={{ accentColor: 'hsl(var(--primary))' }}
+                />
+              </div>
+              {isManager && (
+                <Button asChild size="sm">
+                  <Link to={`/dashboard/servers/${guildId}/events/new`}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Create Event
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 border-b border-border">
-            {(['upcoming', 'completed'] as Tab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-                  tab === t
-                    ? 'border-primary text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+          {/* Column headers */}
+          <div className="flex items-center bg-secondary text-primary text-[15px] font-bold uppercase tracking-widest border-b border-border">
+            <div className="w-20 shrink-0 px-4 py-2">Date</div>
+            <div className="w-28 shrink-0 px-4 py-2">Time</div>
+            <div className="flex-1 px-4 py-2">Event</div>
+            <div className="w-1/3 shrink-0 flex items-center">
+              <div className="flex-[2] px-4 py-2 hidden lg:block text-center">Location</div>
+              <div className="flex-1 px-4 py-2 hidden sm:block text-center">Status</div>
+              <div className="flex-1 px-4 py-2 hidden md:block text-center">Role</div>
+              <div className="flex-1 px-4 py-2 text-right">Actions</div>
+            </div>
           </div>
 
           {active.isError && (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="px-4 py-3 text-sm text-destructive bg-destructive/10 border-b border-border">
               Failed to load events: {(active.error as Error)?.message ?? 'Unknown error'}
             </div>
           )}
 
           {active.isLoading ? (
-            <div className="space-y-3">
+            <div>
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-24 rounded-xl" />
+                <Skeleton key={i} className="h-14 rounded-none border-b border-border last:border-b-0" />
               ))}
             </div>
           ) : !active.data || active.data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <CalendarDays className="h-8 w-8 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-10 text-center bg-primary">
+              <CalendarDays className="h-7 w-7 text-primary-foreground mb-2" />
+              <p className="text-sm text-primary-foreground">
                 {tab === 'upcoming' ? 'No upcoming events.' : 'No completed events yet.'}
               </p>
               {tab === 'upcoming' && isManager && (
-                <Button asChild variant="outline" className="mt-4">
+                <Button asChild size="sm" className="mt-3 bg-background text-primary hover:bg-background/80 hover:text-primary">
                   <Link to={`/dashboard/servers/${guildId}/events/new`}>Create your first event</Link>
                 </Button>
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="max-h-[560px] overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
               {active.data.map((e) => (
-                <EventCard key={e.id} event={e} onClick={() => setSelected(e)} />
+                <EventCard key={e.id} event={e} userId={user?.id} onClick={() => setSelected(e)} />
               ))}
             </div>
           )}

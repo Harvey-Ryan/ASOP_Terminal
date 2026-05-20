@@ -7,7 +7,7 @@ import {
 import type { ForumChannel } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
-import { buildRosterEmbed, buildRoleButtons } from '../utils/embeds.js';
+import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
 import { nextOccurrence } from '../utils/time.js';
 import type { EventRole } from '@dem/shared';
 
@@ -182,19 +182,29 @@ export async function endEvent(eventId: string) {
   // Collect active VC members BEFORE deleting channels
   const vcIds = JSON.parse(event.vcIds) as string[];
   const activeUserIds = new Set<string>();
+  const failedVcIds: string[] = [];
 
   if (vcIds.length > 0) {
     try {
       const guild = await client.guilds.fetch(event.guildId);
       for (const vcId of vcIds) {
         const vc = await guild.channels.fetch(vcId).catch(() => null);
-        if (vc?.type === ChannelType.GuildVoice) {
+        if (!vc) {
+          console.log(`[bot] VC ${vcId} already gone — skipping`);
+          continue;
+        }
+        if (vc.type === ChannelType.GuildVoice) {
           vc.members.forEach((m) => activeUserIds.add(m.id));
         }
-        if (vc) await vc.delete().catch(() => null);
+        const deleted = await vc.delete().then(() => true).catch((err: unknown) => {
+          console.error(`[bot] Could not delete VC ${vcId}:`, err instanceof Error ? err.message : err);
+          return false;
+        });
+        if (!deleted) failedVcIds.push(vcId);
       }
     } catch (err) {
-      console.error('[bot] Failed to delete VCs:', err);
+      console.error('[bot] Failed to fetch guild for VC deletion:', err);
+      failedVcIds.push(...vcIds);
     }
   }
 
@@ -234,9 +244,9 @@ export async function endEvent(eventId: string) {
   await prisma.event.update({
     where: { id: eventId },
     data: {
-      vcIds: '[]',
+      vcIds: JSON.stringify(failedVcIds),
       vcAttendees: JSON.stringify([...activeUserIds]),
-      botCleanedUp: true,
+      botCleanedUp: failedVcIds.length === 0,
     },
   });
 
@@ -245,6 +255,64 @@ export async function endEvent(eventId: string) {
       console.error(`[bot] spawnNextRecurrence failed for ${event.id}:`, err),
     );
     await prisma.event.update({ where: { id: event.id }, data: { recurType: null } });
+  }
+}
+
+// ── Post-event embed (confirmed attendees + loot) ────────────────────────────
+
+export async function updatePostEventEmbed(eventId: string) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: { rsvps: true },
+  });
+  if (!event?.threadId || !event.confirmedAttendees) return;
+
+  const confirmedIds: string[] = JSON.parse(event.confirmedAttendees);
+  if (confirmedIds.length === 0) return;
+
+  // Build a userId → items-won map from the loot session (if one exists)
+  const lootByUser = new Map<string, { name: string; quantity: number }[]>();
+  const session = await prisma.lootSession.findUnique({
+    where: { eventId },
+    include: { items: { include: { assignments: true } } },
+  });
+  if (session) {
+    for (const item of session.items) {
+      for (const a of item.assignments) {
+        const wins = lootByUser.get(a.userId) ?? [];
+        wins.push({ name: item.name, quantity: item.quantity });
+        lootByUser.set(a.userId, wins);
+      }
+    }
+  }
+
+  const attendees = confirmedIds.map((userId) => ({
+    userId,
+    items: lootByUser.get(userId) ?? [],
+  }));
+
+  const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+  const embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename);
+  const files = imageAttachment ? [imageAttachment.builder] : [];
+
+  try {
+    const thread = await client.channels.fetch(event.threadId);
+    if (!thread?.isThread()) return;
+
+    const wasArchived = thread.archived ?? false;
+    if (wasArchived) await thread.setArchived(false).catch(() => null);
+
+    const rosterMsg = event.rosterMessageId
+      ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
+      : await thread.fetchStarterMessage().catch(() => null);
+
+    if (rosterMsg) {
+      await rosterMsg.edit({ embeds: [embed], components: [], files });
+    }
+
+    if (wasArchived) await thread.setArchived(true).catch(() => null);
+  } catch (err) {
+    console.error('[bot] Failed to update post-event embed:', err);
   }
 }
 

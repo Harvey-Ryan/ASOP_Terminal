@@ -1,12 +1,19 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed } from './services/eventService.js';
 import { announceLootResults } from './services/lootService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
+const INTERNAL_SECRET = process.env['BOT_INTERNAL_SECRET'];
+
 export function startInternalServer() {
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+
+    if (INTERNAL_SECRET) {
+      const auth = req.headers['authorization'];
+      if (auth !== `Bearer ${INTERNAL_SECRET}`) { res.writeHead(401).end(); return; }
+    }
 
     const setupMatch = req.url?.match(/^\/trigger\/event\/([^/]+)$/);
     if (setupMatch) {
@@ -24,6 +31,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await endEvent(eventId).catch((err) =>
         console.error(`[bot:internal] endEvent failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const completeMatch = req.url?.match(/^\/trigger\/complete\/([^/]+)$/);
+    if (completeMatch) {
+      const eventId = completeMatch[1]!;
+      res.writeHead(202).end();
+      await updatePostEventEmbed(eventId).catch((err) =>
+        console.error(`[bot:internal] updatePostEventEmbed failed for ${eventId}:`, err),
       );
       return;
     }

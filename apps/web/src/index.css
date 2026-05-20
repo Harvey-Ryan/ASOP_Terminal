@@ -2,61 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn/ui CSS variables – dark Discord theme */
 @layer base {
   :root {
-    --background: 0 0% 5.7%;          /* gray-950 */
-    --foreground: 0 0% 98%;
+    --background: 0 0% 9%;            /* #181818 */
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 9%;                   /* gray-900 */
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 13%;                  /* #212121 — elevated surface */
+    --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 239 84% 67%;            /* Discord blurple #5865F2 */
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 81% 40%;             /* #b98a13 */
+    --primary-foreground: 0 0% 9%;
 
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 0 0% 20%;             /* #333333 */
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted: 0 0% 20%;                 /* #333333 */
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 43 81% 33%;              /* darker gold hover */
+    --accent-foreground: 0 0% 9%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 96%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 239 84% 67%;
+    --border: 0 0% 20%;                /* #333333 */
+    --input: 0 0% 20%;                 /* #333333 */
+    --ring: 43 81% 40%;                /* #b98a13 */
 
     --radius: 0.5rem;
   }
 
-  /* .dark mirrors :root since this app is always dark */
+  /* .dark mirrors :root — this app is always dark */
   .dark {
-    --background: 0 0% 5.7%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 0 0% 9%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 13%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 43 81% 40%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 43 81% 33%;
+    --accent-foreground: 0 0% 9%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 239 84% 67%;
+    --destructive-foreground: 0 0% 96%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 43 81% 40%;
   }
 
   body {
@@ -65,5 +64,11 @@
 
   * {
     @apply border-border;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
   }
 }

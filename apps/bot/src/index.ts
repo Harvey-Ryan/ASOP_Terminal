@@ -1,18 +1,19 @@
 import 'dotenv/config';
-import { Events, MessageFlags, GuildMember } from 'discord.js';
+import { Events, MessageFlags, GuildMember, ChannelType } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
 import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
+import { endEvent } from './services/eventService.js';
 
 const commands = new Map([['event', eventCommand]]);
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   await syncAllGuilds();
-  startScheduler();
+  await startScheduler();
   startInternalServer();
 });
 
@@ -125,6 +126,34 @@ client.on(Events.GuildScheduledEventUserAdd, async (scheduledEvent, user) => {
     await joinRoster(event.id, user.id, username);
   } catch (err) {
     console.error('[bot] GuildScheduledEventUserAdd error:', err);
+  }
+});
+
+// ── VC cleanup when last person leaves an ENDED event ────────────────────────
+
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+  const leftChannelId = oldState.channelId;
+  if (!leftChannelId || newState.channelId === leftChannelId) return;
+
+  try {
+    const event = await prisma.event.findFirst({
+      where: { status: 'ENDED', botCleanedUp: false, vcIds: { contains: leftChannelId } },
+    });
+    if (!event) return;
+
+    const vcIds = JSON.parse(event.vcIds) as string[];
+    for (const vcId of vcIds) {
+      try {
+        const ch = await client.channels.fetch(vcId);
+        if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) return;
+      } catch {
+        // VC unavailable — treat as empty
+      }
+    }
+
+    await endEvent(event.id);
+  } catch (err) {
+    console.error('[bot] VoiceStateUpdate cleanup error:', err);
   }
 });
 

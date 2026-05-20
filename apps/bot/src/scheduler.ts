@@ -3,10 +3,64 @@ import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
 import { setupDiscordForEvent, endEvent, resolveVcCategoryId } from './services/eventService.js';
+import { joinRoster } from './services/rsvpService.js';
 import { formatMinutes } from './utils/time.js';
 import type { EventRole } from '@dem/shared';
 
-export function startScheduler() {
+export async function startScheduler() {
+  // Refresh the inactivity timer for every ACTIVE event that has VCs.
+  // Without this, a stale lastVcActivityAt carried in from before a restart
+  // (or from a data migration) would cause checkInactivityEnd() to fire
+  // immediately and auto-end events that are still running.
+  try {
+    const refreshed = await prisma.event.updateMany({
+      where: { status: 'ACTIVE', vcIds: { not: '[]' }, lastVcActivityAt: { not: null } },
+      data: { lastVcActivityAt: new Date() },
+    });
+    if (refreshed.count > 0) {
+      console.log(`[bot] Refreshed inactivity timer for ${refreshed.count} active event(s) after restart`);
+    }
+  } catch (err) {
+    console.error('[bot] Failed to refresh lastVcActivityAt on startup:', err);
+  }
+
+  // Sync Discord scheduled-event subscribers against the roster.
+  // GuildScheduledEventUserAdd is ephemeral — clicks missed during downtime are
+  // lost unless we fetch the current subscriber list from Discord on startup.
+  try {
+    const activeEvents = await prisma.event.findMany({
+      where: { status: { in: ['PENDING', 'ACTIVE'] }, discordEventId: { not: null } },
+      include: { rsvps: true },
+    });
+    let syncCount = 0;
+    for (const event of activeEvents) {
+      if (!event.discordEventId) continue;
+      try {
+        const guild = await client.guilds.fetch(event.guildId);
+        const scheduled = await guild.scheduledEvents.fetch(event.discordEventId).catch(() => null);
+        if (!scheduled) continue;
+        const subscribers = await scheduled.fetchSubscribers({ withMember: true }).catch(() => null);
+        if (!subscribers) continue;
+        const existingIds = new Set(event.rsvps.map((r) => r.userId));
+        for (const sub of subscribers.values()) {
+          if (existingIds.has(sub.user.id)) continue;
+          const username = sub.member?.displayName ?? sub.user.username;
+          await joinRoster(event.id, sub.user.id, username).catch((err) =>
+            console.error(`[bot] Startup sync: joinRoster failed for ${sub.user.id}:`, err),
+          );
+          syncCount++;
+        }
+      } catch (err) {
+        console.error(`[bot] Startup sync: failed for event ${event.id}:`, err);
+      }
+    }
+    if (activeEvents.length > 0) {
+      console.log(`[bot] Startup subscriber sync: added ${syncCount} missing subscriber(s) across ${activeEvents.length} event(s)`);
+    }
+  } catch (err) {
+    console.error('[bot] Startup subscriber sync failed:', err);
+  }
+
   cron.schedule('* * * * *', async () => {
     await checkPendingDiscordSetup().catch((e) => console.error('[bot] checkPendingDiscordSetup error:', e));
     await checkReminders().catch((e) => console.error('[bot] checkReminders error:', e));
@@ -99,7 +153,7 @@ async function checkVcCreation() {
   const now = new Date();
   const events = await prisma.event.findMany({
     where: {
-      status: 'ACTIVE',
+      status: 'PENDING',
       vcIds: '[]',
       startTime: {
         gte: new Date(now.getTime() + 29 * 60_000),
@@ -209,6 +263,24 @@ async function checkEndedEvents() {
   });
 
   for (const event of ended) {
+    const vcIds = JSON.parse(event.vcIds) as string[];
+
+    if (vcIds.length > 0) {
+      let anyonePresent = false;
+      for (const vcId of vcIds) {
+        try {
+          const ch = await client.channels.fetch(vcId);
+          if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) {
+            anyonePresent = true;
+            break;
+          }
+        } catch {
+          // VC unavailable — treat as empty
+        }
+      }
+      if (anyonePresent) continue; // wait for last person to leave
+    }
+
     await endEvent(event.id).catch((err) =>
       console.error(`[bot] endEvent failed for ${event.id}:`, err),
     );

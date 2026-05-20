@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, ChevronUp, Settings, Puzzle, CalendarDays } from 'lucide-react';
+import { LogOut, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { applyShade, loadShade } from '@/lib/shade';
 import { canManageGuild } from '@dem/shared';
 import type { ManagedGuild } from '@dem/shared';
 
@@ -32,7 +33,12 @@ export function DashboardLayout() {
 
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
-  const [serversOpen, setServersOpen] = useState(false);
+
+  // Re-apply stored shade preference whenever the user loads
+  useEffect(() => {
+    if (!user?.id) return;
+    applyShade(loadShade(user.id));
+  }, [user?.id]);
 
   const displayName = user?.globalName ?? user?.username ?? '…';
   const initials = displayName[0]?.toUpperCase() ?? '?';
@@ -41,25 +47,55 @@ export function DashboardLayout() {
     cn(
       'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
       isActive
-        ? 'bg-accent text-accent-foreground font-medium'
+        ? 'bg-primary text-primary-foreground font-medium'
         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
     );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      {/* ── Sidebar ── */}
-      <aside className="flex w-60 flex-col border-r border-border bg-card">
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* ── Top nav bar ── */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4">
         {/* Brand */}
         <div
-          className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-4 hover:bg-accent transition-colors"
+          className="flex cursor-pointer items-center gap-3 hover:opacity-80 transition-opacity"
           onClick={() => navigate('/dashboard')}
         >
           <img src="/favicon.png" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
           <span className="font-semibold tracking-tight">ASOP Terminal</span>
         </div>
 
-        {/* Server list */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        {/* User widget */}
+        <div className="flex items-center gap-3">
+          {user ? (
+            <>
+              <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.avatarUrl} alt={displayName} />
+                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              </Avatar>
+            </>
+          ) : (
+            <Skeleton className="h-8 w-32 rounded-full" />
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title="Log out"
+            onClick={logout}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {/* ── Sidebar + content row ── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Sidebar ── */}
+        <aside className="flex w-60 flex-col border-r border-border bg-card">
+          {/* Server list */}
+          <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
           <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Connected To
           </p>
@@ -77,15 +113,25 @@ export function DashboardLayout() {
                 Add to a server
               </a>
             </div>
-          ) : activeGuild && !serversOpen ? (
-            <button
-              onClick={() => setServersOpen(true)}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/80 transition-colors"
-            >
-              <GuildIcon guild={activeGuild} />
-              <span className="flex-1 truncate text-left">{activeGuild.name}</span>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-            </button>
+          ) : activeGuild ? (
+            <>
+              <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium">
+                <GuildIcon guild={activeGuild} />
+                <span className="flex-1 truncate">{activeGuild.name}</span>
+                {activeGuild.hasBotInstalled && (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Bot installed" />
+                )}
+              </div>
+
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}`}
+                end
+                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0" />
+                Dashboard
+              </NavLink>
+            </>
           ) : (
             <>
               {guilds.map((guild) => (
@@ -93,7 +139,6 @@ export function DashboardLayout() {
                   key={guild.id}
                   to={`/dashboard/servers/${guild.id}`}
                   end
-                  onClick={() => setServersOpen(false)}
                   className={navCls}
                 >
                   <GuildIcon guild={guild} />
@@ -103,15 +148,6 @@ export function DashboardLayout() {
                   )}
                 </NavLink>
               ))}
-              {activeGuild && (
-                <button
-                  onClick={() => setServersOpen(false)}
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ChevronUp className="h-3 w-3 shrink-0" />
-                  <span>Collapse</span>
-                </button>
-              )}
             </>
           )}
 
@@ -141,7 +177,7 @@ export function DashboardLayout() {
                     cn(
                       'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
                       isActive
-                        ? 'bg-accent text-accent-foreground font-medium'
+                        ? 'bg-primary text-primary-foreground font-medium'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                     )
                   }
@@ -176,39 +212,7 @@ export function DashboardLayout() {
         </div>
       </aside>
 
-      {/* ── Main area ── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-6">
-          <div />
-
-          {/* User widget */}
-          <div className="flex items-center gap-3">
-            {user ? (
-              <>
-                <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatarUrl} alt={displayName} />
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                </Avatar>
-              </>
-            ) : (
-              <Skeleton className="h-8 w-32 rounded-full" />
-            )}
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              title="Log out"
-              onClick={logout}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </header>
-
-        {/* Page content */}
+        {/* ── Main area ── */}
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>

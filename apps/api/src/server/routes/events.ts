@@ -254,6 +254,8 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
     },
   });
 
+  triggerBot(`/trigger/complete/${eventId}`);
+
   res.json({ success: true, message: 'Event completed' } satisfies ApiResponse);
 });
 

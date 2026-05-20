@@ -95,6 +95,65 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
   return embed;
 }
 
+export function buildPostEventEmbed(
+  event: EventForRoster,
+  attendees: { userId: string; items: { name: string; quantity: number }[] }[],
+  imageFileName?: string,
+): EmbedBuilder {
+  const startTs = Math.floor(event.startTime.getTime() / 1000);
+  const endTs = event.endTime ? Math.floor(event.endTime.getTime() / 1000) : null;
+
+  const whenParts = [`<t:${startTs}:F>`];
+  if (endTs) whenParts.push(`→ <t:${endTs}:t>`);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`🏁 ${event.name}`)
+    .setColor(0x747f8d)
+    .setFooter({ text: `Event ID: ${event.id}` })
+    .setTimestamp();
+
+  if (event.description) embed.setDescription(event.description);
+  if (imageFileName) embed.setImage(`attachment://${imageFileName}`);
+
+  embed.addFields({ name: '🕐 When', value: whenParts.join(' '), inline: false });
+  if (event.musterPoint) {
+    embed.addFields({ name: '📍 Muster Point', value: event.musterPoint, inline: false });
+  }
+
+  const lines = attendees.map(({ userId, items }) => {
+    const base = `✅ <@${userId}>`;
+    if (items.length === 0) return base;
+    const lootStr = items
+      .map((i) => `**${i.name}**${i.quantity > 1 ? ` ×${i.quantity}` : ''}`)
+      .join(', ');
+    return `${base} — ${lootStr}`;
+  });
+
+  const fieldTitle = `✅ Confirmed Attendees (${attendees.length})`;
+  if (lines.length === 0) {
+    embed.addFields({ name: fieldTitle, value: '*No confirmed attendees*', inline: false });
+  } else {
+    const LIMIT = 1024;
+    let chunk = '';
+    let isFirst = true;
+    for (const line of lines) {
+      const next = chunk ? `${chunk}\n${line}` : line;
+      if (next.length > LIMIT) {
+        embed.addFields({ name: isFirst ? fieldTitle : '​', value: chunk, inline: false });
+        chunk = line;
+        isFirst = false;
+      } else {
+        chunk = next;
+      }
+    }
+    if (chunk) {
+      embed.addFields({ name: isFirst ? fieldTitle : '​', value: chunk, inline: false });
+    }
+  }
+
+  return embed;
+}
+
 export function buildRoleButtons(eventId: string, roles: EventRole[]): ActionRowBuilder<ButtonBuilder>[] {
   // Unassigned is always the first button so it's always accessible
   const allButtons: ButtonBuilder[] = [

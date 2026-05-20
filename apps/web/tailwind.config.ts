@@ -10,10 +10,9 @@ const config: Config = {
     },
     extend: {
       colors: {
-        // Discord blurple
         brand: {
-          DEFAULT: '#5865F2',
-          hover: '#4752C4',
+          DEFAULT: '#b98a13',
+          hover: '#96710f',
         },
         // shadcn/ui CSS-variable–based colours
         border: 'hsl(var(--border))',
