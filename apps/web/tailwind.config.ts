@@ -9,6 +9,10 @@ const config: Config = {
       padding: '2rem',
     },
     extend: {
+      fontFamily: {
+        sans: ['Barlow', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        condensed: ['"Barlow Condensed"', 'ui-sans-serif', 'sans-serif'],
+      },
       colors: {
         brand: {
           DEFAULT: '#b98a13',

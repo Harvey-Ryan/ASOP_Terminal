@@ -156,6 +156,8 @@ export interface CreateEventBody {
   vcNames?: string[];
   /** URL path to cover image */
   imageUrl?: string;
+  /** Stable template ID carried from the Repeat button or Templates list — records and updates the template on create */
+  repeatFromTemplateId?: string;
 }
 
 export interface RsvpDto {
@@ -270,6 +272,22 @@ export interface ServerImageDto {
   filename: string;
   url: string;
   createdAt: string;
+}
+
+// ── Repeat templates ──────────────────────────────────────────────────────────
+
+/** A frequently-repeated event blueprint, ranked by use count in the last 6 months. */
+export interface RepeatTemplateDto {
+  id: string;
+  guildId: string;
+  name: string;
+  description: string | null;
+  musterPoint: string | null;
+  roles: EventRole[];
+  vcNames: string[];
+  imageUrl: string | null;
+  /** Number of times used to create an event in the last 6 months. */
+  useCount: number;
 }
 
 // ── Event templates ───────────────────────────────────────────────────────────

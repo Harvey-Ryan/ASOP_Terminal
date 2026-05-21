@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins } from 'lucide-react';
@@ -278,6 +278,7 @@ export function LootPage() {
   const queryClient = useQueryClient();
 
   const [newItemName, setNewItemName] = useState('');
+  const newItemInputRef = useRef<HTMLInputElement>(null);
 
   const sessionQuery = useQuery({
     queryKey: ['loot', guildId, eventId],
@@ -318,7 +319,11 @@ export function LootPage() {
 
   const addItemMutation = useMutation({
     mutationFn: (name: string) => lootApi.addItem(guildId!, eventId!, { name }),
-    onSuccess: () => { setNewItemName(''); invalidate(); },
+    onSuccess: () => {
+      setNewItemName('');
+      invalidate();
+      setTimeout(() => newItemInputRef.current?.focus(), 0);
+    },
   });
 
   const completeMutation = useMutation({
@@ -487,6 +492,7 @@ export function LootPage() {
                 className="flex gap-2"
               >
                 <input
+                  ref={newItemInputRef}
                   className={inputCls}
                   placeholder="Item name…"
                   value={newItemName}

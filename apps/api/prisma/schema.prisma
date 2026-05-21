@@ -292,6 +292,42 @@ model DkpTransaction {
   @@index([guildId, userId])
 }
 
+// ── Repeat Templates ──────────────────────────────────────────────────────────
+
+/// Canonical event blueprint created (or updated) each time a user clicks "Repeat"
+/// on a COMPLETED event or picks a template from the Templates list.
+/// Deduped by guildId + name; every actual use is recorded in RepeatTemplateUse.
+model RepeatTemplate {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  description String?
+  musterPoint String?
+  /// JSON: EventRole[]  – [{name,count}]
+  roles       String   @default("[]")
+  /// JSON: string[]
+  vcNames     String   @default("[]")
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  uses RepeatTemplateUse[]
+
+  @@unique([guildId, name])
+  @@index([guildId])
+}
+
+/// One row per time a RepeatTemplate was used to create a new event.
+model RepeatTemplateUse {
+  id         String         @id @default(cuid())
+  templateId String
+  usedAt     DateTime       @default(now())
+
+  template RepeatTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, usedAt])
+}
+
 // ── Event Templates ───────────────────────────────────────────────────────────
 
 /// A reusable event blueprint scoped to a single guild.

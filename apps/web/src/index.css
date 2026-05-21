@@ -5,19 +5,19 @@
 @layer base {
   :root {
     --background: 0 0% 9%;            /* #181818 */
-    --foreground: 0 0% 96%;
+    --foreground: 0 0% 80%;
 
     --card: 0 0% 13%;                  /* #212121 — elevated surface */
-    --card-foreground: 0 0% 96%;
+    --card-foreground: 0 0% 80%;
 
     --popover: 0 0% 13%;
-    --popover-foreground: 0 0% 96%;
+    --popover-foreground: 0 0% 80%;
 
     --primary: 43 81% 40%;             /* #b98a13 */
     --primary-foreground: 0 0% 9%;
 
     --secondary: 0 0% 20%;             /* #333333 */
-    --secondary-foreground: 0 0% 96%;
+    --secondary-foreground: 0 0% 80%;
 
     --muted: 0 0% 20%;                 /* #333333 */
     --muted-foreground: 0 0% 55%;
@@ -26,7 +26,7 @@
     --accent-foreground: 0 0% 9%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 96%;
+    --destructive-foreground: 0 0% 80%;
 
     --border: 0 0% 20%;                /* #333333 */
     --input: 0 0% 20%;                 /* #333333 */
@@ -38,24 +38,28 @@
   /* .dark mirrors :root — this app is always dark */
   .dark {
     --background: 0 0% 9%;
-    --foreground: 0 0% 96%;
+    --foreground: 0 0% 80%;
     --card: 0 0% 13%;
-    --card-foreground: 0 0% 96%;
+    --card-foreground: 0 0% 80%;
     --popover: 0 0% 13%;
-    --popover-foreground: 0 0% 96%;
+    --popover-foreground: 0 0% 80%;
     --primary: 43 81% 40%;
     --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 20%;
-    --secondary-foreground: 0 0% 96%;
+    --secondary-foreground: 0 0% 80%;
     --muted: 0 0% 20%;
     --muted-foreground: 0 0% 55%;
     --accent: 43 81% 33%;
     --accent-foreground: 0 0% 9%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 96%;
+    --destructive-foreground: 0 0% 80%;
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 43 81% 40%;
+  }
+
+  html {
+    font-size: 150%;
   }
 
   body {
@@ -68,7 +72,7 @@
 
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
+    filter: invert(0);
     cursor: pointer;
   }
 }

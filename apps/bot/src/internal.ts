@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed } from './services/eventService.js';
 import { announceLootResults } from './services/lootService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
@@ -41,6 +41,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await updatePostEventEmbed(eventId).catch((err) =>
         console.error(`[bot:internal] updatePostEventEmbed failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const rsvpMatch = req.url?.match(/^\/trigger\/rsvp\/([^/]+)$/);
+    if (rsvpMatch) {
+      const eventId = rsvpMatch[1]!;
+      res.writeHead(202).end();
+      await updateRosterEmbed(eventId).catch((err) =>
+        console.error(`[bot:internal] updateRosterEmbed failed for ${eventId}:`, err),
       );
       return;
     }
