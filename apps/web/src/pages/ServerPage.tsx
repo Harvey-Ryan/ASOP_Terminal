@@ -501,11 +501,13 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
                     {role.name} ({members.length}/{role.count})
                   </p>
-                  <p className="text-lg mt-0.5">
+                  <div className="mt-0.5 space-y-0.5">
                     {members.length > 0
-                      ? members.map((r) => resolveUsername(r.userId, r.username, userId)).join(', ')
-                      : <span className="opacity-50 italic">None</span>}
-                  </p>
+                      ? members.map((r) => (
+                          <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
+                        ))
+                      : <span className="opacity-50 italic text-lg">None</span>}
+                  </div>
                   {canRsvp && userId && (
                     <div className="mt-1.5">
                       {isMyRole ? (
@@ -534,11 +536,13 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       <div className={rowCls}>
         <span className={labelCls}>Unassigned</span>
         <div className="flex-1">
-          <p className="text-sm">
+          <div className="space-y-0.5">
             {unassigned.length > 0
-              ? unassigned.map((r) => resolveUsername(r.userId, r.username, userId)).join(', ')
-              : <span className="opacity-50 italic">None</span>}
-          </p>
+              ? unassigned.map((r) => (
+                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
+                ))
+              : <span className="opacity-50 italic text-lg">None</span>}
+          </div>
           {canRsvp && userId && (
             <div className="mt-1.5">
               {userRsvp && !userRsvp.role ? (

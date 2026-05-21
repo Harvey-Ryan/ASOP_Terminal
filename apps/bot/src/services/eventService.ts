@@ -208,7 +208,7 @@ export async function syncDiscordEvent(eventId: string) {
           : await thread.fetchStarterMessage().catch(() => null);
 
         if (rosterMsg) {
-          await rosterMsg.edit({ embeds: [embed], components, files });
+          await rosterMsg.edit({ embeds: [embed], components, files, attachments: [] });
         }
       }
     } catch (err) {
@@ -239,14 +239,14 @@ export async function updateRosterEmbed(eventId: string) {
     if (event.rosterMessageId) {
       const msg = await thread.messages.fetch(event.rosterMessageId).catch(() => null);
       if (msg) {
-        await msg.edit({ embeds: [embed], components, files });
+        await msg.edit({ embeds: [embed], components, files, attachments: [] });
         return;
       }
     }
 
     // Fallback: edit starter message
     const starter = await thread.fetchStarterMessage().catch(() => null);
-    if (starter) await starter.edit({ embeds: [embed], components, files });
+    if (starter) await starter.edit({ embeds: [embed], components, files, attachments: [] });
   } catch (err) {
     console.error('[bot] Failed to update roster embed:', err);
   }
