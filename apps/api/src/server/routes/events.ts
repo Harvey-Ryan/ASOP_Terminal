@@ -343,6 +343,20 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     data['endTime'] = endTime;
   }
 
+  // If roles changed, move members whose role no longer exists to Unassigned
+  // rather than leaving them stranded on a deleted/renamed role.
+  if (body.roles !== undefined) {
+    const oldRoleNames = new Set((JSON.parse(event.roles) as EventRole[]).map((r) => r.name));
+    const newRoleNames = new Set(body.roles.map((r) => r.name));
+    const removedNames = [...oldRoleNames].filter((n) => !newRoleNames.has(n));
+    if (removedNames.length > 0) {
+      await prisma.eventRsvp.updateMany({
+        where: { eventId, role: { in: removedNames } },
+        data: { role: null },
+      });
+    }
+  }
+
   const updated = await prisma.event.update({ where: { id: eventId }, data, include: { rsvps: true } });
   triggerBot(`/trigger/sync/${eventId}`);
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
