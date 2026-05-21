@@ -52,7 +52,10 @@ export async function announceLootResults(sessionId: string) {
   try {
     const thread = await client.channels.fetch(event.threadId);
     if (thread?.isThread()) {
+      const wasArchived = thread.archived ?? false;
+      if (wasArchived) await thread.setArchived(false).catch(() => null);
       await thread.send({ embeds: [embed] });
+      if (wasArchived) await thread.setArchived(true).catch(() => null);
     }
   } catch (err) {
     console.error('[bot] Failed to post loot results:', err);

@@ -3,6 +3,7 @@ import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
 import { setupDiscordForEvent, endEvent, resolveVcCategoryId } from './services/eventService.js';
+import { PermissionFlagsBits } from 'discord.js';
 import { joinRoster } from './services/rsvpService.js';
 import { formatMinutes } from './utils/time.js';
 import type { EventRole } from '@dem/shared';
@@ -75,8 +76,16 @@ export async function startScheduler() {
 // ── Discord setup for web-created events ─────────────────────────────────────
 
 async function checkPendingDiscordSetup() {
+  // Catch events not yet set up, plus active events where forum thread creation
+  // previously failed (e.g. forum channel wasn't configured at the time).
   const pending = await prisma.event.findMany({
-    where: { discordEventId: null, status: 'PENDING' },
+    where: {
+      status: { in: ['PENDING', 'ACTIVE'] },
+      OR: [
+        { discordEventId: null },
+        { threadId: null },
+      ],
+    },
     take: 5,
   });
   for (const event of pending) {
@@ -164,7 +173,7 @@ async function checkVcCreation() {
 
   for (const event of events) {
     const vcNames = JSON.parse(event.vcNames) as string[];
-    if (vcNames.length === 0) continue;
+    if (vcNames.length === 0 && !event.briefingChannel) continue;
 
     try {
       const guild = await client.guilds.fetch(event.guildId);
@@ -178,6 +187,18 @@ async function checkVcCreation() {
           ...(categoryId ? { parent: categoryId } : {}),
         });
         createdIds.push(vc.id);
+      }
+
+      if (event.briefingChannel) {
+        const briefing = await guild.channels.create({
+          name: '📋 Briefing',
+          type: ChannelType.GuildVoice,
+          ...(categoryId ? { parent: categoryId } : {}),
+          permissionOverwrites: [
+            { id: guild.id, deny: [PermissionFlagsBits.UseVAD] },
+          ],
+        });
+        createdIds.push(briefing.id);
       }
 
       await prisma.event.update({
