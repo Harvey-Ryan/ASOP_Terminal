@@ -149,6 +149,74 @@ export async function setupDiscordForEvent(eventId: string) {
   });
 }
 
+// ── Sync Discord entities after an event edit ────────────────────────────────
+
+export async function syncDiscordEvent(eventId: string) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: { rsvps: true },
+  });
+  if (!event) return;
+
+  // ── Update Discord Scheduled Event ───────────────────────────────────────
+  if (event.discordEventId && event.status !== 'COMPLETED') {
+    try {
+      const guild = await client.guilds.fetch(event.guildId);
+      const scheduled = await guild.scheduledEvents.fetch(event.discordEventId).catch(() => null);
+      if (scheduled) {
+        const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
+        let imageField: { image: string | null } | Record<string, never> = {};
+        if (event.imageUrl) {
+          const uri = await fetchImageAsDataUri(event.imageUrl);
+          if (uri) imageField = { image: uri };
+        } else {
+          imageField = { image: null };
+        }
+        await scheduled.edit({
+          name: event.name,
+          description: event.description ?? undefined,
+          scheduledStartTime: event.startTime,
+          scheduledEndTime,
+          entityMetadata: { location: event.musterPoint ?? event.name },
+          ...imageField,
+        });
+      }
+    } catch (err) {
+      console.error('[bot] Failed to update Discord scheduled event:', err);
+    }
+  }
+
+  // ── Update forum thread name + roster embed ───────────────────────────────
+  if (event.threadId) {
+    try {
+      const thread = await client.channels.fetch(event.threadId);
+      if (thread?.isThread()) {
+        if (thread.name !== event.name) {
+          await thread.setName(event.name).catch((err) =>
+            console.error('[bot] Failed to rename forum thread:', err),
+          );
+        }
+
+        const roles = JSON.parse(event.roles) as EventRole[];
+        const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+        const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
+        const components = buildRoleButtons(event.id, roles);
+        const files = imageAttachment ? [imageAttachment.builder] : [];
+
+        const rosterMsg = event.rosterMessageId
+          ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
+          : await thread.fetchStarterMessage().catch(() => null);
+
+        if (rosterMsg) {
+          await rosterMsg.edit({ embeds: [embed], components, files });
+        }
+      }
+    } catch (err) {
+      console.error('[bot] Failed to sync forum thread after edit:', err);
+    }
+  }
+}
+
 // ── Update the roster embed after any RSVP change ─────────────────────────────
 
 export async function updateRosterEmbed(eventId: string) {

@@ -344,7 +344,7 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
   }
 
   const updated = await prisma.event.update({ where: { id: eventId }, data, include: { rsvps: true } });
-  triggerBot(`/trigger/rsvp/${eventId}`);
+  triggerBot(`/trigger/sync/${eventId}`);
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
