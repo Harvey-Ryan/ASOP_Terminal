@@ -684,7 +684,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
+      className="group w-full text-left flex items-start bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
     >
       {/* Date */}
       <div className="w-20 shrink-0 flex flex-col items-center px-4 py-3 text-center">
@@ -699,22 +699,22 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
 
       {/* Event */}
       <div className="flex-1 px-4 py-3 min-w-0">
-        <p className="font-semibold truncate text-[21px] leading-tight">{event.name}</p>
+        <p className="font-semibold break-words text-[21px] leading-tight">{event.name}</p>
         {event.recurType && (
-          <p className="text-[15px] opacity-60 truncate">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
+          <p className="text-[15px] opacity-60 break-words">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
         )}
       </div>
 
       {/* Location + Status + Role + Actions — 1/3 of total width */}
-      <div className="w-1/3 shrink-0 flex items-center">
-        <div className="flex-[2] px-4 py-3 hidden lg:flex items-center justify-center overflow-hidden">
-          <span className="text-[21px] truncate">{location}</span>
+      <div className="w-1/3 shrink-0 flex items-start">
+        <div className="flex-[2] px-4 py-3 hidden lg:block">
+          <span className="text-[21px] break-words">{location}</span>
         </div>
         <div className="flex-1 px-4 py-3 hidden sm:flex items-center justify-center">
           <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
         </div>
-        <div className="flex-1 px-4 py-3 hidden md:flex items-center justify-center overflow-hidden">
-          <span className="text-[21px] truncate">{userRsvp?.role ?? '—'}</span>
+        <div className="flex-1 px-4 py-3 hidden md:block">
+          <span className="text-[21px] break-words">{userRsvp?.role ?? '—'}</span>
         </div>
         <div className="flex-1 px-4 py-3 flex justify-end">
           <span className="rounded p-1.5 bg-primary text-primary-foreground group-hover:bg-background group-hover:text-primary transition-colors">
