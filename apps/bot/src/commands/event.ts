@@ -17,6 +17,7 @@ import type { EventRole } from '@dem/shared';
 export const data = new SlashCommandBuilder()
   .setName('event')
   .setDescription('Manage events')
+  .setDefaultMemberPermissions('0')
   .addSubcommand((sub) =>
     sub.setName('create').setDescription('Open the web dashboard to create a new event'),
   )

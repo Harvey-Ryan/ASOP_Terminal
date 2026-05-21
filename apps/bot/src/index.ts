@@ -1,52 +1,34 @@
 import 'dotenv/config';
-import { Events, GuildMember, ChannelType, REST, Routes } from 'discord.js';
+import { Events, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
 import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
+import * as loginCommand from './commands/login.js';
+import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent } from './services/eventService.js';
 
-const commands = new Map([['event', eventCommand]]);
+interface Command {
+  data: { toJSON(): unknown };
+  execute(interaction: ChatInputCommandInteraction): Promise<void>;
+  autocomplete?(interaction: AutocompleteInteraction): Promise<void>;
+}
+
+const commands = new Map<string, Command>([
+  ['event', eventCommand],
+  ['login', loginCommand],
+]);
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   await registerCommands(c.user.id);
   await syncAllGuilds();
   await startScheduler();
-  startInternalServer();
 });
 
-async function registerCommands(clientId: string) {
-  const token = process.env['DISCORD_TOKEN'];
-  if (!token) return;
-  const rest = new REST().setToken(token);
-  const body = [eventCommand.data.toJSON()];
-
-  // Register to every guild the bot is currently in — instant availability
-  const guildIds = [...client.guilds.cache.keys()];
-  let guildSuccesses = 0;
-  for (const guildId of guildIds) {
-    try {
-      await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body });
-      guildSuccesses++;
-    } catch (err) {
-      console.error(`[bot] Failed to register commands for guild ${guildId}:`, err);
-    }
-  }
-  if (guildSuccesses > 0) {
-    console.log(`[bot] Slash commands registered instantly to ${guildSuccesses} guild(s)`);
-  }
-
-  // Also register globally as a fallback for future guilds (propagates within ~1 hour)
-  try {
-    await rest.put(Routes.applicationCommands(clientId), { body });
-    console.log(`[bot] Global slash commands registered`);
-  } catch (err) {
-    console.error('[bot] Failed to register global commands:', err);
-  }
-}
 
 // ── Guild presence sync ───────────────────────────────────────────────────────
 
@@ -141,6 +123,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
+// ── !asop prefix command ──────────────────────────────────────────────────────
+
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+  if (message.content.trim().toLowerCase() !== '!asop') return;
+
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const loginUrl = `${webUrl}/api/auth/login`;
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel('Log in to ASOP')
+      .setStyle(ButtonStyle.Link)
+      .setURL(loginUrl),
+  );
+
+  await message.reply({ content: 'Click below to log in to the event manager:', components: [row] });
+});
+
 // ── Discord Scheduled Event — Interested ─────────────────────────────────────
 
 client.on(Events.GuildScheduledEventUserAdd, async (scheduledEvent, user) => {
@@ -201,4 +202,5 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+startInternalServer();
 client.login(process.env['DISCORD_TOKEN']);

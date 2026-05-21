@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Info, X } from 'lucide-react';
+import { Check, Info, RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
@@ -40,6 +40,10 @@ export function BotSettingsPage() {
       setDirty(false);
     }
   }, [saved]);
+
+  const registerMutation = useMutation({
+    mutationFn: () => settingsApi.registerCommands(guildId!),
+  });
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -250,6 +254,37 @@ export function BotSettingsPage() {
             {mutation.isError && (
               <span className="text-sm text-destructive">Failed to save.</span>
             )}
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Slash command registration */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Slash Commands</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Re-register slash commands to all servers. Use this after adding new commands.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => registerMutation.mutate()}
+                disabled={registerMutation.isPending}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${registerMutation.isPending ? 'animate-spin' : ''}`} />
+                {registerMutation.isPending ? 'Registering…' : 'Re-register Commands'}
+              </Button>
+              {registerMutation.isSuccess && (
+                <span className="flex items-center gap-1.5 text-sm text-green-500">
+                  <Check className="h-4 w-4" />
+                  Queued
+                </span>
+              )}
+              {registerMutation.isError && (
+                <span className="text-sm text-destructive">Failed to register.</span>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, optStr, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
 
@@ -287,3 +288,14 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
   }
 });
 
+// ── POST /api/guilds/:guildId/settings/register-commands ─────────────────────
+
+settingsRouter.post('/:guildId/settings/register-commands', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!await assertGuildManager(req, guildId)) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  triggerBot('/trigger/register-commands');
+  res.json({ success: true, data: null } satisfies ApiResponse);
+});

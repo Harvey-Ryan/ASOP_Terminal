@@ -1,0 +1,40 @@
+import { REST, Routes } from 'discord.js';
+import { client } from '../client.js';
+import * as eventCommand from '../commands/event.js';
+import * as loginCommand from '../commands/login.js';
+
+const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON()];
+
+export async function registerCommands(clientId?: string): Promise<void> {
+  const token = process.env['DISCORD_TOKEN'];
+  if (!token) return;
+
+  const resolvedClientId = clientId ?? client.user?.id;
+  if (!resolvedClientId) {
+    console.error('[bot] registerCommands: client not ready, no clientId available');
+    return;
+  }
+
+  const rest = new REST().setToken(token);
+
+  const guildIds = [...client.guilds.cache.keys()];
+  let guildSuccesses = 0;
+  for (const guildId of guildIds) {
+    try {
+      await rest.put(Routes.applicationGuildCommands(resolvedClientId, guildId), { body });
+      guildSuccesses++;
+    } catch (err) {
+      console.error(`[bot] Failed to register commands for guild ${guildId}:`, err);
+    }
+  }
+  if (guildSuccesses > 0) {
+    console.log(`[bot] Slash commands registered instantly to ${guildSuccesses} guild(s)`);
+  }
+
+  try {
+    await rest.put(Routes.applicationCommands(resolvedClientId), { body });
+    console.log(`[bot] Global slash commands registered`);
+  } catch (err) {
+    console.error('[bot] Failed to register global commands:', err);
+  }
+}

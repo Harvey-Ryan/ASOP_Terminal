@@ -46,4 +46,7 @@ export const settingsApi = {
 
   getMyPermissions: (guildId: string) =>
     api.get<ApiResponse<GuildMyPermissions>>(`/guilds/${guildId}/my-permissions`).then(requireData),
+
+  registerCommands: (guildId: string) =>
+    api.post<ApiResponse<null>>(`/guilds/${guildId}/settings/register-commands`, {}).then(requireData),
 };

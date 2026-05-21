@@ -336,6 +336,18 @@ export function DashboardLayout() {
             Overview
           </NavLink>
         </div>
+
+        {/* Sidebar footer – branding */}
+        <div className="border-t border-border px-3 py-4 space-y-2 opacity-50">
+          <img
+            src="/MadeByTheCommunity_White.png"
+            alt="Made by the Community"
+            className="w-full object-contain"
+          />
+          <p className="text-[10px] leading-tight text-muted-foreground">
+            Star Citizen®, Roberts Space Industries® and Cloud Imperium ® are registered trademarks of Cloud Imperium Rights LLC
+          </p>
+        </div>
       </aside>
 
         {/* ── Main area ── */}
