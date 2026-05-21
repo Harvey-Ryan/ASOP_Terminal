@@ -1,0 +1,23 @@
+# Dependencies and build artifacts — always rebuilt inside Docker
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+
+# Git history
+.git
+.gitignore
+
+# Local environment files — secrets come from Railway env vars, never baked in
+.env
+.env.*
+apps/api/.env
+apps/bot/.env
+apps/web/.env
+
+# Local dev config
+*.local
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

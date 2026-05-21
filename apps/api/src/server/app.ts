@@ -26,8 +26,27 @@ export function createServer(): express.Express {
   if (isProd) app.set('trust proxy', 1);
 
   // ── Security headers ───────────────────────────────────────────────────────
+  // Allow Discord CDN images (avatars, guild icons) in the SPA.
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          baseUri: ["'self'"],
+          fontSrc: ["'self'", 'https:', 'data:'],
+          formAction: ["'self'"],
+          frameAncestors: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com'],
+          objectSrc: ["'none'"],
+          scriptSrc: ["'self'"],
+          scriptSrcAttr: ["'none'"],
+          styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+          upgradeInsecureRequests: [],
+        },
+      },
+    }),
+  );
 
   // ── CORS ──────────────────────────────────────────────────────────────────
 
@@ -141,6 +160,25 @@ export function createServer(): express.Express {
       message: 'Discord Event Manager API is running',
     } satisfies ApiResponse<{ timestamp: string }>);
   });
+
+  // ── API 404 (must come before SPA catch-all) ──────────────────────────────
+
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ success: false, error: 'Not found' } satisfies ApiResponse);
+  });
+
+  // ── SPA serving (production only) ─────────────────────────────────────────
+  // In production the compiled React app lives at ../web/dist relative to the
+  // API working directory. Express serves static assets first; everything else
+  // falls through to index.html so React Router handles client-side navigation.
+
+  if (isProd) {
+    const webDist = path.resolve(process.cwd(), '../web/dist');
+    app.use(express.static(webDist));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(webDist, 'index.html'));
+    });
+  }
 
   // ── 404 catch-all ──────────────────────────────────────────────────────────
 

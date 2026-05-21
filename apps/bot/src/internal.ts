@@ -68,7 +68,8 @@ export function startInternalServer() {
     res.writeHead(404).end();
   });
 
-  server.listen(PORT, '127.0.0.1', () => {
-    console.log(`[bot] Internal server listening on 127.0.0.1:${PORT}`);
+  // Bind to 0.0.0.0 so Railway's private network can reach this from the API service
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[bot] Internal server listening on 0.0.0.0:${PORT}`);
   });
 }

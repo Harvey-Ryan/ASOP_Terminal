@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Events, MessageFlags, GuildMember, ChannelType } from 'discord.js';
+import { Events, GuildMember, ChannelType } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
@@ -57,7 +57,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await cmd.execute(interaction);
     } catch (err) {
       console.error('[bot] Command error:', err);
-      const payload = { content: '❌ An error occurred.', flags: MessageFlags.Ephemeral };
+      const payload = { content: '❌ An error occurred.', ephemeral: true } as const;
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(payload).catch(() => null);
       } else {
@@ -86,7 +86,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           where: { id: entityId, status: { not: 'COMPLETED' } },
         });
         if (!event) {
-          await interaction.reply({ content: 'This event has already ended.', flags: MessageFlags.Ephemeral });
+          await interaction.reply({ content: 'This event has already ended.', ephemeral: true });
           return;
         }
         const displayName = (interaction.member instanceof GuildMember)
@@ -96,11 +96,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const label = role ?? 'Unassigned';
         await interaction.reply({
           content: `✅ You are marked as **${label}** for **${event.name}**.`,
-          flags: MessageFlags.Ephemeral,
+          ephemeral: true,
         });
       } catch (err) {
         console.error('[bot] Role button error:', err);
-        await interaction.reply({ content: '❌ Failed to update roster.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '❌ Failed to update roster.', ephemeral: true });
       }
       return;
     }
