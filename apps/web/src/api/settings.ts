@@ -21,6 +21,11 @@ export interface GuildSettingsData {
   viewerRoles: string[];
 }
 
+export interface GuildMyPermissions {
+  canManageEvents: boolean;
+  canViewEvents: boolean;
+}
+
 function requireData<T>(r: ApiResponse<T>): T {
   if (r.data === undefined) throw new Error('Missing data in API response');
   return r.data;
@@ -38,4 +43,7 @@ export const settingsApi = {
 
   updateSettings: (guildId: string, data: Partial<GuildSettingsData>) =>
     api.patch<ApiResponse<GuildSettingsData>>(`/guilds/${guildId}/settings`, data).then(requireData),
+
+  getMyPermissions: (guildId: string) =>
+    api.get<ApiResponse<GuildMyPermissions>>(`/guilds/${guildId}/my-permissions`).then(requireData),
 };

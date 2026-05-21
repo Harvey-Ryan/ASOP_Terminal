@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
 import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
+import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole, CreateEventBody } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
@@ -809,7 +810,15 @@ export function ServerPage() {
   }
 
   const guild = guilds.find((g) => g.id === guildId);
-  const isManager = !!guild && canManageGuild(guild);
+  const isDiscordManager = !!guild && canManageGuild(guild);
+
+  const myPermsQuery = useQuery({
+    queryKey: ['my-permissions', guildId],
+    queryFn: () => settingsApi.getMyPermissions(guildId!),
+    enabled: !!guildId && !isDiscordManager,
+    staleTime: 5 * 60_000,
+  });
+  const isManager = isDiscordManager || (myPermsQuery.data?.canManageEvents ?? false);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('upcoming');
   const [view, setView] = useState<View>('table');

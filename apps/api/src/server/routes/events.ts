@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
@@ -285,7 +286,7 @@ eventsRouter.delete('/:guildId/events/:eventId/rsvp', requireAuth, async (req, r
 eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertEventCreator(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }

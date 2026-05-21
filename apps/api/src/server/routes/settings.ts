@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
+import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { ValidationError, optStr, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
 
@@ -22,6 +24,22 @@ interface DiscordRole {
   position: number;
   managed: boolean;
 }
+
+// ── GET /api/guilds/:guildId/my-permissions ───────────────────────────────────
+
+settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  try {
+    const [canManageEvents, canViewEvents] = await Promise.all([
+      assertEventCreator(req, guildId),
+      assertEventViewer(req, guildId),
+    ]);
+    res.json({ success: true, data: { canManageEvents, canViewEvents } } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[settings/my-permissions]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
 
 // ── GET /api/guilds/:guildId/roles ────────────────────────────────────────────
 
