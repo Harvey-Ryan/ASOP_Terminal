@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import ConnectPgSimple from 'connect-pg-simple';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'node:path';
@@ -11,6 +12,8 @@ import { imagesRouter } from './routes/images.js';
 import { settingsRouter } from './routes/settings.js';
 import { lootRouter } from './routes/loot.js';
 import type { ApiResponse } from '@dem/shared';
+
+const PgSession = ConnectPgSimple(session);
 
 export function createServer(): express.Express {
   const app = express();
@@ -69,7 +72,9 @@ export function createServer(): express.Express {
       secret: process.env.SESSION_SECRET ?? 'dev-secret-CHANGE-ME',
       resave: false,
       saveUninitialized: false,
-      // Replace with connect-redis before going to production.
+      store: isProd
+        ? new PgSession({ conString: process.env.DATABASE_URL, createTableIfMissing: true })
+        : undefined,
       cookie: {
         httpOnly: true,
         secure: isProd,
