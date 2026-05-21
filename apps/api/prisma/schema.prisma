@@ -135,6 +135,8 @@ model Event {
   roles           String   @default("[]")
   /// JSON: string[] — VC names to create 30 min before start
   vcNames         String   @default("[]")
+  /// Whether to create an additional PTT-enforced Briefing VC for this event
+  briefingChannel Boolean  @default(false)
   /// URL path to cover image stored in the server image library
   imageUrl        String?
 
@@ -306,8 +308,10 @@ model RepeatTemplate {
   /// JSON: EventRole[]  – [{name,count}]
   roles       String   @default("[]")
   /// JSON: string[]
-  vcNames     String   @default("[]")
-  imageUrl    String?
+  vcNames         String   @default("[]")
+  /// Whether to create an additional PTT-enforced Briefing VC for this event
+  briefingChannel Boolean  @default(false)
+  imageUrl        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

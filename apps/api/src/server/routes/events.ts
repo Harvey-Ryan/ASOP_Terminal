@@ -152,6 +152,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         recurType: body.recurType ?? null,
         roles: JSON.stringify(body.roles ?? []),
         vcNames: JSON.stringify(body.vcNames ?? []),
+        briefingChannel: body.briefingChannel ?? false,
         imageUrl: body.imageUrl ?? null,
         createdById: dbUser.discordId,
         status: 'PENDING',
@@ -182,6 +183,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
             musterPoint: event.musterPoint,
             roles: event.roles,
             vcNames: event.vcNames,
+            briefingChannel: event.briefingChannel,
             imageUrl: event.imageUrl,
           },
         });
@@ -322,6 +324,7 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
   if (body.imageUrl !== undefined) data['imageUrl'] = body.imageUrl || null;
   if (body.roles !== undefined) data['roles'] = JSON.stringify(body.roles);
   if (body.vcNames !== undefined) data['vcNames'] = JSON.stringify(body.vcNames);
+  if (body.briefingChannel !== undefined) data['briefingChannel'] = body.briefingChannel;
   if (body.startTime !== undefined) {
     const startTime = new Date(body.startTime);
     if (isNaN(startTime.getTime())) {
@@ -496,6 +499,7 @@ eventsRouter.post('/:guildId/repeat-templates/from-event', requireAuth, async (r
       musterPoint: event.musterPoint,
       roles: event.roles,
       vcNames: event.vcNames,
+      briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
     },
     update: {},
@@ -509,6 +513,7 @@ eventsRouter.post('/:guildId/repeat-templates/from-event', requireAuth, async (r
     musterPoint: template.musterPoint,
     roles: JSON.parse(template.roles) as EventRole[],
     vcNames: JSON.parse(template.vcNames) as string[],
+    briefingChannel: template.briefingChannel,
     imageUrl: template.imageUrl,
     useCount: 0,
   };
@@ -549,6 +554,7 @@ eventsRouter.get('/:guildId/repeat-templates', requireAuth, async (req, res) => 
       musterPoint: t.musterPoint,
       roles: JSON.parse(t.roles) as EventRole[],
       vcNames: JSON.parse(t.vcNames) as string[],
+      briefingChannel: t.briefingChannel,
       imageUrl: t.imageUrl,
       useCount: t.useCount,
     }));
@@ -570,6 +576,7 @@ function toDto(event: EventWithRsvps): EventDto {
     recurType: event.recurType,
     roles: JSON.parse(event.roles) as EventRole[],
     vcNames: JSON.parse(event.vcNames) as string[],
+    briefingChannel: event.briefingChannel,
     imageUrl: event.imageUrl,
     discordEventId: event.discordEventId,
     threadId: event.threadId,

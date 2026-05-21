@@ -154,6 +154,8 @@ export interface CreateEventBody {
   roles?: EventRole[];
   /** Names of voice channels to create 30 min before start */
   vcNames?: string[];
+  /** Whether to create an additional PTT-enforced Briefing VC */
+  briefingChannel?: boolean;
   /** URL path to cover image */
   imageUrl?: string;
   /** Stable template ID carried from the Repeat button or Templates list — records and updates the template on create */
@@ -178,6 +180,7 @@ export interface EventDto {
   recurType: string | null;
   roles: EventRole[];
   vcNames: string[];
+  briefingChannel: boolean;
   imageUrl: string | null;
   discordEventId: string | null;
   threadId: string | null;
@@ -285,6 +288,7 @@ export interface RepeatTemplateDto {
   musterPoint: string | null;
   roles: EventRole[];
   vcNames: string[];
+  briefingChannel: boolean;
   imageUrl: string | null;
   /** Number of times used to create an event in the last 6 months. */
   useCount: number;

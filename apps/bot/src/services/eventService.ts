@@ -3,6 +3,7 @@ import {
   ChannelType,
   GuildScheduledEventEntityType,
   GuildScheduledEventPrivacyLevel,
+  PermissionFlagsBits,
 } from 'discord.js';
 import type { ForumChannel } from 'discord.js';
 import { prisma } from '../db.js';
@@ -91,7 +92,7 @@ export async function setupDiscordForEvent(eventId: string) {
   let vcIds: string[] = JSON.parse(event.vcIds);
   let lastVcActivityAt: Date | undefined;
 
-  if (vcNames.length > 0 && vcIds.length === 0 && event.startTime.getTime() - Date.now() < 30 * 60_000) {
+  if ((vcNames.length > 0 || event.briefingChannel) && vcIds.length === 0 && event.startTime.getTime() - Date.now() < 30 * 60_000) {
     try {
       const categoryId = await resolveVcCategoryId(event.guildId);
       const createdIds: string[] = [];
@@ -103,6 +104,18 @@ export async function setupDiscordForEvent(eventId: string) {
           ...(categoryId ? { parent: categoryId } : {}),
         });
         createdIds.push(vc.id);
+      }
+
+      if (event.briefingChannel) {
+        const briefing = await guild.channels.create({
+          name: '📋 Briefing',
+          type: ChannelType.GuildVoice,
+          ...(categoryId ? { parent: categoryId } : {}),
+          permissionOverwrites: [
+            { id: guild.id, deny: [PermissionFlagsBits.UseVAD] },
+          ],
+        });
+        createdIds.push(briefing.id);
       }
 
       vcIds = createdIds;
@@ -337,6 +350,7 @@ export async function spawnNextRecurrence(eventId: string) {
       recurType: event.recurType,
       roles: event.roles,
       vcNames: event.vcNames,
+      briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
       createdById: event.createdById,
       status: 'PENDING',
