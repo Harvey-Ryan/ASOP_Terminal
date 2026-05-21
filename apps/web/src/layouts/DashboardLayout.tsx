@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { LogOut, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,8 +7,84 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { applyShade, loadShade } from '@/lib/shade';
+import { loadDisplayName, saveDisplayName } from '@/lib/displayName';
 import { canManageGuild } from '@dem/shared';
-import type { ManagedGuild } from '@dem/shared';
+import type { ManagedGuild, DiscordUser } from '@dem/shared';
+
+const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
+
+export type DashboardOutletContext = { displayName: string };
+
+// ── Profile dropdown ──────────────────────────────────────────────────────────
+
+function ProfileDropdown({
+  user,
+  onSave,
+  onClose,
+}: {
+  user: DiscordUser;
+  onSave: (name: string) => void;
+  onClose: () => void;
+}) {
+  const discordName = user.globalName ?? user.username;
+  const [savedName] = useState(() => loadDisplayName(user.id));
+  const [input, setInput] = useState(savedName);
+
+  function save() {
+    onSave(input.trim());
+    onClose();
+  }
+
+  function reset() {
+    onSave('');
+    onClose();
+  }
+
+  return (
+    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-border bg-card p-4 shadow-xl">
+      {/* Discord identity (read-only) */}
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarImage src={user.avatarUrl} alt={discordName} />
+          <AvatarFallback className="text-sm">{discordName[0]?.toUpperCase() ?? '?'}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{discordName}</p>
+          <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+        </div>
+      </div>
+
+      {/* Display name editor */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Display Name</p>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') onClose();
+          }}
+          placeholder={discordName}
+          autoFocus
+          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
+        />
+        <p className="text-xs text-muted-foreground">Overrides your Discord name in this app.</p>
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={save} className="flex-1">
+            Save
+          </Button>
+          {savedName && (
+            <Button size="sm" variant="ghost" onClick={reset}>
+              Reset
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Guild icon ────────────────────────────────────────────────────────────────
 
 function GuildIcon({ guild }: { guild: ManagedGuild }) {
   if (guild.iconUrl) {
@@ -20,6 +96,8 @@ function GuildIcon({ guild }: { guild: ManagedGuild }) {
     </div>
   );
 }
+
+// ── Layout ────────────────────────────────────────────────────────────────────
 
 export function DashboardLayout() {
   const { user, guilds, logout } = useAuth();
@@ -34,13 +112,37 @@ export function DashboardLayout() {
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
 
-  // Re-apply stored shade preference whenever the user loads
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [localDisplayName, setLocalDisplayName] = useState('');
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Load shade + display name once auth resolves
   useEffect(() => {
     if (!user?.id) return;
     applyShade(loadShade(user.id));
+    setLocalDisplayName(loadDisplayName(user.id));
   }, [user?.id]);
 
-  const displayName = user?.globalName ?? user?.username ?? '…';
+  // Click-outside to close profile dropdown
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handler(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileOpen]);
+
+  function handleSaveDisplayName(name: string) {
+    if (!user?.id) return;
+    saveDisplayName(user.id, name);
+    setLocalDisplayName(name);
+  }
+
+  const discordName = user?.globalName ?? user?.username ?? '…';
+  const displayName = localDisplayName || discordName;
   const initials = displayName[0]?.toUpperCase() ?? '?';
 
   const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -65,15 +167,39 @@ export function DashboardLayout() {
         </div>
 
         {/* User widget */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {user ? (
-            <>
-              <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user.avatarUrl} alt={displayName} />
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-              </Avatar>
-            </>
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((o) => !o)}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent',
+                  profileOpen && 'bg-accent',
+                )}
+                aria-haspopup="true"
+                aria-expanded={profileOpen}
+              >
+                <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user.avatarUrl} alt={displayName} />
+                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                <ChevronDown
+                  className={cn(
+                    'hidden h-3 w-3 shrink-0 text-muted-foreground transition-transform sm:block',
+                    profileOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              {profileOpen && (
+                <ProfileDropdown
+                  user={user}
+                  onSave={handleSaveDisplayName}
+                  onClose={() => setProfileOpen(false)}
+                />
+              )}
+            </div>
           ) : (
             <Skeleton className="h-8 w-32 rounded-full" />
           )}
@@ -214,7 +340,7 @@ export function DashboardLayout() {
 
         {/* ── Main area ── */}
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <Outlet context={{ displayName } satisfies DashboardOutletContext} />
         </main>
       </div>
     </div>

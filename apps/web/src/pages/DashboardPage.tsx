@@ -1,13 +1,15 @@
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { Bot, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { DashboardOutletContext } from '@/layouts/DashboardLayout';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
 
 export function DashboardPage() {
   const { user, guilds, isLoading } = useAuth();
+  const { displayName } = useOutletContext<DashboardOutletContext>();
 
   return (
     <div className="space-y-6">
@@ -17,7 +19,7 @@ export function DashboardPage() {
           {isLoading ? (
             <Skeleton className="h-8 w-48" />
           ) : (
-            <>Welcome, {user?.globalName ?? user?.username}</>
+            <>Welcome, {displayName}</>
           )}
         </h1>
         <p className="mt-1 text-muted-foreground">
