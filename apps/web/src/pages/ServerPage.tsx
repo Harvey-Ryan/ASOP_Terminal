@@ -699,22 +699,22 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
 
       {/* Event */}
       <div className="flex-1 px-4 py-3 min-w-0">
-        <p className="font-semibold break-words text-[21px] leading-tight">{event.name}</p>
+        <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
         {event.recurType && (
-          <p className="text-[15px] opacity-60 break-words">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
+          <p className="text-[15px] opacity-60 line-clamp-2">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
         )}
       </div>
 
-      {/* Location + Status + Role + Actions — 1/3 of total width */}
-      <div className="w-1/3 shrink-0 flex items-start">
+      {/* Location + Status + Role + Actions — 5/12 of total width (25% wider than 1/3) */}
+      <div className="w-5/12 shrink-0 flex items-start">
         <div className="flex-[2] px-4 py-3 hidden lg:block">
-          <span className="text-[21px] break-words">{location}</span>
+          <span className="text-[21px] line-clamp-2">{location}</span>
         </div>
         <div className="flex-1 px-4 py-3 hidden sm:flex items-center justify-center">
           <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
         </div>
         <div className="flex-1 px-4 py-3 hidden md:block">
-          <span className="text-[21px] break-words">{userRsvp?.role ?? '—'}</span>
+          <span className="text-[21px] line-clamp-2">{userRsvp?.role ?? '—'}</span>
         </div>
         <div className="flex-1 px-4 py-3 flex justify-end">
           <span className="rounded p-1.5 bg-primary text-primary-foreground group-hover:bg-background group-hover:text-primary transition-colors">
