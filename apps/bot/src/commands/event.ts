@@ -62,8 +62,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
 async function handleCreate(interaction: ChatInputCommandInteraction) {
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const url = `${webUrl}/dashboard/servers/${interaction.guildId}/events/new`;
   await interaction.reply({
-    content: `📋 Create your event on the web dashboard:\n${webUrl}/dashboard/servers/${interaction.guildId}/events/new`,
+    content: `📋 [Click Here To Login](${url})`,
     ephemeral: true,
   });
 }
