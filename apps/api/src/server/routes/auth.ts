@@ -26,7 +26,9 @@ authRouter.get('/login', (req, res) => {
       res.status(500).json({ success: false, error: 'Session save failed' } satisfies ApiResponse);
       return;
     }
-    res.redirect(buildOAuthUrl(state));
+    const oauthUrl = buildOAuthUrl(state);
+    console.log('[auth/login] redirecting to:', oauthUrl);
+    res.redirect(oauthUrl);
   });
 });
 
