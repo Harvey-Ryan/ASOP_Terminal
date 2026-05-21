@@ -5,7 +5,6 @@ import { buildOAuthUrl, exchangeCode, fetchDiscordUser, fetchDiscordGuilds } fro
 import { getValidAccessToken } from '../../lib/token-helpers.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import {
-  canManageGuild,
   getGuildIconUrl,
   resolveAvatarUrl,
 } from '@dem/shared';
@@ -144,7 +143,7 @@ authRouter.get('/me', requireAuth, async (req, res) => {
         ]);
         const botGuildIds = new Set(botGuildRows.map((g) => g.guildId));
         guilds = raw
-          .filter((g) => canManageGuild(g) && botGuildIds.has(g.id))
+          .filter((g) => botGuildIds.has(g.id))
           .map((g) => ({
             id: g.id,
             name: g.name,
