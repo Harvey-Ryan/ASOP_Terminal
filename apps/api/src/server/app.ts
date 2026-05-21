@@ -144,10 +144,11 @@ export function createServer(): express.Express {
   // Set CORP to cross-origin so browsers on a different port can load images.
   // Helmet's default (same-origin) blocks <img> from localhost:5173 → :3001.
 
+  const uploadsDir = process.env['UPLOADS_DIR'] ?? path.resolve('uploads');
   app.use('/uploads', (_req, res, next) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
-  }, express.static(path.resolve('uploads')));
+  }, express.static(uploadsDir));
 
   // ── Routes ─────────────────────────────────────────────────────────────────
 

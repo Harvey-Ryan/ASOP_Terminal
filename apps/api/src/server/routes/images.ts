@@ -4,12 +4,12 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
-import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import type { ApiResponse, ServerImageDto } from '@dem/shared';
 
 export const imagesRouter = Router();
 
-const UPLOADS_BASE = path.resolve('uploads');
+const UPLOADS_BASE = process.env['UPLOADS_DIR'] ?? path.resolve('uploads');
 
 function guildUploadDir(guildId: string): string {
   return path.join(UPLOADS_BASE, guildId);
@@ -43,7 +43,7 @@ function uploadsFor(guildId: string) {
 imagesRouter.get('/:guildId/images', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertEventCreator(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
@@ -73,7 +73,7 @@ imagesRouter.get('/:guildId/images', requireAuth, async (req, res) => {
 imagesRouter.post('/:guildId/images', requireAuth, (req, res, next) => {
   const { guildId } = req.params as { guildId: string };
 
-  assertGuildManager(req, guildId).then((ok) => {
+  assertEventCreator(req, guildId).then((ok) => {
     if (!ok) {
       res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
       return;

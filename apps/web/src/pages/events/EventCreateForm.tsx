@@ -176,6 +176,7 @@ export function EventCreateForm({
   const uploadMutation = useMutation({
     mutationFn: (file: File) => imagesApi.upload(guildId, file),
     onSuccess: (img) => setSelectedImageUrl(img.url),
+    onError: (err: Error) => setFormError(`Image upload failed: ${err.message}`),
   });
 
   const { mutate, isPending } = useMutation({
