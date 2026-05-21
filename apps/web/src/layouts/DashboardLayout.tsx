@@ -342,7 +342,7 @@ export function DashboardLayout() {
           <img
             src="/MadeByTheCommunity_White.png"
             alt="Made by the Community"
-            className="w-1/2 object-contain"
+            className="w-1/2 object-contain mx-auto"
           />
           <p className="text-[15px] leading-tight text-muted-foreground">
             Star Citizen®, Roberts Space Industries® and Cloud Imperium ® are registered trademarks of Cloud Imperium Rights LLC
