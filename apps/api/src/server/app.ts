@@ -145,10 +145,18 @@ export function createServer(): express.Express {
   // Helmet's default (same-origin) blocks <img> from localhost:5173 → :3001.
 
   const uploadsDir = process.env['UPLOADS_DIR'] ?? path.resolve('uploads');
-  app.use('/uploads', (_req, res, next) => {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    next();
-  }, express.static(uploadsDir));
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(uploadsDir),
+    // If the file wasn't found, return a proper 404 image response instead of
+    // falling through to the SPA catch-all (which would serve index.html as
+    // the image body, producing a silent broken-image with status 200).
+    (_req, res) => res.status(404).end(),
+  );
 
   // ── Routes ─────────────────────────────────────────────────────────────────
 
