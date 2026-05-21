@@ -21,11 +21,28 @@ client.once(Events.ClientReady, async (c) => {
 async function registerCommands(clientId: string) {
   const token = process.env['DISCORD_TOKEN'];
   if (!token) return;
+  const rest = new REST().setToken(token);
+  const body = [eventCommand.data.toJSON()];
+
+  // Register to every guild the bot is currently in — instant availability
+  const guildIds = [...client.guilds.cache.keys()];
+  let guildSuccesses = 0;
+  for (const guildId of guildIds) {
+    try {
+      await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body });
+      guildSuccesses++;
+    } catch (err) {
+      console.error(`[bot] Failed to register commands for guild ${guildId}:`, err);
+    }
+  }
+  if (guildSuccesses > 0) {
+    console.log(`[bot] Slash commands registered instantly to ${guildSuccesses} guild(s)`);
+  }
+
+  // Also register globally as a fallback for future guilds (propagates within ~1 hour)
   try {
-    const rest = new REST().setToken(token);
-    const body = [eventCommand.data.toJSON()];
     await rest.put(Routes.applicationCommands(clientId), { body });
-    console.log(`[bot] Global slash commands registered (${body.length} command(s))`);
+    console.log(`[bot] Global slash commands registered`);
   } catch (err) {
     console.error('[bot] Failed to register global commands:', err);
   }
