@@ -299,3 +299,39 @@ settingsRouter.post('/:guildId/settings/register-commands', requireAuth, async (
   triggerBot('/trigger/register-commands');
   res.json({ success: true, data: null } satisfies ApiResponse);
 });
+
+// ── GET /api/guilds/:guildId/settings/bot-config ──────────────────────────────
+
+settingsRouter.get('/:guildId/settings/bot-config', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!await assertGuildManager(req, guildId)) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const config = await prisma.botConfig.findUnique({ where: { id: 1 } });
+  res.json({
+    success: true,
+    data: { globalCommandsEnabled: config?.globalCommandsEnabled ?? true },
+  } satisfies ApiResponse);
+});
+
+// ── PATCH /api/guilds/:guildId/settings/bot-config ────────────────────────────
+
+settingsRouter.patch('/:guildId/settings/bot-config', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!await assertGuildManager(req, guildId)) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const body = req.body as Record<string, unknown>;
+  if (typeof body.globalCommandsEnabled !== 'boolean') {
+    res.status(400).json({ success: false, error: 'globalCommandsEnabled must be a boolean' } satisfies ApiResponse);
+    return;
+  }
+  const config = await prisma.botConfig.upsert({
+    where: { id: 1 },
+    create: { id: 1, globalCommandsEnabled: body.globalCommandsEnabled },
+    update: { globalCommandsEnabled: body.globalCommandsEnabled },
+  });
+  res.json({ success: true, data: { globalCommandsEnabled: config.globalCommandsEnabled } } satisfies ApiResponse);
+});

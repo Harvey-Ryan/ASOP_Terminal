@@ -294,6 +294,14 @@ model DkpTransaction {
   @@index([guildId, userId])
 }
 
+// ── Bot Config ────────────────────────────────────────────────────────────────
+
+/// Singleton application-level bot configuration (always id = 1).
+model BotConfig {
+  id                    Int     @id @default(1)
+  globalCommandsEnabled Boolean @default(true)
+}
+
 // ── Repeat Templates ──────────────────────────────────────────────────────────
 
 /// Canonical event blueprint created (or updated) each time a user clicks "Repeat"

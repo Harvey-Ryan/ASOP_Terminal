@@ -45,6 +45,20 @@ export function BotSettingsPage() {
     mutationFn: () => settingsApi.registerCommands(guildId!),
   });
 
+  const { data: botConfig } = useQuery({
+    queryKey: ['bot-config', guildId],
+    queryFn: () => settingsApi.getBotConfig(guildId!),
+    enabled: !!guildId,
+  });
+
+  const botConfigMutation = useMutation({
+    mutationFn: (data: { globalCommandsEnabled: boolean }) =>
+      settingsApi.updateBotConfig(guildId!, data),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['bot-config', guildId], data);
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: () =>
       settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles }),
@@ -266,6 +280,37 @@ export function BotSettingsPage() {
                 Re-register slash commands to all servers. Use this after adding new commands.
               </p>
             </div>
+
+            {/* Global commands toggle */}
+            <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Global Slash Commands</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  When on, commands appear in all Discord servers. When off, only servers with the bot installed.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={botConfig?.globalCommandsEnabled ?? true}
+                disabled={botConfigMutation.isPending}
+                onClick={() =>
+                  botConfigMutation.mutate({
+                    globalCommandsEnabled: !(botConfig?.globalCommandsEnabled ?? true),
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 ${
+                  (botConfig?.globalCommandsEnabled ?? true) ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform ${
+                    (botConfig?.globalCommandsEnabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"

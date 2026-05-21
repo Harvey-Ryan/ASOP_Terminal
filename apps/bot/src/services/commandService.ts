@@ -1,5 +1,6 @@
 import { REST, Routes } from 'discord.js';
 import { client } from '../client.js';
+import { prisma } from '../db.js';
 import * as eventCommand from '../commands/event.js';
 import * as loginCommand from '../commands/login.js';
 
@@ -31,10 +32,22 @@ export async function registerCommands(clientId?: string): Promise<void> {
     console.log(`[bot] Slash commands registered instantly to ${guildSuccesses} guild(s)`);
   }
 
-  try {
-    await rest.put(Routes.applicationCommands(resolvedClientId), { body });
-    console.log(`[bot] Global slash commands registered`);
-  } catch (err) {
-    console.error('[bot] Failed to register global commands:', err);
+  const config = await prisma.botConfig.findUnique({ where: { id: 1 } });
+  const globalEnabled = config?.globalCommandsEnabled ?? true;
+
+  if (globalEnabled) {
+    try {
+      await rest.put(Routes.applicationCommands(resolvedClientId), { body });
+      console.log(`[bot] Global slash commands registered`);
+    } catch (err) {
+      console.error('[bot] Failed to register global commands:', err);
+    }
+  } else {
+    try {
+      await rest.put(Routes.applicationCommands(resolvedClientId), { body: [] });
+      console.log(`[bot] Global slash commands cleared (disabled)`);
+    } catch (err) {
+      console.error('[bot] Failed to clear global commands:', err);
+    }
   }
 }

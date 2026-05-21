@@ -871,12 +871,6 @@ export function ServerPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{guild?.name ?? 'Server'}</h1>
-        <p className="mt-1 text-muted-foreground">Manage events for this server.</p>
-      </div>
-
       {/* Responsive two-column layout: events left, loot right */}
       <div className={`grid grid-cols-1 gap-6 items-start${isManager ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
