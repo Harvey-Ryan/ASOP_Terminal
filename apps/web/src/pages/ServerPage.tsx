@@ -684,7 +684,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left flex items-start bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
+      className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
     >
       {/* Date */}
       <div className="w-20 shrink-0 flex flex-col items-center px-4 py-3 text-center">
@@ -706,7 +706,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
       </div>
 
       {/* Location + Status + Role + Actions — 5/12 of total width (25% wider than 1/3) */}
-      <div className="w-5/12 shrink-0 flex items-start">
+      <div className="w-5/12 shrink-0 flex items-center">
         <div className="flex-[2] px-4 py-3 hidden lg:block">
           <span className="text-[21px] line-clamp-2">{location}</span>
         </div>
