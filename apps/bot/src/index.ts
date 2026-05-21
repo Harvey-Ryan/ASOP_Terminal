@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Events, GuildMember, ChannelType } from 'discord.js';
+import { Events, GuildMember, ChannelType, REST, Routes } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
@@ -12,10 +12,24 @@ const commands = new Map([['event', eventCommand]]);
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
+  await registerCommands(c.user.id);
   await syncAllGuilds();
   await startScheduler();
   startInternalServer();
 });
+
+async function registerCommands(clientId: string) {
+  const token = process.env['DISCORD_TOKEN'];
+  if (!token) return;
+  try {
+    const rest = new REST().setToken(token);
+    const body = [eventCommand.data.toJSON()];
+    await rest.put(Routes.applicationCommands(clientId), { body });
+    console.log(`[bot] Global slash commands registered (${body.length} command(s))`);
+  } catch (err) {
+    console.error('[bot] Failed to register global commands:', err);
+  }
+}
 
 // ── Guild presence sync ───────────────────────────────────────────────────────
 
@@ -36,10 +50,12 @@ async function upsertGuild(guildId: string, name: string, icon: string | null) {
 }
 
 client.on(Events.GuildCreate, async (guild) => {
-  await upsertGuild(guild.id, guild.name, guild.icon).catch((err) =>
-    console.error('[bot] GuildCreate sync failed:', err),
-  );
-  console.log(`[bot] Joined guild: ${guild.name} (${guild.id})`);
+  try {
+    await upsertGuild(guild.id, guild.name, guild.icon);
+    console.log(`[bot] Joined new guild: ${guild.name} (${guild.id}) — DB record created, ready to operate`);
+  } catch (err) {
+    console.error(`[bot] GuildCreate sync failed for ${guild.name} (${guild.id}):`, err);
+  }
 });
 
 client.on(Events.GuildDelete, async (guild) => {
