@@ -6,7 +6,7 @@ import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
 import type { CreateEventBody, EventDto, EventRole, RepeatTemplateDto } from '@dem/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 const inputCls =
   'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';

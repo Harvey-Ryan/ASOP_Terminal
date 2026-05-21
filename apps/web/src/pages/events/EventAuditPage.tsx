@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { resolveUsername } from '@/lib/displayName';
 import type { EventDto, RsvpDto } from '@dem/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 // ── Inline toggle ─────────────────────────────────────────────────────────────
 

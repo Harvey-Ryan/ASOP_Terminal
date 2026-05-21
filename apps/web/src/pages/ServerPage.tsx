@@ -15,7 +15,7 @@ import type { EventDto, EventRole, CreateEventBody } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import type { RecentLootEvent } from '@/api/loot';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 const RECUR_LABELS: Record<string, string> = {
   DAILY: 'Daily',
