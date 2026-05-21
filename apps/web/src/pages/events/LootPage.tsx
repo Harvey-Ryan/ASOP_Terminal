@@ -42,6 +42,7 @@ function ItemRow({
   onDelete,
   guildId,
   eventId,
+  currentUserId,
 }: {
   item: LootItemDto;
   session: LootSessionDto;
