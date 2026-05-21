@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
+import { useAuth } from '@/hooks/useAuth';
+import { resolveUsername } from '@/lib/displayName';
 import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
@@ -51,6 +53,7 @@ function ItemRow({
   onDelete: () => void;
   guildId: string;
   eventId: string;
+  currentUserId?: string;
 }) {
   const [rollResult, setRollResult] = useState<{ rolls: { userId: string; username: string; rollValue: number }[]; winner: { userId: string; username: string; rollValue: number } } | null>(null);
   const [showRolls, setShowRolls] = useState(false);
@@ -89,7 +92,7 @@ function ItemRow({
     ? getNextPicker(allAssignmentCount, session.draftOrder)
     : null;
   const nextPickerName = nextPicker
-    ? (eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? nextPicker)
+    ? resolveUsername(nextPicker, eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? nextPicker, currentUserId)
     : null;
   const isMyTurn = session.method === 'SNAKE_DRAFT' && !isAssigned && nextPicker !== null;
 
@@ -98,7 +101,7 @@ function ItemRow({
     if (bidEntries.length === 0) return;
     const sorted = bidEntries.sort(([, a], [, b]) => Number(b) - Number(a));
     const [winnerId, winnerBid] = sorted[0]!;
-    const winnerUsername = eligiblePlayers.find((p) => p.userId === winnerId)?.username ?? winnerId;
+    const winnerUsername = resolveUsername(winnerId, eligiblePlayers.find((p) => p.userId === winnerId)?.username ?? winnerId, currentUserId);
     assignMutation.mutate({ userId: winnerId, username: winnerUsername, dkpSpent: Number(winnerBid) });
     setBidsOpen(false);
   }
@@ -111,7 +114,7 @@ function ItemRow({
           {isAssigned ? (
             <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              {winner.username}
+              {resolveUsername(winner.userId, winner.username, currentUserId)}
               {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
               {winner.dkpSpent != null && <span className="text-muted-foreground"> ({winner.dkpSpent} DKP)</span>}
               {winner.pickNumber != null && <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>}
@@ -154,7 +157,7 @@ function ItemRow({
           </div>
           {rollResult.rolls.map((r) => (
             <div key={r.userId} className={`flex items-center justify-between text-sm px-2 py-1 rounded ${r.userId === rollResult.winner.userId ? 'bg-primary/10 font-medium' : ''}`}>
-              <span>{r.username} {r.userId === rollResult.winner.userId && '🏆'}</span>
+              <span>{resolveUsername(r.userId, r.username, currentUserId)} {r.userId === rollResult.winner.userId && '🏆'}</span>
               <span className="font-mono">{r.rollValue}</span>
             </div>
           ))}
@@ -173,7 +176,7 @@ function ItemRow({
                 const bal = dkpBalances.find((b) => b.userId === p.userId);
                 return (
                   <div key={p.userId} className="flex items-center gap-2">
-                    <span className="text-sm w-32 truncate">{p.username}</span>
+                    <span className="text-sm w-32 truncate">{resolveUsername(p.userId, p.username, currentUserId)}</span>
                     <span className="text-xs text-muted-foreground w-20">{bal ? `${bal.balance} DKP` : '—'}</span>
                     <input
                       type="number"
@@ -276,6 +279,7 @@ export function LootPage() {
   const { guildId, eventId } = useParams<{ guildId: string; eventId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
@@ -340,7 +344,7 @@ export function LootPage() {
   const allAssignmentCount = session?.items.reduce((n, item) => n + item.assignments.length, 0) ?? 0;
   const nextPickerId = session ? getNextPicker(allAssignmentCount, session.draftOrder) : null;
   const nextPickerName = nextPickerId
-    ? (eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? nextPickerId)
+    ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? nextPickerId, user?.id)
     : null;
 
   const isLoading = sessionQuery.isLoading || eventQuery.isLoading;
@@ -436,7 +440,7 @@ export function LootPage() {
                 )}
                 <div className="flex flex-wrap gap-2">
                   {session.draftOrder.map((userId, i) => {
-                    const name = eligiblePlayers.find((p) => p.userId === userId)?.username ?? userId;
+                    const name = resolveUsername(userId, eligiblePlayers.find((p) => p.userId === userId)?.username ?? userId, user?.id);
                     const isCurrent = userId === nextPickerId;
                     return (
                       <span
@@ -479,6 +483,7 @@ export function LootPage() {
                 onDelete={invalidate}
                 guildId={guildId!}
                 eventId={eventId!}
+                currentUserId={user?.id}
               />
             ))}
 

@@ -11,6 +11,7 @@ import type {
 } from '@dem/shared';
 
 export interface RecentLootWinner {
+  userId: string;
   username: string;
   rollValue: number | null;
   dkpSpent: number | null;

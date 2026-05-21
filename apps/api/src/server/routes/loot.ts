@@ -498,6 +498,7 @@ lootRouter.get('/:guildId/loot/recent', requireAuth, async (req, res) => {
           id: item.id,
           name: item.name,
           winner: {
+            userId: item.assignments[0]!.userId,
             username: item.assignments[0]!.username,
             rollValue: item.assignments[0]!.rollValue,
             dkpSpent: item.assignments[0]!.dkpSpent,

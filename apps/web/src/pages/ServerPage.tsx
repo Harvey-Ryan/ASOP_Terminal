@@ -12,6 +12,7 @@ import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
 import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole, CreateEventBody } from '@dem/shared';
+import { resolveUsername } from '@/lib/displayName';
 import type { RecentLootEvent } from '@/api/loot';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -54,6 +55,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   onCancel: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const roleInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const vcInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -347,7 +349,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
                       }}
                       onDragEnd={() => { setDraggingUserId(null); setDragOverBucket(null); }}
                       className={`px-3 py-1 text-base rounded bg-primary-foreground text-primary cursor-grab active:cursor-grabbing select-none transition-opacity ${draggingUserId === member.userId ? 'opacity-40' : ''}`}>
-                      {member.username}
+                      {resolveUsername(member.userId, member.username, currentUser?.id)}
                     </div>
                   ))}
                   {bucket.members.length === 0 && (
@@ -500,7 +502,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   </p>
                   <p className="text-lg mt-0.5">
                     {members.length > 0
-                      ? members.map((r) => r.username).join(', ')
+                      ? members.map((r) => resolveUsername(r.userId, r.username, userId)).join(', ')
                       : <span className="opacity-50 italic">None</span>}
                   </p>
                   {canRsvp && userId && (
@@ -533,7 +535,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         <div className="flex-1">
           <p className="text-sm">
             {unassigned.length > 0
-              ? unassigned.map((r) => r.username).join(', ')
+              ? unassigned.map((r) => resolveUsername(r.userId, r.username, userId)).join(', ')
               : <span className="opacity-50 italic">None</span>}
           </p>
           {canRsvp && userId && (
@@ -595,7 +597,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                       <div className="mt-0.5 space-y-0.5">
                         {item.assignments.map((a) => (
                           <p key={a.id} className="text-lg">
-                            {a.username}
+                            {resolveUsername(a.userId, a.username, userId)}
                             {a.rollValue != null && <span className="opacity-60 ml-1.5">🎲 {a.rollValue}</span>}
                             {a.dkpSpent != null && a.dkpSpent > 0 && <span className="opacity-60 ml-1.5">{a.dkpSpent} DKP</span>}
                             {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>}
@@ -735,6 +737,7 @@ function timeAgo(iso: string): string {
 }
 
 function RecentLootCard({ guildId }: { guildId: string }) {
+  const { user } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ['loot', 'recent', guildId],
     queryFn: () => lootApi.getRecent(guildId),
@@ -771,7 +774,7 @@ function RecentLootCard({ guildId }: { guildId: string }) {
             <li key={item.id} className="py-2.5 first:pt-0 last:pb-0">
               <p className="text-sm font-medium">{item.name}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {item.winner.username}
+                {resolveUsername(item.winner.userId, item.winner.username, user?.id)}
                 {item.winner.rollValue != null && (
                   <span className="ml-1.5 text-primary">🎲 {item.winner.rollValue}</span>
                 )}

@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
 import { lootApi } from '@/api/loot';
+import { useAuth } from '@/hooks/useAuth';
+import { resolveUsername } from '@/lib/displayName';
 import type { EventDto, RsvpDto } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -37,15 +39,18 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function AttendeeRow({
   rsvp,
+  currentUserId,
   checked,
   wasInVc,
   onChange,
 }: {
   rsvp: RsvpDto;
+  currentUserId?: string;
   checked: boolean;
   wasInVc: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const name = resolveUsername(rsvp.userId, rsvp.username, currentUserId);
   return (
     <div
       className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
@@ -55,7 +60,7 @@ function AttendeeRow({
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex flex-col min-w-0">
           <span className={`text-sm font-medium truncate ${checked ? '' : 'line-through text-muted-foreground'}`}>
-            {rsvp.username}
+            {name}
           </span>
           {rsvp.role && (
             <span className="text-xs text-muted-foreground truncate">{rsvp.role}</span>
@@ -77,6 +82,7 @@ function AttendeeRow({
 export function EventAuditPage() {
   const { guildId, eventId } = useParams<{ guildId: string; eventId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [attendanceInitialized, setAttendanceInitialized] = useState(false);
@@ -224,6 +230,7 @@ export function EventAuditPage() {
                 <AttendeeRow
                   key={rsvp.userId}
                   rsvp={rsvp}
+                  currentUserId={user?.id}
                   checked={attendance[rsvp.userId] ?? false}
                   wasInVc={event.vcAttendees.includes(rsvp.userId)}
                   onChange={(v) => setAttendance((prev) => ({ ...prev, [rsvp.userId]: v }))}
