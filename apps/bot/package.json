@@ -16,6 +16,7 @@
     "clean": "rimraf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@dem/shared": "*",
     "@prisma/client": "^5.22.0",
     "discord.js": "^14.16.0",
     "dotenv": "^16.4.7",
