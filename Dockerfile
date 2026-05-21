@@ -14,6 +14,11 @@ COPY packages/ packages/
 COPY apps/api/ apps/api/
 COPY apps/web/ apps/web/
 COPY apps/bot/ apps/bot/
+
+# Vite bakes VITE_* vars into the bundle at build time — must be passed as build args
+ARG VITE_DISCORD_CLIENT_ID
+ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
+
 RUN npx turbo run build --filter=@dem/api... --filter=@dem/web... --filter=@dem/bot...
 
 ENV NODE_ENV=production
