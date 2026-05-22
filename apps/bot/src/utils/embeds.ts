@@ -154,14 +154,20 @@ export function buildPostEventEmbed(
   return embed;
 }
 
-export function buildRoleButtons(eventId: string, roles: EventRole[]): ActionRowBuilder<ButtonBuilder>[] {
+export function buildRoleButtons(
+  eventId: string,
+  roles: EventRole[],
+  rsvps: { role: string | null }[] = [],
+): ActionRowBuilder<ButtonBuilder>[] {
   const allButtons: ButtonBuilder[] = [
-    ...roles.map((role) =>
-      new ButtonBuilder()
-        .setCustomId(`role:${eventId}:${role.name}`)
-        .setLabel(role.name)
-        .setStyle(ButtonStyle.Primary),
-    ),
+    ...roles
+      .filter((role) => rsvps.filter((r) => r.role === role.name).length < role.count)
+      .map((role) =>
+        new ButtonBuilder()
+          .setCustomId(`role:${eventId}:${role.name}`)
+          .setLabel(role.name)
+          .setStyle(ButtonStyle.Primary),
+      ),
     new ButtonBuilder()
       .setCustomId(`role:${eventId}:__unassigned__`)
       .setLabel('Unassigned')

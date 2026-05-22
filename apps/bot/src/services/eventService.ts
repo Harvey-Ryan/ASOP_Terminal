@@ -34,7 +34,7 @@ export async function setupDiscordForEvent(eventId: string) {
         if (ch?.type === ChannelType.GuildForum) {
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
-          const components = buildRoleButtons(event.id, roles);
+          const components = buildRoleButtons(event.id, roles, event.rsvps);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
             message: {
@@ -200,7 +200,7 @@ export async function syncDiscordEvent(eventId: string) {
         const roles = JSON.parse(event.roles) as EventRole[];
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
         const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
-        const components = buildRoleButtons(event.id, roles);
+        const components = buildRoleButtons(event.id, roles, event.rsvps);
         const files = imageAttachment ? [imageAttachment.builder] : [];
 
         const rosterMsg = event.rosterMessageId
