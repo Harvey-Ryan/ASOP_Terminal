@@ -476,7 +476,30 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
   });
 
   triggerBot(`/trigger/complete/${eventId}`);
-  if (session.method === 'SNAKE_DRAFT') triggerBot(`/trigger/snake-turn/${eventId}`);
+
+  if (session.method === 'SNAKE_DRAFT' && session.status === 'OPEN') {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    const prevCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
+    const wasAssigned = session.items.some((i) => i.id === itemId && i.assignments.length > 0);
+    const newCount = prevCount + (wasAssigned ? 0 : 1);
+    const allAssigned = session.items.every((i) => i.id === itemId ? true : i.assignments.length > 0);
+    const fullRotationDone = draftOrder.length > 0 && newCount >= draftOrder.length * 2;
+
+    if (allAssigned || fullRotationDone) {
+      const ev = await prisma.event.findFirst({ where: { id: eventId, guildId }, include: { rsvps: true } });
+      if (ev && session.dkpAward > 0) {
+        const confirmedIds: string[] = ev.confirmedAttendees ? JSON.parse(ev.confirmedAttendees) : [];
+        const usernameMap = new Map(ev.rsvps.map((r) => [r.userId, r.username]));
+        for (const uid of confirmedIds) {
+          await applyDkp(guildId, uid, usernameMap.get(uid) ?? uid, session.dkpAward, `Attendance: ${ev.name}`);
+        }
+      }
+      await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
+      triggerBot(`/trigger/loot/${session.id}`);
+    } else {
+      triggerBot(`/trigger/snake-turn/${eventId}`);
+    }
+  }
 
   res.json({ success: true } satisfies ApiResponse);
 });
