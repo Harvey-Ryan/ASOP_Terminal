@@ -1009,13 +1009,13 @@ export function ServerPage() {
               )}
 
               {active.isLoading ? (
-                <div>
+                <div className="flex-1 bg-primary">
                   {[1, 2, 3].map((i) => (
                     <Skeleton key={i} className="h-14 rounded-none border-b border-border last:border-b-0" />
                   ))}
                 </div>
               ) : !active.data || active.data.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center bg-primary">
+                <div className="flex-1 flex flex-col items-center justify-center text-center bg-primary">
                   <CalendarDays className="h-7 w-7 text-primary-foreground mb-2" />
                   <p className="text-sm text-primary-foreground">
                     {tab === 'upcoming' ? 'No upcoming events.' : 'No completed events yet.'}
@@ -1028,7 +1028,7 @@ export function ServerPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+                <div className="flex-1 overflow-y-auto bg-primary [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
                   {active.data.map((e) => (
                     <EventCard key={e.id} event={e} userId={user?.id} onClick={() => openDetail(e)} />
                   ))}
