@@ -1,8 +1,10 @@
 import { Link, useOutletContext } from 'react-router-dom';
-import { Bot, ExternalLink } from 'lucide-react';
+import { Bot, ExternalLink, Swords } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { lootApi } from '@/api/loot';
 import type { DashboardOutletContext } from '@/layouts/DashboardLayout';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -10,6 +12,15 @@ const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta
 export function DashboardPage() {
   const { user, guilds, isLoading } = useAuth();
   const { displayName } = useOutletContext<DashboardOutletContext>();
+
+  const myPicksQuery = useQuery({
+    queryKey: ['loot', 'my-picks'],
+    queryFn: () => lootApi.getMyPicks(),
+    enabled: !!user,
+    refetchInterval: 30_000,
+  });
+
+  const myPicks = myPicksQuery.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -26,6 +37,37 @@ export function DashboardPage() {
           Select a server below to manage its events and templates.
         </p>
       </div>
+
+      {/* Snake draft pick notifications */}
+      {myPicks.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Your Turn</h2>
+          {myPicks.map((pick) => (
+            <div
+              key={`${pick.guildId}-${pick.eventId}`}
+              className="flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 gap-4"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Swords className="h-5 w-5 text-amber-500 shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-medium text-amber-600 dark:text-amber-400 truncate">
+                    It's your turn to pick in {pick.guildName}
+                  </p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {pick.eventName}
+                    {pick.itemCount > 0 && ` · ${pick.itemCount} item${pick.itemCount !== 1 ? 's' : ''} remaining`}
+                  </p>
+                </div>
+              </div>
+              <Button asChild size="sm" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-0">
+                <Link to={`/dashboard/servers/${pick.guildId}/events/${pick.eventId}/loot`}>
+                  View Loot
+                </Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Server grid */}
       {isLoading ? (

@@ -12,6 +12,7 @@ import type {
   LootItemDto,
   DkpBalanceDto,
   LootMethod,
+  MyPickDto,
 } from '@dem/shared';
 
 export const lootRouter = Router();
@@ -64,6 +65,20 @@ async function fetchSession(eventId: string): Promise<SessionWithItems | null> {
   });
 }
 
+function snakePick(position: number, order: string[]): string | null {
+  if (order.length === 0) return null;
+  const n = order.length;
+  const round = Math.floor(position / n);
+  const pos = position % n;
+  return round % 2 === 0 ? order[pos]! : order[n - 1 - pos]!;
+}
+
+function currentSnakePicker(session: SessionWithItems): string | null {
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  const allCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
+  return snakePick(allCount + session.skipCount, draftOrder);
+}
+
 // ── DKP helpers ───────────────────────────────────────────────────────────────
 
 async function applyDkp(guildId: string, userId: string, username: string, amount: number, reason: string) {
@@ -81,13 +96,65 @@ async function applyDkp(guildId: string, userId: string, username: string, amoun
   });
 }
 
+// ── GET my active snake draft picks (cross-guild) ────────────────────────────
+
+lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+
+  const sessions = await prisma.lootSession.findMany({
+    where: { method: 'SNAKE_DRAFT', status: 'OPEN' },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  const picks: MyPickDto[] = [];
+  for (const session of sessions) {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    if (!draftOrder.includes(dbUser.discordId)) continue;
+
+    const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
+    if (session.items.length > 0 && totalUnassigned === 0) continue;
+
+    if (currentSnakePicker(session) !== dbUser.discordId) continue;
+
+    const [event, guild] = await Promise.all([
+      prisma.event.findUnique({ where: { id: session.eventId }, select: { name: true } }),
+      prisma.guild.findUnique({ where: { guildId: session.guildId }, select: { name: true } }),
+    ]);
+
+    picks.push({
+      guildId: session.guildId,
+      guildName: guild?.name ?? session.guildId,
+      eventId: session.eventId,
+      eventName: event?.name ?? 'Unknown',
+      itemCount: totalUnassigned,
+    });
+  }
+
+  res.json({ success: true, data: picks } satisfies ApiResponse<MyPickDto[]>);
+});
+
 // ── GET session ───────────────────────────────────────────────────────────────
 
 lootRouter.get('/:guildId/events/:eventId/loot', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
-  if (!(await assertEventViewer(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+
+  const isViewer = await assertEventViewer(req, guildId);
+  if (!isViewer) {
+    // Allow the current snake draft picker to view their session
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (dbUser) {
+      const session = await fetchSession(eventId).catch(() => null);
+      if (session && session.method === 'SNAKE_DRAFT' && session.status === 'OPEN' &&
+          currentSnakePicker(session) === dbUser.discordId) {
+        res.json({ success: true, data: sessionToDto(session) } satisfies ApiResponse<LootSessionDto | null>);
+        return;
+      }
+    }
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
+
   const session = await fetchSession(eventId).catch(() => null);
   res.json({ success: true, data: session ? sessionToDto(session) : null } satisfies ApiResponse<LootSessionDto | null>);
 });
@@ -361,10 +428,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
   const body = req.body as Record<string, unknown>;
 
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
-
   let userId: string;
   let username: string;
   let dkpSpent: number | undefined;
@@ -381,8 +444,22 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
     throw err;
   }
 
-  const session = await prisma.lootSession.findUnique({ where: { eventId } });
+  const isManager = await assertGuildManager(req, guildId);
+
+  // Fetch session with items once — needed for both auth check and assignment
+  const session = await fetchSession(eventId);
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
+
+  if (!isManager) {
+    // Current snake draft picker may assign to themselves only
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    const isSelf = dbUser && userId === dbUser.discordId;
+    const isPickerTurn = session.method === 'SNAKE_DRAFT' && session.status === 'OPEN' &&
+      dbUser && currentSnakePicker(session) === dbUser.discordId;
+    if (!isSelf || !isPickerTurn) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
 
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
   await prisma.lootAssignment.create({
@@ -400,14 +477,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
 });
 
 // ── POST skip turn (snake draft) ──────────────────────────────────────────────
-
-function snakePick(position: number, order: string[]): string | null {
-  if (order.length === 0) return null;
-  const n = order.length;
-  const round = Math.floor(position / n);
-  const pos = position % n;
-  return round % 2 === 0 ? order[pos]! : order[n - 1 - pos]!;
-}
 
 lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };

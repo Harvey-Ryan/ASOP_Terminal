@@ -44,6 +44,7 @@ function ItemRow({
   guildId,
   eventId,
   currentUserId,
+  isManager,
 }: {
   item: LootItemDto;
   session: LootSessionDto;
@@ -57,6 +58,7 @@ function ItemRow({
   guildId: string;
   eventId: string;
   currentUserId?: string;
+  isManager: boolean;
 }) {
   const [rollResult, setRollResult] = useState<{ rolls: { userId: string; username: string; rollValue: number }[]; winner: { userId: string; username: string; rollValue: number } } | null>(null);
   const [showRolls, setShowRolls] = useState(false);
@@ -126,16 +128,18 @@ function ItemRow({
             <p className="text-sm text-muted-foreground mt-0.5">Unassigned</p>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {isAssigned && (
-            <Button size="sm" variant="ghost" onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending} title="Clear assignment">
-              <RotateCcw className="h-3.5 w-3.5" />
+        {isManager && (
+          <div className="flex items-center gap-1 shrink-0">
+            {isAssigned && (
+              <Button size="sm" variant="ghost" onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending} title="Clear assignment">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} title="Delete item">
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
             </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} title="Delete item">
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Random Roll controls */}
@@ -201,10 +205,12 @@ function ItemRow({
         </div>
       )}
 
-      {/* Snake draft pick */}
-      {session.method === 'SNAKE_DRAFT' && isMyTurn && (
+      {/* Snake draft pick — managers see picker name; pickers see "Pick This" for themselves */}
+      {session.method === 'SNAKE_DRAFT' && isMyTurn && (isManager || nextPicker === currentUserId) && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Pick for <span className="font-medium text-foreground">{nextPickerName}</span>:</span>
+          {isManager && (
+            <span className="text-sm text-muted-foreground">Pick for <span className="font-medium text-foreground">{nextPickerName}</span>:</span>
+          )}
           <Button
             size="sm"
             onClick={() =>
@@ -216,7 +222,7 @@ function ItemRow({
             }
             disabled={assignMutation.isPending}
           >
-            Award
+            {isManager ? 'Award' : 'Pick This Item'}
           </Button>
         </div>
       )}
@@ -282,7 +288,7 @@ export function LootPage() {
   const { guildId, eventId } = useParams<{ guildId: string; eventId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, guilds } = useAuth();
 
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
@@ -361,6 +367,9 @@ export function LootPage() {
     ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? nextPickerId, user?.id)
     : null;
 
+  const isManager = guilds.some((g) => g.id === guildId);
+  const isCurrentPicker = session?.method === 'SNAKE_DRAFT' && session.status === 'OPEN' && nextPickerId === user?.id;
+
   const isLoading = sessionQuery.isLoading || eventQuery.isLoading;
 
   if (isLoading) {
@@ -395,8 +404,8 @@ export function LootPage() {
       {/* Active session */}
       {session && (
         <>
-          {/* Method + DKP award row */}
-          <Card>
+          {/* Method + DKP award row — managers only */}
+          {isManager && <Card>
             <CardContent className="pt-4 space-y-4">
               <div className="flex items-start gap-4 flex-wrap">
                 <div className="space-y-1.5 flex-1 min-w-[200px]">
@@ -430,7 +439,7 @@ export function LootPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Snake draft order */}
           {session.method === 'SNAKE_DRAFT' && (
@@ -438,7 +447,7 @@ export function LootPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
-                  {session.status === 'OPEN' && (
+                  {isManager && session.status === 'OPEN' && (
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
                         <Shuffle className="h-3 w-3" />
@@ -459,11 +468,11 @@ export function LootPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {nextPickerName && session.status === 'OPEN' && (
+                {nextPickerName && session.status === 'OPEN' && (isManager || isCurrentPicker) && (
                   <div className="mb-3 space-y-2">
                     <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-primary">Now picking: {nextPickerName}</span>
-                      {!skipConfirm ? (
+                      {isManager && (!skipConfirm ? (
                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0" onClick={() => setSkipConfirm(true)}>
                           <SkipForward className="h-3 w-3" />
                           Skip Turn
@@ -478,7 +487,7 @@ export function LootPage() {
                             Cancel
                           </Button>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 )}
@@ -529,11 +538,12 @@ export function LootPage() {
                 guildId={guildId!}
                 eventId={eventId!}
                 currentUserId={user?.id}
+                isManager={isManager}
               />
             ))}
 
-            {/* Add item */}
-            {session.status === 'OPEN' && (
+            {/* Add item — managers only */}
+            {isManager && session.status === 'OPEN' && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -560,8 +570,8 @@ export function LootPage() {
             )}
           </div>
 
-          {/* Complete */}
-          {session.status === 'OPEN' && (
+          {/* Complete — managers only */}
+          {isManager && session.status === 'OPEN' && (
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <div className="space-y-1">
                 {session.dkpAward > 0 && (

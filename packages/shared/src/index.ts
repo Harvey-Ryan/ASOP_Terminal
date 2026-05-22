@@ -296,6 +296,18 @@ export interface RepeatTemplateDto {
   useCount: number;
 }
 
+// ── Snake draft my-pick ───────────────────────────────────────────────────────
+
+/** Returned by GET /api/guilds/loot/my-picks for the current user's active snake draft turns */
+export interface MyPickDto {
+  guildId: string;
+  guildName: string;
+  eventId: string;
+  eventName: string;
+  /** Number of unassigned items remaining in the session */
+  itemCount: number;
+}
+
 // ── Event templates ───────────────────────────────────────────────────────────
 
 /**

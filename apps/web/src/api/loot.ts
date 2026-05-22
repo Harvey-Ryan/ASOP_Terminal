@@ -8,6 +8,7 @@ import type {
   AddLootItemBody,
   AssignLootItemBody,
   LootMethod,
+  MyPickDto,
 } from '@dem/shared';
 
 export interface RecentLootWinner {
@@ -77,4 +78,7 @@ export const lootApi = {
 
   getRecent: (guildId: string) =>
     api.get<ApiResponse<RecentLootEvent | null>>(`/guilds/${guildId}/loot/recent`).then((r) => r.data ?? null),
+
+  getMyPicks: () =>
+    api.get<ApiResponse<MyPickDto[]>>('/guilds/loot/my-picks').then((r) => r.data ?? []),
 };
