@@ -34,4 +34,4 @@ WORKDIR /app/apps/api
 ENV NODE_ENV=production
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx tsx scripts/migrate-auctions.ts && node dist/index.js"]
