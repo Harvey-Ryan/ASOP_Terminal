@@ -5,7 +5,7 @@ import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
-import { ValidationError, optStr, optStrArr } from '../../lib/validate.js';
+import { ValidationError, optStr, optStrArr, requireStr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const settingsRouter = Router();
@@ -130,15 +130,16 @@ interface PermissionFields {
   viewerRoles: string[];
 }
 
-async function readPermissionFields(settingsId: string): Promise<PermissionFields> {
+async function readPermissionFields(settingsId: string): Promise<PermissionFields & { dkpLabel: string }> {
   const settings = await prisma.guildSettings.findUnique({
     where: { id: settingsId },
-    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true },
+    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true, dkpLabel: true },
   });
   return {
     eventCreatorRoles: JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[],
     moduleEditorRoles: JSON.parse(settings?.moduleEditorRoles ?? '[]') as string[],
     viewerRoles:       JSON.parse(settings?.viewerRoles       ?? '[]') as string[],
+    dkpLabel:          settings?.dkpLabel ?? 'DKP',
   };
 }
 
@@ -185,9 +186,9 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles } = s
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel } = s
       ? await readPermissionFields(s.id)
-      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [] };
+      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [], dkpLabel: 'DKP' };
     res.json({
       success: true,
       data: {
@@ -196,6 +197,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
+        dkpLabel,
       },
     } satisfies ApiResponse);
   } catch (err) {
@@ -217,6 +219,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     eventCreatorRoles?: string[];
     moduleEditorRoles?: string[];
     viewerRoles?: string[];
+    dkpLabel?: string;
   };
   try {
     body = {
@@ -225,6 +228,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       eventCreatorRoles: raw.eventCreatorRoles !== undefined ? optStrArr(raw.eventCreatorRoles, 'eventCreatorRoles', 100, 30) : undefined,
       moduleEditorRoles: raw.moduleEditorRoles !== undefined ? optStrArr(raw.moduleEditorRoles, 'moduleEditorRoles', 100, 30) : undefined,
       viewerRoles:       raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
+      dkpLabel:          raw.dkpLabel !== undefined ? requireStr(raw.dkpLabel, 'dkpLabel', 30) : undefined,
     };
   } catch (err) {
     if (err instanceof ValidationError) {
@@ -234,8 +238,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     throw err;
   }
 
-  // moduleEditorRoles and viewerRoles are admin-only fields — require full guild manager
-  const needsAdmin = body.moduleEditorRoles !== undefined || body.viewerRoles !== undefined;
+  // moduleEditorRoles, viewerRoles, and dkpLabel are admin-only fields — require full guild manager
+  const needsAdmin = body.moduleEditorRoles !== undefined || body.viewerRoles !== undefined || body.dkpLabel !== undefined;
   const allowed = needsAdmin
     ? await assertGuildManager(req, guildId)
     : await assertModuleEditor(req, guildId);
@@ -260,6 +264,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.eventCreatorRoles !== undefined ? { eventCreatorRoles: JSON.stringify(body.eventCreatorRoles) } : {}),
         ...(body.moduleEditorRoles !== undefined ? { moduleEditorRoles: JSON.stringify(body.moduleEditorRoles) } : {}),
         ...(body.viewerRoles !== undefined ? { viewerRoles: JSON.stringify(body.viewerRoles) } : {}),
+        ...(body.dkpLabel !== undefined ? { dkpLabel: body.dkpLabel } : {}),
       },
       create: {
         guildId: guild.id,
@@ -268,10 +273,11 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         eventCreatorRoles: JSON.stringify(body.eventCreatorRoles ?? []),
         moduleEditorRoles: JSON.stringify(body.moduleEditorRoles ?? []),
         viewerRoles: JSON.stringify(body.viewerRoles ?? []),
+        dkpLabel: body.dkpLabel ?? 'DKP',
       },
     });
 
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles } = await readPermissionFields(s.id);
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel } = await readPermissionFields(s.id);
     res.json({
       success: true,
       data: {
@@ -280,6 +286,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
+        dkpLabel,
       },
     } satisfies ApiResponse);
   } catch (err) {
@@ -298,6 +305,15 @@ settingsRouter.post('/:guildId/settings/register-commands', requireAuth, async (
   }
   triggerBot('/trigger/register-commands');
   res.json({ success: true, data: null } satisfies ApiResponse);
+});
+
+// ── GET /api/guilds/:guildId/settings/label (any authenticated user) ──────────
+
+settingsRouter.get('/:guildId/settings/label', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
+  const dkpLabel = guild?.settings?.dkpLabel ?? 'DKP';
+  res.json({ success: true, data: { dkpLabel } } satisfies ApiResponse<{ dkpLabel: string }>);
 });
 
 // ── GET /api/guilds/:guildId/settings/bot-config ──────────────────────────────

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Coins, Plus, Minus, Search } from 'lucide-react';
 import { lootApi } from '@/api/loot';
+import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { canManageGuild } from '@dem/shared';
 import type { DkpBalanceDto, DkpTransactionDto } from '@dem/shared';
 import { useAuth } from '@/hooks/useAuth';
@@ -94,6 +95,7 @@ export function DkpPage() {
 
   const guild = guilds.find((g) => g.id === guildId);
   const isManager = !!guild && canManageGuild(guild);
+  const dkpLabel = useDkpLabel(guildId);
 
   const [tab, setTab] = useState<'leaderboard' | 'transactions'>('leaderboard');
   const [txSearch, setTxSearch] = useState('');
@@ -169,7 +171,7 @@ export function DkpPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Coins className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">DKP</h1>
+        <h1 className="text-2xl font-bold">{dkpLabel}</h1>
       </div>
 
       {/* Member view */}
@@ -319,7 +321,7 @@ export function DkpPage() {
                     : <Minus className="h-3.5 w-3.5 mr-1.5" />}
                   {adjustMutation.isPending
                     ? 'Saving…'
-                    : adjustMode === 'grant' ? 'Grant DKP' : 'Deduct DKP'}
+                    : adjustMode === 'grant' ? `Grant ${dkpLabel}` : `Deduct ${dkpLabel}`}
                 </Button>
               </div>
             </div>

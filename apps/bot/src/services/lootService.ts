@@ -1,6 +1,7 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
+import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 
 const LOOT_PICKER_ROLE = 'Loot Picker';
 
@@ -86,7 +87,6 @@ export async function notifySnakeTurn(eventId: string) {
 
 const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
-  DKP: '🪙 DKP',
   SNAKE_DRAFT: '🐍 Snake Draft',
 };
 
@@ -100,6 +100,8 @@ export async function announceLootResults(sessionId: string) {
   const event = await prisma.event.findUnique({ where: { id: session.eventId } });
   if (!event?.threadId) return;
 
+  const dkpLabel = await getGuildDkpLabel(session.guildId);
+
   const assignedItems = session.items.filter((i) => i.assignments.length > 0);
   if (assignedItems.length === 0) return;
 
@@ -108,16 +110,20 @@ export async function announceLootResults(sessionId: string) {
     const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
     let suffix = '';
     if (a.rollValue != null) suffix = ` *(rolled ${a.rollValue})*`;
-    else if (a.dkpSpent != null) suffix = ` *(${a.dkpSpent} DKP)*`;
+    else if (a.dkpSpent != null) suffix = ` *(${a.dkpSpent} ${dkpLabel})*`;
     else if (a.pickNumber != null) suffix = ` *(pick #${a.pickNumber + 1})*`;
     return `**${item.name}${qty}** → <@${a.userId}>${suffix}`;
   });
+
+  const methodLabel = session.method === 'DKP'
+    ? `🪙 ${dkpLabel}`
+    : METHOD_LABELS[session.method] ?? session.method;
 
   const embed = new EmbedBuilder()
     .setTitle(`🎁 Loot — ${event.name}`)
     .setColor(0xf59e0b)
     .setDescription(lines.join('\n'))
-    .setFooter({ text: `Method: ${METHOD_LABELS[session.method] ?? session.method}` })
+    .setFooter({ text: `Method: ${methodLabel}` })
     .setTimestamp();
 
   if (session.dkpAward > 0) {
@@ -125,8 +131,8 @@ export async function announceLootResults(sessionId: string) {
       ? JSON.parse(event.confirmedAttendees)
       : [];
     embed.addFields({
-      name: '🪙 DKP Awarded',
-      value: `+${session.dkpAward} DKP to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
+      name: `🪙 ${dkpLabel} Awarded`,
+      value: `+${session.dkpAward} ${dkpLabel} to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
       inline: false,
     });
   }

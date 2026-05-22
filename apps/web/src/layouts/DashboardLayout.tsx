@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { applyShade, loadShade } from '@/lib/shade';
 import { loadDisplayName, saveDisplayName } from '@/lib/displayName';
 import { canManageGuild } from '@dem/shared';
+import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -108,6 +109,7 @@ export function DashboardLayout() {
   const activeGuildId = serverMatch?.params.guildId;
   const activeGuild = guilds.find((g) => g.id === activeGuildId);
   const showAdminNav = !!activeGuild && canManageGuild(activeGuild);
+  const dkpLabel = useDkpLabel(activeGuildId);
 
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
@@ -263,7 +265,7 @@ export function DashboardLayout() {
                 className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 <Gavel className="h-4 w-4 shrink-0" />
-                DKP Auctions
+                {dkpLabel} Auctions
               </NavLink>
 
               <NavLink
@@ -271,7 +273,7 @@ export function DashboardLayout() {
                 className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 <Coins className="h-4 w-4 shrink-0" />
-                DKP
+                {dkpLabel}
               </NavLink>
             </>
           ) : (

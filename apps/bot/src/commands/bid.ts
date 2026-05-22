@@ -2,6 +2,7 @@ import { SlashCommandBuilder, GuildMember } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from '../services/auctionService.js';
+import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 
 export const data = new SlashCommandBuilder()
   .setName('bid')
@@ -55,6 +56,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     interaction.member instanceof GuildMember
       ? interaction.member.displayName
       : interaction.user.username;
+  const dkpLabel = await getGuildDkpLabel(guildId);
 
   // Find the most recently started OPEN auction from EITHER table
   const [lootAuction, standaloneAuction] = await Promise.all([
@@ -115,12 +117,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const existing = standaloneAuction.bids.find((b) => b.userId === userId);
     if (existing && amount <= existing.maxBid) {
       await interaction.editReply(
-        `❌ Max bid must exceed your current max of **${existing.maxBid} DKP**. Bid higher to raise it.`,
+        `❌ Max bid must exceed your current max of **${existing.maxBid} ${dkpLabel}**. Bid higher to raise it.`,
       );
       return;
     }
 
-    // Raw DKP balance check against maxBid (worst-case spend) — no committed subtraction for standalone
+    // Raw balance check against maxBid (worst-case spend) — no committed subtraction for standalone
     const bal = await prisma.dkpBalance.findUnique({
       where: { guildId_userId: { guildId, userId } },
     });
@@ -128,7 +130,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     if (amount > rawBalance) {
       await interaction.editReply(
-        `❌ Insufficient DKP. You set a max bid of **${amount}** but only have **${rawBalance}** available.`,
+        `❌ Insufficient ${dkpLabel}. You set a max bid of **${amount}** but only have **${rawBalance}** available.`,
       );
       return;
     }
@@ -153,7 +155,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     const closesTs = Math.floor(standaloneAuction.closesAt.getTime() / 1000);
     await interaction.editReply(
-      `✅ Max bid set to **${amount} DKP** for **${standaloneAuction.title}**.\nAuction closes <t:${closesTs}:R>.`,
+      `✅ Max bid set to **${amount} ${dkpLabel}** for **${standaloneAuction.title}**.\nAuction closes <t:${closesTs}:R>.`,
     );
     return;
   }
@@ -189,12 +191,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const existing = auction.bids.find((b) => b.userId === userId);
   if (existing && amount <= existing.maxBid) {
     await interaction.editReply(
-      `❌ Max bid must exceed your current max of **${existing.maxBid} DKP**. Bid higher to raise it.`,
+      `❌ Max bid must exceed your current max of **${existing.maxBid} ${dkpLabel}**. Bid higher to raise it.`,
     );
     return;
   }
 
-  // Effective balance = raw balance − DKP committed to items already won in this session
+  // Effective balance = raw balance − currency committed to items already won in this session
   // Balance check is against maxBid (worst-case spend)
   const bal = await prisma.dkpBalance.findUnique({
     where: { guildId_userId: { guildId, userId } },
@@ -208,7 +210,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (amount > effective) {
     await interaction.editReply(
-      `❌ Insufficient DKP. You set a max bid of **${amount}** but only have **${effective}** available (balance: ${bal?.balance ?? 0}, committed: ${committed}).`,
+      `❌ Insufficient ${dkpLabel}. You set a max bid of **${amount}** but only have **${effective}** available (balance: ${bal?.balance ?? 0}, committed: ${committed}).`,
     );
     return;
   }
@@ -235,6 +237,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const closesTs = Math.floor(auction.closesAt.getTime() / 1000);
   await interaction.editReply(
-    `✅ Max bid set to **${amount} DKP** for **${auction.item.name}**.\nAuction closes <t:${closesTs}:R>.`,
+    `✅ Max bid set to **${amount} ${dkpLabel}** for **${auction.item.name}**.\nAuction closes <t:${closesTs}:R>.`,
   );
 }

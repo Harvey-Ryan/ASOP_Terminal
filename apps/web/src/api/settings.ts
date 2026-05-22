@@ -19,6 +19,7 @@ export interface GuildSettingsData {
   eventCreatorRoles: string[];
   moduleEditorRoles: string[];
   viewerRoles: string[];
+  dkpLabel: string;
 }
 
 export interface GuildMyPermissions {
@@ -46,6 +47,9 @@ export const settingsApi = {
 
   getMyPermissions: (guildId: string) =>
     api.get<ApiResponse<GuildMyPermissions>>(`/guilds/${guildId}/my-permissions`).then(requireData),
+
+  getLabel: (guildId: string) =>
+    api.get<ApiResponse<{ dkpLabel: string }>>(`/guilds/${guildId}/settings/label`).then(requireData),
 
   registerCommands: (guildId: string) =>
     api.post<ApiResponse<null>>(`/guilds/${guildId}/settings/register-commands`, {}).then(requireData),

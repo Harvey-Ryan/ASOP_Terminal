@@ -1,6 +1,7 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
+import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 
 // ── Embed builder ─────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ type AuctionForEmbed = {
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-function buildEmbed(auction: AuctionForEmbed, lootUrl: string): EmbedBuilder {
+function buildEmbed(auction: AuctionForEmbed, lootUrl: string, dkpLabel: string): EmbedBuilder {
   const isOpen = auction.status === 'OPEN';
   const closesTs = Math.floor(auction.closesAt.getTime() / 1000);
   const sorted = [...auction.bids].sort((a, b) => b.amount - a.amount);
@@ -31,7 +32,7 @@ function buildEmbed(auction: AuctionForEmbed, lootUrl: string): EmbedBuilder {
 
   if (isOpen) {
     const bidLines = sorted.length > 0
-      ? sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} DKP`).join('\n')
+      ? sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
       : '*No bids yet — be the first!*';
 
     return new EmbedBuilder()
@@ -47,11 +48,11 @@ function buildEmbed(auction: AuctionForEmbed, lootUrl: string): EmbedBuilder {
 
   // CLOSED
   const winnerLine = auction.winnerId
-    ? `🏆 <@${auction.winnerId}> with **${auction.winningBid} DKP**`
+    ? `🏆 <@${auction.winnerId}> with **${auction.winningBid} ${dkpLabel}**`
     : '*No bids received — item unawarded*';
 
   const finalStandings = sorted.length > 0
-    ? '\n\n**Final standings:**\n' + sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} DKP`).join('\n')
+    ? '\n\n**Final standings:**\n' + sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
     : '';
 
   return new EmbedBuilder()
@@ -84,7 +85,8 @@ export async function postOrUpdateAuctionMessage(auctionId: string): Promise<voi
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
   const lootUrl = `${webUrl}/dashboard/servers/${auction.guildId}/events/${auction.item.session.eventId}/loot`;
-  const embed = buildEmbed(auction, lootUrl);
+  const dkpLabel = await getGuildDkpLabel(auction.guildId);
+  const embed = buildEmbed(auction, lootUrl, dkpLabel);
 
   if (auction.discordMessageId) {
     try {
@@ -111,7 +113,7 @@ export async function postOrUpdateAuctionMessage(auctionId: string): Promise<voi
         new ButtonBuilder().setLabel('View Loot Session').setStyle(ButtonStyle.Link).setURL(lootUrl),
       );
       await winner.send({
-        content: `🏆 You won **${auction.item.name}** in the DKP auction for **${auction.winningBid} DKP**!`,
+        content: `🏆 You won **${auction.item.name}** in the ${dkpLabel} auction for **${auction.winningBid} ${dkpLabel}**!`,
         components: [row],
       });
     } catch {
@@ -134,7 +136,7 @@ type StandaloneAuctionForEmbed = {
   bids: { userId: string; username: string; amount: number }[];
 };
 
-function buildStandaloneEmbed(auction: StandaloneAuctionForEmbed, auctionUrl: string): EmbedBuilder {
+function buildStandaloneEmbed(auction: StandaloneAuctionForEmbed, auctionUrl: string, dkpLabel: string): EmbedBuilder {
   const isOpen = auction.status === 'OPEN';
   const closesTs = Math.floor(auction.closesAt.getTime() / 1000);
   const sorted = [...auction.bids].sort((a, b) => b.amount - a.amount);
@@ -149,7 +151,7 @@ function buildStandaloneEmbed(auction: StandaloneAuctionForEmbed, auctionUrl: st
   if (isOpen) {
     const bidLines =
       sorted.length > 0
-        ? sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} DKP`).join('\n')
+        ? sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
         : '*No bids yet — be the first!*';
 
     return new EmbedBuilder()
@@ -165,13 +167,13 @@ function buildStandaloneEmbed(auction: StandaloneAuctionForEmbed, auctionUrl: st
 
   // CLOSED
   const winnerLine = auction.winnerId
-    ? `🏆 <@${auction.winnerId}> with **${auction.winningBid} DKP**`
+    ? `🏆 <@${auction.winnerId}> with **${auction.winningBid} ${dkpLabel}**`
     : '*No bids received — item unawarded*';
 
   const finalStandings =
     sorted.length > 0
       ? '\n\n**Final standings:**\n' +
-        sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} DKP`).join('\n')
+        sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
       : '';
 
   return new EmbedBuilder()
@@ -222,6 +224,7 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
 
   const guildSettings = await prisma.guildSettings.findFirst({
     where: { guild: { guildId: auction.guildId } },
+    select: { lootChannelId: true, dkpLabel: true },
   });
   if (!guildSettings?.lootChannelId) return;
 
@@ -230,7 +233,8 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
   const auctionUrl = `${webUrl}/dashboard/servers/${auction.guildId}/auctions`;
-  const embed = buildStandaloneEmbed(auction, auctionUrl);
+  const dkpLabel = guildSettings.dkpLabel ?? 'DKP';
+  const embed = buildStandaloneEmbed(auction, auctionUrl, dkpLabel);
 
   if (auction.discordMessageId) {
     try {
@@ -260,7 +264,7 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
         new ButtonBuilder().setLabel('View Auctions').setStyle(ButtonStyle.Link).setURL(auctionUrl),
       );
       await winner.send({
-        content: `🏆 You won **${auction.title}** in the DKP auction for **${auction.winningBid} DKP**!`,
+        content: `🏆 You won **${auction.title}** in the ${dkpLabel} auction for **${auction.winningBid} ${dkpLabel}**!`,
         components: [row],
       });
     } catch {

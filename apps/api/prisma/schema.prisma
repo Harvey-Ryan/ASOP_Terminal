@@ -102,6 +102,8 @@ model GuildSettings {
   moduleEditorRoles String @default("[]")
   /// JSON: string[] — Discord role snowflake IDs allowed to view events and loot on the dashboard
   viewerRoles       String @default("[]")
+  /// Custom label for the DKP currency shown throughout the UI and bot messages (e.g. "Credits", "Points")
+  dkpLabel          String @default("DKP")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

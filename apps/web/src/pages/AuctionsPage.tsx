@@ -19,6 +19,7 @@ import { auctionsApi } from '@/api/auctions';
 import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
 import { useAuth } from '@/hooks/useAuth';
+import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { resolveUsername } from '@/lib/displayName';
 import type { AuctionDto } from '@dem/shared';
 
@@ -48,6 +49,7 @@ function AuctionCard({
   currentUserId,
   myRawBalance,
   isManager,
+  dkpLabel,
   onChanged,
 }: {
   auction: AuctionDto;
@@ -55,6 +57,7 @@ function AuctionCard({
   currentUserId?: string;
   myRawBalance: number;
   isManager: boolean;
+  dkpLabel: string;
   onChanged: () => void;
 }) {
   const [bidInput, setBidInput] = useState('');
@@ -137,7 +140,7 @@ function AuctionCard({
                     <span className="text-xs text-muted-foreground">(you)</span>
                   )}
                 </span>
-                <span className="font-mono tabular-nums">{b.amount} DKP</span>
+                <span className="font-mono tabular-nums">{b.amount} {dkpLabel}</span>
               </div>
             ))
           )}
@@ -173,11 +176,11 @@ function AuctionCard({
           </div>
           {myBid && (
             <p className="text-xs text-muted-foreground">
-              Your max: <span className="font-medium">{myBid.maxBid} DKP</span>
+              Your max: <span className="font-medium">{myBid.maxBid} {dkpLabel}</span>
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            Your available DKP:{' '}
+            Your available {dkpLabel}:{' '}
             <span className={myRawBalance <= 0 ? 'text-destructive' : ''}>{myRawBalance}</span>
           </p>
           {overBid && (
@@ -188,7 +191,7 @@ function AuctionCard({
           {belowCurrent && (
             <p className="text-xs text-destructive flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" /> Must exceed your current max of{' '}
-              {myBid!.maxBid} DKP
+              {myBid!.maxBid} {dkpLabel}
             </p>
           )}
           {bidMutation.isError && (
@@ -238,6 +241,7 @@ export function AuctionsPage() {
   const { user, guilds } = useAuth();
 
   const isManager = guilds.some((g) => g.id === guildId);
+  const dkpLabel = useDkpLabel(guildId);
 
   // Create form state
   const [title, setTitle] = useState('');
@@ -319,10 +323,10 @@ export function AuctionsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <Gavel className="h-6 w-6" />
-          DKP Auctions
+          {dkpLabel} Auctions
         </h1>
         <p className="text-muted-foreground mt-0.5">
-          Standalone DKP auctions — open to all guild members.
+          Standalone {dkpLabel} auctions — open to all guild members.
         </p>
       </div>
 
@@ -460,6 +464,7 @@ export function AuctionsPage() {
               currentUserId={user?.id}
               myRawBalance={myRawBalance}
               isManager={isManager}
+              dkpLabel={dkpLabel}
               onChanged={invalidate}
             />
           ))}
@@ -504,7 +509,7 @@ export function AuctionsPage() {
                             auction.winnerUsername ?? auction.winnerId,
                             user?.id,
                           )}{' '}
-                          for {auction.winningBid} DKP
+                          for {auction.winningBid} {dkpLabel}
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground mt-0.5 italic">

@@ -15,6 +15,7 @@ import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
+import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { RecentLootEvent } from '@/api/loot';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
@@ -387,6 +388,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const dkpLabel = useDkpLabel(guildId);
 
   const eventQuery = useQuery({
     queryKey: ['events', guildId, event.id],
@@ -620,7 +622,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           {lootSession && (
             <div className={rowCls}>
               <span className={labelCls}>Loot System</span>
-              <p className="flex-1 text-lg font-medium">{METHOD_LABELS[lootSession.method] ?? lootSession.method}</p>
+              <p className="flex-1 text-lg font-medium">{lootSession.method === 'DKP' ? `${dkpLabel} Bid` : METHOD_LABELS[lootSession.method] ?? lootSession.method}</p>
             </div>
           )}
 
@@ -639,7 +641,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                           <p key={a.id} className="text-lg">
                             {resolveUsername(a.userId, a.username, userId)}
                             {a.rollValue != null && <span className="opacity-60 ml-1.5">🎲 {a.rollValue}</span>}
-                            {a.dkpSpent != null && a.dkpSpent > 0 && <span className="opacity-60 ml-1.5">{a.dkpSpent} DKP</span>}
+                            {a.dkpSpent != null && a.dkpSpent > 0 && <span className="opacity-60 ml-1.5">{a.dkpSpent} {dkpLabel}</span>}
                             {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>}
                           </p>
                         ))}
@@ -803,6 +805,7 @@ function timeAgo(iso: string): string {
 
 function RecentLootCard({ guildId }: { guildId: string }) {
   const { user } = useAuth();
+  const dkpLabel = useDkpLabel(guildId);
   const { data, isLoading } = useQuery({
     queryKey: ['loot', 'recent', guildId],
     queryFn: () => lootApi.getRecent(guildId),
@@ -845,7 +848,7 @@ function RecentLootCard({ guildId }: { guildId: string }) {
                     <span className="ml-1.5 text-primary">🎲 {item.winner.rollValue}</span>
                   )}
                   {item.winner.dkpSpent != null && item.winner.dkpSpent > 0 && (
-                    <span className="ml-1.5 text-amber-500">{item.winner.dkpSpent} DKP</span>
+                    <span className="ml-1.5 text-amber-500">{item.winner.dkpSpent} {dkpLabel}</span>
                   )}
                 </p>
               </li>
