@@ -12,6 +12,61 @@ import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../util
 import { nextOccurrence } from '../utils/time.js';
 import type { EventRole } from '@dem/shared';
 
+// ── Create VCs for an event (idempotent — skips if already created) ──────────
+
+export async function createVcsForEvent(eventId: string): Promise<void> {
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) return;
+
+  const vcNames = JSON.parse(event.vcNames) as string[];
+  const existingIds: string[] = JSON.parse(event.vcIds);
+  if (existingIds.length > 0) return;
+  if (vcNames.length === 0 && !event.briefingChannel) return;
+
+  try {
+    const guild = await client.guilds.fetch(event.guildId);
+    const categoryId = await resolveVcCategoryId(event.guildId);
+    const createdIds: string[] = [];
+
+    for (const vcName of vcNames) {
+      const vc = await guild.channels.create({
+        name: `🎙️ ${vcName}`,
+        type: ChannelType.GuildVoice,
+        ...(categoryId ? { parent: categoryId } : {}),
+      });
+      createdIds.push(vc.id);
+    }
+
+    if (event.briefingChannel) {
+      const briefing = await guild.channels.create({
+        name: '📋 Briefing',
+        type: ChannelType.GuildVoice,
+        ...(categoryId ? { parent: categoryId } : {}),
+        permissionOverwrites: [{ id: guild.id, deny: [PermissionFlagsBits.UseVAD] }],
+      });
+      createdIds.push(briefing.id);
+    }
+
+    await prisma.event.update({
+      where: { id: event.id },
+      data: { vcIds: JSON.stringify(createdIds), lastVcActivityAt: new Date() },
+    });
+
+    if (event.threadId && createdIds.length > 0) {
+      const thread = await client.channels.fetch(event.threadId).catch(() => null);
+      if (thread?.isThread()) {
+        const mentions = createdIds.map((id) => `<#${id}>`).join(', ');
+        const ts = Math.floor(event.startTime.getTime() / 1000);
+        await thread.send(
+          `🎙️ Voice channels ready for **${event.name}**! Join: ${mentions} — event starts <t:${ts}:R>`,
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`[bot] Failed to create VCs for event ${eventId}:`, err);
+  }
+}
+
 // ── Setup Discord entities for a pending web-created event ────────────────────
 
 export async function setupDiscordForEvent(eventId: string) {
@@ -86,67 +141,15 @@ export async function setupDiscordForEvent(eventId: string) {
     }
   }
 
-  // ── Immediate VC creation (start < 30 min away) ──────────────────────────
-
-  const vcNames = JSON.parse(event.vcNames) as string[];
-  let vcIds: string[] = JSON.parse(event.vcIds);
-  let lastVcActivityAt: Date | undefined;
-
-  if ((vcNames.length > 0 || event.briefingChannel) && vcIds.length === 0 && event.startTime.getTime() - Date.now() < 30 * 60_000) {
-    try {
-      const categoryId = await resolveVcCategoryId(event.guildId);
-      const createdIds: string[] = [];
-
-      for (const vcName of vcNames) {
-        const vc = await guild.channels.create({
-          name: `🎙️ ${vcName}`,
-          type: ChannelType.GuildVoice,
-          ...(categoryId ? { parent: categoryId } : {}),
-        });
-        createdIds.push(vc.id);
-      }
-
-      if (event.briefingChannel) {
-        const briefing = await guild.channels.create({
-          name: '📋 Briefing',
-          type: ChannelType.GuildVoice,
-          ...(categoryId ? { parent: categoryId } : {}),
-          permissionOverwrites: [
-            { id: guild.id, deny: [PermissionFlagsBits.UseVAD] },
-          ],
-        });
-        createdIds.push(briefing.id);
-      }
-
-      vcIds = createdIds;
-      lastVcActivityAt = new Date();
-
-      if (threadId && createdIds.length > 0) {
-        const thread = await client.channels.fetch(threadId).catch(() => null);
-        if (thread?.isThread()) {
-          const mentions = createdIds.map((id) => `<#${id}>`).join(', ');
-          const ts = Math.floor(event.startTime.getTime() / 1000);
-          await thread.send(
-            `🎙️ Voice channels ready for **${event.name}**! Join: ${mentions} — event starts <t:${ts}:R>`,
-          );
-        }
-      }
-    } catch (err) {
-      console.error('[bot] Failed to create VCs immediately:', err);
-    }
-  }
-
   await prisma.event.update({
     where: { id: event.id },
-    data: {
-      discordEventId,
-      threadId,
-      rosterMessageId,
-      status: 'ACTIVE',
-      ...(vcIds.length > 0 ? { vcIds: JSON.stringify(vcIds) } : {}),
-      ...(lastVcActivityAt ? { lastVcActivityAt } : {}),
-    },
+    data: { discordEventId, threadId, rosterMessageId, status: 'ACTIVE' },
   });
+
+  // ── Immediate VC creation (start < 30 min away) ──────────────────────────
+  if (event.startTime.getTime() - Date.now() < 30 * 60_000) {
+    await createVcsForEvent(eventId);
+  }
 }
 
 // ── Sync Discord entities after an event edit ────────────────────────────────

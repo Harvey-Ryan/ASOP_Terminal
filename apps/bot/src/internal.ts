@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
 import { announceLootResults, notifySnakeTurn } from './services/lootService.js';
 import { registerCommands } from './services/commandService.js';
 
@@ -82,6 +82,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await notifySnakeTurn(eventId).catch((err) =>
         console.error(`[bot:internal] notifySnakeTurn failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const createVcsMatch = req.url?.match(/^\/trigger\/create-vcs\/([^/]+)$/);
+    if (createVcsMatch) {
+      const eventId = createVcsMatch[1]!;
+      res.writeHead(202).end();
+      await createVcsForEvent(eventId).catch((err) =>
+        console.error(`[bot:internal] createVcsForEvent failed for ${eventId}:`, err),
       );
       return;
     }

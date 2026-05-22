@@ -2,8 +2,7 @@ import cron from 'node-cron';
 import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
-import { setupDiscordForEvent, endEvent, resolveVcCategoryId } from './services/eventService.js';
-import { PermissionFlagsBits } from 'discord.js';
+import { setupDiscordForEvent, endEvent, createVcsForEvent } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { formatMinutes } from './utils/time.js';
 
@@ -171,53 +170,9 @@ async function checkVcCreation() {
   });
 
   for (const event of events) {
-    const vcNames = JSON.parse(event.vcNames) as string[];
-    if (vcNames.length === 0 && !event.briefingChannel) continue;
-
-    try {
-      const guild = await client.guilds.fetch(event.guildId);
-      const categoryId = await resolveVcCategoryId(event.guildId);
-      const createdIds: string[] = [];
-
-      for (const vcName of vcNames) {
-        const vc = await guild.channels.create({
-          name: `🎙️ ${vcName}`,
-          type: ChannelType.GuildVoice,
-          ...(categoryId ? { parent: categoryId } : {}),
-        });
-        createdIds.push(vc.id);
-      }
-
-      if (event.briefingChannel) {
-        const briefing = await guild.channels.create({
-          name: '📋 Briefing',
-          type: ChannelType.GuildVoice,
-          ...(categoryId ? { parent: categoryId } : {}),
-          permissionOverwrites: [
-            { id: guild.id, deny: [PermissionFlagsBits.UseVAD] },
-          ],
-        });
-        createdIds.push(briefing.id);
-      }
-
-      await prisma.event.update({
-        where: { id: event.id },
-        data: { vcIds: JSON.stringify(createdIds), lastVcActivityAt: new Date() },
-      });
-
-      if (event.threadId && createdIds.length > 0) {
-        const thread = await client.channels.fetch(event.threadId);
-        if (thread?.isThread()) {
-          const mentions = createdIds.map((id) => `<#${id}>`).join(', ');
-          const ts = Math.floor(event.startTime.getTime() / 1000);
-          await thread.send(
-            `🎙️ Voice channels ready for **${event.name}**! Join: ${mentions} — event starts <t:${ts}:R>`,
-          );
-        }
-      }
-    } catch (err) {
-      console.error(`[bot] VC creation failed for event ${event.id}:`, err);
-    }
+    await createVcsForEvent(event.id).catch((err) =>
+      console.error(`[bot] VC creation failed for event ${event.id}:`, err),
+    );
   }
 }
 

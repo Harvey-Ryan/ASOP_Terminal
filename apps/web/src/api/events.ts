@@ -29,6 +29,9 @@ export const eventsApi = {
   end: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/end`).then((r) => r),
 
+  createVcs: (guildId: string, eventId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/vcs`).then((r) => r),
+
   listRepeatTemplates: (guildId: string) =>
     api.get<ApiResponse<RepeatTemplateDto[]>>(`/guilds/${guildId}/repeat-templates`).then((r) => r.data!),
 

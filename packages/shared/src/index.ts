@@ -182,6 +182,7 @@ export interface EventDto {
   vcNames: string[];
   briefingChannel: boolean;
   imageUrl: string | null;
+  vcIds: string[];
   discordEventId: string | null;
   threadId: string | null;
   status: string;

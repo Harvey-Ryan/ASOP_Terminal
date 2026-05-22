@@ -423,6 +423,25 @@ eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res)
   res.json({ success: true, message: 'Event ending — bot will clean up shortly' } satisfies ApiResponse);
 });
 
+// ── POST /api/guilds/:guildId/events/:eventId/vcs ────────────────────────────
+
+eventsRouter.post('/:guildId/events/:eventId/vcs', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) { res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse); return; }
+  if (event.status === 'COMPLETED' || event.status === 'ENDED') {
+    res.status(409).json({ success: false, error: 'Event is already over' } satisfies ApiResponse); return;
+  }
+
+  triggerBot(`/trigger/create-vcs/${eventId}`);
+  res.json({ success: true, message: 'VC creation queued' } satisfies ApiResponse);
+});
+
 // ── POST /api/guilds/:guildId/events/:eventId/complete ────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req, res) => {
@@ -591,6 +610,7 @@ function toDto(event: EventWithRsvps): EventDto {
     recurType: event.recurType,
     roles: JSON.parse(event.roles) as EventRole[],
     vcNames: JSON.parse(event.vcNames) as string[],
+    vcIds: JSON.parse(event.vcIds) as string[],
     briefingChannel: event.briefingChannel,
     imageUrl: event.imageUrl,
     discordEventId: event.discordEventId,
