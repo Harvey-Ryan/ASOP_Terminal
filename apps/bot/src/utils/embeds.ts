@@ -155,19 +155,18 @@ export function buildPostEventEmbed(
 }
 
 export function buildRoleButtons(eventId: string, roles: EventRole[]): ActionRowBuilder<ButtonBuilder>[] {
-  // Unassigned is always the first button so it's always accessible
   const allButtons: ButtonBuilder[] = [
-    new ButtonBuilder()
-      .setCustomId(`role:${eventId}:__unassigned__`)
-      .setLabel('Unassigned')
-      .setEmoji('📋')
-      .setStyle(ButtonStyle.Secondary),
     ...roles.map((role) =>
       new ButtonBuilder()
         .setCustomId(`role:${eventId}:${role.name}`)
         .setLabel(role.name)
         .setStyle(ButtonStyle.Primary),
     ),
+    new ButtonBuilder()
+      .setCustomId(`role:${eventId}:__unassigned__`)
+      .setLabel('Unassigned')
+      .setEmoji('📋')
+      .setStyle(ButtonStyle.Secondary),
   ];
 
   // Split into rows of 5
