@@ -358,6 +358,7 @@ export interface AuctionBidDto {
 export interface AuctionDto {
   id: string;
   guildId: string;
+  eventId: string | null;
   title: string;
   description: string | null;
   durationSecs: number;

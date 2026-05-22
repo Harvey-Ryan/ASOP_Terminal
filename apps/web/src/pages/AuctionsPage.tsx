@@ -9,12 +9,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   Plus,
+  Users,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { auctionsApi } from '@/api/auctions';
 import { lootApi } from '@/api/loot';
+import { eventsApi } from '@/api/events';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveUsername } from '@/lib/displayName';
 import type { AuctionDto } from '@dem/shared';
@@ -240,12 +243,20 @@ export function AuctionsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [durationSecs, setDurationSecs] = useState(120);
+  const [restrictToEvent, setRestrictToEvent] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState('');
 
   const auctionsQuery = useQuery({
     queryKey: ['auctions', guildId],
     queryFn: () => auctionsApi.list(guildId!),
     enabled: !!guildId,
     refetchInterval: 2000,
+  });
+
+  const eventsQuery = useQuery({
+    queryKey: ['events', guildId, 'upcoming'],
+    queryFn: () => eventsApi.list(guildId!),
+    enabled: !!guildId && isManager,
   });
 
   const myDkpQuery = useQuery({
@@ -265,14 +276,19 @@ export function AuctionsPage() {
         title: title.trim(),
         description: description.trim() || undefined,
         durationSecs,
+        eventId: restrictToEvent && selectedEventId ? selectedEventId : undefined,
       }),
     onSuccess: () => {
       setTitle('');
       setDescription('');
       setDurationSecs(120);
+      setRestrictToEvent(false);
+      setSelectedEventId('');
       invalidate();
     },
   });
+
+  const upcomingEvents = eventsQuery.data ?? [];
 
   const auctions = auctionsQuery.data ?? [];
   const openAuctions = auctions.filter((a) => a.status === 'OPEN');
@@ -343,6 +359,49 @@ export function AuctionsPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
               />
             </div>
+            {/* Open to */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Open to</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRestrictToEvent(false)}
+                  className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    !restrictToEvent
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-input bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  All members
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRestrictToEvent(true)}
+                  className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    restrictToEvent
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-input bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Event attendees
+                </button>
+              </div>
+              {restrictToEvent && (
+                <select
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
+                  className="mt-1.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                >
+                  <option value="">— select an event —</option>
+                  {upcomingEvents.map((ev) => (
+                    <option key={ev.id} value={ev.id}>{ev.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div className="flex items-center gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -364,7 +423,12 @@ export function AuctionsPage() {
               <Button
                 className="gap-1.5 self-end"
                 onClick={() => createMutation.mutate()}
-                disabled={!title.trim() || createMutation.isPending || openAuctions.length > 0}
+                disabled={
+                  !title.trim() ||
+                  createMutation.isPending ||
+                  openAuctions.length > 0 ||
+                  (restrictToEvent && !selectedEventId)
+                }
                 title={openAuctions.length > 0 ? 'Close the current auction before starting a new one' : undefined}
               >
                 <Plus className="h-4 w-4" />

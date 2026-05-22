@@ -447,6 +447,7 @@ model EventTemplateUse {
 model Auction {
   id               String   @id @default(cuid())
   guildId          String
+  eventId          String?
   title            String
   description      String?
   startedById      String
@@ -464,6 +465,7 @@ model Auction {
 
   @@index([guildId, status])
   @@index([closesAt, status])
+  @@index([eventId])
 }
 
 model AuctionBid {

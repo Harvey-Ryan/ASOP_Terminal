@@ -94,6 +94,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
+    // Event-restricted eligibility check
+    if (standaloneAuction.eventId) {
+      const event = await prisma.event.findUnique({
+        where: { id: standaloneAuction.eventId },
+        select: { confirmedAttendees: true },
+      });
+      const confirmedAttendees: string[] = event?.confirmedAttendees
+        ? JSON.parse(event.confirmedAttendees)
+        : [];
+      if (!confirmedAttendees.includes(userId)) {
+        await interaction.editReply(
+          '❌ This auction is restricted to confirmed attendees of the linked event.',
+        );
+        return;
+      }
+    }
+
     // Validation: new maxBid must exceed current maxBid
     const existing = standaloneAuction.bids.find((b) => b.userId === userId);
     if (existing && amount <= existing.maxBid) {

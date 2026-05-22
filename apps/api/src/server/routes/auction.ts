@@ -13,6 +13,7 @@ export const auctionRouter = Router();
 type AuctionRow = {
   id: string;
   guildId: string;
+  eventId: string | null;
   title: string;
   description: string | null;
   durationSecs: number;
@@ -31,6 +32,7 @@ function auctionToDto(a: AuctionRow): AuctionDto {
   return {
     id: a.id,
     guildId: a.guildId,
+    eventId: a.eventId,
     title: a.title,
     description: a.description,
     durationSecs: a.durationSecs,
@@ -188,11 +190,13 @@ auctionRouter.post('/:guildId/auctions', requireAuth, async (req, res) => {
 
   let title: string;
   let description: string | null;
+  let eventId: string | null;
   let durationSecs: number;
 
   try {
     title = requireStr(body.title, 'title', 100);
     description = optStr(body.description, 'description', 500);
+    eventId = optStr(body.eventId, 'eventId', 40);
     durationSecs = optPosInt(body.durationSecs, 'durationSecs') ?? 120;
     if (durationSecs > 3600) throw new ValidationError('durationSecs cannot exceed 3600');
   } catch (err) {
@@ -201,6 +205,14 @@ auctionRouter.post('/:guildId/auctions', requireAuth, async (req, res) => {
       return;
     }
     throw err;
+  }
+
+  if (eventId) {
+    const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+    if (!event) {
+      res.status(404).json({ success: false, error: 'Event not found in this server' } satisfies ApiResponse);
+      return;
+    }
   }
 
   const openAuction = await prisma.auction.findFirst({
@@ -218,6 +230,7 @@ auctionRouter.post('/:guildId/auctions', requireAuth, async (req, res) => {
   const auction = await prisma.auction.create({
     data: {
       guildId,
+      eventId,
       title,
       description,
       startedById: req.session.userId!,
@@ -283,6 +296,25 @@ auctionRouter.post('/:guildId/auctions/:auctionId/bid', requireAuth, async (req,
 
   const userId = dbUser.discordId;
   const username = dbUser.globalName ?? dbUser.username;
+  const isManager = await assertGuildManager(req, guildId);
+
+  // Event-restricted eligibility check
+  if (auction.eventId) {
+    const eventRow = await prisma.event.findFirst({
+      where: { id: auction.eventId },
+      select: { confirmedAttendees: true },
+    });
+    const confirmedAttendees: string[] = eventRow?.confirmedAttendees
+      ? JSON.parse(eventRow.confirmedAttendees)
+      : [];
+    if (!isManager && !confirmedAttendees.includes(userId)) {
+      res.status(403).json({
+        success: false,
+        error: 'This auction is restricted to confirmed attendees of the linked event',
+      } satisfies ApiResponse);
+      return;
+    }
+  }
 
   // Validation: new maxBid must exceed current maxBid
   const existing = auction.bids.find((b) => b.userId === userId);

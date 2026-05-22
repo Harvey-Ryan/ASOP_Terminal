@@ -7,7 +7,7 @@ export const auctionsApi = {
 
   create: (
     guildId: string,
-    body: { title: string; description?: string; durationSecs?: number },
+    body: { title: string; description?: string; durationSecs?: number; eventId?: string },
   ) =>
     api
       .post<ApiResponse<AuctionDto>>(`/guilds/${guildId}/auctions`, body)

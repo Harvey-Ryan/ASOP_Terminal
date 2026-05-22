@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
 import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
+import { auctionsApi } from '@/api/auctions';
 import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
@@ -899,6 +900,14 @@ export function ServerPage() {
     retry: 1,
   });
 
+  const openAuctionQuery = useQuery({
+    queryKey: ['auctions', guildId, 'open'],
+    queryFn: () => auctionsApi.list(guildId!),
+    enabled: !!guildId,
+    refetchInterval: 10_000,
+    select: (data) => data.find((a) => a.status === 'OPEN'),
+  });
+
   const completedQuery = useQuery({
     queryKey: ['events', guildId, 'completed'],
     queryFn: () => eventsApi.listCompleted(guildId!),
@@ -931,8 +940,27 @@ export function ServerPage() {
     setView('create');
   }
 
+  const openAuction = openAuctionQuery.data;
+
   return (
     <div className="space-y-6">
+      {/* Active auction notification */}
+      {openAuction && (
+        <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Gavel className="h-4 w-4 shrink-0 text-amber-500" />
+            <span className="text-sm font-medium truncate text-amber-600 dark:text-amber-400">
+              Live auction: <span className="font-semibold">{openAuction.title}</span>
+              {openAuction.bids.length > 0 && ` · ${openAuction.bids.length} bid${openAuction.bids.length !== 1 ? 's' : ''}`}
+              {openAuction.secondsRemaining > 0 && ` · ${Math.ceil(openAuction.secondsRemaining / 60)}m left`}
+            </span>
+          </div>
+          <Button size="sm" className="shrink-0 h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0" asChild>
+            <Link to={`/dashboard/servers/${guildId}/auctions`}>Bid Now</Link>
+          </Button>
+        </div>
+      )}
+
       {/* Responsive two-column layout: events left, loot right */}
       <div className={`grid grid-cols-1 gap-6 items-start${canView ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
