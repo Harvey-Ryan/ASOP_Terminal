@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel } from 'lucide-react';
+import { LogOut, List, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -340,8 +340,8 @@ export function DashboardLayout() {
             end
             className={navCls}
           >
-            <LayoutDashboard className="h-4 w-4 shrink-0" />
-            Overview
+            <List className="h-4 w-4 shrink-0" />
+            Server List
           </NavLink>
         </div>
 
