@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -372,6 +372,7 @@ export function LootPage() {
     onSuccess: () => navigate(`/dashboard/servers/${guildId}?tab=completed`),
   });
 
+  const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
@@ -547,14 +548,38 @@ export function LootPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Items ({session.items.length})</h2>
-              {session.items.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {session.items.filter((i) => i.assignments.length > 0).length} / {session.items.length} assigned
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {session.items.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {session.items.filter((i) => i.assignments.length > 0).length} / {session.items.length} assigned
+                  </span>
+                )}
+                {session.items.some((i) => i.assignments.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setHideAssigned((v) => !v)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+                      hideAssigned
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50'
+                    }`}
+                  >
+                    <EyeOff className="h-3 w-3" />
+                    {hideAssigned ? 'Showing available' : 'Hide assigned'}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {session.items.map((item) => (
+            {[...session.items]
+              .sort((a, b) => {
+                const aAssigned = a.assignments.length > 0 ? 1 : 0;
+                const bAssigned = b.assignments.length > 0 ? 1 : 0;
+                if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+                return a.sortOrder - b.sortOrder;
+              })
+              .filter((item) => !hideAssigned || item.assignments.length === 0)
+              .map((item) => (
               <ItemRow
                 key={item.id}
                 item={item}
