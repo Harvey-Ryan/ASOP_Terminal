@@ -35,6 +35,7 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
     method: s.method as LootMethod,
     status: s.status as 'OPEN' | 'COMPLETED',
     draftOrder: JSON.parse(s.draftOrder) as string[],
+    draftStarted: s.draftStarted,
     skipCount: s.skipCount,
     dkpAward: s.dkpAward,
     items: [...s.items]
@@ -204,6 +205,8 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
     include: { items: { include: { assignments: true } } },
   });
 
+  triggerBot(`/trigger/loot-session-start/${session.id}`);
+
   res.status(201).json({ success: true, data: sessionToDto(session) } satisfies ApiResponse<LootSessionDto>);
 });
 
@@ -238,6 +241,10 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
     res.status(404).json({ success: false, error: 'No loot session found' } satisfies ApiResponse); return;
   }
 
+  if (draftOrder !== undefined && existing.draftStarted) {
+    res.status(409).json({ success: false, error: 'Draft has already started — order cannot be changed' } satisfies ApiResponse); return;
+  }
+
   const updated = await prisma.lootSession.update({
     where: { eventId },
     data: {
@@ -247,6 +254,10 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
     },
     include: { items: { include: { assignments: true } } },
   });
+
+  if (draftOrder !== undefined && !existing.draftStarted) {
+    triggerBot(`/trigger/draft-order/${eventId}`);
+  }
 
   res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
 });
@@ -577,6 +588,12 @@ lootRouter.post('/:guildId/events/:eventId/loot/start-draft', requireAuth, async
   if (!session || session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
     res.status(400).json({ success: false, error: 'No open snake draft session for this event' } satisfies ApiResponse); return;
   }
+
+  if (session.draftStarted) {
+    res.status(409).json({ success: false, error: 'Draft has already started' } satisfies ApiResponse); return;
+  }
+
+  await prisma.lootSession.update({ where: { eventId }, data: { draftStarted: true } });
 
   triggerBot(`/trigger/snake-turn/${eventId}`);
 

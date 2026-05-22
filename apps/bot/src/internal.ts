@@ -1,8 +1,9 @@
 import http from 'node:http';
 import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
-import { announceLootResults, notifySnakeTurn } from './services/lootService.js';
+import { announceLootResults, announceLootSessionStart, notifySnakeTurn, announceDraftOrder } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
+import { announceRoleReassignment } from './services/rsvpService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -63,6 +64,37 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await updateRosterEmbed(eventId).catch((err) =>
         console.error(`[bot:internal] updateRosterEmbed failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const rsvpReassignMatch = req.url?.match(/^\/trigger\/rsvp-reassign\/([^/]+)\/([^/]+)$/);
+    if (rsvpReassignMatch) {
+      const eventId = rsvpReassignMatch[1]!;
+      const userId = rsvpReassignMatch[2]!;
+      res.writeHead(202).end();
+      await announceRoleReassignment(eventId, userId).catch((err) =>
+        console.error(`[bot:internal] announceRoleReassignment failed for ${eventId}/${userId}:`, err),
+      );
+      return;
+    }
+
+    const draftOrderMatch = req.url?.match(/^\/trigger\/draft-order\/([^/]+)$/);
+    if (draftOrderMatch) {
+      const eventId = draftOrderMatch[1]!;
+      res.writeHead(202).end();
+      await announceDraftOrder(eventId).catch((err) =>
+        console.error(`[bot:internal] announceDraftOrder failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const lootSessionStartMatch = req.url?.match(/^\/trigger\/loot-session-start\/([^/]+)$/);
+    if (lootSessionStartMatch) {
+      const sessionId = lootSessionStartMatch[1]!;
+      res.writeHead(202).end();
+      await announceLootSessionStart(sessionId).catch((err) =>
+        console.error(`[bot:internal] announceLootSessionStart failed for ${sessionId}:`, err),
       );
       return;
     }

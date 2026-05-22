@@ -392,6 +392,7 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
 
   await prisma.eventRsvp.updateMany({ where: { eventId, userId }, data: { role } });
   triggerBot(`/trigger/rsvp/${eventId}`);
+  triggerBot(`/trigger/rsvp-reassign/${eventId}/${userId}`);
 
   const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);

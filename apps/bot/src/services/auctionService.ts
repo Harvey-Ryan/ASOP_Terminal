@@ -262,19 +262,31 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
     });
   }
 
-  // DM the winner when auction closes
+  // DM the winner when auction closes; fall back to the announcement channel if DMs are off
   if (auction.status === 'CLOSED' && auction.winnerId && auction.winningBid) {
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setLabel('View Auctions').setStyle(ButtonStyle.Link).setURL(auctionUrl),
+    );
+    let dmSent = false;
     try {
       const winner = await client.users.fetch(auction.winnerId);
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setLabel('View Auctions').setStyle(ButtonStyle.Link).setURL(auctionUrl),
-      );
       await winner.send({
         content: `🏆 You won **${auction.title}** in the ${dkpLabel} auction for **${auction.winningBid} ${dkpLabel}**!`,
         components: [row],
       });
+      dmSent = true;
     } catch {
-      // DMs may be disabled — silently skip
+      // DMs disabled — fall through to channel post
+    }
+    if (!dmSent) {
+      try {
+        await channel.send({
+          content: `🏆 <@${auction.winnerId}> won **${auction.title}** for **${auction.winningBid} ${dkpLabel}**!`,
+          components: [row],
+        });
+      } catch (err) {
+        console.error(`[bot] Failed to post winner announcement for auction ${auction.id}:`, err);
+      }
     }
   }
 }

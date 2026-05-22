@@ -10,6 +10,7 @@ import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
 import { nextOccurrence } from '../utils/time.js';
+import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventRole } from '@dem/shared';
 
 // ── Create VCs for an event (idempotent — skips if already created) ──────────
@@ -255,6 +256,34 @@ export async function updateRosterEmbed(eventId: string) {
   }
 }
 
+// ── Post "event is live" announcement at start time ──────────────────────────
+
+export async function postEventLive(eventId: string) {
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event?.threadId || event.livePosted) return;
+
+  // Mark first to prevent duplicate sends if the cron fires again before the send completes
+  await prisma.event.update({ where: { id: eventId }, data: { livePosted: true } });
+
+  const vcIds = JSON.parse(event.vcIds) as string[];
+  const vcMentions = vcIds.map((id) => `<#${id}>`).join(' ');
+
+  let content = `🟢 **${event.name}** is now live!`;
+  if (vcMentions) content += `\nJoin a voice channel: ${vcMentions}`;
+  if (event.musterPoint) content += `\n📍 ${event.musterPoint}`;
+
+  try {
+    const thread = await client.channels.fetch(event.threadId);
+    if (thread?.isThread()) {
+      const wasArchived = thread.archived ?? false;
+      if (wasArchived) await thread.setArchived(false).catch(() => null);
+      await thread.send(content);
+    }
+  } catch (err) {
+    console.error(`[bot] Failed to post live message for event ${eventId}:`, err);
+  }
+}
+
 // ── End event (called by scheduler after status=ENDED is detected) ────────────
 
 // ── Delete VCs for an ended event, skipping any that still have members ────────
@@ -402,8 +431,11 @@ export async function updatePostEventEmbed(eventId: string) {
     items: lootByUser.get(userId) ?? [],
   }));
 
+  const dkpAward = session?.dkpAward && session.dkpAward > 0 ? session.dkpAward : undefined;
+  const dkpLabel = dkpAward ? await getGuildDkpLabel(event.guildId) : undefined;
+
   const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
-  const embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename);
+  const embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename, dkpAward, dkpLabel);
   const files = imageAttachment ? [imageAttachment.builder] : [];
 
   try {

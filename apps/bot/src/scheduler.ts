@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
-import { setupDiscordForEvent, endEvent, createVcsForEvent } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, createVcsForEvent, postEventLive } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { formatMinutes } from './utils/time.js';
@@ -64,6 +64,7 @@ export async function startScheduler() {
   cron.schedule('* * * * *', async () => {
     await checkPendingDiscordSetup().catch((e) => console.error('[bot] checkPendingDiscordSetup error:', e));
     await checkReminders().catch((e) => console.error('[bot] checkReminders error:', e));
+    await checkEventStart().catch((e) => console.error('[bot] checkEventStart error:', e));
     await checkVcCreation().catch((e) => console.error('[bot] checkVcCreation error:', e));
     await checkVcActivity().catch((e) => console.error('[bot] checkVcActivity error:', e));
     await checkInactivityEnd().catch((e) => console.error('[bot] checkInactivityEnd error:', e));
@@ -72,6 +73,26 @@ export async function startScheduler() {
     await closeExpiredStandaloneAuctions().catch((e) => console.error('[bot] closeExpiredStandaloneAuctions error:', e));
   });
   console.log('[bot] Scheduler started');
+}
+
+// ── "Event is live" announcement at start time ────────────────────────────────
+
+async function checkEventStart() {
+  const now = new Date();
+  const starting = await prisma.event.findMany({
+    where: {
+      status: 'ACTIVE',
+      livePosted: false,
+      startTime: { lte: now },
+      threadId: { not: null },
+    },
+    take: 10,
+  });
+  for (const event of starting) {
+    await postEventLive(event.id).catch((err) =>
+      console.error(`[bot] postEventLive failed for ${event.id}:`, err),
+    );
+  }
 }
 
 // ── Discord setup for web-created events ─────────────────────────────────────

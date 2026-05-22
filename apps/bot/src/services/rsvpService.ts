@@ -21,6 +21,28 @@ export async function setRosterRole(
 }
 
 /**
+ * Post a thread message when a manager drag-reassigns a member to a different role.
+ */
+export async function announceRoleReassignment(eventId: string, userId: string) {
+  const [event, rsvp] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId } }),
+    prisma.eventRsvp.findUnique({ where: { eventId_userId: { eventId, userId } } }),
+  ]);
+  if (!event?.threadId || !rsvp) return;
+
+  const roleLabel = rsvp.role ?? 'Unassigned';
+
+  try {
+    const thread = await client.channels.fetch(event.threadId);
+    if (thread?.isThread()) {
+      await thread.send(`📋 <@${userId}> has been assigned to **${roleLabel}**.`);
+    }
+  } catch (err) {
+    console.error(`[bot] announceRoleReassignment: failed to post to thread ${event.threadId}:`, err);
+  }
+}
+
+/**
  * Add a user to the roster as Unassigned if not already present.
  * Called when the user clicks Interested on a Discord Scheduled Event.
  */

@@ -1,0 +1,1 @@
+ALTER TABLE "LootSession" ADD COLUMN "draftStarted" BOOLEAN NOT NULL DEFAULT false;

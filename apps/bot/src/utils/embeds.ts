@@ -99,6 +99,8 @@ export function buildPostEventEmbed(
   event: EventForRoster,
   attendees: { userId: string; items: { name: string; quantity: number }[] }[],
   imageFileName?: string,
+  dkpAward?: number,
+  dkpLabel?: string,
 ): EmbedBuilder {
   const startTs = Math.floor(event.startTime.getTime() / 1000);
   const endTs = event.endTime ? Math.floor(event.endTime.getTime() / 1000) : null;
@@ -149,6 +151,15 @@ export function buildPostEventEmbed(
     if (chunk) {
       embed.addFields({ name: isFirst ? fieldTitle : '​', value: chunk, inline: false });
     }
+  }
+
+  if (dkpAward && dkpAward > 0) {
+    const label = dkpLabel ?? 'DKP';
+    embed.addFields({
+      name: `🪙 ${label} Awarded`,
+      value: `+${dkpAward} ${label} to ${attendees.length} attendee${attendees.length !== 1 ? 's' : ''}`,
+      inline: false,
+    });
   }
 
   return embed;

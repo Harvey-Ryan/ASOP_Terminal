@@ -8,6 +8,7 @@ import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
 import * as bidCommand from './commands/bid.js';
+import * as walletCommand from './commands/wallet.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent, deleteEventVcs } from './services/eventService.js';
@@ -22,6 +23,7 @@ const commands = new Map<string, Command>([
   ['event', eventCommand],
   ['login', loginCommand],
   ['bid', bidCommand],
+  ['wallet', walletCommand],
 ]);
 
 client.once(Events.ClientReady, async (c) => {

@@ -612,6 +612,7 @@ export function LootPage() {
 
   const startDraftMutation = useMutation({
     mutationFn: () => lootApi.startDraft(guildId!, eventId!),
+    onSuccess: () => invalidate(),
   });
 
   function handleShuffle() {
@@ -718,7 +719,7 @@ export function LootPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
-                  {isManager && session.status === 'OPEN' && (
+                  {isManager && session.status === 'OPEN' && !session.draftStarted && (
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
                         <Shuffle className="h-3 w-3" />
@@ -732,7 +733,7 @@ export function LootPage() {
                         title="Send DM to current picker"
                       >
                         <Play className="h-3 w-3" />
-                        {startDraftMutation.isPending ? 'Starting…' : startDraftMutation.isSuccess ? 'Notified' : 'Start Draft'}
+                        {startDraftMutation.isPending ? 'Starting…' : 'Start Draft'}
                       </Button>
                     </div>
                   )}

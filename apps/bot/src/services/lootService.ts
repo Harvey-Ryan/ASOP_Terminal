@@ -13,6 +13,37 @@ function getNextPicker(position: number, draftOrder: string[]): string | null {
   return round % 2 === 0 ? draftOrder[pos]! : draftOrder[n - 1 - pos]!;
 }
 
+export async function announceDraftOrder(eventId: string) {
+  const session = await prisma.lootSession.findUnique({ where: { eventId } });
+  if (!session || session.method !== 'SNAKE_DRAFT') return;
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event?.threadId) return;
+
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  if (draftOrder.length === 0) return;
+
+  const lines = draftOrder.map((userId, i) => `${i + 1}. <@${userId}>`).join('\n');
+
+  const embed = new EmbedBuilder()
+    .setTitle('🐍 Snake Draft Order Updated')
+    .setDescription(lines)
+    .setColor(0xf59e0b)
+    .setTimestamp();
+
+  try {
+    const thread = await client.channels.fetch(event.threadId);
+    if (thread?.isThread()) {
+      const wasArchived = thread.archived ?? false;
+      if (wasArchived) await thread.setArchived(false).catch(() => null);
+      await thread.send({ embeds: [embed] });
+      if (wasArchived) await thread.setArchived(true).catch(() => null);
+    }
+  } catch (err) {
+    console.error('[bot] Failed to announce draft order:', err);
+  }
+}
+
 export async function notifySnakeTurn(eventId: string) {
   const session = await prisma.lootSession.findUnique({
     where: { eventId },
@@ -89,6 +120,65 @@ const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
   SNAKE_DRAFT: '🐍 Snake Draft',
 };
+
+export async function announceLootSessionStart(sessionId: string) {
+  const session = await prisma.lootSession.findUnique({ where: { id: sessionId } });
+  if (!session) return;
+
+  const event = await prisma.event.findUnique({ where: { id: session.eventId } });
+  if (!event?.threadId) return;
+
+  const dkpLabel = await getGuildDkpLabel(session.guildId);
+
+  const methodLabel = session.method === 'DKP'
+    ? `🪙 ${dkpLabel} Bid`
+    : METHOD_LABELS[session.method] ?? session.method;
+
+  const attendeeCount = event.confirmedAttendees
+    ? (JSON.parse(event.confirmedAttendees) as string[]).length
+    : 0;
+
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/events/${event.id}/loot`;
+
+  const fields: { name: string; value: string; inline: boolean }[] = [
+    { name: 'Method', value: methodLabel, inline: true },
+    { name: 'Eligible Attendees', value: String(attendeeCount), inline: true },
+  ];
+
+  if (session.dkpAward > 0) {
+    fields.push({
+      name: `${dkpLabel} Award`,
+      value: `+${session.dkpAward} ${dkpLabel} per attendee on completion`,
+      inline: false,
+    });
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`🎁 Loot Session Open — ${event.name}`)
+    .setColor(0xf59e0b)
+    .addFields(fields)
+    .setTimestamp();
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel('Open Loot Session')
+      .setStyle(ButtonStyle.Link)
+      .setURL(lootUrl),
+  );
+
+  try {
+    const thread = await client.channels.fetch(event.threadId);
+    if (thread?.isThread()) {
+      const wasArchived = thread.archived ?? false;
+      if (wasArchived) await thread.setArchived(false).catch(() => null);
+      await thread.send({ embeds: [embed], components: [row] });
+      if (wasArchived) await thread.setArchived(true).catch(() => null);
+    }
+  } catch (err) {
+    console.error('[bot] Failed to announce loot session start:', err);
+  }
+}
 
 export async function announceLootResults(sessionId: string) {
   const session = await prisma.lootSession.findUnique({
