@@ -176,6 +176,17 @@ auctionRouter.post('/:guildId/auctions', requireAuth, async (req, res) => {
     throw err;
   }
 
+  const openAuction = await prisma.auction.findFirst({
+    where: { guildId, status: 'OPEN' },
+  });
+  if (openAuction) {
+    res.status(409).json({
+      success: false,
+      error: 'An auction is already open in this server. Close it first.',
+    } satisfies ApiResponse);
+    return;
+  }
+
   const closesAt = new Date(Date.now() + durationSecs * 1000);
   const auction = await prisma.auction.create({
     data: {

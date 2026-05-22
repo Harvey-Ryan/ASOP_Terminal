@@ -358,7 +358,8 @@ export function AuctionsPage() {
               <Button
                 className="gap-1.5 self-end"
                 onClick={() => createMutation.mutate()}
-                disabled={!title.trim() || createMutation.isPending}
+                disabled={!title.trim() || createMutation.isPending || openAuctions.length > 0}
+                title={openAuctions.length > 0 ? 'Close the current auction before starting a new one' : undefined}
               >
                 <Plus className="h-4 w-4" />
                 {createMutation.isPending ? 'Creating…' : 'Create Auction'}
