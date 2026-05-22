@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -642,6 +642,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <p className="text-base text-primary-foreground/60 mr-auto">Discord sync pending…</p>
         )}
         <div className="flex gap-2 ml-auto">
+          {isManager && ev.status === 'COMPLETED' && lootSession?.status === 'OPEN' && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
+                <PlayCircle className="h-3.5 w-3.5" />Resume Loot
+              </Link>
+            </Button>
+          )}
           {isManager && ev.status === 'COMPLETED' && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"

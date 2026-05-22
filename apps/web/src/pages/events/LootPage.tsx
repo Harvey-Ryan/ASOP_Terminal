@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -519,22 +519,33 @@ export function LootPage() {
           {/* Complete */}
           {session.status === 'OPEN' && (
             <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="text-sm text-muted-foreground">
+              <div className="space-y-1">
                 {session.dkpAward > 0 && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Coins className="h-3.5 w-3.5" />
                     +{session.dkpAward} DKP to {eligiblePlayers.length} attendee{eligiblePlayers.length !== 1 ? 's' : ''} on completion
                   </span>
                 )}
+                <p className="text-xs text-muted-foreground">Changes are saved automatically.</p>
               </div>
-              <Button
-                onClick={() => completeMutation.mutate()}
-                disabled={completeMutation.isPending}
-                className="gap-1"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                {completeMutation.isPending ? 'Completing…' : 'Complete & Post to Discord'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/dashboard/servers/${guildId}`)}
+                  className="gap-1"
+                >
+                  <Save className="h-4 w-4" />
+                  Save & Exit
+                </Button>
+                <Button
+                  onClick={() => completeMutation.mutate()}
+                  disabled={completeMutation.isPending}
+                  className="gap-1"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {completeMutation.isPending ? 'Completing…' : 'Complete & Post to Discord'}
+                </Button>
+              </div>
             </div>
           )}
 
