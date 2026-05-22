@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Coins, Plus, Minus, Search } from 'lucide-react';
@@ -8,6 +8,84 @@ import type { DkpBalanceDto, DkpTransactionDto } from '@dem/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+// ── Member combobox ───────────────────────────────────────────────────────────
+
+interface Member { userId: string; username: string }
+
+function MemberCombobox({
+  members,
+  value,
+  onChange,
+}: {
+  members: Member[];
+  value: Member | null;
+  onChange: (m: Member | null) => void;
+}) {
+  const [query, setQuery] = useState(value?.username ?? '');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setQuery(value?.username ?? '');
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const filtered = query.trim()
+    ? members.filter((m) => m.username.toLowerCase().includes(query.toLowerCase()))
+    : members;
+
+  function select(m: Member) {
+    onChange(m);
+    setQuery(m.username);
+    setOpen(false);
+  }
+
+  function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuery(e.target.value);
+    setOpen(true);
+    if (!e.target.value.trim()) onChange(null);
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        value={query}
+        onChange={handleInput}
+        onFocus={() => setOpen(true)}
+        placeholder="Search member…"
+        autoComplete="off"
+        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-card shadow-lg">
+          {filtered.map((m) => (
+            <li
+              key={m.userId}
+              onMouseDown={(e) => { e.preventDefault(); select(m); }}
+              className={cn(
+                'cursor-pointer px-3 py-2 text-sm hover:bg-accent transition-colors',
+                value?.userId === m.userId && 'bg-primary/10 text-primary font-medium',
+              )}
+            >
+              {m.username}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export function DkpPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -19,8 +97,7 @@ export function DkpPage() {
 
   const [tab, setTab] = useState<'leaderboard' | 'transactions'>('leaderboard');
   const [txSearch, setTxSearch] = useState('');
-  const [adjustUserId, setAdjustUserId] = useState('');
-  const [adjustUsername, setAdjustUsername] = useState('');
+  const [adjustMember, setAdjustMember] = useState<Member | null>(null);
   const [adjustAmount, setAdjustAmount] = useState('');
   const [adjustReason, setAdjustReason] = useState('');
   const [adjustMode, setAdjustMode] = useState<'grant' | 'deduct'>('grant');
@@ -29,6 +106,12 @@ export function DkpPage() {
   const leaderboardQuery = useQuery<DkpBalanceDto[]>({
     queryKey: ['dkp', guildId],
     queryFn: () => lootApi.getDkp(guildId!),
+    enabled: !!guildId && isManager,
+  });
+
+  const playersQuery = useQuery<Member[]>({
+    queryKey: ['dkp-players', guildId],
+    queryFn: () => lootApi.getPlayers(guildId!),
     enabled: !!guildId && isManager,
   });
 
@@ -50,8 +133,7 @@ export function DkpPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['dkp', guildId] });
       void queryClient.invalidateQueries({ queryKey: ['dkp-transactions', guildId] });
-      setAdjustUserId('');
-      setAdjustUsername('');
+      setAdjustMember(null);
       setAdjustAmount('');
       setAdjustReason('');
       setAdjustError('');
@@ -61,20 +143,20 @@ export function DkpPage() {
 
   function handleAdjust() {
     const amt = parseInt(adjustAmount, 10);
-    if (!adjustUserId.trim()) { setAdjustError('Discord user ID is required.'); return; }
-    if (!adjustUsername.trim()) { setAdjustError('Username is required.'); return; }
+    if (!adjustMember) { setAdjustError('Select a member from the list.'); return; }
     if (!adjustAmount || isNaN(amt) || amt <= 0) { setAdjustError('Enter a positive amount.'); return; }
     if (!adjustReason.trim()) { setAdjustError('Reason is required.'); return; }
     setAdjustError('');
     adjustMutation.mutate({
-      userId: adjustUserId.trim(),
-      username: adjustUsername.trim(),
+      userId: adjustMember.userId,
+      username: adjustMember.username,
       amount: adjustMode === 'grant' ? amt : -amt,
       reason: adjustReason.trim(),
     });
   }
 
   const leaderboard: DkpBalanceDto[] = leaderboardQuery.data ?? [];
+  const players: Member[] = playersQuery.data ?? [];
   const myBalance: DkpBalanceDto | undefined = myDkpQuery.data;
 
   const filteredTx: DkpTransactionDto[] = (txQuery.data ?? []).filter((t) => {
@@ -90,7 +172,7 @@ export function DkpPage() {
         <h1 className="text-2xl font-bold">DKP</h1>
       </div>
 
-      {/* Member view — just show their own balance */}
+      {/* Member view */}
       {!isManager && (
         <div className="rounded-xl border border-border bg-card p-6 max-w-sm">
           <p className="text-sm text-muted-foreground mb-1">Your Balance</p>
@@ -105,10 +187,9 @@ export function DkpPage() {
         </div>
       )}
 
-      {/* Manager view — full leaderboard + transactions + adjust */}
+      {/* Manager view */}
       {isManager && (
         <>
-          {/* Tab switcher */}
           <div className="flex gap-1 border-b border-border">
             {(['leaderboard', 'transactions'] as const).map((t) => (
               <button
@@ -127,7 +208,7 @@ export function DkpPage() {
           </div>
 
           {tab === 'leaderboard' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {leaderboardQuery.isLoading && (
                 <p className="text-sm text-muted-foreground">Loading…</p>
               )}
@@ -195,26 +276,13 @@ export function DkpPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Discord User ID</label>
-                    <input
-                      value={adjustUserId}
-                      onChange={(e) => setAdjustUserId(e.target.value)}
-                      placeholder="123456789012345678"
-                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    <label className="text-xs text-muted-foreground">Member</label>
+                    <MemberCombobox
+                      members={players}
+                      value={adjustMember}
+                      onChange={setAdjustMember}
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Username</label>
-                    <input
-                      value={adjustUsername}
-                      onChange={(e) => setAdjustUsername(e.target.value)}
-                      placeholder="PlayerName"
-                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Amount</label>
                     <input
@@ -226,15 +294,16 @@ export function DkpPage() {
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Reason</label>
-                    <input
-                      value={adjustReason}
-                      onChange={(e) => setAdjustReason(e.target.value)}
-                      placeholder="e.g. Bonus for operation"
-                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Reason</label>
+                  <input
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                    placeholder="e.g. Bonus for operation"
+                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+                  />
                 </div>
 
                 {adjustError && <p className="text-xs text-red-400">{adjustError}</p>}
@@ -243,12 +312,14 @@ export function DkpPage() {
                   size="sm"
                   onClick={handleAdjust}
                   disabled={adjustMutation.isPending}
-                  className={cn(
-                    adjustMode === 'deduct' && 'bg-red-600 hover:bg-red-700',
-                  )}
+                  className={cn(adjustMode === 'deduct' && 'bg-red-600 hover:bg-red-700')}
                 >
-                  {adjustMode === 'grant' ? <Plus className="h-3.5 w-3.5 mr-1.5" /> : <Minus className="h-3.5 w-3.5 mr-1.5" />}
-                  {adjustMutation.isPending ? 'Saving…' : adjustMode === 'grant' ? 'Grant DKP' : 'Deduct DKP'}
+                  {adjustMode === 'grant'
+                    ? <Plus className="h-3.5 w-3.5 mr-1.5" />
+                    : <Minus className="h-3.5 w-3.5 mr-1.5" />}
+                  {adjustMutation.isPending
+                    ? 'Saving…'
+                    : adjustMode === 'grant' ? 'Grant DKP' : 'Deduct DKP'}
                 </Button>
               </div>
             </div>

@@ -767,6 +767,36 @@ lootRouter.get('/:guildId/dkp', requireAuth, async (req, res) => {
   res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto[]>);
 });
 
+// ── GET DKP-eligible players (all guild members who've authenticated) ─────────
+
+lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const guild = await prisma.guild.findUnique({
+    where: { guildId },
+    select: { id: true },
+  });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse); return;
+  }
+
+  const members = await prisma.guildMember.findMany({
+    where: { guildId: guild.id },
+    include: { user: { select: { discordId: true, globalName: true, username: true } } },
+    orderBy: { user: { username: 'asc' } },
+  });
+
+  const data = members.map((m) => ({
+    userId: m.user.discordId,
+    username: m.user.globalName ?? m.user.username,
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<{ userId: string; username: string }[]>);
+});
+
 // ── GET DKP transactions (manager = all; member = own) ────────────────────────
 
 lootRouter.get('/:guildId/dkp/transactions', requireAuth, async (req, res) => {
