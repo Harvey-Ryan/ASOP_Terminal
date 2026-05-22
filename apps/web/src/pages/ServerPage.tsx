@@ -986,10 +986,10 @@ export function ServerPage() {
                 <div className="w-20 shrink-0 px-4 py-2">Date</div>
                 <div className="w-28 shrink-0 px-4 py-2">Time</div>
                 <div className="flex-1 px-4 py-2">Event</div>
-                <div className="w-1/3 shrink-0 flex items-center">
-                  <div className="flex-[2] px-4 py-2 hidden lg:block text-center">Location</div>
-                  <div className="flex-1 px-4 py-2 hidden sm:block text-center">Status</div>
-                  <div className="flex-1 px-4 py-2 hidden md:block text-center">Role</div>
+                <div className="w-5/12 shrink-0 flex items-center">
+                  <div className="flex-[2] px-4 py-2 hidden lg:block">Location</div>
+                  <div className="flex-1 px-4 py-2 hidden sm:flex justify-center">Status</div>
+                  <div className="flex-1 px-4 py-2 hidden md:block">Role</div>
                   <div className="flex-1 px-4 py-2 text-right">Actions</div>
                 </div>
               </div>
