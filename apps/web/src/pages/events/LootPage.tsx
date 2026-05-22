@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -344,6 +344,10 @@ export function LootPage() {
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
   });
 
+  const startDraftMutation = useMutation({
+    mutationFn: () => lootApi.startDraft(guildId!, eventId!),
+  });
+
   function handleShuffle() {
     if (!session) return;
     const shuffled = [...eligiblePlayers.map((p) => p.userId)].sort(() => Math.random() - 0.5);
@@ -435,10 +439,22 @@ export function LootPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
                   {session.status === 'OPEN' && (
-                    <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
-                      <Shuffle className="h-3 w-3" />
-                      Shuffle
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
+                        <Shuffle className="h-3 w-3" />
+                        Shuffle
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={() => startDraftMutation.mutate()}
+                        disabled={startDraftMutation.isPending || session.draftOrder.length === 0}
+                        title="Send DM to current picker"
+                      >
+                        <Play className="h-3 w-3" />
+                        {startDraftMutation.isPending ? 'Starting…' : startDraftMutation.isSuccess ? 'Notified' : 'Start Draft'}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>

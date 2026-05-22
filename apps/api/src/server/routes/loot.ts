@@ -444,6 +444,25 @@ lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (
   res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
 });
 
+// ── POST start draft ─────────────────────────────────────────────────────────
+
+lootRouter.post('/:guildId/events/:eventId/loot/start-draft', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const session = await prisma.lootSession.findUnique({ where: { eventId } });
+  if (!session || session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
+    res.status(400).json({ success: false, error: 'No open snake draft session for this event' } satisfies ApiResponse); return;
+  }
+
+  triggerBot(`/trigger/snake-turn/${eventId}`);
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
 // ── DELETE assignment ─────────────────────────────────────────────────────────
 
 lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAuth, async (req, res) => {

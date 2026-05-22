@@ -50,8 +50,8 @@ export async function notifySnakeTurn(eventId: string) {
     }
   }
 
-  // If all items assigned, we're done — no DM needed
-  if (totalUnassigned === 0) return;
+  // If all items assigned, we're done — no DM needed (only exit when items actually exist)
+  if (session.items.length > 0 && totalUnassigned === 0) return;
 
   const effectivePosition = allAssignmentCount + session.skipCount;
   const nextPickerId = getNextPicker(effectivePosition, draftOrder);
