@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
