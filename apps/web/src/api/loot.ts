@@ -4,6 +4,7 @@ import type {
   LootSessionDto,
   LootItemDto,
   DkpBalanceDto,
+  DkpTransactionDto,
   LootAuctionDto,
   CreateLootSessionBody,
   AddLootItemBody,
@@ -82,6 +83,12 @@ export const lootApi = {
 
   getMyDkp: (guildId: string) =>
     api.get<ApiResponse<DkpBalanceDto>>(`/guilds/${guildId}/dkp/me`).then((r) => r.data!),
+
+  getTransactions: (guildId: string) =>
+    api.get<ApiResponse<DkpTransactionDto[]>>(`/guilds/${guildId}/dkp/transactions`).then((r) => r.data ?? []),
+
+  adjustDkp: (guildId: string, body: { userId: string; username: string; amount: number; reason: string }) =>
+    api.post<ApiResponse<DkpBalanceDto>>(`/guilds/${guildId}/dkp/adjust`, body).then((r) => r.data!),
 
   getRecent: (guildId: string) =>
     api.get<ApiResponse<RecentLootEvent | null>>(`/guilds/${guildId}/loot/recent`).then((r) => r.data ?? null),

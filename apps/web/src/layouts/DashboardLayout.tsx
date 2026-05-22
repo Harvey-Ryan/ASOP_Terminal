@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -265,6 +265,14 @@ export function DashboardLayout() {
                 <Gavel className="h-4 w-4 shrink-0" />
                 DKP Auctions
               </NavLink>
+
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/dkp`}
+                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <Coins className="h-4 w-4 shrink-0" />
+                DKP
+              </NavLink>
             </>
           ) : (
             <>
@@ -320,6 +328,15 @@ export function DashboardLayout() {
                   Event Bot
                 </NavLink>
               )}
+
+              {/* Permissions */}
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/settings/permissions`}
+                className={navCls}
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                Permissions
+              </NavLink>
 
               {/* Admin */}
               <NavLink

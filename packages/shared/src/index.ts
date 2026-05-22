@@ -244,6 +244,15 @@ export interface DkpBalanceDto {
   updatedAt: string;
 }
 
+export interface DkpTransactionDto {
+  id: string;
+  userId: string;
+  username: string;
+  amount: number;
+  reason: string;
+  createdAt: string;
+}
+
 export interface CreateLootSessionBody {
   method: LootMethod;
   dkpAward?: number;

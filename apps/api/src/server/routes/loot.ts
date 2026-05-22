@@ -12,6 +12,7 @@ import type {
   LootSessionDto,
   LootItemDto,
   DkpBalanceDto,
+  DkpTransactionDto,
   LootMethod,
   MyPickDto,
 } from '@dem/shared';
@@ -764,4 +765,81 @@ lootRouter.get('/:guildId/dkp', requireAuth, async (req, res) => {
     updatedAt: b.updatedAt.toISOString(),
   }));
   res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto[]>);
+});
+
+// ── GET DKP transactions (manager = all; member = own) ────────────────────────
+
+lootRouter.get('/:guildId/dkp/transactions', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const isManager = await assertGuildManager(req, guildId);
+
+  let userId: string | undefined;
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser) {
+      res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return;
+    }
+    userId = dbUser.discordId;
+  }
+
+  const transactions = await prisma.dkpTransaction.findMany({
+    where: { guildId, ...(userId ? { userId } : {}) },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+
+  const data: DkpTransactionDto[] = transactions.map((t) => ({
+    id: t.id,
+    userId: t.userId,
+    username: t.username,
+    amount: t.amount,
+    reason: t.reason,
+    createdAt: t.createdAt.toISOString(),
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<DkpTransactionDto[]>);
+});
+
+// ── POST DKP adjustment (manager-only) ────────────────────────────────────────
+
+lootRouter.post('/:guildId/dkp/adjust', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  let targetUserId: string;
+  let targetUsername: string;
+  let amount: number;
+  let reason: string;
+  try {
+    targetUserId = requireStr(body.userId, 'userId', 30);
+    targetUsername = requireStr(body.username, 'username', 100);
+    reason = requireStr(body.reason, 'reason', 300);
+    if (typeof body.amount !== 'number' || !Number.isInteger(body.amount) || body.amount === 0) {
+      throw new ValidationError('amount must be a non-zero integer');
+    }
+    amount = body.amount as number;
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
+  }
+
+  await applyDkp(guildId, targetUserId, targetUsername, amount, reason);
+
+  const bal = await prisma.dkpBalance.findUnique({
+    where: { guildId_userId: { guildId, userId: targetUserId } },
+  });
+
+  const data: DkpBalanceDto = {
+    userId: targetUserId,
+    username: targetUsername,
+    balance: bal?.balance ?? 0,
+    updatedAt: bal?.updatedAt.toISOString() ?? new Date().toISOString(),
+  };
+
+  res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto>);
 });
