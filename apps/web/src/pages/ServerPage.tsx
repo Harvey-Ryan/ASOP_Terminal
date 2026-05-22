@@ -693,6 +693,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </Link>
             </Button>
           )}
+          {isManager && ev.status === 'COMPLETED' && lootSession?.status === 'COMPLETED' && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
+                <Package className="h-3.5 w-3.5" />Loot
+              </Link>
+            </Button>
+          )}
           {isManager && ev.status === 'COMPLETED' && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
