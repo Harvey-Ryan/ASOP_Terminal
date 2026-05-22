@@ -990,7 +990,7 @@ export function ServerPage() {
                   <div className="flex-[2] px-4 py-2 hidden lg:block">Location</div>
                   <div className="flex-1 px-4 py-2 hidden sm:block">Status</div>
                   <div className="flex-1 px-4 py-2 hidden md:block">Role</div>
-                  <div className="flex-1 px-4 py-2">Actions</div>
+                  <div className="flex-1 px-4 py-2 text-center">Actions</div>
                 </div>
               </div>
 
