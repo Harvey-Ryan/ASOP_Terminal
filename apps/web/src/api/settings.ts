@@ -16,6 +16,7 @@ export interface GuildChannels {
 export interface GuildSettingsData {
   forumChannelId: string | null;
   voiceCategoryId: string | null;
+  dkpAnnouncementChannelId: string | null;
   eventCreatorRoles: string[];
   moduleEditorRoles: string[];
   viewerRoles: string[];

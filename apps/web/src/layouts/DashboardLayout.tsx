@@ -315,20 +315,36 @@ export function DashboardLayout() {
               </button>
 
               {modulesOpen && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/settings/modules/event-bot`}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                      isActive
-                        ? 'bg-primary text-primary-foreground font-medium'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                    )
-                  }
-                >
-                  <CalendarDays className="h-4 w-4 shrink-0" />
-                  Event Bot
-                </NavLink>
+                <>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/event-bot`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )
+                    }
+                  >
+                    <CalendarDays className="h-4 w-4 shrink-0" />
+                    Event Bot
+                  </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/dkp`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )
+                    }
+                  >
+                    <Coins className="h-4 w-4 shrink-0" />
+                    DKP
+                  </NavLink>
+                </>
               )}
 
               {/* Admin */}

@@ -8,6 +8,7 @@ import { LootPage } from './pages/events/LootPage';
 import { ModuleEventBotPage } from './pages/settings/ModuleEventBotPage';
 import { BotSettingsPage } from './pages/settings/BotSettingsPage';
 import { PermissionsPage } from './pages/settings/PermissionsPage';
+import { DkpSettingsPage } from './pages/settings/DkpSettingsPage';
 import { AuctionsPage } from './pages/AuctionsPage';
 import { DkpPage } from './pages/DkpPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="servers/:guildId/events/:eventId/loot" element={<LootPage />} />
           <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
+          <Route path="servers/:guildId/settings/modules/dkp" element={<DkpSettingsPage />} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
           <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />
           <Route path="servers/:guildId/dkp" element={<DkpPage />} />

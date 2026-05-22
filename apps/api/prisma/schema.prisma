@@ -104,6 +104,8 @@ model GuildSettings {
   viewerRoles       String @default("[]")
   /// Custom label for the DKP currency shown throughout the UI and bot messages (e.g. "Credits", "Points")
   dkpLabel          String @default("DKP")
+  /// Discord channel snowflake for standalone DKP auction announcements
+  dkpAnnouncementChannelId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

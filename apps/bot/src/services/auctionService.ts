@@ -100,7 +100,10 @@ export async function postOrUpdateAuctionMessage(auctionId: string): Promise<voi
   } else {
     const wasArchived = thread.archived ?? false;
     if (wasArchived) await thread.setArchived(false).catch(() => null);
-    const msg = await thread.send({ embeds: [embed] });
+    const msg = await thread.send({
+      content: `🔨 **LIVE AUCTION** — \`${auction.item.name}\` is now open for bids! Use \`/bid\` or the web dashboard to place your bid.`,
+      embeds: [embed],
+    });
     if (wasArchived) await thread.setArchived(true).catch(() => null);
     await prisma.lootAuction.update({ where: { id: auctionId }, data: { discordMessageId: msg.id } });
   }
@@ -224,11 +227,11 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
 
   const guildSettings = await prisma.guildSettings.findFirst({
     where: { guild: { guildId: auction.guildId } },
-    select: { lootChannelId: true, dkpLabel: true },
+    select: { dkpAnnouncementChannelId: true, dkpLabel: true },
   });
-  if (!guildSettings?.lootChannelId) return;
+  if (!guildSettings?.dkpAnnouncementChannelId) return;
 
-  const channel = await client.channels.fetch(guildSettings.lootChannelId).catch(() => null);
+  const channel = await client.channels.fetch(guildSettings.dkpAnnouncementChannelId).catch(() => null);
   if (!channel || (channel.type !== ChannelType.GuildText && channel.type !== ChannelType.GuildAnnouncement)) return;
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
@@ -249,7 +252,10 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
       });
     }
   } else {
-    const msg = await channel.send({ embeds: [embed] });
+    const msg = await channel.send({
+      content: `🔨 **LIVE AUCTION** — \`${auction.title}\` is now open for bids! Use \`/bid\` or the web dashboard to place your bid.`,
+      embeds: [embed],
+    });
     await prisma.auction.update({
       where: { id: auctionId },
       data: { discordMessageId: msg.id },

@@ -194,6 +194,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
       data: {
         forumChannelId: s?.forumChannelId ?? null,
         voiceCategoryId: s?.voiceCategoryId ?? null,
+        dkpAnnouncementChannelId: s?.dkpAnnouncementChannelId ?? null,
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
@@ -216,6 +217,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
   let body: {
     forumChannelId?: string | null;
     voiceCategoryId?: string | null;
+    dkpAnnouncementChannelId?: string | null;
     eventCreatorRoles?: string[];
     moduleEditorRoles?: string[];
     viewerRoles?: string[];
@@ -223,12 +225,13 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
   };
   try {
     body = {
-      forumChannelId:    raw.forumChannelId !== undefined ? optStr(raw.forumChannelId, 'forumChannelId', 30) : undefined,
-      voiceCategoryId:   raw.voiceCategoryId !== undefined ? optStr(raw.voiceCategoryId, 'voiceCategoryId', 30) : undefined,
-      eventCreatorRoles: raw.eventCreatorRoles !== undefined ? optStrArr(raw.eventCreatorRoles, 'eventCreatorRoles', 100, 30) : undefined,
-      moduleEditorRoles: raw.moduleEditorRoles !== undefined ? optStrArr(raw.moduleEditorRoles, 'moduleEditorRoles', 100, 30) : undefined,
-      viewerRoles:       raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
-      dkpLabel:          raw.dkpLabel !== undefined ? requireStr(raw.dkpLabel, 'dkpLabel', 30) : undefined,
+      forumChannelId:            raw.forumChannelId !== undefined ? optStr(raw.forumChannelId, 'forumChannelId', 30) : undefined,
+      voiceCategoryId:           raw.voiceCategoryId !== undefined ? optStr(raw.voiceCategoryId, 'voiceCategoryId', 30) : undefined,
+      dkpAnnouncementChannelId:  raw.dkpAnnouncementChannelId !== undefined ? optStr(raw.dkpAnnouncementChannelId, 'dkpAnnouncementChannelId', 30) : undefined,
+      eventCreatorRoles:         raw.eventCreatorRoles !== undefined ? optStrArr(raw.eventCreatorRoles, 'eventCreatorRoles', 100, 30) : undefined,
+      moduleEditorRoles:         raw.moduleEditorRoles !== undefined ? optStrArr(raw.moduleEditorRoles, 'moduleEditorRoles', 100, 30) : undefined,
+      viewerRoles:               raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
+      dkpLabel:                  raw.dkpLabel !== undefined ? requireStr(raw.dkpLabel, 'dkpLabel', 30) : undefined,
     };
   } catch (err) {
     if (err instanceof ValidationError) {
@@ -261,6 +264,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       update: {
         ...(body.forumChannelId !== undefined ? { forumChannelId: body.forumChannelId } : {}),
         ...(body.voiceCategoryId !== undefined ? { voiceCategoryId: body.voiceCategoryId } : {}),
+        ...(body.dkpAnnouncementChannelId !== undefined ? { dkpAnnouncementChannelId: body.dkpAnnouncementChannelId } : {}),
         ...(body.eventCreatorRoles !== undefined ? { eventCreatorRoles: JSON.stringify(body.eventCreatorRoles) } : {}),
         ...(body.moduleEditorRoles !== undefined ? { moduleEditorRoles: JSON.stringify(body.moduleEditorRoles) } : {}),
         ...(body.viewerRoles !== undefined ? { viewerRoles: JSON.stringify(body.viewerRoles) } : {}),
@@ -270,6 +274,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         guildId: guild.id,
         forumChannelId: body.forumChannelId ?? null,
         voiceCategoryId: body.voiceCategoryId ?? null,
+        dkpAnnouncementChannelId: body.dkpAnnouncementChannelId ?? null,
         eventCreatorRoles: JSON.stringify(body.eventCreatorRoles ?? []),
         moduleEditorRoles: JSON.stringify(body.moduleEditorRoles ?? []),
         viewerRoles: JSON.stringify(body.viewerRoles ?? []),
@@ -283,6 +288,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       data: {
         forumChannelId: s.forumChannelId ?? null,
         voiceCategoryId: s.voiceCategoryId ?? null,
+        dkpAnnouncementChannelId: s.dkpAnnouncementChannelId ?? null,
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
