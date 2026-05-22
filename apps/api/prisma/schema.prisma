@@ -222,6 +222,8 @@ model LootSession {
   status     String   @default("OPEN")
   /// JSON: string[] — userId order for snake draft
   draftOrder String   @default("[]")
+  /// Number of skipped turns applied to the draft position
+  skipCount  Int      @default(0)
   /// DKP points awarded to each confirmed attendee on completion
   dkpAward   Int      @default(0)
   createdAt  DateTime @default(now())

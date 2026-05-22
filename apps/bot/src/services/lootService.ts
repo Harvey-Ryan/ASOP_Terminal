@@ -1,6 +1,88 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
+
+const LOOT_PICKER_ROLE = 'Loot Picker';
+
+function getNextPicker(position: number, draftOrder: string[]): string | null {
+  if (draftOrder.length === 0) return null;
+  const n = draftOrder.length;
+  const round = Math.floor(position / n);
+  const pos = position % n;
+  return round % 2 === 0 ? draftOrder[pos]! : draftOrder[n - 1 - pos]!;
+}
+
+export async function notifySnakeTurn(eventId: string) {
+  const session = await prisma.lootSession.findUnique({
+    where: { eventId },
+    include: { items: { include: { assignments: true } } },
+  });
+  if (!session || session.method !== 'SNAKE_DRAFT' || session.status === 'COMPLETED') return;
+
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  if (draftOrder.length === 0) return;
+
+  const allAssignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
+  const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
+
+  const guild = await client.guilds.fetch(session.guildId).catch(() => null);
+  if (!guild) return;
+
+  // Find or create the "Loot Picker" role
+  let pickerRole = guild.roles.cache.find((r) => r.name === LOOT_PICKER_ROLE);
+  if (!pickerRole) {
+    pickerRole = await guild.roles.create({
+      name: LOOT_PICKER_ROLE,
+      color: 0xf59e0b,
+      reason: 'Snake draft loot picker indicator',
+    }).catch(() => null) ?? undefined;
+  }
+
+  // Remove role from any current holders
+  if (pickerRole) {
+    const members = await guild.members.fetch().catch(() => null);
+    if (members) {
+      for (const [, member] of members) {
+        if (member.roles.cache.has(pickerRole.id)) {
+          await member.roles.remove(pickerRole).catch(() => null);
+        }
+      }
+    }
+  }
+
+  // If all items assigned, we're done — no DM needed
+  if (totalUnassigned === 0) return;
+
+  const effectivePosition = allAssignmentCount + session.skipCount;
+  const nextPickerId = getNextPicker(effectivePosition, draftOrder);
+  if (!nextPickerId) return;
+
+  // Assign the picker role to the new picker
+  if (pickerRole) {
+    const nextMember = await guild.members.fetch(nextPickerId).catch(() => null);
+    if (nextMember) await nextMember.roles.add(pickerRole).catch(() => null);
+  }
+
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/events/${eventId}/loot`;
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel('View Loot Pool')
+      .setStyle(ButtonStyle.Link)
+      .setURL(lootUrl),
+  );
+
+  try {
+    const discordUser = await client.users.fetch(nextPickerId);
+    await discordUser.send({
+      content: `🐍 It's your turn to pick in the snake draft!\n\nClick below to view the remaining loot and select your reward.`,
+      components: [row],
+    });
+  } catch (err) {
+    console.error(`[bot] Failed to DM snake draft picker ${nextPickerId}:`, err);
+  }
+}
 
 const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: '🎲 Random Roll',

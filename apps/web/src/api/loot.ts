@@ -63,6 +63,9 @@ export const lootApi = {
   clearAssignment: (guildId: string, eventId: string, itemId: string) =>
     api.delete<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/assign`).then((r) => r),
 
+  skipTurn: (guildId: string, eventId: string) =>
+    api.post<ApiResponse<LootSessionDto>>(`${base(guildId, eventId)}/skip-turn`).then((r) => r.data!),
+
   complete: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`${base(guildId, eventId)}/complete`).then((r) => r),
 

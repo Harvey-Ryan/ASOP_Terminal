@@ -32,6 +32,7 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
     method: s.method as LootMethod,
     status: s.status as 'OPEN' | 'COMPLETED',
     draftOrder: JSON.parse(s.draftOrder) as string[],
+    skipCount: s.skipCount,
     dkpAward: s.dkpAward,
     items: [...s.items]
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -393,8 +394,34 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
   });
 
   triggerBot(`/trigger/complete/${eventId}`);
+  if (session.method === 'SNAKE_DRAFT') triggerBot(`/trigger/snake-turn/${eventId}`);
 
   res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── POST skip turn (snake draft) ──────────────────────────────────────────────
+
+lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const session = await prisma.lootSession.findUnique({ where: { eventId } });
+  if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
+  if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only available for snake draft' } satisfies ApiResponse); return; }
+  if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Session already completed' } satisfies ApiResponse); return; }
+
+  const updated = await prisma.lootSession.update({
+    where: { eventId },
+    data: { skipCount: { increment: 1 } },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  triggerBot(`/trigger/snake-turn/${eventId}`);
+
+  res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
 });
 
 // ── DELETE assignment ─────────────────────────────────────────────────────────

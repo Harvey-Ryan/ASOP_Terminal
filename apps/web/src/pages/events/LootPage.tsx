@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +37,7 @@ function ItemRow({
   dkpBalances,
   eligiblePlayers,
   allAssignmentCount,
+  skipCount,
   onRolled,
   onAssigned,
   onDelete,
@@ -49,6 +50,7 @@ function ItemRow({
   dkpBalances: DkpBalanceDto[];
   eligiblePlayers: RsvpDto[];
   allAssignmentCount: number;
+  skipCount: number;
   onRolled: () => void;
   onAssigned: () => void;
   onDelete: () => void;
@@ -90,7 +92,7 @@ function ItemRow({
   });
 
   const nextPicker = session.method === 'SNAKE_DRAFT'
-    ? getNextPicker(allAssignmentCount, session.draftOrder)
+    ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder)
     : null;
   const nextPickerName = nextPicker
     ? resolveUsername(nextPicker, eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? nextPicker, currentUserId)
@@ -336,6 +338,12 @@ export function LootPage() {
     onSuccess: () => navigate(`/dashboard/servers/${guildId}?tab=completed`),
   });
 
+  const [skipConfirm, setSkipConfirm] = useState(false);
+  const skipMutation = useMutation({
+    mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
+    onSuccess: () => { setSkipConfirm(false); invalidate(); },
+  });
+
   function handleShuffle() {
     if (!session) return;
     const shuffled = [...eligiblePlayers.map((p) => p.userId)].sort(() => Math.random() - 0.5);
@@ -343,7 +351,8 @@ export function LootPage() {
   }
 
   const allAssignmentCount = session?.items.reduce((n, item) => n + item.assignments.length, 0) ?? 0;
-  const nextPickerId = session ? getNextPicker(allAssignmentCount, session.draftOrder) : null;
+  const skipCount = session?.skipCount ?? 0;
+  const nextPickerId = session ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder) : null;
   const nextPickerName = nextPickerId
     ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? nextPickerId, user?.id)
     : null;
@@ -434,9 +443,27 @@ export function LootPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {nextPickerName && (
-                  <div className="mb-3 rounded-md bg-primary/10 border border-primary/30 px-3 py-2 text-sm font-medium text-primary">
-                    Now picking: {nextPickerName}
+                {nextPickerName && session.status === 'OPEN' && (
+                  <div className="mb-3 space-y-2">
+                    <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-primary">Now picking: {nextPickerName}</span>
+                      {!skipConfirm ? (
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0" onClick={() => setSkipConfirm(true)}>
+                          <SkipForward className="h-3 w-3" />
+                          Skip Turn
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-muted-foreground">Skip {nextPickerName}?</span>
+                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
+                            {skipMutation.isPending ? 'Skipping…' : 'Yes, Skip'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSkipConfirm(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2">
@@ -479,6 +506,7 @@ export function LootPage() {
                 dkpBalances={dkpQuery.data ?? []}
                 eligiblePlayers={eligiblePlayers}
                 allAssignmentCount={allAssignmentCount}
+                skipCount={skipCount}
                 onRolled={invalidate}
                 onAssigned={invalidate}
                 onDelete={invalidate}

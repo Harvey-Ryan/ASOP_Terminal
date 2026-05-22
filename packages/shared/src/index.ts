@@ -227,6 +227,7 @@ export interface LootSessionDto {
   method: LootMethod;
   status: 'OPEN' | 'COMPLETED';
   draftOrder: string[];
+  skipCount: number;
   dkpAward: number;
   items: LootItemDto[];
   createdAt: string;

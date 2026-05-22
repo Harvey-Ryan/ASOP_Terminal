@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent } from './services/eventService.js';
-import { announceLootResults } from './services/lootService.js';
+import { announceLootResults, notifySnakeTurn } from './services/lootService.js';
 import { registerCommands } from './services/commandService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
@@ -72,6 +72,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await announceLootResults(sessionId).catch((err) =>
         console.error(`[bot:internal] announceLootResults failed for ${sessionId}:`, err),
+      );
+      return;
+    }
+
+    const snakeTurnMatch = req.url?.match(/^\/trigger\/snake-turn\/([^/]+)$/);
+    if (snakeTurnMatch) {
+      const eventId = snakeTurnMatch[1]!;
+      res.writeHead(202).end();
+      await notifySnakeTurn(eventId).catch((err) =>
+        console.error(`[bot:internal] notifySnakeTurn failed for ${eventId}:`, err),
       );
       return;
     }
