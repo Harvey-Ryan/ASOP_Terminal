@@ -99,7 +99,7 @@ export const lootApi = {
     api.post<ApiResponse<LootAuctionDto>>(`${base(guildId, eventId)}/items/${itemId}/auction`, body)
       .then((r) => r.data!),
 
-  placeBid: (guildId: string, eventId: string, itemId: string, body: { amount: number }) =>
+  placeBid: (guildId: string, eventId: string, itemId: string, body: { maxBid: number }) =>
     api.post<ApiResponse<LootAuctionDto>>(`${base(guildId, eventId)}/items/${itemId}/auction/bid`, body)
       .then((r) => r.data!),
 

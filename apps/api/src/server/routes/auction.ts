@@ -23,7 +23,7 @@ type AuctionRow = {
   winningBid: number | null;
   createdAt: Date;
   updatedAt: Date;
-  bids: { userId: string; username: string; amount: number; placedAt: Date }[];
+  bids: { userId: string; username: string; amount: number; maxBid: number; placedAt: Date }[];
 };
 
 function auctionToDto(a: AuctionRow): AuctionDto {
@@ -46,11 +46,38 @@ function auctionToDto(a: AuctionRow): AuctionDto {
         userId: b.userId,
         username: b.username,
         amount: b.amount,
+        maxBid: b.maxBid,
         placedAt: b.placedAt.toISOString(),
       })),
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
   };
+}
+
+// ── Proxy bidding helper ──────────────────────────────────────────────────────
+
+function resolveProxy(
+  bids: { userId: string; maxBid: number; placedAt: Date }[],
+  increment = 1,
+): Map<string, number> {
+  if (bids.length === 0) return new Map();
+  const sorted = [...bids].sort((a, b) =>
+    b.maxBid !== a.maxBid
+      ? b.maxBid - a.maxBid
+      : a.placedAt.getTime() - b.placedAt.getTime(),
+  );
+  const result = new Map<string, number>();
+  const winner = sorted[0]!;
+  const runnerUp = sorted[1];
+  if (!runnerUp) {
+    result.set(winner.userId, winner.maxBid);
+  } else {
+    result.set(winner.userId, Math.min(winner.maxBid, runnerUp.maxBid + increment));
+    for (let i = 1; i < sorted.length; i++) {
+      result.set(sorted[i]!.userId, sorted[i]!.maxBid);
+    }
+  }
+  return result;
 }
 
 // ── Inline applyDkp helper ────────────────────────────────────────────────────
@@ -215,10 +242,10 @@ auctionRouter.post('/:guildId/auctions/:auctionId/bid', requireAuth, async (req,
   const { guildId, auctionId } = req.params as { guildId: string; auctionId: string };
   const body = req.body as Record<string, unknown>;
 
-  let amount: number;
+  let maxBid: number;
   try {
-    amount = optPosInt(body.amount, 'amount') ?? 0;
-    if (amount <= 0) throw new ValidationError('amount must be greater than 0');
+    maxBid = optPosInt(body.maxBid, 'maxBid') ?? 0;
+    if (maxBid <= 0) throw new ValidationError('maxBid must be greater than 0');
   } catch (err) {
     if (err instanceof ValidationError) {
       res.status(400).json({ success: false, error: err.message } satisfies ApiResponse);
@@ -257,34 +284,45 @@ auctionRouter.post('/:guildId/auctions/:auctionId/bid', requireAuth, async (req,
   const userId = dbUser.discordId;
   const username = dbUser.globalName ?? dbUser.username;
 
-  // Bid must exceed current standing bid for this user
+  // Validation: new maxBid must exceed current maxBid
   const existing = auction.bids.find((b) => b.userId === userId);
-  if (existing && amount <= existing.amount) {
+  if (existing && maxBid <= existing.maxBid) {
     res.status(400).json({
       success: false,
-      error: `Bid must exceed your current bid of ${existing.amount} DKP`,
+      error: `Max bid must exceed your current max of ${existing.maxBid} DKP`,
     } satisfies ApiResponse);
     return;
   }
 
-  // Raw DKP balance check — no session-committed subtraction for standalone
+  // Raw DKP balance check against maxBid (worst-case spend) — no session-committed subtraction for standalone
   const bal = await prisma.dkpBalance.findUnique({
     where: { guildId_userId: { guildId, userId } },
   });
   const rawBalance = bal?.balance ?? 0;
 
-  if (amount > rawBalance) {
+  if (maxBid > rawBalance) {
     res.status(400).json({
       success: false,
-      error: `Insufficient DKP: bid ${amount} but only ${rawBalance} available`,
+      error: `Insufficient DKP: max bid ${maxBid} but only ${rawBalance} available`,
     } satisfies ApiResponse);
     return;
   }
 
-  await prisma.auctionBid.upsert({
-    where: { auctionId_userId: { auctionId: auction.id, userId } },
-    create: { auctionId: auction.id, userId, username, amount },
-    update: { username, amount, placedAt: new Date() },
+  // Place bid and resolve proxy amounts in a transaction
+  await prisma.$transaction(async (tx) => {
+    await tx.auctionBid.upsert({
+      where: { auctionId_userId: { auctionId: auction.id, userId } },
+      create: { auctionId: auction.id, userId, username, amount: maxBid, maxBid },
+      update: { username, maxBid, placedAt: new Date() },
+    });
+    const allBids = await tx.auctionBid.findMany({ where: { auctionId: auction.id } });
+    const resolved = resolveProxy(allBids);
+    for (const [uid, amt] of resolved) {
+      await tx.auctionBid.update({
+        where: { auctionId_userId: { auctionId: auction.id, userId: uid } },
+        data: { amount: amt },
+      });
+    }
   });
 
   triggerBot(`/trigger/standalone-auction-bid/${auction.id}`);

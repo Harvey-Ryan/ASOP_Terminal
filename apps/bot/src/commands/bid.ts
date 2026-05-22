@@ -9,10 +9,36 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption((opt) =>
     opt
       .setName('amount')
-      .setDescription('DKP amount to bid')
+      .setDescription('Maximum DKP you are willing to pay')
       .setRequired(true)
       .setMinValue(1),
   );
+
+// ── Proxy bidding helper ──────────────────────────────────────────────────────
+
+function resolveProxy(
+  bids: { userId: string; maxBid: number; placedAt: Date }[],
+  increment = 1,
+): Map<string, number> {
+  if (bids.length === 0) return new Map();
+  const sorted = [...bids].sort((a, b) =>
+    b.maxBid !== a.maxBid
+      ? b.maxBid - a.maxBid
+      : a.placedAt.getTime() - b.placedAt.getTime(),
+  );
+  const result = new Map<string, number>();
+  const winner = sorted[0]!;
+  const runnerUp = sorted[1];
+  if (!runnerUp) {
+    result.set(winner.userId, winner.maxBid);
+  } else {
+    result.set(winner.userId, Math.min(winner.maxBid, runnerUp.maxBid + increment));
+    for (let i = 1; i < sorted.length; i++) {
+      result.set(sorted[i]!.userId, sorted[i]!.maxBid);
+    }
+  }
+  return result;
+}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
@@ -68,16 +94,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    // Bid must exceed current standing bid
+    // Validation: new maxBid must exceed current maxBid
     const existing = standaloneAuction.bids.find((b) => b.userId === userId);
-    if (existing && amount <= existing.amount) {
+    if (existing && amount <= existing.maxBid) {
       await interaction.editReply(
-        `❌ Your bid must exceed your current bid of **${existing.amount} DKP**. Bid higher to raise it.`,
+        `❌ Max bid must exceed your current max of **${existing.maxBid} DKP**. Bid higher to raise it.`,
       );
       return;
     }
 
-    // Raw DKP balance check — no committed subtraction for standalone
+    // Raw DKP balance check against maxBid (worst-case spend) — no committed subtraction for standalone
     const bal = await prisma.dkpBalance.findUnique({
       where: { guildId_userId: { guildId, userId } },
     });
@@ -85,23 +111,32 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     if (amount > rawBalance) {
       await interaction.editReply(
-        `❌ Insufficient DKP. You bid **${amount}** but only have **${rawBalance}** available.`,
+        `❌ Insufficient DKP. You set a max bid of **${amount}** but only have **${rawBalance}** available.`,
       );
       return;
     }
 
     await prisma.auctionBid.upsert({
       where: { auctionId_userId: { auctionId: standaloneAuction.id, userId } },
-      create: { auctionId: standaloneAuction.id, userId, username, amount },
-      update: { username, amount, placedAt: new Date() },
+      create: { auctionId: standaloneAuction.id, userId, username, amount: amount, maxBid: amount },
+      update: { username, maxBid: amount, placedAt: new Date() },
     });
+
+    // Resolve proxy amounts for all bidders
+    const allStandaloneBids = await prisma.auctionBid.findMany({ where: { auctionId: standaloneAuction.id } });
+    const standaloneResolved = resolveProxy(allStandaloneBids);
+    for (const [uid, amt] of standaloneResolved) {
+      await prisma.auctionBid.update({
+        where: { auctionId_userId: { auctionId: standaloneAuction.id, userId: uid } },
+        data: { amount: amt },
+      });
+    }
 
     await postOrUpdateStandaloneAuctionMessage(standaloneAuction.id).catch(() => null);
 
     const closesTs = Math.floor(standaloneAuction.closesAt.getTime() / 1000);
-    const action = existing ? 'raised to' : 'placed at';
     await interaction.editReply(
-      `✅ Bid ${action} **${amount} DKP** for **${standaloneAuction.title}**.\nAuction closes <t:${closesTs}:R>.`,
+      `✅ Max bid set to **${amount} DKP** for **${standaloneAuction.title}**.\nAuction closes <t:${closesTs}:R>.`,
     );
     return;
   }
@@ -133,16 +168,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  // Bid must exceed current standing bid
+  // Validation: new maxBid must exceed current maxBid
   const existing = auction.bids.find((b) => b.userId === userId);
-  if (existing && amount <= existing.amount) {
+  if (existing && amount <= existing.maxBid) {
     await interaction.editReply(
-      `❌ Your bid must exceed your current bid of **${existing.amount} DKP**. Bid higher to raise it.`,
+      `❌ Max bid must exceed your current max of **${existing.maxBid} DKP**. Bid higher to raise it.`,
     );
     return;
   }
 
   // Effective balance = raw balance − DKP committed to items already won in this session
+  // Balance check is against maxBid (worst-case spend)
   const bal = await prisma.dkpBalance.findUnique({
     where: { guildId_userId: { guildId, userId } },
   });
@@ -155,7 +191,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (amount > effective) {
     await interaction.editReply(
-      `❌ Insufficient DKP. You bid **${amount}** but only have **${effective}** available (balance: ${bal?.balance ?? 0}, committed: ${committed}).`,
+      `❌ Insufficient DKP. You set a max bid of **${amount}** but only have **${effective}** available (balance: ${bal?.balance ?? 0}, committed: ${committed}).`,
     );
     return;
   }
@@ -163,16 +199,25 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // Place or raise the bid
   await prisma.lootAuctionBid.upsert({
     where: { auctionId_userId: { auctionId: auction.id, userId } },
-    create: { auctionId: auction.id, userId, username, amount },
-    update: { username, amount, placedAt: new Date() },
+    create: { auctionId: auction.id, userId, username, amount: amount, maxBid: amount },
+    update: { username, maxBid: amount, placedAt: new Date() },
   });
+
+  // Resolve proxy amounts for all bidders
+  const allLootBids = await prisma.lootAuctionBid.findMany({ where: { auctionId: auction.id } });
+  const lootResolved = resolveProxy(allLootBids);
+  for (const [uid, amt] of lootResolved) {
+    await prisma.lootAuctionBid.update({
+      where: { auctionId_userId: { auctionId: auction.id, userId: uid } },
+      data: { amount: amt },
+    });
+  }
 
   // Update the Discord embed in the forum thread
   await postOrUpdateAuctionMessage(auction.id).catch(() => null);
 
   const closesTs = Math.floor(auction.closesAt.getTime() / 1000);
-  const action = existing ? 'raised to' : 'placed at';
   await interaction.editReply(
-    `✅ Bid ${action} **${amount} DKP** for **${auction.item.name}**.\nAuction closes <t:${closesTs}:R>.`,
+    `✅ Max bid set to **${amount} DKP** for **${auction.item.name}**.\nAuction closes <t:${closesTs}:R>.`,
   );
 }

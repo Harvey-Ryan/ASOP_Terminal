@@ -68,7 +68,7 @@ function AuctionCard({
 
   const bidMutation = useMutation({
     mutationFn: () =>
-      auctionsApi.placeBid(guildId, auction.id, { amount: Number(bidInput) }),
+      auctionsApi.placeBid(guildId, auction.id, { maxBid: Number(bidInput) }),
     onSuccess: () => {
       setBidInput('');
       onChanged();
@@ -88,7 +88,7 @@ function AuctionCard({
   const myBid = auction.bids.find((b) => b.userId === currentUserId);
   const bidVal = bidInput !== '' ? Number(bidInput) : 0;
   const overBid = bidInput !== '' && bidVal > myRawBalance;
-  const belowCurrent = !!myBid && bidInput !== '' && bidVal <= myBid.amount;
+  const belowCurrent = !!myBid && bidInput !== '' && bidVal <= myBid.maxBid;
   const bidInvalid = !bidInput || bidVal <= 0 || overBid || belowCurrent;
   const urgentTime = secondsLeft <= 30 && secondsLeft > 0;
 
@@ -142,16 +142,17 @@ function AuctionCard({
 
         {/* Bid input — any authenticated user */}
         <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Max Bid
+          </label>
           <div className="flex items-center gap-2">
             <input
               type="number"
-              min={myBid ? myBid.amount + 1 : 1}
+              min={myBid ? myBid.maxBid + 1 : 1}
               max={myRawBalance}
               value={bidInput}
               onChange={(e) => setBidInput(e.target.value)}
-              placeholder={
-                myBid ? `Raise from ${myBid.amount}…` : `Bid (max ${myRawBalance})…`
-              }
+              placeholder="e.g. 250"
               className={`flex-1 rounded-md border px-2 py-1.5 text-sm ${
                 overBid || belowCurrent
                   ? 'border-destructive bg-destructive/10 text-destructive'
@@ -164,22 +165,27 @@ function AuctionCard({
               onClick={() => bidMutation.mutate()}
               disabled={bidInvalid || bidMutation.isPending}
             >
-              {bidMutation.isPending ? 'Bidding…' : myBid ? 'Raise' : 'Bid'}
+              {bidMutation.isPending ? 'Bidding…' : myBid ? 'Raise Max' : 'Bid'}
             </Button>
           </div>
+          {myBid && (
+            <p className="text-xs text-muted-foreground">
+              Your max: <span className="font-medium">{myBid.maxBid} DKP</span>
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             Your available DKP:{' '}
             <span className={myRawBalance <= 0 ? 'text-destructive' : ''}>{myRawBalance}</span>
           </p>
           {overBid && (
             <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Bid exceeds your available balance
+              <AlertTriangle className="h-3 w-3" /> Max bid exceeds your available balance
             </p>
           )}
           {belowCurrent && (
             <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Must exceed your current bid of{' '}
-              {myBid!.amount} DKP
+              <AlertTriangle className="h-3 w-3" /> Must exceed your current max of{' '}
+              {myBid!.maxBid} DKP
             </p>
           )}
           {bidMutation.isError && (

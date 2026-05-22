@@ -13,7 +13,7 @@ export const auctionsApi = {
       .post<ApiResponse<AuctionDto>>(`/guilds/${guildId}/auctions`, body)
       .then((r) => r.data!),
 
-  placeBid: (guildId: string, auctionId: string, body: { amount: number }) =>
+  placeBid: (guildId: string, auctionId: string, body: { maxBid: number }) =>
     api
       .post<ApiResponse<AuctionDto>>(`/guilds/${guildId}/auctions/${auctionId}/bid`, body)
       .then((r) => r.data!),

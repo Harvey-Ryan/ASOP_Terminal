@@ -421,6 +421,7 @@ model LootAuctionBid {
   userId    String
   username  String
   amount    Int
+  maxBid    Int      @default(0)
   placedAt  DateTime @default(now()) @updatedAt
 
   auction LootAuction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
@@ -471,6 +472,7 @@ model AuctionBid {
   userId    String
   username  String
   amount    Int
+  maxBid    Int      @default(0)
   placedAt  DateTime @default(now()) @updatedAt
 
   auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)

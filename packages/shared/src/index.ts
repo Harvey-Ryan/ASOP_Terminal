@@ -321,6 +321,7 @@ export interface LootAuctionBidDto {
   userId: string;
   username: string;
   amount: number;
+  maxBid: number;
   placedAt: string;
 }
 
@@ -350,6 +351,7 @@ export interface AuctionBidDto {
   userId: string;
   username: string;
   amount: number;
+  maxBid: number;
   placedAt: string;
 }
 

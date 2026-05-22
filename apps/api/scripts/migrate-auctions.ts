@@ -25,6 +25,18 @@ async function tableExists(name: string): Promise<boolean> {
   return rows[0]?.exists === true;
 }
 
+async function columnExists(table: string, column: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<[{ exists: boolean }][]>`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name   = ${table}
+        AND column_name  = ${column}
+    ) AS exists
+  `;
+  return rows[0]?.exists === true;
+}
+
 function log(msg: string) {
   console.log(`[migrate-auctions] ${msg}`);
 }
@@ -75,6 +87,7 @@ async function createLootAuctionTables() {
       "userId"    TEXT         NOT NULL,
       "username"  TEXT         NOT NULL,
       "amount"    INTEGER      NOT NULL,
+      "maxBid"    INTEGER      NOT NULL DEFAULT 0,
       "placedAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "LootAuctionBid_pkey" PRIMARY KEY ("id")
     )
@@ -165,6 +178,19 @@ async function main() {
   } else {
     await createLootAuctionTables();
     anyWork = true;
+  }
+
+  // If LootAuctionBid exists but is missing the maxBid column, add it now
+  const lootAuctionBidExists = await tableExists('LootAuctionBid');
+  if (lootAuctionBidExists) {
+    const maxBidExists = await columnExists('LootAuctionBid', 'maxBid');
+    if (!maxBidExists) {
+      log('Adding maxBid column to LootAuctionBid…');
+      await prisma.$executeRaw`ALTER TABLE "LootAuctionBid" ADD COLUMN "maxBid" INTEGER NOT NULL DEFAULT 0`;
+      await prisma.$executeRaw`UPDATE "LootAuctionBid" SET "maxBid" = "amount"`;
+      log('✅ maxBid column added to LootAuctionBid.');
+      anyWork = true;
+    }
   }
 
   if (auctionExists) {
