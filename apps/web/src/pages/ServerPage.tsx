@@ -823,6 +823,7 @@ export function ServerPage() {
     staleTime: 5 * 60_000,
   });
   const isManager = isDiscordManager || (myPermsQuery.data?.canManageEvents ?? false);
+  const canView = isManager || (myPermsQuery.data?.canViewEvents ?? false);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('upcoming');
   const [view, setView] = useState<View>('table');
@@ -872,7 +873,7 @@ export function ServerPage() {
   return (
     <div className="space-y-6">
       {/* Responsive two-column layout: events left, loot right */}
-      <div className={`grid grid-cols-1 gap-6 items-start${isManager ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
+      <div className={`grid grid-cols-1 gap-6 items-start${canView ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
         <div className="overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}
@@ -1030,7 +1031,7 @@ export function ServerPage() {
         </div>
 
         {/* Recent Loot column */}
-        {isManager && <RecentLootCard guildId={guildId!} />}
+        {canView && <RecentLootCard guildId={guildId!} />}
       </div>
     </div>
   );
