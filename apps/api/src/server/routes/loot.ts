@@ -767,7 +767,7 @@ lootRouter.get('/:guildId/dkp', requireAuth, async (req, res) => {
   res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto[]>);
 });
 
-// ── GET DKP-eligible players (all guild members who've authenticated) ─────────
+// ── GET DKP-eligible players (filtered by viewerRoles if configured) ──────────
 
 lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
@@ -777,12 +777,57 @@ lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
 
   const guild = await prisma.guild.findUnique({
     where: { guildId },
-    select: { id: true },
+    include: { settings: true },
   });
   if (!guild) {
     res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse); return;
   }
 
+  const viewerRoles: string[] = guild.settings
+    ? (JSON.parse(guild.settings.viewerRoles) as string[])
+    : [];
+
+  // If viewer roles are configured, query Discord for members holding those roles
+  if (viewerRoles.length > 0) {
+    const botToken = process.env['DISCORD_TOKEN'];
+    if (!botToken) {
+      res.status(500).json({ success: false, error: 'Bot token not configured' } satisfies ApiResponse); return;
+    }
+
+    interface DiscordMember {
+      user: { id: string; username: string; global_name: string | null };
+      nick: string | null;
+      roles: string[];
+    }
+
+    // Paginate up to 5 pages × 1000 = 5000 members
+    const allMembers: DiscordMember[] = [];
+    let after = '0';
+    for (let page = 0; page < 5; page++) {
+      const url = `https://discord.com/api/v10/guilds/${guildId}/members?limit=1000&after=${after}`;
+      const r = await fetch(url, { headers: { Authorization: `Bot ${botToken}` } });
+      if (!r.ok) break;
+      const batch = (await r.json()) as DiscordMember[];
+      if (batch.length === 0) break;
+      allMembers.push(...batch);
+      if (batch.length < 1000) break;
+      after = batch[batch.length - 1]!.user.id;
+    }
+
+    const viewerSet = new Set(viewerRoles);
+    const filtered = allMembers
+      .filter((m) => m.roles.some((r) => viewerSet.has(r)))
+      .map((m) => ({
+        userId: m.user.id,
+        username: m.nick ?? m.user.global_name ?? m.user.username,
+      }))
+      .sort((a, b) => a.username.localeCompare(b.username));
+
+    res.json({ success: true, data: filtered } satisfies ApiResponse<{ userId: string; username: string }[]>);
+    return;
+  }
+
+  // No viewer roles configured — fall back to all dashboard-authenticated members
   const members = await prisma.guildMember.findMany({
     where: { guildId: guild.id },
     include: { user: { select: { discordId: true, globalName: true, username: true } } },
