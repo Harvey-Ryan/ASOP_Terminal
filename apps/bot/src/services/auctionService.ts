@@ -1,4 +1,4 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 
@@ -226,7 +226,7 @@ export async function postOrUpdateStandaloneAuctionMessage(auctionId: string): P
   if (!guildSettings?.lootChannelId) return;
 
   const channel = await client.channels.fetch(guildSettings.lootChannelId).catch(() => null);
-  if (!channel || !channel.isTextBased() || !channel.isGuildBased() || channel.isThread()) return;
+  if (!channel || (channel.type !== ChannelType.GuildText && channel.type !== ChannelType.GuildAnnouncement)) return;
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
   const auctionUrl = `${webUrl}/dashboard/servers/${auction.guildId}/auctions`;

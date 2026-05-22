@@ -190,7 +190,7 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction', requi
 
   const closesAt = new Date(Date.now() + durationSecs * 1000);
   const auction = await prisma.lootAuction.create({
-    data: { itemId, sessionId: session.id, guildId, startedById: req.session.userId, durationSecs, closesAt },
+    data: { itemId, sessionId: session.id, guildId, startedById: req.session.userId!, durationSecs, closesAt },
     include: { bids: true },
   });
 
