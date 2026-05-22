@@ -6,7 +6,6 @@ import { setupDiscordForEvent, endEvent, resolveVcCategoryId } from './services/
 import { PermissionFlagsBits } from 'discord.js';
 import { joinRoster } from './services/rsvpService.js';
 import { formatMinutes } from './utils/time.js';
-import type { EventRole } from '@dem/shared';
 
 export async function startScheduler() {
   // Refresh the inactivity timer for every ACTIVE event that has VCs.
@@ -165,8 +164,8 @@ async function checkVcCreation() {
       status: 'PENDING',
       vcIds: '[]',
       startTime: {
-        gte: new Date(now.getTime() + 29 * 60_000),
-        lte: new Date(now.getTime() + 31 * 60_000),
+        gte: now,
+        lte: new Date(now.getTime() + 30 * 60_000),
       },
     },
   });
