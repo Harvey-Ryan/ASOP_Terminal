@@ -401,6 +401,14 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
 
 // ── POST skip turn (snake draft) ──────────────────────────────────────────────
 
+function snakePick(position: number, order: string[]): string | null {
+  if (order.length === 0) return null;
+  const n = order.length;
+  const round = Math.floor(position / n);
+  const pos = position % n;
+  return round % 2 === 0 ? order[pos]! : order[n - 1 - pos]!;
+}
+
 lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
@@ -408,14 +416,26 @@ lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
-  const session = await prisma.lootSession.findUnique({ where: { eventId } });
+  const session = await fetchSession(eventId);
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
   if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only available for snake draft' } satisfies ApiResponse); return; }
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Session already completed' } satisfies ApiResponse); return; }
 
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  const assignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
+  const currentPosition = assignmentCount + session.skipCount;
+  const currentPicker = snakePick(currentPosition, draftOrder);
+
+  // Advance past all consecutive positions that belong to the same picker
+  // (e.g. at a turnaround C picks twice in a row — one skip should move to B)
+  let advance = 1;
+  while (snakePick(currentPosition + advance, draftOrder) === currentPicker) {
+    advance++;
+  }
+
   const updated = await prisma.lootSession.update({
     where: { eventId },
-    data: { skipCount: { increment: 1 } },
+    data: { skipCount: { increment: advance } },
     include: { items: { include: { assignments: true } } },
   });
 
