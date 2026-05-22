@@ -70,6 +70,9 @@ export const lootApi = {
   startDraft: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`${base(guildId, eventId)}/start-draft`).then((r) => r),
 
+  toggleDelivered: (guildId: string, eventId: string, itemId: string) =>
+    api.patch<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/assign/delivered`).then((r) => r),
+
   complete: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`${base(guildId, eventId)}/complete`).then((r) => r),
 

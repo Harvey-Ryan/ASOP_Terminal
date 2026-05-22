@@ -251,14 +251,16 @@ model LootItem {
 
 /// One winner record per item (quantity > 1 can have multiple rows).
 model LootAssignment {
-  id         String   @id @default(cuid())
-  itemId     String
-  userId     String
-  username   String
-  rollValue  Int?
-  dkpSpent   Int?
-  pickNumber Int?
-  assignedAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  itemId      String
+  userId      String
+  username    String
+  rollValue   Int?
+  dkpSpent    Int?
+  pickNumber  Int?
+  assignedAt  DateTime  @default(now())
+  delivered   Boolean   @default(false)
+  deliveredAt DateTime?
 
   item LootItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 

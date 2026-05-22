@@ -9,7 +9,7 @@ import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
-import { endEvent } from './services/eventService.js';
+import { endEvent, deleteEventVcs } from './services/eventService.js';
 
 interface Command {
   data: { toJSON(): unknown };
@@ -163,31 +163,56 @@ client.on(Events.GuildScheduledEventUserAdd, async (scheduledEvent, user) => {
   }
 });
 
-// ── VC cleanup when last person leaves an ENDED event ────────────────────────
+// ── VC join/leave handling ────────────────────────────────────────────────────
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   const leftChannelId = oldState.channelId;
-  if (!leftChannelId || newState.channelId === leftChannelId) return;
+  const joinedChannelId = newState.channelId;
 
-  try {
-    const event = await prisma.event.findFirst({
-      where: { status: 'ENDED', botCleanedUp: false, vcIds: { contains: leftChannelId } },
-    });
-    if (!event) return;
-
-    const vcIds = JSON.parse(event.vcIds) as string[];
-    for (const vcId of vcIds) {
-      try {
-        const ch = await client.channels.fetch(vcId);
-        if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) return;
-      } catch {
-        // VC unavailable — treat as empty
-      }
+  // ── Cleanup: delete VC when last person leaves an ENDED event ───────────────
+  if (leftChannelId && joinedChannelId !== leftChannelId) {
+    try {
+      const event = await prisma.event.findFirst({
+        where: { status: 'ENDED', botCleanedUp: false, vcIds: { contains: leftChannelId } },
+      });
+      if (event) await deleteEventVcs(event.id);
+    } catch (err) {
+      console.error('[bot] VoiceStateUpdate cleanup error:', err);
     }
+  }
 
-    await endEvent(event.id);
-  } catch (err) {
-    console.error('[bot] VoiceStateUpdate cleanup error:', err);
+  // ── Auto-assign: RSVP + confirmed attendee when joining an ACTIVE event VC ──
+  if (joinedChannelId && joinedChannelId !== leftChannelId) {
+    try {
+      const event = await prisma.event.findFirst({
+        where: { status: 'ACTIVE', vcIds: { contains: joinedChannelId } },
+      });
+      if (!event) return;
+
+      const userId = newState.member?.id ?? newState.id;
+      if (!userId) return;
+
+      const username = newState.member?.displayName ?? newState.member?.user.username ?? userId;
+
+      // Upsert RSVP (add to roster if not already there)
+      await prisma.eventRsvp.upsert({
+        where: { eventId_userId: { eventId: event.id, userId } },
+        create: { eventId: event.id, userId, username },
+        update: { username }, // keep username current
+      });
+
+      // Add to confirmedAttendees if not already present
+      const confirmed: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
+      if (!confirmed.includes(userId)) {
+        confirmed.push(userId);
+        await prisma.event.update({
+          where: { id: event.id },
+          data: { confirmedAttendees: JSON.stringify(confirmed) },
+        });
+      }
+    } catch (err) {
+      console.error('[bot] VoiceStateUpdate auto-assign error:', err);
+    }
   }
 });
 

@@ -257,38 +257,66 @@ export async function updateRosterEmbed(eventId: string) {
 
 // ── End event (called by scheduler after status=ENDED is detected) ────────────
 
+// ── Delete VCs for an ended event, skipping any that still have members ────────
+// Called by endEvent and by VoiceStateUpdate when the last person leaves.
+
+export async function deleteEventVcs(eventId: string): Promise<void> {
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event || event.botCleanedUp) return;
+
+  const vcIds = JSON.parse(event.vcIds) as string[];
+  if (vcIds.length === 0) {
+    await prisma.event.update({ where: { id: eventId }, data: { botCleanedUp: true } });
+    return;
+  }
+
+  const keepIds: string[] = [];
+  try {
+    const guild = await client.guilds.fetch(event.guildId);
+    for (const vcId of vcIds) {
+      const vc = await guild.channels.fetch(vcId).catch(() => null);
+      if (!vc) continue; // already gone — skip
+      if (vc.type === ChannelType.GuildVoice && vc.members.size > 0) {
+        keepIds.push(vcId); // still occupied — wait for last person to leave
+        continue;
+      }
+      await vc.delete().catch((err: unknown) => {
+        console.error(`[bot] Could not delete VC ${vcId}:`, err instanceof Error ? err.message : err);
+        keepIds.push(vcId);
+      });
+    }
+  } catch (err) {
+    console.error('[bot] deleteEventVcs: guild fetch failed:', err);
+    return; // don't update DB — retry on next voiceStateUpdate
+  }
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { vcIds: JSON.stringify(keepIds), botCleanedUp: keepIds.length === 0 },
+  });
+}
+
 export async function endEvent(eventId: string) {
   const event = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
     include: { rsvps: true },
   });
 
-  // Collect active VC members BEFORE deleting channels
+  // Collect who was in VCs at the moment the event ended (for vcAttendees record)
   const vcIds = JSON.parse(event.vcIds) as string[];
   const activeUserIds = new Set<string>();
-  const failedVcIds: string[] = [];
 
   if (vcIds.length > 0) {
     try {
       const guild = await client.guilds.fetch(event.guildId);
       for (const vcId of vcIds) {
         const vc = await guild.channels.fetch(vcId).catch(() => null);
-        if (!vc) {
-          console.log(`[bot] VC ${vcId} already gone — skipping`);
-          continue;
-        }
-        if (vc.type === ChannelType.GuildVoice) {
+        if (vc?.type === ChannelType.GuildVoice) {
           vc.members.forEach((m) => activeUserIds.add(m.id));
         }
-        const deleted = await vc.delete().then(() => true).catch((err: unknown) => {
-          console.error(`[bot] Could not delete VC ${vcId}:`, err instanceof Error ? err.message : err);
-          return false;
-        });
-        if (!deleted) failedVcIds.push(vcId);
       }
     } catch (err) {
-      console.error('[bot] Failed to fetch guild for VC deletion:', err);
-      failedVcIds.push(...vcIds);
+      console.error('[bot] endEvent: failed to read VC members:', err);
     }
   }
 
@@ -327,12 +355,11 @@ export async function endEvent(eventId: string) {
 
   await prisma.event.update({
     where: { id: eventId },
-    data: {
-      vcIds: JSON.stringify(failedVcIds),
-      vcAttendees: JSON.stringify([...activeUserIds]),
-      botCleanedUp: failedVcIds.length === 0,
-    },
+    data: { vcAttendees: JSON.stringify([...activeUserIds]) },
   });
+
+  // Delete VCs now — occupied ones are skipped and cleaned up via VoiceStateUpdate
+  await deleteEventVcs(eventId);
 
   if (event.recurType) {
     await spawnNextRecurrence(event.id).catch((err) =>

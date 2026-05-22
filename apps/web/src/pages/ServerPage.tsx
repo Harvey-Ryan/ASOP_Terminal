@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,7 +12,7 @@ import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
 import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
-import type { EventDto, EventRole, CreateEventBody } from '@dem/shared';
+import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import type { RecentLootEvent } from '@/api/loot';
 
@@ -429,6 +429,13 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   });
   const lootSession = lootQuery.data ?? null;
 
+  const myPicksQuery = useQuery({
+    queryKey: ['loot', 'my-picks'],
+    queryFn: () => lootApi.getMyPicks(),
+    staleTime: 30_000,
+  });
+  const myDraftPick: MyPickDto | undefined = myPicksQuery.data?.find((p) => p.eventId === event.id);
+
   const roles: EventRole[] = ev.roles ?? [];
   const start = new Date(ev.startTime);
   const end = ev.endTime ? new Date(ev.endTime) : null;
@@ -443,6 +450,28 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
 
   return (
     <div>
+      {/* Draft pick notification */}
+      {myDraftPick && (
+        <div className={`flex items-center justify-between rounded-lg border px-3 py-2.5 mb-3 gap-3 ${
+          myDraftPick.isMyTurn
+            ? 'border-amber-500/40 bg-amber-500/10'
+            : 'border-border bg-muted/40'
+        }`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <Swords className={`h-4 w-4 shrink-0 ${myDraftPick.isMyTurn ? 'text-amber-500' : 'text-muted-foreground'}`} />
+            <span className={`text-sm font-medium truncate ${myDraftPick.isMyTurn ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+              {myDraftPick.isMyTurn ? "It's your turn to pick!" : 'Snake draft in progress'}
+              {myDraftPick.itemCount > 0 && ` · ${myDraftPick.itemCount} item${myDraftPick.itemCount !== 1 ? 's' : ''} left`}
+            </span>
+          </div>
+          <Button size="sm" variant={myDraftPick.isMyTurn ? 'default' : 'outline'} className={`shrink-0 h-7 text-xs ${myDraftPick.isMyTurn ? 'bg-amber-500 hover:bg-amber-600 text-white border-0' : ''}`} asChild>
+            <Link to={`/dashboard/servers/${guildId}/events/${event.id}/loot`}>
+              {myDraftPick.isMyTurn ? 'Pick Now' : 'View Loot'}
+            </Link>
+          </Button>
+        </div>
+      )}
+
       {/* Name + status */}
       <div className={rowCls}>
         <span className={labelCls}>Event</span>

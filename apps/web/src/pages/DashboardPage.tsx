@@ -5,7 +5,42 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lootApi } from '@/api/loot';
+import type { MyPickDto } from '@dem/shared';
 import type { DashboardOutletContext } from '@/layouts/DashboardLayout';
+
+function DraftPickCard({ pick }: { pick: MyPickDto }) {
+  const isMyTurn = pick.isMyTurn;
+  return (
+    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 gap-4 ${
+      isMyTurn
+        ? 'border-amber-500/40 bg-amber-500/10'
+        : 'border-border bg-card'
+    }`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <Swords className={`h-5 w-5 shrink-0 ${isMyTurn ? 'text-amber-500' : 'text-muted-foreground'}`} />
+        <div className="min-w-0">
+          <p className={`font-medium truncate ${isMyTurn ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
+            {isMyTurn ? `It's your turn to pick in ${pick.guildName}` : `Snake draft in progress — ${pick.guildName}`}
+          </p>
+          <p className="text-sm text-muted-foreground truncate">
+            {pick.eventName}
+            {pick.itemCount > 0 && ` · ${pick.itemCount} item${pick.itemCount !== 1 ? 's' : ''} remaining`}
+          </p>
+        </div>
+      </div>
+      <Button
+        asChild
+        size="sm"
+        className={`shrink-0 border-0 ${isMyTurn ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+        variant={isMyTurn ? 'default' : 'outline'}
+      >
+        <Link to={`/dashboard/servers/${pick.guildId}/events/${pick.eventId}/loot`}>
+          {isMyTurn ? 'Pick Now' : 'View Loot'}
+        </Link>
+      </Button>
+    </div>
+  );
+}
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
 
@@ -38,33 +73,12 @@ export function DashboardPage() {
         </p>
       </div>
 
-      {/* Snake draft pick notifications */}
+      {/* Snake draft notifications */}
       {myPicks.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Your Turn</h2>
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Active Drafts</h2>
           {myPicks.map((pick) => (
-            <div
-              key={`${pick.guildId}-${pick.eventId}`}
-              className="flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 gap-4"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Swords className="h-5 w-5 text-amber-500 shrink-0" />
-                <div className="min-w-0">
-                  <p className="font-medium text-amber-600 dark:text-amber-400 truncate">
-                    It's your turn to pick in {pick.guildName}
-                  </p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {pick.eventName}
-                    {pick.itemCount > 0 && ` · ${pick.itemCount} item${pick.itemCount !== 1 ? 's' : ''} remaining`}
-                  </p>
-                </div>
-              </div>
-              <Button asChild size="sm" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white border-0">
-                <Link to={`/dashboard/servers/${pick.guildId}/events/${pick.eventId}/loot`}>
-                  View Loot
-                </Link>
-              </Button>
-            </div>
+            <DraftPickCard key={`${pick.guildId}-${pick.eventId}`} pick={pick} />
           ))}
         </div>
       )}

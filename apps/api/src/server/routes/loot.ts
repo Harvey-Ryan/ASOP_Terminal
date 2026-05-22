@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStrArr, optEnum, optNonNegInt, optPosInt } from '../../lib/validate.js';
 import type {
@@ -51,6 +52,8 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
           dkpSpent: a.dkpSpent,
           pickNumber: a.pickNumber,
           assignedAt: a.assignedAt.toISOString(),
+          delivered: a.delivered,
+          deliveredAt: a.deliveredAt?.toISOString() ?? null,
         })),
       })),
     createdAt: s.createdAt.toISOString(),
@@ -115,7 +118,7 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
     const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
     if (session.items.length > 0 && totalUnassigned === 0) continue;
 
-    if (currentSnakePicker(session) !== dbUser.discordId) continue;
+    const isMyTurn = currentSnakePicker(session) === dbUser.discordId;
 
     const [event, guild] = await Promise.all([
       prisma.event.findUnique({ where: { id: session.eventId }, select: { name: true } }),
@@ -128,6 +131,7 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
       eventId: session.eventId,
       eventName: event?.name ?? 'Unknown',
       itemCount: totalUnassigned,
+      isMyTurn,
     });
   }
 
@@ -345,6 +349,7 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, as
         id: a.id, userId: a.userId, username: a.username,
         rollValue: a.rollValue, dkpSpent: a.dkpSpent, pickNumber: a.pickNumber,
         assignedAt: a.assignedAt.toISOString(),
+        delivered: a.delivered, deliveredAt: a.deliveredAt?.toISOString() ?? null,
       })),
     } satisfies LootItemDto,
   } satisfies ApiResponse<LootItemDto>);
@@ -542,6 +547,30 @@ lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', require
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
 
   triggerBot(`/trigger/complete/${eventId}`);
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── PATCH toggle delivered ────────────────────────────────────────────────────
+
+lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId/assign/delivered', requireAuth, async (req, res) => {
+  const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
+
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const session = await prisma.lootSession.findUnique({ where: { eventId } });
+  if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
+
+  const assignment = await prisma.lootAssignment.findFirst({ where: { itemId } });
+  if (!assignment) { res.status(404).json({ success: false, error: 'No assignment for this item' } satisfies ApiResponse); return; }
+
+  const nowDelivered = !assignment.delivered;
+  await prisma.lootAssignment.update({
+    where: { id: assignment.id },
+    data: { delivered: nowDelivered, deliveredAt: nowDelivered ? new Date() : null },
+  });
 
   res.json({ success: true } satisfies ApiResponse);
 });

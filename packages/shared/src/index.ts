@@ -210,6 +210,8 @@ export interface LootAssignmentDto {
   dkpSpent: number | null;
   pickNumber: number | null;
   assignedAt: string;
+  delivered: boolean;
+  deliveredAt: string | null;
 }
 
 export interface LootItemDto {
@@ -298,7 +300,7 @@ export interface RepeatTemplateDto {
 
 // ── Snake draft my-pick ───────────────────────────────────────────────────────
 
-/** Returned by GET /api/guilds/loot/my-picks for the current user's active snake draft turns */
+/** Returned by GET /api/guilds/loot/my-picks for every active snake draft the user participates in */
 export interface MyPickDto {
   guildId: string;
   guildName: string;
@@ -306,6 +308,8 @@ export interface MyPickDto {
   eventName: string;
   /** Number of unassigned items remaining in the session */
   itemCount: number;
+  /** True when it is currently this user's turn to pick */
+  isMyTurn: boolean;
 }
 
 // ── Event templates ───────────────────────────────────────────────────────────

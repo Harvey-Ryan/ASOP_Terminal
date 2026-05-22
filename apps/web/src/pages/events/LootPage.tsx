@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -88,6 +88,11 @@ function ItemRow({
     onSuccess: () => { setRollResult(null); setShowRolls(false); onAssigned(); },
   });
 
+  const deliveredMutation = useMutation({
+    mutationFn: () => lootApi.toggleDelivered(guildId, eventId, item.id),
+    onSuccess: onAssigned,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => lootApi.deleteItem(guildId, eventId, item.id),
     onSuccess: onDelete,
@@ -117,13 +122,35 @@ function ItemRow({
         <div className="min-w-0">
           <p className="font-medium truncate">{item.name}{item.quantity > 1 && <span className="ml-1 text-muted-foreground text-sm">×{item.quantity}</span>}</p>
           {isAssigned ? (
-            <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {resolveUsername(winner.userId, winner.username, currentUserId)}
-              {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
-              {winner.dkpSpent != null && <span className="text-muted-foreground"> ({winner.dkpSpent} DKP)</span>}
-              {winner.pickNumber != null && <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {resolveUsername(winner.userId, winner.username, currentUserId)}
+                {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
+                {winner.dkpSpent != null && <span className="text-muted-foreground"> ({winner.dkpSpent} DKP)</span>}
+                {winner.pickNumber != null && <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>}
+              </p>
+              {isManager ? (
+                <button
+                  onClick={() => deliveredMutation.mutate()}
+                  disabled={deliveredMutation.isPending}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
+                    winner.delivered
+                      ? 'border-green-500/50 bg-green-500/15 text-green-600 dark:text-green-400 hover:bg-green-500/25'
+                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                  }`}
+                  title={winner.delivered ? 'Mark as not delivered' : 'Mark as delivered'}
+                >
+                  <Package className="h-3 w-3" />
+                  {winner.delivered ? 'Delivered' : 'Deliver'}
+                </button>
+              ) : winner.delivered ? (
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border border-green-500/50 bg-green-500/15 text-green-600 dark:text-green-400">
+                  <Package className="h-3 w-3" />
+                  Delivered
+                </span>
+              ) : null}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground mt-0.5">Unassigned</p>
           )}
@@ -142,8 +169,8 @@ function ItemRow({
         )}
       </div>
 
-      {/* Random Roll controls */}
-      {session.method === 'RANDOM_ROLL' && !isAssigned && (
+      {/* Random Roll controls — managers only */}
+      {isManager && session.method === 'RANDOM_ROLL' && !isAssigned && (
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => rollMutation.mutate()} disabled={rollMutation.isPending}>
             🎲 {rollMutation.isPending ? 'Rolling…' : 'Roll Now'}
@@ -171,8 +198,8 @@ function ItemRow({
         </div>
       )}
 
-      {/* DKP bid controls */}
-      {session.method === 'DKP' && !isAssigned && (
+      {/* DKP bid controls — managers only */}
+      {isManager && session.method === 'DKP' && !isAssigned && (
         <div>
           {!bidsOpen ? (
             <Button size="sm" variant="outline" onClick={() => setBidsOpen(true)}>Enter Bids</Button>
@@ -297,6 +324,7 @@ export function LootPage() {
     queryKey: ['loot', guildId, eventId],
     queryFn: () => lootApi.getSession(guildId!, eventId!),
     enabled: !!guildId && !!eventId,
+    refetchInterval: 4000,
   });
 
   const eventQuery = useQuery({
@@ -396,9 +424,12 @@ export function LootPage() {
         {event && <p className="text-muted-foreground mt-0.5">{event.name}</p>}
       </div>
 
-      {/* No session yet */}
-      {!session && (
+      {/* No session yet — managers only */}
+      {!session && isManager && (
         <SetupForm guildId={guildId!} eventId={eventId!} onCreated={invalidate} />
+      )}
+      {!session && !isManager && (
+        <p className="text-sm text-muted-foreground italic py-4">No loot session has been started for this event yet.</p>
       )}
 
       {/* Active session */}
