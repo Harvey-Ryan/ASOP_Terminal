@@ -7,7 +7,7 @@ import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
-import type { ApiResponse, CreateEventBody, EventDto, EventRole, RepeatTemplateDto } from '@dem/shared';
+import type { ApiResponse, CreateEventBody, EventDto, EventRole, EventTemplateDto } from '@dem/shared';
 
 export const eventsRouter = Router();
 
@@ -169,15 +169,17 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
     ].filter((r) => r.sendAt > now);
     if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
 
-    // Track repeat template usage — template ID is resolved before the form opens,
-    // so name changes in the form don't create a new template or reset the counter.
+    // Track event template usage — template ID is resolved before the form opens via
+    // the from-event endpoint, so name changes in the form never affect attribution.
     if (body.repeatFromTemplateId) {
-      const tmpl = await prisma.repeatTemplate.findFirst({ where: { id: body.repeatFromTemplateId, guildId } });
+      const tmpl = await prisma.eventTemplate.findFirst({
+        where: { id: body.repeatFromTemplateId, guild: { guildId } },
+      });
       if (tmpl) {
-        // Propagate any structural tweaks the user made (roles, VCs, etc.) back to the
-        // template so the next repeat picks them up — name is intentionally excluded so
-        // the template identity (and the @@unique key) never changes.
-        await prisma.repeatTemplate.update({
+        // Propagate structural tweaks the user made back to the template so the
+        // next repeat picks them up. Name is excluded — template identity is
+        // anchored to sourceEventId, not the name.
+        await prisma.eventTemplate.update({
           where: { id: tmpl.id },
           data: {
             description: event.description,
@@ -188,7 +190,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
             imageUrl: event.imageUrl,
           },
         });
-        await prisma.repeatTemplateUse.create({ data: { templateId: tmpl.id } });
+        await prisma.eventTemplateUse.create({ data: { templateId: tmpl.id } });
       }
     }
 
@@ -498,12 +500,12 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
   res.json({ success: true, message: 'Event completed' } satisfies ApiResponse);
 });
 
-// ── POST /api/guilds/:guildId/repeat-templates/from-event ────────────────────
+// ── POST /api/guilds/:guildId/event-templates/from-event ─────────────────────
 // Called when the Repeat button is clicked (before the create form opens).
-// Finds the existing template for this event name or creates one, returning
-// the stable ID so the form can carry it through to submit unchanged.
+// Upserts an EventTemplate keyed on sourceEventId (the source event's stable
+// cuid) so the template ID never changes even if the event name is edited.
 
-eventsRouter.post('/:guildId/repeat-templates/from-event', requireAuth, async (req, res) => {
+eventsRouter.post('/:guildId/event-templates/from-event', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const { eventId } = req.body as { eventId?: string };
 
@@ -523,11 +525,26 @@ eventsRouter.post('/:guildId/repeat-templates/from-event', requireAuth, async (r
     return;
   }
 
-  // Find-or-create: upsert with empty update so the ID is stable on subsequent calls.
-  const template = await prisma.repeatTemplate.upsert({
-    where: { guildId_name: { guildId, name: event.name } },
+  const guild = await prisma.guild.findUniqueOrThrow({ where: { guildId } });
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+
+  // Upsert by sourceEventId — always refresh the blueprint with current event data
+  // so the next repeat starts from the latest version, not the first one ever created.
+  const template = await prisma.eventTemplate.upsert({
+    where: { sourceEventId: eventId },
     create: {
-      guildId,
+      guildId: guild.id,
+      name: event.name,
+      description: event.description,
+      musterPoint: event.musterPoint,
+      roles: event.roles,
+      vcNames: event.vcNames,
+      briefingChannel: event.briefingChannel,
+      imageUrl: event.imageUrl,
+      sourceEventId: eventId,
+      createdById: dbUser.id,
+    },
+    update: {
       name: event.name,
       description: event.description,
       musterPoint: event.musterPoint,
@@ -536,12 +553,12 @@ eventsRouter.post('/:guildId/repeat-templates/from-event', requireAuth, async (r
       briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
     },
-    update: {},
+    include: { uses: { select: { id: true } } },
   });
 
-  const dto: RepeatTemplateDto = {
+  const dto: EventTemplateDto = {
     id: template.id,
-    guildId: template.guildId,
+    guildId,
     name: template.name,
     description: template.description,
     musterPoint: template.musterPoint,
@@ -549,15 +566,23 @@ eventsRouter.post('/:guildId/repeat-templates/from-event', requireAuth, async (r
     vcNames: JSON.parse(template.vcNames) as string[],
     briefingChannel: template.briefingChannel,
     imageUrl: template.imageUrl,
-    useCount: 0,
+    rosterSlots: JSON.parse(template.rosterSlots),
+    reminderMinutes: JSON.parse(template.reminderMinutes),
+    defaultDuration: template.defaultDuration,
+    isActive: template.isActive,
+    createdById: template.createdById,
+    useCount: template.uses.length,
+    createdAt: template.createdAt.toISOString(),
+    updatedAt: template.updatedAt.toISOString(),
   };
 
-  res.json({ success: true, data: dto } satisfies ApiResponse<RepeatTemplateDto>);
+  res.json({ success: true, data: dto } satisfies ApiResponse<EventTemplateDto>);
 });
 
-// ── GET /api/guilds/:guildId/repeat-templates ─────────────────────────────────
+// ── GET /api/guilds/:guildId/event-templates ──────────────────────────────────
+// Returns the top 5 most-used templates (last 6 months) for the Templates panel.
 
-eventsRouter.get('/:guildId/repeat-templates', requireAuth, async (req, res) => {
+eventsRouter.get('/:guildId/event-templates', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
 
   if (!(await assertGuildManager(req, guildId))) {
@@ -565,11 +590,12 @@ eventsRouter.get('/:guildId/repeat-templates', requireAuth, async (req, res) => 
     return;
   }
 
+  const guild = await prisma.guild.findUniqueOrThrow({ where: { guildId } });
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const templates = await prisma.repeatTemplate.findMany({
-    where: { guildId },
+  const templates = await prisma.eventTemplate.findMany({
+    where: { guildId: guild.id, isActive: true },
     include: {
       uses: { where: { usedAt: { gte: sixMonthsAgo } }, select: { id: true } },
     },
@@ -580,9 +606,9 @@ eventsRouter.get('/:guildId/repeat-templates', requireAuth, async (req, res) => 
     .filter((t) => t.useCount > 0)
     .sort((a, b) => b.useCount - a.useCount)
     .slice(0, 5)
-    .map((t): RepeatTemplateDto => ({
+    .map((t): EventTemplateDto => ({
       id: t.id,
-      guildId: t.guildId,
+      guildId,
       name: t.name,
       description: t.description,
       musterPoint: t.musterPoint,
@@ -590,10 +616,17 @@ eventsRouter.get('/:guildId/repeat-templates', requireAuth, async (req, res) => 
       vcNames: JSON.parse(t.vcNames) as string[],
       briefingChannel: t.briefingChannel,
       imageUrl: t.imageUrl,
+      rosterSlots: JSON.parse(t.rosterSlots),
+      reminderMinutes: JSON.parse(t.reminderMinutes),
+      defaultDuration: t.defaultDuration,
+      isActive: t.isActive,
+      createdById: t.createdById,
       useCount: t.useCount,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
     }));
 
-  res.json({ success: true, data: ranked } satisfies ApiResponse<RepeatTemplateDto[]>);
+  res.json({ success: true, data: ranked } satisfies ApiResponse<EventTemplateDto[]>);
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

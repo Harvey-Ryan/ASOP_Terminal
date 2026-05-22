@@ -333,5 +333,6 @@ settingsRouter.patch('/:guildId/settings/bot-config', requireAuth, async (req, r
     create: { id: 1, globalCommandsEnabled: body.globalCommandsEnabled },
     update: { globalCommandsEnabled: body.globalCommandsEnabled },
   });
+  triggerBot('/trigger/register-commands');
   res.json({ success: true, data: { globalCommandsEnabled: config.globalCommandsEnabled } } satisfies ApiResponse);
 });

@@ -4,7 +4,7 @@ import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown } from 'lucide
 import { Button } from '@/components/ui/button';
 import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
-import type { CreateEventBody, EventDto, EventRole, RepeatTemplateDto } from '@dem/shared';
+import type { CreateEventBody, EventDto, EventRole, EventTemplateDto } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -80,12 +80,12 @@ function TemplatesPanel({
   onClose,
 }: {
   guildId: string;
-  onSelect: (t: RepeatTemplateDto) => void;
+  onSelect: (t: EventTemplateDto) => void;
   onClose: () => void;
 }) {
   const { data: templates = [], isLoading } = useQuery({
-    queryKey: ['repeat-templates', guildId],
-    queryFn: () => eventsApi.listRepeatTemplates(guildId),
+    queryKey: ['event-templates', guildId],
+    queryFn: () => eventsApi.listEventTemplates(guildId),
   });
 
   return (
@@ -141,7 +141,7 @@ export function EventCreateForm({
   onSuccess: () => void;
   onCancel: () => void;
   repeatSource?: EventDto;
-  /** Stable template ID resolved before the form opened — carries through regardless of name changes. */
+  /** Stable EventTemplate ID resolved before the form opened — carries through regardless of name changes. */
   fromTemplateId?: string;
   isManager?: boolean;
 }) {
@@ -183,7 +183,7 @@ export function EventCreateForm({
     mutationFn: (body: CreateEventBody) => eventsApi.create(guildId, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
-      queryClient.invalidateQueries({ queryKey: ['repeat-templates', guildId] });
+      queryClient.invalidateQueries({ queryKey: ['event-templates', guildId] });
       onSuccess();
     },
     onError: (err: Error) => setFormError(err.message),
@@ -205,7 +205,7 @@ export function EventCreateForm({
     });
   }
 
-  function applyTemplate(t: RepeatTemplateDto) {
+  function applyTemplate(t: EventTemplateDto) {
     setName(t.name);
     setDescription(t.description ?? '');
     setMusterPoint(t.musterPoint ?? '');

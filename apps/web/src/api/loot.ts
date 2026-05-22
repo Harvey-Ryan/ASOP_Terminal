@@ -4,6 +4,7 @@ import type {
   LootSessionDto,
   LootItemDto,
   DkpBalanceDto,
+  LootAuctionDto,
   CreateLootSessionBody,
   AddLootItemBody,
   AssignLootItemBody,
@@ -79,9 +80,33 @@ export const lootApi = {
   getDkp: (guildId: string) =>
     api.get<ApiResponse<DkpBalanceDto[]>>(`/guilds/${guildId}/dkp`).then((r) => r.data!),
 
+  getMyDkp: (guildId: string) =>
+    api.get<ApiResponse<DkpBalanceDto>>(`/guilds/${guildId}/dkp/me`).then((r) => r.data!),
+
   getRecent: (guildId: string) =>
     api.get<ApiResponse<RecentLootEvent | null>>(`/guilds/${guildId}/loot/recent`).then((r) => r.data ?? null),
 
   getMyPicks: () =>
     api.get<ApiResponse<MyPickDto[]>>('/guilds/loot/my-picks').then((r) => r.data ?? []),
+
+  // ── Auctions ───────────────────────────────────────────────────────────────
+
+  getAuctions: (guildId: string, eventId: string) =>
+    api.get<ApiResponse<Record<string, LootAuctionDto>>>(`${base(guildId, eventId)}/auctions`)
+      .then((r) => r.data ?? {}),
+
+  startAuction: (guildId: string, eventId: string, itemId: string, body: { durationSecs?: number }) =>
+    api.post<ApiResponse<LootAuctionDto>>(`${base(guildId, eventId)}/items/${itemId}/auction`, body)
+      .then((r) => r.data!),
+
+  placeBid: (guildId: string, eventId: string, itemId: string, body: { amount: number }) =>
+    api.post<ApiResponse<LootAuctionDto>>(`${base(guildId, eventId)}/items/${itemId}/auction/bid`, body)
+      .then((r) => r.data!),
+
+  closeAuction: (guildId: string, eventId: string, itemId: string) =>
+    api.post<ApiResponse<LootAuctionDto>>(`${base(guildId, eventId)}/items/${itemId}/auction/close`, {})
+      .then((r) => r.data!),
+
+  cancelAuction: (guildId: string, eventId: string, itemId: string) =>
+    api.delete<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/auction`).then((r) => r),
 };

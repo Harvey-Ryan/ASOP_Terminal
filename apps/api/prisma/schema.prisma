@@ -245,6 +245,7 @@ model LootItem {
 
   session     LootSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   assignments LootAssignment[]
+  auction     LootAuction?
 
   @@index([sessionId])
 }
@@ -347,21 +348,30 @@ model RepeatTemplateUse {
 // ── Event Templates ───────────────────────────────────────────────────────────
 
 /// A reusable event blueprint scoped to a single guild.
-/// rosterSlots and reminderMinutes are stored as JSON for schema flexibility.
-/// See @dem/shared for the RosterSlot type definition.
+/// Auto-created (or updated) when a user clicks Repeat on a completed event.
+/// Surfaced only through the Templates button in the create-event form.
 model EventTemplate {
   id          String   @id @default(cuid())
   name        String
   description String?
   imageUrl    String?
+  musterPoint String?
 
+  // JSON: EventRole[]   – [{name, count}]
+  roles           String @default("[]")
+  // JSON: string[]
+  vcNames         String @default("[]")
+  briefingChannel Boolean @default(false)
   // JSON: RosterSlot[]  – [{ id, name, emoji?, maxCount, required }]
   rosterSlots     String @default("[]")
   // JSON: number[]      – minutes before event start, e.g. [1440, 60, 15]
   reminderMinutes String @default("[1440,60]")
 
-  defaultDuration Int?    // minutes
+  defaultDuration Int?
   isActive        Boolean @default(true)
+  /// Stable link to the source Event.id — used as the upsert key so template
+  /// identity never changes even when the event name is edited.
+  sourceEventId   String? @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -370,6 +380,101 @@ model EventTemplate {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
+  uses EventTemplateUse[]
+
   @@index([guildId])
   @@index([createdById])
+}
+
+// ── Loot Auctions ─────────────────────────────────────────────────────────────
+
+/// Live DKP auction for a single loot item. One auction per item at a time.
+model LootAuction {
+  id               String    @id @default(cuid())
+  itemId           String    @unique
+  sessionId        String
+  guildId          String
+  startedById      String
+  durationSecs     Int       @default(120)
+  closesAt         DateTime
+  /// OPEN | CLOSED | CANCELLED
+  status           String    @default("OPEN")
+  winnerId         String?
+  winnerUsername   String?
+  winningBid       Int?
+  /// Discord message snowflake in the event thread — edited on every bid update
+  discordMessageId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  item LootItem       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  bids LootAuctionBid[]
+
+  @@index([guildId, status])
+  @@index([closesAt, status])
+}
+
+/// Current standing bid per player per auction. One row per user; upserted on raise (amount only ever increases).
+model LootAuctionBid {
+  id        String   @id @default(cuid())
+  auctionId String
+  userId    String
+  username  String
+  amount    Int
+  placedAt  DateTime @default(now()) @updatedAt
+
+  auction LootAuction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@unique([auctionId, userId])
+  @@index([auctionId])
+}
+
+/// One row per time an EventTemplate was used to create a new event.
+model EventTemplateUse {
+  id         String        @id @default(cuid())
+  templateId String
+  usedAt     DateTime      @default(now())
+
+  template EventTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, usedAt])
+}
+
+// ── Standalone Auctions ───────────────────────────────────────────────────────
+
+/// A guild-scoped DKP auction not tied to any event or loot session.
+model Auction {
+  id               String   @id @default(cuid())
+  guildId          String
+  title            String
+  description      String?
+  startedById      String
+  durationSecs     Int      @default(120)
+  closesAt         DateTime
+  status           String   @default("OPEN")
+  winnerId         String?
+  winnerUsername   String?
+  winningBid       Int?
+  discordMessageId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  bids AuctionBid[]
+
+  @@index([guildId, status])
+  @@index([closesAt, status])
+}
+
+model AuctionBid {
+  id        String   @id @default(cuid())
+  auctionId String
+  userId    String
+  username  String
+  amount    Int
+  placedAt  DateTime @default(now()) @updatedAt
+
+  auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@unique([auctionId, userId])
+  @@index([auctionId])
 }

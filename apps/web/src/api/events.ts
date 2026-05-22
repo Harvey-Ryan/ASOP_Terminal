@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, CreateEventBody, EventDto, RepeatTemplateDto } from '@dem/shared';
+import type { ApiResponse, CreateEventBody, EventDto, EventTemplateDto } from '@dem/shared';
 
 export const eventsApi = {
   list: (guildId: string) =>
@@ -32,11 +32,11 @@ export const eventsApi = {
   createVcs: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/vcs`).then((r) => r),
 
-  listRepeatTemplates: (guildId: string) =>
-    api.get<ApiResponse<RepeatTemplateDto[]>>(`/guilds/${guildId}/repeat-templates`).then((r) => r.data!),
+  listEventTemplates: (guildId: string) =>
+    api.get<ApiResponse<EventTemplateDto[]>>(`/guilds/${guildId}/event-templates`).then((r) => r.data!),
 
-  getOrCreateRepeatTemplate: (guildId: string, eventId: string) =>
-    api.post<ApiResponse<RepeatTemplateDto>>(`/guilds/${guildId}/repeat-templates/from-event`, { eventId })
+  getOrCreateEventTemplate: (guildId: string, eventId: string) =>
+    api.post<ApiResponse<EventTemplateDto>>(`/guilds/${guildId}/event-templates/from-event`, { eventId })
       .then((r) => r.data!),
 
   complete: (

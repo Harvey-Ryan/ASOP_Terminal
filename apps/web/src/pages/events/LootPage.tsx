@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +9,7 @@ import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveUsername } from '@/lib/displayName';
-import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto } from '@dem/shared';
+import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -29,11 +29,243 @@ function getNextPicker(assignmentCount: number, draftOrder: string[]): string | 
   return round % 2 === 0 ? draftOrder[pos]! : draftOrder[n - 1 - pos]!;
 }
 
+// ── Auction helpers ───────────────────────────────────────────────────────────
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+const DURATION_OPTIONS = [
+  { label: '30 s', value: 30 },
+  { label: '1 min', value: 60 },
+  { label: '2 min', value: 120 },
+  { label: '5 min', value: 300 },
+  { label: '10 min', value: 600 },
+];
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+function AuctionPanel({
+  auction,
+  item,
+  session,
+  guildId,
+  eventId,
+  currentUserId,
+  eligiblePlayers,
+  myEffectiveBalance,
+  isManager,
+  onAuctionChange,
+}: {
+  auction: LootAuctionDto | null;
+  item: LootItemDto;
+  session: LootSessionDto;
+  guildId: string;
+  eventId: string;
+  currentUserId?: string;
+  eligiblePlayers: RsvpDto[];
+  myEffectiveBalance: number;
+  isManager: boolean;
+  onAuctionChange: () => void;
+}) {
+  const [durationSecs, setDurationSecs] = useState(120);
+  const [bidInput, setBidInput] = useState('');
+
+  const startMutation = useMutation({
+    mutationFn: () => lootApi.startAuction(guildId, eventId, item.id, { durationSecs }),
+    onSuccess: onAuctionChange,
+  });
+
+  const bidMutation = useMutation({
+    mutationFn: () => lootApi.placeBid(guildId, eventId, item.id, { amount: Number(bidInput) }),
+    onSuccess: () => { setBidInput(''); onAuctionChange(); },
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => lootApi.closeAuction(guildId, eventId, item.id),
+    onSuccess: onAuctionChange,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => lootApi.cancelAuction(guildId, eventId, item.id),
+    onSuccess: onAuctionChange,
+  });
+
+  // Client-side countdown, seeded from server's secondsRemaining
+  const [secondsLeft, setSecondsLeft] = useState(auction?.secondsRemaining ?? 0);
+  useEffect(() => {
+    if (!auction || auction.status !== 'OPEN') return;
+    setSecondsLeft(auction.secondsRemaining);
+    const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auction?.id, auction?.status, auction?.secondsRemaining]);
+
+  // No active auction
+  if (!auction || auction.status === 'CANCELLED') {
+    if (!isManager) return null;
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={durationSecs}
+          onChange={(e) => setDurationSecs(Number(e.target.value))}
+          className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+        >
+          {DURATION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => startMutation.mutate()}
+          disabled={startMutation.isPending}
+        >
+          <Gavel className="h-3.5 w-3.5" />
+          {startMutation.isPending ? 'Starting…' : 'Start Auction'}
+        </Button>
+        {startMutation.isError && (
+          <span className="text-xs text-destructive flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            {(startMutation.error as Error).message}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (auction.status !== 'OPEN') return null;
+
+  const isEligible = isManager || eligiblePlayers.some((p) => p.userId === currentUserId);
+  const myBid = auction.bids.find((b) => b.userId === currentUserId);
+  const bidVal = bidInput !== '' ? Number(bidInput) : 0;
+  const overBid = bidInput !== '' && bidVal > myEffectiveBalance;
+  const belowCurrent = !!myBid && bidInput !== '' && bidVal <= myBid.amount;
+  const bidInvalid = !bidInput || bidVal <= 0 || overBid || belowCurrent;
+  const urgentTime = secondsLeft <= 30 && secondsLeft > 0;
+
+  return (
+    <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2.5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          <Gavel className="h-3.5 w-3.5" />
+          Live Auction
+        </p>
+        <span className={`flex items-center gap-1 text-sm font-mono font-semibold tabular-nums ${urgentTime ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}>
+          <Timer className="h-3.5 w-3.5" />
+          {secondsLeft === 0 ? 'Closing…' : formatTime(secondsLeft)}
+        </span>
+      </div>
+
+      {/* Current standings */}
+      <div className="space-y-1">
+        {auction.bids.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">No bids yet — be the first!</p>
+        ) : (
+          auction.bids.map((b, i) => (
+            <div
+              key={b.userId}
+              className={`flex items-center justify-between text-sm px-2 py-1 rounded ${b.userId === currentUserId ? 'bg-primary/10 font-medium' : ''}`}
+            >
+              <span className="flex items-center gap-1.5">
+                <span>{MEDALS[i] ?? `${i + 1}.`}</span>
+                <span>{resolveUsername(b.userId, b.username, currentUserId)}</span>
+                {b.userId === currentUserId && <span className="text-xs text-muted-foreground">(you)</span>}
+              </span>
+              <span className="font-mono tabular-nums">{b.amount} DKP</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Bid input — confirmed attendees and managers */}
+      {isEligible && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                type="number"
+                min={myBid ? myBid.amount + 1 : 1}
+                max={myEffectiveBalance}
+                value={bidInput}
+                onChange={(e) => setBidInput(e.target.value)}
+                placeholder={myBid ? `Raise from ${myBid.amount}…` : `Bid (max ${myEffectiveBalance})…`}
+                className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                  overBid || belowCurrent
+                    ? 'border-destructive bg-destructive/10 text-destructive'
+                    : 'border-input bg-background'
+                }`}
+              />
+            </div>
+            <Button
+              size="sm"
+              className="gap-1 shrink-0"
+              onClick={() => bidMutation.mutate()}
+              disabled={bidInvalid || bidMutation.isPending}
+            >
+              {bidMutation.isPending ? 'Bidding…' : myBid ? 'Raise' : 'Bid'}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Your available DKP: <span className={myEffectiveBalance <= 0 ? 'text-destructive' : ''}>{myEffectiveBalance}</span>
+          </p>
+          {overBid && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Bid exceeds your available balance
+            </p>
+          )}
+          {belowCurrent && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Must exceed your current bid of {myBid!.amount} DKP
+            </p>
+          )}
+          {bidMutation.isError && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> {(bidMutation.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Manager controls */}
+      {isManager && (
+        <div className="flex items-center gap-2 pt-0.5 border-t border-border/50">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1 h-7 text-xs"
+            onClick={() => closeMutation.mutate()}
+            disabled={closeMutation.isPending}
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            {closeMutation.isPending ? 'Closing…' : 'Close Now'}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1 h-7 text-xs text-muted-foreground hover:text-destructive"
+            onClick={() => cancelMutation.mutate()}
+            disabled={cancelMutation.isPending}
+          >
+            <X className="h-3 w-3" />
+            Cancel
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Item row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({
   item,
   session,
+  auction,
   dkpBalances,
   eligiblePlayers,
   allAssignmentCount,
@@ -41,13 +273,16 @@ function ItemRow({
   onRolled,
   onAssigned,
   onDelete,
+  onAuctionChange,
   guildId,
   eventId,
   currentUserId,
+  myEffectiveBalance,
   isManager,
 }: {
   item: LootItemDto;
   session: LootSessionDto;
+  auction: LootAuctionDto | null;
   dkpBalances: DkpBalanceDto[];
   eligiblePlayers: RsvpDto[];
   allAssignmentCount: number;
@@ -55,15 +290,15 @@ function ItemRow({
   onRolled: () => void;
   onAssigned: () => void;
   onDelete: () => void;
+  onAuctionChange: () => void;
   guildId: string;
   eventId: string;
   currentUserId?: string;
+  myEffectiveBalance: number;
   isManager: boolean;
 }) {
   const [rollResult, setRollResult] = useState<{ rolls: { userId: string; username: string; rollValue: number }[]; winner: { userId: string; username: string; rollValue: number } } | null>(null);
   const [showRolls, setShowRolls] = useState(false);
-  const [bidsOpen, setBidsOpen] = useState(false);
-  const [bids, setBids] = useState<Record<string, string>>({});
 
   const winner = item.assignments[0];
   const isAssigned = !!winner;
@@ -105,16 +340,6 @@ function ItemRow({
     ? resolveUsername(nextPicker, eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? nextPicker, currentUserId)
     : null;
   const isMyTurn = session.method === 'SNAKE_DRAFT' && !isAssigned && nextPicker !== null;
-
-  function handleDkpAward() {
-    const bidEntries = Object.entries(bids).filter(([, v]) => v !== '' && !isNaN(Number(v)));
-    if (bidEntries.length === 0) return;
-    const sorted = bidEntries.sort(([, a], [, b]) => Number(b) - Number(a));
-    const [winnerId, winnerBid] = sorted[0]!;
-    const winnerUsername = resolveUsername(winnerId, eligiblePlayers.find((p) => p.userId === winnerId)?.username ?? winnerId, currentUserId);
-    assignMutation.mutate({ userId: winnerId, username: winnerUsername, dkpSpent: Number(winnerBid) });
-    setBidsOpen(false);
-  }
 
   return (
     <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
@@ -198,38 +423,20 @@ function ItemRow({
         </div>
       )}
 
-      {/* DKP bid controls — managers only */}
-      {isManager && session.method === 'DKP' && !isAssigned && (
-        <div>
-          {!bidsOpen ? (
-            <Button size="sm" variant="outline" onClick={() => setBidsOpen(true)}>Enter Bids</Button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Bids</p>
-              {eligiblePlayers.map((p) => {
-                const bal = dkpBalances.find((b) => b.userId === p.userId);
-                return (
-                  <div key={p.userId} className="flex items-center gap-2">
-                    <span className="text-sm w-32 truncate">{resolveUsername(p.userId, p.username, currentUserId)}</span>
-                    <span className="text-xs text-muted-foreground w-20">{bal ? `${bal.balance} DKP` : '—'}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                      placeholder="0"
-                      value={bids[p.userId] ?? ''}
-                      onChange={(e) => setBids((prev) => ({ ...prev, [p.userId]: e.target.value }))}
-                    />
-                  </div>
-                );
-              })}
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleDkpAward} disabled={assignMutation.isPending}>Award to Highest Bid</Button>
-                <Button size="sm" variant="ghost" onClick={() => { setBidsOpen(false); setBids({}); }}>Cancel</Button>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* DKP live auction */}
+      {session.method === 'DKP' && !isAssigned && (
+        <AuctionPanel
+          auction={auction}
+          item={item}
+          session={session}
+          guildId={guildId}
+          eventId={eventId}
+          currentUserId={currentUserId}
+          eligiblePlayers={eligiblePlayers}
+          myEffectiveBalance={myEffectiveBalance}
+          isManager={isManager}
+          onAuctionChange={onAuctionChange}
+        />
       )}
 
       {/* Snake draft pick — managers see picker name; pickers see "Pick This" for themselves */}
@@ -339,6 +546,19 @@ export function LootPage() {
     enabled: !!guildId && sessionQuery.data?.method === 'DKP',
   });
 
+  const myDkpQuery = useQuery({
+    queryKey: ['dkp-me', guildId],
+    queryFn: () => lootApi.getMyDkp(guildId!),
+    enabled: !!guildId && sessionQuery.data?.method === 'DKP',
+  });
+
+  const auctionQuery = useQuery({
+    queryKey: ['loot-auctions', guildId, eventId],
+    queryFn: () => lootApi.getAuctions(guildId!, eventId!),
+    enabled: !!guildId && !!eventId && sessionQuery.data?.method === 'DKP',
+    refetchInterval: sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN' ? 2000 : false,
+  });
+
   const session = sessionQuery.data;
   const event = eventQuery.data;
 
@@ -350,6 +570,9 @@ export function LootPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['loot', guildId, eventId] });
+    queryClient.invalidateQueries({ queryKey: ['dkp', guildId] });
+    queryClient.invalidateQueries({ queryKey: ['dkp-me', guildId] });
+    queryClient.invalidateQueries({ queryKey: ['loot-auctions', guildId, eventId] });
   };
 
   const updateMutation = useMutation({
@@ -398,6 +621,14 @@ export function LootPage() {
 
   const isManager = guilds.some((g) => g.id === guildId);
   const isCurrentPicker = session?.method === 'SNAKE_DRAFT' && session.status === 'OPEN' && nextPickerId === user?.id;
+
+  // Effective DKP balance for the current user: raw minus DKP committed to items already won this session
+  const myRawBalance = myDkpQuery.data?.balance ?? 0;
+  const myCommitted = session?.items.reduce((sum, item) => {
+    const a = item.assignments[0];
+    return sum + (a?.userId === user?.id && a.dkpSpent ? a.dkpSpent : 0);
+  }, 0) ?? 0;
+  const myEffectiveBalance = myRawBalance - myCommitted;
 
   const isLoading = sessionQuery.isLoading || eventQuery.isLoading;
 
@@ -584,6 +815,7 @@ export function LootPage() {
                 key={item.id}
                 item={item}
                 session={session}
+                auction={auctionQuery.data?.[item.id] ?? null}
                 dkpBalances={dkpQuery.data ?? []}
                 eligiblePlayers={eligiblePlayers}
                 allAssignmentCount={allAssignmentCount}
@@ -591,9 +823,11 @@ export function LootPage() {
                 onRolled={invalidate}
                 onAssigned={invalidate}
                 onDelete={invalidate}
+                onAuctionChange={invalidate}
                 guildId={guildId!}
                 eventId={eventId!}
                 currentUserId={user?.id}
+                myEffectiveBalance={myEffectiveBalance}
                 isManager={isManager}
               />
             ))}

@@ -466,6 +466,28 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
     }
   }
 
+  // For DKP assignments, verify effective balance: raw minus DKP already committed
+  // to other items this player has won in this session.
+  // The current item is excluded from committed because its assignment is deleted first.
+  if (session.method === 'DKP' && dkpSpent !== undefined && dkpSpent > 0) {
+    const bal = await prisma.dkpBalance.findUnique({
+      where: { guildId_userId: { guildId, userId } },
+    });
+    const committed = session.items.reduce((sum, i) => {
+      if (i.id === itemId) return sum;
+      const a = i.assignments.find((a) => a.userId === userId);
+      return sum + (a?.dkpSpent ?? 0);
+    }, 0);
+    const effective = (bal?.balance ?? 0) - committed;
+    if (dkpSpent > effective) {
+      res.status(400).json({
+        success: false,
+        error: `Insufficient DKP: bid ${dkpSpent} but only ${effective} available`,
+      } satisfies ApiResponse);
+      return;
+    }
+  }
+
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
   await prisma.lootAssignment.create({
     data: {
@@ -630,7 +652,15 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
     for (const item of session.items) {
       for (const a of item.assignments) {
         if (a.dkpSpent && a.dkpSpent > 0) {
-          await applyDkp(guildId, a.userId, a.username, -a.dkpSpent, `Won item: ${item.name}`);
+          // Cap deduction at the bidder's current balance — guards against balance
+          // being manually adjusted between assignment time and completion.
+          const bal = await prisma.dkpBalance.findUnique({
+            where: { guildId_userId: { guildId, userId: a.userId } },
+          });
+          const actual = Math.min(a.dkpSpent, bal?.balance ?? 0);
+          if (actual > 0) {
+            await applyDkp(guildId, a.userId, a.username, -actual, `Won item: ${item.name}`);
+          }
         }
       }
     }
@@ -695,7 +725,28 @@ lootRouter.get('/:guildId/loot/recent', requireAuth, async (req, res) => {
   } satisfies ApiResponse);
 });
 
-// ── GET DKP balances ──────────────────────────────────────────────────────────
+// ── GET my DKP balance (viewer-accessible) ────────────────────────────────────
+
+lootRouter.get('/:guildId/dkp/me', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) {
+    res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse);
+    return;
+  }
+  const bal = await prisma.dkpBalance.findUnique({
+    where: { guildId_userId: { guildId, userId: dbUser.discordId } },
+  });
+  const data: DkpBalanceDto = {
+    userId: dbUser.discordId,
+    username: bal?.username ?? dbUser.globalName ?? dbUser.username,
+    balance: bal?.balance ?? 0,
+    updatedAt: bal?.updatedAt.toISOString() ?? new Date().toISOString(),
+  };
+  res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto>);
+});
+
+// ── GET DKP balances (manager-only leaderboard) ───────────────────────────────
 
 lootRouter.get('/:guildId/dkp', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };

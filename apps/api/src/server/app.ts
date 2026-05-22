@@ -11,6 +11,8 @@ import { eventsRouter } from './routes/events.js';
 import { imagesRouter } from './routes/images.js';
 import { settingsRouter } from './routes/settings.js';
 import { lootRouter } from './routes/loot.js';
+import { auctionRouter } from './routes/loot-auction.js';
+import { auctionRouter as standaloneAuctionRouter } from './routes/auction.js';
 import type { ApiResponse } from '@dem/shared';
 
 const PgSession = ConnectPgSimple(session);
@@ -166,6 +168,8 @@ export function createServer(): express.Express {
   app.use('/api/guilds', imagesRouter);
   app.use('/api/guilds', settingsRouter);
   app.use('/api/guilds', lootRouter);
+  app.use('/api/guilds', auctionRouter);
+  app.use('/api/guilds', standaloneAuctionRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

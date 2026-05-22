@@ -4,6 +4,7 @@ import { prisma } from './db.js';
 import { client } from './client.js';
 import { setupDiscordForEvent, endEvent, createVcsForEvent } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
+import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { formatMinutes } from './utils/time.js';
 
 export async function startScheduler() {
@@ -67,6 +68,8 @@ export async function startScheduler() {
     await checkVcActivity().catch((e) => console.error('[bot] checkVcActivity error:', e));
     await checkInactivityEnd().catch((e) => console.error('[bot] checkInactivityEnd error:', e));
     await checkEndedEvents().catch((e) => console.error('[bot] checkEndedEvents error:', e));
+    await closeExpiredAuctions().catch((e) => console.error('[bot] closeExpiredAuctions error:', e));
+    await closeExpiredStandaloneAuctions().catch((e) => console.error('[bot] closeExpiredStandaloneAuctions error:', e));
   });
   console.log('[bot] Scheduler started');
 }

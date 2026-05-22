@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
 import { announceLootResults, notifySnakeTurn } from './services/lootService.js';
+import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
@@ -92,6 +93,66 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await createVcsForEvent(eventId).catch((err) =>
         console.error(`[bot:internal] createVcsForEvent failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const auctionStartMatch = req.url?.match(/^\/trigger\/auction-start\/([^/]+)$/);
+    if (auctionStartMatch) {
+      const auctionId = auctionStartMatch[1]!;
+      res.writeHead(202).end();
+      await postOrUpdateAuctionMessage(auctionId).catch((err) =>
+        console.error(`[bot:internal] postOrUpdateAuctionMessage (start) failed for ${auctionId}:`, err),
+      );
+      return;
+    }
+
+    const auctionBidMatch = req.url?.match(/^\/trigger\/auction-bid\/([^/]+)$/);
+    if (auctionBidMatch) {
+      const auctionId = auctionBidMatch[1]!;
+      res.writeHead(202).end();
+      await postOrUpdateAuctionMessage(auctionId).catch((err) =>
+        console.error(`[bot:internal] postOrUpdateAuctionMessage (bid) failed for ${auctionId}:`, err),
+      );
+      return;
+    }
+
+    const auctionCloseMatch = req.url?.match(/^\/trigger\/auction-close\/([^/]+)$/);
+    if (auctionCloseMatch) {
+      const auctionId = auctionCloseMatch[1]!;
+      res.writeHead(202).end();
+      await postOrUpdateAuctionMessage(auctionId).catch((err) =>
+        console.error(`[bot:internal] postOrUpdateAuctionMessage (close) failed for ${auctionId}:`, err),
+      );
+      return;
+    }
+
+    const standaloneAuctionStartMatch = req.url?.match(/^\/trigger\/standalone-auction-start\/([^/]+)$/);
+    if (standaloneAuctionStartMatch) {
+      const auctionId = standaloneAuctionStartMatch[1]!;
+      res.writeHead(202).end();
+      await postOrUpdateStandaloneAuctionMessage(auctionId).catch((err) =>
+        console.error(`[bot:internal] postOrUpdateStandaloneAuctionMessage (start) failed for ${auctionId}:`, err),
+      );
+      return;
+    }
+
+    const standaloneAuctionBidMatch = req.url?.match(/^\/trigger\/standalone-auction-bid\/([^/]+)$/);
+    if (standaloneAuctionBidMatch) {
+      const auctionId = standaloneAuctionBidMatch[1]!;
+      res.writeHead(202).end();
+      await postOrUpdateStandaloneAuctionMessage(auctionId).catch((err) =>
+        console.error(`[bot:internal] postOrUpdateStandaloneAuctionMessage (bid) failed for ${auctionId}:`, err),
+      );
+      return;
+    }
+
+    const standaloneAuctionCloseMatch = req.url?.match(/^\/trigger\/standalone-auction-close\/([^/]+)$/);
+    if (standaloneAuctionCloseMatch) {
+      const auctionId = standaloneAuctionCloseMatch[1]!;
+      res.writeHead(202).end();
+      await postOrUpdateStandaloneAuctionMessage(auctionId).catch((err) =>
+        console.error(`[bot:internal] postOrUpdateStandaloneAuctionMessage (close) failed for ${auctionId}:`, err),
       );
       return;
     }

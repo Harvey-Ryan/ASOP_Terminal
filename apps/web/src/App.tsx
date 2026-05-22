@@ -8,6 +8,7 @@ import { LootPage } from './pages/events/LootPage';
 import { ModuleEventBotPage } from './pages/settings/ModuleEventBotPage';
 import { BotSettingsPage } from './pages/settings/BotSettingsPage';
 import { PermissionsPage } from './pages/settings/PermissionsPage';
+import { AuctionsPage } from './pages/AuctionsPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
+          <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />
         </Route>
 
         {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}

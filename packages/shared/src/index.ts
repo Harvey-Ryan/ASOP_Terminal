@@ -281,22 +281,6 @@ export interface ServerImageDto {
   createdAt: string;
 }
 
-// ── Repeat templates ──────────────────────────────────────────────────────────
-
-/** A frequently-repeated event blueprint, ranked by use count in the last 6 months. */
-export interface RepeatTemplateDto {
-  id: string;
-  guildId: string;
-  name: string;
-  description: string | null;
-  musterPoint: string | null;
-  roles: EventRole[];
-  vcNames: string[];
-  briefingChannel: boolean;
-  imageUrl: string | null;
-  /** Number of times used to create an event in the last 6 months. */
-  useCount: number;
-}
 
 // ── Snake draft my-pick ───────────────────────────────────────────────────────
 
@@ -331,18 +315,79 @@ export interface RosterSlot {
   required: boolean;
 }
 
-/** The full EventTemplate shape as returned by the API */
+// ── Loot Auctions ─────────────────────────────────────────────────────────────
+
+export interface LootAuctionBidDto {
+  userId: string;
+  username: string;
+  amount: number;
+  placedAt: string;
+}
+
+export interface LootAuctionDto {
+  id: string;
+  itemId: string;
+  itemName: string;
+  sessionId: string;
+  guildId: string;
+  durationSecs: number;
+  closesAt: string;
+  /** Seconds until auction closes; 0 when expired/closed. */
+  secondsRemaining: number;
+  status: 'OPEN' | 'CLOSED' | 'CANCELLED';
+  winnerId: string | null;
+  winnerUsername: string | null;
+  winningBid: number | null;
+  /** Sorted by amount descending. */
+  bids: LootAuctionBidDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Standalone Auctions ───────────────────────────────────────────────────────
+
+export interface AuctionBidDto {
+  userId: string;
+  username: string;
+  amount: number;
+  placedAt: string;
+}
+
+export interface AuctionDto {
+  id: string;
+  guildId: string;
+  title: string;
+  description: string | null;
+  durationSecs: number;
+  closesAt: string;
+  secondsRemaining: number;
+  status: 'OPEN' | 'CLOSED' | 'CANCELLED';
+  winnerId: string | null;
+  winnerUsername: string | null;
+  winningBid: number | null;
+  bids: AuctionBidDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A reusable event blueprint, auto-created on Repeat and surfaced in the create-event form. */
 export interface EventTemplateDto {
   id: string;
   guildId: string;
   name: string;
   description: string | null;
+  musterPoint: string | null;
   imageUrl: string | null;
+  roles: EventRole[];
+  vcNames: string[];
+  briefingChannel: boolean;
   rosterSlots: RosterSlot[];
   reminderMinutes: number[];
   defaultDuration: number | null;
   isActive: boolean;
   createdById: string;
+  /** Number of times used to create an event in the last 6 months. */
+  useCount: number;
   createdAt: string;
   updatedAt: string;
 }

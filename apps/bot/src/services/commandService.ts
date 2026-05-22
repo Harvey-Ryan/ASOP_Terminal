@@ -3,8 +3,9 @@ import { client } from '../client.js';
 import { prisma } from '../db.js';
 import * as eventCommand from '../commands/event.js';
 import * as loginCommand from '../commands/login.js';
+import * as bidCommand from '../commands/bid.js';
 
-const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON()];
+const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), bidCommand.data.toJSON()];
 
 export async function registerCommands(clientId?: string): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];

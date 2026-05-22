@@ -922,7 +922,7 @@ export function ServerPage() {
 
   async function openRepeat(event: EventDto) {
     try {
-      const tmpl = await eventsApi.getOrCreateRepeatTemplate(guildId!, event.id);
+      const tmpl = await eventsApi.getOrCreateEventTemplate(guildId!, event.id);
       setRepeatTemplateId(tmpl.id);
     } catch {
       setRepeatTemplateId(null);
