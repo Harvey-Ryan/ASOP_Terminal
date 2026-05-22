@@ -802,8 +802,8 @@ function RecentLootCard({ guildId }: { guildId: string }) {
   const event = data as RecentLootEvent | null | undefined;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="h-[720px] flex flex-col rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold">Recent Loot</h2>
@@ -818,30 +818,32 @@ function RecentLootCard({ guildId }: { guildId: string }) {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
-        </div>
-      ) : !event || event.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">No loot awarded yet.</p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {event.items.map((item) => (
-            <li key={item.id} className="py-2.5 first:pt-0 last:pb-0">
-              <p className="text-sm font-medium">{item.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {resolveUsername(item.winner.userId, item.winner.username, user?.id)}
-                {item.winner.rollValue != null && (
-                  <span className="ml-1.5 text-primary">🎲 {item.winner.rollValue}</span>
-                )}
-                {item.winner.dkpSpent != null && item.winner.dkpSpent > 0 && (
-                  <span className="ml-1.5 text-amber-500">{item.winner.dkpSpent} DKP</span>
-                )}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+          </div>
+        ) : !event || event.items.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">No loot awarded yet.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {event.items.map((item) => (
+              <li key={item.id} className="py-2.5 first:pt-0 last:pb-0">
+                <p className="text-sm font-medium">{item.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {resolveUsername(item.winner.userId, item.winner.username, user?.id)}
+                  {item.winner.rollValue != null && (
+                    <span className="ml-1.5 text-primary">🎲 {item.winner.rollValue}</span>
+                  )}
+                  {item.winner.dkpSpent != null && item.winner.dkpSpent > 0 && (
+                    <span className="ml-1.5 text-amber-500">{item.winner.dkpSpent} DKP</span>
+                  )}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
