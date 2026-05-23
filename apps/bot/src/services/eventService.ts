@@ -71,10 +71,12 @@ export async function createVcsForEvent(eventId: string): Promise<void> {
 // ── Setup Discord entities for a pending web-created event ────────────────────
 
 export async function setupDiscordForEvent(eventId: string) {
+  console.log(`[setupDiscordForEvent] start — eventId=${eventId}`);
   const event = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
     include: { rsvps: true },
   });
+  console.log(`[setupDiscordForEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} threadId=${event.threadId ?? 'null'} discordEventId=${event.discordEventId ?? 'null'}`);
 
   const guild = await client.guilds.fetch(event.guildId);
   const roles = JSON.parse(event.roles) as EventRole[];
@@ -84,11 +86,14 @@ export async function setupDiscordForEvent(eventId: string) {
 
   if (!threadId) {
     const forumChannelId = await resolveForumChannelId(event.guildId);
+    console.log(`[setupDiscordForEvent] forumChannelId=${forumChannelId ?? 'null'}`);
     if (forumChannelId) {
       try {
         const ch = await client.channels.fetch(forumChannelId);
         if (ch?.type === ChannelType.GuildForum) {
+          console.log(`[setupDiscordForEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+          console.log(`[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
           const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
           const components = buildRoleButtons(event.id, roles, event.rsvps);
           const thread = await (ch as ForumChannel).threads.create({
@@ -133,10 +138,12 @@ export async function setupDiscordForEvent(eventId: string) {
   // ── Discord Scheduled Event ───────────────────────────────────────────────
 
   if (!discordEventId && event.startTime > new Date()) {
+    console.log(`[setupDiscordForEvent] creating Discord scheduled event — imageUrl=${event.imageUrl ?? 'null'}`);
     try {
       let imageDataUri: string | undefined;
       if (event.imageUrl) {
         imageDataUri = await fetchImageAsDataUri(event.imageUrl);
+        console.log(`[setupDiscordForEvent] imageDataUri for scheduled event: ${imageDataUri ? `ok (${imageDataUri.length} chars)` : 'undefined'}`);
       }
 
       // External events require an end time — default to start + 2 hours
@@ -153,11 +160,14 @@ export async function setupDiscordForEvent(eventId: string) {
         ...(imageDataUri ? { image: imageDataUri } : {}),
       });
       discordEventId = scheduled.id;
+      console.log(`[setupDiscordForEvent] Discord scheduled event created — id=${discordEventId}`);
       // Persist immediately — GuildScheduledEventUserAdd can fire within milliseconds
       await prisma.event.update({ where: { id: event.id }, data: { discordEventId } });
     } catch (err) {
       console.error('[bot] Failed to create Discord scheduled event:', err);
     }
+  } else {
+    console.log(`[setupDiscordForEvent] skipping scheduled event creation — discordEventId=${discordEventId ?? 'null'} startTime=${event.startTime.toISOString()} now=${new Date().toISOString()}`);
   }
 
   await prisma.event.update({
@@ -174,14 +184,17 @@ export async function setupDiscordForEvent(eventId: string) {
 // ── Sync Discord entities after an event edit ────────────────────────────────
 
 export async function syncDiscordEvent(eventId: string) {
+  console.log(`[syncDiscordEvent] start — eventId=${eventId}`);
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { rsvps: true },
   });
-  if (!event) return;
+  if (!event) { console.warn(`[syncDiscordEvent] event not found — ${eventId}`); return; }
+  console.log(`[syncDiscordEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} discordEventId=${event.discordEventId ?? 'null'} threadId=${event.threadId ?? 'null'} status=${event.status}`);
 
   // ── Update Discord Scheduled Event ───────────────────────────────────────
   if (event.discordEventId && event.status !== 'COMPLETED') {
+    console.log(`[syncDiscordEvent] updating Discord scheduled event ${event.discordEventId}`);
     try {
       const guild = await client.guilds.fetch(event.guildId);
       const scheduled = await guild.scheduledEvents.fetch(event.discordEventId).catch(() => null);
@@ -189,10 +202,14 @@ export async function syncDiscordEvent(eventId: string) {
         const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
         let imageField: { image: string | null } | Record<string, never> = {};
         if (event.imageUrl) {
+          console.log(`[syncDiscordEvent] fetching data URI for scheduled event — imageUrl=${event.imageUrl}`);
           const uri = await fetchImageAsDataUri(event.imageUrl);
+          console.log(`[syncDiscordEvent] data URI result: ${uri ? `ok (${uri.length} chars)` : 'undefined'}`);
           if (uri) imageField = { image: uri };
+          else console.warn(`[syncDiscordEvent] data URI was undefined — scheduled event image will NOT be updated`);
         } else {
           imageField = { image: null };
+          console.log(`[syncDiscordEvent] no imageUrl — clearing scheduled event image`);
         }
         await scheduled.edit({
           name: event.name,
@@ -202,14 +219,20 @@ export async function syncDiscordEvent(eventId: string) {
           entityMetadata: { location: event.musterPoint ?? event.name },
           ...imageField,
         });
+        console.log(`[syncDiscordEvent] Discord scheduled event updated`);
+      } else {
+        console.warn(`[syncDiscordEvent] scheduled event ${event.discordEventId} not found in guild`);
       }
     } catch (err) {
       console.error('[bot] Failed to update Discord scheduled event:', err);
     }
+  } else {
+    console.log(`[syncDiscordEvent] skipping scheduled event update — discordEventId=${event.discordEventId ?? 'null'} status=${event.status}`);
   }
 
   // ── Update forum thread name + roster embed ───────────────────────────────
   if (event.threadId) {
+    console.log(`[syncDiscordEvent] updating forum thread ${event.threadId}`);
     try {
       const thread = await client.channels.fetch(event.threadId);
       if (thread?.isThread()) {
@@ -220,32 +243,47 @@ export async function syncDiscordEvent(eventId: string) {
         }
 
         const roles = JSON.parse(event.roles) as EventRole[];
+        console.log(`[syncDiscordEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+        console.log(`[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
         const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
         const components = buildRoleButtons(event.id, roles, event.rsvps);
 
         const rosterMsg = event.rosterMessageId
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
+        console.log(`[syncDiscordEvent] rosterMsg=${rosterMsg ? rosterMsg.id : 'null'} existingAttachments=${rosterMsg?.attachments.size ?? 0} existingEmbedImage=${rosterMsg?.embeds[0]?.image?.url ?? 'none'}`);
 
         if (rosterMsg) {
           let files: AttachmentBuilder[] = [];
           let keepAttachments: { id: string }[] = [];
           if (imageAttachment) {
             files = [imageAttachment.builder];
+            console.log(`[syncDiscordEvent] uploading new image attachment: ${imageAttachment.filename}`);
           } else if (event.imageUrl) {
             // Fetch failed — preserve existing Discord attachment so image doesn't vanish
             keepAttachments = [...rosterMsg.attachments.values()].map((a) => ({ id: a.id }));
             const existingImageUrl = rosterMsg.embeds[0]?.image?.url;
             if (existingImageUrl) embed.setImage(existingImageUrl);
+            console.log(`[syncDiscordEvent] fetch failed — preserving ${keepAttachments.length} existing attachment(s), existingImageUrl=${existingImageUrl ?? 'none'}`);
+          } else {
+            console.log(`[syncDiscordEvent] no imageUrl — clearing attachments`);
           }
           await rosterMsg.edit({ embeds: [embed], components, files, attachments: keepAttachments });
+          console.log(`[syncDiscordEvent] roster embed updated`);
+        } else {
+          console.warn(`[syncDiscordEvent] roster message not found — cannot update embed`);
         }
+      } else {
+        console.warn(`[syncDiscordEvent] thread ${event.threadId} is not a thread channel`);
       }
     } catch (err) {
       console.error('[bot] Failed to sync forum thread after edit:', err);
     }
+  } else {
+    console.log(`[syncDiscordEvent] no threadId — skipping forum thread update`);
   }
+  console.log(`[syncDiscordEvent] done — eventId=${eventId}`);
 }
 
 // ── Update the roster embed after any RSVP change ─────────────────────────────
