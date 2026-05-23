@@ -530,28 +530,38 @@ export async function resolveVcCategoryId(discordGuildId: string): Promise<strin
 }
 
 async function fetchImageAttachment(imageUrl: string): Promise<{ builder: AttachmentBuilder; filename: string } | null> {
+  const apiBase = (process.env['API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
+  const fullUrl = `${apiBase}${imageUrl}`;
   try {
-    const apiBase = process.env['API_URL'] ?? 'http://localhost:3001';
-    const res = await fetch(`${apiBase}${imageUrl}`);
-    if (!res.ok) return null;
+    const res = await fetch(fullUrl);
+    if (!res.ok) {
+      console.error(`[fetchImageAttachment] HTTP ${res.status} fetching ${fullUrl}`);
+      return null;
+    }
     const buffer = Buffer.from(await res.arrayBuffer());
     const filename = imageUrl.split('/').pop() ?? 'image.jpg';
     return { builder: new AttachmentBuilder(buffer, { name: filename }), filename };
-  } catch {
+  } catch (err) {
+    console.error(`[fetchImageAttachment] Failed to fetch ${fullUrl}:`, err);
     return null;
   }
 }
 
 async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined> {
+  const apiBase = (process.env['API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
+  const fullUrl = `${apiBase}${imageUrl}`;
   try {
-    const apiBase = process.env['API_URL'] ?? 'http://localhost:3001';
-    const res = await fetch(`${apiBase}${imageUrl}`);
-    if (!res.ok) return undefined;
+    const res = await fetch(fullUrl);
+    if (!res.ok) {
+      console.error(`[fetchImageAsDataUri] HTTP ${res.status} fetching ${fullUrl}`);
+      return undefined;
+    }
     const buffer = await res.arrayBuffer();
     const mime = res.headers.get('content-type') ?? 'image/jpeg';
     const b64 = Buffer.from(buffer).toString('base64');
     return `data:${mime};base64,${b64}`;
-  } catch {
+  } catch (err) {
+    console.error(`[fetchImageAsDataUri] Failed to fetch ${fullUrl}:`, err);
     return undefined;
   }
 }
