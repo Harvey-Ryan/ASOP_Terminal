@@ -182,7 +182,7 @@ function SearchTab({ guildId }: { guildId: string }) {
                   <div className="flex items-center gap-4 text-muted-foreground">
                     {entry.location && <span className="text-xs">📍 {entry.location}</span>}
                     <span className="tabular-nums">
-                      {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(2)}
+                      {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(entry.itemType === 'COMMODITY' ? 3 : 2)}
                       {group.itemType === 'COMMODITY' ? ' SCU' : '×'}
                     </span>
                   </div>
@@ -241,7 +241,7 @@ function InventoryRow({
         <input
           type="number"
           min={0}
-          step={entry.itemType === 'COMMODITY' ? 0.01 : 1}
+          step={entry.itemType === 'COMMODITY' ? 0.001 : 1}
           value={qty}
           onChange={(e) => setQty(e.target.value)}
           className="w-24 rounded border border-input bg-background px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-ring"
@@ -293,7 +293,7 @@ function InventoryRow({
         )}
         {entry.location && <span className="text-xs">📍 {entry.location}</span>}
         <span className="tabular-nums">
-          {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(2)}
+          {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(entry.itemType === 'COMMODITY' ? 3 : 2)}
           {entry.itemType === 'COMMODITY' ? ' cSCU' : '×'}
         </span>
         <button
@@ -389,7 +389,7 @@ function InventoryTab({ guildId }: { guildId: string }) {
               <input
                 type="number"
                 min={0}
-                step={isCommodity ? 0.01 : 1}
+                step={isCommodity ? 0.001 : 1}
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
