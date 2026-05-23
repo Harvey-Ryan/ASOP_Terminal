@@ -70,14 +70,12 @@ export async function notifySnakeTurn(eventId: string) {
     }).catch(() => null) ?? undefined;
   }
 
-  // Remove role from any current holders
+  // Remove role from any current holders — fetch only the role's members, not the whole guild
   if (pickerRole) {
-    const members = await guild.members.fetch().catch(() => null);
-    if (members) {
-      for (const [, member] of members) {
-        if (member.roles.cache.has(pickerRole.id)) {
-          await member.roles.remove(pickerRole).catch(() => null);
-        }
+    const freshRole = await guild.roles.fetch(pickerRole.id).catch(() => null);
+    if (freshRole) {
+      for (const [, member] of freshRole.members) {
+        await member.roles.remove(freshRole).catch(() => null);
       }
     }
   }

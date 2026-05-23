@@ -256,8 +256,12 @@ async function checkInactivityEnd() {
 // ── Process ENDED events (delete VCs, complete Discord event, loot prompt) ───
 
 async function checkEndedEvents() {
+  // Only process events ENDED for at least 2 minutes — this lets the API's
+  // /trigger/end handler fire endEvent() first when a manager ends an event
+  // manually, so the scheduler acts as a backstop rather than a concurrent runner.
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60_000);
   const ended = await prisma.event.findMany({
-    where: { status: 'ENDED', botCleanedUp: false },
+    where: { status: 'ENDED', botCleanedUp: false, updatedAt: { lte: twoMinutesAgo } },
     take: 5,
   });
 

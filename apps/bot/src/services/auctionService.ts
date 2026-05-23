@@ -2,6 +2,7 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
+import { updatePostEventEmbed } from './eventService.js';
 
 // ── Embed builder ─────────────────────────────────────────────────────────────
 
@@ -187,6 +188,8 @@ function buildStandaloneEmbed(auction: StandaloneAuctionForEmbed, auctionUrl: st
 }
 
 // ── Inline applyDkp for standalone auctions ───────────────────────────────────
+// Mirror copy lives in apps/api/src/server/routes/auction.ts — keep in sync.
+// Cannot live in packages/shared because it requires a Prisma client instance.
 
 async function applyDkpForStandaloneAuction(
   guildId: string,
@@ -324,7 +327,15 @@ export async function closeExpiredAuctions(): Promise<void> {
         return true;
       });
 
-      if (closed) await postOrUpdateAuctionMessage(auction.id);
+      if (closed) {
+        await postOrUpdateAuctionMessage(auction.id);
+        // Update the post-event embed so the loot assignment shows immediately
+        const session = await prisma.lootSession.findUnique({
+          where: { id: auction.sessionId },
+          select: { eventId: true },
+        });
+        if (session) await updatePostEventEmbed(session.eventId).catch(() => null);
+      }
     } catch (err) {
       console.error(`[bot] closeExpiredAuctions failed for auction ${auction.id}:`, err);
     }

@@ -6,6 +6,7 @@ import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, optPosInt } from '../../lib/validate.js';
 import type { ApiResponse, LootAuctionDto, LootAuctionBidDto } from '@dem/shared';
+import { resolveProxy } from '@dem/shared';
 
 export const auctionRouter = Router();
 
@@ -46,32 +47,6 @@ function auctionToDto(a: AuctionRow, itemName: string): LootAuctionDto {
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
   };
-}
-
-// ── Proxy bidding helper ──────────────────────────────────────────────────────
-
-function resolveProxy(
-  bids: { userId: string; maxBid: number; placedAt: Date }[],
-  increment = 1,
-): Map<string, number> {
-  if (bids.length === 0) return new Map();
-  const sorted = [...bids].sort((a, b) =>
-    b.maxBid !== a.maxBid
-      ? b.maxBid - a.maxBid
-      : a.placedAt.getTime() - b.placedAt.getTime(),
-  );
-  const result = new Map<string, number>();
-  const winner = sorted[0]!;
-  const runnerUp = sorted[1];
-  if (!runnerUp) {
-    result.set(winner.userId, winner.maxBid);
-  } else {
-    result.set(winner.userId, Math.min(winner.maxBid, runnerUp.maxBid + increment));
-    for (let i = 1; i < sorted.length; i++) {
-      result.set(sorted[i]!.userId, sorted[i]!.maxBid);
-    }
-  }
-  return result;
 }
 
 // ── Auto-close helper ─────────────────────────────────────────────────────────
@@ -209,15 +184,22 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction', requi
     return;
   }
 
-  // Cancel any lingering non-closed auction for this item
-  await prisma.lootAuction.updateMany({
-    where: { itemId, status: { not: 'CLOSED' } },
-    data: { status: 'CANCELLED' },
-  });
+  // Clear any prior auction record and its bids so the item can be re-auctioned.
+  // Also clear any existing assignment so the item shows as unassigned during the new auction.
+  const existingAuction = await prisma.lootAuction.findUnique({ where: { itemId } });
+  if (existingAuction) {
+    await prisma.lootAuctionBid.deleteMany({ where: { auctionId: existingAuction.id } });
+  }
+  await prisma.lootAssignment.deleteMany({ where: { itemId } });
 
   const closesAt = new Date(Date.now() + durationSecs * 1000);
-  const auction = await prisma.lootAuction.create({
-    data: { itemId, sessionId: session.id, guildId, startedById: req.session.userId!, durationSecs, closesAt },
+  const auction = await prisma.lootAuction.upsert({
+    where: { itemId },
+    create: { itemId, sessionId: session.id, guildId, startedById: req.session.userId!, durationSecs, closesAt },
+    update: {
+      sessionId: session.id, guildId, startedById: req.session.userId!, durationSecs, closesAt,
+      status: 'OPEN', winnerId: null, winnerUsername: null, winningBid: null, discordMessageId: null,
+    },
     include: { bids: true },
   });
 
@@ -262,11 +244,11 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/bid', r
     return;
   }
 
-  const auction = await prisma.lootAuction.findUnique({
-    where: { itemId },
+  const auction = await prisma.lootAuction.findFirst({
+    where: { itemId, status: 'OPEN' },
     include: { bids: true },
   });
-  if (!auction || auction.status !== 'OPEN') {
+  if (!auction) {
     res.status(404).json({ success: false, error: 'No open auction for this item' } satisfies ApiResponse);
     return;
   }
@@ -357,11 +339,11 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/close',
     return;
   }
 
-  const auction = await prisma.lootAuction.findUnique({
-    where: { itemId },
+  const auction = await prisma.lootAuction.findFirst({
+    where: { itemId, status: 'OPEN' },
     include: { bids: { orderBy: { amount: 'desc' } } },
   });
-  if (!auction || auction.status !== 'OPEN') {
+  if (!auction) {
     res.status(404).json({ success: false, error: 'No open auction for this item' } satisfies ApiResponse);
     return;
   }
@@ -409,8 +391,8 @@ auctionRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/auction', req
     return;
   }
 
-  const auction = await prisma.lootAuction.findUnique({ where: { itemId } });
-  if (!auction || auction.status !== 'OPEN') {
+  const auction = await prisma.lootAuction.findFirst({ where: { itemId, status: 'OPEN' } });
+  if (!auction) {
     res.status(404).json({ success: false, error: 'No open auction to cancel' } satisfies ApiResponse);
     return;
   }

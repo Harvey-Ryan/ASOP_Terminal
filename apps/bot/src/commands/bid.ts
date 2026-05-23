@@ -3,6 +3,7 @@ import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from '../services/auctionService.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
+import { resolveProxy } from '@dem/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('bid')
@@ -14,32 +15,6 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
       .setMinValue(1),
   );
-
-// ── Proxy bidding helper ──────────────────────────────────────────────────────
-
-function resolveProxy(
-  bids: { userId: string; maxBid: number; placedAt: Date }[],
-  increment = 1,
-): Map<string, number> {
-  if (bids.length === 0) return new Map();
-  const sorted = [...bids].sort((a, b) =>
-    b.maxBid !== a.maxBid
-      ? b.maxBid - a.maxBid
-      : a.placedAt.getTime() - b.placedAt.getTime(),
-  );
-  const result = new Map<string, number>();
-  const winner = sorted[0]!;
-  const runnerUp = sorted[1];
-  if (!runnerUp) {
-    result.set(winner.userId, winner.maxBid);
-  } else {
-    result.set(winner.userId, Math.min(winner.maxBid, runnerUp.maxBid + increment));
-    for (let i = 1; i < sorted.length; i++) {
-      result.set(sorted[i]!.userId, sorted[i]!.maxBid);
-    }
-  }
-  return result;
-}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
@@ -135,21 +110,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    await prisma.auctionBid.upsert({
-      where: { auctionId_userId: { auctionId: standaloneAuction.id, userId } },
-      create: { auctionId: standaloneAuction.id, userId, username, amount: amount, maxBid: amount },
-      update: { username, maxBid: amount, placedAt: new Date() },
-    });
-
-    // Resolve proxy amounts for all bidders
-    const allStandaloneBids = await prisma.auctionBid.findMany({ where: { auctionId: standaloneAuction.id } });
-    const standaloneResolved = resolveProxy(allStandaloneBids);
-    for (const [uid, amt] of standaloneResolved) {
-      await prisma.auctionBid.update({
-        where: { auctionId_userId: { auctionId: standaloneAuction.id, userId: uid } },
-        data: { amount: amt },
+    await prisma.$transaction(async (tx) => {
+      await tx.auctionBid.upsert({
+        where: { auctionId_userId: { auctionId: standaloneAuction.id, userId } },
+        create: { auctionId: standaloneAuction.id, userId, username, amount: amount, maxBid: amount },
+        update: { username, maxBid: amount, placedAt: new Date() },
       });
-    }
+      const allStandaloneBids = await tx.auctionBid.findMany({ where: { auctionId: standaloneAuction.id } });
+      const standaloneResolved = resolveProxy(allStandaloneBids);
+      for (const [uid, amt] of standaloneResolved) {
+        await tx.auctionBid.update({
+          where: { auctionId_userId: { auctionId: standaloneAuction.id, userId: uid } },
+          data: { amount: amt },
+        });
+      }
+    });
 
     await postOrUpdateStandaloneAuctionMessage(standaloneAuction.id).catch(() => null);
 
@@ -216,21 +191,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   // Place or raise the bid
-  await prisma.lootAuctionBid.upsert({
-    where: { auctionId_userId: { auctionId: auction.id, userId } },
-    create: { auctionId: auction.id, userId, username, amount: amount, maxBid: amount },
-    update: { username, maxBid: amount, placedAt: new Date() },
-  });
-
-  // Resolve proxy amounts for all bidders
-  const allLootBids = await prisma.lootAuctionBid.findMany({ where: { auctionId: auction.id } });
-  const lootResolved = resolveProxy(allLootBids);
-  for (const [uid, amt] of lootResolved) {
-    await prisma.lootAuctionBid.update({
-      where: { auctionId_userId: { auctionId: auction.id, userId: uid } },
-      data: { amount: amt },
+  await prisma.$transaction(async (tx) => {
+    await tx.lootAuctionBid.upsert({
+      where: { auctionId_userId: { auctionId: auction.id, userId } },
+      create: { auctionId: auction.id, userId, username, amount: amount, maxBid: amount },
+      update: { username, maxBid: amount, placedAt: new Date() },
     });
-  }
+    const allLootBids = await tx.lootAuctionBid.findMany({ where: { auctionId: auction.id } });
+    const lootResolved = resolveProxy(allLootBids);
+    for (const [uid, amt] of lootResolved) {
+      await tx.lootAuctionBid.update({
+        where: { auctionId_userId: { auctionId: auction.id, userId: uid } },
+        data: { amount: amt },
+      });
+    }
+  });
 
   // Update the Discord embed in the forum thread
   await postOrUpdateAuctionMessage(auction.id).catch(() => null);

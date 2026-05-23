@@ -5,6 +5,7 @@ import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optPosInt } from '../../lib/validate.js';
 import type { ApiResponse, AuctionDto, AuctionBidDto } from '@dem/shared';
+import { resolveProxy } from '@dem/shared';
 
 export const auctionRouter = Router();
 
@@ -56,33 +57,9 @@ function auctionToDto(a: AuctionRow): AuctionDto {
   };
 }
 
-// ── Proxy bidding helper ──────────────────────────────────────────────────────
-
-function resolveProxy(
-  bids: { userId: string; maxBid: number; placedAt: Date }[],
-  increment = 1,
-): Map<string, number> {
-  if (bids.length === 0) return new Map();
-  const sorted = [...bids].sort((a, b) =>
-    b.maxBid !== a.maxBid
-      ? b.maxBid - a.maxBid
-      : a.placedAt.getTime() - b.placedAt.getTime(),
-  );
-  const result = new Map<string, number>();
-  const winner = sorted[0]!;
-  const runnerUp = sorted[1];
-  if (!runnerUp) {
-    result.set(winner.userId, winner.maxBid);
-  } else {
-    result.set(winner.userId, Math.min(winner.maxBid, runnerUp.maxBid + increment));
-    for (let i = 1; i < sorted.length; i++) {
-      result.set(sorted[i]!.userId, sorted[i]!.maxBid);
-    }
-  }
-  return result;
-}
-
 // ── Inline applyDkp helper ────────────────────────────────────────────────────
+// Mirror copy lives in apps/bot/src/services/auctionService.ts — keep in sync.
+// Cannot live in packages/shared because it requires a Prisma client instance.
 
 async function applyDkpForAuction(
   guildId: string,

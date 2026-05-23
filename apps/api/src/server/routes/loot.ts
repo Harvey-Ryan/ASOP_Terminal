@@ -551,16 +551,25 @@ lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
   if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only available for snake draft' } satisfies ApiResponse); return; }
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Session already completed' } satisfies ApiResponse); return; }
+  if (!session.draftStarted) { res.status(400).json({ success: false, error: 'Draft has not been started yet' } satisfies ApiResponse); return; }
 
   const draftOrder: string[] = JSON.parse(session.draftOrder);
+  if (draftOrder.length === 0) {
+    res.status(400).json({ success: false, error: 'Draft order is empty' } satisfies ApiResponse); return;
+  }
+
   const assignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
   const currentPosition = assignmentCount + session.skipCount;
   const currentPicker = snakePick(currentPosition, draftOrder);
 
   // Advance past all consecutive positions that belong to the same picker
-  // (e.g. at a turnaround C picks twice in a row — one skip should move to B)
+  // (e.g. at a turnaround C picks twice in a row — one skip should move to B).
+  // Cap at draftOrder.length to prevent an infinite loop when there is only one participant.
   let advance = 1;
-  while (snakePick(currentPosition + advance, draftOrder) === currentPicker) {
+  while (
+    advance < draftOrder.length &&
+    snakePick(currentPosition + advance, draftOrder) === currentPicker
+  ) {
     advance++;
   }
 
