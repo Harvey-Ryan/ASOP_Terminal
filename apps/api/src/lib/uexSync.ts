@@ -15,11 +15,11 @@ interface UexRawCategory {
 interface UexRawItem {
   id: number;
   name: string;
-  slug: string;
+  slug?: string | null;
   uuid?: string | null;
   section?: string | null;
   id_category: number;
-  category: string;
+  category?: string | null;
   size?: string | null;
   is_commodity: number;
   is_harvestable: number;
@@ -38,7 +38,7 @@ interface UexRawCommodity {
   id: number;
   name: string;
   code: string;
-  slug: string;
+  slug?: string | null;
   weight_scu?: number | null;
   price_buy_avg?: number | null;
   price_sell_avg?: number | null;
@@ -145,11 +145,11 @@ async function syncItems(
     const attributes = JSON.stringify(attrMap.get(item.id) ?? []);
     const data = {
       name:          item.name,
-      slug:          item.slug,
+      slug:          item.slug ?? '',
       uuid:          item.uuid ?? null,
       section:       item.section ?? null,
       categoryId:    item.id_category,
-      categoryName:  item.category,
+      categoryName:  item.category ?? '',
       size:          item.size ?? null,
       isCommodity:   item.is_commodity === 1,
       isHarvestable: item.is_harvestable === 1,
@@ -191,8 +191,8 @@ async function syncCommodities(raw: UexRawCommodity[]): Promise<Pick<SyncCounts,
     const prev = existingMap.get(com.id);
     const data = {
       name:          com.name,
-      code:          com.code,
-      slug:          com.slug,
+      code:          com.code ?? '',
+      slug:          com.slug ?? '',
       weightScu:     com.weight_scu ?? null,
       priceAvgBuy:   com.price_buy_avg ?? null,
       priceAvgSell:  com.price_sell_avg ?? null,
