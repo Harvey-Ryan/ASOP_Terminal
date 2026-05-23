@@ -383,7 +383,7 @@ export function AuctionsPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 {titleInputFocused && title.length >= 3 && (suggestQuery.data?.length ?? 0) > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg max-h-56 overflow-y-auto">
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                     {suggestQuery.data!.map((s) => (
                       <button
                         key={`${s.type}-${s.id}`}

@@ -1267,7 +1267,7 @@ export function LootPage() {
                     autoComplete="off"
                   />
                   {newItemInputFocused && newItemName.length >= 3 && (suggestQuery.data?.length ?? 0) > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg max-h-56 overflow-y-auto">
+                    <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                       {suggestQuery.data!.map((s) => (
                         <button
                           key={`${s.type}-${s.id}`}
