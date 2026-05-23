@@ -9,6 +9,7 @@ import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
 import * as bidCommand from './commands/bid.js';
 import * as walletCommand from './commands/wallet.js';
+import * as uexCommand from './commands/uex.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent, deleteEventVcs } from './services/eventService.js';
@@ -24,6 +25,7 @@ const commands = new Map<string, Command>([
   ['login', loginCommand],
   ['bid', bidCommand],
   ['wallet', walletCommand],
+  ['uex', uexCommand],
 ]);
 
 client.once(Events.ClientReady, async (c) => {

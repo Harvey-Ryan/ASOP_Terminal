@@ -5,8 +5,9 @@ import * as eventCommand from '../commands/event.js';
 import * as loginCommand from '../commands/login.js';
 import * as bidCommand from '../commands/bid.js';
 import * as walletCommand from '../commands/wallet.js';
+import * as uexCommand from '../commands/uex.js';
 
-const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON()];
+const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), uexCommand.data.toJSON()];
 
 export async function registerCommands(clientId?: string): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];
