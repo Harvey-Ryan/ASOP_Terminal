@@ -246,12 +246,15 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
     res.status(409).json({ success: false, error: 'Draft has already started — order cannot be changed' } satisfies ApiResponse); return;
   }
 
+  // Deduplicate draft order while preserving first-seen position
+  const dedupedOrder = draftOrder ? [...new Set(draftOrder)] : undefined;
+
   const updated = await prisma.lootSession.update({
     where: { eventId },
     data: {
       ...(method ? { method } : {}),
       ...(dkpAward !== undefined ? { dkpAward } : {}),
-      ...(draftOrder ? { draftOrder: JSON.stringify(draftOrder) } : {}),
+      ...(dedupedOrder ? { draftOrder: JSON.stringify(dedupedOrder) } : {}),
     },
     include: { items: { include: { assignments: true } } },
   });
@@ -555,7 +558,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
         orderBy: { priority: 'asc' },
       });
 
-      const topAvailable = queued.find((q) => q.item.assignments.length === 0);
+      const topAvailable = queued.find((q: { item: { assignments: unknown[] } }) => q.item.assignments.length === 0) as typeof queued[number] | undefined;
       if (!topAvailable) break; // empty queue or all queued items taken — needs manual pick
 
       const autoUsername = usernameMap.get(nextPickerId) ?? nextPickerId;
@@ -708,7 +711,7 @@ lootRouter.get('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, 
     orderBy: { priority: 'asc' },
   });
 
-  const data: LootQueueItemDto[] = queueItems.map((q) => ({
+  const data: LootQueueItemDto[] = queueItems.map((q: { itemId: string; item: { name: string; assignments: unknown[] }; priority: number }) => ({
     itemId: q.itemId,
     itemName: q.item.name,
     priority: q.priority,

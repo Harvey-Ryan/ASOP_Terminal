@@ -750,6 +750,7 @@ export function LootPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['loot', guildId, eventId] });
+    queryClient.invalidateQueries({ queryKey: ['loot-queue', guildId, eventId] });
     queryClient.invalidateQueries({ queryKey: ['dkp', guildId] });
     queryClient.invalidateQueries({ queryKey: ['dkp-me', guildId] });
     queryClient.invalidateQueries({ queryKey: ['loot-auctions', guildId, eventId] });
@@ -782,11 +783,13 @@ export function LootPage() {
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
+    onError: () => setSkipConfirm(false),
   });
 
   const startDraftMutation = useMutation({
     mutationFn: () => lootApi.startDraft(guildId!, eventId!),
-    onSuccess: () => invalidate(),
+    onSuccess: () => { setStartConfirm(false); invalidate(); },
+    onError: () => setStartConfirm(false),
   });
 
   // Shuffle the current draft order in-place (preserves manually added members)
@@ -796,8 +799,11 @@ export function LootPage() {
     updateMutation.mutate({ draftOrder: shuffled });
   }
 
-  // Lookup map for ALL rsvp members (not just confirmed) — needed for manually-added members
-  const allRsvpMap = new Map((event?.rsvps ?? []).map((r) => [r.userId, r.username]));
+  // Lookup map for all known members: RSVPs + DKP players (covers manually-added non-RSVP members)
+  const allRsvpMap = new Map([
+    ...(playersQuery.data ?? []).map((p) => [p.userId, p.username] as [string, string]),
+    ...(event?.rsvps ?? []).map((r) => [r.userId, r.username] as [string, string]),
+  ]);
 
   // All known guild members (DKP players + RSVPs) not yet in the draft order
   const allKnownPlayers: { userId: string; username: string }[] = (() => {
