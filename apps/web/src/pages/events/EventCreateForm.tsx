@@ -416,21 +416,21 @@ export function EventCreateForm({
           </div>
           {selectedImageUrl && (
             <img src={`${API_BASE}${selectedImageUrl}`} alt="Selected"
-              className="h-32 w-auto rounded-md border border-background/40 object-cover" />
+              className="h-20 w-auto rounded-md border border-background/40 object-cover" />
           )}
           {imageLibrary.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs text-primary-foreground/60">Or select from your server library:</p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-6 gap-1.5">
                 {imageLibrary.map((img) => (
                   <button key={img.id} type="button" onClick={() => setSelectedImageUrl(img.url)}
-                    className={`relative rounded-md overflow-hidden border-2 transition-colors ${
+                    className={`relative rounded overflow-hidden border-2 transition-colors ${
                       selectedImageUrl === img.url ? 'border-primary-foreground' : 'border-transparent hover:border-background/60'
                     }`}>
-                    <img src={`${API_BASE}${img.url}`} alt={img.filename} className="h-20 w-full object-cover" />
+                    <img src={`${API_BASE}${img.url}`} alt={img.filename} className="h-12 w-full object-cover" />
                     {selectedImageUrl === img.url && (
                       <div className="absolute inset-0 bg-background/30 flex items-center justify-center">
-                        <Check className="h-5 w-5 text-primary-foreground" />
+                        <Check className="h-4 w-4 text-primary-foreground" />
                       </div>
                     )}
                   </button>
