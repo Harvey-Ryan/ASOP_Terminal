@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
+import { uexApi } from '@/api/uex';
 import { useAuth } from '@/hooks/useAuth';
+import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
-import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto } from '@dem/shared';
+import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto, UexItemDto, UexCommodityDto } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -268,6 +270,125 @@ function AuctionPanel({
   );
 }
 
+// ── UEX info popover (hover on loot items) ────────────────────────────────────
+
+function UexInfoCard({ data }: { data: UexItemDto | UexCommodityDto }) {
+  const isItem = 'categoryName' in data;
+
+  if (isItem) {
+    const item = data as UexItemDto;
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-semibold text-foreground leading-tight">{item.name}</p>
+          <span className="shrink-0 rounded-full bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">Item</span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
+          {item.categoryName && <span><span className="text-foreground/60">Category:</span> {item.categoryName}</span>}
+          {item.section      && <span><span className="text-foreground/60">Section:</span> {item.section}</span>}
+          {item.size         && <span><span className="text-foreground/60">Size:</span> {item.size}</span>}
+          {item.gameVersion  && <span><span className="text-foreground/60">Version:</span> {item.gameVersion}</span>}
+          {item.slug         && <span className="col-span-2 break-all"><span className="text-foreground/60">Slug:</span> {item.slug}</span>}
+        </div>
+        {(item.isCommodity || item.isHarvestable) && (
+          <div className="flex flex-wrap gap-1">
+            {item.isCommodity   && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">commodity</span>}
+            {item.isHarvestable && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">harvestable</span>}
+          </div>
+        )}
+        {item.attributes.length > 0 && (
+          <div className="border-t border-border pt-1.5 space-y-0.5">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Attributes</p>
+            {item.attributes.map((a, i) => (
+              <div key={i} className="flex gap-1.5">
+                {a.name && <span className="text-foreground/60 shrink-0">{a.name}:</span>}
+                <span className="text-foreground">{a.value}{a.unit ? ` ${a.unit}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const com = data as UexCommodityDto;
+  const flags = [
+    com.isMineral    && 'mineral',
+    com.isRaw        && 'raw',
+    com.isRefined    && 'refined',
+    com.isHarvestable && 'harvestable',
+    com.isFuel       && 'fuel',
+    com.isIllegal    && 'illegal',
+  ].filter(Boolean) as string[];
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-foreground leading-tight">{com.name}</p>
+        <span className="shrink-0 rounded-full bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">Commodity</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
+        {com.code            && <span><span className="text-foreground/60">Code:</span> {com.code}</span>}
+        {com.weightScu   != null && <span><span className="text-foreground/60">Weight:</span> {com.weightScu} SCU</span>}
+        {com.priceAvgBuy  != null && <span><span className="text-foreground/60">Buy avg:</span> {com.priceAvgBuy.toLocaleString()} aUEC</span>}
+        {com.priceAvgSell != null && <span><span className="text-foreground/60">Sell avg:</span> {com.priceAvgSell.toLocaleString()} aUEC</span>}
+      </div>
+      {flags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {flags.map((f) => (
+            <span key={f} className={`rounded-sm px-1.5 py-0.5 text-[10px] ${f === 'illegal' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>{f}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ItemInfoPopover({ name }: { name: string }) {
+  const [show, setShow] = useState(false);
+
+  const infoQuery = useQuery({
+    queryKey: ['uex-item-info', name],
+    queryFn: async () => {
+      const [items, commodities] = await Promise.all([
+        uexApi.getItems({ q: name, limit: 10 }),
+        uexApi.getCommodities({ q: name, limit: 5 }),
+      ]);
+      const lc = name.toLowerCase();
+      return (
+        items.find((i) => i.name.toLowerCase() === lc) ??
+        commodities.find((c) => c.name.toLowerCase() === lc) ??
+        items[0] ??
+        commodities[0] ??
+        null
+      );
+    },
+    enabled: show,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  return (
+    <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <button
+        type="button"
+        tabIndex={-1}
+        className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      {show && (
+        <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-popover p-3 shadow-xl text-xs pointer-events-none">
+          {infoQuery.isLoading && <p className="text-muted-foreground">Looking up "{name}"…</p>}
+          {!infoQuery.isLoading && infoQuery.data === null && (
+            <p className="text-muted-foreground">No UEX record found for "{name}".</p>
+          )}
+          {infoQuery.data && <UexInfoCard data={infoQuery.data} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Item row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({
@@ -388,18 +509,21 @@ function ItemRow({
             <p className="text-sm text-muted-foreground mt-0.5">Unassigned</p>
           )}
         </div>
-        {isManager && (
-          <div className="flex items-center gap-1 shrink-0">
-            {isAssigned && (
-              <Button size="sm" variant="ghost" onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending} title="Clear assignment">
-                <RotateCcw className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1 shrink-0">
+          <ItemInfoPopover name={item.name} />
+          {isManager && (
+            <>
+              {isAssigned && (
+                <Button size="sm" variant="ghost" onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending} title="Clear assignment">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} title="Delete item">
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
               </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} title="Delete item">
-              <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-            </Button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Random Roll controls — managers only */}
@@ -780,6 +904,31 @@ export function LootPage() {
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
+  const [newItemInputFocused, setNewItemInputFocused] = useState(false);
+  const debouncedNewItem = useDebounce(newItemName, 250);
+
+  const suggestQuery = useQuery({
+    queryKey: ['uex-suggest-loot', debouncedNewItem],
+    queryFn: async () => {
+      const [items, commodities] = await Promise.all([
+        uexApi.getItems({ q: debouncedNewItem, limit: 8 }),
+        uexApi.getCommodities({ q: debouncedNewItem, limit: 4 }),
+      ]);
+      const seen = new Set<string>();
+      const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
+      for (const i of items) {
+        const lc = i.name.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
+      }
+      for (const c of commodities) {
+        const lc = c.name.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+      }
+      return results;
+    },
+    enabled: debouncedNewItem.length >= 3,
+    staleTime: 2 * 60 * 1000,
+  });
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
@@ -1106,13 +1255,41 @@ export function LootPage() {
                 }}
                 className="flex gap-2"
               >
-                <input
-                  ref={newItemInputRef}
-                  className={inputCls}
-                  placeholder="Item name…"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                />
+                <div className="relative flex-1">
+                  <input
+                    ref={newItemInputRef}
+                    className={inputCls}
+                    placeholder="Item name…"
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onFocus={() => setNewItemInputFocused(true)}
+                    onBlur={() => setNewItemInputFocused(false)}
+                    autoComplete="off"
+                  />
+                  {newItemInputFocused && newItemName.length >= 3 && (suggestQuery.data?.length ?? 0) > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg max-h-56 overflow-y-auto">
+                      {suggestQuery.data!.map((s) => (
+                        <button
+                          key={`${s.type}-${s.id}`}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setNewItemName(s.name);
+                            setNewItemInputFocused(false);
+                            newItemInputRef.current?.focus();
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                        >
+                          <span className="flex-1 truncate">{s.name}</span>
+                          {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
+                          <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                            {s.type}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending} className="shrink-0 gap-1">
                   <Plus className="h-4 w-4" />
                   Add
