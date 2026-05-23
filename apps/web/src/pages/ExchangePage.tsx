@@ -94,7 +94,7 @@ function UexCombobox({
         )}
       </div>
       {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
           {results.map((r) => (
             <button
               key={`${r.type}-${r.item.id}`}
