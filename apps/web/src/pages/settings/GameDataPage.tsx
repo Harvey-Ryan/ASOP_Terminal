@@ -135,7 +135,7 @@ function ItemCard({ item }: { item: UexItemDto }) {
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Attributes</p>
           {item.attributes.map((a, i) => (
             <div key={i} className="flex gap-1.5">
-              <span className="text-foreground/60 shrink-0">{a.name}:</span>
+              {a.name && <span className="text-foreground/60 shrink-0">{a.name}:</span>}
               <span className="text-foreground">{a.value}{a.unit ? ` ${a.unit}` : ''}</span>
             </div>
           ))}

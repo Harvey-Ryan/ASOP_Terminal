@@ -29,7 +29,8 @@ interface UexRawItem {
 
 interface UexRawAttribute {
   id_item: number;
-  attribute: string;
+  attribute?: string | null;
+  name?: string | null;      // UEX also uses "name" instead of "attribute" on some endpoints
   value: string;
   unit: string;
 }
@@ -255,7 +256,7 @@ async function doSync(): Promise<SyncCounts> {
       const rawAttrs = await uexFetch<UexRawAttribute>(`/items_attributes?id_category=${catId}`);
       for (const attr of rawAttrs) {
         const list = attrMap.get(attr.id_item) ?? [];
-        list.push({ name: attr.attribute, value: attr.value, unit: attr.unit });
+        list.push({ name: attr.attribute ?? attr.name ?? '', value: attr.value, unit: attr.unit });
         attrMap.set(attr.id_item, list);
       }
     } catch (err) {
