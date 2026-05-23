@@ -28,6 +28,19 @@ const commands = new Map<string, Command>([
   ['uex', uexCommand],
 ]);
 
+// Validate API_URL at startup so misconfiguration is caught immediately.
+const apiUrl = process.env['API_URL'];
+if (!apiUrl) {
+  console.warn('[bot] WARNING: API_URL is not set — image fetching will fall back to http://localhost:3001 and will likely fail in production');
+} else {
+  try {
+    new URL(apiUrl);
+    console.log(`[bot] API_URL=${apiUrl}`);
+  } catch {
+    console.error(`[bot] FATAL: API_URL="${apiUrl}" is not a valid URL (missing http:// scheme?). Image fetching will fail.`);
+  }
+}
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   await registerCommands(c.user.id);
