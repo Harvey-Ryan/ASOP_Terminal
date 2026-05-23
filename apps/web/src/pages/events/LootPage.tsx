@@ -397,6 +397,7 @@ function ItemRow({
   auction,
   dkpBalances,
   eligiblePlayers,
+  allRsvpMap,
   allAssignmentCount,
   skipCount,
   onRolled,
@@ -414,6 +415,7 @@ function ItemRow({
   auction: LootAuctionDto | null;
   dkpBalances: DkpBalanceDto[];
   eligiblePlayers: RsvpDto[];
+  allRsvpMap: Map<string, string>;
   allAssignmentCount: number;
   skipCount: number;
   onRolled: () => void;
@@ -466,7 +468,7 @@ function ItemRow({
     ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder)
     : null;
   const nextPickerName = nextPicker
-    ? resolveUsername(nextPicker, eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? nextPicker, currentUserId)
+    ? resolveUsername(nextPicker, eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? allRsvpMap.get(nextPicker) ?? nextPicker, currentUserId)
     : null;
   const isMyTurn = session.method === 'SNAKE_DRAFT' && !isAssigned && nextPicker !== null;
 
@@ -479,7 +481,7 @@ function ItemRow({
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {resolveUsername(winner.userId, winner.username, currentUserId)}
+                {resolveUsername(winner.userId, winner.username || allRsvpMap.get(winner.userId) || winner.userId, currentUserId)}
                 {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
                 {winner.dkpSpent != null && <span className="text-muted-foreground"> ({winner.dkpSpent} DKP)</span>}
                 {winner.pickNumber != null && <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>}
@@ -1232,6 +1234,7 @@ export function LootPage() {
                 auction={auctionQuery.data?.[item.id] ?? null}
                 dkpBalances={dkpQuery.data ?? []}
                 eligiblePlayers={eligiblePlayers}
+                allRsvpMap={allRsvpMap}
                 allAssignmentCount={allAssignmentCount}
                 skipCount={skipCount}
                 onRolled={invalidate}
