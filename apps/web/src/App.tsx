@@ -9,6 +9,7 @@ import { ModuleEventBotPage } from './pages/settings/ModuleEventBotPage';
 import { BotSettingsPage } from './pages/settings/BotSettingsPage';
 import { PermissionsPage } from './pages/settings/PermissionsPage';
 import { DkpSettingsPage } from './pages/settings/DkpSettingsPage';
+import { GameDataPage } from './pages/settings/GameDataPage';
 import { AuctionsPage } from './pages/AuctionsPage';
 import { DkpPage } from './pages/DkpPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
           <Route path="servers/:guildId/settings/modules/dkp" element={<DkpSettingsPage />} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
+          <Route path="servers/:guildId/settings/game-data" element={<GameDataPage />} />
           <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />
           <Route path="servers/:guildId/dkp" element={<DkpPage />} />
         </Route>

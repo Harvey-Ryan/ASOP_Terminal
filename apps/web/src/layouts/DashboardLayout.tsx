@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -347,6 +347,15 @@ export function DashboardLayout() {
                   </NavLink>
                 </>
               )}
+
+              {/* Game Data */}
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/settings/game-data`}
+                className={navCls}
+              >
+                <Database className="h-4 w-4 shrink-0" />
+                Game Data
+              </NavLink>
 
               {/* Admin */}
               <NavLink
