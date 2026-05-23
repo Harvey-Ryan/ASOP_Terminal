@@ -210,9 +210,11 @@ model ServerImage {
   filename  String
   /// Web-accessible URL path, e.g. /uploads/{guildId}/{filename}
   url       String
+  sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([guildId])
+  @@index([guildId, sortOrder])
 }
 
 // ── Loot ─────────────────────────────────────────────────────────────────────

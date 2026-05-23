@@ -288,6 +288,7 @@ export interface ServerImageDto {
   guildId: string;
   filename: string;
   url: string;
+  sortOrder: number;
   createdAt: string;
 }
 

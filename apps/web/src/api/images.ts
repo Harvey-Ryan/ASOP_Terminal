@@ -5,6 +5,12 @@ export const imagesApi = {
   list: (guildId: string) =>
     api.get<ApiResponse<ServerImageDto[]>>(`/guilds/${guildId}/images`).then((r) => r.data!),
 
+  delete: (guildId: string, imageId: string) =>
+    api.delete<ApiResponse>(`/guilds/${guildId}/images/${imageId}`).then(() => undefined),
+
+  reorder: (guildId: string, ids: string[]) =>
+    api.put<ApiResponse>(`/guilds/${guildId}/images/reorder`, { ids }).then(() => undefined),
+
   upload: async (guildId: string, file: File): Promise<ServerImageDto> => {
     const form = new FormData();
     form.append('image', file);

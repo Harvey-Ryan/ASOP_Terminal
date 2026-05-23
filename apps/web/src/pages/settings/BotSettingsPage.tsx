@@ -1,11 +1,214 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Info, RefreshCw, X } from 'lucide-react';
+import { Check, Info, RefreshCw, X, ImageIcon, Trash2, GripVertical, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
-import type { DiscordRoleDto } from '@dem/shared';
+import { imagesApi } from '@/api/images';
+import type { DiscordRoleDto, ServerImageDto } from '@dem/shared';
+
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
+// ── Image Bucket ──────────────────────────────────────────────────────────────
+
+function ImageBucket({ guildId }: { guildId: string }) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const imagesQuery = useQuery({
+    queryKey: ['images', guildId],
+    queryFn: () => imagesApi.list(guildId),
+  });
+
+  const [localIds, setLocalIds] = useState<string[]>([]);
+  const isDraggingRef = useRef(false);
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setLocalIds((imagesQuery.data ?? []).map((img) => img.id));
+  }, [imagesQuery.data]);
+
+  const byId = new Map<string, ServerImageDto>((imagesQuery.data ?? []).map((img) => [img.id, img]));
+
+  const reorderMutation = useMutation({
+    mutationFn: (ids: string[]) => imagesApi.reorder(guildId, ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['images', guildId] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (imageId: string) => imagesApi.delete(guildId, imageId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['images', guildId] }),
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => imagesApi.upload(guildId, file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['images', guildId] }),
+  });
+
+  function onDragStart(index: number) {
+    isDraggingRef.current = true;
+    dragIndexRef.current = index;
+  }
+
+  function onDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function onDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault();
+    const from = dragIndexRef.current;
+    if (from === null || from === dropIndex) return;
+    const next = [...localIds];
+    const [moved] = next.splice(from, 1);
+    next.splice(dropIndex, 0, moved!);
+    setLocalIds(next);
+    reorderMutation.mutate(next);
+  }
+
+  function onDragEnd() {
+    isDraggingRef.current = false;
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium flex items-center gap-1.5">
+            <ImageIcon className="h-4 w-4" />
+            Image Bucket
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Manage uploaded images available to event creators. Drag to reorder.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadMutation.isPending}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) { uploadMutation.mutate(f); e.target.value = ''; }
+          }}
+        />
+      </div>
+
+      {imagesQuery.isLoading && (
+        <div className="grid grid-cols-4 gap-2">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+        </div>
+      )}
+
+      {!imagesQuery.isLoading && localIds.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
+          <ImageIcon className="h-8 w-8 text-muted-foreground opacity-40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No images uploaded yet.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Click Upload to add images to the library.</p>
+        </div>
+      )}
+
+      {localIds.length > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          {localIds.map((id, index) => {
+            const img = byId.get(id);
+            if (!img) return null;
+            const isDragTarget = dragOverIndex === index;
+            const isConfirming = confirmDeleteId === id;
+
+            return (
+              <div
+                key={id}
+                draggable
+                onDragStart={() => onDragStart(index)}
+                onDragOver={(e) => onDragOver(e, index)}
+                onDrop={(e) => onDrop(e, index)}
+                onDragEnd={onDragEnd}
+                className={`group relative rounded-lg overflow-hidden border-2 transition-colors cursor-grab active:cursor-grabbing ${
+                  isDragTarget ? 'border-primary' : 'border-transparent hover:border-border'
+                }`}
+              >
+                <img
+                  src={`${API_BASE}${img.url}`}
+                  alt={img.filename}
+                  className="h-24 w-full object-cover"
+                />
+
+                {/* Drag handle overlay */}
+                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="rounded bg-background/70 p-0.5">
+                    <GripVertical className="h-3.5 w-3.5 text-foreground" />
+                  </div>
+                </div>
+
+                {/* Delete button */}
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isConfirming ? (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => { deleteMutation.mutate(id); setConfirmDeleteId(null); }}
+                        className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(id)}
+                      className="rounded bg-background/70 p-0.5 hover:bg-destructive/80 transition-colors"
+                      title="Delete image"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-foreground" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filename tooltip */}
+                <div className="absolute bottom-0 left-0 right-0 bg-background/70 px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[10px] text-foreground truncate">{img.filename}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(deleteMutation.isError || uploadMutation.isError) && (
+        <p className="text-xs text-destructive">
+          {deleteMutation.isError
+            ? `Delete failed: ${(deleteMutation.error as Error).message}`
+            : `Upload failed: ${(uploadMutation.error as Error).message}`}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function roleColorCss(color: number): string {
   if (color === 0) return '#99aab5';
@@ -291,6 +494,11 @@ export function BotSettingsPage() {
               <span className="text-sm text-destructive">Failed to save.</span>
             )}
           </div>
+
+          <div className="border-t border-border" />
+
+          {/* Image Bucket */}
+          <ImageBucket guildId={guildId!} />
 
           <div className="border-t border-border" />
 
