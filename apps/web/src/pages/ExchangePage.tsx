@@ -182,8 +182,9 @@ function SearchTab({ guildId }: { guildId: string }) {
                   <div className="flex items-center gap-4 text-muted-foreground">
                     {entry.location && <span className="text-xs">📍 {entry.location}</span>}
                     <span className="tabular-nums">
+                      {group.itemType === 'COMMODITY' ? '' : '×'}
                       {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(entry.itemType === 'COMMODITY' ? 3 : 2)}
-                      {group.itemType === 'COMMODITY' ? ' SCU' : '×'}
+                      {group.itemType === 'COMMODITY' ? ' cSCU' : ''}
                     </span>
                   </div>
                 </div>
@@ -293,8 +294,9 @@ function InventoryRow({
         )}
         {entry.location && <span className="text-xs">📍 {entry.location}</span>}
         <span className="tabular-nums">
+          {entry.itemType === 'COMMODITY' ? '' : '×'}
           {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(entry.itemType === 'COMMODITY' ? 3 : 2)}
-          {entry.itemType === 'COMMODITY' ? ' cSCU' : '×'}
+          {entry.itemType === 'COMMODITY' ? ' cSCU' : ''}
         </span>
         <button
           onClick={() => setEditing(true)}

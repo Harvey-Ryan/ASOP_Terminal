@@ -79,6 +79,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     orderBy: [{ qualityLevel: 'desc' }, { username: 'asc' }],
   });
 
+  // Resolve server nicknames for all members in the result set
+  const guild = interaction.guild ?? await client.guilds.fetch(interaction.guildId);
+  const userIds = [...new Set(entries.map((e) => e.userId))];
+  const nickMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    try {
+      const members = await guild.members.fetch({ user: userIds });
+      for (const [, member] of members) {
+        nickMap.set(member.user.id, member.displayName);
+      }
+    } catch {
+      // Non-fatal — fall back to stored username per entry below
+    }
+  }
+
   const itemName = entries[0]?.itemName
     ?? (itemType === 'ITEM'
       ? (await prisma.uexItem.findUnique({ where: { id: externalItemId }, select: { name: true } }))?.name
@@ -117,9 +132,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         e.quantity % 1 === 0
           ? e.quantity.toFixed(0)
           : e.quantity.toFixed(itemType === 'COMMODITY' ? 3 : 2);
-      const unit = itemType === 'COMMODITY' ? ' cSCU' : '×';
+      const prefix = itemType === 'COMMODITY' ? '' : '×';
+      const suffix = itemType === 'COMMODITY' ? ' cSCU' : '';
       const loc = e.location ? ` · 📍 ${e.location}` : '';
-      return `**${e.username}** — ${qty}${unit}${loc}`;
+      const displayName = nickMap.get(e.userId) ?? e.username;
+      return `**${displayName}** — ${prefix}${qty}${suffix}${loc}`;
     });
     embed.addFields({ name: header, value: lines.join('\n'), inline: false });
   }
