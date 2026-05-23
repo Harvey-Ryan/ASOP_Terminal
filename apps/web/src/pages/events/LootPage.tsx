@@ -733,6 +733,12 @@ export function LootPage() {
     refetchInterval: sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN' ? 2000 : false,
   });
 
+  const playersQuery = useQuery({
+    queryKey: ['players', guildId],
+    queryFn: () => lootApi.getPlayers(guildId!),
+    enabled: !!guildId && sessionQuery.data?.method === 'SNAKE_DRAFT',
+  });
+
   const session = sessionQuery.data;
   const event = eventQuery.data;
 
@@ -771,6 +777,8 @@ export function LootPage() {
 
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
+  const [startConfirm, setStartConfirm] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
@@ -781,17 +789,34 @@ export function LootPage() {
     onSuccess: () => invalidate(),
   });
 
+  // Shuffle the current draft order in-place (preserves manually added members)
   function handleShuffle() {
     if (!session) return;
-    const shuffled = [...eligiblePlayers.map((p) => p.userId)].sort(() => Math.random() - 0.5);
+    const shuffled = [...session.draftOrder].sort(() => Math.random() - 0.5);
     updateMutation.mutate({ draftOrder: shuffled });
   }
+
+  // Lookup map for ALL rsvp members (not just confirmed) — needed for manually-added members
+  const allRsvpMap = new Map((event?.rsvps ?? []).map((r) => [r.userId, r.username]));
+
+  // All known guild members (DKP players + RSVPs) not yet in the draft order
+  const allKnownPlayers: { userId: string; username: string }[] = (() => {
+    const map = new Map<string, string>();
+    for (const p of (playersQuery.data ?? [])) map.set(p.userId, p.username);
+    for (const r of (event?.rsvps ?? [])) map.set(r.userId, r.username);
+    return Array.from(map.entries()).map(([userId, username]) => ({ userId, username }));
+  })();
+  const draftSet = new Set(session?.draftOrder ?? []);
+  const notInDraft = allKnownPlayers
+    .filter((p) => !draftSet.has(p.userId))
+    .filter((p) => !memberSearch || p.username.toLowerCase().includes(memberSearch.toLowerCase()))
+    .sort((a, b) => a.username.localeCompare(b.username));
 
   const allAssignmentCount = session?.items.reduce((n, item) => n + item.assignments.length, 0) ?? 0;
   const skipCount = session?.skipCount ?? 0;
   const nextPickerId = session ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder) : null;
   const nextPickerName = nextPickerId
-    ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? nextPickerId, user?.id)
+    ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? allRsvpMap.get(nextPickerId) ?? nextPickerId, user?.id)
     : null;
 
   const isManager = guilds.some((g) => g.id === guildId);
@@ -892,20 +917,33 @@ export function LootPage() {
                   <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
                   {isManager && session.status === 'OPEN' && !session.draftStarted && (
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
-                        <Shuffle className="h-3 w-3" />
-                        Shuffle
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="gap-1 h-7 text-xs"
-                        onClick={() => startDraftMutation.mutate()}
-                        disabled={startDraftMutation.isPending || session.draftOrder.length === 0}
-                        title="Send DM to current picker"
-                      >
-                        <Play className="h-3 w-3" />
-                        {startDraftMutation.isPending ? 'Starting…' : 'Start Draft'}
-                      </Button>
+                      {!startConfirm ? (
+                        <>
+                          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
+                            <Shuffle className="h-3 w-3" />
+                            Shuffle
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="gap-1 h-7 text-xs"
+                            onClick={() => setStartConfirm(true)}
+                            disabled={session.draftOrder.length === 0}
+                          >
+                            <Play className="h-3 w-3" />
+                            Start Draft
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-muted-foreground">Draft order is locked on start.</span>
+                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => startDraftMutation.mutate()} disabled={startDraftMutation.isPending}>
+                            {startDraftMutation.isPending ? 'Starting…' : 'Yes, Start'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStartConfirm(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -936,21 +974,62 @@ export function LootPage() {
                 )}
                 <div className="flex flex-wrap gap-2">
                   {session.draftOrder.map((userId, i) => {
-                    const name = resolveUsername(userId, eligiblePlayers.find((p) => p.userId === userId)?.username ?? userId, user?.id);
+                    const name = resolveUsername(userId, eligiblePlayers.find((p) => p.userId === userId)?.username ?? allRsvpMap.get(userId) ?? userId, user?.id);
                     const isCurrent = userId === nextPickerId;
+                    const canRemove = isManager && session.status === 'OPEN' && !session.draftStarted;
                     return (
                       <span
                         key={userId}
-                        className={`rounded-full px-3 py-1 text-xs font-medium border ${isCurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border ${isCurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
                       >
                         {i + 1}. {name}
+                        {canRemove && (
+                          <button
+                            type="button"
+                            className="ml-1 opacity-50 hover:opacity-100 leading-none"
+                            onClick={() => updateMutation.mutate({ draftOrder: session.draftOrder.filter((id) => id !== userId) })}
+                            title={`Remove ${name}`}
+                          >
+                            ×
+                          </button>
+                        )}
                       </span>
                     );
                   })}
                   {session.draftOrder.length === 0 && (
-                    <p className="text-sm text-muted-foreground italic">No confirmed attendees in draft order. Complete the attendance audit first.</p>
+                    <p className="text-sm text-muted-foreground italic">No members in draft order yet.</p>
                   )}
                 </div>
+                {isManager && session.status === 'OPEN' && !session.draftStarted && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">Add members to draft:</p>
+                      <input
+                        type="text"
+                        placeholder="Search…"
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      />
+                    </div>
+                    {notInDraft.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {notInDraft.map((p) => (
+                          <button
+                            key={p.userId}
+                            type="button"
+                            className="rounded-full px-3 py-1 text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                            onClick={() => updateMutation.mutate({ draftOrder: [...session.draftOrder, p.userId] })}
+                          >
+                            + {resolveUsername(p.userId, p.username, user?.id)}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">{memberSearch ? 'No members match.' : 'All known members are already in the draft.'}</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
