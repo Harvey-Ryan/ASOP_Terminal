@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,8 +18,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { auctionsApi } from '@/api/auctions';
 import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
+import { uexApi } from '@/api/uex';
 import { useAuth } from '@/hooks/useAuth';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
+import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import type { AuctionDto } from '@dem/shared';
 
@@ -249,6 +251,32 @@ export function AuctionsPage() {
   const [durationSecs, setDurationSecs] = useState(120);
   const [restrictToEvent, setRestrictToEvent] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState('');
+  const [titleInputFocused, setTitleInputFocused] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const debouncedTitle = useDebounce(title, 250);
+
+  const suggestQuery = useQuery({
+    queryKey: ['uex-suggest-auction', debouncedTitle],
+    queryFn: async () => {
+      const [items, commodities] = await Promise.all([
+        uexApi.getItems({ q: debouncedTitle, limit: 8 }),
+        uexApi.getCommodities({ q: debouncedTitle, limit: 4 }),
+      ]);
+      const seen = new Set<string>();
+      const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
+      for (const i of items) {
+        const lc = i.name.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
+      }
+      for (const c of commodities) {
+        const lc = c.name.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+      }
+      return results;
+    },
+    enabled: debouncedTitle.length >= 3,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const auctionsQuery = useQuery({
     queryKey: ['auctions', guildId],
@@ -341,14 +369,43 @@ export function AuctionsPage() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Item / Title
               </label>
-              <input
-                type="text"
-                maxLength={100}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Exotic Armor Chest Piece"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="relative">
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  maxLength={100}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onFocus={() => setTitleInputFocused(true)}
+                  onBlur={() => setTitleInputFocused(false)}
+                  placeholder="e.g. Exotic Armor Chest Piece"
+                  autoComplete="off"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                {titleInputFocused && title.length >= 3 && (suggestQuery.data?.length ?? 0) > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg max-h-56 overflow-y-auto">
+                    {suggestQuery.data!.map((s) => (
+                      <button
+                        key={`${s.type}-${s.id}`}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setTitle(s.name);
+                          setTitleInputFocused(false);
+                          titleInputRef.current?.focus();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                      >
+                        <span className="flex-1 truncate">{s.name}</span>
+                        {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
+                        <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                          {s.type}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
