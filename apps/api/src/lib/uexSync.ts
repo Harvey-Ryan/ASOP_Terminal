@@ -9,7 +9,7 @@ interface UexRawCategory {
   type: string;
   section: string;
   name: string;
-  date_modified: string;
+  date_modified: number | string;
 }
 
 interface UexRawItem {
@@ -24,7 +24,7 @@ interface UexRawItem {
   is_commodity: number;
   is_harvestable: number;
   game_version?: string | null;
-  date_modified: string;
+  date_modified: number | string;
 }
 
 interface UexRawAttribute {
@@ -48,7 +48,7 @@ interface UexRawCommodity {
   is_harvestable: number;
   is_fuel: number;
   is_illegal: number;
-  date_modified: string;
+  date_modified: number | string;
 }
 
 type SyncCounts = {
@@ -93,6 +93,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// UEX returns date_modified as a Unix timestamp integer in some endpoints.
+function normDate(v: number | string): string {
+  return String(v);
+}
+
 // ── Phase 1: Categories ───────────────────────────────────────────────────────
 
 async function syncCategories(raw: UexRawCategory[]): Promise<Pick<SyncCounts, 'categoriesAdded' | 'categoriesUpdated'>> {
@@ -107,13 +112,13 @@ async function syncCategories(raw: UexRawCategory[]): Promise<Pick<SyncCounts, '
 
     if (prev === undefined) {
       await prisma.uexCategory.create({
-        data: { id: cat.id, type: cat.type, section: cat.section, name: cat.name, dateModified: cat.date_modified },
+        data: { id: cat.id, type: cat.type, section: cat.section, name: cat.name, dateModified: normDate(cat.date_modified) },
       });
       added++;
-    } else if (prev !== cat.date_modified) {
+    } else if (prev !== normDate(cat.date_modified)) {
       await prisma.uexCategory.update({
         where: { id: cat.id },
-        data: { type: cat.type, section: cat.section, name: cat.name, dateModified: cat.date_modified },
+        data: { type: cat.type, section: cat.section, name: cat.name, dateModified: normDate(cat.date_modified) },
       });
       updated++;
     }
@@ -150,14 +155,14 @@ async function syncItems(
       isHarvestable: item.is_harvestable === 1,
       gameVersion:   item.game_version ?? null,
       attributes,
-      dateModified:  item.date_modified,
+      dateModified:  normDate(item.date_modified),
       isActive:      true,
     };
 
     if (prev === undefined) {
       await prisma.uexItem.create({ data: { id: item.id, ...data } });
       added++;
-    } else if (prev !== item.date_modified) {
+    } else if (prev !== normDate(item.date_modified)) {
       await prisma.uexItem.update({ where: { id: item.id }, data });
       updated++;
     }
@@ -197,14 +202,14 @@ async function syncCommodities(raw: UexRawCommodity[]): Promise<Pick<SyncCounts,
       isHarvestable: com.is_harvestable === 1,
       isFuel:        com.is_fuel === 1,
       isIllegal:     com.is_illegal === 1,
-      dateModified:  com.date_modified,
+      dateModified:  normDate(com.date_modified),
       isActive:      true,
     };
 
     if (prev === undefined) {
       await prisma.uexCommodity.create({ data: { id: com.id, ...data } });
       added++;
-    } else if (prev !== com.date_modified) {
+    } else if (prev !== normDate(com.date_modified)) {
       await prisma.uexCommodity.update({ where: { id: com.id }, data });
       updated++;
     }
