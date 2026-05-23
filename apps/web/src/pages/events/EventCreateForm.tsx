@@ -544,7 +544,7 @@ export function EventCreateForm({
           onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground" disabled={isPending}>
+        <Button type="submit" className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground" disabled={isPending || uploadMutation.isPending}>
           {isPending ? 'Creating…' : repeatSource ? 'Create Repeat Event' : 'Create Event'}
         </Button>
       </div>
