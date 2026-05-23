@@ -294,7 +294,7 @@ function InventoryRow({
         {entry.location && <span className="text-xs">📍 {entry.location}</span>}
         <span className="tabular-nums">
           {entry.quantity % 1 === 0 ? entry.quantity.toFixed(0) : entry.quantity.toFixed(2)}
-          {entry.itemType === 'COMMODITY' ? ' SCU' : '×'}
+          {entry.itemType === 'COMMODITY' ? ' cSCU' : '×'}
         </span>
         <button
           onClick={() => setEditing(true)}
@@ -384,7 +384,7 @@ function InventoryTab({ guildId }: { guildId: string }) {
           <div className="flex flex-wrap gap-2">
             <div className="flex-1 min-w-[100px]">
               <label className="text-xs text-muted-foreground block mb-1">
-                {isCommodity ? 'Quantity (SCU)' : 'Quantity'}
+                {isCommodity ? 'Quantity ( cSCU )' : 'Quantity'}
               </label>
               <input
                 type="number"
