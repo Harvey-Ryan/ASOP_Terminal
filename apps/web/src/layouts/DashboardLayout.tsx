@@ -384,11 +384,13 @@ export function DashboardLayout() {
 
         {/* Sidebar footer – branding */}
         <div className="border-t border-border px-3 py-4 space-y-2 opacity-50">
-          <img
-            src="/uex-api-badge-powered.png"
-            alt="Powered by UEX Corp API"
-            className="w-1/2 object-contain mx-auto opacity-50"
-          />
+          <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="block w-1/2 mx-auto">
+            <img
+              src="/uex-api-badge-powered.png"
+              alt="Powered by UEX Corp API"
+              className="w-full object-contain opacity-50 hover:opacity-80 transition-opacity"
+            />
+          </a>
           <img
             src="/MadeByTheCommunity_White.png"
             alt="Made by the Community"
