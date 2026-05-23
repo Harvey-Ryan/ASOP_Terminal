@@ -226,23 +226,31 @@ async function syncCommodities(raw: UexRawCommodity[]): Promise<Pick<SyncCounts,
 // ── Core sync pipeline ────────────────────────────────────────────────────────
 
 async function doSync(): Promise<SyncCounts> {
-  // 1. Categories (items only — commodities have no category FK in our schema)
+  // 1. Categories
   console.log('[uex] Fetching categories…');
   const rawCats = await uexFetch<UexRawCategory>('/categories?type=item');
   const catCounts = await syncCategories(rawCats);
   console.log(`[uex] Categories: +${catCounts.categoriesAdded} new, ~${catCounts.categoriesUpdated} updated`);
 
-  // 2. Items (basic fields)
-  console.log('[uex] Fetching items…');
-  const rawItems = await uexFetch<UexRawItem>('/items');
-  console.log(`[uex] Fetched ${rawItems.length} items`);
-
-  // 3. Attributes — one request per unique category, throttled to stay well under 120 req/min
-  const catIds = [...new Set(rawItems.map((i) => i.id_category))];
+  // 2+3. Items and attributes — /items requires id_category, so we fetch both
+  //      per category in one throttled loop (2 requests per category, 400ms apart,
+  //      keeping us well under the 120 req/min limit).
+  const rawItems: UexRawItem[] = [];
   const attrMap = new Map<number, { name: string; value: string; unit: string }[]>();
+  const catIds = rawCats.map((c) => c.id);
 
-  console.log(`[uex] Fetching attributes for ${catIds.length} categories…`);
+  console.log(`[uex] Fetching items + attributes for ${catIds.length} categories…`);
   for (const catId of catIds) {
+    // Items
+    try {
+      const items = await uexFetch<UexRawItem>(`/items?id_category=${catId}`);
+      rawItems.push(...items);
+    } catch (err) {
+      console.warn(`[uex] Skipping items for category ${catId}: ${err instanceof Error ? err.message : err}`);
+    }
+    await sleep(400);
+
+    // Attributes
     try {
       const rawAttrs = await uexFetch<UexRawAttribute>(`/items_attributes?id_category=${catId}`);
       for (const attr of rawAttrs) {
@@ -251,13 +259,13 @@ async function doSync(): Promise<SyncCounts> {
         attrMap.set(attr.id_item, list);
       }
     } catch (err) {
-      // Non-fatal: skip attributes for this category, item will still be upserted without them
       console.warn(`[uex] Skipping attributes for category ${catId}: ${err instanceof Error ? err.message : err}`);
     }
-    await sleep(600); // ~100 req/min — safely under the 120 req/min limit
+    await sleep(400);
   }
+  console.log(`[uex] Fetched ${rawItems.length} items across ${catIds.length} categories`);
 
-  // 4. Upsert items with their attributes
+  // 4. Upsert items with merged attributes
   const itemCounts = await syncItems(rawItems, attrMap);
   console.log(`[uex] Items: +${itemCounts.itemsAdded} new, ~${itemCounts.itemsUpdated} updated`);
 
