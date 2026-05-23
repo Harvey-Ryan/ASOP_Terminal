@@ -1176,7 +1176,7 @@ export function LootPage() {
             />
           </div>
         )}
-        </div>{/* end flex row */}
+        </div>
       )}
     </div>
   );
