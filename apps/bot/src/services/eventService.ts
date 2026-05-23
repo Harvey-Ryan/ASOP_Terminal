@@ -296,7 +296,8 @@ export async function updateRosterEmbed(eventId: string) {
   if (!event?.threadId) return;
 
   const roles = JSON.parse(event.roles) as EventRole[];
-  const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+  const eventImageUrl = event.imageUrl;
+  const imageAttachment = eventImageUrl ? await fetchImageAttachment(eventImageUrl) : null;
   const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
   const components = buildRoleButtons(event.id, roles);
 
@@ -305,7 +306,7 @@ export async function updateRosterEmbed(eventId: string) {
     let keepAttachments: { id: string }[] = [];
     if (imageAttachment) {
       files = [imageAttachment.builder];
-    } else if (event.imageUrl) {
+    } else if (eventImageUrl) {
       keepAttachments = [...msg.attachments.values()].map((a) => ({ id: a.id }));
       const existingImageUrl = msg.embeds[0]?.image?.url;
       if (existingImageUrl) embed.setImage(existingImageUrl);
