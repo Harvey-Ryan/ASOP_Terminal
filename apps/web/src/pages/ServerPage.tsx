@@ -100,6 +100,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => imagesApi.upload(guildId, file),
     onSuccess: (img) => setSelectedImageUrl(img.url),
+    onError: (err: Error) => setFormError(`Image upload failed: ${err.message}`),
   });
 
   function invalidate() {
@@ -368,7 +369,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
 
       <div className="flex justify-end gap-2 bg-primary px-5 py-4">
         <Button type="button" size="sm" className={btnCls} onClick={onCancel}>Cancel</Button>
-        <Button type="submit" size="sm" className={btnCls} disabled={updateMutation.isPending}>
+        <Button type="submit" size="sm" className={btnCls} disabled={updateMutation.isPending || uploadMutation.isPending}>
           {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
         </Button>
       </div>
