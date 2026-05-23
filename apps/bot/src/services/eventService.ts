@@ -5,7 +5,7 @@ import {
   GuildScheduledEventPrivacyLevel,
   PermissionFlagsBits,
 } from 'discord.js';
-import type { ForumChannel } from 'discord.js';
+import type { ForumChannel, Message } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
@@ -223,14 +223,23 @@ export async function syncDiscordEvent(eventId: string) {
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
         const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
         const components = buildRoleButtons(event.id, roles, event.rsvps);
-        const files = imageAttachment ? [imageAttachment.builder] : [];
 
         const rosterMsg = event.rosterMessageId
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
 
         if (rosterMsg) {
-          await rosterMsg.edit({ embeds: [embed], components, files, attachments: [] });
+          let files: AttachmentBuilder[] = [];
+          let keepAttachments: { id: string }[] = [];
+          if (imageAttachment) {
+            files = [imageAttachment.builder];
+          } else if (event.imageUrl) {
+            // Fetch failed — preserve existing Discord attachment so image doesn't vanish
+            keepAttachments = [...rosterMsg.attachments.values()].map((a) => ({ id: a.id }));
+            const existingImageUrl = rosterMsg.embeds[0]?.image?.url;
+            if (existingImageUrl) embed.setImage(existingImageUrl);
+          }
+          await rosterMsg.edit({ embeds: [embed], components, files, attachments: keepAttachments });
         }
       }
     } catch (err) {
@@ -252,7 +261,19 @@ export async function updateRosterEmbed(eventId: string) {
   const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
   const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
   const components = buildRoleButtons(event.id, roles);
-  const files = imageAttachment ? [imageAttachment.builder] : [];
+
+  async function applyEdit(msg: Message) {
+    let files: AttachmentBuilder[] = [];
+    let keepAttachments: { id: string }[] = [];
+    if (imageAttachment) {
+      files = [imageAttachment.builder];
+    } else if (event.imageUrl) {
+      keepAttachments = [...msg.attachments.values()].map((a) => ({ id: a.id }));
+      const existingImageUrl = msg.embeds[0]?.image?.url;
+      if (existingImageUrl) embed.setImage(existingImageUrl);
+    }
+    await msg.edit({ embeds: [embed], components, files, attachments: keepAttachments });
+  }
 
   try {
     const thread = await client.channels.fetch(event.threadId);
@@ -260,15 +281,12 @@ export async function updateRosterEmbed(eventId: string) {
 
     if (event.rosterMessageId) {
       const msg = await thread.messages.fetch(event.rosterMessageId).catch(() => null);
-      if (msg) {
-        await msg.edit({ embeds: [embed], components, files, attachments: [] });
-        return;
-      }
+      if (msg) { await applyEdit(msg); return; }
     }
 
     // Fallback: edit starter message
     const starter = await thread.fetchStarterMessage().catch(() => null);
-    if (starter) await starter.edit({ embeds: [embed], components, files, attachments: [] });
+    if (starter) await applyEdit(starter);
   } catch (err) {
     console.error('[bot] Failed to update roster embed:', err);
   }
