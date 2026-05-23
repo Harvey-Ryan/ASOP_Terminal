@@ -15,6 +15,9 @@ export const exchangeApi = {
   deleteEntry: (guildId: string, entryId: string) =>
     api.delete<ApiResponse>(`/guilds/${guildId}/exchange/inventory/${entryId}`),
 
+  wipeInventories: (guildId: string) =>
+    api.delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/exchange/inventory/all`).then((r) => r.data!),
+
   search: (guildId: string, itemType: string, externalItemId: number) =>
     api
       .get<ApiResponse<InventorySearchGroup[]>>(

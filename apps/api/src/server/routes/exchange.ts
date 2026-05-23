@@ -139,6 +139,22 @@ exchangeRouter.delete('/:guildId/exchange/inventory/:entryId', requireAuth, asyn
   res.json({ success: true } satisfies ApiResponse);
 });
 
+// ── DELETE /api/guilds/:guildId/exchange/inventory/all ───────────────────────
+// Admin-only: wipes every InventoryEntry for the guild.
+
+exchangeRouter.delete('/:guildId/exchange/inventory/all', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+
+  const { assertGuildManager } = await import('../../lib/assertGuildManager.js');
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const { count } = await prisma.inventoryEntry.deleteMany({ where: { guildId } });
+  res.json({ success: true, data: { deleted: count } } satisfies ApiResponse<{ deleted: number }>);
+});
+
 // ── GET /api/guilds/:guildId/exchange/search ──────────────────────────────────
 // Returns all guild members who have the specified item in their inventory,
 // grouped by qualityLevel.

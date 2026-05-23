@@ -10,6 +10,7 @@ import * as loginCommand from './commands/login.js';
 import * as bidCommand from './commands/bid.js';
 import * as walletCommand from './commands/wallet.js';
 import * as uexCommand from './commands/uex.js';
+import * as whohasCommand from './commands/whohas.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent, deleteEventVcs } from './services/eventService.js';
@@ -26,6 +27,7 @@ const commands = new Map<string, Command>([
   ['bid', bidCommand],
   ['wallet', walletCommand],
   ['uex', uexCommand],
+  ['whohas', whohasCommand],
 ]);
 
 // Validate API_URL at startup so misconfiguration is caught immediately.

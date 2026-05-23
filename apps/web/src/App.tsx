@@ -13,6 +13,7 @@ import { GameDataPage } from './pages/settings/GameDataPage';
 import { AuctionsPage } from './pages/AuctionsPage';
 import { DkpPage } from './pages/DkpPage';
 import { ExchangePage } from './pages/ExchangePage';
+import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />
           <Route path="servers/:guildId/dkp" element={<DkpPage />} />
           <Route path="servers/:guildId/exchange" element={<ExchangePage />} />
+          <Route path="servers/:guildId/settings/modules/exchange" element={<ExchangeSettingsPage />} />
         </Route>
 
         {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}
