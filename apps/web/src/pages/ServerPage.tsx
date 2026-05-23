@@ -428,7 +428,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const lootQuery = useQuery({
     queryKey: ['loot', guildId, event.id],
     queryFn: () => lootApi.getSession(guildId, event.id),
-    enabled: ev.status === 'COMPLETED',
+    enabled: ev.status === 'COMPLETED' || ev.status === 'ENDED',
   });
   const lootSession = lootQuery.data ?? null;
 
@@ -686,6 +686,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               disabled={createVcsMutation.isPending || createVcsMutation.isSuccess}>
               <Mic className="h-3.5 w-3.5" />
               {createVcsMutation.isPending ? 'Creating…' : createVcsMutation.isSuccess ? 'Queued' : 'Create VCs'}
+            </Button>
+          )}
+          {isManager && ev.status === 'ENDED' && lootSession?.status === 'OPEN' && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
+                <PlayCircle className="h-3.5 w-3.5" />Resume Loot
+              </Link>
             </Button>
           )}
           {isManager && ev.status === 'COMPLETED' && lootSession?.status === 'OPEN' && (

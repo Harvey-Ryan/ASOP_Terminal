@@ -90,6 +90,12 @@ export function EventAuditPage() {
   const [lootItems, setLootItems] = useState<string[]>([]);
   const [newLootItem, setNewLootItem] = useState('');
 
+  const { data: existingSession } = useQuery({
+    queryKey: ['loot', guildId, eventId],
+    queryFn: () => lootApi.getSession(guildId!, eventId!),
+    enabled: !!guildId && !!eventId,
+  });
+
   const { data: event, isLoading, isError } = useQuery({
     queryKey: ['event', guildId, eventId],
     queryFn: () => eventsApi.get(guildId!, eventId!),
@@ -114,15 +120,18 @@ export function EventAuditPage() {
     setAttendanceInitialized(true);
   }, [event, attendanceInitialized]);
 
+  const effectiveHadLoot = existingSession != null ? true : hadLoot;
+
   const completeMutation = useMutation({
     mutationFn: async () => {
       await eventsApi.complete(guildId!, eventId!, {
-        hadLoot: hadLoot!,
+        hadLoot: effectiveHadLoot!,
         confirmedAttendees: Object.entries(attendance)
           .filter(([, v]) => v)
           .map(([k]) => k),
       });
-      if (hadLoot && lootItems.length > 0) {
+      // Skip session creation if one already exists from before the event ended
+      if (!existingSession && hadLoot && lootItems.length > 0) {
         await lootApi.createSession(guildId!, eventId!, { method: 'RANDOM_ROLL' });
         for (const name of lootItems) {
           await lootApi.addItem(guildId!, eventId!, { name });
@@ -130,7 +139,7 @@ export function EventAuditPage() {
       }
     },
     onSuccess: () =>
-      hadLoot
+      effectiveHadLoot
         ? navigate(`/dashboard/servers/${guildId}/events/${eventId}/loot`)
         : navigate(`/dashboard/servers/${guildId}?tab=completed`),
   });
@@ -159,7 +168,7 @@ export function EventAuditPage() {
   const timeStr = start.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
 
   const confirmedCount = Object.values(attendance).filter(Boolean).length;
-  const canComplete = hadLoot !== null;
+  const canComplete = existingSession != null || hadLoot !== null;
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -271,7 +280,7 @@ export function EventAuditPage() {
                 <Gift className="h-4 w-4" />
                 Loot
               </CardTitle>
-              {hadLoot !== null && (
+              {!existingSession && hadLoot !== null && (
                 <button
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground"
@@ -283,7 +292,11 @@ export function EventAuditPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {hadLoot === null ? (
+            {existingSession ? (
+              <p className="text-sm text-muted-foreground">
+                A loot session is already in progress — you can continue it after completing the audit.
+              </p>
+            ) : hadLoot === null ? (
               <div className="flex gap-2">
                 <Button
                   size="sm"
