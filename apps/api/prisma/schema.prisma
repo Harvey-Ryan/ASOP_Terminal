@@ -593,6 +593,36 @@ model UexCommodity {
   @@index([isIllegal])
 }
 
+// ── Exchange (member inventory) ───────────────────────────────────────────────
+
+/// One inventory slot per member per item. Unique on (guildId, userId, itemType, externalItemId).
+model InventoryEntry {
+  id             String   @id @default(cuid())
+  guildId        String
+  /// Discord user snowflake
+  userId         String
+  /// Display name at the time of last update
+  username       String
+  /// "ITEM" | "COMMODITY"
+  itemType       String
+  /// UEX item or commodity numeric ID
+  externalItemId Int
+  /// Denormalised name for display without re-joining UEX tables
+  itemName       String
+  /// Quantity; float to support fractional SCU for commodities
+  quantity       Float
+  /// Quality level 0-100 (minerals/commodities only); null for discrete items
+  qualityLevel   Int?
+  /// Free-text location, e.g. "Lorville - TDD"
+  location       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([guildId, userId, itemType, externalItemId])
+  @@index([guildId, itemType, externalItemId])
+  @@index([guildId, userId])
+}
+
 /// Immutable audit log — one row per sync run (scheduled or manual).
 model UexSyncLog {
   id                 String    @id @default(cuid())

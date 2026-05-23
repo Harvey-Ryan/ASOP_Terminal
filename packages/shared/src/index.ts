@@ -434,6 +434,44 @@ export function resolveProxy(
   return result;
 }
 
+// ── Exchange (member inventory) ───────────────────────────────────────────────
+
+export type InventoryItemType = 'ITEM' | 'COMMODITY';
+
+export interface InventoryEntryDto {
+  id: string;
+  guildId: string;
+  userId: string;
+  username: string;
+  itemType: InventoryItemType;
+  externalItemId: number;
+  itemName: string;
+  quantity: number;
+  qualityLevel: number | null;
+  location: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertInventoryEntryBody {
+  itemType: InventoryItemType;
+  externalItemId: number;
+  itemName: string;
+  quantity: number;
+  qualityLevel?: number | null;
+  location?: string | null;
+}
+
+/** One group returned by the Exchange search endpoint */
+export interface InventorySearchGroup {
+  itemName: string;
+  itemType: InventoryItemType;
+  externalItemId: number;
+  /** null means "no QL specified" */
+  qualityLevel: number | null;
+  entries: InventoryEntryDto[];
+}
+
 // ── UEX Corp Game Data ────────────────────────────────────────────────────────
 
 export interface UexAttributeDto {
