@@ -1,5 +1,8 @@
 import 'dotenv/config';
+import cron from 'node-cron';
 import { createServer } from './server/app.js';
+import { runUexSync } from './lib/uexSync.js';
+import { prisma } from './lib/prisma.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -27,6 +30,32 @@ if (isProd) {
 }
 
 const app = createServer();
+
+// ── UEX Corp weekly sync ───────────────────────────────────────────────────────
+// Runs at 03:00 UTC every Monday. Skips automatically if the last successful
+// sync was less than 7 days ago (guards against double-fire on redeploy).
+if (process.env.UEX_KEY) {
+  cron.schedule('0 3 * * 1', async () => {
+    const lastSuccess = await prisma.uexSyncLog.findFirst({
+      where: { status: 'SUCCESS' },
+      orderBy: { completedAt: 'desc' },
+    });
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    if (lastSuccess?.completedAt && lastSuccess.completedAt > sevenDaysAgo) {
+      console.log('[uex] Scheduled sync skipped — last sync was recent');
+      return;
+    }
+    console.log('[uex] Starting scheduled weekly sync…');
+    try {
+      await runUexSync('SCHEDULED');
+    } catch (err) {
+      console.error('[uex] Could not start scheduled sync:', err);
+    }
+  });
+  console.log('[uex] Weekly sync scheduled (Mondays 03:00 UTC)');
+} else {
+  console.warn('[uex] UEX_KEY not set — weekly sync disabled');
+}
 
 app.listen(PORT, () => {
   console.log(`[API] Listening on http://localhost:${PORT}`);

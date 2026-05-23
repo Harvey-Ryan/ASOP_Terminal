@@ -13,6 +13,7 @@ import { settingsRouter } from './routes/settings.js';
 import { lootRouter } from './routes/loot.js';
 import { auctionRouter } from './routes/loot-auction.js';
 import { auctionRouter as standaloneAuctionRouter } from './routes/auction.js';
+import { uexRouter } from './routes/uex.js';
 import type { ApiResponse } from '@dem/shared';
 
 const PgSession = ConnectPgSimple(session);
@@ -170,6 +171,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', lootRouter);
   app.use('/api/guilds', auctionRouter);
   app.use('/api/guilds', standaloneAuctionRouter);
+  app.use('/api', uexRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

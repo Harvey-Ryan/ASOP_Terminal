@@ -421,6 +421,76 @@ export function resolveProxy(
   return result;
 }
 
+// ── UEX Corp Game Data ────────────────────────────────────────────────────────
+
+export interface UexAttributeDto {
+  name: string;
+  value: string;
+  unit: string;
+}
+
+export interface UexCategoryDto {
+  id: number;
+  type: string;
+  section: string;
+  name: string;
+}
+
+export interface UexItemDto {
+  id: number;
+  name: string;
+  slug: string;
+  categoryId: number;
+  categoryName: string;
+  section: string | null;
+  size: string | null;
+  isCommodity: boolean;
+  isHarvestable: boolean;
+  gameVersion: string | null;
+  attributes: UexAttributeDto[];
+}
+
+export interface UexCommodityDto {
+  id: number;
+  name: string;
+  code: string;
+  slug: string;
+  weightScu: number | null;
+  priceAvgBuy: number | null;
+  priceAvgSell: number | null;
+  isMineral: boolean;
+  isRaw: boolean;
+  isRefined: boolean;
+  isHarvestable: boolean;
+  isFuel: boolean;
+  isIllegal: boolean;
+}
+
+export interface UexSyncLogDto {
+  id: string;
+  trigger: string;
+  status: string;
+  categoriesAdded: number;
+  categoriesUpdated: number;
+  itemsAdded: number;
+  itemsUpdated: number;
+  commoditiesAdded: number;
+  commoditiesUpdated: number;
+  error: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface UexSyncStatusDto {
+  isRunning: boolean;
+  lastSync: UexSyncLogDto | null;
+  counts: {
+    categories: number;
+    items: number;
+    commodities: number;
+  };
+}
+
 /** A reusable event blueprint, auto-created on Repeat and surfaced in the create-event form. */
 export interface EventTemplateDto {
   id: string;
