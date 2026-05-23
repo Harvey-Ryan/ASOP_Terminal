@@ -385,6 +385,11 @@ export function DashboardLayout() {
         {/* Sidebar footer – branding */}
         <div className="border-t border-border px-3 py-4 space-y-2 opacity-50">
           <img
+            src="/uex-api-badge-powered.png"
+            alt="Powered by UEX Corp API"
+            className="w-1/2 object-contain mx-auto opacity-50"
+          />
+          <img
             src="/MadeByTheCommunity_White.png"
             alt="Made by the Community"
             className="w-1/2 object-contain mx-auto"
