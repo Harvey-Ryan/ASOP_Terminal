@@ -121,7 +121,6 @@ function ItemCard({ item }: { item: UexItemDto }) {
         <span><span className="text-foreground/60">Category:</span> {item.categoryName || '—'}</span>
         {item.slug && <span><span className="text-foreground/60">Slug:</span> {item.slug}</span>}
         {item.section && <span><span className="text-foreground/60">Section:</span> {item.section}</span>}
-        {item.size && <span><span className="text-foreground/60">Size:</span> {item.size}</span>}
         {item.gameVersion && <span><span className="text-foreground/60">Version:</span> {item.gameVersion}</span>}
       </div>
 

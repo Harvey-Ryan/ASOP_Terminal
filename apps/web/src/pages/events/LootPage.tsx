@@ -286,7 +286,6 @@ function UexInfoCard({ data }: { data: UexItemDto | UexCommodityDto }) {
         <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
           {item.categoryName && <span><span className="text-foreground/60">Category:</span> {item.categoryName}</span>}
           {item.section      && <span><span className="text-foreground/60">Section:</span> {item.section}</span>}
-          {item.size         && <span><span className="text-foreground/60">Size:</span> {item.size}</span>}
           {item.gameVersion  && <span><span className="text-foreground/60">Version:</span> {item.gameVersion}</span>}
           {item.slug         && <span className="col-span-2 break-all"><span className="text-foreground/60">Slug:</span> {item.slug}</span>}
         </div>

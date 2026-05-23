@@ -117,7 +117,6 @@ async function handleItem(interaction: ChatInputCommandInteraction) {
 
   if (item.categoryName) fields.push({ name: 'Category',     value: item.categoryName, inline: true });
   if (item.section)      fields.push({ name: 'Section',      value: item.section,      inline: true });
-  if (item.size)         fields.push({ name: 'Size',         value: item.size,         inline: true });
   if (item.gameVersion)  fields.push({ name: 'Game Version', value: item.gameVersion,  inline: true });
   if (item.slug)         fields.push({ name: 'Slug',         value: item.slug,         inline: true });
 
