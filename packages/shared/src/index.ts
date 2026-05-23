@@ -141,6 +141,15 @@ export interface EventRole {
   count: number;
 }
 
+/** A poll posted to the forum thread when an event is created. */
+export interface EventPoll {
+  question: string;
+  options: string[];
+  allowMultiselect: boolean;
+  /** Duration in hours (1–168, Discord limit) */
+  duration: number;
+}
+
 /** Body for POST /api/guilds/:guildId/events */
 export interface CreateEventBody {
   name: string;
@@ -160,6 +169,8 @@ export interface CreateEventBody {
   imageUrl?: string;
   /** Stable template ID carried from the Repeat button or Templates list — records and updates the template on create */
   repeatFromTemplateId?: string;
+  /** Optional poll posted to the forum thread below the roster embed */
+  poll?: EventPoll;
 }
 
 export interface RsvpDto {
@@ -196,6 +207,7 @@ export interface EventDto {
   vcAttendees: string[];
   confirmedAttendees: string[] | null;
   botCleanedUp: boolean;
+  poll: EventPoll | null;
 }
 
 // ── Loot ─────────────────────────────────────────────────────────────────────

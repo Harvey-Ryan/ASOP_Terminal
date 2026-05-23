@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
-import type { CreateEventBody, EventDto, EventRole, EventTemplateDto } from '@dem/shared';
+import type { CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -162,6 +162,11 @@ export function EventCreateForm({
   // fromTemplateIdProp is set when Repeat is clicked (stable, resolved before form opens).
   // Selecting from the Templates list overwrites it with the chosen template's ID.
   const [fromTemplateId, setFromTemplateId] = useState<string | undefined>(fromTemplateIdProp);
+  const [pollEnabled, setPollEnabled] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+  const [pollMultiselect, setPollMultiselect] = useState(false);
+  const [pollDuration, setPollDuration] = useState(24);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Refs for keyboard-driven add-row focus
@@ -225,6 +230,15 @@ export function EventCreateForm({
     if (isNaN(startIso.getTime())) { setFormError('Invalid start date or time.'); return; }
     const durationMins = parseInt(duration) || 0;
     const endIso = durationMins > 0 ? new Date(startIso.getTime() + durationMins * 60_000) : undefined;
+
+    let poll: EventPoll | undefined;
+    if (pollEnabled) {
+      const filteredOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
+      if (!pollQuestion.trim()) { setFormError('Poll question is required when poll is enabled.'); return; }
+      if (filteredOptions.length < 2) { setFormError('Poll requires at least 2 non-empty options.'); return; }
+      poll = { question: pollQuestion.trim(), options: filteredOptions, allowMultiselect: pollMultiselect, duration: pollDuration };
+    }
+
     mutate({
       name,
       description: description || undefined,
@@ -236,12 +250,13 @@ export function EventCreateForm({
       briefingChannel,
       imageUrl: selectedImageUrl ?? undefined,
       repeatFromTemplateId: fromTemplateId,
+      poll,
     });
   }
 
   return (
     <form onSubmit={handleSubmit}>
-      {/* Templates toggle (manager only) */}
+      {/* Templates + Poll toggle (manager only) */}
       {isManager && (
         <div className="flex items-center gap-2 bg-primary px-5 py-2 border-b border-background/40">
           <Button type="button" variant="outline" size="sm"
@@ -250,6 +265,16 @@ export function EventCreateForm({
             <LayoutTemplate className="h-3.5 w-3.5" />
             Templates
             <ChevronDown className={`h-3 w-3 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
+          </Button>
+          <Button type="button" variant="outline" size="sm"
+            className={`gap-1.5 bg-primary border-2 transition-colors ${
+              pollEnabled
+                ? 'border-primary-foreground text-primary-foreground'
+                : 'border-primary-foreground/30 text-primary-foreground/50 hover:border-primary-foreground hover:text-primary-foreground'
+            }`}
+            onClick={() => setPollEnabled((v) => !v)}>
+            <BarChart2 className="h-3.5 w-3.5" />
+            Poll
           </Button>
           {repeatSource && (
             <span className="text-xs text-primary-foreground/60">
@@ -440,6 +465,77 @@ export function EventCreateForm({
           )}
         </div>
       </div>
+
+      {/* Poll */}
+      {pollEnabled && (
+        <div className={rowCls}>
+          <span className={labelCls}>Poll</span>
+          <div className="flex-1 space-y-3">
+            <input
+              className={inputCls}
+              placeholder="Poll question (e.g. Which role will you play?)"
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+              maxLength={300}
+            />
+            <div className="space-y-2">
+              {pollOptions.map((opt, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    className={inputCls}
+                    placeholder={`Option ${i + 1}`}
+                    value={opt}
+                    onChange={(e) => setPollOptions((prev) => prev.map((x, idx) => idx === i ? e.target.value : x))}
+                    maxLength={55}
+                  />
+                  {pollOptions.length > 2 && (
+                    <button type="button"
+                      onClick={() => setPollOptions((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="text-primary-foreground/60 hover:text-destructive transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {pollOptions.length < 10 && (
+                <Button type="button" variant="outline" size="sm"
+                  className="gap-1 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => setPollOptions((prev) => [...prev, ''])}>
+                  <Plus className="h-3.5 w-3.5" />Add Option
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-primary-foreground/80 shrink-0">Duration</span>
+              <select className={inputCls} value={pollDuration}
+                onChange={(e) => setPollDuration(Number(e.target.value))}>
+                <option value={1}>1 hour</option>
+                <option value={4}>4 hours</option>
+                <option value={8}>8 hours</option>
+                <option value={24}>24 hours</option>
+                <option value={48}>48 hours</option>
+                <option value={72}>72 hours</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={pollMultiselect}
+                onClick={() => setPollMultiselect((v) => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary-foreground/40 ${
+                  pollMultiselect ? 'bg-primary-foreground' : 'bg-primary-foreground/20'
+                }`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-primary shadow-sm transition-transform ${
+                  pollMultiselect ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </button>
+              <span className="text-sm text-primary-foreground/90">Allow multiple selections</span>
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-2 bg-primary px-5 py-4">

@@ -7,7 +7,7 @@ import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
-import type { ApiResponse, CreateEventBody, EventDto, EventRole, EventTemplateDto } from '@dem/shared';
+import type { ApiResponse, CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 
 export const eventsRouter = Router();
 
@@ -155,6 +155,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         vcNames: JSON.stringify(body.vcNames ?? []),
         briefingChannel: body.briefingChannel ?? false,
         imageUrl: body.imageUrl ?? null,
+        pollData: body.poll ? JSON.stringify(body.poll) : null,
         createdById: dbUser.discordId,
         status: 'PENDING',
       },
@@ -660,5 +661,6 @@ function toDto(event: EventWithRsvps): EventDto {
     vcAttendees: JSON.parse(event.vcAttendees) as string[],
     confirmedAttendees: event.confirmedAttendees ? (JSON.parse(event.confirmedAttendees) as string[]) : null,
     botCleanedUp: event.botCleanedUp,
+    poll: event.pollData ? (JSON.parse(event.pollData) as EventPoll) : null,
   };
 }

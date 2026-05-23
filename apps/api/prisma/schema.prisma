@@ -159,6 +159,8 @@ model Event {
   botCleanedUp    Boolean  @default(false)
   /// Set true once the bot has posted the "event is live" message at start time
   livePosted      Boolean  @default(false)
+  /// JSON: EventPoll — poll config posted to the forum thread alongside the embed
+  pollData        String?
 
   createdById    String
   createdAt      DateTime @default(now())

@@ -11,7 +11,7 @@ import { client } from '../client.js';
 import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
 import { nextOccurrence } from '../utils/time.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
-import type { EventRole } from '@dem/shared';
+import type { EventPoll, EventRole } from '@dem/shared';
 
 // ── Create VCs for an event (idempotent — skips if already created) ──────────
 
@@ -105,6 +105,24 @@ export async function setupDiscordForEvent(eventId: string) {
           rosterMessageId = starter?.id ?? null;
           // Persist immediately so any concurrent Interested clicks can post to the thread
           await prisma.event.update({ where: { id: event.id }, data: { threadId, rosterMessageId } });
+
+          // Post poll below the embed if one was configured
+          const pollDataRaw = (event as unknown as { pollData?: string | null }).pollData;
+          if (pollDataRaw) {
+            try {
+              const poll = JSON.parse(pollDataRaw) as EventPoll;
+              await thread.send({
+                poll: {
+                  question: { text: poll.question },
+                  answers: poll.options.map((opt: string) => ({ text: opt })),
+                  duration: poll.duration,
+                  allowMultiselect: poll.allowMultiselect,
+                },
+              });
+            } catch (pollErr) {
+              console.error('[bot] Failed to post poll to thread:', pollErr);
+            }
+          }
         }
       } catch (err) {
         console.error('[bot] Failed to create forum thread:', err);
