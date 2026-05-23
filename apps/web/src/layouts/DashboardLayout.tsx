@@ -10,6 +10,7 @@ import { applyShade, loadShade } from '@/lib/shade';
 import { loadDisplayName, saveDisplayName } from '@/lib/displayName';
 import { canManageGuild } from '@dem/shared';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
+import { HelpPanel } from '@/components/HelpPanel';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -359,8 +360,9 @@ export function DashboardLayout() {
           )}
         </nav>
 
-        {/* Sidebar footer – dashboard link */}
-        <div className="border-t border-border p-2">
+        {/* Sidebar footer – help + dashboard link */}
+        <div className="border-t border-border p-2 space-y-0.5">
+          <HelpPanel isManager={showAdminNav} dkpLabel={dkpLabel} />
           <NavLink
             to="/dashboard"
             end
