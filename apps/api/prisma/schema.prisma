@@ -511,3 +511,104 @@ model AuctionBid {
   @@unique([auctionId, userId])
   @@index([auctionId])
 }
+
+// ── UEX Corp Game Data Cache ──────────────────────────────────────────────────
+// Global tables — not guild-scoped. Populated by the weekly UEX API sync.
+// API key is read from UEX_KEY environment variable at sync time.
+
+/// UEX item category (mirrors /categories endpoint).
+model UexCategory {
+  /// UEX's own integer ID — used as the stable upsert key.
+  id           Int      @id
+  type         String   // "item" | "service" | "contract"
+  section      String
+  name         String
+  /// Raw dateModified string from UEX — used to detect upstream changes.
+  dateModified String
+  syncedAt     DateTime @updatedAt
+
+  items UexItem[]
+
+  @@index([type])
+  @@index([section])
+}
+
+/// UEX item (ship component, weapon, equipment — mirrors /items + /items_attributes).
+model UexItem {
+  /// UEX's own integer ID — used as the stable upsert key.
+  id            Int      @id
+  name          String
+  slug          String
+  uuid          String?
+  section       String?
+  categoryId    Int
+  categoryName  String
+  size          String?
+  isCommodity   Boolean  @default(false)
+  isHarvestable Boolean  @default(false)
+  gameVersion   String?
+  /// JSON: {name:string, value:string, unit:string}[] — from /items_attributes.
+  attributes    String   @default("[]")
+  /// Raw dateModified string from UEX — drives attribute re-fetch on change.
+  dateModified  String
+  /// False when an item disappears from UEX without a hard delete.
+  isActive      Boolean  @default(true)
+  syncedAt      DateTime @updatedAt
+
+  category UexCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([name])
+  @@index([isActive])
+}
+
+/// UEX commodity (trade good — mirrors /commodities endpoint).
+model UexCommodity {
+  /// UEX's own integer ID — used as the stable upsert key.
+  id            Int      @id
+  name          String
+  code          String
+  slug          String
+  weightScu     Float?
+  priceAvgBuy   Float?
+  priceAvgSell  Float?
+  isMineral     Boolean  @default(false)
+  isRaw         Boolean  @default(false)
+  isRefined     Boolean  @default(false)
+  isHarvestable Boolean  @default(false)
+  isFuel        Boolean  @default(false)
+  isIllegal     Boolean  @default(false)
+  /// Raw dateModified string from UEX — used to detect upstream changes.
+  dateModified  String
+  /// False when a commodity disappears from UEX without a hard delete.
+  isActive      Boolean  @default(true)
+  syncedAt      DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+  @@index([isIllegal])
+}
+
+/// Immutable audit log — one row per sync run (scheduled or manual).
+model UexSyncLog {
+  id                 String    @id @default(cuid())
+  /// "SCHEDULED" | "MANUAL"
+  trigger            String
+  /// Discord snowflake of the admin who triggered a manual sync; null for scheduled.
+  triggeredById      String?
+  /// "RUNNING" | "SUCCESS" | "FAILED"
+  status             String    @default("RUNNING")
+  categoriesAdded    Int       @default(0)
+  categoriesUpdated  Int       @default(0)
+  itemsAdded         Int       @default(0)
+  itemsUpdated       Int       @default(0)
+  commoditiesAdded   Int       @default(0)
+  commoditiesUpdated Int       @default(0)
+  /// Populated when status = "FAILED".
+  error              String?
+  startedAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  @@index([status])
+  @@index([startedAt])
+}
