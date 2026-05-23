@@ -5,6 +5,7 @@ import {
   type AutocompleteInteraction,
 } from 'discord.js';
 import { prisma } from '../db.js';
+import { client } from '../client.js';
 
 export const data = new SlashCommandBuilder()
   .setName('whohas')
