@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +9,7 @@ import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveUsername } from '@/lib/displayName';
-import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto } from '@dem/shared';
+import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -472,6 +472,172 @@ function ItemRow({
   );
 }
 
+// ── Draft queue card ──────────────────────────────────────────────────────────
+
+function QueueCard({
+  session,
+  guildId,
+  eventId,
+}: {
+  session: LootSessionDto;
+  guildId: string;
+  eventId: string;
+}) {
+  const queryClient = useQueryClient();
+
+  const queueQuery = useQuery({
+    queryKey: ['loot-queue', guildId, eventId],
+    queryFn: () => lootApi.getQueue(guildId, eventId),
+    refetchInterval: 4000,
+  });
+
+  // Local item-id order drives the drag-and-drop UI optimistically
+  const [localIds, setLocalIds] = useState<string[]>([]);
+  const isDraggingRef = useRef(false);
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Sync server → local when not mid-drag and server has new data
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setLocalIds((queueQuery.data ?? []).map((q) => q.itemId));
+  }, [queueQuery.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: (ids: string[]) => lootApi.setQueue(guildId, eventId, ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loot-queue', guildId, eventId] }),
+  });
+
+  const byItemId = new Map<string, LootQueueItemDto>((queueQuery.data ?? []).map((q) => [q.itemId, q]));
+  const inQueueIds = new Set(localIds);
+
+  // Items that can still be added (unassigned, not yet queued)
+  const addable = session.items.filter(
+    (i) => i.assignments.length === 0 && !inQueueIds.has(i.id),
+  );
+
+  function addItem(itemId: string) {
+    const next = [...localIds, itemId];
+    setLocalIds(next);
+    saveMutation.mutate(next);
+  }
+
+  function removeItem(itemId: string) {
+    const next = localIds.filter((id) => id !== itemId);
+    setLocalIds(next);
+    saveMutation.mutate(next);
+  }
+
+  // ── Drag handlers ───────────────────────────────────────────────────────────
+
+  function onDragStart(index: number) {
+    isDraggingRef.current = true;
+    dragIndexRef.current = index;
+  }
+
+  function onDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function onDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault();
+    const from = dragIndexRef.current;
+    if (from === null || from === dropIndex) return;
+    const next = [...localIds];
+    const [moved] = next.splice(from, 1);
+    next.splice(dropIndex, 0, moved!);
+    setLocalIds(next);
+    saveMutation.mutate(next);
+  }
+
+  function onDragEnd() {
+    isDraggingRef.current = false;
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }
+
+  const isCompleted = session.status === 'COMPLETED';
+
+  return (
+    <Card className="w-72 shrink-0">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ListOrdered className="h-4 w-4" />
+          My Draft Queue
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          {isCompleted ? 'Draft complete.' : 'Your top available item will be auto-picked on your turn.'}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-1 pb-3">
+        {localIds.length === 0 && (
+          <p className="text-xs text-muted-foreground italic py-1">No items queued yet.</p>
+        )}
+
+        {localIds.map((itemId, index) => {
+          const entry = byItemId.get(itemId);
+          const sessionItem = session.items.find((i) => i.id === itemId);
+          const name = entry?.itemName ?? sessionItem?.name ?? itemId;
+          const assigned = entry?.assigned ?? (sessionItem?.assignments.length ?? 0) > 0;
+          const isDragTarget = dragOverIndex === index;
+
+          return (
+            <div
+              key={itemId}
+              draggable={!isCompleted}
+              onDragStart={() => onDragStart(index)}
+              onDragOver={(e) => onDragOver(e, index)}
+              onDrop={(e) => onDrop(e, index)}
+              onDragEnd={onDragEnd}
+              className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition-colors
+                ${assigned ? 'opacity-40 line-through border-border/50 bg-muted/30' : 'border-border bg-card'}
+                ${isDragTarget ? 'border-primary bg-primary/5' : ''}
+                ${!isCompleted ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            >
+              {!isCompleted && (
+                <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              )}
+              <span className="text-xs text-muted-foreground w-4 shrink-0 text-right">{index + 1}.</span>
+              <span className="flex-1 min-w-0 truncate">{name}</span>
+              {!isCompleted && (
+                <button
+                  type="button"
+                  onClick={() => removeItem(itemId)}
+                  className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                  title="Remove from queue"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add items */}
+        {!isCompleted && addable.length > 0 && (
+          <div className="pt-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Add to queue</p>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {addable.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => addItem(item.id)}
+                  className="w-full flex items-center gap-2 rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground transition-colors text-left"
+                >
+                  <Plus className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{item.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Setup form (no session yet) ───────────────────────────────────────────────
 
 function SetupForm({ guildId, eventId, onCreated }: { guildId: string; eventId: string; onCreated: () => void }) {
@@ -650,8 +816,10 @@ export function LootPage() {
     );
   }
 
+  const isSnakeDraft = session?.method === 'SNAKE_DRAFT';
+
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className={isSnakeDraft ? 'space-y-5' : 'max-w-2xl space-y-5'}>
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -675,6 +843,9 @@ export function LootPage() {
 
       {/* Active session */}
       {session && (
+        <div className={isSnakeDraft ? 'flex gap-5 items-start' : ''}>
+        {/* Main content column */}
+        <div className={isSnakeDraft ? 'flex-1 min-w-0 space-y-5' : ''}>
         <>
           {/* Method + DKP award row — managers only */}
           {isManager && <Card>
@@ -908,6 +1079,19 @@ export function LootPage() {
             </div>
           )}
         </>
+        </div>{/* end main content column */}
+
+        {/* Queue card — snake draft only */}
+        {isSnakeDraft && (
+          <div className="sticky top-4 self-start">
+            <QueueCard
+              session={session}
+              guildId={guildId!}
+              eventId={eventId!}
+            />
+          </div>
+        )}
+        </div>{/* end flex row */}
       )}
     </div>
   );

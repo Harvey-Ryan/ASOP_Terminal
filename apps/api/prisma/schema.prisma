@@ -237,7 +237,8 @@ model LootSession {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  items LootItem[]
+  items      LootItem[]
+  queueItems LootDraftQueue[]
 
   @@index([guildId])
 }
@@ -251,9 +252,10 @@ model LootItem {
   sortOrder          Int      @default(0)
   createdAt          DateTime @default(now())
 
-  session     LootSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  assignments LootAssignment[]
-  auction     LootAuction?
+  session      LootSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignments  LootAssignment[]
+  auction      LootAuction?
+  queueEntries LootDraftQueue[]
 
   @@index([sessionId])
 }
@@ -273,6 +275,25 @@ model LootAssignment {
 
   item LootItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
+  @@index([itemId])
+}
+
+/// Per-user priority queue for snake draft auto-pick.
+/// Rows are deleted when the item is assigned to anyone.
+model LootDraftQueue {
+  id        String   @id @default(cuid())
+  sessionId String
+  userId    String   // Discord snowflake
+  itemId    String
+  /// Lower value = higher priority (0 = first pick)
+  priority  Int
+  createdAt DateTime @default(now())
+
+  session LootSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  item    LootItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId, itemId])
+  @@index([sessionId, userId])
   @@index([itemId])
 }
 

@@ -383,6 +383,17 @@ export interface AuctionDto {
   updatedAt: string;
 }
 
+// ── Snake draft queue ─────────────────────────────────────────────────────────
+
+export interface LootQueueItemDto {
+  itemId: string;
+  itemName: string;
+  /** Lower = higher priority (0 = first pick) */
+  priority: number;
+  /** True when the item has been assigned to anyone */
+  assigned: boolean;
+}
+
 // ── Proxy bidding algorithm ───────────────────────────────────────────────────
 // Returns a map of userId → effective current bid.
 // Winner pays runner-up + increment; all others show their max bid.

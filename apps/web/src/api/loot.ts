@@ -11,6 +11,7 @@ import type {
   AssignLootItemBody,
   LootMethod,
   MyPickDto,
+  LootQueueItemDto,
 } from '@dem/shared';
 
 export interface RecentLootWinner {
@@ -119,4 +120,13 @@ export const lootApi = {
 
   cancelAuction: (guildId: string, eventId: string, itemId: string) =>
     api.delete<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/auction`).then((r) => r),
+
+  // ── Draft queue ────────────────────────────────────────────────────────────
+
+  getQueue: (guildId: string, eventId: string) =>
+    api.get<ApiResponse<LootQueueItemDto[]>>(`${base(guildId, eventId)}/queue`)
+      .then((r) => r.data ?? []),
+
+  setQueue: (guildId: string, eventId: string, itemIds: string[]) =>
+    api.put<ApiResponse>(`${base(guildId, eventId)}/queue`, { itemIds }).then((r) => r),
 };

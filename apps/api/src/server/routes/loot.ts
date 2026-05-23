@@ -15,6 +15,7 @@ import type {
   DkpTransactionDto,
   LootMethod,
   MyPickDto,
+  LootQueueItemDto,
 } from '@dem/shared';
 
 export const lootRouter = Router();
@@ -508,6 +509,8 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
       ...(pickNumber !== undefined ? { pickNumber } : {}),
     },
   });
+  // Remove the just-assigned item from everyone's queue
+  await prisma.lootDraftQueue.deleteMany({ where: { itemId, sessionId: session.id } });
 
   triggerBot(`/trigger/complete/${eventId}`);
 
@@ -515,24 +518,56 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     const prevCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
     const wasAssigned = session.items.some((i) => i.id === itemId && i.assignments.length > 0);
-    const newCount = prevCount + (wasAssigned ? 0 : 1);
-    const allAssigned = session.items.every((i) => i.id === itemId ? true : i.assignments.length > 0);
-    const fullRotationDone = draftOrder.length > 0 && newCount >= draftOrder.length * 2;
+    let autoPickCount = prevCount + (wasAssigned ? 0 : 1);
 
-    if (allAssigned || fullRotationDone) {
-      const ev = await prisma.event.findFirst({ where: { id: eventId, guildId }, include: { rsvps: true } });
-      if (ev && session.dkpAward > 0) {
-        const confirmedIds: string[] = ev.confirmedAttendees ? JSON.parse(ev.confirmedAttendees) : [];
-        const usernameMap = new Map(ev.rsvps.map((r) => [r.userId, r.username]));
-        for (const uid of confirmedIds) {
-          await applyDkp(guildId, uid, usernameMap.get(uid) ?? uid, session.dkpAward, `Attendance: ${ev.name}`);
+    // Fetch event once for username map + DKP award
+    const ev = await prisma.event.findFirst({ where: { id: eventId, guildId }, include: { rsvps: true } });
+    const usernameMap = new Map(ev?.rsvps.map((r) => [r.userId, r.username]) ?? []);
+
+    // Auto-pick loop: cascade through consecutive queue-holders until a manual pick is needed
+    while (true) {
+      const items = await prisma.lootItem.findMany({
+        where: { sessionId: session.id },
+        include: { assignments: true },
+      });
+      const allDone = items.every((i) => i.assignments.length > 0);
+      const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * 2;
+
+      if (allDone || rotationDone) {
+        if (ev && session.dkpAward > 0) {
+          const confirmedIds: string[] = ev.confirmedAttendees ? JSON.parse(ev.confirmedAttendees) : [];
+          for (const uid of confirmedIds) {
+            await applyDkp(guildId, uid, usernameMap.get(uid) ?? uid, session.dkpAward, `Attendance: ${ev.name}`);
+          }
         }
+        await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
+        triggerBot(`/trigger/loot/${session.id}`);
+        res.json({ success: true } satisfies ApiResponse);
+        return;
       }
-      await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
-      triggerBot(`/trigger/loot/${session.id}`);
-    } else {
-      triggerBot(`/trigger/snake-turn/${eventId}`);
+
+      const nextPickerId = snakePick(autoPickCount + session.skipCount, draftOrder);
+      if (!nextPickerId) break;
+
+      const queued = await prisma.lootDraftQueue.findMany({
+        where: { sessionId: session.id, userId: nextPickerId },
+        include: { item: { include: { assignments: true } } },
+        orderBy: { priority: 'asc' },
+      });
+
+      const topAvailable = queued.find((q) => q.item.assignments.length === 0);
+      if (!topAvailable) break; // empty queue or all queued items taken — needs manual pick
+
+      const autoUsername = usernameMap.get(nextPickerId) ?? nextPickerId;
+      await prisma.lootAssignment.create({
+        data: { itemId: topAvailable.itemId, userId: nextPickerId, username: autoUsername, pickNumber: autoPickCount },
+      });
+      await prisma.lootDraftQueue.deleteMany({ where: { itemId: topAvailable.itemId, sessionId: session.id } });
+      triggerBot(`/trigger/complete/${eventId}`);
+      autoPickCount++;
     }
+
+    triggerBot(`/trigger/snake-turn/${eventId}`);
   }
 
   res.json({ success: true } satisfies ApiResponse);
@@ -642,6 +677,84 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId/assign/delivered'
   await prisma.lootAssignment.update({
     where: { id: assignment.id },
     data: { delivered: nowDelivered, deliveredAt: nowDelivered ? new Date() : null },
+  });
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── GET draft queue (current user's queue) ────────────────────────────────────
+
+lootRouter.get('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+
+  const session = await fetchSession(eventId);
+  if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
+
+  // Allow any viewer, or anyone listed in the draft order
+  const isViewer = await assertEventViewer(req, guildId);
+  if (!isViewer) {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    if (!draftOrder.includes(dbUser.discordId)) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
+
+  const queueItems = await prisma.lootDraftQueue.findMany({
+    where: { sessionId: session.id, userId: dbUser.discordId },
+    include: { item: { include: { assignments: true } } },
+    orderBy: { priority: 'asc' },
+  });
+
+  const data: LootQueueItemDto[] = queueItems.map((q) => ({
+    itemId: q.itemId,
+    itemName: q.item.name,
+    priority: q.priority,
+    assigned: q.item.assignments.length > 0,
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<LootQueueItemDto[]>);
+});
+
+// ── PUT draft queue (replace current user's queue) ────────────────────────────
+
+lootRouter.put('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  const body = req.body as Record<string, unknown>;
+
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+
+  const session = await fetchSession(eventId);
+  if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
+
+  const isViewer = await assertEventViewer(req, guildId);
+  if (!isViewer) {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    if (!draftOrder.includes(dbUser.discordId)) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
+
+  if (!Array.isArray(body.itemIds)) {
+    res.status(400).json({ success: false, error: 'itemIds must be an array' } satisfies ApiResponse); return;
+  }
+  const itemIds = body.itemIds as string[];
+  const validIds = new Set(session.items.map((i) => i.id));
+  if (!itemIds.every((id) => validIds.has(id))) {
+    res.status(400).json({ success: false, error: 'One or more item IDs are invalid' } satisfies ApiResponse); return;
+  }
+
+  const userId = dbUser.discordId;
+  await prisma.$transaction(async (tx) => {
+    await tx.lootDraftQueue.deleteMany({ where: { sessionId: session.id, userId } });
+    for (let i = 0; i < itemIds.length; i++) {
+      await tx.lootDraftQueue.create({
+        data: { sessionId: session.id, userId, itemId: itemIds[i]!, priority: i },
+      });
+    }
   });
 
   res.json({ success: true } satisfies ApiResponse);
