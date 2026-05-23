@@ -377,7 +377,7 @@ function ItemInfoPopover({ name }: { name: string }) {
         <Info className="h-3.5 w-3.5" />
       </button>
       {show && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-popover p-3 shadow-xl text-xs pointer-events-none">
+        <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-card p-3 shadow-xl text-xs pointer-events-none">
           {infoQuery.isLoading && <p className="text-muted-foreground">Looking up "{name}"…</p>}
           {!infoQuery.isLoading && infoQuery.data === null && (
             <p className="text-muted-foreground">No UEX record found for "{name}".</p>
