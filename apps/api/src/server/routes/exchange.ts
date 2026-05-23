@@ -42,10 +42,10 @@ function toDto(row: {
 
 exchangeRouter.get('/:guildId/exchange/inventory', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  const userId = req.session.userId!;
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
   const rows = await prisma.inventoryEntry.findMany({
-    where: { guildId, userId },
+    where: { guildId, userId: dbUser.discordId },
     orderBy: [{ itemType: 'asc' }, { itemName: 'asc' }],
   });
 
@@ -58,8 +58,9 @@ exchangeRouter.get('/:guildId/exchange/inventory', requireAuth, async (req, res)
 
 exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  const userId = req.session.userId!;
-  const username = req.session.username!;
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const userId = dbUser.discordId;
+  const username = dbUser.globalName ?? dbUser.username;
   const body = req.body as UpsertInventoryEntryBody;
 
   if (!body.itemType || !['ITEM', 'COMMODITY'].includes(body.itemType)) {
@@ -122,14 +123,14 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
 
 exchangeRouter.delete('/:guildId/exchange/inventory/:entryId', requireAuth, async (req, res) => {
   const { guildId, entryId } = req.params as { guildId: string; entryId: string };
-  const userId = req.session.userId!;
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
   const entry = await prisma.inventoryEntry.findUnique({ where: { id: entryId } });
   if (!entry || entry.guildId !== guildId) {
     res.status(404).json({ success: false, error: 'Entry not found' } satisfies ApiResponse);
     return;
   }
-  if (entry.userId !== userId) {
+  if (entry.userId !== dbUser.discordId) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
