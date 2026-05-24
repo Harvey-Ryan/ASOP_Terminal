@@ -45,6 +45,8 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
     return;
   }
 
+  const needle = focused.toLowerCase();
+
   if (sub === 'item') {
     const rows = await prisma.uexItem.findMany({
       where: {
@@ -54,6 +56,12 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
       orderBy: { name: 'asc' },
       take: 25,
       select: { id: true, name: true, categoryName: true },
+    });
+    rows.sort((a, b) => {
+      const aExact = a.name.toLowerCase() === needle;
+      const bExact = b.name.toLowerCase() === needle;
+      if (aExact !== bExact) return aExact ? -1 : 1;
+      return a.name.localeCompare(b.name);
     });
     await interaction.respond(
       rows.map((r) => ({
@@ -73,6 +81,12 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
       orderBy: { name: 'asc' },
       take: 25,
       select: { id: true, name: true, code: true },
+    });
+    rows.sort((a, b) => {
+      const aExact = a.name.toLowerCase() === needle;
+      const bExact = b.name.toLowerCase() === needle;
+      if (aExact !== bExact) return aExact ? -1 : 1;
+      return a.name.localeCompare(b.name);
     });
     await interaction.respond(
       rows.map((r) => ({
