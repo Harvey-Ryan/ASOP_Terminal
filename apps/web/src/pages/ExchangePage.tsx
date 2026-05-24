@@ -60,10 +60,12 @@ function UexCombobox({
     staleTime: 60_000,
   });
 
+  const needle = debouncedQuery.toLowerCase();
+  const rank = (name: string) => (name.toLowerCase().startsWith(needle) ? 0 : 1);
   const results: UexResult[] = [
     ...items.map((i): UexResult => ({ type: 'ITEM', item: i })),
     ...commodities.map((c): UexResult => ({ type: 'COMMODITY', item: c })),
-  ];
+  ].sort((a, b) => rank(a.item.name) - rank(b.item.name) || a.item.name.localeCompare(b.item.name));
 
   function select(r: UexResult) {
     setQuery(r.item.name);
