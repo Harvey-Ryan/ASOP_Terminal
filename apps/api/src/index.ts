@@ -84,16 +84,19 @@ app.listen(PORT, async () => {
   console.log(`[API] Listening on http://localhost:${PORT}`);
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
 
-  // ── Startup auto-sync: populate blueprint data on first boot ────────────────
-  const count = await prisma.scBlueprint.count();
-  if (count === 0) {
-    console.log('[sc] No blueprint data found — running initial sync…');
+  // ── Startup auto-sync: populate SC data on first boot or after schema additions
+  const [blueprintCount, shipItemCount] = await Promise.all([
+    prisma.scBlueprint.count(),
+    prisma.scShipItem.count(),
+  ]);
+  if (blueprintCount === 0 || shipItemCount === 0) {
+    console.log('[sc] Incomplete SC data detected — running initial sync…');
     try {
       await runScSync('MANUAL');
     } catch (err) {
       console.error('[sc] Initial sync failed to start:', err);
     }
   } else {
-    console.log(`[sc] Blueprint data present (${count} blueprints) — skipping startup sync`);
+    console.log(`[sc] SC data present (${blueprintCount} blueprints, ${shipItemCount} ship items) — skipping startup sync`);
   }
 });
