@@ -40,6 +40,11 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
   const sub = interaction.options.getSubcommand();
   const focused = interaction.options.getFocused();
 
+  if (focused.length < 4) {
+    await interaction.respond([]);
+    return;
+  }
+
   if (sub === 'item') {
     const rows = await prisma.uexItem.findMany({
       where: {
