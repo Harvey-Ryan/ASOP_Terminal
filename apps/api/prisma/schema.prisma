@@ -516,6 +516,111 @@ model AuctionBid {
   @@index([auctionId])
 }
 
+// ── Star Citizen scunpacked Blueprint Cache ───────────────────────────────────
+// Global tables — not guild-scoped. Populated by syncing blueprints.json
+// from https://github.com/StarCitizenWiki/scunpacked-data
+
+/// A craftable blueprint extracted from scunpacked-data.
+model ScBlueprint {
+  uuid                String   @id
+  key                 String   @unique
+  kind                String
+  outputUuid          String
+  outputName          String
+  outputClass         String
+  outputType          String
+  outputSubtype       String?
+  outputGrade         String?
+  categoryUuid        String?
+  dismantleTimeSecs   Int?
+  dismantleEfficiency Float?
+  syncedAt            DateTime @updatedAt
+
+  tiers       ScBlueprintTier[]
+  rewardPools ScBlueprintRewardPool[]
+
+  @@index([outputName])
+  @@index([outputType])
+}
+
+/// One craft tier per blueprint (multiple tiers = different quality paths).
+model ScBlueprintTier {
+  id            String @id @default(cuid())
+  blueprintUuid String
+  tierIndex     Int
+  craftTimeSecs Int
+
+  blueprint ScBlueprint          @relation(fields: [blueprintUuid], references: [uuid], onDelete: Cascade)
+  materials ScBlueprintMaterial[]
+  modifiers ScBlueprintModifier[]
+
+  @@unique([blueprintUuid, tierIndex])
+  @@index([blueprintUuid])
+}
+
+/// A single required material or resource within a blueprint tier.
+model ScBlueprintMaterial {
+  id          String  @id @default(cuid())
+  tierId      String
+  kind        String  // "resource" | "item"
+  name        String
+  itemUuid    String?
+  quantityScu Float?  // bulk resources measured in SCU
+  quantity    Int?    // discrete items measured in count
+  minQuality  Int?
+  groupKey    String? // parent group name for display grouping
+
+  tier ScBlueprintTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  @@index([tierId])
+  @@index([name])
+}
+
+/// A quality-scaling stat modifier attached to a blueprint tier.
+model ScBlueprintModifier {
+  id            String  @id @default(cuid())
+  tierId        String
+  key           String  // e.g. "health_maxhealth", "weapon_damage"
+  name          String
+  unitFormat    String?
+  qualityMin    Int
+  qualityMax    Int
+  modifierAtMin Float
+  modifierAtMax Float
+
+  tier ScBlueprintTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  @@index([tierId])
+}
+
+/// Links a blueprint to a mission reward pool UUID (Phase 2: mission finder).
+model ScBlueprintRewardPool {
+  id            String @id @default(cuid())
+  blueprintUuid String
+  poolUuid      String
+  poolKey       String
+
+  blueprint ScBlueprint @relation(fields: [blueprintUuid], references: [uuid], onDelete: Cascade)
+
+  @@index([blueprintUuid])
+  @@index([poolUuid])
+}
+
+/// Immutable audit log — one row per scunpacked sync run.
+model ScSyncLog {
+  id                String    @id @default(cuid())
+  trigger           String    // "MANUAL" | "SCHEDULED"
+  status            String    @default("RUNNING") // "RUNNING" | "SUCCESS" | "FAILED"
+  blueprintsAdded   Int       @default(0)
+  blueprintsUpdated Int       @default(0)
+  error             String?
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  @@index([status])
+  @@index([startedAt])
+}
+
 // ── UEX Corp Game Data Cache ──────────────────────────────────────────────────
 // Global tables — not guild-scoped. Populated by the weekly UEX API sync.
 // API key is read from UEX_KEY environment variable at sync time.

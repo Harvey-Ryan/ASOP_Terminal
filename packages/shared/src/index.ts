@@ -542,6 +542,80 @@ export interface UexSyncStatusDto {
   };
 }
 
+// ── Star Citizen scunpacked Blueprint Cache ───────────────────────────────────
+
+export interface ScBlueprintMaterialDto {
+  kind: string;
+  name: string;
+  itemUuid: string | null;
+  quantityScu: number | null;
+  quantity: number | null;
+  minQuality: number | null;
+  groupKey: string | null;
+}
+
+export interface ScBlueprintModifierDto {
+  key: string;
+  name: string;
+  unitFormat: string | null;
+  qualityMin: number;
+  qualityMax: number;
+  modifierAtMin: number;
+  modifierAtMax: number;
+}
+
+export interface ScBlueprintTierDto {
+  tierIndex: number;
+  craftTimeSecs: number;
+  materials: ScBlueprintMaterialDto[];
+  modifiers: ScBlueprintModifierDto[];
+}
+
+/** Full blueprint with recipe tiers — returned by GET /api/sc/blueprints/:uuid */
+export interface ScBlueprintDto {
+  uuid: string;
+  key: string;
+  outputName: string;
+  outputClass: string;
+  outputType: string;
+  outputSubtype: string | null;
+  outputGrade: string | null;
+  dismantleTimeSecs: number | null;
+  dismantleEfficiency: number | null;
+  tiers: ScBlueprintTierDto[];
+  rewardPoolCount: number;
+}
+
+/** Lightweight summary — returned by search and by-material endpoints */
+export interface ScBlueprintSummaryDto {
+  uuid: string;
+  key: string;
+  outputName: string;
+  outputType: string;
+  outputSubtype: string | null;
+  outputGrade: string | null;
+  tierCount: number;
+  dismantleTimeSecs: number | null;
+  dismantleEfficiency: number | null;
+}
+
+export interface ScSyncLogDto {
+  id: string;
+  trigger: string;
+  status: string;
+  blueprintsAdded: number;
+  blueprintsUpdated: number;
+  error: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface ScSyncStatusDto {
+  isRunning: boolean;
+  lastSync: ScSyncLogDto | null;
+  counts: { blueprints: number };
+}
+
 /** A reusable event blueprint, auto-created on Repeat and surfaced in the create-event form. */
 export interface EventTemplateDto {
   id: string;

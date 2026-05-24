@@ -7,8 +7,10 @@ import * as bidCommand from '../commands/bid.js';
 import * as walletCommand from '../commands/wallet.js';
 import * as uexCommand from '../commands/uex.js';
 import * as whohasCommand from '../commands/whohas.js';
+import * as blueprintCommand from '../commands/blueprint.js';
+import * as materialCommand from '../commands/material.js';
 
-const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), uexCommand.data.toJSON(), whohasCommand.data.toJSON()];
+const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), uexCommand.data.toJSON(), whohasCommand.data.toJSON(), blueprintCommand.data.toJSON(), materialCommand.data.toJSON()];
 
 export async function registerCommands(clientId?: string): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];
