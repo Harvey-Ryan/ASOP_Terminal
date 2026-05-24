@@ -178,6 +178,164 @@ scRouter.get('/sc/blueprints/:uuid', async (req, res) => {
   res.json({ success: true, data } satisfies ApiResponse<ScBlueprintDto>);
 });
 
+// ── GET /api/sc/manufacturers ─────────────────────────────────────────────────
+// Query: q (name/code search), limit (default 25, max 100)
+
+scRouter.get('/sc/manufacturers', async (req, res) => {
+  const q     = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const limit = Math.min(parseInt(String(req.query.limit ?? '25'), 10) || 25, 100);
+  const rows = await prisma.scManufacturer.findMany({
+    where: q ? { OR: [
+      { name: { contains: q, mode: 'insensitive' } },
+      { code: { contains: q, mode: 'insensitive' } },
+    ] } : {},
+    orderBy: { name: 'asc' },
+    take: limit,
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/starmap ───────────────────────────────────────────────────────
+// Query: q (name search), type, parentUuid, limit (default 50, max 200)
+
+scRouter.get('/sc/starmap', async (req, res) => {
+  const q          = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const type       = typeof req.query.type === 'string' ? req.query.type.trim() : undefined;
+  const parentUuid = typeof req.query.parentUuid === 'string' ? req.query.parentUuid.trim() : undefined;
+  const limit      = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200);
+  const rows = await prisma.scStarmapEntry.findMany({
+    where: {
+      ...(q          ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(type       ? { type: { equals: type, mode: 'insensitive' } } : {}),
+      ...(parentUuid ? { parentUuid } : {}),
+    },
+    orderBy: { name: 'asc' },
+    take: limit,
+    select: { uuid: true, name: true, description: true, parentUuid: true, type: true, isScannable: true, size: true },
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+scRouter.get('/sc/starmap/:uuid', async (req, res) => {
+  const { uuid } = req.params as { uuid: string };
+  const row = await prisma.scStarmapEntry.findUnique({ where: { uuid } });
+  if (!row) { res.status(404).json({ success: false, error: 'Not found' } satisfies ApiResponse); return; }
+  res.json({ success: true, data: row } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/trade-locations ───────────────────────────────────────────────
+// Query: q (displayName search), disabled (bool), limit (default 50, max 200)
+
+scRouter.get('/sc/trade-locations', async (req, res) => {
+  const q       = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const disabled = req.query.disabled === 'true' ? true : req.query.disabled === 'false' ? false : undefined;
+  const limit   = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200);
+  const rows = await prisma.scTradeLocation.findMany({
+    where: {
+      ...(q        ? { displayName: { contains: q, mode: 'insensitive' } } : {}),
+      ...(disabled !== undefined ? { disabled } : {}),
+    },
+    orderBy: { displayName: 'asc' },
+    take: limit,
+    select: { uuid: true, className: true, displayName: true, disabled: true, producesTagsJson: true, consumesTagsJson: true },
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/commodities ───────────────────────────────────────────────────
+// Query: q (name search), tier, limit (default 50, max 200)
+
+scRouter.get('/sc/commodities', async (req, res) => {
+  const q     = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const tier  = typeof req.query.tier === 'string' ? req.query.tier.trim() : undefined;
+  const limit = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200);
+  const rows = await prisma.scCommodity.findMany({
+    where: {
+      ...(q    ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(tier ? { tier } : {}),
+    },
+    orderBy: { name: 'asc' },
+    take: limit,
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/resources ─────────────────────────────────────────────────────
+// Query: q (name search), kind, tier, limit (default 50, max 200)
+
+scRouter.get('/sc/resources', async (req, res) => {
+  const q     = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const kind  = typeof req.query.kind === 'string' ? req.query.kind.trim() : undefined;
+  const tier  = typeof req.query.tier === 'string' ? req.query.tier.trim() : undefined;
+  const limit = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200);
+  const rows = await prisma.scResource.findMany({
+    where: {
+      ...(q    ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(kind ? { kind } : {}),
+      ...(tier ? { tier } : {}),
+    },
+    orderBy: { name: 'asc' },
+    take: limit,
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/ship-items ────────────────────────────────────────────────────
+// Query: q (name search), type, classification, manufacturerCode, limit (default 25, max 100)
+
+scRouter.get('/sc/ship-items', async (req, res) => {
+  const q                = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const type             = typeof req.query.type === 'string' ? req.query.type.trim() : undefined;
+  const classification   = typeof req.query.classification === 'string' ? req.query.classification.trim() : undefined;
+  const manufacturerCode = typeof req.query.manufacturerCode === 'string' ? req.query.manufacturerCode.trim() : undefined;
+  const limit            = Math.min(parseInt(String(req.query.limit ?? '25'), 10) || 25, 100);
+
+  const rows = await prisma.scShipItem.findMany({
+    where: {
+      ...(q                ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(type             ? { type: { equals: type, mode: 'insensitive' } } : {}),
+      ...(classification   ? { classification: { contains: classification, mode: 'insensitive' } } : {}),
+      ...(manufacturerCode ? { manufacturerCode: { equals: manufacturerCode, mode: 'insensitive' } } : {}),
+    },
+    orderBy: { name: 'asc' },
+    take: limit,
+    select: { uuid: true, className: true, type: true, subType: true, size: true, grade: true,
+      name: true, classification: true, manufacturerCode: true, manufacturerName: true,
+      mass: true, inventoryScu: true },
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+scRouter.get('/sc/ship-items/:uuid', async (req, res) => {
+  const { uuid } = req.params as { uuid: string };
+  const row = await prisma.scShipItem.findUnique({ where: { uuid } });
+  if (!row) { res.status(404).json({ success: false, error: 'Not found' } satisfies ApiResponse); return; }
+  const { stdItemJson, ...rest } = row;
+  res.json({ success: true, data: { ...rest, stdItem: JSON.parse(stdItemJson) } } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/labels ────────────────────────────────────────────────────────
+// Query: key (exact), q (value search), limit (default 25, max 100)
+
+scRouter.get('/sc/labels', async (req, res) => {
+  const key   = typeof req.query.key === 'string' ? req.query.key.trim() : undefined;
+  const q     = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const limit = Math.min(parseInt(String(req.query.limit ?? '25'), 10) || 25, 100);
+  if (!key && !q) {
+    res.status(400).json({ success: false, error: 'key or q query param is required' } satisfies ApiResponse);
+    return;
+  }
+  const rows = await prisma.scLabel.findMany({
+    where: {
+      ...(key ? { key } : {}),
+      ...(q   ? { value: { contains: q, mode: 'insensitive' } } : {}),
+    },
+    take: limit,
+    select: { key: true, value: true },
+  });
+  res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
 // ── GET /api/sc/sync/status ───────────────────────────────────────────────────
 
 scRouter.get('/sc/sync/status', requireAuth, async (_req, res) => {

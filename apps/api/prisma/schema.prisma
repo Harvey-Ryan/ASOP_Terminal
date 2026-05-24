@@ -613,12 +613,145 @@ model ScSyncLog {
   status            String    @default("RUNNING") // "RUNNING" | "SUCCESS" | "FAILED"
   blueprintsAdded   Int       @default(0)
   blueprintsUpdated Int       @default(0)
+  /// JSON: per-type record counts for full sync runs
+  detailsJson       String?
   error             String?
   startedAt         DateTime  @default(now())
   completedAt       DateTime?
 
   @@index([status])
   @@index([startedAt])
+}
+
+/// Star Citizen manufacturer directory.
+model ScManufacturer {
+  uuid        String   @id
+  code        String?
+  name        String
+  description String?
+  syncedAt    DateTime @updatedAt
+
+  @@index([name])
+}
+
+/// One entry per location/POI in the in-game starmap.
+model ScStarmapEntry {
+  uuid          String   @id
+  name          String
+  description   String?
+  parentUuid    String?
+  navIcon       String?
+  type          String   // e.g. "PointOfInterest", "NavPoint", "Outpost"
+  isScannable   Boolean  @default(false)
+  hideInStarmap Boolean  @default(false)
+  size          Float?
+  amenitiesJson String?
+  syncedAt      DateTime @updatedAt
+
+  @@index([name])
+  @@index([type])
+  @@index([parentUuid])
+}
+
+/// A location that produces or consumes tagged commodities.
+model ScTradeLocation {
+  uuid             String   @id
+  className        String   @unique
+  displayName      String?
+  disabled         Boolean  @default(false)
+  producesTagsJson String?
+  consumesTagsJson String?
+  syncedAt         DateTime @updatedAt
+
+  @@index([displayName])
+}
+
+/// UUID → tag-name lookup from tags.json.
+model ScTag {
+  uuid     String @id
+  name     String
+
+  @@index([name])
+}
+
+/// In-game commodity definition from scunpacked resources/commodities.json.
+model ScCommodity {
+  uuid               String   @id
+  key                String   @unique
+  name               String
+  description        String?
+  refinedVersionUuid String?
+  refinedVersionName String?
+  tier               String?
+  densityGPerCc      Float?
+  instability        Float?
+  resistance         Float?
+  syncedAt           DateTime @updatedAt
+
+  @@index([name])
+  @@index([tier])
+}
+
+/// Resource harvestable location provider from resources/locations.json.
+model ScResourceLocation {
+  uuid          String   @id
+  providerName  String
+  presetFile    String   @unique
+  locationsJson String   // JSON: Location[]
+  areasJson     String?  // JSON: Area[]
+  groupsJson    String?  // JSON: Group[] with Deposits
+  syncedAt      DateTime @updatedAt
+}
+
+/// Minable / harvestable resource definition from resources/resources.json.
+model ScResource {
+  uuid            String   @id
+  key             String   @unique
+  name            String
+  kind            String
+  harvestableUuid String?
+  harvestableKey  String?
+  tier            String?
+  syncedAt        DateTime @updatedAt
+
+  @@index([name])
+  @@index([kind])
+}
+
+/// Localization label map from labels.json (key → display string).
+model ScLabel {
+  key      String   @id
+  value    String
+  syncedAt DateTime @updatedAt
+
+  @@index([value])
+}
+
+/// Ship component / item from ship-items.json (weapons, shields, drives, etc.).
+model ScShipItem {
+  uuid             String   @id
+  className        String   @unique
+  itemName         String
+  type             String
+  subType          String?
+  size             Int?
+  grade            Int?
+  name             String?
+  classification   String?
+  tags             String?
+  manufacturerCode String?
+  manufacturerName String?
+  manufacturerUuid String?
+  description      String?
+  mass             Float?
+  inventoryScu     Float?
+  stdItemJson      String   // full stdItem blob
+  syncedAt         DateTime @updatedAt
+
+  @@index([name])
+  @@index([type])
+  @@index([classification])
+  @@index([manufacturerCode])
 }
 
 // ── UEX Corp Game Data Cache ──────────────────────────────────────────────────
