@@ -353,6 +353,7 @@ scRouter.get('/sc/sync/status', requireAuth, async (_req, res) => {
       status:           row.status,
       blueprintsAdded:  row.blueprintsAdded,
       blueprintsUpdated: row.blueprintsUpdated,
+      detailsJson:      row.detailsJson,
       error:            row.error,
       startedAt:        row.startedAt.toISOString(),
       completedAt:      row.completedAt?.toISOString() ?? null,

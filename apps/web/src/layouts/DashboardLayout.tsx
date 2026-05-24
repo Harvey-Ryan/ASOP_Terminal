@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -377,6 +377,15 @@ export function DashboardLayout() {
               >
                 <Database className="h-4 w-4 shrink-0" />
                 Game Data
+              </NavLink>
+
+              {/* SC Database */}
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/settings/sc-data`}
+                className={navCls}
+              >
+                <Rocket className="h-4 w-4 shrink-0" />
+                SC Database
               </NavLink>
 
               {/* Admin */}

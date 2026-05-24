@@ -605,6 +605,7 @@ export interface ScSyncLogDto {
   status: string;
   blueprintsAdded: number;
   blueprintsUpdated: number;
+  detailsJson: string | null;
   error: string | null;
   startedAt: string;
   completedAt: string | null;
