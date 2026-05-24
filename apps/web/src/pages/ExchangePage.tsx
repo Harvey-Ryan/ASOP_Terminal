@@ -48,14 +48,14 @@ function UexCombobox({
 
   const { data: items = [] } = useQuery({
     queryKey: ['uex-items', debouncedQuery],
-    queryFn: () => uexApi.getItems({ q: debouncedQuery, limit: 10 }),
+    queryFn: () => uexApi.getItems({ q: debouncedQuery, limit: 50 }),
     enabled: debouncedQuery.length >= 2 && open,
     staleTime: 60_000,
   });
 
   const { data: commodities = [] } = useQuery({
     queryKey: ['uex-commodities', debouncedQuery],
-    queryFn: () => uexApi.getCommodities({ q: debouncedQuery, limit: 10 }),
+    queryFn: () => uexApi.getCommodities({ q: debouncedQuery, limit: 50 }),
     enabled: debouncedQuery.length >= 2 && open,
     staleTime: 60_000,
   });
@@ -65,7 +65,7 @@ function UexCombobox({
   const results: UexResult[] = [
     ...items.map((i): UexResult => ({ type: 'ITEM', item: i })),
     ...commodities.map((c): UexResult => ({ type: 'COMMODITY', item: c })),
-  ].sort((a, b) => rank(a.item.name) - rank(b.item.name) || a.item.name.localeCompare(b.item.name));
+  ].sort((a, b) => rank(a.item.name) - rank(b.item.name) || a.item.name.localeCompare(b.item.name)).slice(0, 25);
 
   function select(r: UexResult) {
     setQuery(r.item.name);
