@@ -157,8 +157,8 @@ export interface CreateEventBody {
   musterPoint?: string;
   /** ISO 8601 UTC string */
   startTime: string;
-  /** ISO 8601 UTC string */
-  endTime?: string;
+  /** ISO 8601 UTC string, or null to clear */
+  endTime?: string | null;
   recurType?: 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
   roles?: EventRole[];
   /** Names of voice channels to create 30 min before start */
