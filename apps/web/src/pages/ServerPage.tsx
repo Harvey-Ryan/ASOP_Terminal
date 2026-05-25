@@ -158,7 +158,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       description: description || undefined,
       musterPoint: musterPoint || undefined,
       startTime: startIso.toISOString(),
-      endTime: endIso?.toISOString(),
+      endTime: endIso ? endIso.toISOString() : null,
       roles: roles.filter((r) => r.name.trim()),
       vcNames: vcNames.filter(Boolean),
       imageUrl: selectedImageUrl ?? undefined,

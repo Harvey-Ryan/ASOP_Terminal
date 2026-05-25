@@ -329,6 +329,7 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
   if (body.roles !== undefined) data['roles'] = JSON.stringify(body.roles);
   if (body.vcNames !== undefined) data['vcNames'] = JSON.stringify(body.vcNames);
   if (body.briefingChannel !== undefined) data['briefingChannel'] = body.briefingChannel;
+  let newStartTime: Date | undefined;
   if (body.startTime !== undefined) {
     const startTime = new Date(body.startTime);
     if (isNaN(startTime.getTime())) {
@@ -336,6 +337,7 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       return;
     }
     data['startTime'] = startTime;
+    newStartTime = startTime;
   }
   if (body.endTime !== undefined) {
     const endTime = body.endTime ? new Date(body.endTime) : null;
@@ -358,6 +360,18 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
         data: { role: null },
       });
     }
+  }
+
+  // If startTime changed, reschedule reminders to match the new time.
+  if (newStartTime) {
+    await prisma.eventReminder.deleteMany({ where: { eventId, sent: false } });
+    const now = new Date();
+    const reminders = [
+      { eventId, sendAt: new Date(newStartTime.getTime() - 60 * 60_000), type: 'FORUM' },
+      { eventId, sendAt: new Date(newStartTime.getTime() - 30 * 60_000), type: 'FORUM' },
+      { eventId, sendAt: new Date(newStartTime.getTime() - 15 * 60_000), type: 'DM' },
+    ].filter((r) => r.sendAt > now);
+    if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
   }
 
   const updated = await prisma.event.update({ where: { id: eventId }, data, include: { rsvps: true } });
