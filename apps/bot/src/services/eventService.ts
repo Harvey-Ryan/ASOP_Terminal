@@ -13,6 +13,13 @@ import { nextOccurrence } from '../utils/time.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
 
+function buildScheduledEventDescription(description: string | null, guildId: string, threadId: string | null): string | undefined {
+  const link = threadId ? `https://discord.com/channels/${guildId}/${threadId}` : null;
+  if (description && link) return `${description}\n\n📋 Discussion: ${link}`;
+  if (link) return `📋 Discussion: ${link}`;
+  return description ?? undefined;
+}
+
 // ── Create VCs for an event (idempotent — skips if already created) ──────────
 
 export async function createVcsForEvent(eventId: string): Promise<void> {
@@ -151,7 +158,7 @@ export async function setupDiscordForEvent(eventId: string) {
 
       const scheduled = await guild.scheduledEvents.create({
         name: event.name,
-        description: event.description ?? undefined,
+        description: buildScheduledEventDescription(event.description, event.guildId, threadId),
         scheduledStartTime: event.startTime,
         scheduledEndTime,
         privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
@@ -213,7 +220,7 @@ export async function syncDiscordEvent(eventId: string) {
         }
         await scheduled.edit({
           name: event.name,
-          description: event.description ?? undefined,
+          description: buildScheduledEventDescription(event.description, event.guildId, event.threadId),
           scheduledStartTime: event.startTime,
           scheduledEndTime,
           entityMetadata: { location: event.musterPoint ?? event.name },
