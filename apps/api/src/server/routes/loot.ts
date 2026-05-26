@@ -1202,6 +1202,35 @@ async function resolveStandaloneSession(sessionId: string, guildId: string): Pro
   return session;
 }
 
+// Runs the auto-pick cascade for standalone snake draft sessions starting at `startPosition`.
+// Returns true if the session was completed inside the cascade.
+async function runStandaloneAutoPick(sessionId: string, startPosition: number, skipCount: number, draftOrder: string[], usernameMap: Map<string, string>, totalRounds: number): Promise<boolean> {
+  let autoPickCount = startPosition;
+  while (true) {
+    const items = await prisma.lootItem.findMany({ where: { sessionId }, include: { assignments: true } });
+    const allDone = items.every((i) => i.assignments.length > 0);
+    const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * totalRounds;
+    if (allDone || rotationDone) {
+      await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
+      return true;
+    }
+    const nextPickerId = snakePick(autoPickCount + skipCount, draftOrder);
+    if (!nextPickerId) break;
+    const queued = await prisma.lootDraftQueue.findMany({
+      where: { sessionId, userId: nextPickerId },
+      include: { item: { include: { assignments: true } } },
+      orderBy: { priority: 'asc' },
+    });
+    const topAvailable = queued.find((q) => q.item.assignments.length === 0);
+    if (!topAvailable) break;
+    const autoUsername = usernameMap.get(nextPickerId) ?? nextPickerId;
+    await prisma.lootAssignment.create({ data: { itemId: topAvailable.itemId, userId: nextPickerId, username: autoUsername, pickNumber: autoPickCount } });
+    await prisma.lootDraftQueue.deleteMany({ where: { itemId: topAvailable.itemId, sessionId } });
+    autoPickCount++;
+  }
+  return false;
+}
+
 // ── GET standalone session ────────────────────────────────────────────────────
 
 lootRouter.get('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
@@ -1449,32 +1478,14 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requi
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     const prevCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
     const wasAssigned = session.items.some((i) => i.id === itemId && i.assignments.length > 0);
-    let autoPickCount = prevCount + (wasAssigned ? 0 : 1);
+    const startPosition = prevCount + (wasAssigned ? 0 : 1);
     const participants: LootParticipant[] = JSON.parse(session.participants);
     const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
 
-    while (true) {
-      const items = await prisma.lootItem.findMany({ where: { sessionId }, include: { assignments: true } });
-      const allDone = items.every((i) => i.assignments.length > 0);
-      const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * (session.totalRounds ?? 1);
-      if (allDone || rotationDone) {
-        await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
-        res.json({ success: true } satisfies ApiResponse);
-        return;
-      }
-      const nextPickerId = snakePick(autoPickCount + session.skipCount, draftOrder);
-      if (!nextPickerId) break;
-      const queued = await prisma.lootDraftQueue.findMany({
-        where: { sessionId, userId: nextPickerId },
-        include: { item: { include: { assignments: true } } },
-        orderBy: { priority: 'asc' },
-      });
-      const topAvailable = queued.find((q) => q.item.assignments.length === 0) as typeof queued[number] | undefined;
-      if (!topAvailable) break;
-      const autoUsername = usernameMap.get(nextPickerId) ?? nextPickerId;
-      await prisma.lootAssignment.create({ data: { itemId: topAvailable.itemId, userId: nextPickerId, username: autoUsername, pickNumber: autoPickCount } });
-      await prisma.lootDraftQueue.deleteMany({ where: { itemId: topAvailable.itemId, sessionId } });
-      autoPickCount++;
+    const completed = await runStandaloneAutoPick(sessionId, startPosition, session.skipCount, draftOrder, usernameMap, session.totalRounds ?? 1);
+    if (completed) {
+      res.json({ success: true } satisfies ApiResponse);
+      return;
     }
     triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
   }
@@ -1523,8 +1534,15 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/skip-turn', requireAuth, asy
     include: { items: { include: { assignments: true } } },
   });
 
+  const newSkipCount = updated.skipCount;
+  const newAssignmentCount = updated.items.reduce((n, i) => n + i.assignments.length, 0);
+  const participants: LootParticipant[] = JSON.parse(updated.participants);
+  const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
+  await runStandaloneAutoPick(sessionId, newAssignmentCount, newSkipCount, draftOrder, usernameMap, updated.totalRounds ?? 1);
+
   triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
-  res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
+  const final = await fetchSessionById(sessionId);
+  res.json({ success: true, data: sessionToDto(final!) } satisfies ApiResponse<LootSessionDto>);
 });
 
 // ── POST start draft (standalone) ─────────────────────────────────────────────
@@ -1540,6 +1558,12 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/start-draft', requireAuth, a
   }
   if (session.draftStarted) { res.status(409).json({ success: false, error: 'Draft already started' } satisfies ApiResponse); return; }
   await prisma.lootSession.update({ where: { id: sessionId }, data: { draftStarted: true } });
+
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  const participants: LootParticipant[] = JSON.parse(session.participants);
+  const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
+  await runStandaloneAutoPick(sessionId, 0, session.skipCount, draftOrder, usernameMap, session.totalRounds ?? 1);
+
   triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
   res.json({ success: true } satisfies ApiResponse);
 });
