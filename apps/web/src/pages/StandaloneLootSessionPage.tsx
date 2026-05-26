@@ -600,6 +600,8 @@ export function StandaloneLootSessionPage() {
   });
 
   const session = sessionQuery.data;
+  const isOwner = !!session?.ownerId && session.ownerId === user?.id;
+  const canManage = isManager || isOwner;
   const participantMap = new Map((session?.participants ?? []).map((p) => [p.userId, p.username]));
 
   const invalidate = () => {
@@ -699,8 +701,8 @@ export function StandaloneLootSessionPage() {
   const isDraftParticipant = isSnakeDraft && session.draftOrder.includes(user?.id ?? '');
   const isCurrentPicker = isSnakeDraft && session.status === 'OPEN' && nextPickerId === user?.id;
 
-  // Non-managers who are in the draft can still pick items
-  const canInteract = isManager || isDraftParticipant;
+  // Owners and managers (or draft participants) can interact with the session
+  const canInteract = canManage || isDraftParticipant;
 
   // All participants not yet in draft order
   const draftSet = new Set(session.draftOrder);
@@ -731,8 +733,8 @@ export function StandaloneLootSessionPage() {
       <div className={isSnakeDraft ? 'flex gap-5 items-start' : ''}>
         <div className={isSnakeDraft ? 'flex-1 min-w-0 space-y-5' : 'space-y-5'}>
 
-          {/* Method selector — managers only, open sessions */}
-          {isManager && session.status === 'OPEN' && (
+          {/* Method selector — managers and owners, open sessions */}
+          {canManage && session.status === 'OPEN' && (
             <Card>
               <CardContent className="pt-4">
                 <div className="space-y-1.5">
@@ -760,7 +762,7 @@ export function StandaloneLootSessionPage() {
             session={session}
             guildId={guildId!}
             sessionId={sessionId!}
-            isManager={isManager}
+            isManager={canManage}
             onUpdated={invalidate}
           />
 
@@ -777,7 +779,7 @@ export function StandaloneLootSessionPage() {
                       </p>
                     )}
                   </div>
-                  {isManager && session.status === 'OPEN' && !session.draftStarted && (
+                  {canManage && session.status === 'OPEN' && !session.draftStarted && (
                     <div className="flex items-center gap-2">
                       {!startConfirm ? (
                         <>
@@ -811,7 +813,7 @@ export function StandaloneLootSessionPage() {
                   <div className="mb-3">
                     <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-primary">Now picking: {nextPickerUsername}</span>
-                      {isManager && (!skipConfirm ? (
+                      {canManage && (!skipConfirm ? (
                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0" onClick={() => setSkipConfirm(true)}>
                           <SkipForward className="h-3 w-3" /> Skip Turn
                         </Button>
@@ -831,7 +833,7 @@ export function StandaloneLootSessionPage() {
                   {session.draftOrder.map((userId, i) => {
                     const username = participantMap.get(userId) ?? userId;
                     const isCurrent = userId === nextPickerId;
-                    const canRemove = isManager && session.status === 'OPEN' && !session.draftStarted;
+                    const canRemove = canManage && session.status === 'OPEN' && !session.draftStarted;
                     return (
                       <span
                         key={userId}
@@ -855,7 +857,7 @@ export function StandaloneLootSessionPage() {
                     <p className="text-sm text-muted-foreground italic">No members in draft order yet.</p>
                   )}
                 </div>
-                {isManager && session.status === 'OPEN' && !session.draftStarted && notInDraft.length > 0 && (
+                {canManage && session.status === 'OPEN' && !session.draftStarted && notInDraft.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-2">Add participants to draft order:</p>
                     <div className="flex flex-wrap gap-2">
@@ -875,7 +877,7 @@ export function StandaloneLootSessionPage() {
 
                 {/* Rounds setting */}
                 <div className="mt-3 pt-3 border-t border-border">
-                  {isManager && !session.draftStarted ? (
+                  {canManage && !session.draftStarted ? (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Rounds</span>
@@ -951,12 +953,12 @@ export function StandaloneLootSessionPage() {
                   guildId={guildId!}
                   sessionId={sessionId!}
                   currentUserId={user?.id}
-                  isManager={isManager}
+                  isManager={canManage}
                 />
               ))}
 
             {/* Add item */}
-            {isManager && session.status === 'OPEN' && (
+            {canManage && session.status === 'OPEN' && (
               <form
                 onSubmit={(e) => { e.preventDefault(); if (newItemName.trim()) addItemMutation.mutate(newItemName.trim()); }}
                 className="flex gap-2"
@@ -1009,7 +1011,7 @@ export function StandaloneLootSessionPage() {
           </div>
 
           {/* Complete */}
-          {isManager && session.status === 'OPEN' && (
+          {canManage && session.status === 'OPEN' && (
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <Button variant="outline" onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)} className="gap-1">
                 <Save className="h-4 w-4" />
@@ -1031,7 +1033,7 @@ export function StandaloneLootSessionPage() {
         </div>
 
         {/* Queue card — only shown to draft participants (now that Discord IDs are real) */}
-        {isSnakeDraft && (isManager || isDraftParticipant) && (
+        {isSnakeDraft && (canManage || isDraftParticipant) && (
           <div className="sticky top-4 self-start">
             <StandaloneQueueCard session={session} guildId={guildId!} sessionId={sessionId!} />
           </div>

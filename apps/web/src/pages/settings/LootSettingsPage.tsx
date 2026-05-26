@@ -77,8 +77,8 @@ export function LootSettingsPage() {
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             <span>
-              Server admins can always create loot sessions. Select additional roles below to allow
-              non-admin members to create sessions. If no roles are selected, only admins can create sessions.
+              Server admins can always create loot sessions. Select roles below to restrict session creation
+              to specific roles. If no roles are selected, any server member can create a session.
             </span>
           </div>
         </CardHeader>

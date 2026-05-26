@@ -17,7 +17,7 @@ export async function assertLootDraftCreator(req: Express.Request, guildId: stri
     select: { lootDraftCreatorRoles: true },
   });
   const allowedRoles = JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[];
-  if (allowedRoles.length === 0) return false;
+  if (allowedRoles.length === 0) return true; // no restriction — any authenticated user may create
 
   const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
   const botToken = process.env['DISCORD_TOKEN'];

@@ -46,6 +46,7 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
     totalRounds: s.totalRounds ?? 1,
     dkpAward: s.dkpAward,
     participants: JSON.parse(s.participants) as LootParticipant[],
+    ownerId: s.ownerId ?? null,
     items: [...s.items]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((item): LootItemDto => ({
@@ -1148,10 +1149,11 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
     return;
   }
 
-  // Non-managers only see sessions they are participating in (in draftOrder)
+  // Non-managers see sessions they own or are a draft participant in
   const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
   if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
   const mySessions = sessions.filter((s) => {
+    if (s.ownerId === dbUser.discordId) return true;
     const draftOrder: string[] = JSON.parse(s.draftOrder);
     return draftOrder.includes(dbUser.discordId);
   });
@@ -1165,6 +1167,9 @@ lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   if (!(await assertLootDraftCreator(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+
   const body = req.body as CreateStandaloneLootSessionBody;
   let name: string;
   let method: LootMethod;
@@ -1188,7 +1193,7 @@ lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
     : '[]';
 
   const session = await prisma.lootSession.create({
-    data: { guildId, name, method, participants: JSON.stringify(participants), draftOrder, totalRounds },
+    data: { guildId, name, method, participants: JSON.stringify(participants), draftOrder, totalRounds, ownerId: dbUser.discordId },
     include: { items: { include: { assignments: true } } },
   });
 
@@ -1243,8 +1248,9 @@ lootRouter.get('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, re
   if (!isManager) {
     const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
     if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+    const isOwner = session.ownerId !== null && dbUser.discordId === session.ownerId;
     const draftOrder: string[] = JSON.parse(session.draftOrder);
-    if (!draftOrder.includes(dbUser.discordId)) {
+    if (!isOwner && !draftOrder.includes(dbUser.discordId)) {
       res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
     }
   }
@@ -1256,12 +1262,14 @@ lootRouter.get('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, re
 
 lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
-  const body = req.body as Record<string, unknown>;
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
+  const body = req.body as Record<string, unknown>;
 
   let method: LootMethod | undefined;
   let draftOrder: string[] | undefined;
@@ -1309,12 +1317,14 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, 
 
 lootRouter.post('/:guildId/loot/sessions/:sessionId/items', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
-  const body = req.body as Record<string, unknown>;
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
+  const body = req.body as Record<string, unknown>;
 
   let name: string; let quantity: number; let excludePrevWinners: boolean;
   try {
@@ -1342,12 +1352,14 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/items', requireAuth, async (
 
 lootRouter.patch('/:guildId/loot/sessions/:sessionId/items/:itemId', requireAuth, async (req, res) => {
   const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
-  const body = req.body as Record<string, unknown>;
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
+  const body = req.body as Record<string, unknown>;
 
   let name: string | undefined; let quantity: number | undefined; let excludePrevWinners: boolean | undefined; let sortOrder: number | undefined;
   try {
@@ -1392,11 +1404,13 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId/items/:itemId', requireAuth
 
 lootRouter.delete('/:guildId/loot/sessions/:sessionId/items/:itemId', requireAuth, async (req, res) => {
   const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
   await prisma.lootItem.delete({ where: { id: itemId, sessionId } }).catch(() => null);
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -1405,11 +1419,13 @@ lootRouter.delete('/:guildId/loot/sessions/:sessionId/items/:itemId', requireAut
 
 lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/roll', requireAuth, async (req, res) => {
   const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
   const item = await prisma.lootItem.findUnique({ where: { id: itemId, sessionId } });
   if (!item) { res.status(404).json({ success: false, error: 'Item not found' } satisfies ApiResponse); return; }
 
@@ -1463,11 +1479,14 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requi
 
   if (!isManager) {
     const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
-    const isSelf = dbUser && userId === dbUser.discordId;
-    const isPickerTurn = session.method === 'SNAKE_DRAFT' && session.status === 'OPEN' &&
-      dbUser && currentSnakePicker(session) === dbUser.discordId;
-    if (!isSelf || !isPickerTurn) {
-      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    const isOwner = session.ownerId !== null && dbUser?.discordId === session.ownerId;
+    if (!isOwner) {
+      const isSelf = dbUser && userId === dbUser.discordId;
+      const isPickerTurn = session.method === 'SNAKE_DRAFT' && session.status === 'OPEN' &&
+        dbUser && currentSnakePicker(session) === dbUser.discordId;
+      if (!isSelf || !isPickerTurn) {
+        res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+      }
     }
   }
 
@@ -1498,11 +1517,13 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requi
 
 lootRouter.delete('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requireAuth, async (req, res) => {
   const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -1511,11 +1532,13 @@ lootRouter.delete('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', req
 
 lootRouter.post('/:guildId/loot/sessions/:sessionId/skip-turn', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
   if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only for snake draft' } satisfies ApiResponse); return; }
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Session already completed' } satisfies ApiResponse); return; }
   if (!session.draftStarted) { res.status(400).json({ success: false, error: 'Draft has not started' } satisfies ApiResponse); return; }
@@ -1550,11 +1573,14 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/skip-turn', requireAuth, asy
 
 lootRouter.post('/:guildId/loot/sessions/:sessionId/start-draft', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
-  if (!session || session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
+  if (session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
     res.status(400).json({ success: false, error: 'No open snake draft session' } satisfies ApiResponse); return;
   }
   if (session.draftStarted) { res.status(409).json({ success: false, error: 'Draft already started' } satisfies ApiResponse); return; }
@@ -1637,11 +1663,13 @@ lootRouter.put('/:guildId/loot/sessions/:sessionId/queue', requireAuth, async (r
 
 lootRouter.post('/:guildId/loot/sessions/:sessionId/complete', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Already completed' } satisfies ApiResponse); return; }
 
   await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });

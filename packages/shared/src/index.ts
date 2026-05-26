@@ -254,6 +254,7 @@ export interface LootSessionDto {
   dkpAward: number;
   participants: LootParticipant[];
   items: LootItemDto[];
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
 }
