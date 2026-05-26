@@ -1180,7 +1180,7 @@ lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
     method = optEnum(body.method, 'method', LOOT_METHODS) ?? 'RANDOM_ROLL';
     participants = Array.isArray(body.participants) ? body.participants : [];
     const rawRounds = optNonNegInt(body.totalRounds, 'totalRounds');
-    totalRounds = rawRounds !== undefined ? Math.min(10, Math.max(1, rawRounds)) : 1;
+    totalRounds = rawRounds !== undefined ? Math.min(50, Math.max(1, rawRounds)) : 1;
   } catch (err) {
     if (err instanceof ValidationError) {
       res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
@@ -1283,7 +1283,7 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, 
     participants = Array.isArray(body.participants) ? body.participants as LootParticipant[] : undefined;
     if (body.totalRounds !== undefined) {
       const r = optNonNegInt(body.totalRounds, 'totalRounds');
-      totalRounds = r !== undefined ? Math.min(10, Math.max(1, r)) : undefined;
+      totalRounds = r !== undefined ? Math.min(50, Math.max(1, r)) : undefined;
     }
   } catch (err) {
     if (err instanceof ValidationError) {
