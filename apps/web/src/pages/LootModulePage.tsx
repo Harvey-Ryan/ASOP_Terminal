@@ -64,7 +64,16 @@ function HistoryRow({ session }: { session: LootHistorySessionDto }) {
           {session.items.length === 0 && (
             <p className="text-sm text-muted-foreground italic">No items in this session.</p>
           )}
-          {session.items.map((item) => {
+          {[...session.items]
+            .sort((a, b) => {
+              const wa = a.assignments[0];
+              const wb = b.assignments[0];
+              if (wa && wb) return wa.username.localeCompare(wb.username);
+              if (wa) return -1;
+              if (wb) return 1;
+              return 0;
+            })
+            .map((item) => {
             const winner = item.assignments[0];
             return (
               <div key={item.id} className="flex items-center gap-3 text-sm">

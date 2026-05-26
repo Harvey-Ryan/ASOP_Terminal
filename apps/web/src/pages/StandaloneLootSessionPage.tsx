@@ -592,7 +592,8 @@ export function StandaloneLootSessionPage() {
 
   function handleShuffle() {
     if (!session) return;
-    const shuffled = [...session.draftOrder].sort(() => Math.random() - 0.5);
+    const allIds = session.participants.map((p) => p.userId);
+    const shuffled = [...allIds].sort(() => Math.random() - 0.5);
     updateMutation.mutate({ draftOrder: shuffled });
   }
 
@@ -700,7 +701,7 @@ export function StandaloneLootSessionPage() {
                     <div className="flex items-center gap-2">
                       {!startConfirm ? (
                         <>
-                          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
+                          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle} disabled={session.participants.length === 0}>
                             <Shuffle className="h-3 w-3" /> Shuffle
                           </Button>
                           <Button
