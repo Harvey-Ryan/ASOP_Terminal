@@ -1134,15 +1134,27 @@ lootRouter.get('/:guildId/loot/history', requireAuth, async (req, res) => {
 
 lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+  const isManager = await assertGuildManager(req, guildId);
+
   const sessions = await prisma.lootSession.findMany({
     where: { guildId, eventId: null, status: 'OPEN' },
     orderBy: { createdAt: 'desc' },
     include: { items: { include: { assignments: true } } },
   });
-  res.json({ success: true, data: sessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
+
+  if (isManager) {
+    res.json({ success: true, data: sessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
+    return;
+  }
+
+  // Non-managers only see sessions they are participating in (in draftOrder)
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+  const mySessions = sessions.filter((s) => {
+    const draftOrder: string[] = JSON.parse(s.draftOrder);
+    return draftOrder.includes(dbUser.discordId);
+  });
+  res.json({ success: true, data: mySessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
 });
 
 // ── POST create standalone session ────────────────────────────────────────────
