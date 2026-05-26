@@ -597,6 +597,7 @@ export function StandaloneLootSessionPage() {
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
+  const [completeConfirm, setCompleteConfirm] = useState(false);
   const [newItemInputFocused, setNewItemInputFocused] = useState(false);
   const debouncedNewItem = useDebounce(newItemName, 250);
 
@@ -637,7 +638,8 @@ export function StandaloneLootSessionPage() {
 
   const completeMutation = useMutation({
     mutationFn: () => lootApi.completeStandalone(guildId!, sessionId!),
-    onSuccess: () => navigate(`/dashboard/servers/${guildId}/loot?tab=history`),
+    onSuccess: () => { setCompleteConfirm(false); navigate(`/dashboard/servers/${guildId}/loot?tab=history`); },
+    onError: () => setCompleteConfirm(false),
   });
 
   const skipMutation = useMutation({
@@ -888,19 +890,21 @@ export function StandaloneLootSessionPage() {
                 {/* Rounds setting */}
                 <div className="mt-3 pt-3 border-t border-border">
                   {canManage && !session.draftStarted ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground">Rounds</span>
-                        <span className="text-xs font-semibold tabular-nums">{session.totalRounds}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={session.totalRounds}
+                          onChange={(e) => {
+                            const v = Math.min(50, Math.max(1, parseInt(e.target.value, 10) || 1));
+                            updateMutation.mutate({ totalRounds: v });
+                          }}
+                          className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
                       </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={10}
-                        value={session.totalRounds}
-                        onChange={(e) => updateMutation.mutate({ totalRounds: Number(e.target.value) })}
-                        className="w-full accent-primary"
-                      />
                       <p className="text-xs text-muted-foreground">
                         Draft ends after {session.totalRounds} round{session.totalRounds !== 1 ? 's' : ''} ({session.draftOrder.length * session.totalRounds} total picks) or when all items are claimed.
                       </p>
@@ -941,31 +945,6 @@ export function StandaloneLootSessionPage() {
                 )}
               </div>
             </div>
-
-            {[...session.items]
-              .sort((a, b) => {
-                const aA = a.assignments.length > 0 ? 1 : 0;
-                const bA = b.assignments.length > 0 ? 1 : 0;
-                if (aA !== bA) return aA - bA;
-                return a.sortOrder - b.sortOrder;
-              })
-              .filter((item) => !hideAssigned || item.assignments.length === 0)
-              .map((item) => (
-                <StandaloneItemRow
-                  key={item.id}
-                  item={item}
-                  session={session}
-                  allAssignmentCount={allAssignmentCount}
-                  skipCount={skipCount}
-                  onRolled={invalidate}
-                  onAssigned={invalidate}
-                  onDelete={invalidate}
-                  guildId={guildId!}
-                  sessionId={sessionId!}
-                  currentUserId={user?.id}
-                  isManager={canManage}
-                />
-              ))}
 
             {/* Add item */}
             {canManage && session.status === 'OPEN' && (
@@ -1015,22 +994,65 @@ export function StandaloneLootSessionPage() {
               </form>
             )}
 
+            {[...session.items]
+              .sort((a, b) => {
+                const aA = a.assignments.length > 0 ? 1 : 0;
+                const bA = b.assignments.length > 0 ? 1 : 0;
+                if (aA !== bA) return aA - bA;
+                return a.sortOrder - b.sortOrder;
+              })
+              .filter((item) => !hideAssigned || item.assignments.length === 0)
+              .map((item) => (
+                <StandaloneItemRow
+                  key={item.id}
+                  item={item}
+                  session={session}
+                  allAssignmentCount={allAssignmentCount}
+                  skipCount={skipCount}
+                  onRolled={invalidate}
+                  onAssigned={invalidate}
+                  onDelete={invalidate}
+                  guildId={guildId!}
+                  sessionId={sessionId!}
+                  currentUserId={user?.id}
+                  isManager={canManage}
+                />
+              ))}
+
             {session.items.length === 0 && (
-              <p className="text-sm text-muted-foreground italic py-2">No items yet. Add items above to start distributing loot.</p>
+              <p className="text-sm text-muted-foreground italic py-2">No items yet. Add an item above to start distributing loot.</p>
             )}
           </div>
 
           {/* Complete */}
           {canManage && session.status === 'OPEN' && (
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
               <Button variant="outline" onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)} className="gap-1">
                 <Save className="h-4 w-4" />
                 Save & Exit
               </Button>
-              <Button onClick={() => completeMutation.mutate()} disabled={completeMutation.isPending} className="gap-1">
-                <CheckCircle2 className="h-4 w-4" />
-                {completeMutation.isPending ? 'Completing…' : 'Complete Session'}
-              </Button>
+              {(session.draftStarted || session.items.some((i) => i.assignments.length > 0)) && (
+                completeConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Completing will close and lock loot distribution.</span>
+                    <Button
+                      variant="destructive"
+                      onClick={() => completeMutation.mutate()}
+                      disabled={completeMutation.isPending}
+                      className="gap-1 shrink-0"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {completeMutation.isPending ? 'Completing…' : 'Yes, Complete'}
+                    </Button>
+                    <Button variant="ghost" className="shrink-0" onClick={() => setCompleteConfirm(false)}>Cancel</Button>
+                  </div>
+                ) : (
+                  <Button onClick={() => setCompleteConfirm(true)} className="gap-1">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Complete Session
+                  </Button>
+                )
+              )}
             </div>
           )}
 
