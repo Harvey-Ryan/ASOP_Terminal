@@ -221,22 +221,26 @@ model ServerImage {
 
 // ── Loot ─────────────────────────────────────────────────────────────────────
 
-/// One loot distribution session per event.
+/// One loot distribution session — attached to an event or standalone.
 model LootSession {
-  id         String   @id @default(cuid())
-  eventId    String   @unique
-  guildId    String
+  id           String   @id @default(cuid())
+  eventId      String?  @unique
+  guildId      String
+  /// Human-readable label for standalone sessions
+  name         String?
   /// RANDOM_ROLL | DKP | SNAKE_DRAFT
-  method     String   @default("RANDOM_ROLL")
+  method       String   @default("RANDOM_ROLL")
   /// OPEN | COMPLETED
-  status     String   @default("OPEN")
+  status       String   @default("OPEN")
   /// JSON: string[] — userId order for snake draft
-  draftOrder String   @default("[]")
+  draftOrder   String   @default("[]")
+  /// JSON: [{userId, username}] — participant pool for standalone sessions
+  participants String   @default("[]")
   /// Number of skipped turns applied to the draft position
   skipCount     Int      @default(0)
   /// True once the manager clicks Start Draft — locks shuffle and triggers first picker DM
   draftStarted  Boolean  @default(false)
-  /// DKP points awarded to each confirmed attendee on completion
+  /// DKP points awarded to each confirmed attendee on completion (event sessions only)
   dkpAward   Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -245,6 +249,7 @@ model LootSession {
   queueItems LootDraftQueue[]
 
   @@index([guildId])
+  @@index([status, guildId])
 }
 
 model LootItem {

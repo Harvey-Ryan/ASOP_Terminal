@@ -12,6 +12,9 @@ import type {
   LootMethod,
   MyPickDto,
   LootQueueItemDto,
+  LootHistorySessionDto,
+  LootParticipant,
+  CreateStandaloneLootSessionBody,
 } from '@dem/shared';
 
 export interface RecentLootWinner {
@@ -129,4 +132,56 @@ export const lootApi = {
 
   setQueue: (guildId: string, eventId: string, itemIds: string[]) =>
     api.put<ApiResponse>(`${base(guildId, eventId)}/queue`, { itemIds }).then((r) => r),
+
+  // ── Standalone sessions ────────────────────────────────────────────────────
+
+  getHistory: (guildId: string) =>
+    api.get<ApiResponse<LootHistorySessionDto[]>>(`/guilds/${guildId}/loot/history`).then((r) => r.data ?? []),
+
+  listSessions: (guildId: string) =>
+    api.get<ApiResponse<LootSessionDto[]>>(`/guilds/${guildId}/loot/sessions`).then((r) => r.data ?? []),
+
+  createStandaloneSession: (guildId: string, body: CreateStandaloneLootSessionBody) =>
+    api.post<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions`, body).then((r) => r.data!),
+
+  getStandaloneSession: (guildId: string, sessionId: string) =>
+    api.get<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}`).then((r) => r.data!),
+
+  updateStandaloneSession: (guildId: string, sessionId: string, body: { method?: LootMethod; draftOrder?: string[]; participants?: LootParticipant[]; name?: string }) =>
+    api.patch<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}`, body).then((r) => r.data!),
+
+  addStandaloneItem: (guildId: string, sessionId: string, body: AddLootItemBody) =>
+    api.post<ApiResponse<LootItemDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}/items`, body).then((r) => r.data!),
+
+  updateStandaloneItem: (guildId: string, sessionId: string, itemId: string, body: Partial<AddLootItemBody>) =>
+    api.patch<ApiResponse<LootItemDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}/items/${itemId}`, body).then((r) => r.data!),
+
+  deleteStandaloneItem: (guildId: string, sessionId: string, itemId: string) =>
+    api.delete<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/items/${itemId}`).then((r) => r),
+
+  rollStandalone: (guildId: string, sessionId: string, itemId: string) =>
+    api.post<ApiResponse<{ rolls: { userId: string; username: string; rollValue: number }[]; winner: { userId: string; username: string; rollValue: number } }>>(
+      `/guilds/${guildId}/loot/sessions/${sessionId}/items/${itemId}/roll`,
+    ).then((r) => r.data!),
+
+  assignStandalone: (guildId: string, sessionId: string, itemId: string, body: AssignLootItemBody) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/items/${itemId}/assign`, body).then((r) => r),
+
+  clearAssignmentStandalone: (guildId: string, sessionId: string, itemId: string) =>
+    api.delete<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/items/${itemId}/assign`).then((r) => r),
+
+  skipTurnStandalone: (guildId: string, sessionId: string) =>
+    api.post<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}/skip-turn`).then((r) => r.data!),
+
+  startDraftStandalone: (guildId: string, sessionId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/start-draft`).then((r) => r),
+
+  getQueueStandalone: (guildId: string, sessionId: string) =>
+    api.get<ApiResponse<LootQueueItemDto[]>>(`/guilds/${guildId}/loot/sessions/${sessionId}/queue`).then((r) => r.data ?? []),
+
+  setQueueStandalone: (guildId: string, sessionId: string, itemIds: string[]) =>
+    api.put<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/queue`, { itemIds }).then((r) => r),
+
+  completeStandalone: (guildId: string, sessionId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/complete`).then((r) => r),
 };

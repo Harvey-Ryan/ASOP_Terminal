@@ -13,6 +13,7 @@ import * as uexCommand from './commands/uex.js';
 import * as whohasCommand from './commands/whohas.js';
 import * as blueprintCommand from './commands/blueprint.js';
 import * as materialCommand from './commands/material.js';
+import * as lootCommand from './commands/loot.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent, deleteEventVcs } from './services/eventService.js';
@@ -26,6 +27,7 @@ interface Command {
 const commands = new Map<string, Command>([
   ['event', eventCommand],
   ['login', loginCommand],
+  ['loot', lootCommand],
   ['bid', bidCommand],
   ['wallet', walletCommand],
   ['uex', uexCommand],

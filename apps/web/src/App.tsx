@@ -5,6 +5,8 @@ import { ServerPage } from './pages/ServerPage';
 import { EventCreatePage } from './pages/events/EventCreatePage';
 import { EventAuditPage } from './pages/events/EventAuditPage';
 import { LootPage } from './pages/events/LootPage';
+import { LootModulePage } from './pages/LootModulePage';
+import { StandaloneLootSessionPage } from './pages/StandaloneLootSessionPage';
 import { ModuleEventBotPage } from './pages/settings/ModuleEventBotPage';
 import { BotSettingsPage } from './pages/settings/BotSettingsPage';
 import { PermissionsPage } from './pages/settings/PermissionsPage';
@@ -49,6 +51,8 @@ export default function App() {
           <Route path="servers/:guildId/dkp" element={<DkpPage />} />
           <Route path="servers/:guildId/exchange" element={<ExchangePage />} />
           <Route path="servers/:guildId/settings/modules/exchange" element={<ExchangeSettingsPage />} />
+          <Route path="servers/:guildId/loot" element={<LootModulePage />} />
+          <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
         </Route>
 
         {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}

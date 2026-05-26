@@ -114,6 +114,74 @@ export async function notifySnakeTurn(eventId: string) {
   }
 }
 
+export async function notifyStandaloneSnakeTurn(sessionId: string) {
+  const session = await prisma.lootSession.findUnique({
+    where: { id: sessionId },
+    include: { items: { include: { assignments: true } } },
+  });
+  if (!session || session.method !== 'SNAKE_DRAFT' || session.status === 'COMPLETED') return;
+
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  if (draftOrder.length === 0) return;
+
+  const allAssignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
+  const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
+
+  const guild = await client.guilds.fetch(session.guildId).catch(() => null);
+  if (!guild) return;
+
+  // Find or create the "Loot Picker" role
+  let pickerRole = guild.roles.cache.find((r) => r.name === LOOT_PICKER_ROLE);
+  if (!pickerRole) {
+    pickerRole = await guild.roles.create({
+      name: LOOT_PICKER_ROLE,
+      color: 0xf59e0b,
+      reason: 'Snake draft loot picker indicator',
+    }).catch(() => null) ?? undefined;
+  }
+
+  // Remove role from all current holders
+  if (pickerRole) {
+    const freshRole = await guild.roles.fetch(pickerRole.id).catch(() => null);
+    if (freshRole) {
+      for (const [, member] of freshRole.members) {
+        await member.roles.remove(freshRole).catch(() => null);
+      }
+    }
+  }
+
+  if (session.items.length > 0 && totalUnassigned === 0) return;
+
+  const effectivePosition = allAssignmentCount + session.skipCount;
+  const nextPickerId = getNextPicker(effectivePosition, draftOrder);
+  if (!nextPickerId) return;
+
+  if (pickerRole) {
+    const nextMember = await guild.members.fetch(nextPickerId).catch(() => null);
+    if (nextMember) await nextMember.roles.add(pickerRole).catch(() => null);
+  }
+
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/loot/sessions/${sessionId}`;
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel('View Loot Pool')
+      .setStyle(ButtonStyle.Link)
+      .setURL(lootUrl),
+  );
+
+  try {
+    const discordUser = await client.users.fetch(nextPickerId);
+    await discordUser.send({
+      content: `🐍 It's your turn to pick in the snake draft!\n\nClick below to view the remaining loot and select your reward.`,
+      components: [row],
+    });
+  } catch (err) {
+    console.error(`[bot] Failed to DM standalone snake draft picker ${nextPickerId}:`, err);
+  }
+}
+
 const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
   SNAKE_DRAFT: '🐍 Snake Draft',
@@ -121,7 +189,7 @@ const METHOD_LABELS: Record<string, string> = {
 
 export async function announceLootSessionStart(sessionId: string) {
   const session = await prisma.lootSession.findUnique({ where: { id: sessionId } });
-  if (!session) return;
+  if (!session || !session.eventId) return;
 
   const event = await prisma.event.findUnique({ where: { id: session.eventId } });
   if (!event?.threadId) return;
@@ -183,7 +251,7 @@ export async function announceLootResults(sessionId: string) {
     where: { id: sessionId },
     include: { items: { include: { assignments: true }, orderBy: { sortOrder: 'asc' } } },
   });
-  if (!session) return;
+  if (!session || !session.eventId) return;
 
   const event = await prisma.event.findUnique({ where: { id: session.eventId } });
   if (!event?.threadId) return;

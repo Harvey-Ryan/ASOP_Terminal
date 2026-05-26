@@ -235,9 +235,15 @@ export interface LootItemDto {
   assignments: LootAssignmentDto[];
 }
 
+export interface LootParticipant {
+  userId: string;
+  username: string;
+}
+
 export interface LootSessionDto {
   id: string;
-  eventId: string;
+  eventId: string | null;
+  name: string | null;
   guildId: string;
   method: LootMethod;
   status: 'OPEN' | 'COMPLETED';
@@ -245,9 +251,41 @@ export interface LootSessionDto {
   draftStarted: boolean;
   skipCount: number;
   dkpAward: number;
+  participants: LootParticipant[];
   items: LootItemDto[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LootHistoryItemDto {
+  id: string;
+  name: string;
+  assignments: {
+    userId: string;
+    username: string;
+    rollValue: number | null;
+    dkpSpent: number | null;
+    pickNumber: number | null;
+  }[];
+}
+
+export interface LootHistorySessionDto {
+  id: string;
+  eventId: string | null;
+  eventName: string | null;
+  name: string | null;
+  guildId: string;
+  method: LootMethod;
+  status: 'OPEN' | 'COMPLETED';
+  createdAt: string;
+  updatedAt: string;
+  items: LootHistoryItemDto[];
+}
+
+export interface CreateStandaloneLootSessionBody {
+  name: string;
+  method: LootMethod;
+  participants?: LootParticipant[];
 }
 
 export interface DkpBalanceDto {

@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
-import { announceLootResults, announceLootSessionStart, notifySnakeTurn, announceDraftOrder } from './services/lootService.js';
+import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { announceRoleReassignment } from './services/rsvpService.js';
@@ -115,6 +115,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await notifySnakeTurn(eventId).catch((err) =>
         console.error(`[bot:internal] notifySnakeTurn failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const standaloneSnakeTurnMatch = req.url?.match(/^\/trigger\/standalone-snake-turn\/([^/]+)$/);
+    if (standaloneSnakeTurnMatch) {
+      const sessionId = standaloneSnakeTurnMatch[1]!;
+      res.writeHead(202).end();
+      await notifyStandaloneSnakeTurn(sessionId).catch((err) =>
+        console.error(`[bot:internal] notifyStandaloneSnakeTurn failed for ${sessionId}:`, err),
       );
       return;
     }

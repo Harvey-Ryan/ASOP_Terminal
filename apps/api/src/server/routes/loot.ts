@@ -11,11 +11,14 @@ import type {
   ApiResponse,
   LootSessionDto,
   LootItemDto,
+  LootHistorySessionDto,
+  LootParticipant,
   DkpBalanceDto,
   DkpTransactionDto,
   LootMethod,
   MyPickDto,
   LootQueueItemDto,
+  CreateStandaloneLootSessionBody,
 } from '@dem/shared';
 
 export const lootRouter = Router();
@@ -31,7 +34,8 @@ const LOOT_METHODS = ['RANDOM_ROLL', 'DKP', 'SNAKE_DRAFT'] as const;
 function sessionToDto(s: SessionWithItems): LootSessionDto {
   return {
     id: s.id,
-    eventId: s.eventId,
+    eventId: s.eventId ?? null,
+    name: s.name ?? null,
     guildId: s.guildId,
     method: s.method as LootMethod,
     status: s.status as 'OPEN' | 'COMPLETED',
@@ -39,6 +43,7 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
     draftStarted: s.draftStarted,
     skipCount: s.skipCount,
     dkpAward: s.dkpAward,
+    participants: JSON.parse(s.participants) as LootParticipant[],
     items: [...s.items]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((item): LootItemDto => ({
@@ -67,6 +72,13 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
 async function fetchSession(eventId: string): Promise<SessionWithItems | null> {
   return prisma.lootSession.findUnique({
     where: { eventId },
+    include: { items: { include: { assignments: true } } },
+  });
+}
+
+async function fetchSessionById(sessionId: string): Promise<SessionWithItems | null> {
+  return prisma.lootSession.findUnique({
+    where: { id: sessionId },
     include: { items: { include: { assignments: true } } },
   });
 }
@@ -124,15 +136,15 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
     const isMyTurn = currentSnakePicker(session) === dbUser.discordId;
 
     const [event, guild] = await Promise.all([
-      prisma.event.findUnique({ where: { id: session.eventId }, select: { name: true } }),
+      session.eventId ? prisma.event.findUnique({ where: { id: session.eventId }, select: { name: true } }) : null,
       prisma.guild.findUnique({ where: { guildId: session.guildId }, select: { name: true } }),
     ]);
 
     picks.push({
       guildId: session.guildId,
       guildName: guild?.name ?? session.guildId,
-      eventId: session.eventId,
-      eventName: event?.name ?? 'Unknown',
+      eventId: session.eventId ?? null,
+      eventName: event?.name ?? session.name ?? 'Unknown',
       itemCount: totalUnassigned,
       isMyTurn,
     });
@@ -840,16 +852,15 @@ lootRouter.get('/:guildId/loot/recent', requireAuth, async (req, res) => {
     return;
   }
 
-  const event = await prisma.event.findUnique({
-    where: { id: session.eventId },
-    select: { id: true, name: true },
-  });
+  const event = session.eventId
+    ? await prisma.event.findUnique({ where: { id: session.eventId }, select: { id: true, name: true } })
+    : null;
 
   res.json({
     success: true,
     data: {
-      eventId: session.eventId,
-      eventName: event?.name ?? 'Unknown event',
+      eventId: session.eventId ?? null,
+      eventName: event?.name ?? session.name ?? 'Unknown event',
       method: session.method,
       sessionUpdatedAt: session.updatedAt.toISOString(),
       items: session.items
@@ -1059,4 +1070,532 @@ lootRouter.post('/:guildId/dkp/adjust', requireAuth, async (req, res) => {
   };
 
   res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto>);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── Standalone loot session routes (:guildId/loot/sessions/...)
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── GET history (all sessions server-wide, with items + winners) ──────────────
+
+lootRouter.get('/:guildId/loot/history', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertEventViewer(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const sessions = await prisma.lootSession.findMany({
+    where: { guildId },
+    orderBy: { updatedAt: 'desc' },
+    take: 100,
+    include: {
+      items: {
+        orderBy: { sortOrder: 'asc' },
+        include: { assignments: { orderBy: { assignedAt: 'asc' } } },
+      },
+    },
+  });
+
+  const eventIds = [...new Set(sessions.map((s) => s.eventId).filter(Boolean))] as string[];
+  const events = eventIds.length
+    ? await prisma.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, name: true } })
+    : [];
+  const eventMap = new Map(events.map((e) => [e.id, e.name]));
+
+  const data: LootHistorySessionDto[] = sessions.map((s) => ({
+    id: s.id,
+    eventId: s.eventId ?? null,
+    eventName: s.eventId ? (eventMap.get(s.eventId) ?? null) : null,
+    name: s.name ?? null,
+    guildId: s.guildId,
+    method: s.method as LootMethod,
+    status: s.status as 'OPEN' | 'COMPLETED',
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+    items: s.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      assignments: item.assignments.map((a) => ({
+        userId: a.userId,
+        username: a.username,
+        rollValue: a.rollValue,
+        dkpSpent: a.dkpSpent,
+        pickNumber: a.pickNumber,
+      })),
+    })),
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<LootHistorySessionDto[]>);
+});
+
+// ── GET active standalone sessions ────────────────────────────────────────────
+
+lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const sessions = await prisma.lootSession.findMany({
+    where: { guildId, eventId: null, status: 'OPEN' },
+    orderBy: { createdAt: 'desc' },
+    include: { items: { include: { assignments: true } } },
+  });
+  res.json({ success: true, data: sessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
+});
+
+// ── POST create standalone session ────────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const body = req.body as CreateStandaloneLootSessionBody;
+  let name: string;
+  let method: LootMethod;
+  let participants: LootParticipant[];
+  try {
+    name = requireStr(body.name, 'name', 200);
+    method = optEnum(body.method, 'method', LOOT_METHODS) ?? 'RANDOM_ROLL';
+    participants = Array.isArray(body.participants) ? body.participants : [];
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
+  }
+
+  const draftOrder = method === 'SNAKE_DRAFT'
+    ? JSON.stringify([...participants].sort(() => Math.random() - 0.5).map((p) => p.userId))
+    : '[]';
+
+  const session = await prisma.lootSession.create({
+    data: { guildId, name, method, participants: JSON.stringify(participants), draftOrder },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  res.status(201).json({ success: true, data: sessionToDto(session) } satisfies ApiResponse<LootSessionDto>);
+});
+
+// ── Helper: resolve standalone session, verify guild ownership ────────────────
+
+async function resolveStandaloneSession(sessionId: string, guildId: string): Promise<SessionWithItems | null> {
+  const session = await fetchSessionById(sessionId);
+  if (!session || session.guildId !== guildId || session.eventId !== null) return null;
+  return session;
+}
+
+// ── GET standalone session ────────────────────────────────────────────────────
+
+lootRouter.get('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    if (!draftOrder.includes(dbUser.discordId)) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
+
+  res.json({ success: true, data: sessionToDto(session) } satisfies ApiResponse<LootSessionDto>);
+});
+
+// ── PATCH standalone session settings ─────────────────────────────────────────
+
+lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const body = req.body as Record<string, unknown>;
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  let method: LootMethod | undefined;
+  let draftOrder: string[] | undefined;
+  let participants: LootParticipant[] | undefined;
+  let name: string | undefined;
+  try {
+    method = optEnum(body.method, 'method', LOOT_METHODS);
+    if (body.name !== undefined) name = requireStr(body.name, 'name', 200);
+    draftOrder = body.draftOrder !== undefined ? optStrArr(body.draftOrder, 'draftOrder', 500, 30) : undefined;
+    participants = Array.isArray(body.participants) ? body.participants as LootParticipant[] : undefined;
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
+    }
+    throw err;
+  }
+
+  if (draftOrder !== undefined && session.draftStarted) {
+    res.status(409).json({ success: false, error: 'Draft has already started — order cannot be changed' } satisfies ApiResponse); return;
+  }
+
+  const dedupedOrder = draftOrder ? [...new Set(draftOrder)] : undefined;
+
+  const updated = await prisma.lootSession.update({
+    where: { id: sessionId },
+    data: {
+      ...(name !== undefined ? { name } : {}),
+      ...(method ? { method } : {}),
+      ...(dedupedOrder !== undefined ? { draftOrder: JSON.stringify(dedupedOrder) } : {}),
+      ...(participants !== undefined ? { participants: JSON.stringify(participants) } : {}),
+    },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
+});
+
+// ── POST add item (standalone) ────────────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/items', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const body = req.body as Record<string, unknown>;
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  let name: string; let quantity: number; let excludePrevWinners: boolean;
+  try {
+    name = requireStr(body.name, 'name', 200);
+    quantity = optPosInt(body.quantity, 'quantity') ?? 1;
+    excludePrevWinners = typeof body.excludePrevWinners === 'boolean' ? body.excludePrevWinners : false;
+  } catch (err) {
+    if (err instanceof ValidationError) { res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return; }
+    throw err;
+  }
+
+  const count = await prisma.lootItem.count({ where: { sessionId } });
+  const item = await prisma.lootItem.create({
+    data: { sessionId, name, quantity, excludePrevWinners, sortOrder: count },
+    include: { assignments: true },
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { id: item.id, name: item.name, quantity: item.quantity, excludePrevWinners: item.excludePrevWinners, sortOrder: item.sortOrder, assignments: [] } satisfies LootItemDto,
+  } satisfies ApiResponse<LootItemDto>);
+});
+
+// ── PATCH update item (standalone) ────────────────────────────────────────────
+
+lootRouter.patch('/:guildId/loot/sessions/:sessionId/items/:itemId', requireAuth, async (req, res) => {
+  const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const body = req.body as Record<string, unknown>;
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  let name: string | undefined; let quantity: number | undefined; let excludePrevWinners: boolean | undefined; let sortOrder: number | undefined;
+  try {
+    if (body.name !== undefined) name = requireStr(body.name, 'name', 200);
+    quantity = optPosInt(body.quantity, 'quantity');
+    if (body.excludePrevWinners !== undefined) {
+      if (typeof body.excludePrevWinners !== 'boolean') throw new ValidationError('excludePrevWinners must be a boolean');
+      excludePrevWinners = body.excludePrevWinners;
+    }
+    sortOrder = optNonNegInt(body.sortOrder, 'sortOrder');
+  } catch (err) {
+    if (err instanceof ValidationError) { res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return; }
+    throw err;
+  }
+
+  const item = await prisma.lootItem.update({
+    where: { id: itemId, sessionId },
+    data: {
+      ...(name !== undefined ? { name } : {}),
+      ...(quantity !== undefined ? { quantity } : {}),
+      ...(excludePrevWinners !== undefined ? { excludePrevWinners } : {}),
+      ...(sortOrder !== undefined ? { sortOrder } : {}),
+    },
+    include: { assignments: true },
+  });
+
+  res.json({
+    success: true,
+    data: {
+      id: item.id, name: item.name, quantity: item.quantity,
+      excludePrevWinners: item.excludePrevWinners, sortOrder: item.sortOrder,
+      assignments: item.assignments.map((a) => ({
+        id: a.id, userId: a.userId, username: a.username, rollValue: a.rollValue,
+        dkpSpent: a.dkpSpent, pickNumber: a.pickNumber,
+        assignedAt: a.assignedAt.toISOString(), delivered: a.delivered, deliveredAt: a.deliveredAt?.toISOString() ?? null,
+      })),
+    } satisfies LootItemDto,
+  } satisfies ApiResponse<LootItemDto>);
+});
+
+// ── DELETE item (standalone) ──────────────────────────────────────────────────
+
+lootRouter.delete('/:guildId/loot/sessions/:sessionId/items/:itemId', requireAuth, async (req, res) => {
+  const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  await prisma.lootItem.delete({ where: { id: itemId, sessionId } }).catch(() => null);
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── POST roll (standalone, RANDOM_ROLL) ───────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/roll', requireAuth, async (req, res) => {
+  const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  const item = await prisma.lootItem.findUnique({ where: { id: itemId, sessionId } });
+  if (!item) { res.status(404).json({ success: false, error: 'Item not found' } satisfies ApiResponse); return; }
+
+  const participants: LootParticipant[] = JSON.parse(session.participants);
+  let eligible = participants.map((p) => p.userId);
+
+  if (item.excludePrevWinners) {
+    const prevWinners = await prisma.lootAssignment.findMany({
+      where: { item: { sessionId } },
+      select: { userId: true },
+    });
+    const winnerSet = new Set(prevWinners.map((w) => w.userId));
+    eligible = eligible.filter((id) => !winnerSet.has(id));
+  }
+
+  if (eligible.length === 0) {
+    res.status(400).json({ success: false, error: 'No eligible players to roll' } satisfies ApiResponse); return;
+  }
+
+  const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
+  const rolls = eligible
+    .map((userId) => ({ userId, username: usernameMap.get(userId) ?? userId, rollValue: Math.floor(Math.random() * 100) + 1 }))
+    .sort((a, b) => b.rollValue - a.rollValue);
+
+  const winner = rolls[0]!;
+  await prisma.lootAssignment.deleteMany({ where: { itemId } });
+  await prisma.lootAssignment.create({ data: { itemId, userId: winner.userId, username: winner.username, rollValue: winner.rollValue } });
+
+  res.json({ success: true, data: { rolls, winner } } satisfies ApiResponse);
+});
+
+// ── POST assign (standalone) ──────────────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requireAuth, async (req, res) => {
+  const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
+  const body = req.body as Record<string, unknown>;
+
+  let userId: string; let username: string; let pickNumber: number | undefined;
+  try {
+    userId = requireStr(body.userId, 'userId', 30);
+    username = requireStr(body.username, 'username', 100);
+    pickNumber = optNonNegInt(body.pickNumber, 'pickNumber');
+  } catch (err) {
+    if (err instanceof ValidationError) { res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return; }
+    throw err;
+  }
+
+  const isManager = await assertGuildManager(req, guildId);
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    const isSelf = dbUser && userId === dbUser.discordId;
+    const isPickerTurn = session.method === 'SNAKE_DRAFT' && session.status === 'OPEN' &&
+      dbUser && currentSnakePicker(session) === dbUser.discordId;
+    if (!isSelf || !isPickerTurn) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
+
+  await prisma.lootAssignment.deleteMany({ where: { itemId } });
+  await prisma.lootAssignment.create({ data: { itemId, userId, username, ...(pickNumber !== undefined ? { pickNumber } : {}) } });
+  await prisma.lootDraftQueue.deleteMany({ where: { itemId, sessionId } });
+
+  if (session.method === 'SNAKE_DRAFT' && session.status === 'OPEN') {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    const prevCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
+    const wasAssigned = session.items.some((i) => i.id === itemId && i.assignments.length > 0);
+    let autoPickCount = prevCount + (wasAssigned ? 0 : 1);
+    const participants: LootParticipant[] = JSON.parse(session.participants);
+    const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
+
+    while (true) {
+      const items = await prisma.lootItem.findMany({ where: { sessionId }, include: { assignments: true } });
+      const allDone = items.every((i) => i.assignments.length > 0);
+      const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * 2;
+      if (allDone || rotationDone) {
+        await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
+        res.json({ success: true } satisfies ApiResponse);
+        return;
+      }
+      const nextPickerId = snakePick(autoPickCount + session.skipCount, draftOrder);
+      if (!nextPickerId) break;
+      const queued = await prisma.lootDraftQueue.findMany({
+        where: { sessionId, userId: nextPickerId },
+        include: { item: { include: { assignments: true } } },
+        orderBy: { priority: 'asc' },
+      });
+      const topAvailable = queued.find((q) => q.item.assignments.length === 0) as typeof queued[number] | undefined;
+      if (!topAvailable) break;
+      const autoUsername = usernameMap.get(nextPickerId) ?? nextPickerId;
+      await prisma.lootAssignment.create({ data: { itemId: topAvailable.itemId, userId: nextPickerId, username: autoUsername, pickNumber: autoPickCount } });
+      await prisma.lootDraftQueue.deleteMany({ where: { itemId: topAvailable.itemId, sessionId } });
+      autoPickCount++;
+    }
+    triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
+  }
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── DELETE assignment (standalone) ────────────────────────────────────────────
+
+lootRouter.delete('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requireAuth, async (req, res) => {
+  const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  await prisma.lootAssignment.deleteMany({ where: { itemId } });
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── POST skip turn (standalone) ───────────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/skip-turn', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only for snake draft' } satisfies ApiResponse); return; }
+  if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Session already completed' } satisfies ApiResponse); return; }
+  if (!session.draftStarted) { res.status(400).json({ success: false, error: 'Draft has not started' } satisfies ApiResponse); return; }
+
+  const draftOrder: string[] = JSON.parse(session.draftOrder);
+  if (draftOrder.length === 0) { res.status(400).json({ success: false, error: 'Draft order is empty' } satisfies ApiResponse); return; }
+
+  const assignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
+  const currentPosition = assignmentCount + session.skipCount;
+  const currentPicker = snakePick(currentPosition, draftOrder);
+  let advance = 1;
+  while (advance < draftOrder.length && snakePick(currentPosition + advance, draftOrder) === currentPicker) advance++;
+
+  const updated = await prisma.lootSession.update({
+    where: { id: sessionId },
+    data: { skipCount: { increment: advance } },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
+  res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
+});
+
+// ── POST start draft (standalone) ─────────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/start-draft', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session || session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
+    res.status(400).json({ success: false, error: 'No open snake draft session' } satisfies ApiResponse); return;
+  }
+  if (session.draftStarted) { res.status(409).json({ success: false, error: 'Draft already started' } satisfies ApiResponse); return; }
+  await prisma.lootSession.update({ where: { id: sessionId }, data: { draftStarted: true } });
+  triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── GET draft queue (standalone) ──────────────────────────────────────────────
+
+lootRouter.get('/:guildId/loot/sessions/:sessionId/queue', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    if (!draftOrder.includes(dbUser.discordId)) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
+
+  const queueItems = await prisma.lootDraftQueue.findMany({
+    where: { sessionId, userId: dbUser.discordId },
+    include: { item: { include: { assignments: true } } },
+    orderBy: { priority: 'asc' },
+  });
+
+  const data: LootQueueItemDto[] = queueItems.map((q) => ({
+    itemId: q.itemId, itemName: q.item.name, priority: q.priority, assigned: q.item.assignments.length > 0,
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<LootQueueItemDto[]>);
+});
+
+// ── PUT draft queue (standalone) ──────────────────────────────────────────────
+
+lootRouter.put('/:guildId/loot/sessions/:sessionId/queue', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  const body = req.body as Record<string, unknown>;
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) {
+    const draftOrder: string[] = JSON.parse(session.draftOrder);
+    if (!draftOrder.includes(dbUser.discordId)) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
+
+  if (!Array.isArray(body.itemIds)) { res.status(400).json({ success: false, error: 'itemIds must be an array' } satisfies ApiResponse); return; }
+  const itemIds = body.itemIds as string[];
+  const validIds = new Set(session.items.map((i) => i.id));
+  if (!itemIds.every((id) => validIds.has(id))) { res.status(400).json({ success: false, error: 'Invalid item IDs' } satisfies ApiResponse); return; }
+
+  const userId = dbUser.discordId;
+  await prisma.$transaction(async (tx) => {
+    await tx.lootDraftQueue.deleteMany({ where: { sessionId, userId } });
+    for (let i = 0; i < itemIds.length; i++) {
+      await tx.lootDraftQueue.create({ data: { sessionId, userId, itemId: itemIds[i]!, priority: i } });
+    }
+  });
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── POST complete (standalone) ────────────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/complete', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Already completed' } satisfies ApiResponse); return; }
+
+  await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
+  res.json({ success: true } satisfies ApiResponse);
 });
