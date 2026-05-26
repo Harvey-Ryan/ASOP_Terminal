@@ -349,7 +349,8 @@ export interface ServerImageDto {
 export interface MyPickDto {
   guildId: string;
   guildName: string;
-  eventId: string;
+  sessionId: string;
+  eventId: string | null;
   eventName: string;
   /** Number of unassigned items remaining in the session */
   itemCount: number;

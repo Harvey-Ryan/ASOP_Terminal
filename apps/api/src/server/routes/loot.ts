@@ -143,6 +143,7 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
     picks.push({
       guildId: session.guildId,
       guildName: guild?.name ?? session.guildId,
+      sessionId: session.id,
       eventId: session.eventId ?? null,
       eventName: event?.name ?? session.name ?? 'Unknown',
       itemCount: totalUnassigned,

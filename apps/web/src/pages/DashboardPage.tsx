@@ -34,7 +34,10 @@ function DraftPickCard({ pick }: { pick: MyPickDto }) {
         className={`shrink-0 border-0 ${isMyTurn ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
         variant={isMyTurn ? 'default' : 'outline'}
       >
-        <Link to={`/dashboard/servers/${pick.guildId}/events/${pick.eventId}/loot`}>
+        <Link to={pick.eventId
+          ? `/dashboard/servers/${pick.guildId}/events/${pick.eventId}/loot`
+          : `/dashboard/servers/${pick.guildId}/loot/sessions/${pick.sessionId}`
+        }>
           {isMyTurn ? 'Pick Now' : 'View Loot'}
         </Link>
       </Button>
@@ -78,7 +81,7 @@ export function DashboardPage() {
         <div className="space-y-2">
           <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Active Drafts</h2>
           {myPicks.map((pick) => (
-            <DraftPickCard key={`${pick.guildId}-${pick.eventId}`} pick={pick} />
+            <DraftPickCard key={pick.sessionId} pick={pick} />
           ))}
         </div>
       )}
