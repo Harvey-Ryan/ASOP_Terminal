@@ -131,6 +131,7 @@ function StandaloneItemRow({
   currentUserId?: string;
   isManager: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [rollResult, setRollResult] = useState<{
     rolls: { userId: string; username: string; rollValue: number }[];
     winner: { userId: string; username: string; rollValue: number };
@@ -163,11 +164,42 @@ function StandaloneItemRow({
     onSuccess: onDelete,
   });
 
+  // Add all unassigned instances of the same item name to the draft queue at once,
+  // so the preference persists until every copy is claimed (requirement 3).
+  const addToQueueMutation = useMutation({
+    mutationFn: async () => {
+      const sameNameIds = session.items
+        .filter((i) => i.name === item.name && i.assignments.length === 0)
+        .map((i) => i.id);
+      const currentQueue = queryClient.getQueryData<LootQueueItemDto[]>(
+        ['loot-queue-standalone', guildId, sessionId],
+      ) ?? [];
+      const alreadyQueued = new Set(currentQueue.map((q) => q.itemId));
+      const toAdd = sameNameIds.filter((id) => !alreadyQueued.has(id));
+      if (toAdd.length === 0) return;
+      await lootApi.setQueueStandalone(guildId, sessionId, [...currentQueue.map((q) => q.itemId), ...toAdd]);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loot-queue-standalone', guildId, sessionId] }),
+  });
+
   const nextPicker = session.method === 'SNAKE_DRAFT'
     ? snakePick(allAssignmentCount + skipCount, session.draftOrder)
     : null;
   const nextPickerUsername = nextPicker ? (participantMap.get(nextPicker) ?? nextPicker) : null;
   const isMyTurn = session.method === 'SNAKE_DRAFT' && !isAssigned && nextPicker !== null;
+
+  // Whether this user is in the draft order (not necessarily the current picker).
+  const isDraftParticipant = session.draftOrder.includes(currentUserId ?? '');
+  // Is this user the current picker?
+  const isCurrentPicker = nextPicker === currentUserId;
+
+  // Check if all same-name unassigned instances are already in the queue.
+  const currentQueueData = queryClient.getQueryData<LootQueueItemDto[]>(
+    ['loot-queue-standalone', guildId, sessionId],
+  ) ?? [];
+  const queuedIds = new Set(currentQueueData.map((q) => q.itemId));
+  const sameNameUnassigned = session.items.filter((i) => i.name === item.name && i.assignments.length === 0);
+  const allInQueue = sameNameUnassigned.length > 0 && sameNameUnassigned.every((i) => queuedIds.has(i.id));
 
   return (
     <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
@@ -228,22 +260,40 @@ function StandaloneItemRow({
         </div>
       )}
 
-      {/* Snake draft pick */}
-      {session.method === 'SNAKE_DRAFT' && isMyTurn && (isManager || nextPicker === currentUserId) && (
-        <div className="flex items-center gap-2">
-          {isManager && (
-            <span className="text-sm text-muted-foreground">
-              Pick for <span className="font-medium text-foreground">{nextPickerUsername}</span>:
-            </span>
+      {/* Snake draft — only render interactive controls for managers and draft participants */}
+      {session.method === 'SNAKE_DRAFT' && (isManager || isDraftParticipant) && (
+        <>
+          {/* Manager/current-picker: award / pick button */}
+          {isMyTurn && (isManager || isCurrentPicker) && (
+            <div className="flex items-center gap-2">
+              {isManager && (
+                <span className="text-sm text-muted-foreground">
+                  Pick for <span className="font-medium text-foreground">{nextPickerUsername}</span>:
+                </span>
+              )}
+              <Button
+                size="sm"
+                onClick={() => assignMutation.mutate({ userId: nextPicker!, username: nextPickerUsername!, pickNumber: allAssignmentCount })}
+                disabled={assignMutation.isPending}
+              >
+                {isManager ? 'Award' : 'Pick This Item'}
+              </Button>
+            </div>
           )}
-          <Button
-            size="sm"
-            onClick={() => assignMutation.mutate({ userId: nextPicker!, username: nextPickerUsername!, pickNumber: allAssignmentCount })}
-            disabled={assignMutation.isPending}
-          >
-            {isManager ? 'Award' : 'Pick This Item'}
-          </Button>
-        </div>
+
+          {/* Participant (non-manager), not their turn: add to draft board */}
+          {!isAssigned && !isManager && isDraftParticipant && !isCurrentPicker && session.draftStarted && session.status === 'OPEN' && (
+            <Button
+              size="sm"
+              variant={allInQueue ? 'ghost' : 'outline'}
+              className={allInQueue ? 'text-muted-foreground cursor-default' : 'gap-1'}
+              onClick={() => !allInQueue && addToQueueMutation.mutate()}
+              disabled={addToQueueMutation.isPending || allInQueue}
+            >
+              {allInQueue ? '✓ On Board' : <><Plus className="h-3 w-3" />Draft Board</>}
+            </Button>
+          )}
+        </>
       )}
     </div>
   );
@@ -277,7 +327,19 @@ function StandaloneQueueCard({ session, guildId, sessionId }: { session: LootSes
 
   const byItemId = new Map<string, LootQueueItemDto>((queueQuery.data ?? []).map((q) => [q.itemId, q]));
   const inQueueIds = new Set(localIds);
-  const addable = session.items.filter((i) => i.assignments.length === 0 && !inQueueIds.has(i.id));
+
+  // Names already represented in the queue — used to hide duplicates from the add list.
+  const queuedNames = new Set(
+    localIds.map((id) => {
+      const e = byItemId.get(id);
+      const si = session.items.find((i) => i.id === id);
+      return e?.itemName ?? si?.name ?? id;
+    }),
+  );
+  // Only show items whose name isn't represented in the queue at all.
+  const addable = session.items.filter(
+    (i) => i.assignments.length === 0 && !inQueueIds.has(i.id) && !queuedNames.has(i.name),
+  );
 
   function addItem(itemId: string) { const next = [...localIds, itemId]; setLocalIds(next); saveMutation.mutate(next); }
   function removeItem(itemId: string) { const next = localIds.filter((id) => id !== itemId); setLocalIds(next); saveMutation.mutate(next); }
@@ -319,6 +381,14 @@ function StandaloneQueueCard({ session, guildId, sessionId }: { session: LootSes
           const assigned = entry?.assigned ?? (sessionItem?.assignments.length ?? 0) > 0;
           const isDragTarget = dragOverIndex === index;
 
+          // Count how many same-name items exist in the queue and show ×N on the first occurrence.
+          const getName = (id: string) => {
+            const e = byItemId.get(id); const si = session.items.find((i) => i.id === id);
+            return e?.itemName ?? si?.name ?? id;
+          };
+          const sameNameCount = localIds.filter((id) => getName(id) === name).length;
+          const isFirstOfName = localIds.findIndex((id) => getName(id) === name) === index;
+
           return (
             <div
               key={itemId}
@@ -335,6 +405,9 @@ function StandaloneQueueCard({ session, guildId, sessionId }: { session: LootSes
               {!isCompleted && <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
               <span className="text-xs text-muted-foreground w-4 shrink-0 text-right">{index + 1}.</span>
               <span className="flex-1 min-w-0 truncate">{name}</span>
+              {sameNameCount > 1 && isFirstOfName && (
+                <span className="text-[10px] font-semibold text-primary/70 shrink-0">×{sameNameCount}</span>
+              )}
               {!isCompleted && (
                 <button type="button" onClick={() => removeItem(itemId)} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" title="Remove from queue">
                   <X className="h-3 w-3" />
