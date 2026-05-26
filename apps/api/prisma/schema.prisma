@@ -106,6 +106,8 @@ model GuildSettings {
   dkpLabel          String @default("DKP")
   /// Discord channel snowflake for standalone DKP auction announcements
   dkpAnnouncementChannelId String?
+  /// JSON: string[] — Discord role snowflake IDs allowed to create standalone loot sessions (empty = manager-only)
+  lootDraftCreatorRoles String @default("[]")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -840,7 +842,7 @@ model UexCommodity {
 
 // ── Exchange (member inventory) ───────────────────────────────────────────────
 
-/// One inventory slot per member per item. Unique on (guildId, userId, itemType, externalItemId).
+/// One inventory slot per member per item per location. Unique on (guildId, userId, itemType, externalItemId, location).
 model InventoryEntry {
   id             String   @id @default(cuid())
   guildId        String
@@ -863,7 +865,7 @@ model InventoryEntry {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@unique([guildId, userId, itemType, externalItemId])
+  @@unique([guildId, userId, itemType, externalItemId, location])
   @@index([guildId, itemType, externalItemId])
   @@index([guildId, userId])
 }

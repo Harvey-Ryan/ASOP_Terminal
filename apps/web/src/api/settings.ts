@@ -21,11 +21,13 @@ export interface GuildSettingsData {
   moduleEditorRoles: string[];
   viewerRoles: string[];
   dkpLabel: string;
+  lootDraftCreatorRoles: string[];
 }
 
 export interface GuildMyPermissions {
   canManageEvents: boolean;
   canViewEvents: boolean;
+  canCreateLootDraft: boolean;
 }
 
 function requireData<T>(r: ApiResponse<T>): T {

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { lootApi } from '@/api/loot';
+import { settingsApi } from '@/api/settings';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageGuild } from '@dem/shared';
 import type { LootHistorySessionDto, LootMethod } from '@dem/shared';
@@ -228,6 +229,13 @@ export function LootModulePage() {
 
   const isManager = guilds.some((g) => g.id === guildId);
 
+  const permissionsQuery = useQuery({
+    queryKey: ['my-permissions', guildId],
+    queryFn: () => settingsApi.getMyPermissions(guildId!),
+    enabled: !!guildId && !isManager,
+  });
+  const canCreateSession = isManager || (permissionsQuery.data?.canCreateLootDraft ?? false);
+
   const sessionsQuery = useQuery({
     queryKey: ['loot-sessions', guildId],
     queryFn: () => lootApi.listSessions(guildId!),
@@ -253,7 +261,7 @@ export function LootModulePage() {
           <h1 className="text-2xl font-bold tracking-tight">🎁 Loot</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">Manage loot sessions independently of events.</p>
         </div>
-        {isManager && (
+        {canCreateSession && (
           <Button className="gap-2" onClick={() => setNewSessionOpen(true)}>
             <Plus className="h-4 w-4" />
             New Session
@@ -285,7 +293,7 @@ export function LootModulePage() {
             <Card>
               <CardContent className="py-10 text-center">
                 <p className="text-muted-foreground text-sm">No active loot sessions.</p>
-                {isManager && (
+                {canCreateSession && (
                   <Button variant="outline" className="mt-4 gap-2" onClick={() => setNewSessionOpen(true)}>
                     <Plus className="h-4 w-4" />
                     Start one now

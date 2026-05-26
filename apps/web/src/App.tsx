@@ -17,6 +17,7 @@ import { AuctionsPage } from './pages/AuctionsPage';
 import { DkpPage } from './pages/DkpPage';
 import { ExchangePage } from './pages/ExchangePage';
 import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
+import { LootSettingsPage } from './pages/settings/LootSettingsPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="servers/:guildId/dkp" element={<DkpPage />} />
           <Route path="servers/:guildId/exchange" element={<ExchangePage />} />
           <Route path="servers/:guildId/settings/modules/exchange" element={<ExchangeSettingsPage />} />
+          <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />
           <Route path="servers/:guildId/loot" element={<LootModulePage />} />
           <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
         </Route>

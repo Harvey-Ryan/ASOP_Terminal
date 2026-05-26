@@ -53,8 +53,8 @@ exchangeRouter.get('/:guildId/exchange/inventory', requireAuth, async (req, res)
 });
 
 // ── PUT /api/guilds/:guildId/exchange/inventory ───────────────────────────────
-// Upserts one inventory entry. If (guildId, userId, itemType, externalItemId)
-// already exists it is updated; otherwise a new row is inserted.
+// Upserts one inventory entry. If (guildId, userId, itemType, externalItemId, location)
+// matches an existing row it is updated; otherwise a new row is inserted.
 
 exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
@@ -86,34 +86,20 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
     }
   }
 
-  const row = await prisma.inventoryEntry.upsert({
-    where: {
-      guildId_userId_itemType_externalItemId: {
-        guildId,
-        userId,
-        itemType: body.itemType,
-        externalItemId: body.externalItemId,
-      },
-    },
-    create: {
-      guildId,
-      userId,
-      username,
-      itemType: body.itemType,
-      externalItemId: body.externalItemId,
-      itemName: body.itemName.trim(),
-      quantity: body.quantity,
-      qualityLevel: body.qualityLevel ?? null,
-      location: body.location?.trim() || null,
-    },
-    update: {
-      username,
-      itemName: body.itemName.trim(),
-      quantity: body.quantity,
-      qualityLevel: body.qualityLevel ?? null,
-      location: body.location?.trim() || null,
-    },
+  const location = body.location?.trim() || null;
+
+  const existing = await prisma.inventoryEntry.findFirst({
+    where: { guildId, userId, itemType: body.itemType, externalItemId: body.externalItemId, location },
   });
+
+  const row = existing
+    ? await prisma.inventoryEntry.update({
+        where: { id: existing.id },
+        data: { username, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel: body.qualityLevel ?? null, location },
+      })
+    : await prisma.inventoryEntry.create({
+        data: { guildId, userId, username, itemType: body.itemType, externalItemId: body.externalItemId, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel: body.qualityLevel ?? null, location },
+      });
 
   res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
 });

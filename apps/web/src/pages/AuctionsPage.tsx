@@ -51,6 +51,7 @@ function AuctionCard({
   currentUserId,
   myRawBalance,
   isManager,
+  canBid,
   dkpLabel,
   onChanged,
 }: {
@@ -59,6 +60,7 @@ function AuctionCard({
   currentUserId?: string;
   myRawBalance: number;
   isManager: boolean;
+  canBid: boolean;
   dkpLabel: string;
   onChanged: () => void;
 }) {
@@ -148,8 +150,8 @@ function AuctionCard({
           )}
         </div>
 
-        {/* Bid input — any authenticated user */}
-        <div className="space-y-1.5">
+        {/* Bid input — guild members only */}
+        {canBid && <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Max Bid
           </label>
@@ -202,7 +204,7 @@ function AuctionCard({
               {(bidMutation.error as Error).message}
             </p>
           )}
-        </div>
+        </div>}
 
         {/* Manager controls */}
         {isManager && (
@@ -328,6 +330,7 @@ export function AuctionsPage() {
     (a) => a.status === 'CLOSED' || a.status === 'CANCELLED',
   );
   const myRawBalance = myDkpQuery.data?.balance ?? 0;
+  const canBid = isManager || myDkpQuery.isSuccess;
 
   if (auctionsQuery.isLoading) {
     return (
@@ -521,6 +524,7 @@ export function AuctionsPage() {
               currentUserId={user?.id}
               myRawBalance={myRawBalance}
               isManager={isManager}
+              canBid={canBid}
               dkpLabel={dkpLabel}
               onChanged={invalidate}
             />

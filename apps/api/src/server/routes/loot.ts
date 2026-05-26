@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
+import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStrArr, optEnum, optNonNegInt, optPosInt } from '../../lib/validate.js';
 import type {
@@ -1161,7 +1162,7 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
 
 lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootDraftCreator(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
   const body = req.body as CreateStandaloneLootSessionBody;

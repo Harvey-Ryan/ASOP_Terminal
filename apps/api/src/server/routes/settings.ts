@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, optStr, optStrArr, requireStr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
@@ -31,11 +32,12 @@ interface DiscordRole {
 settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
-    const [canManageEvents, canViewEvents] = await Promise.all([
+    const [canManageEvents, canViewEvents, canCreateLootDraft] = await Promise.all([
       assertEventCreator(req, guildId),
       assertEventViewer(req, guildId),
+      assertLootDraftCreator(req, guildId),
     ]);
-    res.json({ success: true, data: { canManageEvents, canViewEvents } } satisfies ApiResponse);
+    res.json({ success: true, data: { canManageEvents, canViewEvents, canCreateLootDraft } } satisfies ApiResponse);
   } catch (err) {
     console.error('[settings/my-permissions]', err);
     res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
@@ -130,16 +132,17 @@ interface PermissionFields {
   viewerRoles: string[];
 }
 
-async function readPermissionFields(settingsId: string): Promise<PermissionFields & { dkpLabel: string }> {
+async function readPermissionFields(settingsId: string): Promise<PermissionFields & { dkpLabel: string; lootDraftCreatorRoles: string[] }> {
   const settings = await prisma.guildSettings.findUnique({
     where: { id: settingsId },
-    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true, dkpLabel: true },
+    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true, dkpLabel: true, lootDraftCreatorRoles: true },
   });
   return {
-    eventCreatorRoles: JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[],
-    moduleEditorRoles: JSON.parse(settings?.moduleEditorRoles ?? '[]') as string[],
-    viewerRoles:       JSON.parse(settings?.viewerRoles       ?? '[]') as string[],
-    dkpLabel:          settings?.dkpLabel ?? 'DKP',
+    eventCreatorRoles:      JSON.parse(settings?.eventCreatorRoles      ?? '[]') as string[],
+    moduleEditorRoles:      JSON.parse(settings?.moduleEditorRoles      ?? '[]') as string[],
+    viewerRoles:            JSON.parse(settings?.viewerRoles            ?? '[]') as string[],
+    dkpLabel:               settings?.dkpLabel ?? 'DKP',
+    lootDraftCreatorRoles:  JSON.parse(settings?.lootDraftCreatorRoles  ?? '[]') as string[],
   };
 }
 
@@ -186,9 +189,9 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel } = s
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles } = s
       ? await readPermissionFields(s.id)
-      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [], dkpLabel: 'DKP' };
+      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [], dkpLabel: 'DKP', lootDraftCreatorRoles: [] };
     res.json({
       success: true,
       data: {
@@ -199,6 +202,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         moduleEditorRoles,
         viewerRoles,
         dkpLabel,
+        lootDraftCreatorRoles,
       },
     } satisfies ApiResponse);
   } catch (err) {
@@ -222,6 +226,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     moduleEditorRoles?: string[];
     viewerRoles?: string[];
     dkpLabel?: string;
+    lootDraftCreatorRoles?: string[];
   };
   try {
     body = {
@@ -232,6 +237,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       moduleEditorRoles:         raw.moduleEditorRoles !== undefined ? optStrArr(raw.moduleEditorRoles, 'moduleEditorRoles', 100, 30) : undefined,
       viewerRoles:               raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
       dkpLabel:                  raw.dkpLabel !== undefined ? requireStr(raw.dkpLabel, 'dkpLabel', 30) : undefined,
+      lootDraftCreatorRoles:     raw.lootDraftCreatorRoles !== undefined ? optStrArr(raw.lootDraftCreatorRoles, 'lootDraftCreatorRoles', 100, 30) : undefined,
     };
   } catch (err) {
     if (err instanceof ValidationError) {
@@ -241,8 +247,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     throw err;
   }
 
-  // moduleEditorRoles, viewerRoles, and dkpLabel are admin-only fields — require full guild manager
-  const needsAdmin = body.moduleEditorRoles !== undefined || body.viewerRoles !== undefined || body.dkpLabel !== undefined;
+  // moduleEditorRoles, viewerRoles, dkpLabel, and lootDraftCreatorRoles are admin-only fields — require full guild manager
+  const needsAdmin = body.moduleEditorRoles !== undefined || body.viewerRoles !== undefined || body.dkpLabel !== undefined || body.lootDraftCreatorRoles !== undefined;
   const allowed = needsAdmin
     ? await assertGuildManager(req, guildId)
     : await assertModuleEditor(req, guildId);
@@ -269,6 +275,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.moduleEditorRoles !== undefined ? { moduleEditorRoles: JSON.stringify(body.moduleEditorRoles) } : {}),
         ...(body.viewerRoles !== undefined ? { viewerRoles: JSON.stringify(body.viewerRoles) } : {}),
         ...(body.dkpLabel !== undefined ? { dkpLabel: body.dkpLabel } : {}),
+        ...(body.lootDraftCreatorRoles !== undefined ? { lootDraftCreatorRoles: JSON.stringify(body.lootDraftCreatorRoles) } : {}),
       },
       create: {
         guildId: guild.id,
@@ -279,10 +286,11 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         moduleEditorRoles: JSON.stringify(body.moduleEditorRoles ?? []),
         viewerRoles: JSON.stringify(body.viewerRoles ?? []),
         dkpLabel: body.dkpLabel ?? 'DKP',
+        lootDraftCreatorRoles: JSON.stringify(body.lootDraftCreatorRoles ?? []),
       },
     });
 
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel } = await readPermissionFields(s.id);
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles } = await readPermissionFields(s.id);
     res.json({
       success: true,
       data: {
@@ -293,6 +301,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         moduleEditorRoles,
         viewerRoles,
         dkpLabel,
+        lootDraftCreatorRoles,
       },
     } satisfies ApiResponse);
   } catch (err) {
