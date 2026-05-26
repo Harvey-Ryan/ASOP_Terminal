@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { loadDisplayName, saveDisplayName } from '@/lib/displayName';
 import { canManageGuild } from '@dem/shared';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { HelpPanel } from '@/components/HelpPanel';
+import { settingsApi } from '@/api/settings';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -111,6 +113,16 @@ export function DashboardLayout() {
   const activeGuild = guilds.find((g) => g.id === activeGuildId);
   const showAdminNav = !!activeGuild && canManageGuild(activeGuild);
   const dkpLabel = useDkpLabel(activeGuildId);
+
+  const { data: myPerms } = useQuery({
+    queryKey: ['my-permissions', activeGuildId],
+    queryFn: () => settingsApi.getMyPermissions(activeGuildId!),
+    enabled: !!activeGuildId,
+    staleTime: 5 * 60_000,
+  });
+  const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
+  const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
+  const lootEnabled     = myPerms?.lootEnabled      ?? true;
 
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
@@ -261,37 +273,45 @@ export function DashboardLayout() {
                 Dashboard
               </NavLink>
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/auctions`}
-                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <Gavel className="h-4 w-4 shrink-0" />
-                Auctions
-              </NavLink>
+              {dkpEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/auctions`}
+                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <Gavel className="h-4 w-4 shrink-0" />
+                  Auctions
+                </NavLink>
+              )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/dkp`}
-                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <Coins className="h-4 w-4 shrink-0" />
-                {dkpLabel}
-              </NavLink>
+              {dkpEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/dkp`}
+                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <Coins className="h-4 w-4 shrink-0" />
+                  {dkpLabel}
+                </NavLink>
+              )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/exchange`}
-                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <ArrowLeftRight className="h-4 w-4 shrink-0" />
-                Exchange
-              </NavLink>
+              {exchangeEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/exchange`}
+                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <ArrowLeftRight className="h-4 w-4 shrink-0" />
+                  Exchange
+                </NavLink>
+              )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/loot`}
-                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <Package className="h-4 w-4 shrink-0" />
-                Loot
-              </NavLink>
+              {lootEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/loot`}
+                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <Package className="h-4 w-4 shrink-0" />
+                  Loot
+                </NavLink>
+              )}
             </>
           ) : (
             <>

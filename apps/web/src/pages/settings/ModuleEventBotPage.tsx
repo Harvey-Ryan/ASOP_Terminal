@@ -1,80 +1,80 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Info, X } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
-import type { DiscordChannel, GuildSettingsData } from '@/api/settings';
-import type { DiscordRoleDto } from '@dem/shared';
+import type { GuildSettingsData } from '@/api/settings';
+import { ChannelSelect, ToggleSwitch, RolePicker } from '@/components/settings/SettingsControls';
 
-// Discord channel type constants
-const CH_TYPE: Record<number, string> = {
-  0:  '#',   // GUILD_TEXT
-  2:  '🔊',  // GUILD_VOICE
-  4:  '📁',  // GUILD_CATEGORY
-  5:  '📢',  // GUILD_ANNOUNCEMENT
-  13: '🎭',  // GUILD_STAGE_VOICE
-  15: '📋',  // GUILD_FORUM
-  16: '🖼️', // GUILD_MEDIA
-};
+const TIMEZONES = [
+  { value: 'UTC',                               label: 'UTC' },
+  { value: 'America/New_York',                  label: 'Eastern — New York' },
+  { value: 'America/Chicago',                   label: 'Central — Chicago' },
+  { value: 'America/Denver',                    label: 'Mountain — Denver' },
+  { value: 'America/Los_Angeles',               label: 'Pacific — Los Angeles' },
+  { value: 'America/Phoenix',                   label: 'Arizona — Phoenix' },
+  { value: 'America/Anchorage',                 label: 'Alaska — Anchorage' },
+  { value: 'Pacific/Honolulu',                  label: 'Hawaii — Honolulu' },
+  { value: 'America/Toronto',                   label: 'Eastern Canada — Toronto' },
+  { value: 'America/Vancouver',                 label: 'Pacific Canada — Vancouver' },
+  { value: 'America/Mexico_City',               label: 'Mexico City' },
+  { value: 'America/Bogota',                    label: 'Colombia — Bogotá' },
+  { value: 'America/Lima',                      label: 'Peru — Lima' },
+  { value: 'America/Santiago',                  label: 'Chile — Santiago' },
+  { value: 'America/Sao_Paulo',                 label: 'Brazil — São Paulo' },
+  { value: 'America/Argentina/Buenos_Aires',    label: 'Argentina — Buenos Aires' },
+  { value: 'Atlantic/Reykjavik',                label: 'Iceland — Reykjavik' },
+  { value: 'Europe/London',                     label: 'UK — London' },
+  { value: 'Europe/Dublin',                     label: 'Ireland — Dublin' },
+  { value: 'Europe/Lisbon',                     label: 'Portugal — Lisbon' },
+  { value: 'Europe/Paris',                      label: 'France — Paris' },
+  { value: 'Europe/Berlin',                     label: 'Germany — Berlin' },
+  { value: 'Europe/Madrid',                     label: 'Spain — Madrid' },
+  { value: 'Europe/Rome',                       label: 'Italy — Rome' },
+  { value: 'Europe/Amsterdam',                  label: 'Netherlands — Amsterdam' },
+  { value: 'Europe/Brussels',                   label: 'Belgium — Brussels' },
+  { value: 'Europe/Warsaw',                     label: 'Poland — Warsaw' },
+  { value: 'Europe/Prague',                     label: 'Czech Republic — Prague' },
+  { value: 'Europe/Vienna',                     label: 'Austria — Vienna' },
+  { value: 'Europe/Stockholm',                  label: 'Sweden — Stockholm' },
+  { value: 'Europe/Oslo',                       label: 'Norway — Oslo' },
+  { value: 'Europe/Copenhagen',                 label: 'Denmark — Copenhagen' },
+  { value: 'Europe/Helsinki',                   label: 'Finland — Helsinki' },
+  { value: 'Europe/Athens',                     label: 'Greece — Athens' },
+  { value: 'Europe/Bucharest',                  label: 'Romania — Bucharest' },
+  { value: 'Europe/Sofia',                      label: 'Bulgaria — Sofia' },
+  { value: 'Europe/Istanbul',                   label: 'Turkey — Istanbul' },
+  { value: 'Europe/Moscow',                     label: 'Russia — Moscow' },
+  { value: 'Asia/Jerusalem',                    label: 'Israel — Jerusalem' },
+  { value: 'Asia/Riyadh',                       label: 'Saudi Arabia — Riyadh' },
+  { value: 'Asia/Dubai',                        label: 'UAE — Dubai' },
+  { value: 'Asia/Karachi',                      label: 'Pakistan — Karachi' },
+  { value: 'Asia/Kolkata',                      label: 'India — Kolkata' },
+  { value: 'Asia/Dhaka',                        label: 'Bangladesh — Dhaka' },
+  { value: 'Asia/Bangkok',                      label: 'Thailand — Bangkok' },
+  { value: 'Asia/Singapore',                    label: 'Singapore' },
+  { value: 'Asia/Hong_Kong',                    label: 'Hong Kong' },
+  { value: 'Asia/Shanghai',                     label: 'China — Shanghai' },
+  { value: 'Asia/Tokyo',                        label: 'Japan — Tokyo' },
+  { value: 'Asia/Seoul',                        label: 'South Korea — Seoul' },
+  { value: 'Australia/Perth',                   label: 'Australia — Perth' },
+  { value: 'Australia/Brisbane',                label: 'Australia — Brisbane' },
+  { value: 'Australia/Sydney',                  label: 'Australia — Sydney' },
+  { value: 'Pacific/Auckland',                  label: 'New Zealand — Auckland' },
+];
 
-function channelLabel(ch: DiscordChannel): string {
-  const prefix = CH_TYPE[ch.type] ?? '·';
-  return `${prefix}  ${ch.name}`;
-}
-
-function roleColorCss(color: number): string {
-  if (color === 0) return '#99aab5';
-  return `#${color.toString(16).padStart(6, '0')}`;
-}
-
-function ChannelSelect({
-  id,
-  channels,
-  value,
-  onChange,
-}: {
-  id: string;
-  channels: DiscordChannel[];
-  value: string | null;
-  onChange: (val: string | null) => void;
-}) {
-  const categories = channels.filter((c) => c.type === 4);
-  const uncategorised = channels.filter((c) => c.type !== 4 && !c.parent_id);
-  const childrenOf = (catId: string) => channels.filter((c) => c.parent_id === catId);
-
-  return (
-    <select
-      id={id}
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value || null)}
-      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-    >
-      <option value="">— Not set —</option>
-
-      {uncategorised.map((ch) => (
-        <option key={ch.id} value={ch.id}>
-          {channelLabel(ch)}
-        </option>
-      ))}
-
-      {categories.map((cat) => {
-        const children = childrenOf(cat.id);
-        return (
-          <optgroup key={cat.id} label={`📁  ${cat.name}`}>
-            <option value={cat.id}>{channelLabel(cat)}</option>
-            {children.map((ch) => (
-              <option key={ch.id} value={ch.id}>
-                {channelLabel(ch)}
-              </option>
-            ))}
-          </optgroup>
-        );
-      })}
-    </select>
-  );
-}
+type EventBotForm = Pick<
+  GuildSettingsData,
+  | 'eventBotEnabled'
+  | 'forumChannelId'
+  | 'eventChannelId'
+  | 'voiceCategoryId'
+  | 'timezone'
+  | 'eventCreatorRoles'
+>;
 
 export function ModuleEventBotPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -98,19 +98,25 @@ export function ModuleEventBotPage() {
     enabled: !!guildId,
   });
 
-  const [form, setForm] = useState<Pick<GuildSettingsData, 'forumChannelId' | 'voiceCategoryId' | 'eventCreatorRoles'>>({
+  const [form, setForm] = useState<EventBotForm>({
+    eventBotEnabled: true,
     forumChannelId: null,
+    eventChannelId: null,
     voiceCategoryId: null,
+    timezone: 'UTC',
     eventCreatorRoles: [],
   });
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty]           = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
       setForm({
-        forumChannelId: saved.forumChannelId,
-        voiceCategoryId: saved.voiceCategoryId,
+        eventBotEnabled:   saved.eventBotEnabled   ?? true,
+        forumChannelId:    saved.forumChannelId    ?? null,
+        eventChannelId:    saved.eventChannelId    ?? null,
+        voiceCategoryId:   saved.voiceCategoryId   ?? null,
+        timezone:          saved.timezone          ?? 'UTC',
         eventCreatorRoles: saved.eventCreatorRoles ?? [],
       });
       setDirty(false);
@@ -127,139 +133,151 @@ export function ModuleEventBotPage() {
     },
   });
 
-  type EventBotForm = Pick<GuildSettingsData, 'forumChannelId' | 'voiceCategoryId' | 'eventCreatorRoles'>;
   function setField<K extends keyof EventBotForm>(key: K, value: EventBotForm[K]) {
     setForm((f) => ({ ...f, [key]: value }));
     setDirty(true);
     setSavedFlash(false);
   }
 
-  function addCreatorRole(roleId: string) {
-    setForm((f) => ({ ...f, eventCreatorRoles: [...(f.eventCreatorRoles ?? []), roleId] }));
-    setDirty(true); setSavedFlash(false);
-  }
-  function removeCreatorRole(roleId: string) {
-    setForm((f) => ({ ...f, eventCreatorRoles: (f.eventCreatorRoles ?? []).filter((id) => id !== roleId) }));
-    setDirty(true); setSavedFlash(false);
-  }
-
-  const channels = channelData?.channels ?? [];
-  const roles = rolesData ?? [];
-  const selectedCreatorIds = form.eventCreatorRoles ?? [];
-  const unselectedCreatorRoles = roles.filter((r) => !selectedCreatorIds.includes(r.id));
+  const channels  = channelData?.channels ?? [];
+  const roles     = rolesData ?? [];
   const isLoading = channelsLoading || settingsLoading || rolesLoading;
+  const textChannels     = channels.filter((c) => [0, 4, 5].includes(c.type));
+  const categoryChannels = channels.filter((c) => c.type === 4);
 
   return (
-    <div className="space-y-8 max-w-xl">
+    <div className="space-y-6 max-w-xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Event Bot</h1>
         <p className="mt-1 text-muted-foreground">Configure channel routing and permissions for the Event Bot module.</p>
       </div>
 
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Skeleton className="h-16 rounded-lg" />
           <Skeleton className="h-16 rounded-lg" />
-          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg" />
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Forum Channel */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="forumChannel">
-              Forum Channel
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Where the bot posts event threads and roster embeds. Must be a Forum channel.
-            </p>
-            <ChannelSelect
-              id="forumChannel"
-              channels={channels}
-              value={form.forumChannelId}
-              onChange={(v) => setField('forumChannelId', v)}
-            />
-          </div>
 
-          {/* VC Category */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="vcCategory">
-              Voice Channel Category
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Category where the bot creates event voice channels.
-            </p>
-            <ChannelSelect
-              id="vcCategory"
-              channels={channels}
-              value={form.voiceCategoryId}
-              onChange={(v) => setField('voiceCategoryId', v)}
-            />
-          </div>
+          {/* Module toggle */}
+          <Card>
+            <CardContent className="pt-4">
+              <ToggleSwitch
+                checked={form.eventBotEnabled}
+                onChange={(v) => setField('eventBotEnabled', v)}
+                label="Event Bot enabled"
+                description={form.eventBotEnabled
+                  ? 'Members can create and view events.'
+                  : 'Event Bot is disabled. The Events nav link will be hidden for all members.'}
+              />
+            </CardContent>
+          </Card>
 
-          {/* Divider */}
-          <div className="border-t border-border" />
-
-          {/* Event Creators */}
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium">Event Creators</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Roles allowed to create events in addition to server admins.
-              </p>
-            </div>
-
-            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>
-                Server admins can always create events. If no roles are selected, only admins can create events.
-              </span>
-            </div>
-
-            {roles.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No assignable roles found in this server.</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedCreatorIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedCreatorIds.map((roleId) => {
-                      const role = roles.find((r: DiscordRoleDto) => r.id === roleId);
-                      if (!role) return null;
-                      return (
-                        <span key={roleId} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-sm font-medium">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: roleColorCss(role.color) }} />
-                          {role.name}
-                          <button type="button" onClick={() => removeCreatorRole(roleId)} className="ml-0.5 text-muted-foreground hover:text-destructive transition-colors" aria-label={`Remove ${role.name}`}>
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                {unselectedCreatorRoles.length > 0 ? (
-                  <select value="" onChange={(e) => { if (e.target.value) addCreatorRole(e.target.value); }} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                    <option value="">Add a role…</option>
-                    {unselectedCreatorRoles.map((role: DiscordRoleDto) => <option key={role.id} value={role.id}>{role.name}</option>)}
-                  </select>
-                ) : selectedCreatorIds.length > 0 ? (
-                  <p className="text-xs text-muted-foreground italic">All roles have been added.</p>
-                ) : null}
+          {/* Channels */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Channel Routing</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="forumChannel">Forum Channel</label>
+                <p className="text-xs text-muted-foreground">
+                  Where the bot posts event threads and roster embeds. Must be a Forum channel.
+                </p>
+                <ChannelSelect
+                  id="forumChannel"
+                  channels={channels}
+                  value={form.forumChannelId}
+                  onChange={(v) => setField('forumChannelId', v)}
+                  types={[15]}
+                />
               </div>
-            )}
-          </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="eventChannel">Scheduled Events Channel</label>
+                <p className="text-xs text-muted-foreground">
+                  Text or announcement channel where the bot creates Discord Scheduled Events.
+                </p>
+                <ChannelSelect
+                  id="eventChannel"
+                  channels={textChannels}
+                  value={form.eventChannelId}
+                  onChange={(v) => setField('eventChannelId', v)}
+                  types={[0, 5]}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="vcCategory">Voice Channel Category</label>
+                <p className="text-xs text-muted-foreground">
+                  Category where the bot auto-creates event voice channels 30 minutes before start.
+                </p>
+                <ChannelSelect
+                  id="vcCategory"
+                  channels={categoryChannels}
+                  value={form.voiceCategoryId}
+                  onChange={(v) => setField('voiceCategoryId', v)}
+                  types={[4]}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Timezone */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Timezone</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                All event times are displayed in this timezone across the bot and dashboard.
+              </p>
+              <select
+                value={form.timezone}
+                onChange={(e) => setField('timezone', e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </select>
+            </CardContent>
+          </Card>
+
+          {/* Event Creator Roles */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Event Creators</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  Server admins can always create events. If no roles are selected, only admins can create events.
+                </span>
+              </div>
+              {roles.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No assignable roles found in this server.</p>
+              ) : (
+                <RolePicker
+                  roles={roles}
+                  selected={form.eventCreatorRoles}
+                  onChange={(ids) => setField('eventCreatorRoles', ids)}
+                />
+              )}
+            </CardContent>
+          </Card>
 
           {/* Save */}
-          <div className="flex items-center gap-3 pt-2">
-            <Button
-              onClick={() => mutation.mutate(form)}
-              disabled={!dirty || mutation.isPending}
-            >
+          <div className="flex items-center gap-3">
+            <Button onClick={() => mutation.mutate(form)} disabled={!dirty || mutation.isPending}>
               {mutation.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
             {savedFlash && (
               <span className="flex items-center gap-1.5 text-sm text-green-500">
-                <Check className="h-4 w-4" />
-                Saved
+                <Check className="h-4 w-4" /> Saved
               </span>
             )}
             {mutation.isError && (

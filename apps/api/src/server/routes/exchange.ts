@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import type { ApiResponse, InventoryEntryDto, InventorySearchGroup, UpsertInventoryEntryBody, InventoryItemType } from '@dem/shared';
 
 export const exchangeRouter = Router();
@@ -42,6 +43,9 @@ function toDto(row: {
 
 exchangeRouter.get('/:guildId/exchange/inventory', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
+    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
+  }
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
   const rows = await prisma.inventoryEntry.findMany({
@@ -148,6 +152,9 @@ exchangeRouter.delete('/:guildId/exchange/inventory/all', requireAuth, async (re
 
 exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
+    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
+  }
   const itemType = req.query.itemType as string | undefined;
   const externalItemId = parseInt(String(req.query.externalItemId ?? ''), 10);
 

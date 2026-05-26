@@ -6,7 +6,7 @@ import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
 import { triggerBot } from '../../lib/triggerBot.js';
-import { ValidationError, optStr, optStrArr, requireStr } from '../../lib/validate.js';
+import { ValidationError, optStr, optStrArr, optBool, optNonNegInt, requireStr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const settingsRouter = Router();
@@ -37,7 +37,20 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
       assertEventViewer(req, guildId),
       assertLootDraftCreator(req, guildId),
     ]);
-    res.json({ success: true, data: { canManageEvents, canViewEvents, canCreateLootDraft } } satisfies ApiResponse);
+    const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
+    const s = guild?.settings;
+    res.json({
+      success: true,
+      data: {
+        canManageEvents,
+        canViewEvents,
+        canCreateLootDraft,
+        eventBotEnabled:  s?.eventBotEnabled  ?? true,
+        dkpEnabled:       s?.dkpEnabled       ?? true,
+        lootEnabled:      s?.lootEnabled      ?? true,
+        exchangeEnabled:  s?.exchangeEnabled  ?? true,
+      },
+    } satisfies ApiResponse);
   } catch (err) {
     console.error('[settings/my-permissions]', err);
     res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
@@ -195,14 +208,24 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        forumChannelId: s?.forumChannelId ?? null,
-        voiceCategoryId: s?.voiceCategoryId ?? null,
-        dkpAnnouncementChannelId: s?.dkpAnnouncementChannelId ?? null,
+        forumChannelId:             s?.forumChannelId             ?? null,
+        eventChannelId:             s?.eventChannelId             ?? null,
+        voiceCategoryId:            s?.voiceCategoryId            ?? null,
+        lootChannelId:              s?.lootChannelId              ?? null,
+        dkpAnnouncementChannelId:   s?.dkpAnnouncementChannelId   ?? null,
+        timezone:                   s?.timezone                   ?? 'UTC',
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
         dkpLabel,
         lootDraftCreatorRoles,
+        eventBotEnabled:            s?.eventBotEnabled            ?? true,
+        dkpEnabled:                 s?.dkpEnabled                 ?? true,
+        lootEnabled:                s?.lootEnabled                ?? true,
+        exchangeEnabled:            s?.exchangeEnabled            ?? true,
+        dkpDefaultAuctionDuration:  s?.dkpDefaultAuctionDuration  ?? 24,
+        dkpMinBid:                  s?.dkpMinBid                  ?? 0,
+        lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
       },
     } satisfies ApiResponse);
   } catch (err) {
@@ -220,24 +243,47 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
   // Validate before checking permissions
   let body: {
     forumChannelId?: string | null;
+    eventChannelId?: string | null;
     voiceCategoryId?: string | null;
+    lootChannelId?: string | null;
     dkpAnnouncementChannelId?: string | null;
+    timezone?: string;
     eventCreatorRoles?: string[];
     moduleEditorRoles?: string[];
     viewerRoles?: string[];
     dkpLabel?: string;
     lootDraftCreatorRoles?: string[];
+    eventBotEnabled?: boolean;
+    dkpEnabled?: boolean;
+    lootEnabled?: boolean;
+    exchangeEnabled?: boolean;
+    dkpDefaultAuctionDuration?: number;
+    dkpMinBid?: number;
+    lootDefaultMethod?: string;
   };
   try {
+    const rawDur = raw.dkpDefaultAuctionDuration !== undefined ? optNonNegInt(raw.dkpDefaultAuctionDuration, 'dkpDefaultAuctionDuration') : undefined;
+    const rawMin = raw.dkpMinBid !== undefined ? optNonNegInt(raw.dkpMinBid, 'dkpMinBid') : undefined;
+    const LOOT_METHODS = ['RANDOM_ROLL', 'DKP', 'SNAKE_DRAFT'] as const;
     body = {
       forumChannelId:            raw.forumChannelId !== undefined ? optStr(raw.forumChannelId, 'forumChannelId', 30) : undefined,
+      eventChannelId:            raw.eventChannelId !== undefined ? optStr(raw.eventChannelId, 'eventChannelId', 30) : undefined,
       voiceCategoryId:           raw.voiceCategoryId !== undefined ? optStr(raw.voiceCategoryId, 'voiceCategoryId', 30) : undefined,
+      lootChannelId:             raw.lootChannelId !== undefined ? optStr(raw.lootChannelId, 'lootChannelId', 30) : undefined,
       dkpAnnouncementChannelId:  raw.dkpAnnouncementChannelId !== undefined ? optStr(raw.dkpAnnouncementChannelId, 'dkpAnnouncementChannelId', 30) : undefined,
+      timezone:                  raw.timezone !== undefined ? requireStr(raw.timezone, 'timezone', 60) : undefined,
       eventCreatorRoles:         raw.eventCreatorRoles !== undefined ? optStrArr(raw.eventCreatorRoles, 'eventCreatorRoles', 100, 30) : undefined,
       moduleEditorRoles:         raw.moduleEditorRoles !== undefined ? optStrArr(raw.moduleEditorRoles, 'moduleEditorRoles', 100, 30) : undefined,
       viewerRoles:               raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
       dkpLabel:                  raw.dkpLabel !== undefined ? requireStr(raw.dkpLabel, 'dkpLabel', 30) : undefined,
       lootDraftCreatorRoles:     raw.lootDraftCreatorRoles !== undefined ? optStrArr(raw.lootDraftCreatorRoles, 'lootDraftCreatorRoles', 100, 30) : undefined,
+      eventBotEnabled:           raw.eventBotEnabled !== undefined ? optBool(raw.eventBotEnabled, 'eventBotEnabled') : undefined,
+      dkpEnabled:                raw.dkpEnabled !== undefined ? optBool(raw.dkpEnabled, 'dkpEnabled') : undefined,
+      lootEnabled:               raw.lootEnabled !== undefined ? optBool(raw.lootEnabled, 'lootEnabled') : undefined,
+      exchangeEnabled:           raw.exchangeEnabled !== undefined ? optBool(raw.exchangeEnabled, 'exchangeEnabled') : undefined,
+      dkpDefaultAuctionDuration: rawDur !== undefined ? Math.min(168, Math.max(1, rawDur)) : undefined,
+      dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
+      lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
     };
   } catch (err) {
     if (err instanceof ValidationError) {
@@ -247,8 +293,16 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     throw err;
   }
 
-  // moduleEditorRoles, viewerRoles, dkpLabel, and lootDraftCreatorRoles are admin-only fields — require full guild manager
-  const needsAdmin = body.moduleEditorRoles !== undefined || body.viewerRoles !== undefined || body.dkpLabel !== undefined || body.lootDraftCreatorRoles !== undefined;
+  // Enable toggles, editor/viewer roles, dkpLabel, and lootDraftCreatorRoles are admin-only fields — require full guild manager
+  const needsAdmin =
+    body.moduleEditorRoles !== undefined ||
+    body.viewerRoles !== undefined ||
+    body.dkpLabel !== undefined ||
+    body.lootDraftCreatorRoles !== undefined ||
+    body.eventBotEnabled !== undefined ||
+    body.dkpEnabled !== undefined ||
+    body.lootEnabled !== undefined ||
+    body.exchangeEnabled !== undefined;
   const allowed = needsAdmin
     ? await assertGuildManager(req, guildId)
     : await assertModuleEditor(req, guildId);
@@ -268,25 +322,45 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     const s = await prisma.guildSettings.upsert({
       where: { guildId: guild.id },
       update: {
-        ...(body.forumChannelId !== undefined ? { forumChannelId: body.forumChannelId } : {}),
-        ...(body.voiceCategoryId !== undefined ? { voiceCategoryId: body.voiceCategoryId } : {}),
-        ...(body.dkpAnnouncementChannelId !== undefined ? { dkpAnnouncementChannelId: body.dkpAnnouncementChannelId } : {}),
-        ...(body.eventCreatorRoles !== undefined ? { eventCreatorRoles: JSON.stringify(body.eventCreatorRoles) } : {}),
-        ...(body.moduleEditorRoles !== undefined ? { moduleEditorRoles: JSON.stringify(body.moduleEditorRoles) } : {}),
-        ...(body.viewerRoles !== undefined ? { viewerRoles: JSON.stringify(body.viewerRoles) } : {}),
-        ...(body.dkpLabel !== undefined ? { dkpLabel: body.dkpLabel } : {}),
-        ...(body.lootDraftCreatorRoles !== undefined ? { lootDraftCreatorRoles: JSON.stringify(body.lootDraftCreatorRoles) } : {}),
+        ...(body.forumChannelId !== undefined            ? { forumChannelId: body.forumChannelId }                                   : {}),
+        ...(body.eventChannelId !== undefined            ? { eventChannelId: body.eventChannelId }                                   : {}),
+        ...(body.voiceCategoryId !== undefined           ? { voiceCategoryId: body.voiceCategoryId }                                 : {}),
+        ...(body.lootChannelId !== undefined             ? { lootChannelId: body.lootChannelId }                                     : {}),
+        ...(body.dkpAnnouncementChannelId !== undefined  ? { dkpAnnouncementChannelId: body.dkpAnnouncementChannelId }               : {}),
+        ...(body.timezone !== undefined                  ? { timezone: body.timezone }                                               : {}),
+        ...(body.eventCreatorRoles !== undefined         ? { eventCreatorRoles: JSON.stringify(body.eventCreatorRoles) }             : {}),
+        ...(body.moduleEditorRoles !== undefined         ? { moduleEditorRoles: JSON.stringify(body.moduleEditorRoles) }             : {}),
+        ...(body.viewerRoles !== undefined               ? { viewerRoles: JSON.stringify(body.viewerRoles) }                         : {}),
+        ...(body.dkpLabel !== undefined                  ? { dkpLabel: body.dkpLabel }                                               : {}),
+        ...(body.lootDraftCreatorRoles !== undefined     ? { lootDraftCreatorRoles: JSON.stringify(body.lootDraftCreatorRoles) }     : {}),
+        ...(body.eventBotEnabled !== undefined           ? { eventBotEnabled: body.eventBotEnabled }                                 : {}),
+        ...(body.dkpEnabled !== undefined                ? { dkpEnabled: body.dkpEnabled }                                           : {}),
+        ...(body.lootEnabled !== undefined               ? { lootEnabled: body.lootEnabled }                                         : {}),
+        ...(body.exchangeEnabled !== undefined           ? { exchangeEnabled: body.exchangeEnabled }                                 : {}),
+        ...(body.dkpDefaultAuctionDuration !== undefined ? { dkpDefaultAuctionDuration: body.dkpDefaultAuctionDuration }             : {}),
+        ...(body.dkpMinBid !== undefined                 ? { dkpMinBid: body.dkpMinBid }                                             : {}),
+        ...(body.lootDefaultMethod !== undefined         ? { lootDefaultMethod: body.lootDefaultMethod }                             : {}),
       },
       create: {
-        guildId: guild.id,
-        forumChannelId: body.forumChannelId ?? null,
-        voiceCategoryId: body.voiceCategoryId ?? null,
-        dkpAnnouncementChannelId: body.dkpAnnouncementChannelId ?? null,
-        eventCreatorRoles: JSON.stringify(body.eventCreatorRoles ?? []),
-        moduleEditorRoles: JSON.stringify(body.moduleEditorRoles ?? []),
-        viewerRoles: JSON.stringify(body.viewerRoles ?? []),
-        dkpLabel: body.dkpLabel ?? 'DKP',
-        lootDraftCreatorRoles: JSON.stringify(body.lootDraftCreatorRoles ?? []),
+        guildId:                    guild.id,
+        forumChannelId:             body.forumChannelId             ?? null,
+        eventChannelId:             body.eventChannelId             ?? null,
+        voiceCategoryId:            body.voiceCategoryId            ?? null,
+        lootChannelId:              body.lootChannelId              ?? null,
+        dkpAnnouncementChannelId:   body.dkpAnnouncementChannelId   ?? null,
+        timezone:                   body.timezone                   ?? 'UTC',
+        eventCreatorRoles:          JSON.stringify(body.eventCreatorRoles          ?? []),
+        moduleEditorRoles:          JSON.stringify(body.moduleEditorRoles          ?? []),
+        viewerRoles:                JSON.stringify(body.viewerRoles                ?? []),
+        dkpLabel:                   body.dkpLabel                   ?? 'DKP',
+        lootDraftCreatorRoles:      JSON.stringify(body.lootDraftCreatorRoles      ?? []),
+        eventBotEnabled:            body.eventBotEnabled            ?? true,
+        dkpEnabled:                 body.dkpEnabled                 ?? true,
+        lootEnabled:                body.lootEnabled                ?? true,
+        exchangeEnabled:            body.exchangeEnabled            ?? true,
+        dkpDefaultAuctionDuration:  body.dkpDefaultAuctionDuration  ?? 24,
+        dkpMinBid:                  body.dkpMinBid                  ?? 0,
+        lootDefaultMethod:          body.lootDefaultMethod          ?? 'RANDOM_ROLL',
       },
     });
 
@@ -294,14 +368,24 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        forumChannelId: s.forumChannelId ?? null,
-        voiceCategoryId: s.voiceCategoryId ?? null,
-        dkpAnnouncementChannelId: s.dkpAnnouncementChannelId ?? null,
+        forumChannelId:             s.forumChannelId             ?? null,
+        eventChannelId:             s.eventChannelId             ?? null,
+        voiceCategoryId:            s.voiceCategoryId            ?? null,
+        lootChannelId:              s.lootChannelId              ?? null,
+        dkpAnnouncementChannelId:   s.dkpAnnouncementChannelId   ?? null,
+        timezone:                   s.timezone                   ?? 'UTC',
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
         dkpLabel,
         lootDraftCreatorRoles,
+        eventBotEnabled:            s.eventBotEnabled            ?? true,
+        dkpEnabled:                 s.dkpEnabled                 ?? true,
+        lootEnabled:                s.lootEnabled                ?? true,
+        exchangeEnabled:            s.exchangeEnabled            ?? true,
+        dkpDefaultAuctionDuration:  s.dkpDefaultAuctionDuration  ?? 24,
+        dkpMinBid:                  s.dkpMinBid                  ?? 0,
+        lootDefaultMethod:          s.lootDefaultMethod          ?? 'RANDOM_ROLL',
       },
     } satisfies ApiResponse);
   } catch (err) {

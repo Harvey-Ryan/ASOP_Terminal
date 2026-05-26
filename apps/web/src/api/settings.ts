@@ -15,19 +15,33 @@ export interface GuildChannels {
 
 export interface GuildSettingsData {
   forumChannelId: string | null;
+  eventChannelId: string | null;
   voiceCategoryId: string | null;
+  lootChannelId: string | null;
   dkpAnnouncementChannelId: string | null;
+  timezone: string;
   eventCreatorRoles: string[];
   moduleEditorRoles: string[];
   viewerRoles: string[];
   dkpLabel: string;
   lootDraftCreatorRoles: string[];
+  eventBotEnabled: boolean;
+  dkpEnabled: boolean;
+  lootEnabled: boolean;
+  exchangeEnabled: boolean;
+  dkpDefaultAuctionDuration: number;
+  dkpMinBid: number;
+  lootDefaultMethod: string;
 }
 
 export interface GuildMyPermissions {
   canManageEvents: boolean;
   canViewEvents: boolean;
   canCreateLootDraft: boolean;
+  eventBotEnabled: boolean;
+  dkpEnabled: boolean;
+  lootEnabled: boolean;
+  exchangeEnabled: boolean;
 }
 
 function requireData<T>(r: ApiResponse<T>): T {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optPosInt } from '../../lib/validate.js';
 import type { ApiResponse, AuctionDto, AuctionBidDto } from '@dem/shared';
@@ -124,6 +125,9 @@ export async function maybeAutoCloseStandalone(auctionId: string): Promise<void>
 
 auctionRouter.get('/:guildId/auctions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEnabled(guildId, 'dkpEnabled'))) {
+    res.status(403).json({ success: false, error: 'DKP module is disabled' } satisfies ApiResponse); return;
+  }
 
   // Lazy-close any expired auctions
   const expired = await prisma.auction.findMany({
@@ -160,6 +164,10 @@ auctionRouter.post('/:guildId/auctions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const body = req.body as Record<string, unknown>;
 
+  if (!(await assertModuleEnabled(guildId, 'dkpEnabled'))) {
+    res.status(403).json({ success: false, error: 'DKP module is disabled' } satisfies ApiResponse);
+    return;
+  }
   if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;

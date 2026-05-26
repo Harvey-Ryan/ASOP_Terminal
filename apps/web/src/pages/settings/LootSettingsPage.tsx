@@ -1,145 +1,202 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { Check, Info, Package } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
+import type { GuildSettingsData } from '@/api/settings';
+import { ChannelSelect, ToggleSwitch, RolePicker } from '@/components/settings/SettingsControls';
 
-function roleColorCss(color: number): string {
-  if (color === 0) return '#99aab5';
-  return `#${color.toString(16).padStart(6, '0')}`;
-}
+const LOOT_METHODS = [
+  { value: 'RANDOM_ROLL', label: '🎲 Random Roll — items are distributed by dice roll' },
+  { value: 'DKP',         label: '🪙 DKP Auction — members bid using their DKP balance' },
+  { value: 'SNAKE_DRAFT', label: '🐍 Snake Draft — turn-based draft in a snake order' },
+];
+
+type LootForm = Pick<
+  GuildSettingsData,
+  | 'lootEnabled'
+  | 'lootChannelId'
+  | 'lootDefaultMethod'
+  | 'lootDraftCreatorRoles'
+>;
 
 export function LootSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
+  const queryClient = useQueryClient();
 
-  const rolesQuery = useQuery({
+  const { data: channelData, isLoading: channelsLoading } = useQuery({
+    queryKey: ['channels', guildId],
+    queryFn: () => settingsApi.getChannels(guildId!),
+    enabled: !!guildId,
+  });
+
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['roles', guildId],
     queryFn: () => settingsApi.getRoles(guildId!),
     enabled: !!guildId,
   });
 
-  const settingsQuery = useQuery({
+  const { data: saved, isLoading: settingsLoading } = useQuery({
     queryKey: ['settings', guildId],
     queryFn: () => settingsApi.getSettings(guildId!),
     enabled: !!guildId,
   });
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [dirty, setDirty] = useState(false);
+  const [form, setForm] = useState<LootForm>({
+    lootEnabled:          true,
+    lootChannelId:        null,
+    lootDefaultMethod:    'RANDOM_ROLL',
+    lootDraftCreatorRoles: [],
+  });
+  const [dirty, setDirty]           = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    if (settingsQuery.data) {
-      setSelected(new Set(settingsQuery.data.lootDraftCreatorRoles));
+    if (saved) {
+      setForm({
+        lootEnabled:           saved.lootEnabled           ?? true,
+        lootChannelId:         saved.lootChannelId         ?? null,
+        lootDefaultMethod:     saved.lootDefaultMethod     ?? 'RANDOM_ROLL',
+        lootDraftCreatorRoles: saved.lootDraftCreatorRoles ?? [],
+      });
       setDirty(false);
     }
-  }, [settingsQuery.data]);
+  }, [saved]);
 
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { lootDraftCreatorRoles: [...selected] }),
-    onSuccess: () => {
+  const mutation = useMutation({
+    mutationFn: (data: Partial<GuildSettingsData>) => settingsApi.updateSettings(guildId!, data),
+    onSuccess: (data) => {
+      if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2500);
     },
   });
 
-  function toggle(roleId: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(roleId) ? next.delete(roleId) : next.add(roleId);
-      return next;
-    });
+  function setField<K extends keyof LootForm>(key: K, value: LootForm[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
     setDirty(true);
     setSavedFlash(false);
   }
 
-  const isLoading = rolesQuery.isLoading || settingsQuery.isLoading;
-  const roles = rolesQuery.data ?? [];
+  const channels    = channelData?.channels ?? [];
+  const textChannels = channels.filter((c) => [0, 4, 5].includes(c.type));
+  const roles       = rolesData ?? [];
+  const isLoading   = channelsLoading || settingsLoading || rolesLoading;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-6 max-w-xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Loot Module</h1>
-        <p className="mt-1 text-muted-foreground">Configure who can create standalone loot sessions.</p>
+        <p className="mt-1 text-muted-foreground">Configure loot distribution defaults and access control.</p>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Loot Session Creators
-          </CardTitle>
-          <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>
-              Server admins can always create loot sessions. Select roles below to restrict session creation
-              to specific roles. If no roles are selected, any server member can create a session.
-            </span>
-          </div>
-        </CardHeader>
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
+        </div>
+      ) : (
+        <div className="space-y-6">
 
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-9 rounded-md" />
-              <Skeleton className="h-9 rounded-md" />
-              <Skeleton className="h-9 rounded-md" />
-            </div>
-          ) : roles.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">
-              No roles found. Make sure the bot is in your server.
-            </p>
-          ) : (
-            <div className="space-y-1.5">
-              {roles.map((role) => {
-                const isSelected = selected.has(role.id);
-                return (
-                  <button
-                    key={role.id}
-                    type="button"
-                    onClick={() => toggle(role.id)}
-                    className={`w-full flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors text-left ${
-                      isSelected
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/40 hover:bg-accent/50'
-                    }`}
-                  >
-                    <span
-                      className="h-3 w-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: roleColorCss(role.color) }}
-                    />
-                    <span className="flex-1 font-medium">{role.name}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* Module toggle */}
+          <Card>
+            <CardContent className="pt-4">
+              <ToggleSwitch
+                checked={form.lootEnabled}
+                onChange={(v) => setField('lootEnabled', v)}
+                label="Loot Module enabled"
+                description={form.lootEnabled
+                  ? 'Members can create and participate in loot sessions.'
+                  : 'Loot is disabled. The Loot nav link will be hidden for all members.'}
+              />
+            </CardContent>
+          </Card>
 
-          <div className="flex items-center gap-3 pt-2">
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={!dirty || saveMutation.isPending}
-            >
-              {saveMutation.isPending ? 'Saving…' : 'Save Changes'}
+          {/* Results channel */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Results Channel</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                When a loot session is completed, the bot posts a summary to this channel. Leave unset to skip posting.
+              </p>
+              <ChannelSelect
+                id="lootChannel"
+                channels={textChannels}
+                value={form.lootChannelId}
+                onChange={(v) => setField('lootChannelId', v)}
+                types={[0, 5]}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Default method */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Default Distribution Method</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                Pre-selected method when a new standalone session is created.
+              </p>
+              <select
+                value={form.lootDefaultMethod}
+                onChange={(e) => setField('lootDefaultMethod', e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {LOOT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </CardContent>
+          </Card>
+
+          {/* Session creator roles */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Session Creators</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  Server admins can always create loot sessions. Select roles below to restrict session creation to specific roles. If no roles are selected, any member can create a session.
+                </span>
+              </div>
+              {roles.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No assignable roles found in this server.</p>
+              ) : (
+                <RolePicker
+                  roles={roles}
+                  selected={form.lootDraftCreatorRoles}
+                  onChange={(ids) => setField('lootDraftCreatorRoles', ids)}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Save */}
+          <div className="flex items-center gap-3">
+            <Button onClick={() => mutation.mutate(form)} disabled={!dirty || mutation.isPending}>
+              {mutation.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
             {savedFlash && (
               <span className="flex items-center gap-1.5 text-sm text-green-500">
-                <Check className="h-4 w-4" />
-                Saved
+                <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {saveMutation.isError && (
+            {mutation.isError && (
               <span className="text-sm text-destructive">Failed to save.</span>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

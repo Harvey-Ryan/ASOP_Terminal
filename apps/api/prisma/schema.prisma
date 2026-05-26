@@ -108,6 +108,20 @@ model GuildSettings {
   dkpAnnouncementChannelId String?
   /// JSON: string[] — Discord role snowflake IDs allowed to create standalone loot sessions (empty = manager-only)
   lootDraftCreatorRoles String @default("[]")
+  /// Whether the Event Bot module is enabled for this guild
+  eventBotEnabled       Boolean  @default(true)
+  /// Whether the DKP / Auctions module is enabled for this guild
+  dkpEnabled            Boolean  @default(true)
+  /// Whether the Loot module is enabled for this guild
+  lootEnabled           Boolean  @default(true)
+  /// Whether the Exchange module is enabled for this guild
+  exchangeEnabled       Boolean  @default(true)
+  /// Default duration in hours for new standalone DKP auctions (1–168)
+  dkpDefaultAuctionDuration Int  @default(24)
+  /// Minimum valid bid amount for DKP auctions (0 = no minimum)
+  dkpMinBid             Int      @default(0)
+  /// Default loot method for new sessions: RANDOM_ROLL | DKP | SNAKE_DRAFT
+  lootDefaultMethod     String   @default("RANDOM_ROLL")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

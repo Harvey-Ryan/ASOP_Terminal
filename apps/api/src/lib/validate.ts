@@ -65,3 +65,9 @@ export function optStrArr(val: unknown, field: string, maxItems = 50, maxItemLen
   if (val === undefined || val === null) return undefined;
   return requireStrArr(val, field, maxItems, maxItemLen);
 }
+
+export function optBool(val: unknown, field: string): boolean | undefined {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val !== 'boolean') throw new ValidationError(`${field} must be a boolean`);
+  return val;
+}
