@@ -250,6 +250,7 @@ export interface LootSessionDto {
   draftOrder: string[];
   draftStarted: boolean;
   skipCount: number;
+  totalRounds: number;
   dkpAward: number;
   participants: LootParticipant[];
   items: LootItemDto[];
@@ -286,6 +287,7 @@ export interface CreateStandaloneLootSessionBody {
   name: string;
   method: LootMethod;
   participants?: LootParticipant[];
+  totalRounds?: number;
 }
 
 export interface DkpBalanceDto {

@@ -113,11 +113,12 @@ function NewSessionDialog({
 }) {
   const [name, setName] = useState('');
   const [method, setMethod] = useState<LootMethod>('RANDOM_ROLL');
+  const [totalRounds, setTotalRounds] = useState(1);
 
   const STANDALONE_METHODS: LootMethod[] = ['RANDOM_ROLL', 'SNAKE_DRAFT'];
 
   const createMutation = useMutation({
-    mutationFn: () => lootApi.createStandaloneSession(guildId, { name: name.trim(), method }),
+    mutationFn: () => lootApi.createStandaloneSession(guildId, { name: name.trim(), method, ...(method === 'SNAKE_DRAFT' ? { totalRounds } : {}) }),
     onSuccess: (session) => {
       setName('');
       setMethod('RANDOM_ROLL');
@@ -129,6 +130,7 @@ function NewSessionDialog({
     if (createMutation.isPending) return;
     setName('');
     setMethod('RANDOM_ROLL');
+    setTotalRounds(1);
     onClose();
   }
 
@@ -168,6 +170,26 @@ function NewSessionDialog({
             </div>
             <p className="text-xs text-muted-foreground">Add participants after creating the session.</p>
           </div>
+
+          {method === 'SNAKE_DRAFT' && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Rounds</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={totalRounds}
+                  onChange={(e) => setTotalRounds(Number(e.target.value))}
+                  className="flex-1 accent-primary"
+                />
+                <span className="w-6 text-center text-sm font-semibold tabular-nums">{totalRounds}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Draft ends after {totalRounds} round{totalRounds !== 1 ? 's' : ''} or when all items are claimed.
+              </p>
+            </div>
+          )}
 
           {createMutation.isError && (
             <p className="text-sm text-destructive">{(createMutation.error as Error).message}</p>

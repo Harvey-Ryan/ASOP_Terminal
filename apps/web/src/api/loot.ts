@@ -147,7 +147,7 @@ export const lootApi = {
   getStandaloneSession: (guildId: string, sessionId: string) =>
     api.get<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}`).then((r) => r.data!),
 
-  updateStandaloneSession: (guildId: string, sessionId: string, body: { method?: LootMethod; draftOrder?: string[]; participants?: LootParticipant[]; name?: string }) =>
+  updateStandaloneSession: (guildId: string, sessionId: string, body: { method?: LootMethod; draftOrder?: string[]; participants?: LootParticipant[]; name?: string; totalRounds?: number }) =>
     api.patch<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}`, body).then((r) => r.data!),
 
   addStandaloneItem: (guildId: string, sessionId: string, body: AddLootItemBody) =>

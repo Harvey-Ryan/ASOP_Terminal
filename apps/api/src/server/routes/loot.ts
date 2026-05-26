@@ -42,6 +42,7 @@ function sessionToDto(s: SessionWithItems): LootSessionDto {
     draftOrder: JSON.parse(s.draftOrder) as string[],
     draftStarted: s.draftStarted,
     skipCount: s.skipCount,
+    totalRounds: s.totalRounds ?? 1,
     dkpAward: s.dkpAward,
     participants: JSON.parse(s.participants) as LootParticipant[],
     items: [...s.items]
@@ -1155,10 +1156,13 @@ lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   let name: string;
   let method: LootMethod;
   let participants: LootParticipant[];
+  let totalRounds: number;
   try {
     name = requireStr(body.name, 'name', 200);
     method = optEnum(body.method, 'method', LOOT_METHODS) ?? 'RANDOM_ROLL';
     participants = Array.isArray(body.participants) ? body.participants : [];
+    const rawRounds = optNonNegInt(body.totalRounds, 'totalRounds');
+    totalRounds = rawRounds !== undefined ? Math.min(10, Math.max(1, rawRounds)) : 1;
   } catch (err) {
     if (err instanceof ValidationError) {
       res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
@@ -1171,7 +1175,7 @@ lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
     : '[]';
 
   const session = await prisma.lootSession.create({
-    data: { guildId, name, method, participants: JSON.stringify(participants), draftOrder },
+    data: { guildId, name, method, participants: JSON.stringify(participants), draftOrder, totalRounds },
     include: { items: { include: { assignments: true } } },
   });
 
@@ -1221,11 +1225,16 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, 
   let draftOrder: string[] | undefined;
   let participants: LootParticipant[] | undefined;
   let name: string | undefined;
+  let totalRounds: number | undefined;
   try {
     method = optEnum(body.method, 'method', LOOT_METHODS);
     if (body.name !== undefined) name = requireStr(body.name, 'name', 200);
     draftOrder = body.draftOrder !== undefined ? optStrArr(body.draftOrder, 'draftOrder', 500, 30) : undefined;
     participants = Array.isArray(body.participants) ? body.participants as LootParticipant[] : undefined;
+    if (body.totalRounds !== undefined) {
+      const r = optNonNegInt(body.totalRounds, 'totalRounds');
+      totalRounds = r !== undefined ? Math.min(10, Math.max(1, r)) : undefined;
+    }
   } catch (err) {
     if (err instanceof ValidationError) {
       res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
@@ -1233,7 +1242,7 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, 
     throw err;
   }
 
-  if (draftOrder !== undefined && session.draftStarted) {
+  if ((draftOrder !== undefined || totalRounds !== undefined) && session.draftStarted) {
     res.status(409).json({ success: false, error: 'Draft has already started — order cannot be changed' } satisfies ApiResponse); return;
   }
 
@@ -1246,6 +1255,7 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, 
       ...(method ? { method } : {}),
       ...(dedupedOrder !== undefined ? { draftOrder: JSON.stringify(dedupedOrder) } : {}),
       ...(participants !== undefined ? { participants: JSON.stringify(participants) } : {}),
+      ...(totalRounds !== undefined ? { totalRounds } : {}),
     },
     include: { items: { include: { assignments: true } } },
   });
@@ -1434,7 +1444,7 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/items/:itemId/assign', requi
     while (true) {
       const items = await prisma.lootItem.findMany({ where: { sessionId }, include: { assignments: true } });
       const allDone = items.every((i) => i.assignments.length > 0);
-      const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * 2;
+      const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * (session.totalRounds ?? 1);
       if (allDone || rotationDone) {
         await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
         res.json({ success: true } satisfies ApiResponse);

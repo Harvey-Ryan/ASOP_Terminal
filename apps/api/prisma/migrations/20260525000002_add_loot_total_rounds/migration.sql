@@ -1,0 +1,1 @@
+ALTER TABLE "LootSession" ADD COLUMN "totalRounds" INTEGER NOT NULL DEFAULT 1;

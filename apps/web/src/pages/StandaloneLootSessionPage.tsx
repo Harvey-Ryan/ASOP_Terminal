@@ -536,7 +536,7 @@ export function StandaloneLootSessionPage() {
   };
 
   const updateMutation = useMutation({
-    mutationFn: (body: { method?: LootMethod; draftOrder?: string[] }) =>
+    mutationFn: (body: { method?: LootMethod; draftOrder?: string[]; totalRounds?: number }) =>
       lootApi.updateStandaloneSession(guildId!, sessionId!, body),
     onSuccess: invalidate,
   });
@@ -696,7 +696,14 @@ export function StandaloneLootSessionPage() {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
+                  <div>
+                    <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
+                    {session.draftStarted && session.draftOrder.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Round {Math.floor((allAssignmentCount + skipCount) / session.draftOrder.length) + 1} of {session.totalRounds}
+                      </p>
+                    )}
+                  </div>
                   {isManager && session.status === 'OPEN' && !session.draftStarted && (
                     <div className="flex items-center gap-2">
                       {!startConfirm ? (
@@ -792,6 +799,33 @@ export function StandaloneLootSessionPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Rounds setting */}
+                <div className="mt-3 pt-3 border-t border-border">
+                  {isManager && !session.draftStarted ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Rounds</span>
+                        <span className="text-xs font-semibold tabular-nums">{session.totalRounds}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={10}
+                        value={session.totalRounds}
+                        onChange={(e) => updateMutation.mutate({ totalRounds: Number(e.target.value) })}
+                        className="w-full accent-primary"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Draft ends after {session.totalRounds} round{session.totalRounds !== 1 ? 's' : ''} ({session.draftOrder.length * session.totalRounds} total picks) or when all items are claimed.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {session.totalRounds} round{session.totalRounds !== 1 ? 's' : ''} · {session.draftOrder.length * session.totalRounds} total picks
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}

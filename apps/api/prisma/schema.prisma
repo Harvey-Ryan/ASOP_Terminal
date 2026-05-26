@@ -240,6 +240,8 @@ model LootSession {
   skipCount     Int      @default(0)
   /// True once the manager clicks Start Draft — locks shuffle and triggers first picker DM
   draftStarted  Boolean  @default(false)
+  /// Number of snake draft rounds (1–10); draft ends when all items claimed OR rounds × players picks made
+  totalRounds   Int      @default(1)
   /// DKP points awarded to each confirmed attendee on completion (event sessions only)
   dkpAward   Int      @default(0)
   createdAt  DateTime @default(now())
