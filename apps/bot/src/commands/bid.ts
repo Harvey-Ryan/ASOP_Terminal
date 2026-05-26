@@ -148,6 +148,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   // Check eligibility against live confirmedAttendees so players confirmed after
   // session creation can still bid (draftOrder is a creation-time snapshot).
+  if (!auction.item.session.eventId) {
+    await interaction.editReply('❌ Cannot determine loot session event.');
+    return;
+  }
   const event = await prisma.event.findUnique({
     where: { id: auction.item.session.eventId },
     select: { confirmedAttendees: true },

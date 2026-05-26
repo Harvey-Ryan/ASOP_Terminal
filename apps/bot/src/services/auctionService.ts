@@ -14,7 +14,7 @@ type AuctionForEmbed = {
   winningBid: number | null;
   closesAt: Date;
   bids: { userId: string; username: string; amount: number }[];
-  item: { name: string; session: { eventId: string } };
+  item: { name: string; session: { eventId: string | null } };
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -73,7 +73,7 @@ export async function postOrUpdateAuctionMessage(auctionId: string): Promise<voi
       item: { include: { session: true } },
     },
   });
-  if (!auction) return;
+  if (!auction || !auction.item.session.eventId) return;
 
   const event = await prisma.event.findUnique({
     where: { id: auction.item.session.eventId },
@@ -334,7 +334,7 @@ export async function closeExpiredAuctions(): Promise<void> {
           where: { id: auction.sessionId },
           select: { eventId: true },
         });
-        if (session) await updatePostEventEmbed(session.eventId).catch(() => null);
+        if (session?.eventId) await updatePostEventEmbed(session.eventId).catch(() => null);
       }
     } catch (err) {
       console.error(`[bot] closeExpiredAuctions failed for auction ${auction.id}:`, err);
