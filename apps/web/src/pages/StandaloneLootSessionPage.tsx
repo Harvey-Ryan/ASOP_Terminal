@@ -49,7 +49,17 @@ function UexInfoCard({ data }: { data: UexItemDto | UexCommodityDto }) {
           {item.categoryName && <span><span className="text-foreground/60">Category:</span> {item.categoryName}</span>}
           {item.section      && <span><span className="text-foreground/60">Section:</span> {item.section}</span>}
           {item.gameVersion  && <span><span className="text-foreground/60">Version:</span> {item.gameVersion}</span>}
+          {item.size         && <span><span className="text-foreground/60">Size:</span> {item.size}</span>}
         </div>
+        {item.attributes.length > 0 && (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground border-t border-border/50 pt-2 mt-1">
+            {item.attributes.map((attr) => (
+              <span key={attr.name}>
+                <span className="text-foreground/60">{attr.name}:</span> {attr.value}{attr.unit ? ` ${attr.unit}` : ''}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

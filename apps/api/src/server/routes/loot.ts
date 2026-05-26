@@ -928,7 +928,7 @@ lootRouter.get('/:guildId/dkp', requireAuth, async (req, res) => {
 
 lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootDraftCreator(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
