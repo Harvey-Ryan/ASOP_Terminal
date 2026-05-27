@@ -296,7 +296,7 @@ function KanbanColumnView({
   });
 
   return (
-    <div className={cn('group/col flex w-72 shrink-0 flex-col rounded-lg border bg-card', meta.border)}>
+    <div className={cn('group/col flex w-72 shrink-0 flex-col rounded-lg border bg-card h-full', meta.border)}>
       {/* Column header */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
         {editingTitle ? (
@@ -362,7 +362,7 @@ function KanbanColumnView({
 
       {/* Cards */}
       <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div ref={setDropRef} className="flex-1 min-h-[60px] px-3 space-y-2 pb-2">
+        <div ref={setDropRef} className="flex-1 min-h-0 overflow-y-auto px-3 space-y-2 pb-2">
           {column.cards.map((card) => (
             <SortableCard key={card.id} card={card} columns={columns} isAdmin={isAdmin} />
           ))}
@@ -583,7 +583,7 @@ export function KanbanPage() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start">
+          <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
             {localColumns.length === 0 && !addingCol && (
               <div className="flex-1 flex items-center justify-center py-24">
                 <p className="text-sm text-muted-foreground">
