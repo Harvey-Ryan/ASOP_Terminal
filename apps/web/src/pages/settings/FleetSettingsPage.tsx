@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Trash2, AlertTriangle } from 'lucide-react';
+import { Check, Trash2, AlertTriangle, Construction } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -78,6 +78,18 @@ export function FleetSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Fleet Registry Module</h1>
         <p className="mt-1 text-muted-foreground">Configure the member fleet registry.</p>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm">
+        <Construction className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-medium text-yellow-500">Under Construction</p>
+          <p className="text-muted-foreground">
+            Fleet Registry is functional — members can register and search ships manually.
+            Automatic hangar import from FleetYards.net is planned but not yet available
+            pending third-party OAuth registration.
+          </p>
+        </div>
       </div>
 
       {settingsLoading ? (
