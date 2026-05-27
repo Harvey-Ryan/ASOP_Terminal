@@ -791,7 +791,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
       </div>
 
       {/* Time */}
-      <div className="w-28 shrink-0 px-4 py-3">
+      <div className="hidden sm:block w-28 shrink-0 px-4 py-3">
         <span className="text-[21px] font-medium">{time}</span>
       </div>
 
@@ -803,8 +803,8 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
         )}
       </div>
 
-      {/* Location + Status + Role + Actions — 5/12 of total width (25% wider than 1/3) */}
-      <div className="w-5/12 shrink-0 flex items-center">
+      {/* Location + Status + Role + Actions */}
+      <div className="w-12 sm:w-5/12 shrink-0 flex items-center">
         <div className="flex-[2] px-4 py-3 hidden lg:block">
           <span className="text-[21px] line-clamp-2">{location}</span>
         </div>
@@ -846,7 +846,7 @@ function RecentLootCard({ guildId }: { guildId: string }) {
   const event = data as RecentLootEvent | null | undefined;
 
   return (
-    <div className="h-[720px] flex flex-col rounded-xl border border-border bg-card p-5">
+    <div className="h-[50vh] min-h-[360px] lg:h-[720px] flex flex-col rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
@@ -999,7 +999,7 @@ export function ServerPage() {
       {/* Responsive two-column layout: events left, loot right */}
       <div className={`grid grid-cols-1 gap-6 items-start${canView ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
-        <div className="h-[720px] flex flex-col overflow-hidden rounded-xl border border-border">
+        <div className="h-[70vh] min-h-[400px] lg:h-[720px] flex flex-col overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}
           <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2 shrink-0" />
 
@@ -1108,13 +1108,13 @@ export function ServerPage() {
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="shrink-0 flex items-center bg-secondary text-primary text-[15px] font-condensed font-bold uppercase tracking-widest border-b border-border">
                 <div className="w-20 shrink-0 px-4 py-2">Date</div>
-                <div className="w-28 shrink-0 px-4 py-2">Time</div>
+                <div className="hidden sm:block w-28 shrink-0 px-4 py-2">Time</div>
                 <div className="flex-1 px-4 py-2">Event</div>
-                <div className="w-5/12 shrink-0 flex items-center">
+                <div className="w-12 sm:w-5/12 shrink-0 flex items-center">
                   <div className="flex-[2] px-4 py-2 hidden lg:block">Location</div>
                   <div className="flex-1 px-4 py-2 hidden sm:block">Status</div>
                   <div className="flex-1 px-4 py-2 hidden md:block">Role</div>
-                  <div className="flex-1 px-4 py-2 text-center">Actions</div>
+                  <div className="flex-1 px-4 py-2 text-center hidden sm:block">Actions</div>
                 </div>
               </div>
 

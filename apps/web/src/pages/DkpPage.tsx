@@ -342,8 +342,8 @@ export function DkpPage() {
               {txQuery.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
               {filteredTx.length > 0 && (
-                <div className="rounded-xl border border-border overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="rounded-xl border border-border overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/40">
                         <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Player</th>

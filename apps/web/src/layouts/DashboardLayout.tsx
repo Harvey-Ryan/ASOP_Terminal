@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -128,6 +128,7 @@ export function DashboardLayout() {
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [localDisplayName, setLocalDisplayName] = useState('');
   const profileRef = useRef<HTMLDivElement>(null);
@@ -173,13 +174,24 @@ export function DashboardLayout() {
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {/* ── Top nav bar ── */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4">
-        {/* Brand */}
-        <div
-          className="flex cursor-pointer items-center gap-3 hover:opacity-80 transition-opacity"
-          onClick={() => navigate('/dashboard')}
-        >
-          <img src="/favicon.png" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
-          <span className="font-semibold tracking-tight">ASOP Terminal</span>
+        {/* Brand + hamburger */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 lg:hidden text-muted-foreground hover:text-foreground"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div
+            className="flex cursor-pointer items-center gap-3 hover:opacity-80 transition-opacity"
+            onClick={() => navigate('/dashboard')}
+          >
+            <img src="/favicon.png" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+            <span className="font-semibold tracking-tight">ASOP Terminal</span>
+          </div>
         </div>
 
         {/* User widget */}
@@ -234,10 +246,21 @@ export function DashboardLayout() {
 
       {/* ── Sidebar + content row ── */}
       <div className="flex flex-1 overflow-hidden">
+        {/* Mobile overlay backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* ── Sidebar ── */}
-        <aside className="flex w-60 flex-col border-r border-border bg-card">
+        <aside className={cn(
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-transform lg:static lg:z-auto lg:translate-x-0 lg:w-60',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+        )}>
           {/* Server list */}
-          <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <nav className="flex-1 overflow-y-auto p-2 space-y-0.5" onClick={() => setSidebarOpen(false)}>
           <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Connected To
           </p>

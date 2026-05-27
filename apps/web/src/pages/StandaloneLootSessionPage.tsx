@@ -742,7 +742,7 @@ export function StandaloneLootSessionPage() {
         </div>
       </div>
 
-      <div className={isSnakeDraft ? 'flex gap-5 items-start' : ''}>
+      <div className={isSnakeDraft ? 'flex flex-col lg:flex-row gap-5 items-start' : ''}>
         <div className={isSnakeDraft ? 'flex-1 min-w-0 space-y-5' : 'space-y-5'}>
 
           {/* Method selector — managers and owners, open sessions */}
@@ -1066,7 +1066,7 @@ export function StandaloneLootSessionPage() {
 
         {/* Queue card — only shown to draft participants (now that Discord IDs are real) */}
         {isSnakeDraft && (canManage || isDraftParticipant) && (
-          <div className="sticky top-4 self-start">
+          <div className="lg:sticky lg:top-4 lg:self-start lg:w-72">
             <StandaloneQueueCard session={session} guildId={guildId!} sessionId={sessionId!} />
           </div>
         )}
