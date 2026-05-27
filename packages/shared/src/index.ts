@@ -496,6 +496,8 @@ export interface InventoryEntryDto {
 }
 
 export interface UpsertInventoryEntryBody {
+  /** If provided, update this specific entry by id rather than matching on composite key */
+  id?: string;
   itemType: InventoryItemType;
   externalItemId: number;
   itemName: string;

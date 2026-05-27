@@ -215,21 +215,27 @@ function InventoryRow({
   const [qty, setQty] = useState(String(entry.quantity));
   const [ql, setQl] = useState(entry.qualityLevel !== null ? String(entry.qualityLevel) : '');
   const [loc, setLoc] = useState(entry.location ?? '');
+  const [saveError, setSaveError] = useState('');
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      exchangeApi.upsertEntry(guildId, {
+    mutationFn: () => {
+      if (entry.itemType === 'COMMODITY' && ql === '') throw new Error('Quality Level is required for commodities');
+      return exchangeApi.upsertEntry(guildId, {
+        id: entry.id,
         itemType: entry.itemType,
         externalItemId: entry.externalItemId,
         itemName: entry.itemName,
         quantity: parseFloat(qty) || 0,
         qualityLevel: ql !== '' ? parseInt(ql, 10) : null,
         location: loc.trim() || null,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exchange-inventory', guildId] });
+      setSaveError('');
       setEditing(false);
     },
+    onError: (err: Error) => setSaveError(err.message),
   });
 
   const deleteMutation = useMutation({
@@ -250,18 +256,16 @@ function InventoryRow({
           className="w-24 rounded border border-input bg-background px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-ring"
           placeholder="Qty"
         />
-        {entry.itemType === 'COMMODITY' && (
-          <input
-            type="number"
-            min={0}
-            max={1000}
-            step={1}
-            value={ql}
-            onChange={(e) => setQl(e.target.value)}
-            className="w-20 rounded border border-input bg-background px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-ring"
-            placeholder="QL"
-          />
-        )}
+        <input
+          type="number"
+          min={0}
+          max={1000}
+          step={1}
+          value={ql}
+          onChange={(e) => setQl(e.target.value)}
+          className="w-20 rounded border border-input bg-background px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-ring"
+          placeholder={entry.itemType === 'COMMODITY' ? 'QL *' : 'QL'}
+        />
         <input
           value={loc}
           onChange={(e) => setLoc(e.target.value)}
@@ -275,9 +279,10 @@ function InventoryRow({
         >
           <Check className="h-4 w-4" />
         </button>
-        <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground">
+        <button onClick={() => { setEditing(false); setSaveError(''); }} className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
+        {saveError && <p className="w-full text-xs text-destructive -mt-1">{saveError}</p>}
       </div>
     );
   }
@@ -341,6 +346,7 @@ function InventoryTab({ guildId }: { guildId: string }) {
       if (!selected) throw new Error('No item selected');
       const quantity = parseFloat(qty);
       if (isNaN(quantity) || quantity < 0) throw new Error('Invalid quantity');
+      if (selected.type === 'COMMODITY' && ql === '') throw new Error('Quality Level is required for commodities');
       const qualityLevel = ql !== '' ? parseInt(ql, 10) : null;
       if (qualityLevel !== null && (isNaN(qualityLevel) || qualityLevel < 0 || qualityLevel > 1000)) {
         throw new Error('QL must be 0–1000');
@@ -400,21 +406,21 @@ function InventoryTab({ guildId }: { guildId: string }) {
               />
             </div>
 
-            {isCommodity && (
-              <div className="w-28">
-                <label className="text-xs text-muted-foreground block mb-1">Quality (0–1000)</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={1000}
-                  step={1}
-                  value={ql}
-                  onChange={(e) => setQl(e.target.value)}
-                  placeholder="Optional"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-            )}
+            <div className="w-28">
+              <label className="text-xs text-muted-foreground block mb-1">
+                Quality (0–1000){isCommodity ? ' *' : ''}
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                step={1}
+                value={ql}
+                onChange={(e) => setQl(e.target.value)}
+                placeholder={isCommodity ? 'Required' : 'Optional'}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
 
             <div className="flex-1 min-w-[140px]">
               <label className="text-xs text-muted-foreground block mb-1">Location (optional)</label>

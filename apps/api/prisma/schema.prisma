@@ -878,12 +878,16 @@ model InventoryEntry {
   qualityLevel   Int?
   /// Free-text location, e.g. "Lorville - TDD"
   location       String?
+  /// False when the member has left the guild. Entries are preserved but
+  /// hidden from search results and /whohas. Reset to true on rejoin.
+  memberActive   Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@unique([guildId, userId, itemType, externalItemId, location])
   @@index([guildId, itemType, externalItemId])
   @@index([guildId, userId])
+  @@index([guildId, memberActive])
+  @@index([guildId, userId, itemType, externalItemId, location, qualityLevel])
 }
 
 /// Immutable audit log — one row per sync run (scheduled or manual).

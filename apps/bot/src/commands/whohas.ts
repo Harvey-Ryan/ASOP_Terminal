@@ -76,7 +76,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   const entries = await prisma.inventoryEntry.findMany({
-    where: { guildId: interaction.guildId, itemType, externalItemId },
+    where: { guildId: interaction.guildId, itemType, externalItemId, memberActive: true },
     orderBy: [{ qualityLevel: 'desc' }, { username: 'asc' }],
   });
 

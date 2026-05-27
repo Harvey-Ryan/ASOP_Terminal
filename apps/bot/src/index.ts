@@ -89,6 +89,32 @@ client.on(Events.GuildDelete, async (guild) => {
   console.log(`[bot] Left guild: ${guild.name} (${guild.id})`);
 });
 
+// ── Exchange member-active lifecycle ──────────────────────────────────────────
+// When a member leaves, their inventory entries are preserved but hidden from
+// search results. When they rejoin, their entries become visible again.
+
+client.on(Events.GuildMemberRemove, async (member) => {
+  try {
+    await prisma.inventoryEntry.updateMany({
+      where: { guildId: member.guild.id, userId: member.user.id },
+      data: { memberActive: false },
+    });
+  } catch (err) {
+    console.error('[bot] GuildMemberRemove inventory update error:', err);
+  }
+});
+
+client.on(Events.GuildMemberAdd, async (member) => {
+  try {
+    await prisma.inventoryEntry.updateMany({
+      where: { guildId: member.guild.id, userId: member.user.id },
+      data: { memberActive: true },
+    });
+  } catch (err) {
+    console.error('[bot] GuildMemberAdd inventory update error:', err);
+  }
+});
+
 // ── Slash commands & autocomplete ─────────────────────────────────────────────
 
 client.on(Events.InteractionCreate, async (interaction) => {
