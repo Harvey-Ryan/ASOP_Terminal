@@ -23,9 +23,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  accounts     Account[]
-  guildMembers GuildMember[]
-  templates    EventTemplate[]
+  rsiHandle    String?
+
+  accounts        Account[]
+  guildMembers    GuildMember[]
+  templates       EventTemplate[]
+  fleetyardsLink  FleetyardsLink?
 }
 
 /// OAuth tokens for a user/provider pair.
@@ -923,6 +926,27 @@ model FleetEntry {
   @@index([guildId, shipSlug])
   @@index([guildId, userId])
   @@index([guildId, memberActive])
+}
+
+/// FleetYards OAuth connection for a user — stores tokens for hangar import.
+/// One row per user (unique on userId). Deleted when the user disconnects.
+model FleetyardsLink {
+  id           String    @id @default(cuid())
+  /// FleetYards username (their canonical identifier)
+  fyUserId     String
+  fyUsername   String
+  accessToken  String
+  refreshToken String?
+  /// Unix timestamp seconds — when the access token expires
+  expiresAt    Int?
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fyUserId])
 }
 
 /// Immutable audit log — one row per sync run (scheduled or manual).

@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetyardsModelDto } from '@dem/shared';
+import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetyardsModelDto, FleetLinkStatusDto } from '@dem/shared';
 
 export const fleetApi = {
   getMyFleet: (guildId: string) =>
@@ -27,4 +27,16 @@ export const fleetApi = {
     api
       .get<ApiResponse<FleetyardsModelDto[]>>('/fleetyards/models')
       .then((r) => r.data ?? []),
+
+  getLinkStatus: () =>
+    api.get<ApiResponse<FleetLinkStatusDto>>('/fleet/link-status').then((r) => r.data!),
+
+  syncHangar: (guildId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/fleet/sync`),
+
+  disconnectFY: () =>
+    api.delete<ApiResponse>('/fleet/fleetyards'),
+
+  updateRsiHandle: (rsiHandle: string | null) =>
+    api.patch<ApiResponse>('/fleet/rsi-handle', { rsiHandle }),
 };

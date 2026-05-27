@@ -1,6 +1,9 @@
 import {
   SlashCommandBuilder,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
@@ -10,19 +13,31 @@ import { getFleetyardsModels } from '../fleetyardsCache.js';
 
 export const data = new SlashCommandBuilder()
   .setName('fleet')
-  .setDescription('Search guild member fleet registries for a ship')
-  .addStringOption((opt) =>
-    opt
-      .setName('ship')
-      .setDescription('Ship name')
-      .setRequired(true)
-      .setAutocomplete(true),
+  .setDescription('Fleet Registry commands')
+  .addSubcommand((sub) =>
+    sub
+      .setName('search')
+      .setDescription('Search guild member fleet registries for a ship')
+      .addStringOption((opt) =>
+        opt
+          .setName('ship')
+          .setDescription('Ship name')
+          .setRequired(true)
+          .setAutocomplete(true),
+      ),
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('link')
+      .setDescription('Manage your Fleet Registry on the web dashboard'),
   );
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
-// Value is the FleetYards slug so the execute handler can query directly.
 
 export async function autocomplete(interaction: AutocompleteInteraction) {
+  const sub = interaction.options.getSubcommand(false);
+  if (sub !== 'search') { await interaction.respond([]); return; }
+
   const focused = interaction.options.getFocused().toLowerCase();
   try {
     const models = await getFleetyardsModels();
@@ -58,12 +73,45 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     return;
   }
 
+  const sub = interaction.options.getSubcommand();
+
+  if (sub === 'link') {
+    await executeLink(interaction);
+    return;
+  }
+
+  await executeSearch(interaction);
+}
+
+// ── /fleet link ───────────────────────────────────────────────────────────────
+
+async function executeLink(interaction: ChatInputCommandInteraction) {
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const fleetUrl = `${webUrl}/servers/${interaction.guildId}/fleet`;
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel('Manage Fleet')
+      .setStyle(ButtonStyle.Link)
+      .setURL(fleetUrl),
+  );
+
+  await interaction.reply({
+    content: 'Open the Fleet Registry to connect your FleetYards account and manage your ships:',
+    components: [row],
+    ephemeral: true,
+  });
+}
+
+// ── /fleet search ─────────────────────────────────────────────────────────────
+
+async function executeSearch(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   const slug = interaction.options.getString('ship', true);
 
   const entries = await prisma.fleetEntry.findMany({
-    where: { guildId: interaction.guildId, shipSlug: slug, memberActive: true },
+    where: { guildId: interaction.guildId!, shipSlug: slug, memberActive: true },
     orderBy: { username: 'asc' },
   });
 
@@ -83,7 +131,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // Resolve server nicknames
-  const guild = interaction.guild ?? (await client.guilds.fetch(interaction.guildId));
+  const guild = interaction.guild ?? (await client.guilds.fetch(interaction.guildId!));
   const userIds = [...new Set(entries.map((e) => e.userId))];
   const nickMap = new Map<string, string>();
   if (userIds.length > 0) {

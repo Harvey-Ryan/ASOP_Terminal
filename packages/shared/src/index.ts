@@ -564,6 +564,22 @@ export interface FleetyardsModelDto {
   imageUrl: string | null;
 }
 
+/** A linked FleetYards account */
+export interface FleetyardsLinkDto {
+  fyUserId: string;
+  fyUsername: string;
+  lastSyncAt: string | null;
+  connectedAt: string;
+}
+
+/** Returned by GET /api/fleet/link-status */
+export interface FleetLinkStatusDto {
+  /** True when FLEETYARDS_CLIENT_ID env var is set on the server */
+  fleetyardsConfigured: boolean;
+  fleetyardsLink: FleetyardsLinkDto | null;
+  rsiHandle: string | null;
+}
+
 // ── UEX Corp Game Data ────────────────────────────────────────────────────────
 
 export interface UexAttributeDto {

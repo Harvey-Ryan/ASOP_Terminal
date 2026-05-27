@@ -5,6 +5,14 @@ import { buildOAuthUrl, exchangeCode, fetchDiscordUser, fetchDiscordGuilds } fro
 import { getValidAccessToken } from '../../lib/token-helpers.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import {
+  buildFleetyardsOAuthUrl,
+  exchangeFleetyardsCode,
+  fetchFleetyardsUser,
+  importHangar,
+  generateCodeVerifier,
+  generateCodeChallenge,
+} from '../../lib/fleetyardsOAuth.js';
+import {
   getGuildIconUrl,
   resolveAvatarUrl,
 } from '@dem/shared';
@@ -194,3 +202,100 @@ authRouter.post('/logout', requireAuth, (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' } satisfies ApiResponse);
   });
 });
+
+// ── GET /api/auth/fleetyards ──────────────────────────────────────────────────
+// Starts the FleetYards OAuth flow. Gated on FLEETYARDS_CLIENT_ID being set.
+// Optional ?guildId= query param tells the callback where to redirect afterwards.
+
+authRouter.get('/fleetyards', requireAuth, (req, res) => {
+  if (!process.env['FLEETYARDS_CLIENT_ID']) {
+    res.status(503).json({ success: false, error: 'FleetYards integration is not configured' } satisfies ApiResponse);
+    return;
+  }
+
+  const state = crypto.randomBytes(16).toString('hex');
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(codeVerifier);
+
+  req.session.fyOAuthState = state;
+  req.session.fyCodeVerifier = codeVerifier;
+  const guildId = req.query['guildId'] as string | undefined;
+  if (guildId) req.session.fyReturnGuildId = guildId;
+
+  req.session.save((err) => {
+    if (err) {
+      res.status(500).json({ success: false, error: 'Session save failed' } satisfies ApiResponse);
+      return;
+    }
+    res.redirect(buildFleetyardsOAuthUrl(state, codeChallenge));
+  });
+});
+
+// ── GET /api/auth/fleetyards/callback ─────────────────────────────────────────
+// Exchanges the code, imports the user's hangar, then redirects back to the
+// fleet page. All FY OAuth errors redirect back with a ?fy= query param.
+
+authRouter.get('/fleetyards/callback', requireAuth, async (req, res) => {
+  const { code, state, error } = req.query as Record<string, string | undefined>;
+  const returnGuildId = req.session.fyReturnGuildId;
+  const returnPath = returnGuildId ? `/servers/${returnGuildId}/fleet` : '/dashboard';
+
+  if (error) {
+    res.redirect(`${WEB_URL()}${returnPath}?fy=access_denied`);
+    return;
+  }
+  if (!state || state !== req.session.fyOAuthState) {
+    res.redirect(`${WEB_URL()}${returnPath}?fy=invalid_state`);
+    return;
+  }
+  if (!code) {
+    res.redirect(`${WEB_URL()}${returnPath}?fy=no_code`);
+    return;
+  }
+
+  const codeVerifier = req.session.fyCodeVerifier;
+  if (!codeVerifier) {
+    res.redirect(`${WEB_URL()}${returnPath}?fy=invalid_state`);
+    return;
+  }
+
+  try {
+    const tokens = await exchangeFleetyardsCode(code, codeVerifier);
+    const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
+    const fyUser = await fetchFleetyardsUser(tokens.access_token);
+
+    const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+
+    await prisma.fleetyardsLink.upsert({
+      where: { userId: dbUser.id },
+      update: {
+        fyUserId: fyUser.username,
+        fyUsername: fyUser.username,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token ?? null,
+        expiresAt,
+      },
+      create: {
+        userId: dbUser.id,
+        fyUserId: fyUser.username,
+        fyUsername: fyUser.username,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token ?? null,
+        expiresAt,
+      },
+    });
+
+    await importHangar(dbUser.id, dbUser.discordId, dbUser.globalName ?? dbUser.username, tokens.access_token, returnGuildId);
+
+    req.session.fyOAuthState = undefined;
+    req.session.fyCodeVerifier = undefined;
+    req.session.fyReturnGuildId = undefined;
+    req.session.save(() => {
+      res.redirect(`${WEB_URL()}${returnPath}?fy=linked`);
+    });
+  } catch (err) {
+    console.error('[auth/fleetyards/callback]', err);
+    res.redirect(`${WEB_URL()}${returnPath}?fy=error`);
+  }
+});
+

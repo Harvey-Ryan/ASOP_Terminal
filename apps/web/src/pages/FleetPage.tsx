@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Rocket, Plus, Trash2, Pencil, X, Check } from 'lucide-react';
+import { Search, Rocket, Plus, Trash2, Pencil, X, Check, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -214,6 +214,157 @@ function FleetRow({
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// ── Fleet account link card ───────────────────────────────────────────────────
+
+function FleetLinkCard({ guildId }: { guildId: string }) {
+  const queryClient = useQueryClient();
+  const [rsiHandle, setRsiHandle] = useState('');
+  const [rsiSaved, setRsiSaved] = useState(false);
+  const [flash, setFlash] = useState('');
+  const [flashType, setFlashType] = useState<'ok' | 'err'>('ok');
+
+  const { data: linkStatus } = useQuery({
+    queryKey: ['fleet-link-status'],
+    queryFn: () => fleetApi.getLinkStatus(),
+  });
+
+  useEffect(() => {
+    if (linkStatus) setRsiHandle(linkStatus.rsiHandle ?? '');
+  }, [linkStatus]);
+
+  // Read ?fy= param written by OAuth callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fy = params.get('fy');
+    if (!fy) return;
+    if (fy === 'linked') { setFlash('FleetYards connected — hangar imported!'); setFlashType('ok'); }
+    else if (fy === 'access_denied') { setFlash('FleetYards connection was cancelled.'); setFlashType('err'); }
+    else { setFlash('FleetYards connection failed. Please try again.'); setFlashType('err'); }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('fy');
+    window.history.replaceState({}, '', url.toString());
+    const t = setTimeout(() => setFlash(''), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const syncMutation = useMutation({
+    mutationFn: () => fleetApi.syncHangar(guildId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fleet-link-status'] });
+      queryClient.invalidateQueries({ queryKey: ['fleet-my', guildId] });
+      setFlash('Hangar synced!'); setFlashType('ok');
+      setTimeout(() => setFlash(''), 3000);
+    },
+    onError: (err: Error) => { setFlash(err.message); setFlashType('err'); },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => fleetApi.disconnectFY(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fleet-link-status'] });
+      setFlash('FleetYards account disconnected.'); setFlashType('ok');
+      setTimeout(() => setFlash(''), 3000);
+    },
+  });
+
+  const rsiMutation = useMutation({
+    mutationFn: () => fleetApi.updateRsiHandle(rsiHandle.trim() || null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fleet-link-status'] });
+      setRsiSaved(true);
+      setTimeout(() => setRsiSaved(false), 2500);
+    },
+  });
+
+  if (!linkStatus) return null;
+
+  const { fleetyardsConfigured, fleetyardsLink } = linkStatus;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Link2 className="h-4 w-4" /> Account Links
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+
+        {/* ── FleetYards ── */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">FleetYards.net</p>
+          {!fleetyardsConfigured ? (
+            <p className="text-sm text-muted-foreground">Not configured for this deployment.</p>
+          ) : fleetyardsLink ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">
+                Connected as <span className="font-medium">@{fleetyardsLink.fyUsername}</span>
+              </span>
+              {fleetyardsLink.lastSyncAt && (
+                <span className="text-xs text-muted-foreground">
+                  · synced {formatRelative(fleetyardsLink.lastSyncAt)}
+                </span>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" size="sm" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+                  {syncMutation.isPending ? 'Syncing…' : 'Sync Hangar'}
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">Not connected.</p>
+              <Button size="sm" onClick={() => { window.location.href = `/api/auth/fleetyards?guildId=${guildId}`; }}>
+                Connect FleetYards
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {flash && (
+          <p className={cn('text-xs', flashType === 'ok' ? 'text-green-500' : 'text-destructive')}>{flash}</p>
+        )}
+
+        {/* ── RSI Handle ── */}
+        <div className="space-y-2 pt-1 border-t border-border">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">RSI Handle</p>
+          <div className="flex gap-2">
+            <input
+              value={rsiHandle}
+              onChange={(e) => setRsiHandle(e.target.value)}
+              placeholder="Your RSI username…"
+              className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+            />
+            <Button size="sm" variant="outline" onClick={() => rsiMutation.mutate()} disabled={rsiMutation.isPending}>
+              {rsiSaved ? <Check className="h-4 w-4 text-green-500" /> : 'Save'}
+            </Button>
+          </div>
+        </div>
+
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Tab: Search ───────────────────────────────────────────────────────────────
 
 function SearchTab({ guildId }: { guildId: string }) {
@@ -324,6 +475,9 @@ function MyFleetTab({ guildId }: { guildId: string }) {
 
   return (
     <div className="space-y-6">
+      {/* ── Account links ── */}
+      <FleetLinkCard guildId={guildId} />
+
       {/* ── Add ship form ── */}
       <Card>
         <CardHeader className="pb-3">

@@ -4,7 +4,8 @@ import { prisma } from '../../lib/prisma.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { getFleetyardsModels } from '../../lib/fleetyardsCache.js';
-import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody } from '@dem/shared';
+import { importHangar } from '../../lib/fleetyardsOAuth.js';
+import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetLinkStatusDto, FleetyardsLinkDto } from '@dem/shared';
 
 // ── Guild-scoped fleet routes ─────────────────────────────────────────────────
 export const fleetRouter = Router();
@@ -218,4 +219,91 @@ fleetRouter.get('/:guildId/fleet/search', requireAuth, async (req, res) => {
   }));
 
   res.json({ success: true, data: entries } satisfies ApiResponse<FleetSearchEntry[]>);
+});
+
+// ── POST /api/guilds/:guildId/fleet/sync ──────────────────────────────────────
+// Re-imports the authenticated user's FleetYards hangar into this guild
+// (and any other guilds where they are currently active).
+
+fleetRouter.post('/:guildId/fleet/sync', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) {
+    res.status(403).json({ success: false, error: 'Fleet module is disabled' } satisfies ApiResponse); return;
+  }
+
+  const dbUser = await prisma.user.findUniqueOrThrow({
+    where: { id: req.session.userId },
+    include: { fleetyardsLink: true },
+  });
+
+  if (!dbUser.fleetyardsLink) {
+    res.status(400).json({ success: false, error: 'No FleetYards account linked' } satisfies ApiResponse); return;
+  }
+
+  try {
+    await importHangar(
+      dbUser.id,
+      dbUser.discordId,
+      dbUser.globalName ?? dbUser.username,
+      dbUser.fleetyardsLink.accessToken,
+      guildId,
+    );
+    res.json({ success: true } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[fleet/sync]', err);
+    res.status(502).json({ success: false, error: 'FleetYards hangar sync failed — your token may have expired' } satisfies ApiResponse);
+  }
+});
+
+// ── GET /api/fleet/link-status ────────────────────────────────────────────────
+// Returns the authenticated user's FleetYards connection state + RSI handle.
+
+fleetyardsRouter.get('/fleet/link-status', requireAuth, async (req, res) => {
+  const dbUser = await prisma.user.findUniqueOrThrow({
+    where: { id: req.session.userId },
+    include: { fleetyardsLink: true },
+  });
+
+  const link = dbUser.fleetyardsLink;
+  const fyLink: FleetyardsLinkDto | null = link
+    ? {
+        fyUserId: link.fyUserId,
+        fyUsername: link.fyUsername,
+        lastSyncAt: link.lastSyncAt?.toISOString() ?? null,
+        connectedAt: link.createdAt.toISOString(),
+      }
+    : null;
+
+  res.json({
+    success: true,
+    data: {
+      fleetyardsConfigured: !!process.env['FLEETYARDS_CLIENT_ID'],
+      fleetyardsLink: fyLink,
+      rsiHandle: dbUser.rsiHandle ?? null,
+    } satisfies FleetLinkStatusDto,
+  } satisfies ApiResponse<FleetLinkStatusDto>);
+});
+
+// ── DELETE /api/fleet/fleetyards ──────────────────────────────────────────────
+// Disconnects the user's FleetYards account (deletes stored tokens).
+
+fleetyardsRouter.delete('/fleet/fleetyards', requireAuth, async (req, res) => {
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  await prisma.fleetyardsLink.deleteMany({ where: { userId: dbUser.id } });
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── PATCH /api/fleet/rsi-handle ───────────────────────────────────────────────
+// Updates (or clears) the user's stored RSI handle.
+
+fleetyardsRouter.patch('/fleet/rsi-handle', requireAuth, async (req, res) => {
+  const body = req.body as { rsiHandle?: string | null };
+  const handle = typeof body.rsiHandle === 'string' ? body.rsiHandle.trim() || null : null;
+
+  await prisma.user.update({
+    where: { id: req.session.userId },
+    data: { rsiHandle: handle },
+  });
+
+  res.json({ success: true } satisfies ApiResponse);
 });
