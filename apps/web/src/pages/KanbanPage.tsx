@@ -258,7 +258,7 @@ function KanbanColumnView({
   });
 
   return (
-    <div className={cn('flex w-72 shrink-0 flex-col rounded-lg border bg-card', meta.border)}>
+    <div className={cn('group/col flex w-72 shrink-0 flex-col rounded-lg border bg-card', meta.border)}>
       {/* Column header */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
         {editingTitle ? (
@@ -278,7 +278,7 @@ function KanbanColumnView({
         )}
 
         {isAdmin && !editingTitle && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-0 group-hover/col:opacity-100 transition-opacity">
             {!isFirst && (
               <button onClick={() => moveColMut.mutate(-1)} className="text-muted-foreground hover:text-foreground" title="Move left">
                 <ChevronLeft className="h-3.5 w-3.5" />
