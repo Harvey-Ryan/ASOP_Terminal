@@ -14,6 +14,7 @@ import * as whohasCommand from './commands/whohas.js';
 import * as blueprintCommand from './commands/blueprint.js';
 import * as materialCommand from './commands/material.js';
 import * as lootCommand from './commands/loot.js';
+import * as fleetCommand from './commands/fleet.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent, deleteEventVcs } from './services/eventService.js';
@@ -34,6 +35,7 @@ const commands = new Map<string, Command>([
   ['whohas', whohasCommand],
   ['blueprint', blueprintCommand],
   ['material', materialCommand],
+  ['fleet', fleetCommand],
 ]);
 
 // Validate API_URL at startup so misconfiguration is caught immediately.
@@ -95,23 +97,35 @@ client.on(Events.GuildDelete, async (guild) => {
 
 client.on(Events.GuildMemberRemove, async (member) => {
   try {
-    await prisma.inventoryEntry.updateMany({
-      where: { guildId: member.guild.id, userId: member.user.id },
-      data: { memberActive: false },
-    });
+    await Promise.all([
+      prisma.inventoryEntry.updateMany({
+        where: { guildId: member.guild.id, userId: member.user.id },
+        data: { memberActive: false },
+      }),
+      prisma.fleetEntry.updateMany({
+        where: { guildId: member.guild.id, userId: member.user.id },
+        data: { memberActive: false },
+      }),
+    ]);
   } catch (err) {
-    console.error('[bot] GuildMemberRemove inventory update error:', err);
+    console.error('[bot] GuildMemberRemove update error:', err);
   }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
   try {
-    await prisma.inventoryEntry.updateMany({
-      where: { guildId: member.guild.id, userId: member.user.id },
-      data: { memberActive: true },
-    });
+    await Promise.all([
+      prisma.inventoryEntry.updateMany({
+        where: { guildId: member.guild.id, userId: member.user.id },
+        data: { memberActive: true },
+      }),
+      prisma.fleetEntry.updateMany({
+        where: { guildId: member.guild.id, userId: member.user.id },
+        data: { memberActive: true },
+      }),
+    ]);
   } catch (err) {
-    console.error('[bot] GuildMemberAdd inventory update error:', err);
+    console.error('[bot] GuildMemberAdd update error:', err);
   }
 });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -123,6 +123,7 @@ export function DashboardLayout() {
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
+  const fleetEnabled    = myPerms?.fleetEnabled     ?? true;
 
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
@@ -303,6 +304,16 @@ export function DashboardLayout() {
                 </NavLink>
               )}
 
+              {fleetEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/fleet`}
+                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <Ship className="h-4 w-4 shrink-0" />
+                  Fleet
+                </NavLink>
+              )}
+
               {lootEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/loot`}
@@ -408,6 +419,20 @@ export function DashboardLayout() {
                   >
                     <Gift className="h-4 w-4 shrink-0" />
                     Loot
+                  </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/fleet`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )
+                    }
+                  >
+                    <Ship className="h-4 w-4 shrink-0" />
+                    Fleet
                   </NavLink>
                 </>
               )}

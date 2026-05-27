@@ -116,6 +116,8 @@ model GuildSettings {
   lootEnabled           Boolean  @default(true)
   /// Whether the Exchange module is enabled for this guild
   exchangeEnabled       Boolean  @default(true)
+  /// Whether the Fleet Registry module is enabled for this guild
+  fleetEnabled          Boolean  @default(true)
   /// Default duration in hours for new standalone DKP auctions (1–168)
   dkpDefaultAuctionDuration Int  @default(24)
   /// Minimum valid bid amount for DKP auctions (0 = no minimum)
@@ -888,6 +890,39 @@ model InventoryEntry {
   @@index([guildId, userId])
   @@index([guildId, memberActive])
   @@index([guildId, userId, itemType, externalItemId, location, qualityLevel])
+}
+
+// ── Fleet Registry ────────────────────────────────────────────────────────────
+
+/// One ship registration per member per ship (uniqued on guildId + userId + shipSlug).
+/// Ship data is sourced live from FleetYards.net; slug, name, and manufacturer are
+/// denormalised here so the registry is self-contained without an external call.
+model FleetEntry {
+  id           String   @id @default(cuid())
+  guildId      String
+  /// Discord user snowflake
+  userId       String
+  /// Display name at last update
+  username     String
+  /// FleetYards slug, e.g. "orig-100i"
+  shipSlug     String
+  /// Denormalised ship display name
+  shipName     String
+  /// Denormalised manufacturer name
+  manufacturer String
+  /// How many of this ship the member owns
+  quantity     Int      @default(1)
+  /// Optional free-text notes (loadout, status, etc.)
+  notes        String?
+  /// False when member has left the guild; restored on rejoin
+  memberActive Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([guildId, userId, shipSlug])
+  @@index([guildId, shipSlug])
+  @@index([guildId, userId])
+  @@index([guildId, memberActive])
 }
 
 /// Immutable audit log — one row per sync run (scheduled or manual).

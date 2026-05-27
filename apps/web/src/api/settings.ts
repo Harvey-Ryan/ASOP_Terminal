@@ -29,6 +29,7 @@ export interface GuildSettingsData {
   dkpEnabled: boolean;
   lootEnabled: boolean;
   exchangeEnabled: boolean;
+  fleetEnabled: boolean;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
   lootDefaultMethod: string;
@@ -42,6 +43,7 @@ export interface GuildMyPermissions {
   dkpEnabled: boolean;
   lootEnabled: boolean;
   exchangeEnabled: boolean;
+  fleetEnabled: boolean;
 }
 
 function requireData<T>(r: ApiResponse<T>): T {

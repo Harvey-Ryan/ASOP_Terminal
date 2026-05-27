@@ -516,6 +516,54 @@ export interface InventorySearchGroup {
   entries: InventoryEntryDto[];
 }
 
+// ── Fleet Registry ────────────────────────────────────────────────────────────
+
+export interface FleetEntryDto {
+  id: string;
+  guildId: string;
+  userId: string;
+  username: string;
+  shipSlug: string;
+  shipName: string;
+  manufacturer: string;
+  quantity: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertFleetEntryBody {
+  /** If provided, update this specific entry by id */
+  id?: string;
+  shipSlug: string;
+  shipName: string;
+  manufacturer: string;
+  quantity: number;
+  notes?: string | null;
+}
+
+/** Returned by the fleet search endpoint — who in the guild has a given ship */
+export interface FleetSearchEntry {
+  userId: string;
+  username: string;
+  quantity: number;
+  notes: string | null;
+}
+
+/** Slim ship model returned by the /api/fleetyards/models proxy */
+export interface FleetyardsModelDto {
+  slug: string;
+  name: string;
+  manufacturer: string;
+  manufacturerSlug: string;
+  classification: string | null;
+  focus: string | null;
+  productionStatus: string;
+  inGame: boolean;
+  playerOwnable: boolean;
+  imageUrl: string | null;
+}
+
 // ── UEX Corp Game Data ────────────────────────────────────────────────────────
 
 export interface UexAttributeDto {
