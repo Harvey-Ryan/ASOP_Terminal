@@ -580,6 +580,28 @@ export interface FleetLinkStatusDto {
   rsiHandle: string | null;
 }
 
+// ── Kanban Board ──────────────────────────────────────────────────────────────
+
+export interface KanbanCardDto {
+  id: string;
+  columnId: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KanbanColumnDto {
+  id: string;
+  title: string;
+  color: string;
+  sortOrder: number;
+  cards: KanbanCardDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── UEX Corp Game Data ────────────────────────────────────────────────────────
 
 export interface UexAttributeDto {

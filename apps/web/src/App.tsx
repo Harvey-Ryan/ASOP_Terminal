@@ -18,6 +18,7 @@ import { DkpPage } from './pages/DkpPage';
 import { ExchangePage } from './pages/ExchangePage';
 import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
 import { FleetPage } from './pages/FleetPage';
+import { KanbanPage } from './pages/KanbanPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
 import { LootSettingsPage } from './pages/settings/LootSettingsPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />
           <Route path="servers/:guildId/loot" element={<LootModulePage />} />
           <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
+          <Route path="kanban" element={<KanbanPage />} />
         </Route>
 
         {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}
