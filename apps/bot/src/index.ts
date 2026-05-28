@@ -15,6 +15,7 @@ import * as blueprintCommand from './commands/blueprint.js';
 import * as materialCommand from './commands/material.js';
 import * as lootCommand from './commands/loot.js';
 import * as fleetCommand from './commands/fleet.js';
+import * as helpCommand from './commands/help.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
 import { endEvent, deleteEventVcs } from './services/eventService.js';
@@ -36,6 +37,7 @@ const commands = new Map<string, Command>([
   ['blueprint', blueprintCommand],
   ['material', materialCommand],
   ['fleet', fleetCommand],
+  ['help', helpCommand],
 ]);
 
 // Validate API_URL at startup so misconfiguration is caught immediately.
