@@ -588,24 +588,6 @@ export function DashboardLayout() {
           </NavLink>
         </div>
 
-        {/* Sidebar footer – branding */}
-        <div className="border-t border-border px-3 py-4 space-y-2 opacity-50">
-          <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="block w-1/2 mx-auto">
-            <img
-              src="/uex-api-badge-powered.png"
-              alt="Powered by UEX Corp API"
-              className="w-full object-contain opacity-50 hover:opacity-80 transition-opacity"
-            />
-          </a>
-          <img
-            src="/MadeByTheCommunity_White.png"
-            alt="Made by the Community"
-            className="w-1/2 object-contain mx-auto"
-          />
-          <p className="text-[15px] leading-tight text-muted-foreground">
-            Star Citizen®, Roberts Space Industries® and Cloud Imperium ® are registered trademarks of Cloud Imperium Rights LLC
-          </p>
-        </div>
       </aside>
 
         {/* ── Main area ── */}
@@ -619,6 +601,17 @@ export function DashboardLayout() {
           )}
         </main>
       </div>
+
+      {/* ── Bottom branding bar ── */}
+      <footer className="shrink-0 border-t border-border bg-card px-4 py-1.5 flex items-center justify-between gap-6">
+        <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="shrink-0 opacity-40 hover:opacity-70 transition-opacity">
+          <img src="/uex-api-badge-powered.png" alt="Powered by UEX Corp API" className="h-5 object-contain" />
+        </a>
+        <p className="text-[9px] leading-tight text-muted-foreground text-center opacity-40">
+          Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
+        </p>
+        <img src="/MadeByTheCommunity_White.png" alt="Made by the Community" className="h-5 object-contain shrink-0 opacity-40" />
+      </footer>
     </div>
   );
 }
