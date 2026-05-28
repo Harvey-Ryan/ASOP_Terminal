@@ -198,8 +198,24 @@ export function DashboardLayout() {
           </div>
         </div>
 
-        {/* User widget */}
+        {/* Right side: connected server + user widget */}
         <div className="flex items-center gap-2">
+          {activeGuild && (
+            <div className="hidden sm:flex items-center gap-2.5 border-l border-border pl-3 mr-1">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-none">
+                  Connected To
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <GuildIcon guild={activeGuild} />
+                  <span className="text-sm font-medium truncate max-w-[160px]">{activeGuild.name}</span>
+                  {activeGuild.hasBotInstalled && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Bot installed" />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {user ? (
             <div className="relative" ref={profileRef}>
               <button
@@ -265,10 +281,6 @@ export function DashboardLayout() {
         )}>
           {/* Server list */}
           <nav className="flex-1 overflow-y-auto p-2 space-y-0.5" onClick={() => setSidebarOpen(false)}>
-          <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Connected To
-          </p>
-
           {guilds.length === 0 ? (
             <div className="px-3 py-3">
               <p className="text-xs text-muted-foreground mb-2">No servers with the bot installed.</p>
@@ -284,14 +296,6 @@ export function DashboardLayout() {
             </div>
           ) : activeGuild ? (
             <>
-              <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium">
-                <GuildIcon guild={activeGuild} />
-                <span className="flex-1 truncate">{activeGuild.name}</span>
-                {activeGuild.hasBotInstalled && (
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Bot installed" />
-                )}
-              </div>
-
               <NavLink
                 to={`/dashboard/servers/${activeGuild.id}`}
                 end
