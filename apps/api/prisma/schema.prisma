@@ -74,6 +74,12 @@ model GuildMember {
   id        String   @id @default(cuid())
   /// OWNER | ADMIN | ORGANIZER | MEMBER
   role      String   @default("MEMBER")
+  /// Per-guild RSI citizen handle (distinct from User.rsiHandle which is fleet-only)
+  rsiHandle      String?
+  /// True once the member has completed the bio-token verification flow for this guild
+  rsiVerified    Boolean  @default(false)
+  /// Pending verification token — cleared on successful verify
+  rsiVerifyToken String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

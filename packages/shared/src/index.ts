@@ -586,12 +586,22 @@ export interface FleetLinkStatusDto {
   rsiHandle: string | null;
 }
 
+// ── RSI Verification ─────────────────────────────────────────────────────────
+
+export interface RsiVerifyStatusDto {
+  handle: string | null;
+  verified: boolean;
+  token: string | null;
+  orgRequired: boolean;
+}
+
 // ── RSI Roster ────────────────────────────────────────────────────────────────
 
 export interface RsiRosterLinkedMember {
   discordId: string;
   discordUsername: string;
   rsiHandle: string;
+  verified: boolean;
   inOrg: boolean;
   orgRank: number | null;
 }

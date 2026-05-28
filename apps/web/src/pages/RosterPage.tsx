@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle } from 'lucide-react';
+import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,10 +31,13 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
       {member.inOrg
         ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
         : <XCircle className="h-4 w-4 shrink-0 text-yellow-500" />}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-sm font-medium truncate">{member.discordUsername}</span>
-        <span className="text-xs text-muted-foreground ml-2 font-mono">{member.rsiHandle}</span>
+        <span className="text-xs text-muted-foreground font-mono">{member.rsiHandle}</span>
       </div>
+      {member.verified
+        ? <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-green-500" title="Verified" />
+        : <ShieldOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" title="Unverified" />}
       <RankBadge stars={member.inOrg ? member.orgRank : null} />
       {!member.inOrg && (
         <span className="text-xs text-yellow-500/80 shrink-0">Not in org</span>

@@ -45,6 +45,8 @@ export interface GuildMyPermissions {
   lootEnabled: boolean;
   exchangeEnabled: boolean;
   fleetEnabled: boolean;
+  rsiOrgRequired: boolean;
+  rsiVerified: boolean;
 }
 
 function requireData<T>(r: ApiResponse<T>): T {

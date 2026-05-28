@@ -39,6 +39,17 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
     ]);
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
+
+    const orgRequired = !!(s?.rsiOrgTag);
+    let rsiVerified = false;
+    if (orgRequired && guild) {
+      const member = await prisma.guildMember.findUnique({
+        where: { userId_guildId: { userId: req.session.userId!, guildId: guild.id } },
+        select: { rsiVerified: true },
+      });
+      rsiVerified = member?.rsiVerified ?? false;
+    }
+
     res.json({
       success: true,
       data: {
@@ -50,6 +61,8 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         lootEnabled:      s?.lootEnabled      ?? true,
         exchangeEnabled:  s?.exchangeEnabled  ?? true,
         fleetEnabled:     s?.fleetEnabled     ?? true,
+        rsiOrgRequired:   orgRequired,
+        rsiVerified,
       },
     } satisfies ApiResponse);
   } catch (err) {

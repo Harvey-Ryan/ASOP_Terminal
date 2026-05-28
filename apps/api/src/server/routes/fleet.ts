@@ -333,7 +333,8 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     return;
   }
 
-  // Fetch all app members for this guild
+  // Fetch all app members for this guild — use per-guild rsiHandle (verified flow)
+  // falling back to the global User.rsiHandle for members who haven't re-linked
   const members = await prisma.guildMember.findMany({
     where: { guildId: guild.id },
     include: { user: { select: { discordId: true, username: true, globalName: true, rsiHandle: true } } },
@@ -429,14 +430,18 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
   const orgRankMap = new Map(orgMembers.map((m) => [m.handle.toLowerCase(), m.stars]));
 
   const linked = members
-    .filter((m) => m.user.rsiHandle)
-    .map((m) => ({
-      discordId: m.user.discordId,
-      discordUsername: m.user.globalName ?? m.user.username,
-      rsiHandle: m.user.rsiHandle!,
-      inOrg: orgHandleSet.has(m.user.rsiHandle!.toLowerCase()),
-      orgRank: orgRankMap.get(m.user.rsiHandle!.toLowerCase()) ?? null,
-    }));
+    .filter((m) => m.rsiHandle || m.user.rsiHandle)
+    .map((m) => {
+      const handle = (m.rsiHandle || m.user.rsiHandle)!;
+      return {
+        discordId: m.user.discordId,
+        discordUsername: m.user.globalName ?? m.user.username,
+        rsiHandle: handle,
+        verified: m.rsiVerified,
+        inOrg: orgHandleSet.has(handle.toLowerCase()),
+        orgRank: orgRankMap.get(handle.toLowerCase()) ?? null,
+      };
+    });
 
   const linkedHandles = new Set(linked.map((l) => l.rsiHandle.toLowerCase()));
   const orgOnly = orgMembers

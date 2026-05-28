@@ -12,6 +12,7 @@ import { loadDisplayName, saveDisplayName } from '@/lib/displayName';
 import { canManageGuild } from '@dem/shared';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { HelpPanel } from '@/components/HelpPanel';
+import { RsiVerifyGate } from '@/components/RsiVerifyGate';
 import { settingsApi } from '@/api/settings';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
@@ -542,7 +543,13 @@ export function DashboardLayout() {
 
         {/* ── Main area ── */}
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet context={{ displayName } satisfies DashboardOutletContext} />
+          {activeGuildId ? (
+            <RsiVerifyGate guildId={activeGuildId}>
+              <Outlet context={{ displayName } satisfies DashboardOutletContext} />
+            </RsiVerifyGate>
+          ) : (
+            <Outlet context={{ displayName } satisfies DashboardOutletContext} />
+          )}
         </main>
       </div>
     </div>
