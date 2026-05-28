@@ -607,7 +607,7 @@ export function DashboardLayout() {
         <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="shrink-0 opacity-40 hover:opacity-70 transition-opacity">
           <img src="/uex-api-badge-powered.png" alt="Powered by UEX Corp API" className="h-10 object-contain" />
         </a>
-        <p className="text-[36px] leading-tight text-muted-foreground text-center opacity-40">
+        <p className="text-[18px] leading-tight text-muted-foreground text-center opacity-40">
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
         </p>
         <img
