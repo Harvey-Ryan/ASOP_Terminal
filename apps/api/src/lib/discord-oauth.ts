@@ -104,6 +104,17 @@ export async function fetchDiscordUser(accessToken: string): Promise<DiscordApiU
   return res.json() as Promise<DiscordApiUser>;
 }
 
+export class GuildsFetchError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly retryAfterMs: number | null,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'GuildsFetchError';
+  }
+}
+
 /** Fetches all guilds the authed user is a member of. */
 export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordApiGuild[]> {
   const res = await fetch(`${DISCORD_API}/users/@me/guilds`, {
@@ -111,7 +122,10 @@ export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordAp
   });
 
   if (!res.ok) {
-    throw new Error(`Guilds fetch failed (${res.status})`);
+    const retryAfterMs = res.status === 429
+      ? Math.ceil(parseFloat(res.headers.get('Retry-After') ?? '5') * 1000)
+      : null;
+    throw new GuildsFetchError(res.status, retryAfterMs, `Guilds fetch failed (${res.status})`);
   }
 
   return res.json() as Promise<DiscordApiGuild[]>;
