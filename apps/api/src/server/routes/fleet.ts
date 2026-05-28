@@ -339,11 +339,30 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     include: { user: { select: { discordId: true, username: true, globalName: true, rsiHandle: true } } },
   });
 
-  // Fetch RSI org roster (paginated, max 32 per page)
+  // Fetch RSI org roster (paginated, max 32 per page).
+  // The endpoint returns { success:1, data:{ totalrows:N, html:"...rendered li items..." } }
+  // — not a members array — so we parse handles and rank stars from the HTML.
   const RSI_PAGE_SIZE = 32;
   let page = 1;
   let totalRows = Infinity;
   const orgMembers: { handle: string; stars: number }[] = [];
+
+  function parseMembersHtml(html: string): { handle: string; stars: number }[] {
+    const out: { handle: string; stars: number }[] = [];
+    // Split on each member-item block boundary
+    const blocks = html.split(/<li[^>]+class="[^"]*member-item[^"]*"/);
+    for (const block of blocks.slice(1)) {
+      const handleMatch = block.match(/href="\/citizens\/([^"]+)"/);
+      if (!handleMatch?.[1]) continue;
+      const handle = handleMatch[1].trim();
+      // Count active star spans: icon-star followed or preceded by "active" somewhere in its class
+      const activeStars = (block.match(/class="[^"]*icon-star[^"]*"\s+style="[^"]*color/g) ?? []).length
+        || (block.match(/<span[^>]*class="[^"]*icon-star\s+active[^"]*"/g) ?? []).length
+        || (block.match(/active(?:[^"]*)?icon-star|icon-star(?:[^"]*)?active/g) ?? []).length;
+      out.push({ handle, stars: activeStars });
+    }
+    return out;
+  }
 
   try {
     while (orgMembers.length < totalRows) {
@@ -362,33 +381,42 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '');
-        console.error(`[rsi/roster] HTTP ${response.status} from RSI:`, body.slice(0, 500));
+        console.error(`[rsi/roster] HTTP ${response.status} from RSI:`, body.slice(0, 300));
         res.status(502).json({ success: false, error: `RSI API returned HTTP ${response.status}` } satisfies ApiResponse);
         return;
       }
 
       const rawText = await response.text();
-      let json: { success: number; data: { totalrows: number; members: { handle: string; stars: number }[] } };
+      let json: { success: number; data: { totalrows: number; html?: string; members?: unknown[] } };
       try {
         json = JSON.parse(rawText);
       } catch {
-        console.error('[rsi/roster] Non-JSON response from RSI:', rawText.slice(0, 500));
+        console.error('[rsi/roster] Non-JSON response from RSI:', rawText.slice(0, 300));
         res.status(502).json({ success: false, error: 'RSI returned an unexpected response' } satisfies ApiResponse);
         return;
       }
 
-      if (!json.success || !json.data?.members) {
-        console.error('[rsi/roster] RSI success=false or missing members:', JSON.stringify(json).slice(0, 500));
+      if (!json.success) {
+        console.error('[rsi/roster] RSI returned success=false:', rawText.slice(0, 300));
         res.status(502).json({ success: false, error: 'RSI org not found or is private' } satisfies ApiResponse);
         return;
       }
 
-      totalRows = json.data.totalrows;
+      totalRows = json.data?.totalrows ?? 0;
       if (totalRows === 0) break;
-      for (const m of json.data.members) {
-        orgMembers.push({ handle: m.handle, stars: m.stars });
+
+      const parsed = json.data?.html
+        ? parseMembersHtml(json.data.html)
+        : (json.data?.members as { handle: string; stars: number }[] | undefined) ?? [];
+
+      if (parsed.length === 0 && page === 1) {
+        console.error('[rsi/roster] Could not parse any members from RSI response. html length:', (json.data?.html ?? '').length);
       }
-      if (json.data.members.length < RSI_PAGE_SIZE) break;
+
+      for (const m of parsed) {
+        orgMembers.push(m);
+      }
+      if (parsed.length < RSI_PAGE_SIZE) break;
       page++;
     }
   } catch (err) {
