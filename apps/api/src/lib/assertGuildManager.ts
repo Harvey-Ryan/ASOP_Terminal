@@ -83,7 +83,7 @@ export async function assertGuildManager(req: Express.Request, guildId: string):
     return ids.includes(guildId);
   } catch (err) {
     if (err instanceof GuildsFetchError && err.status === 429) {
-      const retryMs = err.retryAfterMs ?? 10_000;
+      const retryMs = Math.max(err.retryAfterMs ?? 30_000, 30_000);
       rateLimitedUntil.set(userId, Date.now() + retryMs);
       console.warn(`[assertGuildManager] 429 for ${userId}, backing off ${retryMs}ms`);
     } else {
