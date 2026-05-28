@@ -45,7 +45,7 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
           </span>
         )}
       </div>
-      <ShieldIcon className={`h-3.5 w-3.5 shrink-0 ${shieldCls}`} title={member.isAffiliate ? 'Affiliate' : member.verified ? 'Verified' : 'Unverified'} />
+      <ShieldIcon className={`h-3.5 w-3.5 shrink-0 ${shieldCls}`} />
       <RankBadge stars={member.inOrg ? member.orgRank : null} />
       {!member.inOrg && (
         <span className="text-xs text-yellow-500/80 shrink-0">Not in org</span>
