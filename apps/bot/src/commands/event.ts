@@ -5,6 +5,7 @@ import {
   StringSelectMenuOptionBuilder,
   ActionRowBuilder,
   ComponentType,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
@@ -66,12 +67,12 @@ async function handleCreate(interaction: ChatInputCommandInteraction) {
   const url = `${webUrl}/dashboard/servers/${interaction.guildId}/events/new`;
   await interaction.reply({
     content: `📋 [Click Here To Login](${url})`,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
 async function handleEnd(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const active = await prisma.event.findMany({
     where: {

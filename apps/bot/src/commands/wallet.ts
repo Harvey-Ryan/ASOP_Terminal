@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, GuildMember, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
@@ -14,7 +14,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const guildId = interaction.guildId;
   if (!guildId) {

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 
@@ -35,12 +35,12 @@ async function handleOpen(interaction: ChatInputCommandInteraction) {
   await interaction.reply({
     content: '🎁 Click below to open the loot dashboard:',
     components: [row],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
 async function handleStatus(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const guildId = interaction.guildId!;
 

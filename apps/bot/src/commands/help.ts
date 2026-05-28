@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, GuildMember, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, GuildMember, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 
@@ -9,7 +9,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId;
   if (!guildId) {
-    await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+    await interaction.reply({ content: 'This command can only be used in a server.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -132,5 +132,5 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .setColor(0x5865f2)
     .addFields(fields);
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }

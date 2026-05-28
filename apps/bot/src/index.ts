@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Events, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { Events, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
@@ -141,7 +141,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await cmd.execute(interaction);
     } catch (err) {
       console.error('[bot] Command error:', err);
-      const payload = { content: '❌ An error occurred.', ephemeral: true } as const;
+      const payload = { content: '❌ An error occurred.', flags: MessageFlags.Ephemeral } as const;
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(payload).catch(() => null);
       } else {
@@ -170,7 +170,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           where: { id: entityId, status: { not: 'COMPLETED' } },
         });
         if (!event) {
-          await interaction.reply({ content: 'This event has already ended.', ephemeral: true });
+          await interaction.reply({ content: 'This event has already ended.', flags: MessageFlags.Ephemeral });
           return;
         }
         const displayName = (interaction.member instanceof GuildMember)
@@ -180,11 +180,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const label = role ?? 'Unassigned';
         await interaction.reply({
           content: `✅ You are marked as **${label}** for **${event.name}**.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       } catch (err) {
         console.error('[bot] Role button error:', err);
-        await interaction.reply({ content: '❌ Failed to update roster.', ephemeral: true });
+        await interaction.reply({ content: '❌ Failed to update roster.', flags: MessageFlags.Ephemeral });
       }
       return;
     }

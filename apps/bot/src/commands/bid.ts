@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, GuildMember, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from '../services/auctionService.js';
@@ -17,7 +17,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const guildId = interaction.guildId;
   if (!guildId) {

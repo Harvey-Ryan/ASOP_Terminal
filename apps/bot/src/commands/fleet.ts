@@ -4,6 +4,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
@@ -69,7 +70,7 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   if (!interaction.guildId) {
-    await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+    await interaction.reply({ content: 'This command can only be used in a server.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -99,7 +100,7 @@ async function executeLink(interaction: ChatInputCommandInteraction) {
   await interaction.reply({
     content: 'Open the Fleet Registry to connect your FleetYards account and manage your ships:',
     components: [row],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
@@ -15,5 +15,5 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setURL(`${webUrl}/api/auth/login`),
   );
 
-  await interaction.reply({ content: 'Click below to log in to the event manager:', components: [row], ephemeral: true });
+  await interaction.reply({ content: 'Click below to log in to the event manager:', components: [row], flags: MessageFlags.Ephemeral });
 }
