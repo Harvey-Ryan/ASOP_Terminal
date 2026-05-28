@@ -99,6 +99,15 @@ export function RosterPage() {
         </Button>
       </div>
 
+      {/* Shield key */}
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground shrink-0">Shield Key</span>
+        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-green-500" /> Main member · verified</span>
+        <span className="flex items-center gap-1.5"><ShieldOff className="h-3.5 w-3.5 text-muted-foreground/50" /> Main member · unverified</span>
+        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-blue-500" /> Affiliate · verified</span>
+        <span className="flex items-center gap-1.5"><ShieldOff className="h-3.5 w-3.5 text-blue-500/30" /> Affiliate · unverified</span>
+      </div>
+
       {isLoading && (
         <div className="space-y-3">
           <Skeleton className="h-24 rounded-lg" />
