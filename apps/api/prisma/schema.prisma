@@ -127,6 +127,8 @@ model GuildSettings {
   dkpMinBid             Int      @default(0)
   /// Default loot method for new sessions: RANDOM_ROLL | DKP | SNAKE_DRAFT
   lootDefaultMethod     String   @default("RANDOM_ROLL")
+  /// RSI org tag for roster sync (e.g. "ASOP")
+  rsiOrgTag             String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

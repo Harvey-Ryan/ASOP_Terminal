@@ -586,6 +586,28 @@ export interface FleetLinkStatusDto {
   rsiHandle: string | null;
 }
 
+// ── RSI Roster ────────────────────────────────────────────────────────────────
+
+export interface RsiRosterLinkedMember {
+  discordId: string;
+  discordUsername: string;
+  rsiHandle: string;
+  inOrg: boolean;
+  orgRank: number | null;
+}
+
+export interface RsiRosterOrgOnlyMember {
+  rsiHandle: string;
+  orgRank: number | null;
+}
+
+export interface RsiRosterDto {
+  orgTag: string | null;
+  linked: RsiRosterLinkedMember[];
+  orgOnly: RsiRosterOrgOnlyMember[];
+  total: number;
+}
+
 // ── Kanban Board ──────────────────────────────────────────────────────────────
 
 export interface KanbanCardDto {

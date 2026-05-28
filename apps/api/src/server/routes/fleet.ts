@@ -5,7 +5,7 @@ import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { getFleetyardsModels } from '../../lib/fleetyardsCache.js';
 import { importHangar } from '../../lib/fleetyardsOAuth.js';
-import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetLinkStatusDto, FleetyardsLinkDto } from '@dem/shared';
+import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetLinkStatusDto, FleetyardsLinkDto, RsiRosterDto } from '@dem/shared';
 
 // ── Guild-scoped fleet routes ─────────────────────────────────────────────────
 export const fleetRouter = Router();
@@ -306,4 +306,103 @@ fleetyardsRouter.patch('/fleet/rsi-handle', requireAuth, async (req, res) => {
   });
 
   res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── GET /api/guilds/:guildId/rsi/roster ───────────────────────────────────────
+// Fetches the RSI org roster and cross-references with app members' RSI handles.
+// Requires guild manager. Proxies to the RSI org members API to avoid CORS.
+
+fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const orgTag = guild.settings?.rsiOrgTag ?? null;
+
+  if (!orgTag) {
+    res.json({ success: true, data: { orgTag: null, linked: [], orgOnly: [], total: 0 } satisfies RsiRosterDto } satisfies ApiResponse<RsiRosterDto>);
+    return;
+  }
+
+  // Fetch all app members for this guild
+  const members = await prisma.guildMember.findMany({
+    where: { guildId: guild.id },
+    include: { user: { select: { discordId: true, username: true, globalName: true, rsiHandle: true } } },
+  });
+
+  // Fetch RSI org roster (paginated, max 32 per page)
+  const RSI_PAGE_SIZE = 32;
+  let page = 1;
+  let totalRows = Infinity;
+  const orgMembers: { handle: string; stars: number }[] = [];
+
+  try {
+    while (orgMembers.length < totalRows) {
+      const response = await fetch('https://robertsspaceindustries.com/api/orgs/getOrgMembers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: orgTag, page, pagesize: RSI_PAGE_SIZE }),
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!response.ok) {
+        res.status(502).json({ success: false, error: 'RSI API returned an error' } satisfies ApiResponse);
+        return;
+      }
+
+      const json = await response.json() as {
+        success: number;
+        data: { totalrows: number; members: { handle: string; stars: number }[] };
+      };
+
+      if (!json.success || !json.data?.members) {
+        res.status(502).json({ success: false, error: 'RSI org not found or is private' } satisfies ApiResponse);
+        return;
+      }
+
+      totalRows = json.data.totalrows;
+      if (totalRows === 0) break;
+      for (const m of json.data.members) {
+        orgMembers.push({ handle: m.handle, stars: m.stars });
+      }
+      if (json.data.members.length < RSI_PAGE_SIZE) break;
+      page++;
+    }
+  } catch (err) {
+    console.error('[rsi/roster] Fetch failed:', err);
+    res.status(502).json({ success: false, error: 'Failed to reach RSI' } satisfies ApiResponse);
+    return;
+  }
+
+  const orgHandleSet = new Set(orgMembers.map((m) => m.handle.toLowerCase()));
+  const orgRankMap = new Map(orgMembers.map((m) => [m.handle.toLowerCase(), m.stars]));
+
+  const linked = members
+    .filter((m) => m.user.rsiHandle)
+    .map((m) => ({
+      discordId: m.user.discordId,
+      discordUsername: m.user.globalName ?? m.user.username,
+      rsiHandle: m.user.rsiHandle!,
+      inOrg: orgHandleSet.has(m.user.rsiHandle!.toLowerCase()),
+      orgRank: orgRankMap.get(m.user.rsiHandle!.toLowerCase()) ?? null,
+    }));
+
+  const linkedHandles = new Set(linked.map((l) => l.rsiHandle.toLowerCase()));
+  const orgOnly = orgMembers
+    .filter((m) => !linkedHandles.has(m.handle.toLowerCase()))
+    .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars }));
+
+  res.json({
+    success: true,
+    data: { orgTag, linked, orgOnly, total: orgMembers.length } satisfies RsiRosterDto,
+  } satisfies ApiResponse<RsiRosterDto>);
 });

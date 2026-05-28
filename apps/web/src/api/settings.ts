@@ -33,6 +33,7 @@ export interface GuildSettingsData {
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
   lootDefaultMethod: string;
+  rsiOrgTag: string | null;
 }
 
 export interface GuildMyPermissions {
