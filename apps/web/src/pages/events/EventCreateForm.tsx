@@ -162,6 +162,7 @@ export function EventCreateForm({
   // fromTemplateIdProp is set when Repeat is clicked (stable, resolved before form opens).
   // Selecting from the Templates list overwrites it with the chosen template's ID.
   const [fromTemplateId, setFromTemplateId] = useState<string | undefined>(fromTemplateIdProp);
+  const [recurType, setRecurType] = useState<string>(repeatSource?.recurType ?? '');
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
@@ -245,6 +246,7 @@ export function EventCreateForm({
       musterPoint: musterPoint || undefined,
       startTime: startIso.toISOString(),
       endTime: endIso?.toISOString(),
+      recurType: (recurType as 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') || undefined,
       roles: roles.filter((r) => r.name.trim()),
       vcNames: vcNames.filter(Boolean),
       briefingChannel,
@@ -352,6 +354,23 @@ export function EventCreateForm({
             <option value="240">4 hours</option>
             <option value="360">6 hours</option>
             <option value="0">No end time</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Recurrence */}
+      <div className={rowCls}>
+        <span className={labelCls}>
+          Recurrence
+          <span className="block text-[10px] opacity-50 normal-case tracking-normal mt-0.5">auto-schedules next</span>
+        </span>
+        <div className="flex-1">
+          <select className={inputCls} value={recurType} onChange={(e) => setRecurType(e.target.value)}>
+            <option value="">One-time event</option>
+            <option value="DAILY">Daily</option>
+            <option value="WEEKLY">Weekly</option>
+            <option value="BIWEEKLY">Every 2 weeks</option>
+            <option value="MONTHLY">Monthly</option>
           </select>
         </div>
       </div>
