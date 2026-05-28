@@ -853,12 +853,9 @@ function RecentLootCard({ guildId }: { guildId: string }) {
           <h2 className="text-sm font-semibold">Recent Loot</h2>
         </div>
         {event && (
-          <Link
-            to={`/dashboard/servers/${guildId}/events/${event.eventId}/loot`}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <span className="text-xs text-muted-foreground">
             {event.eventName} · {timeAgo(event.sessionUpdatedAt)}
-          </Link>
+          </span>
         )}
       </div>
 
