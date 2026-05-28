@@ -700,12 +700,14 @@ export function StandaloneLootSessionPage() {
     onError: () => setStartConfirm(false),
   });
 
+  const isCommodityDraftEarly = session?.method === 'COMMODITY_DRAFT';
+
   const suggestQuery = useQuery({
-    queryKey: ['uex-suggest-standalone', debouncedNewItem, isCommodityDraft],
+    queryKey: ['uex-suggest-standalone', debouncedNewItem, isCommodityDraftEarly],
     queryFn: async () => {
       const seen = new Set<string>();
       const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
-      if (isCommodityDraft) {
+      if (isCommodityDraftEarly) {
         const commodities = await uexApi.getCommodities({ q: debouncedNewItem, limit: 12 });
         for (const c of commodities) {
           const lc = c.name.toLowerCase();
