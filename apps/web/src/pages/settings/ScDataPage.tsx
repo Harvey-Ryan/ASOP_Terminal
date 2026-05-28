@@ -142,7 +142,7 @@ function SearchPanel() {
   const dq = useDebounce(query, 300);
   const enabled = dq.length >= 2;
 
-  const blueprints     = useQuery({ queryKey: ['sc-blueprints', dq],     queryFn: () => scApi.getBlueprints(dq),     enabled: enabled && tab === 'blueprints',      staleTime: 60_000 });
+  const blueprints     = useQuery<unknown[], Error>({ queryKey: ['sc-blueprints', dq],     queryFn: () => scApi.getBlueprints({ q: dq }),     enabled: enabled && tab === 'blueprints',      staleTime: 60_000 });
   const shipItems      = useQuery({ queryKey: ['sc-ship-items', dq],     queryFn: () => scApi.getShipItems(dq),     enabled: enabled && tab === 'ship-items',      staleTime: 60_000 });
   const commodities    = useQuery({ queryKey: ['sc-commodities', dq],    queryFn: () => scApi.getCommodities(dq),    enabled: enabled && tab === 'commodities',     staleTime: 60_000 });
   const resources      = useQuery({ queryKey: ['sc-resources', dq],      queryFn: () => scApi.getResources(dq),      enabled: enabled && tab === 'resources',       staleTime: 60_000 });
@@ -158,7 +158,7 @@ function SearchPanel() {
   };
 
   const active  = queryMap[tab];
-  const results = (active.data ?? []) as RecordRow[];
+  const results = (active.data ?? []) as unknown as RecordRow[];
   const needle  = dq.toLowerCase();
   const rank    = (r: RecordRow) => {
     const name = String(r.name ?? r.outputName ?? r.displayName ?? r.value ?? '').toLowerCase();
