@@ -8,6 +8,8 @@ import type {
   ScBlueprintDto,
   ScBlueprintSummaryDto,
   ScBlueprintTierDto,
+  ScMissionDto,
+  ScMissionSummaryDto,
   ScSyncStatusDto,
   ScSyncLogDto,
 } from '@dem/shared';
@@ -152,7 +154,7 @@ scRouter.get('/sc/blueprints/:uuid', async (req, res) => {
           modifiers: { orderBy: { key: 'asc' } },
         },
       },
-      _count: { select: { rewardPools: true } },
+      rewardPools: true,
     },
   });
 
@@ -160,6 +162,21 @@ scRouter.get('/sc/blueprints/:uuid', async (req, res) => {
     res.status(404).json({ success: false, error: 'Blueprint not found' } satisfies ApiResponse);
     return;
   }
+
+  // Look up any missions that reference this blueprint's reward pool UUIDs
+  const poolUuids = bp.rewardPools.map((p) => p.poolUuid);
+  const missionRows = poolUuids.length > 0
+    ? await prisma.scMissionRewardPool.findMany({
+        where: { poolUuid: { in: poolUuids } },
+        select: { missionUuid: true },
+        distinct: ['missionUuid'],
+      }).then((rows) => rows.length > 0
+        ? prisma.scMission.findMany({
+            where: { uuid: { in: rows.map((r) => r.missionUuid) } },
+            orderBy: { name: 'asc' },
+          })
+        : [])
+    : [];
 
   const data: ScBlueprintDto = {
     uuid:               bp.uuid,
@@ -172,7 +189,11 @@ scRouter.get('/sc/blueprints/:uuid', async (req, res) => {
     dismantleTimeSecs:  bp.dismantleTimeSecs,
     dismantleEfficiency: bp.dismantleEfficiency,
     tiers:              bp.tiers.map(toTierDto),
-    rewardPoolCount:    bp._count.rewardPools,
+    rewardPools:        bp.rewardPools.map((p) => ({ poolUuid: p.poolUuid, poolKey: p.poolKey })),
+    missions:           missionRows.map((m) => ({
+      uuid: m.uuid, name: m.name, faction: m.faction, missionType: m.missionType,
+      missionGiver: m.missionGiver, locationName: m.locationName,
+    })),
   };
 
   res.json({ success: true, data } satisfies ApiResponse<ScBlueprintDto>);
@@ -334,6 +355,57 @@ scRouter.get('/sc/labels', async (req, res) => {
     select: { key: true, value: true },
   });
   res.json({ success: true, data: rows } satisfies ApiResponse);
+});
+
+// ── GET /api/sc/missions ──────────────────────────────────────────────────────
+// Query: q (name search), faction, type, limit (default 25, max 100)
+
+scRouter.get('/sc/missions', async (req, res) => {
+  const q       = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const faction = typeof req.query.faction === 'string' ? req.query.faction.trim() : undefined;
+  const type    = typeof req.query.type === 'string' ? req.query.type.trim() : undefined;
+  const limit   = Math.min(parseInt(String(req.query.limit ?? '25'), 10) || 25, 100);
+
+  const rows = await prisma.scMission.findMany({
+    where: {
+      ...(q       ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(faction ? { faction: { equals: faction, mode: 'insensitive' } } : {}),
+      ...(type    ? { missionType: { equals: type, mode: 'insensitive' } } : {}),
+    },
+    orderBy: { name: 'asc' },
+    take: limit,
+  });
+
+  const data: ScMissionSummaryDto[] = rows.map((m) => ({
+    uuid: m.uuid, name: m.name, faction: m.faction, missionType: m.missionType,
+    missionGiver: m.missionGiver, locationName: m.locationName,
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<ScMissionSummaryDto[]>);
+});
+
+// ── GET /api/sc/missions/:uuid ────────────────────────────────────────────────
+
+scRouter.get('/sc/missions/:uuid', async (req, res) => {
+  const { uuid } = req.params as { uuid: string };
+
+  const m = await prisma.scMission.findUnique({
+    where: { uuid },
+    include: { rewardPools: true },
+  });
+
+  if (!m) {
+    res.status(404).json({ success: false, error: 'Mission not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const data: ScMissionDto = {
+    uuid: m.uuid, name: m.name, description: m.description, faction: m.faction,
+    missionType: m.missionType, missionGiver: m.missionGiver, locationName: m.locationName,
+    poolUuids: m.rewardPools.map((p) => p.poolUuid),
+  };
+
+  res.json({ success: true, data } satisfies ApiResponse<ScMissionDto>);
 });
 
 // ── GET /api/sc/sync/status ───────────────────────────────────────────────────

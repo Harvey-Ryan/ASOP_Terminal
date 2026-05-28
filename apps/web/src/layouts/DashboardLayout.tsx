@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -358,6 +358,14 @@ export function DashboardLayout() {
                   Loot
                 </NavLink>
               )}
+
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/blueprints`}
+                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <BookOpen className="h-4 w-4 shrink-0" />
+                Blueprints
+              </NavLink>
             </>
           ) : (
             <>

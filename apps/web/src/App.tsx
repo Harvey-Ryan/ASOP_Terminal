@@ -18,6 +18,7 @@ import { DkpPage } from './pages/DkpPage';
 import { ExchangePage } from './pages/ExchangePage';
 import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
 import { FleetPage } from './pages/FleetPage';
+import { BlueprintsPage } from './pages/BlueprintsPage';
 import { RosterPage } from './pages/RosterPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />
           <Route path="servers/:guildId/loot" element={<LootModulePage />} />
           <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
+          <Route path="servers/:guildId/blueprints" element={<BlueprintsPage />} />
           <Route path="kanban" element={<KanbanPage />} />
         </Route>
 

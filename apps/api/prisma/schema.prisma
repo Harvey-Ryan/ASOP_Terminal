@@ -632,7 +632,7 @@ model ScBlueprintModifier {
   @@index([tierId])
 }
 
-/// Links a blueprint to a mission reward pool UUID (Phase 2: mission finder).
+/// Links a blueprint to a mission reward pool UUID.
 model ScBlueprintRewardPool {
   id            String @id @default(cuid())
   blueprintUuid String
@@ -642,6 +642,36 @@ model ScBlueprintRewardPool {
   blueprint ScBlueprint @relation(fields: [blueprintUuid], references: [uuid], onDelete: Cascade)
 
   @@index([blueprintUuid])
+  @@index([poolUuid])
+}
+
+/// A Star Citizen mission that can reward blueprints (populated when mission data is available).
+model ScMission {
+  uuid         String  @id
+  name         String
+  description  String?
+  faction      String?
+  missionType  String?
+  missionGiver String?
+  locationName String?
+  syncedAt     DateTime @default(now()) @updatedAt
+
+  rewardPools ScMissionRewardPool[]
+
+  @@index([name])
+  @@index([faction])
+}
+
+/// Junction table linking a mission to the reward pool UUIDs it can grant.
+model ScMissionRewardPool {
+  id          String @id @default(cuid())
+  missionUuid String
+  poolUuid    String
+
+  mission ScMission @relation(fields: [missionUuid], references: [uuid], onDelete: Cascade)
+
+  @@unique([missionUuid, poolUuid])
+  @@index([missionUuid])
   @@index([poolUuid])
 }
 

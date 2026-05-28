@@ -739,6 +739,25 @@ export interface ScBlueprintTierDto {
   modifiers: ScBlueprintModifierDto[];
 }
 
+export interface ScBlueprintRewardPoolDto {
+  poolUuid: string;
+  poolKey: string;
+}
+
+export interface ScMissionSummaryDto {
+  uuid: string;
+  name: string;
+  faction: string | null;
+  missionType: string | null;
+  missionGiver: string | null;
+  locationName: string | null;
+}
+
+export interface ScMissionDto extends ScMissionSummaryDto {
+  description: string | null;
+  poolUuids: string[];
+}
+
 /** Full blueprint with recipe tiers — returned by GET /api/sc/blueprints/:uuid */
 export interface ScBlueprintDto {
   uuid: string;
@@ -751,7 +770,8 @@ export interface ScBlueprintDto {
   dismantleTimeSecs: number | null;
   dismantleEfficiency: number | null;
   tiers: ScBlueprintTierDto[];
-  rewardPoolCount: number;
+  rewardPools: ScBlueprintRewardPoolDto[];
+  missions: ScMissionSummaryDto[];
 }
 
 /** Lightweight summary — returned by search and by-material endpoints */
