@@ -832,6 +832,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
   await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
 
   triggerBot(`/trigger/loot/${session.id}`);
+  triggerBot(`/trigger/loot-complete/${session.id}`);
 
   res.json({ success: true, message: 'Loot session completed' } satisfies ApiResponse);
 });
@@ -1689,6 +1690,7 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/complete', requireAuth, asyn
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Already completed' } satisfies ApiResponse); return; }
 
   await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
+  triggerBot(`/trigger/loot-complete/${sessionId}`);
   res.json({ success: true } satisfies ApiResponse);
 });
 
@@ -1750,10 +1752,14 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/commodity-roll', requireAuth
       if (b.qualityLevel === null) return -1;
       return b.qualityLevel - a.qualityLevel;
     });
-    sorted.forEach((item, idx) => {
-      const userId = order[snakePickIndex(idx, order.length)]!;
-      toCreate.push({ itemId: item.id, userId, username: usernameMap.get(userId) ?? userId, pickNumber: idx + 1 });
-    });
+    let pickIdx = 0;
+    for (const item of sorted) {
+      for (let copy = 0; copy < item.quantity; copy++) {
+        const userId = order[snakePickIndex(pickIdx, order.length)]!;
+        toCreate.push({ itemId: item.id, userId, username: usernameMap.get(userId) ?? userId, pickNumber: pickIdx + 1 });
+        pickIdx++;
+      }
+    }
   }
 
   // Clear old assignments and create new ones atomically
@@ -1771,10 +1777,10 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/commodity-roll', requireAuth
   res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
 });
 
-// ── PATCH toggle delivered (standalone) ───────────────────────────────────────
+// ── PATCH toggle delivered (standalone, by assignment ID) ────────────────────
 
-lootRouter.patch('/:guildId/loot/sessions/:sessionId/items/:itemId/assign/delivered', requireAuth, async (req, res) => {
-  const { guildId, sessionId, itemId } = req.params as { guildId: string; sessionId: string; itemId: string };
+lootRouter.patch('/:guildId/loot/sessions/:sessionId/assignments/:assignmentId/delivered', requireAuth, async (req, res) => {
+  const { guildId, sessionId, assignmentId } = req.params as { guildId: string; sessionId: string; assignmentId: string };
   const isManager = await assertGuildManager(req, guildId);
   const session = await resolveStandaloneSession(sessionId, guildId);
   if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
@@ -1783,12 +1789,12 @@ lootRouter.patch('/:guildId/loot/sessions/:sessionId/items/:itemId/assign/delive
     if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
   }
 
-  const assignment = await prisma.lootAssignment.findFirst({ where: { itemId } });
+  const assignment = await prisma.lootAssignment.findUnique({ where: { id: assignmentId } });
   if (!assignment) { res.status(404).json({ success: false, error: 'Assignment not found' } satisfies ApiResponse); return; }
 
   const nowDelivered = !assignment.delivered;
   await prisma.lootAssignment.update({
-    where: { id: assignment.id },
+    where: { id: assignmentId },
     data: { delivered: nowDelivered, deliveredAt: nowDelivered ? new Date() : null },
   });
 

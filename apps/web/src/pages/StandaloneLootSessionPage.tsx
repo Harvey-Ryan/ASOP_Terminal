@@ -595,6 +595,7 @@ export function StandaloneLootSessionPage() {
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemQl, setNewItemQl] = useState('');
+  const [newItemCount, setNewItemCount] = useState('1');
   const newItemInputRef = useRef<HTMLInputElement>(null);
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
@@ -630,11 +631,12 @@ export function StandaloneLootSessionPage() {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: ({ name, qualityLevel }: { name: string; qualityLevel: number | null }) =>
-      lootApi.addStandaloneItem(guildId!, sessionId!, { name, qualityLevel }),
+    mutationFn: ({ name, qualityLevel, quantity }: { name: string; qualityLevel: number | null; quantity: number }) =>
+      lootApi.addStandaloneItem(guildId!, sessionId!, { name, qualityLevel, quantity }),
     onSuccess: () => {
       setNewItemName('');
       setNewItemQl('');
+      setNewItemCount('1');
       invalidate();
       setTimeout(() => newItemInputRef.current?.focus(), 0);
     },
@@ -646,7 +648,7 @@ export function StandaloneLootSessionPage() {
   });
 
   const toggleDeliveredMutation = useMutation({
-    mutationFn: (itemId: string) => lootApi.toggleDeliveredStandalone(guildId!, sessionId!, itemId),
+    mutationFn: (assignmentId: string) => lootApi.toggleDeliveredStandalone(guildId!, sessionId!, assignmentId),
     onSuccess: invalidate,
   });
 
@@ -1000,7 +1002,12 @@ export function StandaloneLootSessionPage() {
                   e.preventDefault();
                   if (!newItemName.trim()) return;
                   const ql = newItemQl.trim() ? parseInt(newItemQl.trim(), 10) : null;
-                  addItemMutation.mutate({ name: newItemName.trim(), qualityLevel: ql && !isNaN(ql) ? ql : null });
+                  const count = parseInt(newItemCount.trim() || '1', 10);
+                  addItemMutation.mutate({
+                    name: newItemName.trim(),
+                    qualityLevel: ql && !isNaN(ql) ? ql : null,
+                    quantity: !isNaN(count) && count > 0 ? count : 1,
+                  });
                 }}
                 className="flex gap-2 flex-wrap"
               >
@@ -1040,15 +1047,26 @@ export function StandaloneLootSessionPage() {
                   )}
                 </div>
                 {isCommodityDraft && (
-                  <input
-                    type="number"
-                    min={0}
-                    className={`${inputCls} w-24`}
-                    placeholder="QL"
-                    value={newItemQl}
-                    onChange={(e) => setNewItemQl(e.target.value)}
-                    title="Quality Level (optional)"
-                  />
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      className={`${inputCls} w-24`}
+                      placeholder="QL"
+                      value={newItemQl}
+                      onChange={(e) => setNewItemQl(e.target.value)}
+                      title="Quality Level (optional)"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      className={`${inputCls} w-20`}
+                      placeholder="Ct."
+                      value={newItemCount}
+                      onChange={(e) => setNewItemCount(e.target.value)}
+                      title="Count — number of copies to distribute"
+                    />
+                  </>
                 )}
                 <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending} className="shrink-0 gap-1">
                   <Plus className="h-4 w-4" />
@@ -1125,7 +1143,7 @@ export function StandaloneLootSessionPage() {
                       </CardHeader>
                       <CardContent className="px-4 pb-3 space-y-1.5">
                         {bucket.items.map(({ item, assignment }) => (
-                          <div key={item.id} className="flex items-center justify-between gap-3">
+                          <div key={assignment.id} className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2 min-w-0">
                               {assignment.delivered
                                 ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
@@ -1137,7 +1155,7 @@ export function StandaloneLootSessionPage() {
                             {canManage && (
                               <button
                                 type="button"
-                                onClick={() => toggleDeliveredMutation.mutate(item.id)}
+                                onClick={() => toggleDeliveredMutation.mutate(assignment.id)}
                                 disabled={toggleDeliveredMutation.isPending}
                                 className={`shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
                                   assignment.delivered

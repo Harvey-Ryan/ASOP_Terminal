@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
-import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder } from './services/lootService.js';
+import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { announceRoleReassignment } from './services/rsvpService.js';
@@ -125,6 +125,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await notifyStandaloneSnakeTurn(sessionId).catch((err) =>
         console.error(`[bot:internal] notifyStandaloneSnakeTurn failed for ${sessionId}:`, err),
+      );
+      return;
+    }
+
+    const lootCompleteMatch = req.url?.match(/^\/trigger\/loot-complete\/([^/]+)$/);
+    if (lootCompleteMatch) {
+      const sessionId = lootCompleteMatch[1]!;
+      res.writeHead(202).end();
+      await notifyLootComplete(sessionId).catch((err) =>
+        console.error(`[bot:internal] notifyLootComplete failed for ${sessionId}:`, err),
       );
       return;
     }

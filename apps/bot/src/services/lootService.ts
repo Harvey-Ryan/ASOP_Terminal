@@ -182,6 +182,56 @@ export async function notifyStandaloneSnakeTurn(sessionId: string) {
   }
 }
 
+export async function notifyLootComplete(sessionId: string) {
+  const session = await prisma.lootSession.findUnique({
+    where: { id: sessionId },
+    include: { items: { include: { assignments: true }, orderBy: { sortOrder: 'asc' } } },
+  });
+  if (!session) return;
+
+  // Build a map of userId → { username, items[] }
+  type WinnerEntry = { username: string; lines: string[] };
+  const winners = new Map<string, WinnerEntry>();
+
+  for (const item of session.items) {
+    for (const a of item.assignments) {
+      if (!winners.has(a.userId)) winners.set(a.userId, { username: a.username, lines: [] });
+      const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
+      const ql = item.qualityLevel != null ? ` QL ${item.qualityLevel}` : '';
+      let suffix = '';
+      if (a.rollValue != null) suffix = ` (rolled ${a.rollValue})`;
+      else if (a.dkpSpent != null && a.dkpSpent > 0) suffix = ` (${a.dkpSpent} DKP)`;
+      else if (a.pickNumber != null) suffix = ` (pick #${a.pickNumber + 1})`;
+      winners.get(a.userId)!.lines.push(`• ${item.name}${qty}${ql}${suffix}`);
+    }
+  }
+
+  if (winners.size === 0) return;
+
+  // Resolve session label — prefer event name, fall back to session name or generic
+  let sessionLabel = session.name ?? 'Loot Session';
+  if (session.eventId) {
+    const event = await prisma.event.findUnique({ where: { id: session.eventId }, select: { name: true } });
+    if (event) sessionLabel = event.name;
+  }
+
+  for (const [userId, { lines }] of winners) {
+    const content = [
+      `🎁 **Loot Session Complete — ${sessionLabel}**`,
+      '',
+      'Your items:',
+      ...lines,
+    ].join('\n');
+
+    try {
+      const discordUser = await client.users.fetch(userId);
+      await discordUser.send({ content });
+    } catch {
+      // User may have DMs disabled — skip silently
+    }
+  }
+}
+
 const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
   SNAKE_DRAFT: '🐍 Snake Draft',
