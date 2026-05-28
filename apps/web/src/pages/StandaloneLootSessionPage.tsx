@@ -1009,9 +1009,9 @@ export function StandaloneLootSessionPage() {
                     quantity: !isNaN(count) && count > 0 ? count : 1,
                   });
                 }}
-                className="flex gap-2 flex-wrap"
+                className="flex gap-2 items-start"
               >
-                <div className="relative flex-1 min-w-[160px]">
+                <div className="relative flex-1 min-w-0">
                   <input
                     ref={newItemInputRef}
                     className={inputCls}
@@ -1049,21 +1049,25 @@ export function StandaloneLootSessionPage() {
                 {isCommodityDraft && (
                   <>
                     <input
-                      type="number"
-                      min={0}
-                      className={`${inputCls} w-24`}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
                       placeholder="QL"
                       value={newItemQl}
-                      onChange={(e) => setNewItemQl(e.target.value)}
+                      onChange={(e) => setNewItemQl(e.target.value.replace(/\D/g, '').slice(0, 4))}
                       title="Quality Level (optional)"
                     />
                     <input
-                      type="number"
-                      min={1}
-                      className={`${inputCls} w-20`}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
                       placeholder="Ct."
                       value={newItemCount}
-                      onChange={(e) => setNewItemCount(e.target.value)}
+                      onChange={(e) => setNewItemCount(e.target.value.replace(/\D/g, '').slice(0, 4))}
                       title="Count — number of copies to distribute"
                     />
                   </>
