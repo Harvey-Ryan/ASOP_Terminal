@@ -233,7 +233,6 @@ export function BotSettingsPage() {
 
   const [moduleEditorRoles, setModuleEditorRoles] = useState<string[]>([]);
   const [viewerRoles, setViewerRoles] = useState<string[]>([]);
-  const [dkpLabel, setDkpLabel] = useState('DKP');
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -241,7 +240,6 @@ export function BotSettingsPage() {
     if (saved) {
       setModuleEditorRoles(saved.moduleEditorRoles ?? []);
       setViewerRoles(saved.viewerRoles ?? []);
-      setDkpLabel(saved.dkpLabel ?? 'DKP');
       setDirty(false);
     }
   }, [saved]);
@@ -266,7 +264,7 @@ export function BotSettingsPage() {
 
   const mutation = useMutation({
     mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, dkpLabel }),
+      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles }),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
@@ -319,26 +317,6 @@ export function BotSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Currency label */}
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium">Currency Label</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Rename the DKP currency shown across the dashboard and bot messages.
-              </p>
-            </div>
-            <input
-              type="text"
-              maxLength={30}
-              value={dkpLabel}
-              onChange={(e) => { setDkpLabel(e.target.value); setDirty(true); setSavedFlash(false); }}
-              placeholder="DKP"
-              className="w-48 rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          <div className="border-t border-border" />
-
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium">Module Settings Editors</p>
