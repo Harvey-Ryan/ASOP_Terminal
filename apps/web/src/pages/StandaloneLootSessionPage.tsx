@@ -1003,6 +1003,7 @@ export function StandaloneLootSessionPage() {
                   if (!newItemName.trim()) return;
                   const ql = newItemQl.trim() ? parseInt(newItemQl.trim(), 10) : null;
                   const count = parseInt(newItemCount.trim() || '1', 10);
+                  if (isCommodityDraft && (ql === null || isNaN(ql) || isNaN(count) || count < 1)) return;
                   addItemMutation.mutate({
                     name: newItemName.trim(),
                     qualityLevel: ql && !isNaN(ql) ? ql : null,
@@ -1057,7 +1058,7 @@ export function StandaloneLootSessionPage() {
                       placeholder="QL"
                       value={newItemQl}
                       onChange={(e) => setNewItemQl(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      title="Quality Level (optional)"
+                      title="Quality Level (required)"
                     />
                     <input
                       type="text"
@@ -1072,7 +1073,15 @@ export function StandaloneLootSessionPage() {
                     />
                   </>
                 )}
-                <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending} className="shrink-0 gap-1">
+                <Button
+                  type="submit"
+                  disabled={
+                    !newItemName.trim() ||
+                    addItemMutation.isPending ||
+                    (isCommodityDraft && (!newItemQl.trim() || !newItemCount.trim()))
+                  }
+                  className="shrink-0 gap-1"
+                >
                   <Plus className="h-4 w-4" />
                   Add
                 </Button>
