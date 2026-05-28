@@ -27,8 +27,18 @@ function interpolate(mod: ScBlueprintModifierDto, ql: number): number {
   return mod.modifierAtMin + t * (mod.modifierAtMax - mod.modifierAtMin);
 }
 
-function fmtModValue(val: number, unit: string | null) {
-  return `${(val * 100).toFixed(1)}${unit ?? '%'}`;
+function fmtModValue(val: number, unitFormat: string | null): string {
+  const isPercent = !unitFormat || unitFormat.includes('%%');
+  const showSign  = unitFormat?.includes('+') ?? false;
+  const dpMatch   = unitFormat?.match(/\.(\d+)f/);
+  const dp        = dpMatch ? parseInt(dpMatch[1]!, 10) : 1;
+
+  const scaled    = isPercent ? val * 100 : val;
+  const formatted = scaled.toFixed(dp);
+  const prefix    = showSign && scaled >= 0 ? '+' : '';
+  const suffix    = isPercent ? ' %' : '';
+
+  return `${prefix}${formatted}${suffix}`;
 }
 
 function formatPoolKey(key: string) {
