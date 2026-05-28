@@ -219,7 +219,11 @@ function StandaloneItemRow({
           <p className="font-medium truncate">
             {item.name}
             {item.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {item.qualityLevel}</span>}
-            {item.quantity > 1 && <span className="ml-1 text-muted-foreground text-sm">×{item.quantity}</span>}
+            {item.quantity > 1 && (
+              <span className="ml-1 text-muted-foreground text-sm">
+                {session.method === 'COMMODITY_DRAFT' ? `Ct. ${item.quantity}` : `×${item.quantity}`}
+              </span>
+            )}
           </p>
           {isAssigned ? (
             <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">

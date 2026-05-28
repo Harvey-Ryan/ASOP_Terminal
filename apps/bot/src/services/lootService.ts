@@ -196,7 +196,7 @@ export async function notifyLootComplete(sessionId: string) {
   for (const item of session.items) {
     for (const a of item.assignments) {
       if (!winners.has(a.userId)) winners.set(a.userId, { username: a.username, lines: [] });
-      const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
+      const qty = item.quantity > 1 && session.method !== 'COMMODITY_DRAFT' ? ` ×${item.quantity}` : '';
       const ql = item.qualityLevel != null ? ` QL ${item.qualityLevel}` : '';
       let suffix = '';
       if (a.rollValue != null) suffix = ` (rolled ${a.rollValue})`;
