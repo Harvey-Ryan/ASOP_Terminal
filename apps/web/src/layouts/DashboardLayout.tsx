@@ -603,14 +603,14 @@ export function DashboardLayout() {
       </div>
 
       {/* ── Bottom branding bar ── */}
-      <footer className="shrink-0 border-t border-border bg-card px-4 py-1.5 flex items-center justify-between gap-6">
+      <footer className="shrink-0 border-t border-border bg-card px-4 py-3 flex items-center justify-between gap-6">
         <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="shrink-0 opacity-40 hover:opacity-70 transition-opacity">
-          <img src="/uex-api-badge-powered.png" alt="Powered by UEX Corp API" className="h-5 object-contain" />
+          <img src="/uex-api-badge-powered.png" alt="Powered by UEX Corp API" className="h-10 object-contain" />
         </a>
-        <p className="text-[9px] leading-tight text-muted-foreground text-center opacity-40">
+        <p className="text-[18px] leading-tight text-muted-foreground text-center opacity-40">
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
         </p>
-        <img src="/MadeByTheCommunity_White.png" alt="Made by the Community" className="h-5 object-contain shrink-0 opacity-40" />
+        <img src="/MadeByTheCommunity_White.png" alt="Made by the Community" className="h-10 object-contain shrink-0 opacity-40" />
       </footer>
     </div>
   );
