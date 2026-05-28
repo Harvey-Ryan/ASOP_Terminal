@@ -36,8 +36,8 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
         <span className="text-xs text-muted-foreground font-mono">{member.rsiHandle}</span>
       </div>
       {member.verified
-        ? <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-green-500" title="Verified" />
-        : <ShieldOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" title="Unverified" />}
+        ? <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-green-500" />
+        : <ShieldOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />}
       <RankBadge stars={member.inOrg ? member.orgRank : null} />
       {!member.inOrg && (
         <span className="text-xs text-yellow-500/80 shrink-0">Not in org</span>
