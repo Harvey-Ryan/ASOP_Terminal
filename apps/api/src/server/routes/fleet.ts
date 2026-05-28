@@ -349,22 +349,36 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     while (orgMembers.length < totalRows) {
       const response = await fetch('https://robertsspaceindustries.com/api/orgs/getOrgMembers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Origin': 'https://robertsspaceindustries.com',
+          'Referer': `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
+        },
         body: JSON.stringify({ symbol: orgTag, page, pagesize: RSI_PAGE_SIZE }),
         signal: AbortSignal.timeout(15_000),
       });
 
       if (!response.ok) {
-        res.status(502).json({ success: false, error: 'RSI API returned an error' } satisfies ApiResponse);
+        const body = await response.text().catch(() => '');
+        console.error(`[rsi/roster] HTTP ${response.status} from RSI:`, body.slice(0, 500));
+        res.status(502).json({ success: false, error: `RSI API returned HTTP ${response.status}` } satisfies ApiResponse);
         return;
       }
 
-      const json = await response.json() as {
-        success: number;
-        data: { totalrows: number; members: { handle: string; stars: number }[] };
-      };
+      const rawText = await response.text();
+      let json: { success: number; data: { totalrows: number; members: { handle: string; stars: number }[] } };
+      try {
+        json = JSON.parse(rawText);
+      } catch {
+        console.error('[rsi/roster] Non-JSON response from RSI:', rawText.slice(0, 500));
+        res.status(502).json({ success: false, error: 'RSI returned an unexpected response' } satisfies ApiResponse);
+        return;
+      }
 
       if (!json.success || !json.data?.members) {
+        console.error('[rsi/roster] RSI success=false or missing members:', JSON.stringify(json).slice(0, 500));
         res.status(502).json({ success: false, error: 'RSI org not found or is private' } satisfies ApiResponse);
         return;
       }
