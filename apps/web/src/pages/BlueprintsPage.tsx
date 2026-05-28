@@ -38,7 +38,7 @@ function formatPoolKey(key: string) {
 // ── QL Calculator ─────────────────────────────────────────────────────────────
 
 function QlCalculator({ bp, tierIndex }: { bp: ScBlueprintDto; tierIndex: number }) {
-  const [ql, setQl] = useState(50);
+  const [ql, setQl] = useState(500);
   const tier = bp.tiers[tierIndex];
   if (!tier) return null;
 
@@ -62,23 +62,30 @@ function QlCalculator({ bp, tierIndex }: { bp: ScBlueprintDto; tierIndex: number
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Quality Level
           </span>
-          <span className="font-mono text-sm font-bold text-primary">{ql}</span>
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            value={ql}
+            onChange={(e) => setQl(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
+            className="w-16 text-right font-mono text-sm font-bold text-primary bg-transparent border-b border-primary/40 focus:outline-none focus:border-primary"
+          />
         </div>
         <input
           type="range"
           min={0}
-          max={100}
-          step={1}
+          max={1000}
+          step={5}
           value={ql}
           onChange={(e) => setQl(Number(e.target.value))}
           className="w-full accent-primary"
         />
         <div className="flex justify-between text-[10px] text-muted-foreground">
           <span>0</span>
-          <span>25</span>
-          <span>50</span>
-          <span>75</span>
-          <span>100</span>
+          <span>250</span>
+          <span>500</span>
+          <span>750</span>
+          <span>1000</span>
         </div>
       </div>
 
