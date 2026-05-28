@@ -468,7 +468,9 @@ function ParticipantsPanel({
 }) {
   const [search, setSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownListRef = useRef<HTMLDivElement>(null);
 
   const playersQuery = useQuery({
     queryKey: ['players', guildId],
@@ -500,9 +502,12 @@ function ParticipantsPanel({
     .filter((p) => !search || p.username.toLowerCase().includes(search.toLowerCase()))
     .slice(0, 12);
 
+  useEffect(() => { setHighlight(-1); }, [search]);
+
   function addParticipant(player: { userId: string; username: string }) {
     updateMutation.mutate([...session.participants, { userId: player.userId, username: player.username }]);
     setSearch('');
+    setHighlight(-1);
     setDropdownOpen(false);
   }
 
@@ -553,19 +558,41 @@ function ParticipantsPanel({
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setDropdownOpen(true); }}
                 onFocus={() => setDropdownOpen(true)}
+                onKeyDown={(e) => {
+                  if (!dropdownOpen || filtered.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const next = Math.min(highlight + 1, filtered.length - 1);
+                    setHighlight(next);
+                    (dropdownListRef.current?.children[next] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const next = Math.max(highlight - 1, 0);
+                    setHighlight(next);
+                    (dropdownListRef.current?.children[next] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+                  } else if (e.key === 'Enter' && highlight >= 0) {
+                    e.preventDefault();
+                    const p = filtered[highlight];
+                    if (p) addParticipant(p);
+                  } else if (e.key === 'Escape') {
+                    setDropdownOpen(false);
+                    setHighlight(-1);
+                  }
+                }}
                 placeholder="Search server members…"
                 className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
 
             {dropdownOpen && filtered.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
-                {filtered.map((p) => (
+              <div ref={dropdownListRef} className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
+                {filtered.map((p, i) => (
                   <button
                     key={p.userId}
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); addParticipant(p); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                    onMouseEnter={() => setHighlight(i)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${i === highlight ? 'bg-accent' : 'hover:bg-accent'}`}
                   >
                     <span className="flex-1 truncate">{p.username}</span>
                   </button>
@@ -597,6 +624,8 @@ export function StandaloneLootSessionPage() {
   const [newItemQl, setNewItemQl] = useState('');
   const [newItemCount, setNewItemCount] = useState('1');
   const newItemInputRef = useRef<HTMLInputElement>(null);
+  const suggestListRef = useRef<HTMLDivElement>(null);
+  const [suggestHighlight, setSuggestHighlight] = useState(-1);
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
@@ -692,6 +721,8 @@ export function StandaloneLootSessionPage() {
     enabled: debouncedNewItem.length >= 3,
     staleTime: 2 * 60 * 1000,
   });
+
+  useEffect(() => { setSuggestHighlight(-1); }, [suggestQuery.data]);
 
   function handleShuffle() {
     if (!session) return;
@@ -1018,24 +1049,48 @@ export function StandaloneLootSessionPage() {
                     className={inputCls}
                     placeholder="Item name…"
                     value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
+                    onChange={(e) => { setNewItemName(e.target.value); setSuggestHighlight(-1); }}
                     onFocus={() => setNewItemInputFocused(true)}
                     onBlur={() => setNewItemInputFocused(false)}
+                    onKeyDown={(e) => {
+                      const items = suggestQuery.data ?? [];
+                      if (!newItemInputFocused || items.length === 0) return;
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        const next = Math.min(suggestHighlight + 1, items.length - 1);
+                        setSuggestHighlight(next);
+                        (suggestListRef.current?.children[next] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        const next = Math.max(suggestHighlight - 1, 0);
+                        setSuggestHighlight(next);
+                        (suggestListRef.current?.children[next] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+                      } else if (e.key === 'Enter' && suggestHighlight >= 0) {
+                        e.preventDefault();
+                        const s = items[suggestHighlight];
+                        if (s) { setNewItemName(s.name); setSuggestHighlight(-1); setNewItemInputFocused(false); }
+                      } else if (e.key === 'Escape') {
+                        setNewItemInputFocused(false);
+                        setSuggestHighlight(-1);
+                      }
+                    }}
                     autoComplete="off"
                   />
                   {newItemInputFocused && newItemName.length >= 3 && (suggestQuery.data?.length ?? 0) > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
-                      {suggestQuery.data!.map((s) => (
+                    <div ref={suggestListRef} className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
+                      {suggestQuery.data!.map((s, i) => (
                         <button
                           key={`${s.type}-${s.id}`}
                           type="button"
                           onMouseDown={(e) => {
                             e.preventDefault();
                             setNewItemName(s.name);
+                            setSuggestHighlight(-1);
                             setNewItemInputFocused(false);
                             newItemInputRef.current?.focus();
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                          onMouseEnter={() => setSuggestHighlight(i)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${i === suggestHighlight ? 'bg-accent' : 'hover:bg-accent'}`}
                         >
                           <span className="flex-1 truncate">{s.name}</span>
                           {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
