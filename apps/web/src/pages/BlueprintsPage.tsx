@@ -30,8 +30,7 @@ function interpolate(mod: ScBlueprintModifierDto, ql: number): number {
 function fmtModValue(val: number, unitFormat: string | null): string {
   const isPercent = !unitFormat || unitFormat.includes('%%');
   const showSign  = false;
-  const dpMatch   = unitFormat?.match(/\.(\d+)f/);
-  const dp        = dpMatch ? parseInt(dpMatch[1]!, 10) : 1;
+  const dp        = 0;
 
   const scaled    = isPercent ? val * 100 : val;
   const formatted = scaled.toFixed(dp);
