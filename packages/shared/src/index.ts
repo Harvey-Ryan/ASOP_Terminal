@@ -212,7 +212,7 @@ export interface EventDto {
 
 // ── Loot ─────────────────────────────────────────────────────────────────────
 
-export type LootMethod = 'RANDOM_ROLL' | 'DKP' | 'SNAKE_DRAFT';
+export type LootMethod = 'RANDOM_ROLL' | 'DKP' | 'SNAKE_DRAFT' | 'COMMODITY_DRAFT';
 
 export interface LootAssignmentDto {
   id: string;
@@ -230,6 +230,7 @@ export interface LootItemDto {
   id: string;
   name: string;
   quantity: number;
+  qualityLevel: number | null;
   excludePrevWinners: boolean;
   sortOrder: number;
   assignments: LootAssignmentDto[];
@@ -315,6 +316,7 @@ export interface CreateLootSessionBody {
 export interface AddLootItemBody {
   name: string;
   quantity?: number;
+  qualityLevel?: number | null;
   excludePrevWinners?: boolean;
 }
 

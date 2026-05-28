@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Save, SkipForward,
-  Play, EyeOff, GripVertical, ListOrdered, UserPlus, X, Info, Search,
+  Play, EyeOff, GripVertical, ListOrdered, UserPlus, X, Info, Search, Package, Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,7 @@ const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
   DKP: '🪙 DKP',
   SNAKE_DRAFT: '🐍 Snake Draft',
+  COMMODITY_DRAFT: '📦 Commodity Draft',
 };
 
 const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
@@ -593,6 +594,7 @@ export function StandaloneLootSessionPage() {
   const { user, guilds } = useAuth();
 
   const [newItemName, setNewItemName] = useState('');
+  const [newItemQl, setNewItemQl] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
@@ -628,12 +630,24 @@ export function StandaloneLootSessionPage() {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: (name: string) => lootApi.addStandaloneItem(guildId!, sessionId!, { name }),
+    mutationFn: ({ name, qualityLevel }: { name: string; qualityLevel: number | null }) =>
+      lootApi.addStandaloneItem(guildId!, sessionId!, { name, qualityLevel }),
     onSuccess: () => {
       setNewItemName('');
+      setNewItemQl('');
       invalidate();
       setTimeout(() => newItemInputRef.current?.focus(), 0);
     },
+  });
+
+  const commodityRollMutation = useMutation({
+    mutationFn: () => lootApi.commodityRollStandalone(guildId!, sessionId!),
+    onSuccess: invalidate,
+  });
+
+  const toggleDeliveredMutation = useMutation({
+    mutationFn: (itemId: string) => lootApi.toggleDeliveredStandalone(guildId!, sessionId!, itemId),
+    onSuccess: invalidate,
   });
 
   const completeMutation = useMutation({
@@ -710,6 +724,7 @@ export function StandaloneLootSessionPage() {
   const nextPickerUsername = nextPickerId ? (participantMap.get(nextPickerId) ?? nextPickerId) : null;
 
   const isSnakeDraft = session.method === 'SNAKE_DRAFT';
+  const isCommodityDraft = session.method === 'COMMODITY_DRAFT';
   const isDraftParticipant = isSnakeDraft && session.draftOrder.includes(user?.id ?? '');
   const isCurrentPicker = isSnakeDraft && session.status === 'OPEN' && nextPickerId === user?.id;
 
@@ -752,7 +767,7 @@ export function StandaloneLootSessionPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Method</label>
                   <div className="flex gap-2 flex-wrap">
-                    {(['RANDOM_ROLL', 'SNAKE_DRAFT'] as LootMethod[]).map((m) => (
+                    {(['RANDOM_ROLL', 'SNAKE_DRAFT', 'COMMODITY_DRAFT'] as LootMethod[]).map((m) => (
                       <button
                         key={m}
                         type="button"
@@ -919,6 +934,38 @@ export function StandaloneLootSessionPage() {
             </Card>
           )}
 
+          {/* Commodity Draft — roll control */}
+          {isCommodityDraft && canManage && session.status === 'OPEN' && (
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Package className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Commodity Draft</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Each item name becomes its own group. Items within a group are sorted by QL (highest first)
+                      and distributed via a separate randomized snake draft. Requires at least one participant and one item.
+                    </p>
+                  </div>
+                </div>
+                {commodityRollMutation.isError && (
+                  <p className="text-xs text-destructive">{(commodityRollMutation.error as Error)?.message ?? 'Failed to roll.'}</p>
+                )}
+                <Button
+                  onClick={() => commodityRollMutation.mutate()}
+                  disabled={commodityRollMutation.isPending || session.participants.length === 0 || session.items.length === 0}
+                  className="gap-2"
+                >
+                  <Shuffle className="h-4 w-4" />
+                  {session.draftStarted ? 'Re-roll Assignments' : 'Roll Assignments'}
+                </Button>
+                {session.draftStarted && (
+                  <p className="text-xs text-muted-foreground">Assignments have been rolled. Re-rolling will clear all current assignments.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Item list */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -949,10 +996,15 @@ export function StandaloneLootSessionPage() {
             {/* Add item */}
             {canManage && session.status === 'OPEN' && (
               <form
-                onSubmit={(e) => { e.preventDefault(); if (newItemName.trim()) addItemMutation.mutate(newItemName.trim()); }}
-                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newItemName.trim()) return;
+                  const ql = newItemQl.trim() ? parseInt(newItemQl.trim(), 10) : null;
+                  addItemMutation.mutate({ name: newItemName.trim(), qualityLevel: ql && !isNaN(ql) ? ql : null });
+                }}
+                className="flex gap-2 flex-wrap"
               >
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-[160px]">
                   <input
                     ref={newItemInputRef}
                     className={inputCls}
@@ -987,6 +1039,17 @@ export function StandaloneLootSessionPage() {
                     </div>
                   )}
                 </div>
+                {isCommodityDraft && (
+                  <input
+                    type="number"
+                    min={0}
+                    className={`${inputCls} w-24`}
+                    placeholder="QL"
+                    value={newItemQl}
+                    onChange={(e) => setNewItemQl(e.target.value)}
+                    title="Quality Level (optional)"
+                  />
+                )}
                 <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending} className="shrink-0 gap-1">
                   <Plus className="h-4 w-4" />
                   Add
@@ -1023,6 +1086,78 @@ export function StandaloneLootSessionPage() {
               <p className="text-sm text-muted-foreground italic py-2">No items yet. Add an item above to start distributing loot.</p>
             )}
           </div>
+
+          {/* Commodity Draft — distribution summary */}
+          {isCommodityDraft && session.draftStarted && (() => {
+            type Bucket = { username: string; items: { item: typeof session.items[0]; assignment: typeof session.items[0]['assignments'][0] }[] };
+            const buckets = new Map<string, Bucket>();
+            for (const item of session.items) {
+              for (const a of item.assignments) {
+                if (!buckets.has(a.userId)) buckets.set(a.userId, { username: a.username, items: [] });
+                buckets.get(a.userId)!.items.push({ item, assignment: a });
+              }
+            }
+            for (const b of buckets.values()) {
+              b.items.sort((x, y) => {
+                if (x.item.name !== y.item.name) return x.item.name.localeCompare(y.item.name);
+                return (y.item.qualityLevel ?? -1) - (x.item.qualityLevel ?? -1);
+              });
+            }
+            const entries = [...buckets.entries()];
+            const allDelivered = entries.every(([, b]) => b.items.every((e) => e.assignment.delivered));
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Distribution</h2>
+                  {allDelivered && <span className="text-xs text-green-500 font-medium">All delivered</span>}
+                </div>
+                {entries.map(([userId, bucket]) => {
+                  const allMemberDelivered = bucket.items.every((e) => e.assignment.delivered);
+                  return (
+                    <Card key={userId} className={allMemberDelivered ? 'opacity-60' : ''}>
+                      <CardHeader className="pb-2 pt-3 px-4">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-semibold">{bucket.username}</CardTitle>
+                          {allMemberDelivered && (
+                            <span className="flex items-center gap-1 text-xs text-green-500"><CheckCircle2 className="h-3.5 w-3.5" /> Delivered</span>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-3 space-y-1.5">
+                        {bucket.items.map(({ item, assignment }) => (
+                          <div key={item.id} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {assignment.delivered
+                                ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                                : <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                              <span className={`text-sm truncate ${assignment.delivered ? 'line-through text-muted-foreground' : ''}`}>
+                                {item.name}{item.qualityLevel !== null ? <span className="ml-1.5 text-xs text-muted-foreground">QL {item.qualityLevel}</span> : null}
+                              </span>
+                            </div>
+                            {canManage && (
+                              <button
+                                type="button"
+                                onClick={() => toggleDeliveredMutation.mutate(item.id)}
+                                disabled={toggleDeliveredMutation.isPending}
+                                className={`shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+                                  assignment.delivered
+                                    ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                    : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                                }`}
+                              >
+                                <Truck className="h-3 w-3" />
+                                {assignment.delivered ? 'Delivered' : 'Mark Delivered'}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Complete */}
           {canManage && session.status === 'OPEN' && (

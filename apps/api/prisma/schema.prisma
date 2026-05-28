@@ -282,6 +282,7 @@ model LootItem {
   sessionId          String
   name               String
   quantity           Int      @default(1)
+  qualityLevel       Int?
   excludePrevWinners Boolean  @default(false)
   sortOrder          Int      @default(0)
   createdAt          DateTime @default(now())

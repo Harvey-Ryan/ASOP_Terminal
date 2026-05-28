@@ -184,4 +184,10 @@ export const lootApi = {
 
   completeStandalone: (guildId: string, sessionId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/complete`).then((r) => r),
+
+  commodityRollStandalone: (guildId: string, sessionId: string) =>
+    api.post<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}/commodity-roll`, {}).then((r) => r.data!),
+
+  toggleDeliveredStandalone: (guildId: string, sessionId: string, itemId: string) =>
+    api.patch<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/items/${itemId}/assign/delivered`, {}).then((r) => r),
 };
