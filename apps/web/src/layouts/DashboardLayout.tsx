@@ -121,6 +121,7 @@ export function DashboardLayout() {
     enabled: !!activeGuildId,
     staleTime: 5 * 60_000,
   });
+  const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
@@ -503,7 +504,16 @@ export function DashboardLayout() {
 
         {/* Sidebar footer – help + dashboard link */}
         <div className="border-t border-border p-2 space-y-0.5">
-          <HelpPanel isManager={showAdminNav} dkpLabel={dkpLabel} />
+          <HelpPanel
+            isManager={showAdminNav}
+            dkpLabel={dkpLabel}
+            eventBotEnabled={eventBotEnabled}
+            dkpEnabled={dkpEnabled}
+            lootEnabled={lootEnabled}
+            exchangeEnabled={exchangeEnabled}
+            fleetEnabled={fleetEnabled}
+            rsiOrgRequired={myPerms?.rsiOrgRequired ?? false}
+          />
           <NavLink
             to="/dashboard"
             end
