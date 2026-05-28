@@ -17,6 +17,7 @@ const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
   DKP: '🪙 DKP',
   SNAKE_DRAFT: '🐍 Snake Draft',
+  COMMODITY_DRAFT: '📦 Commodity Draft',
 };
 
 const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
