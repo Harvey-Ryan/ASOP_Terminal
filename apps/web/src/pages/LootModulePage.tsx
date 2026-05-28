@@ -16,12 +16,14 @@ const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
   DKP: '🪙 DKP',
   SNAKE_DRAFT: '🐍 Snake Draft',
+  COMMODITY_DRAFT: '📦 Commodity Draft',
 };
 
 const METHOD_COLORS: Record<LootMethod, string> = {
   RANDOM_ROLL: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   DKP: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   SNAKE_DRAFT: 'bg-green-500/10 text-green-500 border-green-500/20',
+  COMMODITY_DRAFT: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
 };
 
 function formatDate(iso: string) {
@@ -116,7 +118,7 @@ function NewSessionDialog({
   const [method, setMethod] = useState<LootMethod>('RANDOM_ROLL');
   const [totalRounds, setTotalRounds] = useState(1);
 
-  const STANDALONE_METHODS: LootMethod[] = ['RANDOM_ROLL', 'SNAKE_DRAFT'];
+  const STANDALONE_METHODS: LootMethod[] = ['RANDOM_ROLL', 'SNAKE_DRAFT', 'COMMODITY_DRAFT'];
 
   const createMutation = useMutation({
     mutationFn: () => lootApi.createStandaloneSession(guildId, { name: name.trim(), method, ...(method === 'SNAKE_DRAFT' ? { totalRounds } : {}) }),
