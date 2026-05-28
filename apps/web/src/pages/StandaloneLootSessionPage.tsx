@@ -218,6 +218,7 @@ function StandaloneItemRow({
         <div className="min-w-0">
           <p className="font-medium truncate">
             {item.name}
+            {item.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {item.qualityLevel}</span>}
             {item.quantity > 1 && <span className="ml-1 text-muted-foreground text-sm">×{item.quantity}</span>}
           </p>
           {isAssigned ? (
@@ -700,21 +701,29 @@ export function StandaloneLootSessionPage() {
   });
 
   const suggestQuery = useQuery({
-    queryKey: ['uex-suggest-standalone', debouncedNewItem],
+    queryKey: ['uex-suggest-standalone', debouncedNewItem, isCommodityDraft],
     queryFn: async () => {
-      const [items, commodities] = await Promise.all([
-        uexApi.getItems({ q: debouncedNewItem, limit: 8 }),
-        uexApi.getCommodities({ q: debouncedNewItem, limit: 4 }),
-      ]);
       const seen = new Set<string>();
       const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
-      for (const i of items) {
-        const lc = i.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
-      }
-      for (const c of commodities) {
-        const lc = c.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+      if (isCommodityDraft) {
+        const commodities = await uexApi.getCommodities({ q: debouncedNewItem, limit: 12 });
+        for (const c of commodities) {
+          const lc = c.name.toLowerCase();
+          if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+        }
+      } else {
+        const [items, commodities] = await Promise.all([
+          uexApi.getItems({ q: debouncedNewItem, limit: 8 }),
+          uexApi.getCommodities({ q: debouncedNewItem, limit: 4 }),
+        ]);
+        for (const i of items) {
+          const lc = i.name.toLowerCase();
+          if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
+        }
+        for (const c of commodities) {
+          const lc = c.name.toLowerCase();
+          if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+        }
       }
       return results;
     },
