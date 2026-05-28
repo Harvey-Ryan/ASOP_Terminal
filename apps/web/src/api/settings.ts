@@ -30,6 +30,8 @@ export interface GuildSettingsData {
   lootEnabled: boolean;
   exchangeEnabled: boolean;
   fleetEnabled: boolean;
+  blueprintsEnabled: boolean;
+  craftingEnabled: boolean;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
   lootDefaultMethod: string;
@@ -45,6 +47,8 @@ export interface GuildMyPermissions {
   lootEnabled: boolean;
   exchangeEnabled: boolean;
   fleetEnabled: boolean;
+  blueprintsEnabled: boolean;
+  craftingEnabled: boolean;
   rsiOrgRequired: boolean;
   rsiVerified: boolean;
 }

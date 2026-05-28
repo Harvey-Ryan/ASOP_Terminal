@@ -56,12 +56,14 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         canManageEvents,
         canViewEvents,
         canCreateLootDraft,
-        eventBotEnabled:  s?.eventBotEnabled  ?? true,
-        dkpEnabled:       s?.dkpEnabled       ?? true,
-        lootEnabled:      s?.lootEnabled      ?? true,
-        exchangeEnabled:  s?.exchangeEnabled  ?? true,
-        fleetEnabled:     s?.fleetEnabled     ?? true,
-        rsiOrgRequired:   orgRequired,
+        eventBotEnabled:    s?.eventBotEnabled    ?? true,
+        dkpEnabled:         s?.dkpEnabled         ?? true,
+        lootEnabled:        s?.lootEnabled         ?? true,
+        exchangeEnabled:    s?.exchangeEnabled     ?? true,
+        fleetEnabled:       s?.fleetEnabled        ?? true,
+        blueprintsEnabled:  s?.blueprintsEnabled   ?? true,
+        craftingEnabled:    s?.craftingEnabled     ?? true,
+        rsiOrgRequired:     orgRequired,
         rsiVerified,
       },
     } satisfies ApiResponse);
@@ -238,6 +240,8 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         lootEnabled:                s?.lootEnabled                ?? true,
         exchangeEnabled:            s?.exchangeEnabled            ?? true,
         fleetEnabled:               s?.fleetEnabled               ?? true,
+        blueprintsEnabled:          s?.blueprintsEnabled          ?? true,
+        craftingEnabled:            s?.craftingEnabled            ?? true,
         dkpDefaultAuctionDuration:  s?.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  s?.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
@@ -274,6 +278,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     lootEnabled?: boolean;
     exchangeEnabled?: boolean;
     fleetEnabled?: boolean;
+    blueprintsEnabled?: boolean;
+    craftingEnabled?: boolean;
     dkpDefaultAuctionDuration?: number;
     dkpMinBid?: number;
     lootDefaultMethod?: string;
@@ -300,6 +306,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       lootEnabled:               raw.lootEnabled !== undefined ? optBool(raw.lootEnabled, 'lootEnabled') : undefined,
       exchangeEnabled:           raw.exchangeEnabled !== undefined ? optBool(raw.exchangeEnabled, 'exchangeEnabled') : undefined,
       fleetEnabled:              raw.fleetEnabled !== undefined ? optBool(raw.fleetEnabled, 'fleetEnabled') : undefined,
+      blueprintsEnabled:         raw.blueprintsEnabled !== undefined ? optBool(raw.blueprintsEnabled, 'blueprintsEnabled') : undefined,
+      craftingEnabled:           raw.craftingEnabled !== undefined ? optBool(raw.craftingEnabled, 'craftingEnabled') : undefined,
       dkpDefaultAuctionDuration: rawDur !== undefined ? Math.min(168, Math.max(1, rawDur)) : undefined,
       dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
       lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
@@ -323,7 +331,9 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     body.dkpEnabled !== undefined ||
     body.lootEnabled !== undefined ||
     body.exchangeEnabled !== undefined ||
-    body.fleetEnabled !== undefined;
+    body.fleetEnabled !== undefined ||
+    body.blueprintsEnabled !== undefined ||
+    body.craftingEnabled !== undefined;
   const allowed = needsAdmin
     ? await assertGuildManager(req, guildId)
     : await assertModuleEditor(req, guildId);
@@ -359,6 +369,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.lootEnabled !== undefined               ? { lootEnabled: body.lootEnabled }                                         : {}),
         ...(body.exchangeEnabled !== undefined           ? { exchangeEnabled: body.exchangeEnabled }                                 : {}),
         ...(body.fleetEnabled !== undefined              ? { fleetEnabled: body.fleetEnabled }                                       : {}),
+        ...(body.blueprintsEnabled !== undefined         ? { blueprintsEnabled: body.blueprintsEnabled }                             : {}),
+        ...(body.craftingEnabled !== undefined           ? { craftingEnabled: body.craftingEnabled }                                 : {}),
         ...(body.dkpDefaultAuctionDuration !== undefined ? { dkpDefaultAuctionDuration: body.dkpDefaultAuctionDuration }             : {}),
         ...(body.dkpMinBid !== undefined                 ? { dkpMinBid: body.dkpMinBid }                                             : {}),
         ...(body.lootDefaultMethod !== undefined         ? { lootDefaultMethod: body.lootDefaultMethod }                             : {}),
@@ -382,6 +394,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         lootEnabled:                body.lootEnabled                ?? true,
         exchangeEnabled:            body.exchangeEnabled            ?? true,
         fleetEnabled:               body.fleetEnabled               ?? true,
+        blueprintsEnabled:          body.blueprintsEnabled          ?? true,
+        craftingEnabled:            body.craftingEnabled            ?? true,
         dkpDefaultAuctionDuration:  body.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  body.dkpMinBid                  ?? 0,
         lootDefaultMethod:          body.lootDefaultMethod          ?? 'RANDOM_ROLL',
@@ -409,6 +423,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         lootEnabled:                s.lootEnabled                ?? true,
         exchangeEnabled:            s.exchangeEnabled            ?? true,
         fleetEnabled:               s.fleetEnabled               ?? true,
+        blueprintsEnabled:          s.blueprintsEnabled          ?? true,
+        craftingEnabled:            s.craftingEnabled            ?? true,
         dkpDefaultAuctionDuration:  s.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  s.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s.lootDefaultMethod          ?? 'RANDOM_ROLL',

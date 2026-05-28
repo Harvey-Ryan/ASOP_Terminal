@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -125,7 +125,9 @@ export function DashboardLayout() {
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
-  const fleetEnabled    = myPerms?.fleetEnabled     ?? true;
+  const fleetEnabled        = myPerms?.fleetEnabled        ?? true;
+  const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
+  const craftingEnabled     = myPerms?.craftingEnabled     ?? true;
 
   const onModuleRoute = location.pathname.includes('/settings/modules');
   const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
@@ -359,13 +361,32 @@ export function DashboardLayout() {
                 </NavLink>
               )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/blueprints`}
-                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <BookOpen className="h-4 w-4 shrink-0" />
-                Blueprints
-              </NavLink>
+              {(blueprintsEnabled || craftingEnabled) && (
+                <>
+                  <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    In Development
+                  </p>
+                  {blueprintsEnabled && (
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild.id}/blueprints`}
+                      className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <BookOpen className="h-4 w-4 shrink-0" />
+                      Blueprints
+                    </NavLink>
+                  )}
+                  {craftingEnabled && (
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
+                      className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <Calculator className="h-4 w-4 shrink-0" />
+                      Crafting Calculator
+                    </NavLink>
+                  )}
+                </>
+              )}
+
             </>
           ) : (
             <>
@@ -476,6 +497,34 @@ export function DashboardLayout() {
                   >
                     <Ship className="h-4 w-4 shrink-0" />
                     Fleet
+                  </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/blueprints`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )
+                    }
+                  >
+                    <BookOpen className="h-4 w-4 shrink-0" />
+                    Blueprints
+                  </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/crafting-calculator`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )
+                    }
+                  >
+                    <Calculator className="h-4 w-4 shrink-0" />
+                    Crafting Calculator
                   </NavLink>
                 </>
               )}
