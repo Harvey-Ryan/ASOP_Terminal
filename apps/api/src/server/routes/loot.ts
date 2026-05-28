@@ -1120,6 +1120,7 @@ lootRouter.get('/:guildId/loot/history', requireAuth, async (req, res) => {
     eventName: s.eventId ? (eventMap.get(s.eventId) ?? null) : null,
     name: s.name ?? null,
     guildId: s.guildId,
+    ownerId: s.ownerId ?? null,
     method: s.method as LootMethod,
     status: s.status as 'OPEN' | 'COMPLETED',
     createdAt: s.createdAt.toISOString(),
@@ -1129,11 +1130,13 @@ lootRouter.get('/:guildId/loot/history', requireAuth, async (req, res) => {
       name: item.name,
       qualityLevel: item.qualityLevel ?? null,
       assignments: item.assignments.map((a) => ({
+        id: a.id,
         userId: a.userId,
         username: a.username,
         rollValue: a.rollValue,
         dkpSpent: a.dkpSpent,
         pickNumber: a.pickNumber,
+        delivered: a.delivered,
       })),
     })),
   }));

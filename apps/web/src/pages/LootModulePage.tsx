@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronDown, ChevronRight, Package, ExternalLink } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Package, ExternalLink, Truck, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,8 +32,18 @@ function formatDate(iso: string) {
 
 // ── History row ───────────────────────────────────────────────────────────────
 
-function HistoryRow({ session }: { session: LootHistorySessionDto }) {
+function HistoryRow({ session, isManager, currentUserId }: { session: LootHistorySessionDto; isManager: boolean; currentUserId: string | undefined }) {
   const [expanded, setExpanded] = useState(false);
+  const queryClient = useQueryClient();
+  const canManage = isManager || (!!session.ownerId && session.ownerId === currentUserId);
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ itemId, assignmentId }: { itemId: string; assignmentId: string }) =>
+      session.eventId
+        ? lootApi.toggleDelivered(session.guildId, session.eventId!, itemId)
+        : lootApi.toggleDeliveredStandalone(session.guildId, session.id, assignmentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loot-history', session.guildId] }),
+  });
 
   const displayName = session.name ?? (session.eventName ? session.eventName : 'Unnamed Session');
   const label = session.eventName && !session.name ? `📅 ${session.eventName}` : displayName;
@@ -70,7 +80,7 @@ function HistoryRow({ session }: { session: LootHistorySessionDto }) {
 
           {session.method === 'COMMODITY_DRAFT' ? (() => {
             // Group all assignments by participant, stack identical name+QL
-            type StackedLine = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null };
+            type StackedLine = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; delivered: boolean; itemId: string; assignmentId: string };
             type Bucket = { username: string; lines: StackedLine[] };
             const buckets = new Map<string, Bucket>();
             for (const item of session.items) {
@@ -78,8 +88,8 @@ function HistoryRow({ session }: { session: LootHistorySessionDto }) {
                 if (!buckets.has(a.userId)) buckets.set(a.userId, { username: a.username, lines: [] });
                 const key = `${item.name}__${item.qualityLevel ?? ''}`;
                 const existing = buckets.get(a.userId)!.lines.find((l) => `${l.name}__${l.qualityLevel ?? ''}` === key);
-                if (existing) { existing.count++; }
-                else { buckets.get(a.userId)!.lines.push({ name: item.name, qualityLevel: item.qualityLevel, count: 1, pickNumber: a.pickNumber }); }
+                if (existing) { existing.count++; if (!a.delivered) existing.delivered = false; }
+                else { buckets.get(a.userId)!.lines.push({ name: item.name, qualityLevel: item.qualityLevel, count: 1, pickNumber: a.pickNumber, delivered: a.delivered, itemId: item.id, assignmentId: a.id }); }
               }
             }
             return [...buckets.values()].sort((a, b) => a.username.localeCompare(b.username)).map((bucket) => (
@@ -87,13 +97,30 @@ function HistoryRow({ session }: { session: LootHistorySessionDto }) {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">{bucket.username}</p>
                 {bucket.lines.map((line, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm pl-2">
-                    <Package className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <span className="flex-1">
+                    {line.delivered
+                      ? <CheckCircle2 className="h-3 w-3 shrink-0 text-green-500" />
+                      : <Package className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                    <span className={`flex-1 ${line.delivered ? 'line-through text-muted-foreground' : ''}`}>
                       {line.name}
                       {line.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {line.qualityLevel}</span>}
                       {line.count > 1 && <span className="ml-1 text-xs text-muted-foreground">×{line.count}</span>}
                     </span>
-                    {line.pickNumber !== null && <span className="text-xs text-muted-foreground shrink-0">pick #{line.pickNumber + 1}</span>}
+                    {line.pickNumber !== null && <span className="text-xs text-muted-foreground shrink-0 mr-1">pick #{line.pickNumber + 1}</span>}
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => toggleMutation.mutate({ itemId: line.itemId, assignmentId: line.assignmentId })}
+                        disabled={toggleMutation.isPending}
+                        className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
+                          line.delivered
+                            ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                            : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                        }`}
+                      >
+                        <Truck className="h-2.5 w-2.5" />
+                        {line.delivered ? 'Delivered' : 'Deliver'}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -112,15 +139,34 @@ function HistoryRow({ session }: { session: LootHistorySessionDto }) {
                 const winner = item.assignments[0];
                 return (
                   <div key={item.id} className="flex items-center gap-3 text-sm">
-                    <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 font-medium">{item.name}</span>
+                    {winner?.delivered
+                      ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                      : <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                    <span className={`flex-1 font-medium ${winner?.delivered ? 'line-through text-muted-foreground' : ''}`}>{item.name}</span>
                     {winner ? (
-                      <span className="text-green-600 dark:text-green-400 shrink-0">
-                        {winner.username}
-                        {winner.rollValue != null && <span className="text-muted-foreground ml-1">(rolled {winner.rollValue})</span>}
-                        {winner.dkpSpent != null && <span className="text-muted-foreground ml-1">({winner.dkpSpent} DKP)</span>}
-                        {winner.pickNumber != null && <span className="text-muted-foreground ml-1">(pick #{winner.pickNumber + 1})</span>}
-                      </span>
+                      <>
+                        <span className="text-green-600 dark:text-green-400 shrink-0">
+                          {winner.username}
+                          {winner.rollValue != null && <span className="text-muted-foreground ml-1">(rolled {winner.rollValue})</span>}
+                          {winner.dkpSpent != null && <span className="text-muted-foreground ml-1">({winner.dkpSpent} DKP)</span>}
+                          {winner.pickNumber != null && <span className="text-muted-foreground ml-1">(pick #{winner.pickNumber + 1})</span>}
+                        </span>
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => toggleMutation.mutate({ itemId: item.id, assignmentId: winner.id })}
+                            disabled={toggleMutation.isPending}
+                            className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
+                              winner.delivered
+                                ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                            }`}
+                          >
+                            <Truck className="h-2.5 w-2.5" />
+                            {winner.delivered ? 'Delivered' : 'Deliver'}
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <span className="text-muted-foreground shrink-0 italic">Unassigned</span>
                     )}
@@ -254,7 +300,7 @@ export function LootModulePage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { guilds } = useAuth();
+  const { user, guilds } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -395,7 +441,7 @@ export function LootModulePage() {
           )}
 
           {historyQuery.data?.map((session) => (
-            <HistoryRow key={session.id} session={session} />
+            <HistoryRow key={session.id} session={session} isManager={isManager} currentUserId={user?.id} />
           ))}
         </div>
       )}

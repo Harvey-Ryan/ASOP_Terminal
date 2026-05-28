@@ -265,11 +265,13 @@ export interface LootHistoryItemDto {
   name: string;
   qualityLevel: number | null;
   assignments: {
+    id: string;
     userId: string;
     username: string;
     rollValue: number | null;
     dkpSpent: number | null;
     pickNumber: number | null;
+    delivered: boolean;
   }[];
 }
 
@@ -279,6 +281,7 @@ export interface LootHistorySessionDto {
   eventName: string | null;
   name: string | null;
   guildId: string;
+  ownerId: string | null;
   method: LootMethod;
   status: 'OPEN' | 'COMPLETED';
   createdAt: string;
