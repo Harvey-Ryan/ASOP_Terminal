@@ -67,34 +67,67 @@ function HistoryRow({ session }: { session: LootHistorySessionDto }) {
           {session.items.length === 0 && (
             <p className="text-sm text-muted-foreground italic">No items in this session.</p>
           )}
-          {[...session.items]
-            .sort((a, b) => {
-              const wa = a.assignments[0];
-              const wb = b.assignments[0];
-              if (wa && wb) return wa.username.localeCompare(wb.username);
-              if (wa) return -1;
-              if (wb) return 1;
-              return 0;
-            })
-            .map((item) => {
-            const winner = item.assignments[0];
-            return (
-              <div key={item.id} className="flex items-center gap-3 text-sm">
-                <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="flex-1 font-medium">{item.name}</span>
-                {winner ? (
-                  <span className="text-green-600 dark:text-green-400 shrink-0">
-                    {winner.username}
-                    {winner.rollValue != null && <span className="text-muted-foreground ml-1">(rolled {winner.rollValue})</span>}
-                    {winner.dkpSpent != null && <span className="text-muted-foreground ml-1">({winner.dkpSpent} DKP)</span>}
-                    {winner.pickNumber != null && <span className="text-muted-foreground ml-1">(pick #{winner.pickNumber + 1})</span>}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground shrink-0 italic">Unassigned</span>
-                )}
+
+          {session.method === 'COMMODITY_DRAFT' ? (() => {
+            // Group all assignments by participant, stack identical name+QL
+            type StackedLine = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null };
+            type Bucket = { username: string; lines: StackedLine[] };
+            const buckets = new Map<string, Bucket>();
+            for (const item of session.items) {
+              for (const a of item.assignments) {
+                if (!buckets.has(a.userId)) buckets.set(a.userId, { username: a.username, lines: [] });
+                const key = `${item.name}__${item.qualityLevel ?? ''}`;
+                const existing = buckets.get(a.userId)!.lines.find((l) => `${l.name}__${l.qualityLevel ?? ''}` === key);
+                if (existing) { existing.count++; }
+                else { buckets.get(a.userId)!.lines.push({ name: item.name, qualityLevel: item.qualityLevel, count: 1, pickNumber: a.pickNumber }); }
+              }
+            }
+            return [...buckets.values()].sort((a, b) => a.username.localeCompare(b.username)).map((bucket) => (
+              <div key={bucket.username} className="space-y-0.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">{bucket.username}</p>
+                {bucket.lines.map((line, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm pl-2">
+                    <Package className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="flex-1">
+                      {line.name}
+                      {line.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {line.qualityLevel}</span>}
+                      {line.count > 1 && <span className="ml-1 text-xs text-muted-foreground">×{line.count}</span>}
+                    </span>
+                    {line.pickNumber !== null && <span className="text-xs text-muted-foreground shrink-0">pick #{line.pickNumber + 1}</span>}
+                  </div>
+                ))}
               </div>
-            );
-          })}
+            ));
+          })() : (
+            [...session.items]
+              .sort((a, b) => {
+                const wa = a.assignments[0];
+                const wb = b.assignments[0];
+                if (wa && wb) return wa.username.localeCompare(wb.username);
+                if (wa) return -1;
+                if (wb) return 1;
+                return 0;
+              })
+              .map((item) => {
+                const winner = item.assignments[0];
+                return (
+                  <div key={item.id} className="flex items-center gap-3 text-sm">
+                    <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 font-medium">{item.name}</span>
+                    {winner ? (
+                      <span className="text-green-600 dark:text-green-400 shrink-0">
+                        {winner.username}
+                        {winner.rollValue != null && <span className="text-muted-foreground ml-1">(rolled {winner.rollValue})</span>}
+                        {winner.dkpSpent != null && <span className="text-muted-foreground ml-1">({winner.dkpSpent} DKP)</span>}
+                        {winner.pickNumber != null && <span className="text-muted-foreground ml-1">(pick #{winner.pickNumber + 1})</span>}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground shrink-0 italic">Unassigned</span>
+                    )}
+                  </div>
+                );
+              })
+          )}
         </div>
       )}
     </div>

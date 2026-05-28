@@ -263,6 +263,7 @@ export interface LootSessionDto {
 export interface LootHistoryItemDto {
   id: string;
   name: string;
+  qualityLevel: number | null;
   assignments: {
     userId: string;
     username: string;

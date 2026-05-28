@@ -1127,6 +1127,7 @@ lootRouter.get('/:guildId/loot/history', requireAuth, async (req, res) => {
     items: s.items.map((item) => ({
       id: item.id,
       name: item.name,
+      qualityLevel: item.qualityLevel ?? null,
       assignments: item.assignments.map((a) => ({
         userId: a.userId,
         username: a.username,
