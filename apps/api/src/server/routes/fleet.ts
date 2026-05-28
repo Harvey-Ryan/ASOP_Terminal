@@ -426,6 +426,39 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     return;
   }
 
+  // Fetch affiliates — non-fatal, empty set if the call fails or returns nothing
+  const affiliateHandleSet = new Set<string>();
+  try {
+    let affiliatePage = 1;
+    let affiliateTotalRows = Infinity;
+    while (affiliateHandleSet.size < affiliateTotalRows) {
+      const affResponse = await fetch('https://robertsspaceindustries.com/api/orgs/getOrgMembers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Origin': 'https://robertsspaceindustries.com',
+          'Referer': `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
+        },
+        body: JSON.stringify({ symbol: orgTag, page: affiliatePage, pagesize: RSI_PAGE_SIZE, role: 'affiliate' }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!affResponse.ok) break;
+      let affJson: { success: number; data: { totalrows: number; html?: string } };
+      try { affJson = JSON.parse(await affResponse.text()); } catch { break; }
+      if (!affJson.success) break;
+      affiliateTotalRows = affJson.data?.totalrows ?? 0;
+      if (affiliateTotalRows === 0) break;
+      const parsed = affJson.data?.html ? parseMembersHtml(affJson.data.html) : [];
+      for (const m of parsed) affiliateHandleSet.add(m.handle.toLowerCase());
+      if (parsed.length < RSI_PAGE_SIZE) break;
+      affiliatePage++;
+    }
+  } catch {
+    // Affiliate fetch is non-fatal
+  }
+
   const orgHandleSet = new Set(orgMembers.map((m) => m.handle.toLowerCase()));
   const orgRankMap = new Map(orgMembers.map((m) => [m.handle.toLowerCase(), m.stars]));
 
@@ -433,20 +466,22 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     .filter((m) => m.rsiHandle || m.user.rsiHandle)
     .map((m) => {
       const handle = (m.rsiHandle || m.user.rsiHandle)!;
+      const handleLc = handle.toLowerCase();
       return {
         discordId: m.user.discordId,
         discordUsername: m.user.globalName ?? m.user.username,
         rsiHandle: handle,
         verified: m.rsiVerified,
-        inOrg: orgHandleSet.has(handle.toLowerCase()),
-        orgRank: orgRankMap.get(handle.toLowerCase()) ?? null,
+        inOrg: orgHandleSet.has(handleLc) || affiliateHandleSet.has(handleLc),
+        isAffiliate: affiliateHandleSet.has(handleLc),
+        orgRank: orgRankMap.get(handleLc) ?? null,
       };
     });
 
   const linkedHandles = new Set(linked.map((l) => l.rsiHandle.toLowerCase()));
   const orgOnly = orgMembers
     .filter((m) => !linkedHandles.has(m.handle.toLowerCase()))
-    .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars }));
+    .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars, isAffiliate: affiliateHandleSet.has(m.handle.toLowerCase()) }));
 
   res.json({
     success: true,

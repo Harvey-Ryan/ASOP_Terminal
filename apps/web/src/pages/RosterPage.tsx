@@ -26,6 +26,11 @@ function RankBadge({ stars }: { stars: number | null }) {
 }
 
 function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
+  const ShieldIcon = member.verified ? ShieldCheck : ShieldOff;
+  const shieldCls = member.isAffiliate
+    ? (member.verified ? 'text-blue-500' : 'text-blue-500/30')
+    : (member.verified ? 'text-green-500' : 'text-muted-foreground/50');
+
   return (
     <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
       {member.inOrg
@@ -34,10 +39,13 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
       <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-sm font-medium truncate">{member.discordUsername}</span>
         <span className="text-xs text-muted-foreground font-mono">{member.rsiHandle}</span>
+        {member.isAffiliate && (
+          <span className="text-[10px] font-medium text-blue-500 bg-blue-500/10 border border-blue-500/20 rounded px-1 py-0.5 shrink-0">
+            Affiliate
+          </span>
+        )}
       </div>
-      {member.verified
-        ? <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-green-500" />
-        : <ShieldOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />}
+      <ShieldIcon className={`h-3.5 w-3.5 shrink-0 ${shieldCls}`} title={member.isAffiliate ? 'Affiliate' : member.verified ? 'Verified' : 'Unverified'} />
       <RankBadge stars={member.inOrg ? member.orgRank : null} />
       {!member.inOrg && (
         <span className="text-xs text-yellow-500/80 shrink-0">Not in org</span>

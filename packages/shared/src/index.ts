@@ -603,12 +603,14 @@ export interface RsiRosterLinkedMember {
   rsiHandle: string;
   verified: boolean;
   inOrg: boolean;
+  isAffiliate: boolean;
   orgRank: number | null;
 }
 
 export interface RsiRosterOrgOnlyMember {
   rsiHandle: string;
   orgRank: number | null;
+  isAffiliate: boolean;
 }
 
 export interface RsiRosterDto {
