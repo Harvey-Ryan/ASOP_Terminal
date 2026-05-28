@@ -189,20 +189,21 @@ export async function notifyLootComplete(sessionId: string) {
   });
   if (!session) return;
 
-  // Build a map of userId → { username, items[] }
-  type WinnerEntry = { username: string; lines: string[] };
+  type RawEntry = { name: string; qualityLevel: number | null; quantity: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
+  type WinnerEntry = { username: string; entries: RawEntry[] };
   const winners = new Map<string, WinnerEntry>();
 
   for (const item of session.items) {
     for (const a of item.assignments) {
-      if (!winners.has(a.userId)) winners.set(a.userId, { username: a.username, lines: [] });
-      const qty = item.quantity > 1 && session.method !== 'COMMODITY_DRAFT' ? ` ×${item.quantity}` : '';
-      const ql = item.qualityLevel != null ? ` QL ${item.qualityLevel}` : '';
-      let suffix = '';
-      if (a.rollValue != null) suffix = ` (rolled ${a.rollValue})`;
-      else if (a.dkpSpent != null && a.dkpSpent > 0) suffix = ` (${a.dkpSpent} DKP)`;
-      else if (a.pickNumber != null) suffix = ` (pick #${a.pickNumber + 1})`;
-      winners.get(a.userId)!.lines.push(`• ${item.name}${qty}${ql}${suffix}`);
+      if (!winners.has(a.userId)) winners.set(a.userId, { username: a.username, entries: [] });
+      winners.get(a.userId)!.entries.push({
+        name: item.name,
+        qualityLevel: item.qualityLevel,
+        quantity: item.quantity,
+        pickNumber: a.pickNumber,
+        rollValue: a.rollValue,
+        dkpSpent: a.dkpSpent,
+      });
     }
   }
 
@@ -215,7 +216,30 @@ export async function notifyLootComplete(sessionId: string) {
     if (event) sessionLabel = event.name;
   }
 
-  for (const [userId, { lines }] of winners) {
+  for (const [userId, { entries }] of winners) {
+    // Stack entries with identical name+QL — keep first pick number, sum count
+    type StackedEntry = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
+    const stacked: StackedEntry[] = [];
+    for (const e of entries) {
+      const key = `${e.name}__${e.qualityLevel ?? ''}`;
+      const existing = stacked.find((s) => `${s.name}__${s.qualityLevel ?? ''}` === key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        stacked.push({ name: e.name, qualityLevel: e.qualityLevel, count: 1, pickNumber: e.pickNumber, rollValue: e.rollValue, dkpSpent: e.dkpSpent });
+      }
+    }
+
+    const lines = stacked.map((e) => {
+      const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
+      const ct = e.count > 1 ? ` ×${e.count}` : '';
+      let suffix = '';
+      if (e.rollValue != null) suffix = ` (rolled ${e.rollValue})`;
+      else if (e.dkpSpent != null && e.dkpSpent > 0) suffix = ` (${e.dkpSpent} DKP)`;
+      else if (e.pickNumber != null) suffix = ` (pick #${e.pickNumber + 1})`;
+      return `• ${e.name}${ql}${ct}${suffix}`;
+    });
+
     const content = [
       `🎁 **Loot Session Complete — ${sessionLabel}**`,
       '',
