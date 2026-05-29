@@ -423,6 +423,14 @@ export async function deleteEventVcs(eventId: string): Promise<void> {
 }
 
 export async function endEvent(eventId: string) {
+  // Atomic claim: only the first caller runs the thread/embed work.
+  // Subsequent calls (scheduler retries, concurrent triggers) exit immediately.
+  const claim = await prisma.event.updateMany({
+    where: { id: eventId, botEndedAt: null },
+    data: { botEndedAt: new Date() },
+  });
+  if (claim.count === 0) return;
+
   const event = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
     include: { rsvps: true },
@@ -483,8 +491,8 @@ export async function endEvent(eventId: string) {
     data: { vcAttendees: JSON.stringify([...activeUserIds]) },
   });
 
-  // Delete VCs now — occupied ones are skipped and cleaned up via VoiceStateUpdate
-  await deleteEventVcs(eventId);
+  // VC deletion is deferred — the scheduler deletes VCs once they have been
+  // empty for 5 continuous minutes (tracked via vcsEmptiedAt in checkEndedEvents).
 
   if (event.recurType) {
     await spawnNextRecurrence(event.id).catch((err) =>

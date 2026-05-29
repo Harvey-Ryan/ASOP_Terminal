@@ -190,6 +190,10 @@ model Event {
   confirmedAttendees String?
   /// Set by the bot after it finishes VC cleanup / thread archiving
   botCleanedUp    Boolean  @default(false)
+  /// Set when endEvent() first runs — prevents duplicate thread messages on scheduler retries
+  botEndedAt      DateTime?
+  /// Set when event VCs first become empty after ENDED — drives the 5-min deletion timer
+  vcsEmptiedAt    DateTime?
   /// Set true once the bot has posted the "event is live" message at start time
   livePosted      Boolean  @default(false)
   /// JSON: EventPoll — poll config posted to the forum thread alongside the embed

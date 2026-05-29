@@ -1,0 +1,2 @@
+ALTER TABLE "Event" ADD COLUMN "botEndedAt"   TIMESTAMP(3);
+ALTER TABLE "Event" ADD COLUMN "vcsEmptiedAt" TIMESTAMP(3);

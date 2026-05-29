@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
-import { setupDiscordForEvent, endEvent, createVcsForEvent, postEventLive } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, deleteEventVcs, createVcsForEvent, postEventLive } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { formatMinutes } from './utils/time.js';
@@ -184,7 +184,10 @@ async function checkVcCreation() {
   const now = new Date();
   const events = await prisma.event.findMany({
     where: {
-      status: 'PENDING',
+      // Include ACTIVE: setupDiscordForEvent moves events from PENDING → ACTIVE
+      // immediately, so PENDING events in the 30-min window are rare. Without
+      // ACTIVE here, VCs are never auto-created for fully set-up events.
+      status: { in: ['PENDING', 'ACTIVE'] },
       vcIds: '[]',
       startTime: {
         gte: now,
@@ -253,39 +256,71 @@ async function checkInactivityEnd() {
   }
 }
 
-// ── Process ENDED events (delete VCs, complete Discord event, loot prompt) ───
+// ── Process ENDED events (thread cleanup backstop + deferred VC deletion) ────
 
 async function checkEndedEvents() {
-  // Only process events ENDED for at least 2 minutes — this lets the API's
-  // /trigger/end handler fire endEvent() first when a manager ends an event
-  // manually, so the scheduler acts as a backstop rather than a concurrent runner.
+  // 2-minute guard: let the API's /trigger/end handler call endEvent() first
+  // so the scheduler acts as a backstop, not a concurrent runner.
   const twoMinutesAgo = new Date(Date.now() - 2 * 60_000);
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000);
+
   const ended = await prisma.event.findMany({
     where: { status: 'ENDED', botCleanedUp: false, updatedAt: { lte: twoMinutesAgo } },
     take: 5,
   });
 
   for (const event of ended) {
-    const vcIds = JSON.parse(event.vcIds) as string[];
-
-    if (vcIds.length > 0) {
-      let anyonePresent = false;
-      for (const vcId of vcIds) {
-        try {
-          const ch = await client.channels.fetch(vcId);
-          if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) {
-            anyonePresent = true;
-            break;
-          }
-        } catch {
-          // VC unavailable — treat as empty
-        }
-      }
-      if (anyonePresent) continue; // wait for last person to leave
+    // ── Phase 1: thread/embed cleanup (backstop if bot was down during trigger) ──
+    if (!event.botEndedAt) {
+      await endEvent(event.id).catch((err) =>
+        console.error(`[bot] endEvent backstop failed for ${event.id}:`, err),
+      );
+      continue; // vcsEmptiedAt timer starts next iteration after botEndedAt is set
     }
 
-    await endEvent(event.id).catch((err) =>
-      console.error(`[bot] endEvent failed for ${event.id}:`, err),
+    // ── Phase 2: deferred VC deletion with 5-min empty timer ─────────────────
+    const vcIds = JSON.parse(event.vcIds) as string[];
+
+    if (vcIds.length === 0) {
+      // No VCs (or all already deleted) — mark cleaned up
+      await prisma.event.update({ where: { id: event.id }, data: { botCleanedUp: true } });
+      continue;
+    }
+
+    let anyonePresent = false;
+    for (const vcId of vcIds) {
+      try {
+        const ch = await client.channels.fetch(vcId);
+        if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) {
+          anyonePresent = true;
+          break;
+        }
+      } catch {
+        // VC unavailable — treat as empty
+      }
+    }
+
+    if (anyonePresent) {
+      // VCs still occupied — reset the empty timer if it was running
+      if (event.vcsEmptiedAt) {
+        await prisma.event.update({ where: { id: event.id }, data: { vcsEmptiedAt: null } });
+      }
+      continue;
+    }
+
+    // VCs are empty — start or check the 5-minute timer
+    if (!event.vcsEmptiedAt) {
+      await prisma.event.update({ where: { id: event.id }, data: { vcsEmptiedAt: new Date() } });
+      continue; // will delete on the next pass after 5 min
+    }
+
+    if (event.vcsEmptiedAt > fiveMinutesAgo) {
+      continue; // not yet 5 minutes empty
+    }
+
+    // 5 minutes have elapsed with empty VCs — delete them
+    await deleteEventVcs(event.id).catch((err) =>
+      console.error(`[bot] deleteEventVcs failed for ${event.id}:`, err),
     );
   }
 }

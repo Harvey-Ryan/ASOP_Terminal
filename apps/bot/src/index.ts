@@ -18,7 +18,7 @@ import * as fleetCommand from './commands/fleet.js';
 import * as helpCommand from './commands/help.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole } from './services/rsvpService.js';
-import { endEvent, deleteEventVcs } from './services/eventService.js';
+import { endEvent } from './services/eventService.js';
 
 interface Command {
   data: { toJSON(): unknown };
@@ -238,17 +238,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   const leftChannelId = oldState.channelId;
   const joinedChannelId = newState.channelId;
 
-  // ── Cleanup: delete VC when last person leaves an ENDED event ───────────────
-  if (leftChannelId && joinedChannelId !== leftChannelId) {
-    try {
-      const event = await prisma.event.findFirst({
-        where: { status: 'ENDED', botCleanedUp: false, vcIds: { contains: leftChannelId } },
-      });
-      if (event) await deleteEventVcs(event.id);
-    } catch (err) {
-      console.error('[bot] VoiceStateUpdate cleanup error:', err);
-    }
-  }
+  // VC deletion is handled by the scheduler (checkEndedEvents) with a 5-minute
+  // empty-VC timer so members have time to wind down after the event ends.
 
   // ── Auto-assign: RSVP + confirmed attendee when joining an ACTIVE event VC ──
   if (joinedChannelId && joinedChannelId !== leftChannelId) {
