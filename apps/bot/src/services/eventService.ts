@@ -77,7 +77,22 @@ export async function createVcsForEvent(eventId: string): Promise<void> {
 
 // ── Setup Discord entities for a pending web-created event ────────────────────
 
+const setupInFlight = new Set<string>();
+
 export async function setupDiscordForEvent(eventId: string) {
+  if (setupInFlight.has(eventId)) {
+    console.log(`[setupDiscordForEvent] already in progress — skipping ${eventId}`);
+    return;
+  }
+  setupInFlight.add(eventId);
+  try {
+    await _setupDiscordForEvent(eventId);
+  } finally {
+    setupInFlight.delete(eventId);
+  }
+}
+
+async function _setupDiscordForEvent(eventId: string) {
   console.log(`[setupDiscordForEvent] start — eventId=${eventId}`);
   const event = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
