@@ -102,7 +102,7 @@ export function EventAuditPage() {
     enabled: !!guildId && !!eventId,
     refetchInterval: (query) => {
       const data = query.state.data as EventDto | undefined;
-      return data?.botCleanedUp === false ? 2000 : false;
+      return data?.status === 'ENDED' && data?.botCleanedUp === false ? 5000 : false;
     },
   });
 

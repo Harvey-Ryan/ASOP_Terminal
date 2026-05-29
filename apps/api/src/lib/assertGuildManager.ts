@@ -14,6 +14,16 @@ const serverCache = new Map<string, { ids: string[]; cachedAt: number }>();
 // Per-user rate-limit expiry: after a 429, no more Discord calls until this clears.
 const rateLimitedUntil = new Map<string, number>();
 
+// Suppress repeated rate-limit warnings — log at most once per minute per user.
+const lastWarnedAt = new Map<string, number>();
+function warnOnce(userId: string, msg: string) {
+  const last = lastWarnedAt.get(userId) ?? 0;
+  if (Date.now() - last > 60_000) {
+    console.warn(msg);
+    lastWarnedAt.set(userId, Date.now());
+  }
+}
+
 // In-flight deduplication: concurrent requests for the same user share one fetch.
 const inflight = new Map<string, Promise<string[]>>();
 
@@ -64,7 +74,7 @@ export async function assertGuildManager(req: Express.Request, guildId: string):
   if (now < blockedUntil) {
     const stale = server?.ids ?? sessionIds;
     if (stale) {
-      console.warn(`[assertGuildManager] rate-limited for ${userId}, using stale cache`);
+      warnOnce(userId, `[assertGuildManager] rate-limited for ${userId}, using stale cache`);
       return stale.includes(guildId);
     }
     return false;
@@ -92,7 +102,7 @@ export async function assertGuildManager(req: Express.Request, guildId: string):
 
     const stale = server?.ids ?? sessionIds;
     if (stale) {
-      console.warn('[assertGuildManager] using stale cache as fallback');
+      warnOnce(userId, `[assertGuildManager] error for ${userId}, using stale cache`);
       return stale.includes(guildId);
     }
     return false;
