@@ -106,10 +106,9 @@ export function EventAuditPage() {
     },
   });
 
-  // Initialize attendance toggles once bot cleanup is done
+  // Initialize attendance toggles once event data is loaded (don't wait for VC cleanup)
   useEffect(() => {
     if (!event || attendanceInitialized) return;
-    if (!event.botCleanedUp) return;
 
     const vcSet = new Set(event.vcAttendees);
     const initial: Record<string, boolean> = {};
@@ -213,25 +212,23 @@ export function EventAuditPage() {
               <Users className="h-4 w-4" />
               Attendance Audit
             </CardTitle>
-            {event.botCleanedUp && (
-              <span className="text-sm text-muted-foreground">
-                {confirmedCount} / {event.rsvps.length} confirmed
-              </span>
-            )}
+            <span className="text-sm text-muted-foreground">
+              {confirmedCount} / {event.rsvps.length} confirmed
+            </span>
           </div>
-          {event.botCleanedUp && event.vcAttendees.length > 0 && (
+          {event.vcAttendees.length > 0 && (
             <p className="text-xs text-muted-foreground">
               Members marked <span className="text-green-600 font-medium">VC Active</span> were present in a voice channel at event end. Toggles default to their status — adjust as needed.
             </p>
           )}
+          {!event.botCleanedUp && event.vcIds.length > 0 && (
+            <p className="text-xs text-amber-500">
+              ⚠ Voice channels are still being cleaned up — VC Active status may not be final.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
-          {!event.botCleanedUp ? (
-            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              Bot is cleaning up VCs… this should take a few seconds.
-            </div>
-          ) : event.rsvps.length === 0 ? (
+          {event.rsvps.length === 0 ? (
             <p className="py-4 text-sm text-muted-foreground italic">No roster members for this event.</p>
           ) : (
             <div className="space-y-2">
@@ -272,8 +269,7 @@ export function EventAuditPage() {
       </Card>
 
       {/* Loot prompt */}
-      {event.botCleanedUp && (
-        <Card>
+      <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -364,12 +360,10 @@ export function EventAuditPage() {
               <p className="text-sm text-muted-foreground">No loot for this event.</p>
             )}
           </CardContent>
-        </Card>
-      )}
+      </Card>
 
       {/* Complete */}
-      {event.botCleanedUp && (
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
           {completeMutation.isError && (
             <p className="text-sm text-destructive">Failed to complete event. Please try again.</p>
           )}
@@ -387,8 +381,7 @@ export function EventAuditPage() {
               {completeMutation.isPending ? 'Completing…' : 'Complete Event'}
             </Button>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
