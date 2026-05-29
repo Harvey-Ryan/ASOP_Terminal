@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Gift, PackageX, Plus, X, Users } from 'lucide-react';
@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
 import { lootApi } from '@/api/loot';
+import { uexApi } from '@/api/uex';
 import { useAuth } from '@/hooks/useAuth';
+import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import type { EventDto, RsvpDto } from '@dem/shared';
 
@@ -89,6 +91,32 @@ export function EventAuditPage() {
   const [hadLoot, setHadLoot] = useState<boolean | null>(null);
   const [lootItems, setLootItems] = useState<string[]>([]);
   const [newLootItem, setNewLootItem] = useState('');
+  const [lootInputFocused, setLootInputFocused] = useState(false);
+  const lootInputRef = useRef<HTMLInputElement>(null);
+  const debouncedLootItem = useDebounce(newLootItem, 250);
+
+  const lootSuggestQuery = useQuery({
+    queryKey: ['uex-suggest-audit', debouncedLootItem],
+    queryFn: async () => {
+      const [items, commodities] = await Promise.all([
+        uexApi.getItems({ q: debouncedLootItem, limit: 8 }),
+        uexApi.getCommodities({ q: debouncedLootItem, limit: 4 }),
+      ]);
+      const seen = new Set<string>();
+      const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
+      for (const i of items) {
+        const lc = i.name.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
+      }
+      for (const c of commodities) {
+        const lc = c.name.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+      }
+      return results;
+    },
+    enabled: debouncedLootItem.length >= 3,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const { data: existingSession } = useQuery({
     queryKey: ['loot', guildId, eventId],
@@ -343,13 +371,42 @@ export function EventAuditPage() {
                     }
                   }}
                 >
-                  <input
-                    type="text"
-                    className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Item name…"
-                    value={newLootItem}
-                    onChange={(e) => setNewLootItem(e.target.value)}
-                  />
+                  <div className="relative flex-1">
+                    <input
+                      ref={lootInputRef}
+                      type="text"
+                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      placeholder="Item name…"
+                      value={newLootItem}
+                      onChange={(e) => setNewLootItem(e.target.value)}
+                      onFocus={() => setLootInputFocused(true)}
+                      onBlur={() => setLootInputFocused(false)}
+                      autoComplete="off"
+                    />
+                    {lootInputFocused && newLootItem.length >= 3 && (lootSuggestQuery.data?.length ?? 0) > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
+                        {lootSuggestQuery.data!.map((s) => (
+                          <button
+                            key={`${s.type}-${s.id}`}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setNewLootItem(s.name);
+                              setLootInputFocused(false);
+                              lootInputRef.current?.focus();
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                          >
+                            <span className="flex-1 truncate">{s.name}</span>
+                            {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
+                            <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                              {s.type}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <Button type="submit" size="sm" variant="outline" className="gap-1">
                     <Plus className="h-3.5 w-3.5" />
                     Add

@@ -459,7 +459,8 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const myPicksQuery = useQuery({
     queryKey: ['loot', 'my-picks'],
     queryFn: () => lootApi.getMyPicks(),
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
   const myDraftPick: MyPickDto | undefined = myPicksQuery.data?.find((p) => p.eventId === event.id);
 

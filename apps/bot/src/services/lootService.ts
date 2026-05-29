@@ -333,47 +333,50 @@ export async function announceLootResults(sessionId: string) {
   const dkpLabel = await getGuildDkpLabel(session.guildId);
 
   const assignedItems = session.items.filter((i) => i.assignments.length > 0);
-  if (assignedItems.length === 0) return;
 
-  const lines = assignedItems.map((item) => {
-    const a = item.assignments[0]!;
-    const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
-    let suffix = '';
-    if (a.rollValue != null) suffix = ` *(rolled ${a.rollValue})*`;
-    else if (a.dkpSpent != null) suffix = ` *(${a.dkpSpent} ${dkpLabel})*`;
-    else if (a.pickNumber != null) suffix = ` *(pick #${a.pickNumber + 1})*`;
-    return `**${item.name}${qty}** → <@${a.userId}>${suffix}`;
-  });
-
-  const methodLabel = session.method === 'DKP'
-    ? `🪙 ${dkpLabel}`
-    : METHOD_LABELS[session.method] ?? session.method;
-
-  const embed = new EmbedBuilder()
-    .setTitle(`🎁 Loot — ${event.name}`)
-    .setColor(0xf59e0b)
-    .setDescription(lines.join('\n'))
-    .setFooter({ text: `Method: ${methodLabel}` })
-    .setTimestamp();
-
-  if (session.dkpAward > 0) {
-    const confirmedIds: string[] = event.confirmedAttendees
-      ? JSON.parse(event.confirmedAttendees)
-      : [];
-    embed.addFields({
-      name: `🪙 ${dkpLabel} Awarded`,
-      value: `+${session.dkpAward} ${dkpLabel} to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
-      inline: false,
+  // Build results embed only when items were assigned
+  let embed: EmbedBuilder | null = null;
+  if (assignedItems.length > 0) {
+    const lines = assignedItems.map((item) => {
+      const a = item.assignments[0]!;
+      const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
+      let suffix = '';
+      if (a.rollValue != null) suffix = ` *(rolled ${a.rollValue})*`;
+      else if (a.dkpSpent != null) suffix = ` *(${a.dkpSpent} ${dkpLabel})*`;
+      else if (a.pickNumber != null) suffix = ` *(pick #${a.pickNumber + 1})*`;
+      return `**${item.name}${qty}** → <@${a.userId}>${suffix}`;
     });
+
+    const methodLabel = session.method === 'DKP'
+      ? `🪙 ${dkpLabel}`
+      : METHOD_LABELS[session.method] ?? session.method;
+
+    embed = new EmbedBuilder()
+      .setTitle(`🎁 Loot — ${event.name}`)
+      .setColor(0xf59e0b)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Method: ${methodLabel}` })
+      .setTimestamp();
+
+    if (session.dkpAward > 0) {
+      const confirmedIds: string[] = event.confirmedAttendees
+        ? JSON.parse(event.confirmedAttendees)
+        : [];
+      embed.addFields({
+        name: `🪙 ${dkpLabel} Awarded`,
+        value: `+${session.dkpAward} ${dkpLabel} to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
+        inline: false,
+      });
+    }
   }
 
   try {
     const thread = await client.channels.fetch(event.threadId);
     if (thread?.isThread()) {
-      const wasArchived = thread.archived ?? false;
-      if (wasArchived) await thread.setArchived(false).catch(() => null);
-      await thread.send({ embeds: [embed] });
-      if (wasArchived) await thread.setArchived(true).catch(() => null);
+      if (thread.archived) await thread.setArchived(false).catch(() => null);
+      if (embed) await thread.send({ embeds: [embed] });
+      // Archive thread after loot session completes regardless of whether items were assigned
+      await thread.setArchived(true).catch(() => null);
     }
   } catch (err) {
     console.error('[bot] Failed to post loot results:', err);

@@ -601,15 +601,21 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
 lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
-
+  const isManager = await assertGuildManager(req, guildId);
   const session = await fetchSession(eventId);
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
   if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only available for snake draft' } satisfies ApiResponse); return; }
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Session already completed' } satisfies ApiResponse); return; }
   if (!session.draftStarted) { res.status(400).json({ success: false, error: 'Draft has not been started yet' } satisfies ApiResponse); return; }
+
+  if (!isManager) {
+    // Current snake draft picker may skip their own turn
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    const isPickerTurn = dbUser && session.status === 'OPEN' && currentSnakePicker(session) === dbUser.discordId;
+    if (!isPickerTurn) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    }
+  }
 
   const draftOrder: string[] = JSON.parse(session.draftOrder);
   if (draftOrder.length === 0) {

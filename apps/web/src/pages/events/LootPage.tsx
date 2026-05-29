@@ -880,6 +880,7 @@ export function LootPage() {
     queryClient.invalidateQueries({ queryKey: ['dkp', guildId] });
     queryClient.invalidateQueries({ queryKey: ['dkp-me', guildId] });
     queryClient.invalidateQueries({ queryKey: ['loot-auctions', guildId, eventId] });
+    queryClient.invalidateQueries({ queryKey: ['loot', 'my-picks'] });
   };
 
   const updateMutation = useMutation({
@@ -905,7 +906,6 @@ export function LootPage() {
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
-  const [memberSearch, setMemberSearch] = useState('');
   const [newItemInputFocused, setNewItemInputFocused] = useState(false);
   const debouncedNewItem = useDebounce(newItemName, 250);
 
@@ -966,7 +966,6 @@ export function LootPage() {
   const draftSet = new Set(session?.draftOrder ?? []);
   const notInDraft = allKnownPlayers
     .filter((p) => !draftSet.has(p.userId))
-    .filter((p) => !memberSearch || p.username.toLowerCase().includes(memberSearch.toLowerCase()))
     .sort((a, b) => a.username.localeCompare(b.username));
 
   const allAssignmentCount = session?.items.reduce((n, item) => n + item.assignments.length, 0) ?? 0;
@@ -1110,14 +1109,16 @@ export function LootPage() {
                   <div className="mb-3 space-y-2">
                     <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-primary">Now picking: {nextPickerName}</span>
-                      {isManager && (!skipConfirm ? (
+                      {(isManager || isCurrentPicker) && (!skipConfirm ? (
                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0" onClick={() => setSkipConfirm(true)}>
                           <SkipForward className="h-3 w-3" />
-                          Skip Turn
+                          {isCurrentPicker && !isManager ? 'Skip My Turn' : 'Skip Turn'}
                         </Button>
                       ) : (
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">Skip {nextPickerName}?</span>
+                          <span className="text-xs text-muted-foreground">
+                            {isCurrentPicker && !isManager ? 'Skip your turn?' : `Skip ${nextPickerName}?`}
+                          </span>
                           <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
                             {skipMutation.isPending ? 'Skipping…' : 'Yes, Skip'}
                           </Button>
@@ -1158,32 +1159,31 @@ export function LootPage() {
                   )}
                 </div>
                 {isManager && session.status === 'OPEN' && !session.draftStarted && (
-                  <div className="mt-3 pt-3 border-t border-border space-y-2">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">Add members to draft:</p>
-                      <input
-                        type="text"
-                        placeholder="Search…"
-                        value={memberSearch}
-                        onChange={(e) => setMemberSearch(e.target.value)}
-                        className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
-                      />
-                    </div>
+                  <div className="mt-3 pt-3 border-t border-border">
                     {notInDraft.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {notInDraft.map((p) => (
-                          <button
-                            key={p.userId}
-                            type="button"
-                            className="rounded-full px-3 py-1 text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                            onClick={() => updateMutation.mutate({ draftOrder: [...session.draftOrder, p.userId] })}
-                          >
-                            + {resolveUsername(p.userId, p.username, user?.id)}
-                          </button>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground shrink-0">Add member:</p>
+                        <select
+                          className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const userId = e.target.value;
+                            if (userId) {
+                              updateMutation.mutate({ draftOrder: [...session.draftOrder, userId] });
+                              e.target.value = '';
+                            }
+                          }}
+                        >
+                          <option value="" disabled>Select a member…</option>
+                          {notInDraft.map((p) => (
+                            <option key={p.userId} value={p.userId}>
+                              {resolveUsername(p.userId, p.username, user?.id)}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground italic">{memberSearch ? 'No members match.' : 'All known members are already in the draft.'}</p>
+                      <p className="text-xs text-muted-foreground italic">All known members are already in the draft.</p>
                     )}
                   </div>
                 )}

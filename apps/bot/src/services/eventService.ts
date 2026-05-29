@@ -472,7 +472,6 @@ export async function endEvent(eventId: string) {
         }
 
         await thread.send(`🏁 **${event.name}** has ended.`);
-        await thread.setArchived(true).catch(() => null);
       }
     } catch (err) {
       console.error('[bot] Failed to archive forum thread:', err);
@@ -502,38 +501,44 @@ export async function updatePostEventEmbed(eventId: string) {
     where: { id: eventId },
     include: { rsvps: true },
   });
-  if (!event?.threadId || !event.confirmedAttendees) return;
+  if (!event?.threadId) return;
 
-  const confirmedIds: string[] = JSON.parse(event.confirmedAttendees);
-  if (confirmedIds.length === 0) return;
+  const confirmedIds: string[] = event.confirmedAttendees
+    ? JSON.parse(event.confirmedAttendees)
+    : [];
 
-  // Build a userId → items-won map from the loot session (if one exists)
-  const lootByUser = new Map<string, { name: string; quantity: number }[]>();
-  const session = await prisma.lootSession.findUnique({
-    where: { eventId },
-    include: { items: { include: { assignments: true } } },
-  });
-  if (session) {
-    for (const item of session.items) {
-      for (const a of item.assignments) {
-        const wins = lootByUser.get(a.userId) ?? [];
-        wins.push({ name: item.name, quantity: item.quantity });
-        lootByUser.set(a.userId, wins);
+  // Build the post-event embed only when there are confirmed attendees
+  let embed: ReturnType<typeof buildPostEventEmbed> | null = null;
+  let files: AttachmentBuilder[] = [];
+
+  if (confirmedIds.length > 0) {
+    const lootByUser = new Map<string, { name: string; quantity: number }[]>();
+    const session = await prisma.lootSession.findUnique({
+      where: { eventId },
+      include: { items: { include: { assignments: true } } },
+    });
+    if (session) {
+      for (const item of session.items) {
+        for (const a of item.assignments) {
+          const wins = lootByUser.get(a.userId) ?? [];
+          wins.push({ name: item.name, quantity: item.quantity });
+          lootByUser.set(a.userId, wins);
+        }
       }
     }
+
+    const attendees = confirmedIds.map((userId) => ({
+      userId,
+      items: lootByUser.get(userId) ?? [],
+    }));
+
+    const dkpAward = session?.dkpAward && session.dkpAward > 0 ? session.dkpAward : undefined;
+    const dkpLabel = dkpAward ? await getGuildDkpLabel(event.guildId) : undefined;
+
+    const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+    embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename, dkpAward, dkpLabel);
+    files = imageAttachment ? [imageAttachment.builder] : [];
   }
-
-  const attendees = confirmedIds.map((userId) => ({
-    userId,
-    items: lootByUser.get(userId) ?? [],
-  }));
-
-  const dkpAward = session?.dkpAward && session.dkpAward > 0 ? session.dkpAward : undefined;
-  const dkpLabel = dkpAward ? await getGuildDkpLabel(event.guildId) : undefined;
-
-  const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
-  const embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename, dkpAward, dkpLabel);
-  const files = imageAttachment ? [imageAttachment.builder] : [];
 
   try {
     const thread = await client.channels.fetch(event.threadId);
@@ -542,15 +547,22 @@ export async function updatePostEventEmbed(eventId: string) {
     const wasArchived = thread.archived ?? false;
     if (wasArchived) await thread.setArchived(false).catch(() => null);
 
-    const rosterMsg = event.rosterMessageId
-      ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
-      : await thread.fetchStarterMessage().catch(() => null);
+    if (embed) {
+      const rosterMsg = event.rosterMessageId
+        ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
+        : await thread.fetchStarterMessage().catch(() => null);
 
-    if (rosterMsg) {
-      await rosterMsg.edit({ embeds: [embed], components: [], files });
+      if (rosterMsg) {
+        await rosterMsg.edit({ embeds: [embed], components: [], files });
+      }
     }
 
-    if (wasArchived) await thread.setArchived(true).catch(() => null);
+    // Archive when no loot — loot path archives in announceLootResults after posting results
+    if (!event.hadLoot) {
+      await thread.setArchived(true).catch(() => null);
+    } else if (wasArchived) {
+      await thread.setArchived(true).catch(() => null);
+    }
   } catch (err) {
     console.error('[bot] Failed to update post-event embed:', err);
   }
