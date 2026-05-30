@@ -436,6 +436,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     onSuccess: invalidateEvent,
   });
 
+  const startMutation = useMutation({
+    mutationFn: () => eventsApi.start(guildId, event.id),
+    onSuccess: invalidateEvent,
+  });
+
   const createVcsMutation = useMutation({
     mutationFn: () => eventsApi.createVcs(guildId, event.id),
     onSuccess: invalidateEvent,
@@ -749,6 +754,15 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />Edit
+            </Button>
+          )}
+          {isManager && ev.status === 'PENDING' && (
+            <Button size="sm"
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => startMutation.mutate()}
+              disabled={startMutation.isPending}>
+              <PlayCircle className="h-3.5 w-3.5" />
+              {startMutation.isPending ? 'Starting…' : 'Start Event'}
             </Button>
           )}
           {canEnd && isManager && (

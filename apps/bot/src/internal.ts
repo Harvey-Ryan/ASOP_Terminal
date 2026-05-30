@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive } from './services/eventService.js';
 import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
@@ -131,6 +131,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await notifyLootComplete(sessionId).catch((err) =>
         console.error(`[bot:internal] notifyLootComplete failed for ${sessionId}:`, err),
+      );
+      return;
+    }
+
+    const startMatch = req.url?.match(/^\/trigger\/start\/([^/]+)$/);
+    if (startMatch) {
+      const eventId = startMatch[1]!;
+      res.writeHead(202).end();
+      await postEventLive(eventId).catch((err) =>
+        console.error(`[bot:internal] postEventLive (force-start) failed for ${eventId}:`, err),
       );
       return;
     }

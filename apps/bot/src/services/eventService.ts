@@ -194,7 +194,7 @@ async function _setupDiscordForEvent(eventId: string) {
 
   await prisma.event.update({
     where: { id: event.id },
-    data: { discordEventId, threadId, rosterMessageId, status: 'ACTIVE' },
+    data: { discordEventId, threadId, rosterMessageId },
   });
 
   // ── Immediate VC creation (start < 30 min away) ──────────────────────────

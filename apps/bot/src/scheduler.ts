@@ -79,6 +79,18 @@ export async function startScheduler() {
 
 async function checkEventStart() {
   const now = new Date();
+
+  // Auto-transition PENDING events whose start time has arrived.
+  // Events without a threadId stay PENDING so Discord setup can still retry.
+  const transitioned = await prisma.event.updateMany({
+    where: { status: 'PENDING', startTime: { lte: now }, threadId: { not: null } },
+    data: { status: 'ACTIVE' },
+  });
+  if (transitioned.count > 0) {
+    console.log(`[bot] Transitioned ${transitioned.count} event(s) PENDING → ACTIVE at start time`);
+  }
+
+  // Post live announcement for ACTIVE events not yet announced.
   const starting = await prisma.event.findMany({
     where: {
       status: 'ACTIVE',
