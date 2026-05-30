@@ -104,7 +104,7 @@ function OrgOnlyRow({
           onChange={(e) => setSelectedDiscordId(e.target.value)}
           autoFocus
         >
-          <option value="">Select Discord member…</option>
+          <option value="">{unlinkedMembers.length === 0 ? 'No unlinked members available' : 'Select Discord member…'}</option>
           {unlinkedMembers.map((m) => (
             <option key={m.discordId} value={m.discordId}>{m.discordUsername}</option>
           ))}
@@ -133,16 +133,14 @@ function OrgOnlyRow({
       <Link2Off className="h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="flex-1 text-sm font-mono text-muted-foreground">{member.rsiHandle}</span>
       <RankBadge stars={member.orgRank} />
-      {unlinkedMembers.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setAssigning(true)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
-        >
-          <UserPlus className="h-3 w-3" />
-          Assign
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setAssigning(true)}
+        className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+      >
+        <UserPlus className="h-3 w-3" />
+        Assign
+      </button>
     </div>
   );
 }
