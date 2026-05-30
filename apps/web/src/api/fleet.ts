@@ -42,10 +42,4 @@ export const fleetApi = {
 
   getRsiRoster: (guildId: string) =>
     api.get<ApiResponse<RsiRosterDto>>(`/guilds/${guildId}/rsi/roster`).then((r) => r.data!),
-
-  assignRsiHandle: (guildId: string, body: { rsiHandle: string; discordId: string }) =>
-    api.post<ApiResponse>(`/guilds/${guildId}/rsi/assign`, body),
-
-  clearRsiHandle: (guildId: string, discordId: string) =>
-    api.delete<ApiResponse>(`/guilds/${guildId}/rsi/assign/${encodeURIComponent(discordId)}`),
 };

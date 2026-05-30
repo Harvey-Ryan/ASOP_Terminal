@@ -1,13 +1,12 @@
-import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff, MonitorDot, UserPlus, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fleetApi } from '@/api/fleet';
 import { cn } from '@/lib/utils';
-import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember, RsiRosterViewerMember } from '@dem/shared';
+import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember } from '@dem/shared';
 
 const RANK_LABELS = ['Recruit', 'Member', 'Veteran', 'Officer', 'Commander', 'Founder'];
 const RANK_COLORS = [
@@ -55,132 +54,18 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
   );
 }
 
-function ViewerRow({ member }: { member: RsiRosterViewerMember }) {
-  const ShieldIcon = member.verified ? ShieldCheck : ShieldOff;
-  const shieldCls = member.verified ? 'text-green-500' : 'text-muted-foreground/50';
-
+function OrgOnlyRow({ member }: { member: RsiRosterOrgOnlyMember }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
-      <MonitorDot className="h-4 w-4 shrink-0 text-indigo-400" />
-      <div className="flex-1 min-w-0 flex items-center gap-2">
-        <span className="text-sm font-medium truncate">{member.discordUsername}</span>
-        {member.rsiHandle
-          ? <span className="text-xs text-muted-foreground font-mono">{member.rsiHandle}</span>
-          : <span className="text-xs text-muted-foreground/50 italic">no RSI handle</span>}
-      </div>
-      {member.rsiHandle && <ShieldIcon className={`h-3.5 w-3.5 shrink-0 ${shieldCls}`} />}
-    </div>
-  );
-}
-
-function OrgOnlyRow({
-  member,
-  guildId,
-  candidates,
-  onAssigned,
-}: {
-  member: RsiRosterOrgOnlyMember;
-  guildId: string;
-  candidates: RsiRosterViewerMember[];
-  onAssigned: () => void;
-}) {
-  const [assigning, setAssigning] = useState(false);
-  const [selectedDiscordId, setSelectedDiscordId] = useState('');
-  const [search, setSearch] = useState('');
-
-  const filtered = candidates.filter((c) =>
-    c.discordUsername.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const assignMutation = useMutation({
-    mutationFn: () => fleetApi.assignRsiHandle(guildId, { rsiHandle: member.rsiHandle, discordId: selectedDiscordId }),
-    onSuccess: () => { setAssigning(false); setSelectedDiscordId(''); setSearch(''); onAssigned(); },
-  });
-
-  function cancel() {
-    setAssigning(false);
-    setSelectedDiscordId('');
-    setSearch('');
-  }
-
-  if (assigning) {
-    const selectedName = candidates.find((c) => c.discordId === selectedDiscordId)?.discordUsername;
-    return (
-      <div className="py-2 border-b border-border/50 last:border-0 space-y-2">
-        <div className="flex items-center gap-2">
-          <UserPlus className="h-4 w-4 shrink-0 text-primary" />
-          <span className="text-sm font-mono shrink-0">{member.rsiHandle}</span>
-          <span className="text-xs text-muted-foreground shrink-0">→</span>
-          <span className={cn('flex-1 text-xs truncate', selectedName ? 'text-foreground' : 'text-muted-foreground italic')}>
-            {selectedName ?? 'Select a member below…'}
-          </span>
-          <Button
-            size="sm"
-            className="h-7 text-xs shrink-0"
-            disabled={!selectedDiscordId || assignMutation.isPending}
-            onClick={() => assignMutation.mutate()}
-          >
-            {assignMutation.isPending ? 'Saving…' : 'Assign'}
-          </Button>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground shrink-0"
-            onClick={cancel}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="ml-6 space-y-1">
-          <input
-            type="text"
-            placeholder="Search members…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-            autoFocus
-          />
-          <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-background">
-            {filtered.length === 0 ? (
-              <p className="px-2 py-1.5 text-xs text-muted-foreground italic">No members found</p>
-            ) : filtered.map((c) => (
-              <button
-                key={c.discordId}
-                type="button"
-                onClick={() => setSelectedDiscordId(c.discordId)}
-                className={cn(
-                  'w-full text-left px-2 py-1.5 text-xs hover:bg-muted transition-colors',
-                  selectedDiscordId === c.discordId && 'bg-primary/10 text-primary font-medium',
-                )}
-              >
-                {c.discordUsername}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0 group">
       <Link2Off className="h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="flex-1 text-sm font-mono text-muted-foreground">{member.rsiHandle}</span>
       <RankBadge stars={member.orgRank} />
-      <button
-        type="button"
-        onClick={() => setAssigning(true)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
-      >
-        <UserPlus className="h-3 w-3" />
-        Assign
-      </button>
     </div>
   );
 }
 
 export function RosterPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['rsi-roster', guildId],
@@ -195,11 +80,6 @@ export function RosterPage() {
   const inOrg = data?.linked.filter((m) => m.inOrg) ?? [];
   const notInOrg = data?.linked.filter((m) => !m.inOrg) ?? [];
   const orgOnly = data?.orgOnly ?? [];
-  const viewers = data?.viewers ?? [];
-
-  function invalidateRoster() {
-    queryClient.invalidateQueries({ queryKey: ['rsi-roster', guildId] });
-  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -269,7 +149,7 @@ export function RosterPage() {
       {data?.orgTag && (
         <>
           {/* Summary bar */}
-          <div className="flex flex-wrap items-center gap-6 rounded-lg border border-border bg-card px-4 py-3">
+          <div className="flex items-center gap-6 rounded-lg border border-border bg-card px-4 py-3">
             <div className="text-center">
               <p className="text-xl font-bold">{data.total}</p>
               <p className="text-xs text-muted-foreground">Org Members</p>
@@ -289,15 +169,6 @@ export function RosterPage() {
               <p className="text-xl font-bold text-muted-foreground">{orgOnly.length}</p>
               <p className="text-xs text-muted-foreground">Unlinked</p>
             </div>
-            {viewers.length > 0 && (
-              <>
-                <div className="h-8 w-px bg-border" />
-                <div className="text-center">
-                  <p className="text-xl font-bold text-indigo-400">{viewers.length}</p>
-                  <p className="text-xs text-muted-foreground">Dashboard Only</p>
-                </div>
-              </>
-            )}
             <div className="ml-auto font-mono text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
               {data.orgTag}
             </div>
@@ -337,24 +208,6 @@ export function RosterPage() {
             </Card>
           )}
 
-          {/* Dashboard members not in RSI org */}
-          {viewers.length > 0 && (
-            <Card className="border-indigo-500/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2 text-indigo-400">
-                  <MonitorDot className="h-4 w-4" />
-                  Dashboard Members, Not in Org ({viewers.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <p className="text-xs text-muted-foreground mb-3">
-                  These members have dashboard access but are not in the RSI org.
-                </p>
-                {viewers.map((m) => <ViewerRow key={m.discordId} member={m} />)}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Org members with no app link */}
           {orgOnly.length > 0 && (
             <Card>
@@ -370,15 +223,7 @@ export function RosterPage() {
                 </p>
                 {orgOnly
                   .sort((a, b) => (b.orgRank ?? 0) - (a.orgRank ?? 0) || a.rsiHandle.localeCompare(b.rsiHandle))
-                  .map((m) => (
-                    <OrgOnlyRow
-                      key={m.rsiHandle}
-                      member={m}
-                      guildId={guildId!}
-                      candidates={viewers}
-                      onAssigned={invalidateRoster}
-                    />
-                  ))}
+                  .map((m) => <OrgOnlyRow key={m.rsiHandle} member={m} />)}
               </CardContent>
             </Card>
           )}
