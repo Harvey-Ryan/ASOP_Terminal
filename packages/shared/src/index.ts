@@ -613,10 +613,18 @@ export interface RsiRosterOrgOnlyMember {
   isAffiliate: boolean;
 }
 
+export interface RsiRosterViewerMember {
+  discordId: string;
+  discordUsername: string;
+  rsiHandle: string | null;
+  verified: boolean;
+}
+
 export interface RsiRosterDto {
   orgTag: string | null;
   linked: RsiRosterLinkedMember[];
   orgOnly: RsiRosterOrgOnlyMember[];
+  viewers: RsiRosterViewerMember[];
   total: number;
 }
 

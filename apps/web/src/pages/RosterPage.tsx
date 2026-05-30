@@ -1,12 +1,12 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff, MonitorDot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fleetApi } from '@/api/fleet';
 import { cn } from '@/lib/utils';
-import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember } from '@dem/shared';
+import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember, RsiRosterViewerMember } from '@dem/shared';
 
 const RANK_LABELS = ['Recruit', 'Member', 'Veteran', 'Officer', 'Commander', 'Founder'];
 const RANK_COLORS = [
@@ -54,6 +54,24 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
   );
 }
 
+function ViewerRow({ member }: { member: RsiRosterViewerMember }) {
+  const ShieldIcon = member.verified ? ShieldCheck : ShieldOff;
+  const shieldCls = member.verified ? 'text-green-500' : 'text-muted-foreground/50';
+
+  return (
+    <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+      <MonitorDot className="h-4 w-4 shrink-0 text-indigo-400" />
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <span className="text-sm font-medium truncate">{member.discordUsername}</span>
+        {member.rsiHandle
+          ? <span className="text-xs text-muted-foreground font-mono">{member.rsiHandle}</span>
+          : <span className="text-xs text-muted-foreground/50 italic">no RSI handle</span>}
+      </div>
+      {member.rsiHandle && <ShieldIcon className={`h-3.5 w-3.5 shrink-0 ${shieldCls}`} />}
+    </div>
+  );
+}
+
 function OrgOnlyRow({ member }: { member: RsiRosterOrgOnlyMember }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
@@ -80,6 +98,7 @@ export function RosterPage() {
   const inOrg = data?.linked.filter((m) => m.inOrg) ?? [];
   const notInOrg = data?.linked.filter((m) => !m.inOrg) ?? [];
   const orgOnly = data?.orgOnly ?? [];
+  const viewers = data?.viewers ?? [];
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -149,7 +168,7 @@ export function RosterPage() {
       {data?.orgTag && (
         <>
           {/* Summary bar */}
-          <div className="flex items-center gap-6 rounded-lg border border-border bg-card px-4 py-3">
+          <div className="flex flex-wrap items-center gap-6 rounded-lg border border-border bg-card px-4 py-3">
             <div className="text-center">
               <p className="text-xl font-bold">{data.total}</p>
               <p className="text-xs text-muted-foreground">Org Members</p>
@@ -169,6 +188,15 @@ export function RosterPage() {
               <p className="text-xl font-bold text-muted-foreground">{orgOnly.length}</p>
               <p className="text-xs text-muted-foreground">Unlinked</p>
             </div>
+            {viewers.length > 0 && (
+              <>
+                <div className="h-8 w-px bg-border" />
+                <div className="text-center">
+                  <p className="text-xl font-bold text-indigo-400">{viewers.length}</p>
+                  <p className="text-xs text-muted-foreground">Dashboard Only</p>
+                </div>
+              </>
+            )}
             <div className="ml-auto font-mono text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
               {data.orgTag}
             </div>
@@ -204,6 +232,24 @@ export function RosterPage() {
                 {notInOrg
                   .sort((a, b) => a.discordUsername.localeCompare(b.discordUsername))
                   .map((m) => <LinkedRow key={m.discordId} member={m} />)}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dashboard members not in RSI org */}
+          {viewers.length > 0 && (
+            <Card className="border-indigo-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-indigo-400">
+                  <MonitorDot className="h-4 w-4" />
+                  Dashboard Members, Not in Org ({viewers.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xs text-muted-foreground mb-3">
+                  These members have dashboard access but are not in the RSI org.
+                </p>
+                {viewers.map((m) => <ViewerRow key={m.discordId} member={m} />)}
               </CardContent>
             </Card>
           )}
