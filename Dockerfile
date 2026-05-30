@@ -19,7 +19,7 @@ COPY apps/bot/ apps/bot/
 ARG VITE_DISCORD_CLIENT_ID
 ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
 
-RUN npx turbo run build --filter=@dem/api... --filter=@dem/web... --filter=@dem/bot...
+RUN npx turbo run build --force --filter=@dem/api... --filter=@dem/web... --filter=@dem/bot...
 
 ENV NODE_ENV=production
 # Bot runs in the same container — no inter-service networking needed
