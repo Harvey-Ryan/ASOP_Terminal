@@ -43,6 +43,31 @@ export async function announceRoleReassignment(eventId: string, userId: string) 
 }
 
 /**
+ * Remove a user from the roster entirely.
+ * Called when the user clicks the Leave Roster button on the forum embed.
+ */
+export async function leaveRoster(eventId: string, userId: string) {
+  const deleted = await prisma.eventRsvp.deleteMany({
+    where: { eventId, userId },
+  });
+  if (deleted.count === 0) return; // wasn't on the roster — nothing to update
+
+  await updateRosterEmbed(eventId);
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (event?.threadId) {
+    try {
+      const thread = await client.channels.fetch(event.threadId);
+      if (thread?.isThread()) {
+        await thread.send(`👋 <@${userId}> has left the roster.`);
+      }
+    } catch (err) {
+      console.error(`[bot] leaveRoster: failed to post to thread ${event.threadId}:`, err);
+    }
+  }
+}
+
+/**
  * Add a user to the roster as Unassigned if not already present.
  * Called when the user clicks Interested on a Discord Scheduled Event.
  */
