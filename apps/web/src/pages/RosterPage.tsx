@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fleetApi } from '@/api/fleet';
 import { cn } from '@/lib/utils';
-import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember, RsiRosterViewerMember, RsiRosterUnlinkedMember } from '@dem/shared';
+import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember, RsiRosterViewerMember } from '@dem/shared';
 
 const RANK_LABELS = ['Recruit', 'Member', 'Veteran', 'Officer', 'Commander', 'Founder'];
 const RANK_COLORS = [
@@ -76,54 +76,87 @@ function ViewerRow({ member }: { member: RsiRosterViewerMember }) {
 function OrgOnlyRow({
   member,
   guildId,
-  unlinkedMembers,
+  candidates,
   onAssigned,
 }: {
   member: RsiRosterOrgOnlyMember;
   guildId: string;
-  unlinkedMembers: RsiRosterUnlinkedMember[];
+  candidates: RsiRosterViewerMember[];
   onAssigned: () => void;
 }) {
   const [assigning, setAssigning] = useState(false);
   const [selectedDiscordId, setSelectedDiscordId] = useState('');
+  const [search, setSearch] = useState('');
+
+  const filtered = candidates.filter((c) =>
+    c.discordUsername.toLowerCase().includes(search.toLowerCase()),
+  );
 
   const assignMutation = useMutation({
     mutationFn: () => fleetApi.assignRsiHandle(guildId, { rsiHandle: member.rsiHandle, discordId: selectedDiscordId }),
-    onSuccess: () => { setAssigning(false); setSelectedDiscordId(''); onAssigned(); },
+    onSuccess: () => { setAssigning(false); setSelectedDiscordId(''); setSearch(''); onAssigned(); },
   });
 
+  function cancel() {
+    setAssigning(false);
+    setSelectedDiscordId('');
+    setSearch('');
+  }
+
   if (assigning) {
+    const selectedName = candidates.find((c) => c.discordId === selectedDiscordId)?.discordUsername;
     return (
-      <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0">
-        <UserPlus className="h-4 w-4 shrink-0 text-primary" />
-        <span className="text-sm font-mono shrink-0">{member.rsiHandle}</span>
-        <span className="text-xs text-muted-foreground shrink-0">→</span>
-        <select
-          className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
-          value={selectedDiscordId}
-          onChange={(e) => setSelectedDiscordId(e.target.value)}
-          autoFocus
-        >
-          <option value="">{unlinkedMembers.length === 0 ? 'No unlinked members available' : 'Select Discord member…'}</option>
-          {unlinkedMembers.map((m) => (
-            <option key={m.discordId} value={m.discordId}>{m.discordUsername}</option>
-          ))}
-        </select>
-        <Button
-          size="sm"
-          className="h-7 text-xs shrink-0"
-          disabled={!selectedDiscordId || assignMutation.isPending}
-          onClick={() => assignMutation.mutate()}
-        >
-          {assignMutation.isPending ? 'Saving…' : 'Assign'}
-        </Button>
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground shrink-0"
-          onClick={() => { setAssigning(false); setSelectedDiscordId(''); }}
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+      <div className="py-2 border-b border-border/50 last:border-0 space-y-2">
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4 shrink-0 text-primary" />
+          <span className="text-sm font-mono shrink-0">{member.rsiHandle}</span>
+          <span className="text-xs text-muted-foreground shrink-0">→</span>
+          <span className={cn('flex-1 text-xs truncate', selectedName ? 'text-foreground' : 'text-muted-foreground italic')}>
+            {selectedName ?? 'Select a member below…'}
+          </span>
+          <Button
+            size="sm"
+            className="h-7 text-xs shrink-0"
+            disabled={!selectedDiscordId || assignMutation.isPending}
+            onClick={() => assignMutation.mutate()}
+          >
+            {assignMutation.isPending ? 'Saving…' : 'Assign'}
+          </Button>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground shrink-0"
+            onClick={cancel}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="ml-6 space-y-1">
+          <input
+            type="text"
+            placeholder="Search members…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            autoFocus
+          />
+          <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-background">
+            {filtered.length === 0 ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground italic">No members found</p>
+            ) : filtered.map((c) => (
+              <button
+                key={c.discordId}
+                type="button"
+                onClick={() => setSelectedDiscordId(c.discordId)}
+                className={cn(
+                  'w-full text-left px-2 py-1.5 text-xs hover:bg-muted transition-colors',
+                  selectedDiscordId === c.discordId && 'bg-primary/10 text-primary font-medium',
+                )}
+              >
+                {c.discordUsername}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -163,7 +196,6 @@ export function RosterPage() {
   const notInOrg = data?.linked.filter((m) => !m.inOrg) ?? [];
   const orgOnly = data?.orgOnly ?? [];
   const viewers = data?.viewers ?? [];
-  const unlinkedMembers = data?.unlinkedMembers ?? [];
 
   function invalidateRoster() {
     queryClient.invalidateQueries({ queryKey: ['rsi-roster', guildId] });
@@ -343,7 +375,7 @@ export function RosterPage() {
                       key={m.rsiHandle}
                       member={m}
                       guildId={guildId!}
-                      unlinkedMembers={unlinkedMembers}
+                      candidates={viewers}
                       onAssigned={invalidateRoster}
                     />
                   ))}
