@@ -1,9 +1,9 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed, updateRosterEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent } from './services/eventService.js';
 import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
-import { announceRoleReassignment } from './services/rsvpService.js';
+import { queueRosterUpdate } from './services/rsvpService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -62,20 +62,16 @@ export function startInternalServer() {
     if (rsvpMatch) {
       const eventId = rsvpMatch[1]!;
       res.writeHead(202).end();
-      await updateRosterEmbed(eventId).catch((err) =>
-        console.error(`[bot:internal] updateRosterEmbed failed for ${eventId}:`, err),
+      await queueRosterUpdate(eventId).catch((err) =>
+        console.error(`[bot:internal] queueRosterUpdate failed for ${eventId}:`, err),
       );
       return;
     }
 
     const rsvpReassignMatch = req.url?.match(/^\/trigger\/rsvp-reassign\/([^/]+)\/([^/]+)$/);
     if (rsvpReassignMatch) {
-      const eventId = rsvpReassignMatch[1]!;
-      const userId = rsvpReassignMatch[2]!;
+      // Announcement is handled by the debounced queueRosterUpdate above.
       res.writeHead(202).end();
-      await announceRoleReassignment(eventId, userId).catch((err) =>
-        console.error(`[bot:internal] announceRoleReassignment failed for ${eventId}/${userId}:`, err),
-      );
       return;
     }
 
