@@ -5,7 +5,7 @@ import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { getFleetyardsModels } from '../../lib/fleetyardsCache.js';
 import { importHangar } from '../../lib/fleetyardsOAuth.js';
-import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetLinkStatusDto, FleetyardsLinkDto, RsiRosterDto, RsiRosterViewerMember } from '@dem/shared';
+import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetLinkStatusDto, FleetyardsLinkDto, RsiRosterDto, RsiRosterViewerMember, RsiRosterUnlinkedMember } from '@dem/shared';
 
 // ── Guild-scoped fleet routes ─────────────────────────────────────────────────
 export const fleetRouter = Router();
@@ -329,7 +329,7 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
   const orgTag = guild.settings?.rsiOrgTag ?? null;
 
   if (!orgTag) {
-    res.json({ success: true, data: { orgTag: null, linked: [], orgOnly: [], viewers: [], total: 0 } satisfies RsiRosterDto } satisfies ApiResponse<RsiRosterDto>);
+    res.json({ success: true, data: { orgTag: null, linked: [], orgOnly: [], viewers: [], unlinkedMembers: [], total: 0 } satisfies RsiRosterDto } satisfies ApiResponse<RsiRosterDto>);
     return;
   }
 
@@ -483,6 +483,15 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     .filter((m) => !linkedHandles.has(m.handle.toLowerCase()))
     .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars, isAffiliate: affiliateHandleSet.has(m.handle.toLowerCase()) }));
 
+  // Guild members without a linked RSI handle — candidates for manual assignment
+  const unlinkedMembers: RsiRosterUnlinkedMember[] = members
+    .filter((m) => !m.rsiHandle && !m.user.rsiHandle)
+    .map((m) => ({
+      discordId: m.user.discordId,
+      discordUsername: m.user.globalName ?? m.user.username,
+    }))
+    .sort((a, b) => a.discordUsername.localeCompare(b.discordUsername));
+
   // Fetch Discord members with viewer roles and show those not already in the org
   const viewers: RsiRosterViewerMember[] = [];
   const viewerRoles: string[] = guild.settings
@@ -532,6 +541,6 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
 
   res.json({
     success: true,
-    data: { orgTag, linked, orgOnly, viewers, total: orgMembers.length } satisfies RsiRosterDto,
+    data: { orgTag, linked, orgOnly, viewers, unlinkedMembers, total: orgMembers.length } satisfies RsiRosterDto,
   } satisfies ApiResponse<RsiRosterDto>);
 });

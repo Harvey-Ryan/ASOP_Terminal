@@ -1,12 +1,13 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff, MonitorDot } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff, MonitorDot, UserPlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fleetApi } from '@/api/fleet';
 import { cn } from '@/lib/utils';
-import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember, RsiRosterViewerMember } from '@dem/shared';
+import type { RsiRosterLinkedMember, RsiRosterOrgOnlyMember, RsiRosterViewerMember, RsiRosterUnlinkedMember } from '@dem/shared';
 
 const RANK_LABELS = ['Recruit', 'Member', 'Veteran', 'Officer', 'Commander', 'Founder'];
 const RANK_COLORS = [
@@ -72,18 +73,83 @@ function ViewerRow({ member }: { member: RsiRosterViewerMember }) {
   );
 }
 
-function OrgOnlyRow({ member }: { member: RsiRosterOrgOnlyMember }) {
+function OrgOnlyRow({
+  member,
+  guildId,
+  unlinkedMembers,
+  onAssigned,
+}: {
+  member: RsiRosterOrgOnlyMember;
+  guildId: string;
+  unlinkedMembers: RsiRosterUnlinkedMember[];
+  onAssigned: () => void;
+}) {
+  const [assigning, setAssigning] = useState(false);
+  const [selectedDiscordId, setSelectedDiscordId] = useState('');
+
+  const assignMutation = useMutation({
+    mutationFn: () => fleetApi.assignRsiHandle(guildId, { rsiHandle: member.rsiHandle, discordId: selectedDiscordId }),
+    onSuccess: () => { setAssigning(false); setSelectedDiscordId(''); onAssigned(); },
+  });
+
+  if (assigning) {
+    return (
+      <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0">
+        <UserPlus className="h-4 w-4 shrink-0 text-primary" />
+        <span className="text-sm font-mono shrink-0">{member.rsiHandle}</span>
+        <span className="text-xs text-muted-foreground shrink-0">→</span>
+        <select
+          className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+          value={selectedDiscordId}
+          onChange={(e) => setSelectedDiscordId(e.target.value)}
+          autoFocus
+        >
+          <option value="">Select Discord member…</option>
+          {unlinkedMembers.map((m) => (
+            <option key={m.discordId} value={m.discordId}>{m.discordUsername}</option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          className="h-7 text-xs shrink-0"
+          disabled={!selectedDiscordId || assignMutation.isPending}
+          onClick={() => assignMutation.mutate()}
+        >
+          {assignMutation.isPending ? 'Saving…' : 'Assign'}
+        </Button>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground shrink-0"
+          onClick={() => { setAssigning(false); setSelectedDiscordId(''); }}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+    <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0 group">
       <Link2Off className="h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="flex-1 text-sm font-mono text-muted-foreground">{member.rsiHandle}</span>
       <RankBadge stars={member.orgRank} />
+      {unlinkedMembers.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setAssigning(true)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+        >
+          <UserPlus className="h-3 w-3" />
+          Assign
+        </button>
+      )}
     </div>
   );
 }
 
 export function RosterPage() {
   const { guildId } = useParams<{ guildId: string }>();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['rsi-roster', guildId],
@@ -99,6 +165,11 @@ export function RosterPage() {
   const notInOrg = data?.linked.filter((m) => !m.inOrg) ?? [];
   const orgOnly = data?.orgOnly ?? [];
   const viewers = data?.viewers ?? [];
+  const unlinkedMembers = data?.unlinkedMembers ?? [];
+
+  function invalidateRoster() {
+    queryClient.invalidateQueries({ queryKey: ['rsi-roster', guildId] });
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -269,7 +340,15 @@ export function RosterPage() {
                 </p>
                 {orgOnly
                   .sort((a, b) => (b.orgRank ?? 0) - (a.orgRank ?? 0) || a.rsiHandle.localeCompare(b.rsiHandle))
-                  .map((m) => <OrgOnlyRow key={m.rsiHandle} member={m} />)}
+                  .map((m) => (
+                    <OrgOnlyRow
+                      key={m.rsiHandle}
+                      member={m}
+                      guildId={guildId!}
+                      unlinkedMembers={unlinkedMembers}
+                      onAssigned={invalidateRoster}
+                    />
+                  ))}
               </CardContent>
             </Card>
           )}

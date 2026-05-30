@@ -620,11 +620,17 @@ export interface RsiRosterViewerMember {
   verified: boolean;
 }
 
+export interface RsiRosterUnlinkedMember {
+  discordId: string;
+  discordUsername: string;
+}
+
 export interface RsiRosterDto {
   orgTag: string | null;
   linked: RsiRosterLinkedMember[];
   orgOnly: RsiRosterOrgOnlyMember[];
   viewers: RsiRosterViewerMember[];
+  unlinkedMembers: RsiRosterUnlinkedMember[];
   total: number;
 }
 
