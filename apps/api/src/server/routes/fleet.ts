@@ -483,9 +483,8 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     .filter((m) => !linkedHandles.has(m.handle.toLowerCase()))
     .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars, isAffiliate: affiliateHandleSet.has(m.handle.toLowerCase()) }));
 
-  // Guild members without a linked RSI handle — candidates for manual assignment
+  // All guild members in the app — candidates for manual org-handle assignment
   const unlinkedMembers: RsiRosterUnlinkedMember[] = members
-    .filter((m) => !m.rsiHandle && !m.user.rsiHandle)
     .map((m) => ({
       discordId: m.user.discordId,
       discordUsername: m.user.globalName ?? m.user.username,
