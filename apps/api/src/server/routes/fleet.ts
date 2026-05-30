@@ -543,3 +543,79 @@ fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
     data: { orgTag, linked, orgOnly, viewers, unlinkedMembers, total: orgMembers.length } satisfies RsiRosterDto,
   } satisfies ApiResponse<RsiRosterDto>);
 });
+
+// ── POST /api/guilds/:guildId/rsi/assign ─────────────────────────────────────
+// Admin manually links an RSI org handle to a Discord member's app account.
+
+fleetRouter.post('/:guildId/rsi/assign', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const body = req.body as { rsiHandle?: unknown; discordId?: unknown };
+  const rsiHandle = typeof body.rsiHandle === 'string' ? body.rsiHandle.trim() : null;
+  const discordId = typeof body.discordId === 'string' ? body.discordId.trim() : null;
+
+  if (!rsiHandle || rsiHandle.length < 2 || rsiHandle.length > 60) {
+    res.status(400).json({ success: false, error: 'Invalid RSI handle' } satisfies ApiResponse);
+    return;
+  }
+  if (!discordId) {
+    res.status(400).json({ success: false, error: 'Missing discordId' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { guildId } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const targetUser = await prisma.user.findFirst({ where: { discordId } });
+  if (!targetUser) {
+    res.status(404).json({ success: false, error: 'Discord member not found in app' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.guildMember.upsert({
+    where: { userId_guildId: { userId: targetUser.id, guildId: guild.id } },
+    update: { rsiHandle, rsiVerified: false, rsiVerifyToken: null },
+    create: { userId: targetUser.id, guildId: guild.id, role: 'MEMBER', rsiHandle, rsiVerified: false },
+  });
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── DELETE /api/guilds/:guildId/rsi/assign/:discordId ────────────────────────
+// Admin clears a linked RSI handle from a Discord member's app account.
+
+fleetRouter.delete('/:guildId/rsi/assign/:discordId', requireAuth, async (req, res) => {
+  const { guildId, discordId } = req.params as { guildId: string; discordId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { guildId } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const targetUser = await prisma.user.findFirst({ where: { discordId } });
+  if (!targetUser) {
+    res.status(404).json({ success: false, error: 'Discord member not found in app' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.guildMember.updateMany({
+    where: { userId: targetUser.id, guildId: guild.id },
+    data: { rsiHandle: null, rsiVerified: false, rsiVerifyToken: null },
+  });
+
+  res.json({ success: true } satisfies ApiResponse);
+});
