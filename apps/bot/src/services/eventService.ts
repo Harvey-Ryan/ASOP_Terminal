@@ -194,7 +194,7 @@ async function _setupDiscordForEvent(eventId: string) {
 
   await prisma.event.update({
     where: { id: event.id },
-    data: { discordEventId, threadId, rosterMessageId, status: 'ACTIVE' },
+    data: { discordEventId, threadId, rosterMessageId },
   });
 
   // ── Immediate VC creation (start < 30 min away) ──────────────────────────
@@ -233,12 +233,16 @@ export async function syncDiscordEvent(eventId: string) {
           imageField = { image: null };
           console.log(`[syncDiscordEvent] no imageUrl — clearing scheduled event image`);
         }
+        // Discord rejects scheduledStartTime edits on already-active events.
+        // Only include time fields when the event hasn't started yet.
+        const timeFields = event.startTime > new Date()
+          ? { scheduledStartTime: event.startTime, scheduledEndTime }
+          : {};
         await scheduled.edit({
           name: event.name,
           description: buildScheduledEventDescription(event.description, event.guildId, event.threadId),
-          scheduledStartTime: event.startTime,
-          scheduledEndTime,
           entityMetadata: { location: event.musterPoint ?? event.name },
+          ...timeFields,
           ...imageField,
         });
         console.log(`[syncDiscordEvent] Discord scheduled event updated`);

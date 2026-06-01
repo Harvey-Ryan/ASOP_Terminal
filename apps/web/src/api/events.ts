@@ -26,6 +26,9 @@ export const eventsApi = {
   removeRsvp: (guildId: string, eventId: string) =>
     api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`).then((r) => r.data!),
 
+  start: (guildId: string, eventId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/start`).then((r) => r),
+
   end: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/end`).then((r) => r),
 

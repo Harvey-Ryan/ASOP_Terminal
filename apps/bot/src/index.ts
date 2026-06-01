@@ -17,7 +17,7 @@ import * as lootCommand from './commands/loot.js';
 import * as fleetCommand from './commands/fleet.js';
 import * as helpCommand from './commands/help.js';
 import { registerCommands } from './services/commandService.js';
-import { joinRoster, setRosterRole } from './services/rsvpService.js';
+import { joinRoster, setRosterRole, leaveRoster } from './services/rsvpService.js';
 import { endEvent } from './services/eventService.js';
 
 interface Command {
@@ -185,6 +185,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch (err) {
         console.error('[bot] Role button error:', err);
         await interaction.reply({ content: '❌ Failed to update roster.', flags: MessageFlags.Ephemeral });
+      }
+      return;
+    }
+
+    // ── Leave Roster button ───────────────────────────────────────────────────
+    if (prefix === 'leave') {
+      try {
+        const event = await prisma.event.findFirst({
+          where: { id: entityId, status: { not: 'COMPLETED' } },
+        });
+        if (!event) {
+          await interaction.reply({ content: 'This event has already ended.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await leaveRoster(entityId, interaction.user.id);
+        await interaction.reply({
+          content: `✅ You have been removed from the roster for **${event.name}**.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (err) {
+        console.error('[bot] Leave roster button error:', err);
+        await interaction.reply({ content: '❌ Failed to leave roster.', flags: MessageFlags.Ephemeral });
       }
       return;
     }

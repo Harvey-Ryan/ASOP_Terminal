@@ -441,6 +441,32 @@ eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res)
   res.json({ success: true, message: 'Event ending — bot will clean up shortly' } satisfies ApiResponse);
 });
 
+// ── POST /api/guilds/:guildId/events/:eventId/start ──────────────────────────
+
+eventsRouter.post('/:guildId/events/:eventId/start', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+  if (event.status !== 'PENDING') {
+    res.status(409).json({ success: false, error: 'Only PENDING events can be force-started' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.event.update({ where: { id: eventId }, data: { status: 'ACTIVE' } });
+  triggerBot(`/trigger/start/${eventId}`);
+
+  res.json({ success: true, message: 'Event started' } satisfies ApiResponse);
+});
+
 // ── POST /api/guilds/:guildId/events/:eventId/vcs ────────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/vcs', requireAuth, async (req, res) => {

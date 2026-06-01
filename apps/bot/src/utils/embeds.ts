@@ -184,6 +184,11 @@ export function buildRoleButtons(
       .setLabel('Unassigned')
       .setEmoji('📋')
       .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`leave:${eventId}`)
+      .setLabel('Leave Roster')
+      .setEmoji('🚪')
+      .setStyle(ButtonStyle.Danger),
   ];
 
   // Split into rows of 5
