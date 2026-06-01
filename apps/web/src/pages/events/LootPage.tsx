@@ -1276,7 +1276,7 @@ export function LootPage() {
                     onBlur={() => setNewItemInputFocused(false)}
                     autoComplete="off"
                   />
-                  {newItemInputFocused && newItemName.length >= 2 && (suggestQuery.data?.length ?? 0) > 0 && (
+                  {newItemInputFocused && newItemName === debouncedNewItem && newItemName.length >= 2 && (suggestQuery.data?.length ?? 0) > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                       {suggestQuery.data!.map((s) => (
                         <button

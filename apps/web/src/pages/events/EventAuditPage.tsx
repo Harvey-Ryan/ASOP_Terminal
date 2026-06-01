@@ -390,7 +390,7 @@ export function EventAuditPage() {
                       onBlur={() => setLootInputFocused(false)}
                       autoComplete="off"
                     />
-                    {lootInputFocused && newLootItem.length >= 2 && (lootSuggestQuery.data?.length ?? 0) > 0 && (
+                    {lootInputFocused && newLootItem === debouncedLootItem && newLootItem.length >= 2 && (lootSuggestQuery.data?.length ?? 0) > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                         {lootSuggestQuery.data!.map((s) => (
                           <button
