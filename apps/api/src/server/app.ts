@@ -19,6 +19,7 @@ import { scRouter } from './routes/sc.js';
 import { fleetRouter, fleetyardsRouter } from './routes/fleet.js';
 import { rsiRouter } from './routes/rsi.js';
 import { kanbanRouter } from './routes/kanban.js';
+import { allianceRouter } from './routes/alliance.js';
 import type { ApiResponse } from '@dem/shared';
 
 const PgSession = ConnectPgSimple(session);
@@ -183,6 +184,7 @@ export function createServer(): express.Express {
   app.use('/api', fleetyardsRouter);
   app.use('/api/guilds', rsiRouter);
   app.use('/api', kanbanRouter);
+  app.use('/api', allianceRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

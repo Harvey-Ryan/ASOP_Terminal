@@ -828,3 +828,32 @@ export interface EventTemplateDto {
   createdAt: string;
   updatedAt: string;
 }
+
+// ── Alliances ─────────────────────────────────────────────────────────────────
+
+export interface AllianceGuildDto {
+  id: string;        // Guild.id (cuid)
+  guildId: string;   // Discord snowflake
+  name: string;
+  icon: string | null;
+}
+
+export interface AllianceDto {
+  id: string;
+  name: string;
+  members: AllianceGuildDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAllianceBody {
+  name: string;
+}
+
+export interface RenameAllianceBody {
+  name: string;
+}
+
+export interface AddAllianceMemberBody {
+  guildId: string;   // Discord snowflake (Guild.guildId)
+}

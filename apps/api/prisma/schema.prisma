@@ -64,9 +64,10 @@ model Guild {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  settings  GuildSettings?
-  members   GuildMember[]
-  templates EventTemplate[]
+  settings        GuildSettings?
+  members         GuildMember[]
+  templates       EventTemplate[]
+  allianceMembers AllianceMember[]
 }
 
 /// The role a User holds within a Guild.
@@ -778,6 +779,33 @@ model ScResourceLocation {
   areasJson     String?  // JSON: Area[]
   groupsJson    String?  // JSON: Group[] with Deposits
   syncedAt      DateTime @updatedAt
+}
+
+// ── Alliances ─────────────────────────────────────────────────────────────────
+
+/// A named grouping of guilds for cross-org organisation.
+model Alliance {
+  id        String           @id @default(cuid())
+  name      String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  members AllianceMember[]
+}
+
+/// Junction table — one row per guild in an Alliance.
+model AllianceMember {
+  id         String   @id @default(cuid())
+  allianceId String
+  guildId    String
+  createdAt  DateTime @default(now())
+
+  alliance Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  guild    Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([allianceId, guildId])
+  @@index([allianceId])
+  @@index([guildId])
 }
 
 /// Minable / harvestable resource definition from resources/resources.json.
