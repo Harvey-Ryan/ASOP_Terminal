@@ -4,6 +4,7 @@ import type {
   ScBlueprintDto,
   ScBlueprintSummaryDto,
   ScMissionSummaryDto,
+  ScShipItemSummaryDto,
   ScSyncStatusDto,
 } from '@dem/shared';
 
@@ -32,7 +33,7 @@ export const scApi = {
     api.get<ApiResponse<ScMissionSummaryDto[]>>(`/sc/missions${qs(params)}`).then((r) => r.data ?? []),
 
   getShipItems: (q: string, limit = 50) =>
-    api.get<ApiResponse<unknown[]>>(`/sc/ship-items${qs({ q, limit })}`).then((r) => r.data ?? []),
+    api.get<ApiResponse<ScShipItemSummaryDto[]>>(`/sc/ship-items${qs({ q, limit })}`).then((r) => r.data ?? []),
 
   getManufacturers: (q: string, limit = 50) =>
     api.get<ApiResponse<unknown[]>>(`/sc/manufacturers${qs({ q, limit })}`).then((r) => r.data ?? []),

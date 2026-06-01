@@ -829,6 +829,17 @@ export interface EventTemplateDto {
   updatedAt: string;
 }
 
+// ── SC Ship Item summary (used for loot autocomplete) ────────────────────────
+
+export interface ScShipItemSummaryDto {
+  uuid: string;
+  name: string | null;
+  type: string;
+  subType: string | null;
+  classification: string | null;
+  manufacturerName: string | null;
+}
+
 // ── Alliances ─────────────────────────────────────────────────────────────────
 
 export interface AllianceGuildDto {

@@ -313,14 +313,19 @@ scRouter.get('/sc/ship-items', async (req, res) => {
 
   const rows = await prisma.scShipItem.findMany({
     where: {
-      ...(q                ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(q ? {
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { itemName: { contains: q, mode: 'insensitive' } },
+        ],
+      } : {}),
       ...(type             ? { type: { equals: type, mode: 'insensitive' } } : {}),
       ...(classification   ? { classification: { contains: classification, mode: 'insensitive' } } : {}),
       ...(manufacturerCode ? { manufacturerCode: { equals: manufacturerCode, mode: 'insensitive' } } : {}),
     },
-    orderBy: { name: 'asc' },
+    orderBy: [{ name: 'asc' }, { itemName: 'asc' }],
     take: limit,
-    select: { uuid: true, className: true, type: true, subType: true, size: true, grade: true,
+    select: { uuid: true, className: true, itemName: true, type: true, subType: true, size: true, grade: true,
       name: true, classification: true, manufacturerCode: true, manufacturerName: true,
       mass: true, inventoryScu: true },
   });

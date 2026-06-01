@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
 import { uexApi } from '@/api/uex';
+import { scApi } from '@/api/sc';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
@@ -910,25 +911,31 @@ export function LootPage() {
   const debouncedNewItem = useDebounce(newItemName, 250);
 
   const suggestQuery = useQuery({
-    queryKey: ['uex-suggest-loot', debouncedNewItem],
+    queryKey: ['loot-suggest', debouncedNewItem],
     queryFn: async () => {
-      const [items, commodities] = await Promise.all([
-        uexApi.getItems({ q: debouncedNewItem, limit: 8 }),
-        uexApi.getCommodities({ q: debouncedNewItem, limit: 4 }),
+      const [items, commodities, scItems] = await Promise.all([
+        uexApi.getItems({ q: debouncedNewItem, limit: 6 }),
+        uexApi.getCommodities({ q: debouncedNewItem, limit: 3 }),
+        scApi.getShipItems(debouncedNewItem, 8),
       ]);
       const seen = new Set<string>();
-      const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
+      const results: { id: string; name: string; detail: string; type: 'item' | 'commodity' | 'sc-item' }[] = [];
+      for (const s of scItems) {
+        const display = s.name ?? s.type;
+        const lc = display.toLowerCase();
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: s.uuid, name: display, detail: s.classification || s.type || '', type: 'sc-item' }); }
+      }
       for (const i of items) {
         const lc = i.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(i.id), name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
       }
       for (const c of commodities) {
         const lc = c.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
+        if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(c.id), name: c.name, detail: c.code || '', type: 'commodity' }); }
       }
       return results;
     },
-    enabled: debouncedNewItem.length >= 3,
+    enabled: debouncedNewItem.length >= 2,
     staleTime: 2 * 60 * 1000,
   });
   const skipMutation = useMutation({
@@ -1269,7 +1276,7 @@ export function LootPage() {
                     onBlur={() => setNewItemInputFocused(false)}
                     autoComplete="off"
                   />
-                  {newItemInputFocused && newItemName.length >= 3 && (suggestQuery.data?.length ?? 0) > 0 && (
+                  {newItemInputFocused && newItemName.length >= 2 && (suggestQuery.data?.length ?? 0) > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                       {suggestQuery.data!.map((s) => (
                         <button
@@ -1285,8 +1292,8 @@ export function LootPage() {
                         >
                           <span className="flex-1 truncate">{s.name}</span>
                           {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
-                          <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
-                            {s.type}
+                          <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'sc-item' ? 'bg-sky-500/10 text-sky-400' : s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                            {s.type === 'sc-item' ? 'SC' : s.type}
                           </span>
                         </button>
                       ))}
