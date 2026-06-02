@@ -305,6 +305,49 @@ export function EventCreateForm({
         </div>
       )}
 
+      {/* Alliance picker — shown immediately below toolbar on toggle */}
+      {allianceEnabled && (
+        <div className="bg-primary px-5 py-3 border-b border-background/40">
+          {alliances.length === 0 ? (
+            <p className="text-sm text-primary-foreground/60 italic">
+              No alliances configured. Create one under Admin → Module Settings → Alliance.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <select
+                className={inputCls}
+                value={selectedAllianceId}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAllianceId(e.target.value)}
+              >
+                <option value="">Select an alliance…</option>
+                {alliances.map((a) => {
+                  const acceptedCount = a.members.filter((m) => m.status === 'ACCEPTED').length;
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({acceptedCount} guild{acceptedCount !== 1 ? 's' : ''})
+                    </option>
+                  );
+                })}
+              </select>
+              {selectedAllianceId && (() => {
+                const alliance = alliances.find((a) => a.id === selectedAllianceId);
+                const accepted = alliance?.members.filter((m) => m.status === 'ACCEPTED') ?? [];
+                if (accepted.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap gap-1.5">
+                    {accepted.map((m) => (
+                      <span key={m.id} className="inline-flex items-center gap-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
+                        {m.name}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Templates panel */}
       {showTemplates && (
         <TemplatesPanel
@@ -571,49 +614,6 @@ export function EventCreateForm({
               </button>
               <span className="text-sm text-primary-foreground/90">Allow multiple selections</span>
             </label>
-          </div>
-        </div>
-      )}
-
-      {/* Alliance Share */}
-      {allianceEnabled && (
-        <div className={rowCls}>
-          <span className={labelCls}>
-            Alliance
-            <span className="block text-[10px] opacity-50 normal-case tracking-normal mt-0.5">broadcast to guilds</span>
-          </span>
-          <div className="flex-1">
-            {alliances.length === 0 ? (
-              <p className="text-sm text-primary-foreground/60 italic pt-2">
-                No alliances configured. Create one under Admin → Alliance.
-              </p>
-            ) : (
-              <select
-                className={inputCls}
-                value={selectedAllianceId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAllianceId(e.target.value)}
-              >
-                <option value="">Select an alliance…</option>
-                {alliances.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.members.length} guild{a.members.length !== 1 ? 's' : ''})
-                  </option>
-                ))}
-              </select>
-            )}
-            {selectedAllianceId && (() => {
-              const alliance = alliances.find((a) => a.id === selectedAllianceId);
-              if (!alliance) return null;
-              return (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {alliance.members.map((m) => (
-                    <span key={m.id} className="inline-flex items-center gap-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
-                      {m.name}
-                    </span>
-                  ))}
-                </div>
-              );
-            })()}
           </div>
         </div>
       )}
