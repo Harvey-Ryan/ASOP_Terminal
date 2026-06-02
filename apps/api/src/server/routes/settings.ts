@@ -249,6 +249,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         dkpMinBid:                  s?.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
         rsiOrgTag:                  s?.rsiOrgTag                  ?? null,
+        allianceTag:                s?.allianceTag                 ?? null,
       },
     } satisfies ApiResponse);
   } catch (err) {
@@ -288,6 +289,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     dkpMinBid?: number;
     lootDefaultMethod?: string;
     rsiOrgTag?: string | null;
+    allianceTag?: string | null;
   };
   try {
     const rawDur = raw.dkpDefaultAuctionDuration !== undefined ? optNonNegInt(raw.dkpDefaultAuctionDuration, 'dkpDefaultAuctionDuration') : undefined;
@@ -317,6 +319,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
       lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
       rsiOrgTag:                 raw.rsiOrgTag !== undefined ? optStr(raw.rsiOrgTag, 'rsiOrgTag', 20) : undefined,
+      allianceTag:               raw.allianceTag !== undefined ? optStr(raw.allianceTag, 'allianceTag', 4) : undefined,
     };
   } catch (err) {
     if (err instanceof ValidationError) {
@@ -382,6 +385,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.dkpMinBid !== undefined                 ? { dkpMinBid: body.dkpMinBid }                                             : {}),
         ...(body.lootDefaultMethod !== undefined         ? { lootDefaultMethod: body.lootDefaultMethod }                             : {}),
         ...(body.rsiOrgTag !== undefined                 ? { rsiOrgTag: body.rsiOrgTag }                                             : {}),
+        ...(body.allianceTag !== undefined               ? { allianceTag: body.allianceTag }                                         : {}),
       },
       create: {
         guildId:                    guild.id,
@@ -408,6 +412,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         dkpMinBid:                  body.dkpMinBid                  ?? 0,
         lootDefaultMethod:          body.lootDefaultMethod          ?? 'RANDOM_ROLL',
         rsiOrgTag:                  body.rsiOrgTag                  ?? null,
+        allianceTag:                body.allianceTag                ?? null,
       },
     });
 
@@ -438,6 +443,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         dkpMinBid:                  s.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s.lootDefaultMethod          ?? 'RANDOM_ROLL',
         rsiOrgTag:                  s.rsiOrgTag                  ?? null,
+        allianceTag:                s.allianceTag                ?? null,
       },
     } satisfies ApiResponse);
   } catch (err) {

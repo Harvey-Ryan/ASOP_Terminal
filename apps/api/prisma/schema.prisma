@@ -140,6 +140,8 @@ model GuildSettings {
   lootDefaultMethod     String   @default("RANDOM_ROLL")
   /// RSI org tag for roster sync (e.g. "ASOP")
   rsiOrgTag             String?
+  /// Short 4-char alphanumeric tag identifying this guild in alliance context (e.g. "ASOP")
+  allianceTag           String?
   /// JSON: string[] — Discord role snowflake IDs allowed to manage alliances (empty = guild-manager-only)
   allianceManagerRoles  String   @default("[]")
   createdAt       DateTime @default(now())

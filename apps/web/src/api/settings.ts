@@ -37,6 +37,7 @@ export interface GuildSettingsData {
   dkpMinBid: number;
   lootDefaultMethod: string;
   rsiOrgTag: string | null;
+  allianceTag: string | null;
 }
 
 export interface GuildMyPermissions {

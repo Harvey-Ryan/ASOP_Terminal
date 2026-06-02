@@ -361,7 +361,7 @@ function AllianceCard({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type AllianceForm = Pick<GuildSettingsData, 'allianceManagerRoles'>;
+type AllianceForm = Pick<GuildSettingsData, 'allianceManagerRoles' | 'allianceTag'>;
 
 export function AllianceSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -379,13 +379,13 @@ export function AllianceSettingsPage() {
     enabled: !!guildId,
   });
 
-  const [form, setForm] = useState<AllianceForm>({ allianceManagerRoles: [] });
+  const [form, setForm] = useState<AllianceForm>({ allianceManagerRoles: [], allianceTag: null });
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
-      setForm({ allianceManagerRoles: saved.allianceManagerRoles ?? [] });
+      setForm({ allianceManagerRoles: saved.allianceManagerRoles ?? [], allianceTag: saved.allianceTag ?? null });
       setDirty(false);
     }
   }, [saved]);
@@ -457,6 +457,34 @@ export function AllianceSettingsPage() {
         )}
       </div>
 
+      {/* ── Alliance Org Tag ── */}
+      {isSettingsLoading ? (
+        <Skeleton className="h-24 rounded-lg" />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Org Tag</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              A 4-character alphanumeric tag identifying your guild within an alliance (e.g.{' '}
+              <span className="font-mono">ASOP</span>).
+            </p>
+            <input
+              value={form.allianceTag ?? ''}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, allianceTag: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || null }));
+                setDirty(true);
+                setSavedFlash(false);
+              }}
+              placeholder="e.g. ASOP"
+              maxLength={4}
+              className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-ring"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Alliance Manager Roles ── */}
       {isSettingsLoading ? (
         <Skeleton className="h-32 rounded-lg" />
@@ -478,7 +506,7 @@ export function AllianceSettingsPage() {
               <RolePicker
                 roles={roles}
                 selected={form.allianceManagerRoles}
-                onChange={(ids) => { setForm({ allianceManagerRoles: ids }); setDirty(true); setSavedFlash(false); }}
+                onChange={(ids) => { setForm((f) => ({ ...f, allianceManagerRoles: ids })); setDirty(true); setSavedFlash(false); }}
               />
             )}
             <div className="flex items-center gap-3 pt-1">
@@ -487,7 +515,7 @@ export function AllianceSettingsPage() {
                 onClick={() => settingsMutation.mutate(form)}
                 disabled={!dirty || settingsMutation.isPending}
               >
-                {settingsMutation.isPending ? 'Saving…' : 'Save Roles'}
+                {settingsMutation.isPending ? 'Saving…' : 'Save'}
               </Button>
               {savedFlash && (
                 <span className="flex items-center gap-1.5 text-sm text-green-500">
