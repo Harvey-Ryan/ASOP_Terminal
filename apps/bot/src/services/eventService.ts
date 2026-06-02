@@ -421,7 +421,16 @@ export async function syncDiscordEvent(eventId: string) {
   }
   console.log(`[syncDiscordEvent] done — eventId=${eventId}`);
 
-  // ── Sync alliance guild threads + scheduled events ────────────────────────
+  // ── Retroactively set up any alliance guilds that don't have entries yet ──
+  // Covers the case where allianceId is assigned (or changed) via the edit form
+  // after the event was already created.
+  if ((event as unknown as EventForAlliance).allianceId) {
+    await setupAllianceGuilds(event as unknown as EventForAlliance).catch((err) =>
+      console.error('[bot] setupAllianceGuilds failed during sync:', err),
+    );
+  }
+
+  // ── Sync existing alliance guild threads + scheduled events ───────────────
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
   if (allianceGuilds.length === 0) return;
 

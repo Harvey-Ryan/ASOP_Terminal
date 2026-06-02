@@ -124,15 +124,32 @@ async function handleEnd(interaction: ChatInputCommandInteraction) {
 async function handleList(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
+  const guildId = interaction.guildId!;
+
+  // Include events shared via accepted alliance memberships
+  const memberships = await prisma.allianceMember.findMany({
+    where: { guild: { guildId }, status: 'ACCEPTED' },
+    select: { allianceId: true },
+  });
+  const allianceIds = memberships.map((m) => m.allianceId);
+
+  const guildFilter = allianceIds.length > 0
+    ? { OR: [{ guildId }, { allianceId: { in: allianceIds } }] }
+    : { guildId };
+
   const events = await prisma.event.findMany({
     where: {
-      guildId: interaction.guildId!,
+      ...guildFilter,
       status: { not: 'COMPLETED' },
       startTime: { gte: new Date() },
     },
     orderBy: { startTime: 'asc' },
     take: 15,
-    include: { rsvps: true },
+    include: {
+      rsvps: true,
+      // Pull only this guild's alliance entry so we can link its local thread
+      allianceGuilds: { where: { discordGuildId: guildId } },
+    },
   });
 
   if (events.length === 0) {
@@ -147,10 +164,13 @@ async function handleList(interaction: ChatInputCommandInteraction) {
       events.map((e) => {
         const roles = JSON.parse(e.roles) as EventRole[];
         const ts = Math.floor(e.startTime.getTime() / 1000);
-        const thread = e.threadId ? ` • <#${e.threadId}>` : '';
+        const isAlliance = e.guildId !== guildId;
+        // For alliance events link to this guild's copy of the thread; otherwise host thread
+        const localThreadId = isAlliance ? (e.allianceGuilds[0]?.threadId ?? null) : e.threadId;
+        const thread = localThreadId ? ` • <#${localThreadId}>` : '';
         const roleList = roles.length > 0 ? ` • ${roles.map((r) => `${r.name}×${r.count}`).join(', ')}` : '';
         return {
-          name: e.name,
+          name: isAlliance ? `${e.name} *(Alliance)*` : e.name,
           value: `<t:${ts}:F> • 👥 ${e.rsvps.length}${roleList}${thread}`,
           inline: false,
         };
