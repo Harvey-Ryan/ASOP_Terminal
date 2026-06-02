@@ -117,7 +117,7 @@ async function _setupDiscordForEvent(eventId: string) {
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           console.log(`[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
           const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
-          const components = buildRoleButtons(event.id, roles, event.rsvps);
+          const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
             message: {
@@ -262,7 +262,7 @@ async function setupAllianceGuilds(event: EventForAlliance) {
         if (ch?.type === ChannelType.GuildForum) {
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
-          const components = buildRoleButtons(event.id, roles, []);
+          const components = buildRoleButtons(event.id, roles, [], memberDiscordGuildId);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
             message: {
@@ -383,7 +383,7 @@ export async function syncDiscordEvent(eventId: string) {
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
         console.log(`[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
         const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
-        const components = buildRoleButtons(event.id, roles, event.rsvps);
+        const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
 
         const rosterMsg = event.rosterMessageId
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
@@ -471,7 +471,7 @@ export async function syncDiscordEvent(eventId: string) {
             await thread.setName(event.name).catch(() => null);
           }
           const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename);
-          const components = buildRoleButtons(event.id, roles, event.rsvps);
+          const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId);
           const rosterMsg = ag.rosterMessageId
             ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
             : await thread.fetchStarterMessage().catch(() => null);
@@ -500,9 +500,9 @@ export async function updateRosterEmbed(eventId: string) {
   const eventImageUrl = event.imageUrl;
   const imageAttachment = eventImageUrl ? await fetchImageAttachment(eventImageUrl) : null;
   const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
-  const components = buildRoleButtons(event.id, roles);
 
-  async function applyEdit(msg: Message) {
+  type Components = ReturnType<typeof buildRoleButtons>;
+  async function applyEdit(msg: Message, components: Components) {
     let files: AttachmentBuilder[] = [];
     let keepAttachments: { id: string }[] = [];
     if (imageAttachment) {
@@ -525,7 +525,7 @@ export async function updateRosterEmbed(eventId: string) {
           rosterMsg = await thread.messages.fetch(event.rosterMessageId).catch(() => null);
         }
         if (!rosterMsg) rosterMsg = await thread.fetchStarterMessage().catch(() => null);
-        if (rosterMsg) await applyEdit(rosterMsg);
+        if (rosterMsg) await applyEdit(rosterMsg, buildRoleButtons(event.id, roles, undefined, event.guildId));
       }
     } catch (err) {
       console.error('[bot] Failed to update roster embed:', err);
@@ -542,7 +542,7 @@ export async function updateRosterEmbed(eventId: string) {
       const msg = ag.rosterMessageId
         ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
         : await thread.fetchStarterMessage().catch(() => null);
-      if (msg) await applyEdit(msg);
+      if (msg) await applyEdit(msg, buildRoleButtons(event.id, roles, undefined, ag.discordGuildId));
     } catch (err) {
       console.error(`[bot] Failed to update alliance roster embed for guild ${ag.discordGuildId}:`, err);
     }

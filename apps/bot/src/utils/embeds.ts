@@ -169,9 +169,14 @@ export function buildRoleButtons(
   eventId: string,
   roles: EventRole[],
   rsvps: { role: string | null }[] = [],
+  viewingGuildId?: string,
 ): ActionRowBuilder<ButtonBuilder>[] {
+  const visibleRoles = viewingGuildId
+    ? roles.filter((r) => !r.guildId || r.guildId === viewingGuildId)
+    : roles;
+
   const allButtons: ButtonBuilder[] = [
-    ...roles
+    ...visibleRoles
       .filter((role) => rsvps.filter((r) => r.role === role.name).length < role.count)
       .map((role) =>
         new ButtonBuilder()

@@ -139,6 +139,8 @@ export type GuildRole = 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'MEMBER';
 export interface EventRole {
   name: string;
   count: number;
+  /** Discord snowflake of the guild this role is restricted to. Absent/null = all guilds. */
+  guildId?: string | null;
 }
 
 /** A poll posted to the forum thread when an event is created. */

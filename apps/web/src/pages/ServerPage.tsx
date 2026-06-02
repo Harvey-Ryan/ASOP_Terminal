@@ -223,21 +223,17 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
             onChange={(e) => setStartDate(e.target.value)} />
           <input type="time" className={timeInputCls} value={startTime} required
             onChange={(e) => setStartTime(e.target.value)} />
-        </div>
-      </div>
-
-      <div className={rowCls}>
-        <span className={labelCls}>Duration</span>
-        <div className="flex-1">
-          <select className={inputCls} value={duration} onChange={(e) => setDuration(e.target.value)}>
-            <option value="30">30 minutes</option>
-            <option value="60">1 hour</option>
-            <option value="90">1.5 hours</option>
-            <option value="120">2 hours</option>
-            <option value="180">3 hours</option>
-            <option value="240">4 hours</option>
-            <option value="360">6 hours</option>
-            <option value="0">No end time</option>
+          <select
+            className="w-32 shrink-0 rounded-md bg-primary text-primary-foreground px-2 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
+            value={duration} onChange={(e) => setDuration(e.target.value)}>
+            <option value="30">30 min</option>
+            <option value="60">1 hr</option>
+            <option value="90">1.5 hr</option>
+            <option value="120">2 hr</option>
+            <option value="180">3 hr</option>
+            <option value="240">4 hr</option>
+            <option value="360">6 hr</option>
+            <option value="0">No end</option>
           </select>
         </div>
       </div>
@@ -245,24 +241,44 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       <div className={rowCls}>
         <span className={labelCls}>Roles</span>
         <div className="flex-1 space-y-2">
-          {roles.map((role, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <input
-                ref={(el) => { roleInputRefs.current[i] = el; }}
-                className={inputCls} placeholder="Role name (e.g. Tank)" value={role.name}
-                onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRoleAndFocus(); } }}
-              />
-              <input type="number" min={1} max={99}
-                className="w-20 rounded-md bg-primary text-primary-foreground px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
-                value={role.count}
-                onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, count: Math.max(1, parseInt(e.target.value) || 1) } : x))} />
-              <button type="button" onClick={() => setRoles((p) => p.filter((_, idx) => idx !== i))}
-                className="text-primary-foreground/60 hover:text-destructive transition-colors">
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+          {(() => {
+            const selectedAlliance = alliances.find((a) => a.id === selectedAllianceId);
+            const guildOptions = selectedAlliance
+              ? selectedAlliance.members
+                  .filter((m) => m.status === 'ACCEPTED')
+                  .map((m) => ({ guildId: m.guildId, label: m.guildId === guildId ? `${m.name} (You)` : m.name }))
+              : undefined;
+            return roles.map((role, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  ref={(el) => { roleInputRefs.current[i] = el; }}
+                  className={inputCls} placeholder="Role name (e.g. Tank)" value={role.name}
+                  onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRoleAndFocus(); } }}
+                />
+                <input type="number" min={1} max={99}
+                  className="w-20 shrink-0 rounded-md bg-primary text-primary-foreground px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
+                  value={role.count}
+                  onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, count: Math.max(1, parseInt(e.target.value) || 1) } : x))} />
+                {guildOptions && (
+                  <select
+                    className="w-36 shrink-0 rounded-md bg-primary text-primary-foreground px-2 py-2 text-sm border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
+                    value={role.guildId ?? ''}
+                    onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, guildId: e.target.value || null } : x))}
+                  >
+                    <option value="">All Guilds</option>
+                    {guildOptions.map((g) => (
+                      <option key={g.guildId} value={g.guildId}>{g.label}</option>
+                    ))}
+                  </select>
+                )}
+                <button type="button" onClick={() => setRoles((p) => p.filter((_, idx) => idx !== i))}
+                  className="text-primary-foreground/60 hover:text-destructive transition-colors">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ));
+          })()}
           <Button type="button" variant="outline" size="sm" className={btnCls}
             onClick={addRoleAndFocus}>
             <Plus className="h-3.5 w-3.5" />Add Role
