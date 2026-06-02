@@ -289,15 +289,18 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
         update: { username }, // keep username current
       });
 
-      // Add to confirmedAttendees if not already present
-      const confirmed: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
-      if (!confirmed.includes(userId)) {
-        confirmed.push(userId);
-        await prisma.event.update({
-          where: { id: event.id },
-          data: { confirmedAttendees: JSON.stringify(confirmed) },
-        });
-      }
+      // Atomically append userId to confirmedAttendees if not already present.
+      // A single SQL statement avoids the read-modify-write race when two members
+      // join the same VC simultaneously.
+      const userIdJson = JSON.stringify([userId]);
+      await prisma.$executeRaw`
+        UPDATE "Event"
+        SET "confirmedAttendees" = (
+          COALESCE("confirmedAttendees", '[]')::jsonb || ${userIdJson}::jsonb
+        )::text
+        WHERE id = ${event.id}
+          AND NOT (COALESCE("confirmedAttendees", '[]')::jsonb @> ${userIdJson}::jsonb)
+      `;
     } catch (err) {
       console.error('[bot] VoiceStateUpdate auto-assign error:', err);
     }
