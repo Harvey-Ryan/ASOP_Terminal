@@ -507,18 +507,18 @@ export function AllianceSettingsPage() {
                   className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-ring"
                 />
                 <Button
-                  size="icon" variant="ghost"
-                  className="h-8 w-8 text-green-500 hover:text-green-400"
+                  size="sm"
                   onClick={() => tagMutation.mutate(tagDraft || null)}
                   disabled={tagMutation.isPending}
                 >
-                  <Check className="h-4 w-4" />
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  {tagMutation.isPending ? 'Saving…' : 'Save'}
                 </Button>
                 <Button
-                  size="icon" variant="ghost" className="h-8 w-8"
+                  size="sm" variant="ghost"
                   onClick={() => setEditingTag(false)}
                 >
-                  <X className="h-4 w-4" />
+                  Cancel
                 </Button>
               </div>
             ) : (
