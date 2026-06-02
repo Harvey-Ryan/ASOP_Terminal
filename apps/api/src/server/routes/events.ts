@@ -365,6 +365,7 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
   if (body.roles !== undefined) data['roles'] = JSON.stringify(body.roles);
   if (body.vcNames !== undefined) data['vcNames'] = JSON.stringify(body.vcNames);
   if (body.briefingChannel !== undefined) data['briefingChannel'] = body.briefingChannel;
+  if (body.allianceId !== undefined) data['allianceId'] = body.allianceId || null;
   let newStartTime: Date | undefined;
   if (body.startTime !== undefined) {
     const startTime = new Date(body.startTime);

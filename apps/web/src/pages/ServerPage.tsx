@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
+import { allianceApi } from '@/api/alliance';
 import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
 import { auctionsApi } from '@/api/auctions';
@@ -82,6 +83,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   const [vcNames, setVcNames] = useState<string[]>(event.vcNames ?? []);
   const [briefingChannel, setBriefingChannel] = useState(event.briefingChannel ?? false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(event.imageUrl ?? null);
+  const [selectedAllianceId, setSelectedAllianceId] = useState<string>(event.allianceId ?? '');
   const [formError, setFormError] = useState<string | null>(null);
   const [draggingUserId, setDraggingUserId] = useState<string | null>(null);
   const [dragOverBucket, setDragOverBucket] = useState<string | null>(null);
@@ -96,6 +98,11 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   const { data: imageLibrary = [] } = useQuery({
     queryKey: ['images', guildId],
     queryFn: () => imagesApi.list(guildId),
+  });
+
+  const { data: alliances = [] } = useQuery({
+    queryKey: ['alliances'],
+    queryFn: allianceApi.list,
   });
 
   const uploadMutation = useMutation({
@@ -164,6 +171,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       vcNames: vcNames.filter(Boolean),
       briefingChannel,
       imageUrl: selectedImageUrl ?? undefined,
+      allianceId: selectedAllianceId || null,
     });
   }
 
@@ -307,6 +315,33 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
               <span className="block text-[11px] text-primary-foreground/50">PTT-only VC created alongside regular channels</span>
             </span>
           </label>
+        </div>
+      </div>
+
+      <div className={rowCls}>
+        <span className={labelCls}>Alliance Share</span>
+        <div className="flex-1 space-y-2">
+          <select className={inputCls} value={selectedAllianceId} onChange={(e) => setSelectedAllianceId(e.target.value)}>
+            <option value="">None</option>
+            {alliances.map((a) => {
+              const acceptedCount = a.members.filter((m) => m.status === 'ACCEPTED').length;
+              return <option key={a.id} value={a.id}>{a.name} ({acceptedCount} guild{acceptedCount !== 1 ? 's' : ''})</option>;
+            })}
+          </select>
+          {selectedAllianceId && (() => {
+            const alliance = alliances.find((a) => a.id === selectedAllianceId);
+            const accepted = alliance?.members.filter((m) => m.status === 'ACCEPTED') ?? [];
+            if (accepted.length === 0) return null;
+            return (
+              <div className="flex flex-wrap gap-1.5">
+                {accepted.map((m) => (
+                  <span key={m.id} className="inline-flex items-center gap-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
+                    {m.name}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

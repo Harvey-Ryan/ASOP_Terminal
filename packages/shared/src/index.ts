@@ -171,8 +171,8 @@ export interface CreateEventBody {
   repeatFromTemplateId?: string;
   /** Optional poll posted to the forum thread below the roster embed */
   poll?: EventPoll;
-  /** Alliance ID to share this event across all member guilds */
-  allianceId?: string;
+  /** Alliance ID to share this event across all member guilds; null removes the existing share */
+  allianceId?: string | null;
 }
 
 export interface RsvpDto {
