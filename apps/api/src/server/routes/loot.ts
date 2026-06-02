@@ -166,14 +166,25 @@ lootRouter.get('/:guildId/events/:eventId/loot', requireAuth, async (req, res) =
 
   const isViewer = await assertEventViewer(req, guildId);
   if (!isViewer) {
-    // Allow the current snake draft picker to view their session
     const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
     if (dbUser) {
       const session = await fetchSession(eventId).catch(() => null);
+
+      // Allow the current snake draft picker to view their session
       if (session && session.method === 'SNAKE_DRAFT' && session.status === 'OPEN' &&
           currentSnakePicker(session) === dbUser.discordId) {
         res.json({ success: true, data: sessionToDto(session) } satisfies ApiResponse<LootSessionDto | null>);
         return;
+      }
+
+      // Allow any confirmed attendee — covers members from allied guilds
+      const event = await prisma.event.findUnique({ where: { id: eventId }, select: { confirmedAttendees: true } });
+      if (event?.confirmedAttendees) {
+        const confirmedIds: string[] = JSON.parse(event.confirmedAttendees);
+        if (confirmedIds.includes(dbUser.discordId)) {
+          res.json({ success: true, data: session ? sessionToDto(session) : null } satisfies ApiResponse<LootSessionDto | null>);
+          return;
+        }
       }
     }
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);

@@ -5,6 +5,31 @@ import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 
 const LOOT_PICKER_ROLE = 'Loot Picker';
 
+async function postToAllianceThreads(
+  eventId: string,
+  embed: EmbedBuilder,
+  row?: ActionRowBuilder<ButtonBuilder>,
+) {
+  const allianceGuilds = await prisma.eventAllianceGuild.findMany({
+    where: { eventId },
+    select: { threadId: true },
+  });
+  for (const { threadId } of allianceGuilds) {
+    if (!threadId) continue;
+    try {
+      const thread = await client.channels.fetch(threadId);
+      if (thread?.isThread()) {
+        const wasArchived = thread.archived ?? false;
+        if (wasArchived) await thread.setArchived(false).catch(() => null);
+        await thread.send(row ? { embeds: [embed], components: [row] } : { embeds: [embed] });
+        if (wasArchived) await thread.setArchived(true).catch(() => null);
+      }
+    } catch {
+      // Alliance guild thread may be inaccessible — skip silently
+    }
+  }
+}
+
 function getNextPicker(position: number, draftOrder: string[]): string | null {
   if (draftOrder.length === 0) return null;
   const n = draftOrder.length;
@@ -42,6 +67,8 @@ export async function announceDraftOrder(eventId: string) {
   } catch (err) {
     console.error('[bot] Failed to announce draft order:', err);
   }
+
+  await postToAllianceThreads(eventId, embed);
 }
 
 export async function notifySnakeTurn(eventId: string) {
@@ -318,6 +345,8 @@ export async function announceLootSessionStart(sessionId: string) {
   } catch (err) {
     console.error('[bot] Failed to announce loot session start:', err);
   }
+
+  await postToAllianceThreads(session.eventId, embed, row);
 }
 
 export async function announceLootResults(sessionId: string) {
@@ -381,4 +410,6 @@ export async function announceLootResults(sessionId: string) {
   } catch (err) {
     console.error('[bot] Failed to post loot results:', err);
   }
+
+  if (embed) await postToAllianceThreads(session.eventId, embed);
 }
