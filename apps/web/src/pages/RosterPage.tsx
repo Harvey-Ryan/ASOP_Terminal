@@ -135,10 +135,10 @@ export function RosterPage() {
             <p className="text-muted-foreground mt-0.5">
               Set your org's RSI tag in{' '}
               <Link
-                to={`/dashboard/servers/${guildId}/settings/modules/fleet`}
+                to={`/dashboard/servers/${guildId}/settings/bot`}
                 className="text-primary underline-offset-4 hover:underline"
               >
-                Fleet Settings
+                Org Settings
               </Link>{' '}
               to enable roster sync.
             </p>

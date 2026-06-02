@@ -285,7 +285,7 @@ function settingsContent(dkpLabel: string) {
   return (
     <>
       <H>Permissions</H>
-      <P>The <B>Admin</B> panel controls who can edit module settings. Assign Discord roles to <B>Module Settings Editors</B> to allow non-admin members to configure channels and module options. <B>Viewer Roles</B> grant members access to view events and loot without being a server admin.</P>
+      <P>The <B>Org Settings</B> panel controls who can edit module settings. Assign Discord roles to <B>Module Settings Editors</B> to allow non-admin members to configure channels and module options. <B>Viewer Roles</B> grant members access to view events and loot without being a server admin.</P>
       <Divider />
       <H>Module Settings</H>
       <P>Each module (Event Bot, DKP, Loot, Exchange, Fleet) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link and features for all members. Disabled modules are completely hidden.</P>
@@ -295,10 +295,10 @@ function settingsContent(dkpLabel: string) {
       <P>In the <B>Event Bot</B> module settings, configure which Discord channels receive event announcements and voice category for auto-created VCs. In <B>DKP</B> module settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings, set the channel for loot result posts.</P>
       <Divider />
       <H>RSI Org Tag</H>
-      <P>Set your org's RSI tag in <B>Fleet Module Settings</B> to enable the RSI Roster and bio verification requirement. Once set, all members must verify their RSI handle before accessing the dashboard.</P>
+      <P>Set your org's RSI tag in <B>Org Settings</B> to enable the RSI Roster and bio verification requirement. Once set, all members must verify their RSI handle before accessing the dashboard.</P>
       <Divider />
       <H>Registering Bot Commands</H>
-      <P>Use the <B>Register Commands</B> button in the Admin panel if slash commands stop appearing in Discord. This re-registers all guild-specific commands without affecting the bot's other functions.</P>
+      <P>Use the <B>Register Commands</B> button in the Org Settings panel if slash commands stop appearing in Discord. This re-registers all guild-specific commands without affecting the bot's other functions.</P>
     </>
   );
 }

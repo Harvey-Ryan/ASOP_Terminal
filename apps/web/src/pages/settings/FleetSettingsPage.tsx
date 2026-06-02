@@ -10,7 +10,7 @@ import type { GuildSettingsData } from '@/api/settings';
 import { ToggleSwitch } from '@/components/settings/SettingsControls';
 import { fleetApi } from '@/api/fleet';
 
-type FleetForm = Pick<GuildSettingsData, 'fleetEnabled' | 'rsiOrgTag'>;
+type FleetForm = Pick<GuildSettingsData, 'fleetEnabled'>;
 
 const CONFIRM_PHRASE = 'Wipe Fleet Registry';
 
@@ -24,13 +24,13 @@ export function FleetSettingsPage() {
     enabled: !!guildId,
   });
 
-  const [form, setForm] = useState<FleetForm>({ fleetEnabled: true, rsiOrgTag: null });
+  const [form, setForm] = useState<FleetForm>({ fleetEnabled: true });
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
-      setForm({ fleetEnabled: saved.fleetEnabled ?? true, rsiOrgTag: saved.rsiOrgTag ?? null });
+      setForm({ fleetEnabled: saved.fleetEnabled ?? true });
       setDirty(false);
     }
   }, [saved]);
@@ -108,24 +108,6 @@ export function FleetSettingsPage() {
                 description={form.fleetEnabled
                   ? 'Members can register and browse their ships.'
                   : 'Fleet Registry is disabled. The Fleet nav link will be hidden for all members.'}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-4 space-y-3">
-              <div>
-                <p className="text-sm font-medium">RSI Org Tag</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Your organization's tag on Roberts Space Industries (e.g. <span className="font-mono">ASOP</span>).
-                  Used to cross-reference app members with the RSI roster.
-                </p>
-              </div>
-              <input
-                value={form.rsiOrgTag ?? ''}
-                onChange={(e) => setField('rsiOrgTag', e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20) || null)}
-                placeholder="e.g. ASOP"
-                className="w-48 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring"
               />
             </CardContent>
           </Card>

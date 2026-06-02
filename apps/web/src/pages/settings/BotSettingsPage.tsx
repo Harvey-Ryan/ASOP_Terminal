@@ -5,6 +5,7 @@ import { Check, Info, RefreshCw, X, ImageIcon, Trash2, GripVertical, Upload } fr
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
+import type { GuildSettingsData } from '@/api/settings';
 import { imagesApi } from '@/api/images';
 import type { DiscordRoleDto, ServerImageDto } from '@dem/shared';
 
@@ -233,6 +234,7 @@ export function BotSettingsPage() {
 
   const [moduleEditorRoles, setModuleEditorRoles] = useState<string[]>([]);
   const [viewerRoles, setViewerRoles] = useState<string[]>([]);
+  const [rsiOrgTag, setRsiOrgTag] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -240,6 +242,7 @@ export function BotSettingsPage() {
     if (saved) {
       setModuleEditorRoles(saved.moduleEditorRoles ?? []);
       setViewerRoles(saved.viewerRoles ?? []);
+      setRsiOrgTag(saved.rsiOrgTag ?? null);
       setDirty(false);
     }
   }, [saved]);
@@ -264,7 +267,7 @@ export function BotSettingsPage() {
 
   const mutation = useMutation({
     mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles }),
+      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag } as Partial<GuildSettingsData>),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
@@ -305,8 +308,8 @@ export function BotSettingsPage() {
   return (
     <div className="space-y-8 max-w-xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
-        <p className="mt-1 text-muted-foreground">Manage server-level permissions.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Org Settings</h1>
+        <p className="mt-1 text-muted-foreground">Manage org identity and server-level permissions.</p>
       </div>
 
       {isLoading ? (
@@ -317,6 +320,30 @@ export function BotSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
+
+          {/* RSI Org Tag */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">RSI Org Tag</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your organization's tag on Roberts Space Industries (e.g. <span className="font-mono">ASOP</span>).
+                Used to cross-reference members with the RSI roster.
+              </p>
+            </div>
+            <input
+              value={rsiOrgTag ?? ''}
+              onChange={(e) => {
+                setRsiOrgTag(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20) || null);
+                setDirty(true);
+                setSavedFlash(false);
+              }}
+              placeholder="e.g. ASOP"
+              className="w-48 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="border-t border-border" />
+
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium">Module Settings Editors</p>

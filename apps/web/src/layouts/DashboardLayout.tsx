@@ -419,11 +419,11 @@ export function DashboardLayout() {
             </>
           )}
 
-          {/* ── Admin-only settings section ── */}
+          {/* ── Org Settings section ── */}
           {showAdminNav && (
             <>
               <p className="px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Admin
+                Org Settings
               </p>
 
               {/* Module Settings (expandable) */}
@@ -578,13 +578,13 @@ export function DashboardLayout() {
                 SC Database
               </NavLink>
 
-              {/* Admin */}
+              {/* Org Settings */}
               <NavLink
                 to={`/dashboard/servers/${activeGuild.id}/settings/bot`}
                 className={navCls}
               >
                 <Settings className="h-4 w-4 shrink-0" />
-                Admin
+                Org Settings
               </NavLink>
             </>
           )}
