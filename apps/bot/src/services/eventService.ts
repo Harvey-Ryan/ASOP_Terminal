@@ -13,6 +13,22 @@ import { nextOccurrence } from '../utils/time.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
 
+async function buildGuildTagMap(roles: EventRole[]): Promise<Record<string, string>> {
+  const guildIds = [...new Set(roles.filter((r) => r.guildId).map((r) => r.guildId as string))];
+  if (guildIds.length === 0) return {};
+  const rows = await prisma.$queryRaw<{ guildId: string; allianceTag: string | null }[]>`
+    SELECT g."guildId", gs."allianceTag"
+    FROM "Guild" g
+    LEFT JOIN "GuildSettings" gs ON gs."guildId" = g.id
+    WHERE g."guildId" = ANY(${guildIds})
+  `;
+  const map: Record<string, string> = {};
+  for (const row of rows) {
+    if (row.allianceTag) map[row.guildId] = row.allianceTag;
+  }
+  return map;
+}
+
 function buildScheduledEventDescription(description: string | null, guildId: string, threadId: string | null): string | undefined {
   const link = threadId ? `https://discord.com/channels/${guildId}/${threadId}` : null;
   if (description && link) return `${description}\n\n📋 Discussion: ${link}`;
@@ -102,6 +118,7 @@ async function _setupDiscordForEvent(eventId: string) {
 
   const guild = await client.guilds.fetch(event.guildId);
   const roles = JSON.parse(event.roles) as EventRole[];
+  const guildTagMap = await buildGuildTagMap(roles);
   let { discordEventId, threadId, rosterMessageId } = event;
 
   // ── Forum thread ──────────────────────────────────────────────────────────
@@ -116,7 +133,7 @@ async function _setupDiscordForEvent(eventId: string) {
           console.log(`[setupDiscordForEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           console.log(`[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
-          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
+          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
           const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
@@ -235,6 +252,7 @@ async function setupAllianceGuilds(event: EventForAlliance) {
   if (!alliance) return;
 
   const roles = JSON.parse(event.roles) as EventRole[];
+  const guildTagMap = await buildGuildTagMap(roles);
 
   for (const member of alliance.members) {
     if ((member as { status: string }).status !== 'ACCEPTED') continue;
@@ -261,7 +279,7 @@ async function setupAllianceGuilds(event: EventForAlliance) {
         const ch = await client.channels.fetch(forumChannelId).catch(() => null);
         if (ch?.type === ChannelType.GuildForum) {
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
-          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
+          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
           const components = buildRoleButtons(event.id, roles, [], memberDiscordGuildId);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
@@ -367,6 +385,8 @@ export async function syncDiscordEvent(eventId: string) {
   }
 
   // ── Update forum thread name + roster embed ───────────────────────────────
+  const roles = JSON.parse(event.roles) as EventRole[];
+  const guildTagMap = await buildGuildTagMap(roles);
   if (event.threadId) {
     console.log(`[syncDiscordEvent] updating forum thread ${event.threadId}`);
     try {
@@ -378,11 +398,10 @@ export async function syncDiscordEvent(eventId: string) {
           );
         }
 
-        const roles = JSON.parse(event.roles) as EventRole[];
         console.log(`[syncDiscordEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
         console.log(`[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
-        const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
+        const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
         const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
 
         const rosterMsg = event.rosterMessageId
@@ -434,7 +453,6 @@ export async function syncDiscordEvent(eventId: string) {
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
   if (allianceGuilds.length === 0) return;
 
-  const roles = JSON.parse(event.roles) as EventRole[];
   const imageAttachmentSync = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
   const imageDataUriSync = event.imageUrl ? await fetchImageAsDataUri(event.imageUrl) : undefined;
   const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
@@ -470,7 +488,7 @@ export async function syncDiscordEvent(eventId: string) {
           if (thread.name !== event.name) {
             await thread.setName(event.name).catch(() => null);
           }
-          const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename);
+          const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename, guildTagMap);
           const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId);
           const rosterMsg = ag.rosterMessageId
             ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
@@ -497,9 +515,10 @@ export async function updateRosterEmbed(eventId: string) {
   if (!event) return;
 
   const roles = JSON.parse(event.roles) as EventRole[];
+  const guildTagMap = await buildGuildTagMap(roles);
   const eventImageUrl = event.imageUrl;
   const imageAttachment = eventImageUrl ? await fetchImageAttachment(eventImageUrl) : null;
-  const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
+  const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
 
   type Components = ReturnType<typeof buildRoleButtons>;
   async function applyEdit(msg: Message, components: Components) {
@@ -682,6 +701,8 @@ export async function endEvent(eventId: string) {
   }
 
   // Update embed with VC attendance + remove buttons, then archive host thread
+  const endRoles = JSON.parse(event.roles) as EventRole[];
+  const guildTagMap = await buildGuildTagMap(endRoles);
   const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
   if (event.threadId) {
     try {
@@ -691,7 +712,7 @@ export async function endEvent(eventId: string) {
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
         if (rosterMsg) {
-          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename);
+          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap);
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
@@ -719,7 +740,7 @@ export async function endEvent(eventId: string) {
             ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
             : await thread.fetchStarterMessage().catch(() => null);
           if (rosterMsg) {
-            const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename);
+            const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap);
             const files = imageAttachment ? [imageAttachment.builder] : [];
             await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
           }

@@ -848,14 +848,17 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
 
 // ── Event row (Fleet Manager style) ──────────────────────────────────────────
 
-function EventCard({ event, guildId, userId, onClick }: { event: EventDto; guildId: string; userId?: string; onClick: () => void }) {
+function EventCard({ event, userId, alliances, onClick }: { event: EventDto; guildId: string; userId?: string; alliances: import('@dem/shared').AllianceDto[]; onClick: () => void }) {
   const start = new Date(event.startTime);
   const month = start.toLocaleDateString('en', { month: 'short' });
   const day = start.getDate();
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const location = event.musterPoint ?? '—';
   const userRsvp = userId ? event.rsvps.find((r) => r.userId === userId) : undefined;
-  const isAllianceEvent = event.guildId !== guildId;
+  const allianceForEvent = event.allianceId ? alliances.find((a) => a.id === event.allianceId) : null;
+  const orgTags = allianceForEvent
+    ? allianceForEvent.members.filter((m) => m.status === 'ACCEPTED' && m.allianceTag).map((m) => m.allianceTag as string)
+    : [];
 
   return (
     <button
@@ -877,9 +880,9 @@ function EventCard({ event, guildId, userId, onClick }: { event: EventDto; guild
       <div className="flex-1 px-4 py-3 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
-          {isAllianceEvent && (
-            <span className="rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400 shrink-0">Alliance</span>
-          )}
+          {orgTags.map((tag) => (
+            <span key={tag} className="font-mono text-sm font-bold text-sky-400 shrink-0">[{tag}]</span>
+          ))}
         </div>
         {event.recurType && (
           <p className="text-[15px] opacity-60 line-clamp-2">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
@@ -1031,6 +1034,13 @@ export function ServerPage() {
   });
 
   const active = tab === 'upcoming' ? upcomingQuery : completedQuery;
+
+  const { data: alliances = [] } = useQuery({
+    queryKey: ['alliances', guildId],
+    queryFn: () => allianceApi.list(guildId ?? undefined),
+    staleTime: 5 * 60_000,
+    enabled: !!guildId,
+  });
 
   function openDetail(event: EventDto) {
     setDetailEvent(event);
@@ -1226,7 +1236,7 @@ export function ServerPage() {
               ) : (
                 <div className="flex-1 overflow-y-auto bg-primary [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
                   {active.data.map((e) => (
-                    <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} onClick={() => openDetail(e)} />
+                    <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} alliances={alliances} onClick={() => openDetail(e)} />
                   ))}
                 </div>
               )}

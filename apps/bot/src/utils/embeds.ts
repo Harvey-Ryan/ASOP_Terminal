@@ -36,7 +36,7 @@ function formatMember(userId: string, activeUserIds?: Set<string>): string {
   return activeUserIds.has(userId) ? `✅ <@${userId}>` : `<@${userId}>`;
 }
 
-export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<string>, imageFileName?: string): EmbedBuilder {
+export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<string>, imageFileName?: string, guildTagMap?: Record<string, string>): EmbedBuilder {
   const roles = JSON.parse(event.roles) as EventRole[];
   const startTs = Math.floor(event.startTime.getTime() / 1000);
   const endTs = event.endTime ? Math.floor(event.endTime.getTime() / 1000) : null;
@@ -72,7 +72,9 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
       const value = members.length > 0
         ? members.map((r) => formatMember(r.userId, activeUserIds)).join(', ')
         : '*None*';
-      embed.addFields({ name: `${role.name} (${filled})`, value, inline: true });
+      const tag = role.guildId && guildTagMap ? guildTagMap[role.guildId] : undefined;
+      const fieldName = tag ? `${role.name} [${tag}] (${filled})` : `${role.name} (${filled})`;
+      embed.addFields({ name: fieldName, value, inline: true });
     }
   }
 

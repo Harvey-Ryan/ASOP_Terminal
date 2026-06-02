@@ -858,6 +858,7 @@ export interface AllianceGuildDto {
   status: string;
   /** AllianceMember.id — needed for accept/reject operations */
   memberId: string;
+  allianceTag: string | null;
 }
 
 export interface AllianceDto {

@@ -18,7 +18,7 @@ type MemberRow = {
   id: string;
   status: string;
   invitedByGuildId: string | null;
-  guild: { id: string; guildId: string; name: string; icon: string | null };
+  guild: { id: string; guildId: string; name: string; icon: string | null; settings: { allianceTag: string | null } | null };
 };
 
 function toDto(alliance: {
@@ -38,13 +38,14 @@ function toDto(alliance: {
       icon: m.guild.icon,
       status: m.status,
       memberId: m.id,
+      allianceTag: m.guild.settings?.allianceTag ?? null,
     })),
     createdAt: alliance.createdAt.toISOString(),
     updatedAt: alliance.updatedAt.toISOString(),
   };
 }
 
-const memberInclude = { members: { include: { guild: true }, orderBy: { createdAt: 'asc' as const } } };
+const memberInclude = { members: { include: { guild: { include: { settings: { select: { allianceTag: true } } } } }, orderBy: { createdAt: 'asc' as const } } };
 
 // ── GET /api/alliances/guilds ─────────────────────────────────────────────────
 
