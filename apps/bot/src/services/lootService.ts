@@ -200,14 +200,44 @@ export async function notifySnakeTurn(eventId: string) {
       .setURL(lootUrl),
   );
 
+  // Fetch event thread now — needed for DM fallback even if DM succeeds
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { threadId: true } });
+
+  let dmSent = false;
   try {
     const discordUser = await client.users.fetch(nextPickerId);
     await discordUser.send({
       content: `🐍 It's your turn to pick in the snake draft!\n\nClick below to view the remaining loot and select your reward.`,
       components: [row],
     });
-  } catch (err) {
-    console.error(`[bot] Failed to DM snake draft picker ${nextPickerId}:`, err);
+    dmSent = true;
+  } catch {
+    console.warn(`[bot] DM failed for snake draft picker ${nextPickerId} — falling back to thread ping`);
+  }
+
+  // When DM fails post a ping to the event thread (and alliance threads) so the
+  // draft doesn't stall silently. Cross-guild pickers with DMs off will see the
+  // mention in their guild's alliance thread.
+  if (!dmSent) {
+    const fallbackEmbed = new EmbedBuilder()
+      .setDescription(`🐍 <@${nextPickerId}> — it's your turn to pick in the snake draft! *(DM delivery failed)*`)
+      .setColor(0xf59e0b);
+
+    if (event?.threadId) {
+      try {
+        const thread = await client.channels.fetch(event.threadId);
+        if (thread?.isThread()) {
+          const wasArchived = thread.archived ?? false;
+          if (wasArchived) await thread.setArchived(false).catch(() => null);
+          await thread.send({ embeds: [fallbackEmbed], components: [row] });
+          if (wasArchived) await thread.setArchived(true).catch(() => null);
+        }
+      } catch (err) {
+        console.error(`[bot] Thread fallback also failed for snake draft picker ${nextPickerId}:`, err);
+      }
+    }
+
+    await postToAllianceThreads(eventId, fallbackEmbed, row);
   }
 }
 
@@ -268,14 +298,38 @@ export async function notifyStandaloneSnakeTurn(sessionId: string) {
       .setURL(lootUrl),
   );
 
+  // Fetch loot channel now — needed for DM fallback
+  const guildRecord = await prisma.guild.findUnique({
+    where: { guildId: session.guildId },
+    select: { settings: { select: { lootChannelId: true } } },
+  });
+  const lootChannelId = guildRecord?.settings?.lootChannelId ?? null;
+
+  let dmSent = false;
   try {
     const discordUser = await client.users.fetch(nextPickerId);
     await discordUser.send({
       content: `🐍 It's your turn to pick in the snake draft!\n\nClick below to view the remaining loot and select your reward.`,
       components: [row],
     });
-  } catch (err) {
-    console.error(`[bot] Failed to DM standalone snake draft picker ${nextPickerId}:`, err);
+    dmSent = true;
+  } catch {
+    console.warn(`[bot] DM failed for standalone snake draft picker ${nextPickerId} — falling back to loot channel ping`);
+  }
+
+  // When DM fails post a ping to the configured loot channel so the draft doesn't stall.
+  if (!dmSent && lootChannelId) {
+    try {
+      const ch = await client.channels.fetch(lootChannelId);
+      if (ch?.isTextBased() && 'send' in ch) {
+        await ch.send({
+          content: `🐍 <@${nextPickerId}> — it's your turn to pick in the snake draft! *(DM delivery failed)*`,
+          components: [row],
+        });
+      }
+    } catch (err) {
+      console.error(`[bot] Loot-channel fallback also failed for standalone snake draft picker ${nextPickerId}:`, err);
+    }
   }
 }
 
