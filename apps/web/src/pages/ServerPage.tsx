@@ -35,7 +35,7 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  PENDING: 'bg-yellow-500/15 text-yellow-600',
+  PENDING: 'bg-black text-yellow-400',
   ACTIVE: 'bg-black text-green-400',
   ENDED: 'bg-red-500/15 text-red-500',
   COMPLETED: 'bg-muted text-muted-foreground',
