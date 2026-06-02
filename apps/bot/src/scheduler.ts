@@ -300,7 +300,7 @@ async function checkEndedEvents() {
   // event to disappear from this query for 2 minutes each time.
   const needsVcCleanup = await prisma.event.findMany({
     where: {
-      status: 'ENDED',
+      status: { in: ['ENDED', 'COMPLETED'] },
       botCleanedUp: false,
       botEndedAt: { not: null },
     },
