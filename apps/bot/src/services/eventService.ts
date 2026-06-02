@@ -237,6 +237,7 @@ async function setupAllianceGuilds(event: EventForAlliance) {
   const roles = JSON.parse(event.roles) as EventRole[];
 
   for (const member of alliance.members) {
+    if ((member as { status: string }).status !== 'ACCEPTED') continue;
     const memberDiscordGuildId = member.guild.guildId;
     if (memberDiscordGuildId === event.guildId) continue;
 

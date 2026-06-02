@@ -1,5 +1,13 @@
 import { api } from './client';
-import type { ApiResponse, AllianceDto, AllianceGuildDto, CreateAllianceBody, RenameAllianceBody, AddAllianceMemberBody } from '@dem/shared';
+import type {
+  ApiResponse,
+  AllianceDto,
+  AllianceGuildDto,
+  AllianceInvitationDto,
+  CreateAllianceBody,
+  RenameAllianceBody,
+  AddAllianceMemberBody,
+} from '@dem/shared';
 
 export const allianceApi = {
   listGuilds: () =>
@@ -22,4 +30,20 @@ export const allianceApi = {
 
   removeMember: (allianceId: string, guildId: string) =>
     api.delete<ApiResponse<AllianceDto>>(`/alliances/${allianceId}/members/${guildId}`).then((r) => r.data!),
+
+  getInvitations: (discordGuildId: string) =>
+    api
+      .get<ApiResponse<AllianceInvitationDto[]>>(`/alliances/invitations?discordGuildId=${discordGuildId}`)
+      .then((r) => r.data ?? []),
+
+  acceptInvitation: (memberId: string, discordGuildId: string) =>
+    api
+      .patch<ApiResponse<AllianceDto>>(
+        `/alliances/invitations/${memberId}/accept?discordGuildId=${discordGuildId}`,
+        {},
+      )
+      .then((r) => r.data!),
+
+  rejectInvitation: (memberId: string, discordGuildId: string) =>
+    api.delete<ApiResponse>(`/alliances/invitations/${memberId}?discordGuildId=${discordGuildId}`),
 };

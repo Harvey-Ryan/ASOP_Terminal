@@ -850,6 +850,10 @@ export interface AllianceGuildDto {
   guildId: string;   // Discord snowflake
   name: string;
   icon: string | null;
+  /** 'PENDING' | 'ACCEPTED' */
+  status: string;
+  /** AllianceMember.id — needed for accept/reject operations */
+  memberId: string;
 }
 
 export interface AllianceDto {
@@ -858,6 +862,17 @@ export interface AllianceDto {
   members: AllianceGuildDto[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** Pending invitation for a specific guild */
+export interface AllianceInvitationDto {
+  memberId: string;
+  allianceId: string;
+  allianceName: string;
+  invitedByGuildId: string | null;
+  invitedByGuildName: string | null;
+  invitedByGuildIcon: string | null;
+  createdAt: string;
 }
 
 export interface CreateAllianceBody {
@@ -869,5 +884,8 @@ export interface RenameAllianceBody {
 }
 
 export interface AddAllianceMemberBody {
+  /** Discord snowflake of the guild being invited */
   guildId: string;   // Discord snowflake (Guild.guildId)
+  /** Discord snowflake of the guild sending the invitation */
+  invitingGuildId?: string;
 }

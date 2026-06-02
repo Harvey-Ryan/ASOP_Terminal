@@ -802,10 +802,14 @@ model Alliance {
 
 /// Junction table — one row per guild in an Alliance.
 model AllianceMember {
-  id         String   @id @default(cuid())
-  allianceId String
-  guildId    String
-  createdAt  DateTime @default(now())
+  id               String   @id @default(cuid())
+  allianceId       String
+  guildId          String
+  /// PENDING (awaiting acceptance) | ACCEPTED
+  status           String   @default("PENDING")
+  /// Discord snowflake of the guild that sent the invitation
+  invitedByGuildId String?
+  createdAt        DateTime @default(now())
 
   alliance Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   guild    Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
@@ -813,6 +817,7 @@ model AllianceMember {
   @@unique([allianceId, guildId])
   @@index([allianceId])
   @@index([guildId])
+  @@index([status])
 }
 
 /// Per-guild Discord entities for an alliance-shared event (non-host guilds).

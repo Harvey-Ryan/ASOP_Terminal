@@ -1,16 +1,31 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
-import type { ApiResponse, AllianceDto, CreateAllianceBody, RenameAllianceBody, AddAllianceMemberBody } from '@dem/shared';
+import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import type {
+  ApiResponse,
+  AllianceDto,
+  AllianceInvitationDto,
+  CreateAllianceBody,
+  RenameAllianceBody,
+  AddAllianceMemberBody,
+} from '@dem/shared';
 
 export const allianceRouter = Router();
+
+type MemberRow = {
+  id: string;
+  status: string;
+  invitedByGuildId: string | null;
+  guild: { id: string; guildId: string; name: string; icon: string | null };
+};
 
 function toDto(alliance: {
   id: string;
   name: string;
   createdAt: Date;
   updatedAt: Date;
-  members: { guild: { id: string; guildId: string; name: string; icon: string | null } }[];
+  members: MemberRow[];
 }): AllianceDto {
   return {
     id: alliance.id,
@@ -20,6 +35,8 @@ function toDto(alliance: {
       guildId: m.guild.guildId,
       name: m.guild.name,
       icon: m.guild.icon,
+      status: m.status,
+      memberId: m.id,
     })),
     createdAt: alliance.createdAt.toISOString(),
     updatedAt: alliance.updatedAt.toISOString(),
@@ -29,7 +46,6 @@ function toDto(alliance: {
 const memberInclude = { members: { include: { guild: true }, orderBy: { createdAt: 'asc' as const } } };
 
 // ── GET /api/alliances/guilds ─────────────────────────────────────────────────
-// All guilds known to the bot — used for the "add server to alliance" picker.
 
 allianceRouter.get('/alliances/guilds', requireAuth, async (_req, res) => {
   const guilds = await prisma.guild.findMany({
@@ -41,6 +57,48 @@ allianceRouter.get('/alliances/guilds', requireAuth, async (_req, res) => {
     success: true,
     data: guilds.map((g) => ({ id: g.id, guildId: g.guildId, name: g.name, icon: g.icon })),
   } satisfies ApiResponse);
+});
+
+// ── GET /api/alliances/invitations?discordGuildId=... ─────────────────────────
+
+allianceRouter.get('/alliances/invitations', requireAuth, async (req, res) => {
+  const discordGuildId = typeof req.query['discordGuildId'] === 'string' ? req.query['discordGuildId'] : null;
+  if (!discordGuildId) {
+    res.status(400).json({ success: false, error: 'discordGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+
+  const members = await prisma.allianceMember.findMany({
+    where: { guild: { guildId: discordGuildId }, status: 'PENDING' },
+    include: { alliance: true, guild: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const invitations: AllianceInvitationDto[] = await Promise.all(
+    members.map(async (m) => {
+      let invitedByGuildName: string | null = null;
+      let invitedByGuildIcon: string | null = null;
+      if (m.invitedByGuildId) {
+        const invitingGuild = await prisma.guild.findUnique({
+          where: { guildId: m.invitedByGuildId },
+          select: { name: true, icon: true },
+        });
+        invitedByGuildName = invitingGuild?.name ?? null;
+        invitedByGuildIcon = invitingGuild?.icon ?? null;
+      }
+      return {
+        memberId: m.id,
+        allianceId: m.allianceId,
+        allianceName: m.alliance.name,
+        invitedByGuildId: m.invitedByGuildId,
+        invitedByGuildName,
+        invitedByGuildIcon,
+        createdAt: m.createdAt.toISOString(),
+      };
+    }),
+  );
+
+  res.json({ success: true, data: invitations } satisfies ApiResponse<AllianceInvitationDto[]>);
 });
 
 // ── GET /api/alliances ────────────────────────────────────────────────────────
@@ -116,12 +174,13 @@ allianceRouter.delete('/alliances/:allianceId', requireAuth, async (req, res) =>
 });
 
 // ── POST /api/alliances/:allianceId/members ───────────────────────────────────
-// guildId here is Guild.guildId (Discord snowflake)
+// Creates a PENDING invitation. guildId is Guild.guildId (Discord snowflake).
 
 allianceRouter.post('/alliances/:allianceId/members', requireAuth, async (req, res) => {
   const { allianceId } = req.params as { allianceId: string };
   const body = req.body as Partial<AddAllianceMemberBody>;
   const guildId = typeof body.guildId === 'string' ? body.guildId.trim() : '';
+  const invitingGuildId = typeof body.invitingGuildId === 'string' ? body.invitingGuildId.trim() : undefined;
 
   if (!guildId) {
     res.status(400).json({ success: false, error: 'guildId is required' } satisfies ApiResponse);
@@ -150,10 +209,91 @@ allianceRouter.post('/alliances/:allianceId/members', requireAuth, async (req, r
     return;
   }
 
-  await prisma.allianceMember.create({ data: { allianceId, guildId: guild.id } });
+  await prisma.allianceMember.create({
+    data: {
+      allianceId,
+      guildId: guild.id,
+      status: 'PENDING',
+      invitedByGuildId: invitingGuildId ?? null,
+    },
+  });
 
   const updated = await prisma.alliance.findUnique({ where: { id: allianceId }, include: memberInclude });
   res.status(201).json({ success: true, data: toDto(updated!) } satisfies ApiResponse<AllianceDto>);
+});
+
+// ── PATCH /api/alliances/invitations/:memberId/accept ────────────────────────
+
+allianceRouter.patch('/alliances/invitations/:memberId/accept', requireAuth, async (req, res) => {
+  const { memberId } = req.params as { memberId: string };
+  const discordGuildId = typeof req.query['discordGuildId'] === 'string' ? req.query['discordGuildId'] : null;
+
+  if (!discordGuildId) {
+    res.status(400).json({ success: false, error: 'discordGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+
+  if (!(await assertGuildManager(req, discordGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const member = await prisma.allianceMember.findUnique({
+    where: { id: memberId },
+    include: { guild: true },
+  });
+
+  if (!member) {
+    res.status(404).json({ success: false, error: 'Invitation not found' } satisfies ApiResponse);
+    return;
+  }
+  if (member.guild.guildId !== discordGuildId) {
+    res.status(403).json({ success: false, error: 'You can only accept invitations for your own guild' } satisfies ApiResponse);
+    return;
+  }
+  if (member.status !== 'PENDING') {
+    res.status(409).json({ success: false, error: 'Invitation is not pending' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.allianceMember.update({ where: { id: memberId }, data: { status: 'ACCEPTED' } });
+
+  const updated = await prisma.alliance.findUnique({ where: { id: member.allianceId }, include: memberInclude });
+  res.json({ success: true, data: toDto(updated!) } satisfies ApiResponse<AllianceDto>);
+});
+
+// ── DELETE /api/alliances/invitations/:memberId (reject / cancel) ─────────────
+
+allianceRouter.delete('/alliances/invitations/:memberId', requireAuth, async (req, res) => {
+  const { memberId } = req.params as { memberId: string };
+  const discordGuildId = typeof req.query['discordGuildId'] === 'string' ? req.query['discordGuildId'] : null;
+
+  if (!discordGuildId) {
+    res.status(400).json({ success: false, error: 'discordGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+
+  if (!(await assertGuildManager(req, discordGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const member = await prisma.allianceMember.findUnique({
+    where: { id: memberId },
+    include: { guild: true },
+  });
+
+  if (!member) {
+    res.status(404).json({ success: false, error: 'Invitation not found' } satisfies ApiResponse);
+    return;
+  }
+  if (member.guild.guildId !== discordGuildId) {
+    res.status(403).json({ success: false, error: 'You can only reject invitations for your own guild' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.allianceMember.delete({ where: { id: memberId } });
+  res.json({ success: true } satisfies ApiResponse);
 });
 
 // ── DELETE /api/alliances/:allianceId/members/:guildId ───────────────────────

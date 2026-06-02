@@ -14,6 +14,7 @@ import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { HelpPanel } from '@/components/HelpPanel';
 import { RsiVerifyGate } from '@/components/RsiVerifyGate';
 import { settingsApi } from '@/api/settings';
+import { allianceApi } from '@/api/alliance';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -121,6 +122,13 @@ export function DashboardLayout() {
     enabled: !!activeGuildId,
     staleTime: 5 * 60_000,
   });
+  const { data: pendingInvitations = [] } = useQuery({
+    queryKey: ['alliance-invitations', activeGuildId],
+    queryFn: () => allianceApi.getInvitations(activeGuild!.id),
+    enabled: !!activeGuild,
+    staleTime: 30_000,
+  });
+
   const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
@@ -365,6 +373,24 @@ export function DashboardLayout() {
                 </NavLink>
               )}
 
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/alliance`}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  )
+                }
+              >
+                <Network className="h-4 w-4 shrink-0" />
+                Alliance
+                {pendingInvitations.length > 0 && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                )}
+              </NavLink>
+
               {(blueprintsEnabled || craftingEnabled) && (
                 <>
                   <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -532,15 +558,6 @@ export function DashboardLayout() {
                   </NavLink>
                 </>
               )}
-
-              {/* Alliance */}
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/alliance`}
-                className={navCls}
-              >
-                <Network className="h-4 w-4 shrink-0" />
-                Alliance
-              </NavLink>
 
               {/* Game Data */}
               <NavLink

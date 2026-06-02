@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Network, Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronUp, Server,
-  UserPlus, AlertCircle,
+  UserPlus, AlertCircle, Clock, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +12,11 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { allianceApi } from '@/api/alliance';
 import { getGuildIconUrl } from '@dem/shared';
-import type { AllianceDto, AllianceGuildDto } from '@dem/shared';
+import type { AllianceDto, AllianceGuildDto, AllianceInvitationDto } from '@dem/shared';
 
 // ── Guild icon helper ─────────────────────────────────────────────────────────
 
-function GuildIcon({ guild, size = 6 }: { guild: AllianceGuildDto; size?: number }) {
+function GuildIcon({ guild, size = 6 }: { guild: { guildId: string; icon: string | null; name: string }; size?: number }) {
   const iconUrl = getGuildIconUrl(guild.guildId, guild.icon);
   const cls = `h-${size} w-${size} rounded-full shrink-0 bg-muted flex items-center justify-center overflow-hidden`;
   if (iconUrl) {
@@ -29,24 +29,109 @@ function GuildIcon({ guild, size = 6 }: { guild: AllianceGuildDto; size?: number
   );
 }
 
+// ── Pending Invitations section ───────────────────────────────────────────────
+
+function PendingInvitations({
+  invitations,
+  discordGuildId,
+}: {
+  invitations: AllianceInvitationDto[];
+  discordGuildId: string;
+}) {
+  const queryClient = useQueryClient();
+
+  const accept = useMutation({
+    mutationFn: (memberId: string) => allianceApi.acceptInvitation(memberId, discordGuildId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alliances'] });
+      queryClient.invalidateQueries({ queryKey: ['alliance-invitations', discordGuildId] });
+    },
+  });
+
+  const reject = useMutation({
+    mutationFn: (memberId: string) => allianceApi.rejectInvitation(memberId, discordGuildId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alliance-invitations', discordGuildId] });
+    },
+  });
+
+  if (invitations.length === 0) return null;
+
+  return (
+    <Card className="border-amber-500/40 bg-amber-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium flex items-center gap-2 text-amber-400">
+          <Clock className="h-4 w-4 shrink-0" />
+          Pending Alliance Invitations
+          <span className="ml-auto h-5 w-5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+            {invitations.length}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-2">
+        {invitations.map((inv) => (
+          <div
+            key={inv.memberId}
+            className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-background/60 px-3 py-2.5"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{inv.allianceName}</p>
+              {inv.invitedByGuildName ? (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Invited by <span className="text-foreground font-medium">{inv.invitedByGuildName}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-0.5">Invitation source unknown</p>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5 border-green-500/40 text-green-400 hover:bg-green-500/10 hover:text-green-300 shrink-0"
+              onClick={() => accept.mutate(inv.memberId)}
+              disabled={accept.isPending || reject.isPending}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+              onClick={() => reject.mutate(inv.memberId)}
+              disabled={accept.isPending || reject.isPending}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Reject
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Add member picker ─────────────────────────────────────────────────────────
 
 function AddMemberPanel({
   allianceId,
   currentMembers,
   allGuilds,
+  invitingGuildDiscordId,
   onClose,
 }: {
   allianceId: string;
   currentMembers: AllianceGuildDto[];
   allGuilds: AllianceGuildDto[];
+  invitingGuildDiscordId: string;
   onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
   const addMember = useMutation({
-    mutationFn: (guildId: string) => allianceApi.addMember(allianceId, { guildId }),
+    mutationFn: (guildId: string) =>
+      allianceApi.addMember(allianceId, { guildId, invitingGuildId: invitingGuildDiscordId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alliances'] }),
   });
 
@@ -96,9 +181,11 @@ function AddMemberPanel({
 function AllianceCard({
   alliance,
   allGuilds,
+  activeDiscordGuildId,
 }: {
   alliance: AllianceDto;
   allGuilds: AllianceGuildDto[];
+  activeDiscordGuildId: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(alliance.name);
@@ -124,6 +211,9 @@ function AllianceCard({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alliances'] }),
   });
 
+  const accepted = alliance.members.filter((m) => m.status === 'ACCEPTED');
+  const pending = alliance.members.filter((m) => m.status === 'PENDING');
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -141,8 +231,7 @@ function AllianceCard({
                 autoFocus
               />
               <Button
-                size="icon"
-                variant="ghost"
+                size="icon" variant="ghost"
                 className="h-6 w-6 shrink-0 text-green-500 hover:text-green-400"
                 onClick={() => rename.mutate()}
                 disabled={rename.isPending || !name.trim()}
@@ -150,9 +239,7 @@ function AllianceCard({
                 <Check className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 shrink-0"
+                size="icon" variant="ghost" className="h-6 w-6 shrink-0"
                 onClick={() => { setName(alliance.name); setEditing(false); }}
               >
                 <X className="h-3.5 w-3.5" />
@@ -163,31 +250,24 @@ function AllianceCard({
               <Network className="h-4 w-4 text-primary shrink-0" />
               <span className="flex-1 truncate">{alliance.name}</span>
               <span className="text-xs text-muted-foreground font-normal shrink-0">
-                {alliance.members.length} server{alliance.members.length !== 1 ? 's' : ''}
+                {accepted.length} server{accepted.length !== 1 ? 's' : ''}
+                {pending.length > 0 && (
+                  <span className="ml-1.5 text-amber-400">· {pending.length} pending</span>
+                )}
               </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 shrink-0"
-                onClick={() => setEditing(true)}
-              >
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setEditing(true)}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="icon"
-                variant="ghost"
+                size="icon" variant="ghost"
                 className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
-                onClick={() => {
-                  if (confirm(`Delete alliance "${alliance.name}"?`)) remove.mutate();
-                }}
+                onClick={() => { if (confirm(`Delete alliance "${alliance.name}"?`)) remove.mutate(); }}
                 disabled={remove.isPending}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 shrink-0"
+                size="icon" variant="ghost" className="h-6 w-6 shrink-0"
                 onClick={() => setExpanded((v) => !v)}
               >
                 {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -203,9 +283,10 @@ function AllianceCard({
             <p className="text-xs text-muted-foreground mb-3">No servers in this alliance yet.</p>
           )}
 
-          {alliance.members.length > 0 && (
-            <div className="space-y-0 mb-3">
-              {alliance.members.map((m) => (
+          {/* Accepted members */}
+          {accepted.length > 0 && (
+            <div className="space-y-0 mb-2">
+              {accepted.map((m) => (
                 <div
                   key={m.guildId}
                   className="flex items-center gap-2.5 py-1.5 border-b border-border/50 last:border-0 group"
@@ -213,9 +294,35 @@ function AllianceCard({
                   <GuildIcon guild={m} size={6} />
                   <span className="flex-1 text-sm truncate">{m.name}</span>
                   <Button
-                    size="icon"
-                    variant="ghost"
+                    size="icon" variant="ghost"
                     className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                    onClick={() => removeMember.mutate(m.guildId)}
+                    disabled={removeMember.isPending}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pending invitations sent from this alliance */}
+          {pending.length > 0 && (
+            <div className="mb-3 space-y-1">
+              {pending.map((m) => (
+                <div
+                  key={m.guildId}
+                  className="flex items-center gap-2.5 py-1.5 rounded bg-amber-500/5 border border-amber-500/20 px-2 group"
+                >
+                  <GuildIcon guild={m} size={6} />
+                  <span className="flex-1 text-sm truncate text-muted-foreground">{m.name}</span>
+                  <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wide shrink-0">
+                    Awaiting
+                  </span>
+                  <Button
+                    size="icon" variant="ghost"
+                    className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                    title="Cancel invitation"
                     onClick={() => removeMember.mutate(m.guildId)}
                     disabled={removeMember.isPending}
                   >
@@ -231,17 +338,16 @@ function AllianceCard({
               allianceId={alliance.id}
               currentMembers={alliance.members}
               allGuilds={allGuilds}
+              invitingGuildDiscordId={activeDiscordGuildId}
               onClose={() => setShowAddPanel(false)}
             />
           ) : (
             <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs w-full"
+              variant="outline" size="sm" className="h-7 text-xs w-full"
               onClick={() => setShowAddPanel(true)}
             >
               <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-              Add Server
+              Invite Server
             </Button>
           )}
         </CardContent>
@@ -270,6 +376,13 @@ export function AlliancePage() {
     staleTime: 5 * 60_000,
   });
 
+  const { data: invitations = [] } = useQuery({
+    queryKey: ['alliance-invitations', guildId],
+    queryFn: () => allianceApi.getInvitations(guildId!),
+    enabled: !!guildId,
+    staleTime: 30_000,
+  });
+
   const createAlliance = useMutation({
     mutationFn: () => allianceApi.create({ name: newName.trim() }),
     onSuccess: () => {
@@ -290,7 +403,7 @@ export function AlliancePage() {
             Alliances
           </h1>
           <p className="mt-1 text-muted-foreground text-sm">
-            Group servers into named alliances for cross-org organisation.
+            Group servers into named alliances for cross-org events and coordination.
           </p>
         </div>
         {!creating && (
@@ -300,6 +413,9 @@ export function AlliancePage() {
           </Button>
         )}
       </div>
+
+      {/* Pending invitations for this guild */}
+      <PendingInvitations invitations={invitations} discordGuildId={guildId} />
 
       {creating && (
         <Card>
@@ -317,18 +433,10 @@ export function AlliancePage() {
                 }}
                 autoFocus
               />
-              <Button
-                size="sm"
-                onClick={() => createAlliance.mutate()}
-                disabled={!newName.trim() || createAlliance.isPending}
-              >
+              <Button size="sm" onClick={() => createAlliance.mutate()} disabled={!newName.trim() || createAlliance.isPending}>
                 Create
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setNewName(''); setCreating(false); }}
-              >
+              <Button size="sm" variant="outline" onClick={() => { setNewName(''); setCreating(false); }}>
                 Cancel
               </Button>
             </div>
@@ -363,7 +471,12 @@ export function AlliancePage() {
       )}
 
       {alliances.map((alliance) => (
-        <AllianceCard key={alliance.id} alliance={alliance} allGuilds={allGuilds} />
+        <AllianceCard
+          key={alliance.id}
+          alliance={alliance}
+          allGuilds={allGuilds}
+          activeDiscordGuildId={guildId}
+        />
       ))}
     </div>
   );
