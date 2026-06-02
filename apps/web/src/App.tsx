@@ -23,7 +23,7 @@ import { CraftingCalculatorPage } from './pages/CraftingCalculatorPage';
 import { BlueprintsSettingsPage } from './pages/settings/BlueprintsSettingsPage';
 import { CraftingCalculatorSettingsPage } from './pages/settings/CraftingCalculatorSettingsPage';
 import { RosterPage } from './pages/RosterPage';
-import { AlliancePage } from './pages/AlliancePage';
+import { AllianceSettingsPage } from './pages/settings/AllianceSettingsPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
 import { LootSettingsPage } from './pages/settings/LootSettingsPage';
@@ -71,7 +71,7 @@ export default function App() {
           <Route path="servers/:guildId/crafting-calculator" element={<CraftingCalculatorPage />} />
           <Route path="servers/:guildId/settings/modules/blueprints" element={<BlueprintsSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<CraftingCalculatorSettingsPage />} />
-          <Route path="servers/:guildId/alliance" element={<AlliancePage />} />
+          <Route path="servers/:guildId/settings/modules/alliance" element={<AllianceSettingsPage />} />
           <Route path="kanban" element={<KanbanPage />} />
         </Route>
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { assertAllianceManager } from '../../lib/assertAllianceManager.js';
 import type {
   ApiResponse,
   AllianceDto,
@@ -117,9 +118,18 @@ allianceRouter.get('/alliances', requireAuth, async (_req, res) => {
 allianceRouter.post('/alliances', requireAuth, async (req, res) => {
   const body = req.body as Partial<CreateAllianceBody>;
   const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const callerGuildId = typeof body.callerGuildId === 'string' ? body.callerGuildId.trim() : '';
 
+  if (!callerGuildId) {
+    res.status(400).json({ success: false, error: 'callerGuildId is required' } satisfies ApiResponse);
+    return;
+  }
   if (!name || name.length > 100) {
     res.status(400).json({ success: false, error: 'Name is required and must be ≤100 characters' } satisfies ApiResponse);
+    return;
+  }
+  if (!(await assertAllianceManager(req, callerGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
 
@@ -137,9 +147,18 @@ allianceRouter.patch('/alliances/:allianceId', requireAuth, async (req, res) => 
   const { allianceId } = req.params as { allianceId: string };
   const body = req.body as Partial<RenameAllianceBody>;
   const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const callerGuildId = typeof body.callerGuildId === 'string' ? body.callerGuildId.trim() : '';
 
+  if (!callerGuildId) {
+    res.status(400).json({ success: false, error: 'callerGuildId is required' } satisfies ApiResponse);
+    return;
+  }
   if (!name || name.length > 100) {
     res.status(400).json({ success: false, error: 'Name is required and must be ≤100 characters' } satisfies ApiResponse);
+    return;
+  }
+  if (!(await assertAllianceManager(req, callerGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
 
@@ -162,6 +181,16 @@ allianceRouter.patch('/alliances/:allianceId', requireAuth, async (req, res) => 
 
 allianceRouter.delete('/alliances/:allianceId', requireAuth, async (req, res) => {
   const { allianceId } = req.params as { allianceId: string };
+  const callerGuildId = typeof req.query['callerGuildId'] === 'string' ? req.query['callerGuildId'] : '';
+
+  if (!callerGuildId) {
+    res.status(400).json({ success: false, error: 'callerGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+  if (!(await assertAllianceManager(req, callerGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
 
   const existing = await prisma.alliance.findUnique({ where: { id: allianceId } });
   if (!existing) {
@@ -184,6 +213,14 @@ allianceRouter.post('/alliances/:allianceId/members', requireAuth, async (req, r
 
   if (!guildId) {
     res.status(400).json({ success: false, error: 'guildId is required' } satisfies ApiResponse);
+    return;
+  }
+  if (!invitingGuildId) {
+    res.status(400).json({ success: false, error: 'invitingGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+  if (!(await assertAllianceManager(req, invitingGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
 
@@ -301,6 +338,16 @@ allianceRouter.delete('/alliances/invitations/:memberId', requireAuth, async (re
 
 allianceRouter.delete('/alliances/:allianceId/members/:guildId', requireAuth, async (req, res) => {
   const { allianceId, guildId } = req.params as { allianceId: string; guildId: string };
+  const callerGuildId = typeof req.query['callerGuildId'] === 'string' ? req.query['callerGuildId'] : '';
+
+  if (!callerGuildId) {
+    res.status(400).json({ success: false, error: 'callerGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+  if (!(await assertAllianceManager(req, callerGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
 
   const guild = await prisma.guild.findUnique({ where: { guildId } });
   if (!guild) {

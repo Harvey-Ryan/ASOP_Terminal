@@ -373,24 +373,6 @@ export function DashboardLayout() {
                 </NavLink>
               )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/alliance`}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  )
-                }
-              >
-                <Network className="h-4 w-4 shrink-0" />
-                Alliance
-                {pendingInvitations.length > 0 && (
-                  <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shrink-0" />
-                )}
-              </NavLink>
-
               {(blueprintsEnabled || craftingEnabled) && (
                 <>
                   <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -558,6 +540,25 @@ export function DashboardLayout() {
                   </NavLink>
                 </>
               )}
+
+              {/* Alliance */}
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/settings/modules/alliance`}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  )
+                }
+              >
+                <Network className="h-4 w-4 shrink-0" />
+                Alliance
+                {pendingInvitations.length > 0 && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                )}
+              </NavLink>
 
               {/* Game Data */}
               <NavLink

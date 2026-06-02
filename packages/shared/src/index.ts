@@ -877,10 +877,14 @@ export interface AllianceInvitationDto {
 
 export interface CreateAllianceBody {
   name: string;
+  /** Discord snowflake of the guild making the request — used for permission check */
+  callerGuildId?: string;
 }
 
 export interface RenameAllianceBody {
   name: string;
+  /** Discord snowflake of the guild making the request — used for permission check */
+  callerGuildId?: string;
 }
 
 export interface AddAllianceMemberBody {

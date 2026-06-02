@@ -161,17 +161,19 @@ interface PermissionFields {
   viewerRoles: string[];
 }
 
-async function readPermissionFields(settingsId: string): Promise<PermissionFields & { dkpLabel: string; lootDraftCreatorRoles: string[] }> {
+async function readPermissionFields(settingsId: string): Promise<PermissionFields & { dkpLabel: string; lootDraftCreatorRoles: string[]; allianceManagerRoles: string[] }> {
   const settings = await prisma.guildSettings.findUnique({
     where: { id: settingsId },
-    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true, dkpLabel: true, lootDraftCreatorRoles: true },
+    select: { eventCreatorRoles: true, moduleEditorRoles: true, viewerRoles: true, dkpLabel: true, lootDraftCreatorRoles: true, allianceManagerRoles: true } as Record<string, boolean>,
   });
+  const s = settings as unknown as Record<string, string | undefined>;
   return {
-    eventCreatorRoles:      JSON.parse(settings?.eventCreatorRoles      ?? '[]') as string[],
-    moduleEditorRoles:      JSON.parse(settings?.moduleEditorRoles      ?? '[]') as string[],
-    viewerRoles:            JSON.parse(settings?.viewerRoles            ?? '[]') as string[],
-    dkpLabel:               settings?.dkpLabel ?? 'DKP',
-    lootDraftCreatorRoles:  JSON.parse(settings?.lootDraftCreatorRoles  ?? '[]') as string[],
+    eventCreatorRoles:      JSON.parse(s['eventCreatorRoles']      ?? '[]') as string[],
+    moduleEditorRoles:      JSON.parse(s['moduleEditorRoles']      ?? '[]') as string[],
+    viewerRoles:            JSON.parse(s['viewerRoles']            ?? '[]') as string[],
+    dkpLabel:               s['dkpLabel'] ?? 'DKP',
+    lootDraftCreatorRoles:  JSON.parse(s['lootDraftCreatorRoles']  ?? '[]') as string[],
+    allianceManagerRoles:   JSON.parse(s['allianceManagerRoles']   ?? '[]') as string[],
   };
 }
 
@@ -218,9 +220,9 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles } = s
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } = s
       ? await readPermissionFields(s.id)
-      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [], dkpLabel: 'DKP', lootDraftCreatorRoles: [] };
+      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [], dkpLabel: 'DKP', lootDraftCreatorRoles: [], allianceManagerRoles: [] };
     res.json({
       success: true,
       data: {
@@ -235,6 +237,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         viewerRoles,
         dkpLabel,
         lootDraftCreatorRoles,
+        allianceManagerRoles,
         eventBotEnabled:            s?.eventBotEnabled            ?? true,
         dkpEnabled:                 s?.dkpEnabled                 ?? true,
         lootEnabled:                s?.lootEnabled                ?? true,
@@ -273,6 +276,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     viewerRoles?: string[];
     dkpLabel?: string;
     lootDraftCreatorRoles?: string[];
+    allianceManagerRoles?: string[];
     eventBotEnabled?: boolean;
     dkpEnabled?: boolean;
     lootEnabled?: boolean;
@@ -301,6 +305,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       viewerRoles:               raw.viewerRoles !== undefined ? optStrArr(raw.viewerRoles, 'viewerRoles', 100, 30) : undefined,
       dkpLabel:                  raw.dkpLabel !== undefined ? requireStr(raw.dkpLabel, 'dkpLabel', 30) : undefined,
       lootDraftCreatorRoles:     raw.lootDraftCreatorRoles !== undefined ? optStrArr(raw.lootDraftCreatorRoles, 'lootDraftCreatorRoles', 100, 30) : undefined,
+      allianceManagerRoles:      raw.allianceManagerRoles !== undefined ? optStrArr(raw.allianceManagerRoles, 'allianceManagerRoles', 100, 30) : undefined,
       eventBotEnabled:           raw.eventBotEnabled !== undefined ? optBool(raw.eventBotEnabled, 'eventBotEnabled') : undefined,
       dkpEnabled:                raw.dkpEnabled !== undefined ? optBool(raw.dkpEnabled, 'dkpEnabled') : undefined,
       lootEnabled:               raw.lootEnabled !== undefined ? optBool(raw.lootEnabled, 'lootEnabled') : undefined,
@@ -327,6 +332,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     body.viewerRoles !== undefined ||
     body.dkpLabel !== undefined ||
     body.lootDraftCreatorRoles !== undefined ||
+    body.allianceManagerRoles !== undefined ||
     body.eventBotEnabled !== undefined ||
     body.dkpEnabled !== undefined ||
     body.lootEnabled !== undefined ||
@@ -364,6 +370,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.viewerRoles !== undefined               ? { viewerRoles: JSON.stringify(body.viewerRoles) }                         : {}),
         ...(body.dkpLabel !== undefined                  ? { dkpLabel: body.dkpLabel }                                               : {}),
         ...(body.lootDraftCreatorRoles !== undefined     ? { lootDraftCreatorRoles: JSON.stringify(body.lootDraftCreatorRoles) }     : {}),
+        ...(body.allianceManagerRoles !== undefined      ? { allianceManagerRoles:  JSON.stringify(body.allianceManagerRoles) }      : {}),
         ...(body.eventBotEnabled !== undefined           ? { eventBotEnabled: body.eventBotEnabled }                                 : {}),
         ...(body.dkpEnabled !== undefined                ? { dkpEnabled: body.dkpEnabled }                                           : {}),
         ...(body.lootEnabled !== undefined               ? { lootEnabled: body.lootEnabled }                                         : {}),
@@ -389,6 +396,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         viewerRoles:                JSON.stringify(body.viewerRoles                ?? []),
         dkpLabel:                   body.dkpLabel                   ?? 'DKP',
         lootDraftCreatorRoles:      JSON.stringify(body.lootDraftCreatorRoles      ?? []),
+        allianceManagerRoles:       JSON.stringify(body.allianceManagerRoles       ?? []),
         eventBotEnabled:            body.eventBotEnabled            ?? true,
         dkpEnabled:                 body.dkpEnabled                 ?? true,
         lootEnabled:                body.lootEnabled                ?? true,
@@ -403,7 +411,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       },
     });
 
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles } = await readPermissionFields(s.id);
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } = await readPermissionFields(s.id);
     res.json({
       success: true,
       data: {
@@ -418,6 +426,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         viewerRoles,
         dkpLabel,
         lootDraftCreatorRoles,
+        allianceManagerRoles,
         eventBotEnabled:            s.eventBotEnabled            ?? true,
         dkpEnabled:                 s.dkpEnabled                 ?? true,
         lootEnabled:                s.lootEnabled                ?? true,

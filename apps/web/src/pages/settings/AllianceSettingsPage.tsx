@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Network, Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronUp, Server,
-  UserPlus, AlertCircle, Clock, CheckCircle2, XCircle,
+  UserPlus, AlertCircle, Clock, CheckCircle2, XCircle, Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { allianceApi } from '@/api/alliance';
+import { settingsApi } from '@/api/settings';
+import type { GuildSettingsData } from '@/api/settings';
+import { RolePicker } from '@/components/settings/SettingsControls';
 import { getGuildIconUrl } from '@dem/shared';
 import type { AllianceDto, AllianceGuildDto, AllianceInvitationDto } from '@dem/shared';
 
@@ -194,7 +197,7 @@ function AllianceCard({
   const queryClient = useQueryClient();
 
   const rename = useMutation({
-    mutationFn: () => allianceApi.rename(alliance.id, { name }),
+    mutationFn: () => allianceApi.rename(alliance.id, { name, callerGuildId: activeDiscordGuildId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alliances'] });
       setEditing(false);
@@ -202,12 +205,12 @@ function AllianceCard({
   });
 
   const remove = useMutation({
-    mutationFn: () => allianceApi.remove(alliance.id),
+    mutationFn: () => allianceApi.remove(alliance.id, activeDiscordGuildId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alliances'] }),
   });
 
   const removeMember = useMutation({
-    mutationFn: (guildId: string) => allianceApi.removeMember(alliance.id, guildId),
+    mutationFn: (guildId: string) => allianceApi.removeMember(alliance.id, guildId, activeDiscordGuildId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alliances'] }),
   });
 
@@ -283,7 +286,6 @@ function AllianceCard({
             <p className="text-xs text-muted-foreground mb-3">No servers in this alliance yet.</p>
           )}
 
-          {/* Accepted members */}
           {accepted.length > 0 && (
             <div className="space-y-0 mb-2">
               {accepted.map((m) => (
@@ -306,7 +308,6 @@ function AllianceCard({
             </div>
           )}
 
-          {/* Pending invitations sent from this alliance */}
           {pending.length > 0 && (
             <div className="mb-3 space-y-1">
               {pending.map((m) => (
@@ -358,13 +359,50 @@ function AllianceCard({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export function AlliancePage() {
+type AllianceForm = Pick<GuildSettingsData, 'allianceManagerRoles'>;
+
+export function AllianceSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: alliances = [], isLoading, isError } = useQuery({
+  // ── Settings (role picker) ──
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+    queryKey: ['roles', guildId],
+    queryFn: () => settingsApi.getRoles(guildId!),
+    enabled: !!guildId,
+  });
+  const { data: saved, isLoading: settingsLoading } = useQuery({
+    queryKey: ['settings', guildId],
+    queryFn: () => settingsApi.getSettings(guildId!),
+    enabled: !!guildId,
+  });
+
+  const [form, setForm] = useState<AllianceForm>({ allianceManagerRoles: [] });
+  const [dirty, setDirty] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  useEffect(() => {
+    if (saved) {
+      setForm({ allianceManagerRoles: saved.allianceManagerRoles ?? [] });
+      setDirty(false);
+    }
+  }, [saved]);
+
+  const settingsMutation = useMutation({
+    mutationFn: (data: Partial<GuildSettingsData>) => settingsApi.updateSettings(guildId!, data),
+    onSuccess: (data) => {
+      if (data) queryClient.setQueryData(['settings', guildId], data);
+      setDirty(false);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2500);
+    },
+  });
+
+  // ── Alliance management ──
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+
+  const { data: alliances = [], isLoading: alliancesLoading, isError } = useQuery({
     queryKey: ['alliances'],
     queryFn: allianceApi.list,
     staleTime: 60_000,
@@ -384,13 +422,16 @@ export function AlliancePage() {
   });
 
   const createAlliance = useMutation({
-    mutationFn: () => allianceApi.create({ name: newName.trim() }),
+    mutationFn: () => allianceApi.create({ name: newName.trim(), callerGuildId: guildId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alliances'] });
       setNewName('');
       setCreating(false);
     },
   });
+
+  const roles = rolesData ?? [];
+  const isSettingsLoading = rolesLoading || settingsLoading;
 
   if (!guildId) return null;
 
@@ -400,7 +441,7 @@ export function AlliancePage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Network className="h-6 w-6" />
-            Alliances
+            Alliance
           </h1>
           <p className="mt-1 text-muted-foreground text-sm">
             Group servers into named alliances for cross-org events and coordination.
@@ -414,9 +455,55 @@ export function AlliancePage() {
         )}
       </div>
 
-      {/* Pending invitations for this guild */}
+      {/* ── Alliance Manager Roles ── */}
+      {isSettingsLoading ? (
+        <Skeleton className="h-32 rounded-lg" />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Alliance Manager Roles</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>
+                Server admins can always manage alliances. Select roles below to grant alliance management to additional members. If no roles are selected, only server admins can manage alliances.
+              </span>
+            </div>
+            {roles.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No assignable roles found in this server.</p>
+            ) : (
+              <RolePicker
+                roles={roles}
+                selected={form.allianceManagerRoles}
+                onChange={(ids) => { setForm({ allianceManagerRoles: ids }); setDirty(true); setSavedFlash(false); }}
+              />
+            )}
+            <div className="flex items-center gap-3 pt-1">
+              <Button
+                size="sm"
+                onClick={() => settingsMutation.mutate(form)}
+                disabled={!dirty || settingsMutation.isPending}
+              >
+                {settingsMutation.isPending ? 'Saving…' : 'Save Roles'}
+              </Button>
+              {savedFlash && (
+                <span className="flex items-center gap-1.5 text-sm text-green-500">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+              {settingsMutation.isError && (
+                <span className="text-sm text-destructive">Failed to save.</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Pending invitations for this guild ── */}
       <PendingInvitations invitations={invitations} discordGuildId={guildId} />
 
+      {/* ── Create new alliance ── */}
       {creating && (
         <Card>
           <CardContent className="pt-4">
@@ -444,7 +531,7 @@ export function AlliancePage() {
         </Card>
       )}
 
-      {isLoading && (
+      {alliancesLoading && (
         <div className="space-y-3">
           <Skeleton className="h-20 rounded-lg" />
           <Skeleton className="h-20 rounded-lg" />
@@ -458,7 +545,7 @@ export function AlliancePage() {
         </div>
       )}
 
-      {!isLoading && !isError && alliances.length === 0 && !creating && (
+      {!alliancesLoading && !isError && alliances.length === 0 && !creating && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12 text-center">
           <Network className="h-8 w-8 text-muted-foreground mb-3" />
           <p className="text-sm font-medium">No alliances yet</p>

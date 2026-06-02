@@ -22,14 +22,14 @@ export const allianceApi = {
   rename: (allianceId: string, body: RenameAllianceBody) =>
     api.patch<ApiResponse<AllianceDto>>(`/alliances/${allianceId}`, body).then((r) => r.data!),
 
-  remove: (allianceId: string) =>
-    api.delete<ApiResponse>(`/alliances/${allianceId}`),
+  remove: (allianceId: string, callerGuildId: string) =>
+    api.delete<ApiResponse>(`/alliances/${allianceId}?callerGuildId=${encodeURIComponent(callerGuildId)}`),
 
   addMember: (allianceId: string, body: AddAllianceMemberBody) =>
     api.post<ApiResponse<AllianceDto>>(`/alliances/${allianceId}/members`, body).then((r) => r.data!),
 
-  removeMember: (allianceId: string, guildId: string) =>
-    api.delete<ApiResponse<AllianceDto>>(`/alliances/${allianceId}/members/${guildId}`).then((r) => r.data!),
+  removeMember: (allianceId: string, guildId: string, callerGuildId: string) =>
+    api.delete<ApiResponse<AllianceDto>>(`/alliances/${allianceId}/members/${guildId}?callerGuildId=${encodeURIComponent(callerGuildId)}`).then((r) => r.data!),
 
   getInvitations: (discordGuildId: string) =>
     api

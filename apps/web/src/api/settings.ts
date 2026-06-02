@@ -25,6 +25,7 @@ export interface GuildSettingsData {
   viewerRoles: string[];
   dkpLabel: string;
   lootDraftCreatorRoles: string[];
+  allianceManagerRoles: string[];
   eventBotEnabled: boolean;
   dkpEnabled: boolean;
   lootEnabled: boolean;
