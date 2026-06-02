@@ -200,16 +200,22 @@ model Event {
   /// JSON: EventPoll — poll config posted to the forum thread alongside the embed
   pollData        String?
 
+  /// Optional alliance this event is shared across
+  allianceId     String?
+
   createdById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  rsvps     EventRsvp[]
-  reminders EventReminder[]
+  rsvps          EventRsvp[]
+  reminders      EventReminder[]
+  alliance       Alliance?            @relation(fields: [allianceId], references: [id], onDelete: SetNull)
+  allianceGuilds EventAllianceGuild[]
 
   @@index([guildId])
   @@index([startTime])
   @@index([status])
+  @@index([allianceId])
 }
 
 /// A roster entry — created when a user clicks Interested or a role button.
@@ -791,6 +797,7 @@ model Alliance {
   updatedAt DateTime         @updatedAt
 
   members AllianceMember[]
+  events  Event[]
 }
 
 /// Junction table — one row per guild in an Alliance.
@@ -806,6 +813,23 @@ model AllianceMember {
   @@unique([allianceId, guildId])
   @@index([allianceId])
   @@index([guildId])
+}
+
+/// Per-guild Discord entities for an alliance-shared event (non-host guilds).
+model EventAllianceGuild {
+  id              String   @id @default(cuid())
+  eventId         String
+  /// Discord snowflake for the alliance member guild
+  discordGuildId  String
+  threadId        String?
+  rosterMessageId String?
+  discordEventId  String?
+  createdAt       DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, discordGuildId])
+  @@index([eventId])
 }
 
 /// Minable / harvestable resource definition from resources/resources.json.

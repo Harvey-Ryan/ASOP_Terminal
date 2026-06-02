@@ -142,6 +142,15 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
 
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
+    // Validate alliance if provided
+    if (body.allianceId) {
+      const alliance = await prisma.alliance.findUnique({ where: { id: body.allianceId } });
+      if (!alliance) {
+        res.status(400).json({ success: false, error: 'Alliance not found' } satisfies ApiResponse);
+        return;
+      }
+    }
+
     const event = await prisma.event.create({
       data: {
         guildId,
@@ -156,6 +165,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         briefingChannel: body.briefingChannel ?? false,
         imageUrl: body.imageUrl ?? null,
         pollData: body.poll ? JSON.stringify(body.poll) : null,
+        allianceId: body.allianceId ?? null,
         createdById: dbUser.discordId,
         status: 'PENDING',
       },
@@ -702,5 +712,6 @@ function toDto(event: EventWithRsvps): EventDto {
     confirmedAttendees: event.confirmedAttendees ? (JSON.parse(event.confirmedAttendees) as string[]) : null,
     botCleanedUp: event.botCleanedUp,
     poll: event.pollData ? (JSON.parse(event.pollData) as EventPoll) : null,
+    allianceId: event.allianceId ?? null,
   };
 }

@@ -197,9 +197,118 @@ async function _setupDiscordForEvent(eventId: string) {
     data: { discordEventId, threadId, rosterMessageId },
   });
 
-  // ── Immediate VC creation (start < 30 min away) ──────────────────────────
+  // ── Alliance guild setup (forum threads + scheduled events, no VCs) ──────
+  if ((event as unknown as EventForAlliance).allianceId) {
+    await setupAllianceGuilds(event as unknown as EventForAlliance).catch((err) =>
+      console.error('[bot] setupAllianceGuilds failed:', err),
+    );
+  }
+
+  // ── Immediate VC creation (start < 30 min away) — host guild only ────────
   if (event.startTime.getTime() - Date.now() < 30 * 60_000) {
     await createVcsForEvent(eventId);
+  }
+}
+
+// ── Set up forum threads + scheduled events in all non-host alliance guilds ──
+
+type EventForAlliance = {
+  id: string;
+  guildId: string;
+  allianceId: string | null;
+  name: string;
+  description: string | null;
+  musterPoint: string | null;
+  startTime: Date;
+  endTime: Date | null;
+  recurType: string | null;
+  roles: string;
+  imageUrl: string | null;
+  rsvps: { userId: string; role: string | null }[];
+};
+
+async function setupAllianceGuilds(event: EventForAlliance) {
+  const alliance = await prisma.alliance.findUnique({
+    where: { id: event.allianceId! },
+    include: { members: { include: { guild: true } } },
+  });
+  if (!alliance) return;
+
+  const roles = JSON.parse(event.roles) as EventRole[];
+
+  for (const member of alliance.members) {
+    const memberDiscordGuildId = member.guild.guildId;
+    if (memberDiscordGuildId === event.guildId) continue;
+
+    const existing = await prisma.eventAllianceGuild.findUnique({
+      where: { eventId_discordGuildId: { eventId: event.id, discordGuildId: memberDiscordGuildId } },
+    });
+    if (existing) continue;
+
+    console.log(`[setupAllianceGuilds] setting up guild ${memberDiscordGuildId} for event ${event.id}`);
+
+    let memberThreadId: string | null = null;
+    let memberRosterMessageId: string | null = null;
+    let memberDiscordEventId: string | null = null;
+
+    try {
+      const memberGuild = await client.guilds.fetch(memberDiscordGuildId);
+
+      // Forum thread
+      const forumChannelId = await resolveForumChannelId(memberDiscordGuildId);
+      if (forumChannelId) {
+        const ch = await client.channels.fetch(forumChannelId).catch(() => null);
+        if (ch?.type === ChannelType.GuildForum) {
+          const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename);
+          const components = buildRoleButtons(event.id, roles, []);
+          const thread = await (ch as ForumChannel).threads.create({
+            name: event.name,
+            message: {
+              embeds: [embed],
+              components,
+              files: imageAttachment ? [imageAttachment.builder] : [],
+            },
+          });
+          memberThreadId = thread.id;
+          const starter = await thread.fetchStarterMessage().catch(() => null);
+          memberRosterMessageId = starter?.id ?? null;
+          console.log(`[setupAllianceGuilds] thread created in ${memberDiscordGuildId} — ${memberThreadId}`);
+        }
+      }
+
+      // Discord scheduled event
+      if (event.startTime > new Date()) {
+        const imageDataUri = event.imageUrl ? await fetchImageAsDataUri(event.imageUrl) : undefined;
+        const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
+        const scheduled = await memberGuild.scheduledEvents.create({
+          name: event.name,
+          description: buildScheduledEventDescription(event.description, memberDiscordGuildId, memberThreadId),
+          scheduledStartTime: event.startTime,
+          scheduledEndTime,
+          privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
+          entityType: GuildScheduledEventEntityType.External,
+          entityMetadata: { location: event.musterPoint ?? event.name },
+          ...(imageDataUri ? { image: imageDataUri } : {}),
+        }).catch((err) => {
+          console.error(`[setupAllianceGuilds] failed to create scheduled event in ${memberDiscordGuildId}:`, err);
+          return null;
+        });
+        memberDiscordEventId = scheduled?.id ?? null;
+      }
+
+      await prisma.eventAllianceGuild.create({
+        data: {
+          eventId: event.id,
+          discordGuildId: memberDiscordGuildId,
+          threadId: memberThreadId,
+          rosterMessageId: memberRosterMessageId,
+          discordEventId: memberDiscordEventId,
+        },
+      });
+    } catch (err) {
+      console.error(`[setupAllianceGuilds] failed for guild ${memberDiscordGuildId}:`, err);
+    }
   }
 }
 
@@ -310,6 +419,62 @@ export async function syncDiscordEvent(eventId: string) {
     console.log(`[syncDiscordEvent] no threadId — skipping forum thread update`);
   }
   console.log(`[syncDiscordEvent] done — eventId=${eventId}`);
+
+  // ── Sync alliance guild threads + scheduled events ────────────────────────
+  const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
+  if (allianceGuilds.length === 0) return;
+
+  const roles = JSON.parse(event.roles) as EventRole[];
+  const imageAttachmentSync = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
+  const imageDataUriSync = event.imageUrl ? await fetchImageAsDataUri(event.imageUrl) : undefined;
+  const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
+
+  for (const ag of allianceGuilds) {
+    // Update scheduled event
+    if (ag.discordEventId && event.status !== 'COMPLETED') {
+      try {
+        const memberGuild = await client.guilds.fetch(ag.discordGuildId).catch(() => null);
+        const scheduled = await memberGuild?.scheduledEvents.fetch(ag.discordEventId).catch(() => null);
+        if (scheduled) {
+          const timeFields = event.startTime > new Date()
+            ? { scheduledStartTime: event.startTime, scheduledEndTime }
+            : {};
+          await scheduled.edit({
+            name: event.name,
+            description: buildScheduledEventDescription(event.description, ag.discordGuildId, ag.threadId),
+            entityMetadata: { location: event.musterPoint ?? event.name },
+            ...timeFields,
+            ...(imageDataUriSync ? { image: imageDataUriSync } : { image: null }),
+          }).catch((err: unknown) => console.error(`[bot] Failed to update alliance scheduled event in ${ag.discordGuildId}:`, err));
+        }
+      } catch (err) {
+        console.error(`[bot] Failed to sync alliance scheduled event in ${ag.discordGuildId}:`, err);
+      }
+    }
+
+    // Update thread name + roster embed
+    if (ag.threadId) {
+      try {
+        const thread = await client.channels.fetch(ag.threadId).catch(() => null);
+        if (thread?.isThread()) {
+          if (thread.name !== event.name) {
+            await thread.setName(event.name).catch(() => null);
+          }
+          const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename);
+          const components = buildRoleButtons(event.id, roles, event.rsvps);
+          const rosterMsg = ag.rosterMessageId
+            ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
+            : await thread.fetchStarterMessage().catch(() => null);
+          if (rosterMsg) {
+            const files = imageAttachmentSync ? [imageAttachmentSync.builder] : [];
+            await rosterMsg.edit({ embeds: [embed], components, files }).catch(() => null);
+          }
+        }
+      } catch (err) {
+        console.error(`[bot] Failed to sync alliance thread in ${ag.discordGuildId}:`, err);
+      }
+    }
+  }
 }
 
 // ── Update the roster embed after any RSVP change ─────────────────────────────
@@ -319,7 +484,7 @@ export async function updateRosterEmbed(eventId: string) {
     where: { id: eventId },
     include: { rsvps: true },
   });
-  if (!event?.threadId) return;
+  if (!event) return;
 
   const roles = JSON.parse(event.roles) as EventRole[];
   const eventImageUrl = event.imageUrl;
@@ -340,20 +505,37 @@ export async function updateRosterEmbed(eventId: string) {
     await msg.edit({ embeds: [embed], components, files, attachments: keepAttachments });
   }
 
-  try {
-    const thread = await client.channels.fetch(event.threadId);
-    if (!thread?.isThread()) return;
-
-    if (event.rosterMessageId) {
-      const msg = await thread.messages.fetch(event.rosterMessageId).catch(() => null);
-      if (msg) { await applyEdit(msg); return; }
+  // Update host guild thread
+  if (event.threadId) {
+    try {
+      const thread = await client.channels.fetch(event.threadId);
+      if (thread?.isThread()) {
+        let rosterMsg: Message | null = null;
+        if (event.rosterMessageId) {
+          rosterMsg = await thread.messages.fetch(event.rosterMessageId).catch(() => null);
+        }
+        if (!rosterMsg) rosterMsg = await thread.fetchStarterMessage().catch(() => null);
+        if (rosterMsg) await applyEdit(rosterMsg);
+      }
+    } catch (err) {
+      console.error('[bot] Failed to update roster embed:', err);
     }
+  }
 
-    // Fallback: edit starter message
-    const starter = await thread.fetchStarterMessage().catch(() => null);
-    if (starter) await applyEdit(starter);
-  } catch (err) {
-    console.error('[bot] Failed to update roster embed:', err);
+  // Update alliance guild threads
+  const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
+  for (const ag of allianceGuilds) {
+    if (!ag.threadId) continue;
+    try {
+      const thread = await client.channels.fetch(ag.threadId).catch(() => null);
+      if (!thread?.isThread()) continue;
+      const msg = ag.rosterMessageId
+        ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
+        : await thread.fetchStarterMessage().catch(() => null);
+      if (msg) await applyEdit(msg);
+    } catch (err) {
+      console.error(`[bot] Failed to update alliance roster embed for guild ${ag.discordGuildId}:`, err);
+    }
   }
 }
 
@@ -361,7 +543,7 @@ export async function updateRosterEmbed(eventId: string) {
 
 export async function postEventLive(eventId: string) {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (!event?.threadId || event.livePosted) return;
+  if (!event || event.livePosted) return;
 
   // Mark first to prevent duplicate sends if the cron fires again before the send completes
   await prisma.event.update({ where: { id: eventId }, data: { livePosted: true } });
@@ -373,15 +555,36 @@ export async function postEventLive(eventId: string) {
   if (vcMentions) content += `\nJoin a voice channel: ${vcMentions}`;
   if (event.musterPoint) content += `\n📍 ${event.musterPoint}`;
 
-  try {
-    const thread = await client.channels.fetch(event.threadId);
-    if (thread?.isThread()) {
-      const wasArchived = thread.archived ?? false;
-      if (wasArchived) await thread.setArchived(false).catch(() => null);
-      await thread.send(content);
+  if (event.threadId) {
+    try {
+      const thread = await client.channels.fetch(event.threadId);
+      if (thread?.isThread()) {
+        const wasArchived = thread.archived ?? false;
+        if (wasArchived) await thread.setArchived(false).catch(() => null);
+        await thread.send(content);
+      }
+    } catch (err) {
+      console.error(`[bot] Failed to post live message for event ${eventId}:`, err);
     }
-  } catch (err) {
-    console.error(`[bot] Failed to post live message for event ${eventId}:`, err);
+  }
+
+  // Also broadcast to alliance guild threads (without VC mentions — VCs are host-only)
+  const allianceContent = vcMentions
+    ? content.replace(`\nJoin a voice channel: ${vcMentions}`, '')
+    : content;
+  const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
+  for (const ag of allianceGuilds) {
+    if (!ag.threadId) continue;
+    try {
+      const thread = await client.channels.fetch(ag.threadId).catch(() => null);
+      if (thread?.isThread()) {
+        const wasArchived = thread.archived ?? false;
+        if (wasArchived) await thread.setArchived(false).catch(() => null);
+        await thread.send(allianceContent).catch(() => null);
+      }
+    } catch (err) {
+      console.error(`[bot] Failed to post live message in alliance guild ${ag.discordGuildId}:`, err);
+    }
   }
 }
 
@@ -458,7 +661,7 @@ export async function endEvent(eventId: string) {
     }
   }
 
-  // Delete the Discord Scheduled Event
+  // Delete the Discord Scheduled Event (host guild)
   if (event.discordEventId) {
     try {
       const guild = await client.guilds.fetch(event.guildId);
@@ -468,7 +671,8 @@ export async function endEvent(eventId: string) {
     }
   }
 
-  // Update embed with VC attendance + remove buttons, then archive thread
+  // Update embed with VC attendance + remove buttons, then archive host thread
+  const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
   if (event.threadId) {
     try {
       const thread = await client.channels.fetch(event.threadId);
@@ -477,16 +681,43 @@ export async function endEvent(eventId: string) {
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
         if (rosterMsg) {
-          const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename);
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
-
         await thread.send(`🏁 **${event.name}** has ended.`);
       }
     } catch (err) {
       console.error('[bot] Failed to archive forum thread:', err);
+    }
+  }
+
+  // End event in all alliance guild threads
+  const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
+  for (const ag of allianceGuilds) {
+    if (ag.discordEventId) {
+      try {
+        const memberGuild = await client.guilds.fetch(ag.discordGuildId).catch(() => null);
+        await memberGuild?.scheduledEvents.delete(ag.discordEventId).catch(() => null);
+      } catch {}
+    }
+    if (ag.threadId) {
+      try {
+        const thread = await client.channels.fetch(ag.threadId).catch(() => null);
+        if (thread?.isThread()) {
+          const rosterMsg = ag.rosterMessageId
+            ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
+            : await thread.fetchStarterMessage().catch(() => null);
+          if (rosterMsg) {
+            const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename);
+            const files = imageAttachment ? [imageAttachment.builder] : [];
+            await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
+          }
+          await thread.send(`🏁 **${event.name}** has ended.`).catch(() => null);
+        }
+      } catch (err) {
+        console.error(`[bot] Failed to end event in alliance guild ${ag.discordGuildId}:`, err);
+      }
     }
   }
 

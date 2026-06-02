@@ -171,6 +171,8 @@ export interface CreateEventBody {
   repeatFromTemplateId?: string;
   /** Optional poll posted to the forum thread below the roster embed */
   poll?: EventPoll;
+  /** Alliance ID to share this event across all member guilds */
+  allianceId?: string;
 }
 
 export interface RsvpDto {
@@ -208,6 +210,7 @@ export interface EventDto {
   confirmedAttendees: string[] | null;
   botCleanedUp: boolean;
   poll: EventPoll | null;
+  allianceId: string | null;
 }
 
 // ── Loot ─────────────────────────────────────────────────────────────────────

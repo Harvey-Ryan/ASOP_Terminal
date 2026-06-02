@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown, BarChart2 } from 'lucide-react';
+import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown, BarChart2, Network } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
+import { allianceApi } from '@/api/alliance';
 import type { CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
@@ -168,6 +169,8 @@ export function EventCreateForm({
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [pollMultiselect, setPollMultiselect] = useState(false);
   const [pollDuration, setPollDuration] = useState(24);
+  const [allianceEnabled, setAllianceEnabled] = useState(false);
+  const [selectedAllianceId, setSelectedAllianceId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Refs for keyboard-driven add-row focus
@@ -177,6 +180,11 @@ export function EventCreateForm({
   const { data: imageLibrary = [] } = useQuery({
     queryKey: ['images', guildId],
     queryFn: () => imagesApi.list(guildId),
+  });
+
+  const { data: alliances = [] } = useQuery({
+    queryKey: ['alliances'],
+    queryFn: allianceApi.list,
   });
 
   const uploadMutation = useMutation({
@@ -253,6 +261,7 @@ export function EventCreateForm({
       imageUrl: selectedImageUrl ?? undefined,
       repeatFromTemplateId: fromTemplateId,
       poll,
+      allianceId: allianceEnabled && selectedAllianceId ? selectedAllianceId : undefined,
     });
   }
 
@@ -277,6 +286,16 @@ export function EventCreateForm({
             onClick={() => setPollEnabled((v) => !v)}>
             <BarChart2 className="h-3.5 w-3.5" />
             Poll
+          </Button>
+          <Button type="button" variant="outline" size="sm"
+            className={`gap-1.5 bg-primary border-2 transition-colors ${
+              allianceEnabled
+                ? 'border-primary-foreground text-primary-foreground'
+                : 'border-primary-foreground/30 text-primary-foreground/50 hover:border-primary-foreground hover:text-primary-foreground'
+            }`}
+            onClick={() => { setAllianceEnabled((v) => !v); if (allianceEnabled) setSelectedAllianceId(''); }}>
+            <Network className="h-3.5 w-3.5" />
+            Alliance Share
           </Button>
           {repeatSource && (
             <span className="text-xs text-primary-foreground/60">
@@ -552,6 +571,49 @@ export function EventCreateForm({
               </button>
               <span className="text-sm text-primary-foreground/90">Allow multiple selections</span>
             </label>
+          </div>
+        </div>
+      )}
+
+      {/* Alliance Share */}
+      {allianceEnabled && (
+        <div className={rowCls}>
+          <span className={labelCls}>
+            Alliance
+            <span className="block text-[10px] opacity-50 normal-case tracking-normal mt-0.5">broadcast to guilds</span>
+          </span>
+          <div className="flex-1">
+            {alliances.length === 0 ? (
+              <p className="text-sm text-primary-foreground/60 italic pt-2">
+                No alliances configured. Create one under Admin → Alliance.
+              </p>
+            ) : (
+              <select
+                className={inputCls}
+                value={selectedAllianceId}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAllianceId(e.target.value)}
+              >
+                <option value="">Select an alliance…</option>
+                {alliances.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.members.length} guild{a.members.length !== 1 ? 's' : ''})
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedAllianceId && (() => {
+              const alliance = alliances.find((a) => a.id === selectedAllianceId);
+              if (!alliance) return null;
+              return (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {alliance.members.map((m) => (
+                    <span key={m.id} className="inline-flex items-center gap-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
+                      {m.name}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
