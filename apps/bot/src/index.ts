@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Events, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+import type { EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
@@ -164,7 +165,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // ── Role roster buttons ───────────────────────────────────────────────────
     if (prefix === 'role') {
-      const role = value === '__unassigned__' ? null : value;
+      const roleKey = value === '__unassigned__' ? null : value;
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { not: 'COMPLETED' } },
@@ -173,11 +174,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.reply({ content: 'This event has already ended.', flags: MessageFlags.Ephemeral });
           return;
         }
+        let label = 'Unassigned';
+        if (roleKey) {
+          const roles = JSON.parse(event.roles) as EventRole[];
+          const found = roles.find((r) => (r.id ?? r.name) === roleKey);
+          label = found?.name ?? roleKey;
+        }
         const displayName = (interaction.member instanceof GuildMember)
           ? interaction.member.displayName
           : interaction.user.username;
-        await setRosterRole(entityId, interaction.user.id, displayName, role);
-        const label = role ?? 'Unassigned';
+        await setRosterRole(entityId, interaction.user.id, displayName, roleKey);
         await interaction.reply({
           content: `✅ You are marked as **${label}** for **${event.name}**.`,
           flags: MessageFlags.Ephemeral,

@@ -66,7 +66,8 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
 
   if (roles.length > 0) {
     for (const role of roles) {
-      const members = event.rsvps.filter((r) => r.role === role.name);
+      const roleKey = role.id ?? role.name;
+      const members = event.rsvps.filter((r) => r.role === roleKey);
       const filled = `${members.length}/${role.count}`;
       const value = members.length > 0
         ? members.map((r) => formatMember(r.userId, activeUserIds)).join(', ')
@@ -177,10 +178,10 @@ export function buildRoleButtons(
 
   const allButtons: ButtonBuilder[] = [
     ...visibleRoles
-      .filter((role) => rsvps.filter((r) => r.role === role.name).length < role.count)
+      .filter((role) => rsvps.filter((r) => r.role === (role.id ?? role.name)).length < role.count)
       .map((role) =>
         new ButtonBuilder()
-          .setCustomId(`role:${eventId}:${role.name}`)
+          .setCustomId(`role:${eventId}:${role.id ?? role.name}`)
           .setLabel(role.name)
           .setStyle(ButtonStyle.Primary),
       ),

@@ -2,6 +2,7 @@ import { EmbedBuilder } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { updateRosterEmbed } from './eventService.js';
+import type { EventRole } from '@dem/shared';
 
 /**
  * Upsert a roster entry. role=null means Unassigned.
@@ -151,6 +152,9 @@ async function flushRosterUpdate(eventId: string) {
 
   if (joined.length === 0 && left.length === 0 && roleChanged.length === 0) return;
 
+  const eventRoles = event ? (JSON.parse(event.roles) as EventRole[]) : [];
+  const roleNameByKey = new Map(eventRoles.map((r) => [r.id ?? r.name, r.name]));
+
   const embed = new EmbedBuilder()
     .setTitle('📋 Roster Updated')
     .setColor(0x5865f2);
@@ -171,8 +175,8 @@ async function flushRosterUpdate(eventId: string) {
   }
   if (roleChanged.length > 0) {
     const lines = roleChanged.map((r) => {
-      const from = r.from ?? 'Unassigned';
-      const to = r.to ?? 'Unassigned';
+      const from = r.from ? (roleNameByKey.get(r.from) ?? r.from) : 'Unassigned';
+      const to = r.to ? (roleNameByKey.get(r.to) ?? r.to) : 'Unassigned';
       return `<@${r.userId}> · ${from} → **${to}**`;
     });
     embed.addFields({ name: 'Role Changes', value: lines.join('\n'), inline: false });

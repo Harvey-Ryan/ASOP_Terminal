@@ -9,6 +9,10 @@ import type { CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto 
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+function ensureRoleIds(roles: EventRole[]): EventRole[] {
+  return roles.map((r) => r.id ? r : { ...r, id: crypto.randomUUID() });
+}
+
 const inputCls =
   'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 
@@ -166,7 +170,7 @@ export function EventCreateForm({
   const [musterPoint, setMusterPoint] = useState(repeatSource?.musterPoint ?? '');
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
-  const [roles, setRoles] = useState<EventRole[]>(repeatSource?.roles ?? []);
+  const [roles, setRoles] = useState<EventRole[]>(() => ensureRoleIds(repeatSource?.roles ?? []));
   const [vcNames, setVcNames] = useState<string[]>(repeatSource?.vcNames ?? []);
   const [briefingChannel, setBriefingChannel] = useState(repeatSource?.briefingChannel ?? false);
   const [duration, setDuration] = useState('120');
@@ -218,7 +222,7 @@ export function EventCreateForm({
 
   function addRoleAndFocus() {
     setRoles((prev) => {
-      const next = [...prev, { name: '', count: 1 }];
+      const next = [...prev, { id: crypto.randomUUID(), name: '', count: 1 }];
       setTimeout(() => roleInputRefs.current[next.length - 1]?.focus(), 0);
       return next;
     });
@@ -236,7 +240,7 @@ export function EventCreateForm({
     setName(t.name);
     setDescription(t.description ?? '');
     setMusterPoint(t.musterPoint ?? '');
-    setRoles(t.roles);
+    setRoles(ensureRoleIds(t.roles));
     setVcNames(t.vcNames);
     setBriefingChannel(t.briefingChannel);
     setSelectedImageUrl(t.imageUrl ?? null);

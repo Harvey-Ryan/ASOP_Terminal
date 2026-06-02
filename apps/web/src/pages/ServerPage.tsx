@@ -21,6 +21,10 @@ import type { RecentLootEvent } from '@/api/loot';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+function ensureRoleIds(roles: EventRole[]): EventRole[] {
+  return roles.map((r) => r.id ? r : { ...r, id: crypto.randomUUID() });
+}
+
 const RECUR_LABELS: Record<string, string> = {
   DAILY: 'Daily',
   WEEKLY: 'Weekly',
@@ -79,7 +83,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
     const mins = Math.round((new Date(event.endTime).getTime() - initStart.getTime()) / 60_000);
     return [30, 60, 90, 120, 180, 240, 360].includes(mins) ? String(mins) : '0';
   });
-  const [roles, setRoles] = useState<EventRole[]>(event.roles ?? []);
+  const [roles, setRoles] = useState<EventRole[]>(() => ensureRoleIds(event.roles ?? []));
   const [vcNames, setVcNames] = useState<string[]>(event.vcNames ?? []);
   const [briefingChannel, setBriefingChannel] = useState(event.briefingChannel ?? false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(event.imageUrl ?? null);
@@ -139,7 +143,7 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
 
   function addRoleAndFocus() {
     setRoles((prev) => {
-      const next = [...prev, { name: '', count: 1 }];
+      const next = [...prev, { id: crypto.randomUUID(), name: '', count: 1 }];
       setTimeout(() => roleInputRefs.current[next.length - 1]?.focus(), 0);
       return next;
     });
@@ -177,10 +181,10 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
 
   const rosterBuckets = [
     ...roles.filter((r) => r.name.trim()).map((role) => ({
-      key: role.name,
+      key: role.id ?? role.name,
       label: role.name,
       count: role.count as number | null,
-      members: ev.rsvps.filter((r) => r.role === role.name),
+      members: ev.rsvps.filter((r) => r.role === (role.id ?? role.name)),
     })),
     { key: '__unassigned', label: 'Unassigned', count: null, members: ev.rsvps.filter((r) => !r.role) },
   ];
@@ -617,11 +621,12 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <span className={labelCls}>Roles</span>
           <div className="flex-1 space-y-4">
             {roles.map((role) => {
-              const members = ev.rsvps?.filter((r) => r.role === role.name) ?? [];
+              const roleKey = role.id ?? role.name;
+              const members = ev.rsvps?.filter((r) => r.role === roleKey) ?? [];
               const isFull = members.length >= role.count;
-              const isMyRole = userRsvp?.role === role.name;
+              const isMyRole = userRsvp?.role === roleKey;
               return (
-                <div key={role.name}>
+                <div key={roleKey}>
                   <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
                     {role.name} ({members.length}/{role.count})
                   </p>
@@ -643,7 +648,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                       ) : (
                         <Button size="sm" disabled={isMutating || (isFull && !isMyRole)}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
-                          onClick={() => rsvpMutation.mutate(role.name)}>
+                          onClick={() => rsvpMutation.mutate(roleKey)}>
                           {isFull ? 'Full' : userRsvp ? 'Switch Here' : 'Sign Up'}
                         </Button>
                       )}

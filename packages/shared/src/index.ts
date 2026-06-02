@@ -137,6 +137,8 @@ export type GuildRole = 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'MEMBER';
 // ── Events ────────────────────────────────────────────────────────────────────
 
 export interface EventRole {
+  /** Unique identifier for this role slot — stored in RSVPs instead of name to prevent cross-guild collisions. */
+  id: string;
   name: string;
   count: number;
   /** Discord snowflake of the guild this role is restricted to. Absent/null = all guilds. */
