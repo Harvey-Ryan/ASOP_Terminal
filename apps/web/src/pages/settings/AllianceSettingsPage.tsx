@@ -473,74 +473,72 @@ export function AllianceSettingsPage() {
       </div>
 
       {/* ── Alliance Org Tag ── */}
-      {isSettingsLoading ? (
-        <Skeleton className="h-24 rounded-lg" />
-      ) : (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              Org Tag
-              {tagFlash && (
-                <span className="flex items-center gap-1 text-xs font-normal text-green-500">
-                  <Check className="h-3.5 w-3.5" /> Saved
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              A 4-character alphanumeric tag identifying your guild within an alliance (e.g.{' '}
-              <span className="font-mono">ASOP</span>).
-            </p>
-            {editingTag ? (
-              <div className="flex items-center gap-2">
-                <input
-                  value={tagDraft}
-                  onChange={(e) => setTagDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') tagMutation.mutate(tagDraft || null);
-                    if (e.key === 'Escape') setEditingTag(false);
-                  }}
-                  placeholder="e.g. ASOP"
-                  maxLength={4}
-                  autoFocus
-                  className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-ring"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => tagMutation.mutate(tagDraft || null)}
-                  disabled={tagMutation.isPending}
-                >
-                  <Check className="h-3.5 w-3.5 mr-1.5" />
-                  {tagMutation.isPending ? 'Saving…' : 'Save'}
-                </Button>
-                <Button
-                  size="sm" variant="ghost"
-                  onClick={() => setEditingTag(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {saved?.allianceTag ? (
-                  <span className="font-mono text-sm tracking-widest bg-muted px-3 py-1.5 rounded-md border border-border">
-                    {saved.allianceTag}
-                  </span>
-                ) : (
-                  <span className="text-sm text-muted-foreground italic">Not set</span>
-                )}
-                <Button
-                  size="icon" variant="ghost" className="h-8 w-8"
-                  onClick={() => { setTagDraft(saved?.allianceTag ?? ''); setEditingTag(true); }}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            Org Tag
+            {tagFlash && (
+              <span className="flex items-center gap-1 text-xs font-normal text-green-500">
+                <Check className="h-3.5 w-3.5" /> Saved
+              </span>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            A 4-character alphanumeric tag identifying your guild within an alliance (e.g.{' '}
+            <span className="font-mono">ASOP</span>).
+          </p>
+          {settingsLoading ? (
+            <Skeleton className="h-8 w-48 rounded-md" />
+          ) : editingTag ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') tagMutation.mutate(tagDraft || null);
+                  if (e.key === 'Escape') setEditingTag(false);
+                }}
+                placeholder="e.g. ASOP"
+                maxLength={4}
+                autoFocus
+                className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-ring"
+              />
+              <Button
+                size="sm"
+                onClick={() => tagMutation.mutate(tagDraft || null)}
+                disabled={tagMutation.isPending}
+              >
+                <Check className="h-3.5 w-3.5 mr-1.5" />
+                {tagMutation.isPending ? 'Saving…' : 'Save'}
+              </Button>
+              <Button
+                size="sm" variant="ghost"
+                onClick={() => setEditingTag(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {saved?.allianceTag ? (
+                <span className="font-mono text-sm tracking-widest bg-muted px-3 py-1.5 rounded-md border border-border">
+                  {saved.allianceTag}
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground italic">Not set</span>
+              )}
+              <Button
+                size="icon" variant="ghost" className="h-8 w-8"
+                onClick={() => { setTagDraft(saved?.allianceTag ?? ''); setEditingTag(true); }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Alliance Manager Roles ── */}
       {isSettingsLoading ? (
