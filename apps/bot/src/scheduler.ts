@@ -271,30 +271,46 @@ async function checkInactivityEnd() {
 // ── Process ENDED events (thread cleanup backstop + deferred VC deletion) ────
 
 async function checkEndedEvents() {
-  // 2-minute guard: let the API's /trigger/end handler call endEvent() first
-  // so the scheduler acts as a backstop, not a concurrent runner.
   const twoMinutesAgo = new Date(Date.now() - 2 * 60_000);
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000);
 
-  const ended = await prisma.event.findMany({
-    where: { status: 'ENDED', botCleanedUp: false, updatedAt: { lte: twoMinutesAgo } },
+  // ── Phase 1: thread/embed cleanup backstop ────────────────────────────────
+  // 2-minute updatedAt guard prevents racing the API trigger that calls endEvent()
+  // directly. The scheduler only acts as a backstop if the bot was down or the
+  // trigger call failed.
+  const needsEndEvent = await prisma.event.findMany({
+    where: {
+      status: 'ENDED',
+      botCleanedUp: false,
+      botEndedAt: null,
+      updatedAt: { lte: twoMinutesAgo },
+    },
     take: 5,
   });
 
-  for (const event of ended) {
-    // ── Phase 1: thread/embed cleanup (backstop if bot was down during trigger) ──
-    if (!event.botEndedAt) {
-      await endEvent(event.id).catch((err) =>
-        console.error(`[bot] endEvent backstop failed for ${event.id}:`, err),
-      );
-      continue; // vcsEmptiedAt timer starts next iteration after botEndedAt is set
-    }
+  for (const event of needsEndEvent) {
+    await endEvent(event.id).catch((err) =>
+      console.error(`[bot] endEvent backstop failed for ${event.id}:`, err),
+    );
+  }
 
-    // ── Phase 2: deferred VC deletion with 5-min empty timer ─────────────────
+  // ── Phase 2: deferred VC deletion with 5-min empty timer ─────────────────
+  // Uses botEndedAt (not updatedAt) as the guard so that intermediate state
+  // writes (setting vcsEmptiedAt, resetting it when occupied) don't cause the
+  // event to disappear from this query for 2 minutes each time.
+  const needsVcCleanup = await prisma.event.findMany({
+    where: {
+      status: 'ENDED',
+      botCleanedUp: false,
+      botEndedAt: { not: null },
+    },
+    take: 5,
+  });
+
+  for (const event of needsVcCleanup) {
     const vcIds = JSON.parse(event.vcIds) as string[];
 
     if (vcIds.length === 0) {
-      // No VCs (or all already deleted) — mark cleaned up
       await prisma.event.update({ where: { id: event.id }, data: { botCleanedUp: true } });
       continue;
     }
@@ -327,7 +343,7 @@ async function checkEndedEvents() {
     }
 
     if (event.vcsEmptiedAt > fiveMinutesAgo) {
-      continue; // not yet 5 minutes empty
+      continue; // not yet 5 minutes empty — no DB write, no updatedAt bump
     }
 
     // 5 minutes have elapsed with empty VCs — delete them
