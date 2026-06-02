@@ -295,14 +295,16 @@ function AllianceCard({
                 >
                   <GuildIcon guild={m} size={6} />
                   <span className="flex-1 text-sm truncate">{m.name}</span>
-                  <Button
-                    size="icon" variant="ghost"
-                    className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                    onClick={() => removeMember.mutate(m.guildId)}
-                    disabled={removeMember.isPending}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+                  {m.guildId !== activeDiscordGuildId && (
+                    <Button
+                      size="icon" variant="ghost"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                      onClick={() => removeMember.mutate(m.guildId)}
+                      disabled={removeMember.isPending}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

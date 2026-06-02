@@ -138,7 +138,17 @@ allianceRouter.post('/alliances', requireAuth, async (req, res) => {
     include: memberInclude,
   });
 
-  res.status(201).json({ success: true, data: toDto(alliance) } satisfies ApiResponse<AllianceDto>);
+  // Auto-add the creating guild as an ACCEPTED member so the alliance is
+  // symmetric from the start — other members can share events back to them.
+  const callerGuildRecord = await prisma.guild.findUnique({ where: { guildId: callerGuildId } });
+  if (callerGuildRecord) {
+    await prisma.allianceMember.create({
+      data: { allianceId: alliance.id, guildId: callerGuildRecord.id, status: 'ACCEPTED' },
+    });
+  }
+
+  const created = await prisma.alliance.findUniqueOrThrow({ where: { id: alliance.id }, include: memberInclude });
+  res.status(201).json({ success: true, data: toDto(created) } satisfies ApiResponse<AllianceDto>);
 });
 
 // ── PATCH /api/alliances/:allianceId ─────────────────────────────────────────
