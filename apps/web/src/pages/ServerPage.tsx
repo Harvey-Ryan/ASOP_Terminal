@@ -477,6 +477,9 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const endTimeStr = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null;
   const canEnd = ev.status !== 'ENDED' && ev.status !== 'COMPLETED';
   const canRsvp = ev.status === 'PENDING' || ev.status === 'ACTIVE';
+  // Alliance events are read-only for non-host guilds; only the host guild can manage.
+  const isHostGuild = ev.guildId === guildId;
+  const canManage = isManager && isHostGuild;
   const userRsvp = userId ? ev.rsvps.find((r) => r.userId === userId) : undefined;
   const unassigned = ev.rsvps?.filter((r) => !r.role) ?? [];
   const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending;
@@ -514,6 +517,9 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             <span className={`rounded-full px-2 py-0.5 text-base font-medium ${STATUS_BADGE[ev.status]}`}>
               {ev.status}
             </span>
+          )}
+          {!isHostGuild && (
+            <span className="rounded-full px-2 py-0.5 text-sm font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400">Alliance</span>
           )}
           {ev.recurType && (
             <span className="text-base opacity-60">{RECUR_LABELS[ev.recurType] ?? ev.recurType}</span>
@@ -709,7 +715,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <p className="text-base text-primary-foreground/60 mr-auto">Discord sync pending…</p>
         )}
         <div className="flex gap-2 ml-auto">
-          {isManager && ev.vcIds.length === 0 && (ev.vcNames.length > 0 || ev.briefingChannel) && (ev.status === 'PENDING' || ev.status === 'ACTIVE') && (
+          {canManage && ev.vcIds.length === 0 && (ev.vcNames.length > 0 || ev.briefingChannel) && (ev.status === 'PENDING' || ev.status === 'ACTIVE') && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={() => createVcsMutation.mutate()}
@@ -718,7 +724,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               {createVcsMutation.isPending ? 'Creating…' : createVcsMutation.isSuccess ? 'Queued' : 'Create VCs'}
             </Button>
           )}
-          {isManager && ev.status === 'ENDED' && lootSession?.status === 'OPEN' && (
+          {canManage && ev.status === 'ENDED' && lootSession?.status === 'OPEN' && (
             <Button size="sm" asChild
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
@@ -726,7 +732,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </Link>
             </Button>
           )}
-          {isManager && ev.status === 'COMPLETED' && lootSession?.status === 'OPEN' && (
+          {canManage && ev.status === 'COMPLETED' && lootSession?.status === 'OPEN' && (
             <Button size="sm" asChild
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
@@ -734,7 +740,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </Link>
             </Button>
           )}
-          {isManager && ev.status === 'COMPLETED' && lootSession?.status === 'COMPLETED' && (
+          {canManage && ev.status === 'COMPLETED' && lootSession?.status === 'COMPLETED' && (
             <Button size="sm" asChild
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
@@ -742,21 +748,21 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </Link>
             </Button>
           )}
-          {isManager && ev.status === 'COMPLETED' && (
+          {canManage && ev.status === 'COMPLETED' && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={onRepeat}>
               <RotateCcw className="h-3.5 w-3.5" />Repeat
             </Button>
           )}
-          {isManager && ev.status !== 'COMPLETED' && (
+          {canManage && ev.status !== 'COMPLETED' && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />Edit
             </Button>
           )}
-          {isManager && ev.status === 'PENDING' && (
+          {canManage && ev.status === 'PENDING' && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={() => startMutation.mutate()}
@@ -765,7 +771,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               {startMutation.isPending ? 'Starting…' : 'Start Event'}
             </Button>
           )}
-          {canEnd && isManager && (
+          {canEnd && canManage && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={() => {
@@ -786,13 +792,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
 
 // ── Event row (Fleet Manager style) ──────────────────────────────────────────
 
-function EventCard({ event, userId, onClick }: { event: EventDto; userId?: string; onClick: () => void }) {
+function EventCard({ event, guildId, userId, onClick }: { event: EventDto; guildId: string; userId?: string; onClick: () => void }) {
   const start = new Date(event.startTime);
   const month = start.toLocaleDateString('en', { month: 'short' });
   const day = start.getDate();
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const location = event.musterPoint ?? '—';
   const userRsvp = userId ? event.rsvps.find((r) => r.userId === userId) : undefined;
+  const isAllianceEvent = event.guildId !== guildId;
 
   return (
     <button
@@ -812,7 +819,12 @@ function EventCard({ event, userId, onClick }: { event: EventDto; userId?: strin
 
       {/* Event */}
       <div className="flex-1 px-4 py-3 min-w-0">
-        <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
+          {isAllianceEvent && (
+            <span className="rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400 shrink-0">Alliance</span>
+          )}
+        </div>
         {event.recurType && (
           <p className="text-[15px] opacity-60 line-clamp-2">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
         )}
@@ -1158,7 +1170,7 @@ export function ServerPage() {
               ) : (
                 <div className="flex-1 overflow-y-auto bg-primary [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
                   {active.data.map((e) => (
-                    <EventCard key={e.id} event={e} userId={user?.id} onClick={() => openDetail(e)} />
+                    <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} onClick={() => openDetail(e)} />
                   ))}
                 </div>
               )}

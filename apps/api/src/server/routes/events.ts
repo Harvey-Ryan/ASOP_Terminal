@@ -27,8 +27,21 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
       return;
     }
 
+    // Include events shared with alliances that this guild has accepted.
+    const memberships = await prisma.allianceMember.findMany({
+      where: { guild: { guildId }, status: 'ACCEPTED' },
+      select: { allianceId: true },
+    });
+    const allianceIds = memberships.map((m) => m.allianceId);
+
+    const guildFilter = allianceIds.length > 0
+      ? { OR: [{ guildId }, { allianceId: { in: allianceIds } }] }
+      : { guildId };
+
     const events = await prisma.event.findMany({
-      where: completed ? { guildId, status: 'COMPLETED' } : { guildId, status: { not: 'COMPLETED' } },
+      where: completed
+        ? { ...guildFilter, status: 'COMPLETED' }
+        : { ...guildFilter, status: { not: 'COMPLETED' } },
       orderBy: { startTime: completed ? 'desc' : 'asc' },
       take: 50,
       include: { rsvps: true },
@@ -51,8 +64,21 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
     return;
   }
 
+  // Allow viewing own events and alliance-shared events.
+  const memberships = await prisma.allianceMember.findMany({
+    where: { guild: { guildId }, status: 'ACCEPTED' },
+    select: { allianceId: true },
+  });
+  const allianceIds = memberships.map((m) => m.allianceId);
+
   const event = await prisma.event.findFirst({
-    where: { id: eventId, guildId },
+    where: {
+      id: eventId,
+      OR: [
+        { guildId },
+        ...(allianceIds.length > 0 ? [{ allianceId: { in: allianceIds } }] : []),
+      ],
+    },
     include: { rsvps: true },
   });
 
