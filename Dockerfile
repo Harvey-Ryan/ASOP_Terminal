@@ -28,4 +28,4 @@ ENV BOT_INTERNAL_URL=http://localhost:3002
 EXPOSE 3001
 
 # Start bot in background, then run API (with migration) in foreground
-CMD ["sh", "-c", "node apps/bot/dist/index.js & cd apps/api && npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "node apps/bot/dist/index.js & cd apps/api && npx prisma db push --accept-data-loss && node dist/index.js"]
