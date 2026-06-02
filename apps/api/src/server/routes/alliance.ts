@@ -104,8 +104,15 @@ allianceRouter.get('/alliances/invitations', requireAuth, async (req, res) => {
 
 // ── GET /api/alliances ────────────────────────────────────────────────────────
 
-allianceRouter.get('/alliances', requireAuth, async (_req, res) => {
+allianceRouter.get('/alliances', requireAuth, async (req, res) => {
+  const guildId = typeof req.query['guildId'] === 'string' ? req.query['guildId'] : null;
+
+  const where = guildId
+    ? { members: { some: { guild: { guildId }, status: 'ACCEPTED' } } }
+    : {};
+
   const alliances = await prisma.alliance.findMany({
+    where,
     include: memberInclude,
     orderBy: { name: 'asc' },
   });

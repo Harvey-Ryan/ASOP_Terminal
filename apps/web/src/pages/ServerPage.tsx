@@ -101,8 +101,8 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   });
 
   const { data: alliances = [] } = useQuery({
-    queryKey: ['alliances'],
-    queryFn: allianceApi.list,
+    queryKey: ['alliances', guildId],
+    queryFn: () => allianceApi.list(guildId ?? undefined),
   });
 
   const uploadMutation = useMutation({

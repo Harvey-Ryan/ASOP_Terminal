@@ -13,8 +13,10 @@ export const allianceApi = {
   listGuilds: () =>
     api.get<ApiResponse<AllianceGuildDto[]>>('/alliances/guilds').then((r) => r.data ?? []),
 
-  list: () =>
-    api.get<ApiResponse<AllianceDto[]>>('/alliances').then((r) => r.data ?? []),
+  list: (guildId?: string) =>
+    api
+      .get<ApiResponse<AllianceDto[]>>(`/alliances${guildId ? `?guildId=${encodeURIComponent(guildId)}` : ''}`)
+      .then((r) => r.data ?? []),
 
   create: (body: CreateAllianceBody) =>
     api.post<ApiResponse<AllianceDto>>('/alliances', body).then((r) => r.data!),

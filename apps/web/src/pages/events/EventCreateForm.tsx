@@ -183,8 +183,8 @@ export function EventCreateForm({
   });
 
   const { data: alliances = [] } = useQuery({
-    queryKey: ['alliances'],
-    queryFn: allianceApi.list,
+    queryKey: ['alliances', guildId],
+    queryFn: () => allianceApi.list(guildId),
   });
 
   const uploadMutation = useMutation({

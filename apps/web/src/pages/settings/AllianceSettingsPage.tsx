@@ -406,7 +406,7 @@ export function AllianceSettingsPage() {
 
   const { data: alliances = [], isLoading: alliancesLoading, isError } = useQuery({
     queryKey: ['alliances'],
-    queryFn: allianceApi.list,
+    queryFn: () => allianceApi.list(),
     staleTime: 60_000,
   });
 
