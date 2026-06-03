@@ -27,6 +27,7 @@ import { AllianceSettingsPage } from './pages/settings/AllianceSettingsPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
 import { LootSettingsPage } from './pages/settings/LootSettingsPage';
+import { ModuleSettingsHubPage } from './pages/settings/ModuleSettingsHubPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="servers/:guildId/events/:eventId/audit" element={<EventAuditPage />} />
           <Route path="servers/:guildId/events/:eventId/loot" element={<LootPage />} />
           <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
+          <Route path="servers/:guildId/settings/modules" element={<ModuleSettingsHubPage />} />
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
           <Route path="servers/:guildId/settings/modules/dkp" element={<DkpSettingsPage />} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />

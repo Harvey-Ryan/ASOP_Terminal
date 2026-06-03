@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, ChevronRight, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, Network } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, Network } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -136,9 +136,6 @@ export function DashboardLayout() {
   const fleetEnabled        = myPerms?.fleetEnabled        ?? true;
   const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
   const craftingEnabled     = myPerms?.craftingEnabled     ?? true;
-
-  const onModuleRoute = location.pathname.includes('/settings/modules');
-  const [modulesOpen, setModulesOpen] = useState(onModuleRoute);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -426,120 +423,21 @@ export function DashboardLayout() {
                 Org Settings
               </p>
 
-              {/* Module Settings (expandable) */}
-              <button
-                onClick={() => setModulesOpen((o) => !o)}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              {/* Module Settings */}
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/settings/modules`}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  )
+                }
               >
                 <Puzzle className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">Module Settings</span>
-                {modulesOpen
-                  ? <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                  : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
-              </button>
-
-              {modulesOpen && (
-                <>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/event-bot`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <CalendarDays className="h-4 w-4 shrink-0" />
-                    Event Bot
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/dkp`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <Coins className="h-4 w-4 shrink-0" />
-                    DKP
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/exchange`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <ShoppingCart className="h-4 w-4 shrink-0" />
-                    Exchange
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/loot`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <Gift className="h-4 w-4 shrink-0" />
-                    Loot
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/fleet`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <Ship className="h-4 w-4 shrink-0" />
-                    Fleet
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/blueprints`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <BookOpen className="h-4 w-4 shrink-0" />
-                    Blueprints
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/settings/modules/crafting-calculator`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )
-                    }
-                  >
-                    <Calculator className="h-4 w-4 shrink-0" />
-                    Crafting Calculator
-                  </NavLink>
-                </>
-              )}
+                Module Settings
+              </NavLink>
 
               {/* Alliance */}
               <NavLink
