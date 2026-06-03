@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
 import { ToggleSwitch } from '@/components/settings/SettingsControls';
-import { exchangeApi } from '@/api/exchange';
+import { inventoryApi } from '@/api/marketplace';
 
 type ExchangeForm = Pick<GuildSettingsData, 'exchangeEnabled'>;
 
@@ -57,7 +57,7 @@ export function ExchangeSettingsPage() {
   const [wipeResult, setWipeResult] = useState<string | null>(null);
 
   const wipeMutation = useMutation({
-    mutationFn: () => exchangeApi.wipeInventories(guildId!),
+    mutationFn: () => inventoryApi.wipeInventories(guildId!),
     onSuccess: (data) => {
       setWipeResult(`Done — ${data.deleted} entr${data.deleted === 1 ? 'y' : 'ies'} removed.`);
       setPhase('idle');
@@ -80,8 +80,8 @@ export function ExchangeSettingsPage() {
   return (
     <div className="space-y-6 max-w-xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Exchange Module</h1>
-        <p className="mt-1 text-muted-foreground">Configure the member inventory exchange.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Marketplace Module</h1>
+        <p className="mt-1 text-muted-foreground">Configure the cross-guild marketplace and member inventory.</p>
       </div>
 
       {settingsLoading ? (
@@ -97,10 +97,10 @@ export function ExchangeSettingsPage() {
               <ToggleSwitch
                 checked={form.exchangeEnabled}
                 onChange={(v) => setField('exchangeEnabled', v)}
-                label="Exchange Module enabled"
+                label="Marketplace enabled"
                 description={form.exchangeEnabled
-                  ? 'Members can manage their own inventory entries.'
-                  : 'Exchange is disabled. The Exchange nav link will be hidden for all members.'}
+                  ? 'Members can manage their inventory and list items for sale on the cross-guild marketplace.'
+                  : 'Marketplace is disabled. The nav link will be hidden for all members.'}
               />
             </CardContent>
           </Card>
