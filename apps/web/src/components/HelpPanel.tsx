@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  HelpCircle, CalendarDays, Coins, Gavel, Gift, ArrowLeftRight,
+  HelpCircle, CalendarDays, Coins, Gavel, Gift, Store,
   Ship, Users, Settings, ChevronDown, ChevronRight, Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -227,20 +227,26 @@ function lootAdminContent(dkpLabel: string) {
   );
 }
 
-function exchangeContent() {
+function marketplaceContent() {
   return (
     <>
-      <H>What Is the Exchange?</H>
-      <P>The Exchange is a member inventory registry. You log what items and commodities you have on hand — the server can then see who has what and coordinate trades or contributions without external spreadsheets.</P>
+      <H>Cross-Guild Browse</H>
+      <P>The <B>Marketplace</B> lets you browse listings from every guild on the platform, not just your own server. Use the <B>Browse</B> tab to search by item name, filter by type (Item / Commodity), this guild only, fixed price only, and sort by newest or price low to high. Results are paginated — click <B>Load more</B> for additional listings.</P>
       <Divider />
-      <H>Adding Inventory</H>
-      <P>Search for an item or commodity in the add panel. Select <B>Item</B> for discrete ship components, weapons, or equipment; select <B>Commodity</B> for bulk trade goods measured in SCU. Set a quantity and optional location (e.g. "Lorville – TDD"), then add it to your inventory.</P>
+      <H>My Inventory</H>
+      <P>The <B>My Inventory</B> tab is your personal stockpile for this server. Add items or commodities using the search box — select a UEX item or commodity, set a quantity, optional quality level (QL), and location. Hover any row to edit quantity/location (✏️) or delete it (🗑). Use the <B>Listed (N)</B> toggle to filter down to only your active listings.</P>
       <Divider />
-      <H>Searching the Exchange</H>
-      <P>Use the search bar to find which guild members have a specific item or commodity. Results show each member's quantity, quality level (for commodities), and stored location. Use this to coordinate resource sharing or crafting contributions.</P>
+      <H>Listing Items for Sale</H>
+      <P>Hover any inventory row and click the tag icon to open the listing editor. Set a quantity to list (blank = all of your stock), an asking price in aUEC, or a free-text price note (e.g. "Negotiable", "Trade for Agricium"). Click <B>Publish Listing</B> to make it visible to all guilds on the platform.</P>
+      <P>Listings expire after <B>14 days</B>. To renew, open the listing editor and change your asking price or price note — the timer only resets when the price actually changes. Expired listings show an amber <B>Expired</B> badge and are hidden from Browse until renewed. An <B>Expires in Xd</B> warning appears when fewer than 3 days remain.</P>
       <Divider />
-      <H>Keeping It Current</H>
-      <P>The Exchange is self-managed — update or remove your entries whenever your inventory changes. Entries from members who leave the server are hidden from search results but preserved in the database in case they return.</P>
+      <H>Trade Requests</H>
+      <P>Found something you want? Click <B>Request</B> on a Browse listing, enter the quantity, and add an optional message to the seller. The seller receives a Discord DM from the bot and sees the request in the <B>Trades</B> tab under Incoming Requests.</P>
+      <P>Sellers can <B>Accept</B>, <B>Decline</B>, or <B>Cancel</B> any pending request. Buyers can cancel their own request at any time. Accepting a trade automatically adjusts the seller's listed quantity and declines any other pending requests that can no longer be fulfilled. All status changes send a bot DM to the other party.</P>
+      <P>The <B>Trades</B> tab label shows a live badge counting pending incoming requests. Resolved trades older than 30 days are hidden by default — click <B>Show older trades</B> at the bottom to reveal history. If a seller leaves the guild while your request is pending, a <B>Seller left this guild</B> warning appears so you know to cancel.</P>
+      <Divider />
+      <H>Bot Commands</H>
+      <P><code className="font-mono text-xs bg-muted px-1 rounded">/marketplace search</code> searches active listings for an exact item or commodity across all guilds directly from Discord. <code className="font-mono text-xs bg-muted px-1 rounded">/marketplace list</code> shows your own active listings for the current server (visible only to you).</P>
     </>
   );
 }
@@ -281,6 +287,18 @@ function rsiContent() {
   );
 }
 
+function marketplaceAdminContent() {
+  return (
+    <>
+      <H>Module Toggle</H>
+      <P>Toggle the <B>Marketplace enabled</B> switch in <B>Module Settings → Marketplace</B> to show or hide the Marketplace nav link and all associated features for every member in this server.</P>
+      <Divider />
+      <H>Wipe All Inventories</H>
+      <P>The <B>Danger Zone</B> section contains a <B>Wipe Inventories</B> action that permanently deletes every member's inventory entries for this server. It cannot be undone. You must type a confirmation phrase and confirm a second time before the wipe executes. Pending trade requests and trade history are preserved separately and are not affected.</P>
+    </>
+  );
+}
+
 function settingsContent(dkpLabel: string) {
   return (
     <>
@@ -288,7 +306,7 @@ function settingsContent(dkpLabel: string) {
       <P>The <B>Org Settings</B> panel controls who can edit module settings. Assign Discord roles to <B>Module Settings Editors</B> to allow non-admin members to configure channels and module options. <B>Viewer Roles</B> grant members access to view events and loot without being a server admin.</P>
       <Divider />
       <H>Module Settings</H>
-      <P>Each module (Event Bot, DKP, Loot, Exchange, Fleet) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link and features for all members. Disabled modules are completely hidden.</P>
+      <P>Each module (Event Bot, DKP, Loot, Marketplace, Fleet) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link and features for all members. Disabled modules are completely hidden.</P>
       <P>The DKP module settings page also lets you set the <B>currency label</B> (e.g. renaming "DKP" to "Credits"), the default auction duration, and the minimum valid bid.</P>
       <Divider />
       <H>Bot Configuration</H>
@@ -347,11 +365,11 @@ function buildSections(opts: {
       content: lootContent(dkpLabel),
     },
     exchangeEnabled && {
-      id: 'exchange',
-      icon: <ArrowLeftRight className="h-4 w-4" />,
-      title: 'Exchange & Inventory',
-      subtitle: 'Log your items and commodities for the org to find.',
-      content: exchangeContent(),
+      id: 'marketplace',
+      icon: <Store className="h-4 w-4" />,
+      title: 'Marketplace',
+      subtitle: 'Browse cross-guild listings, manage inventory, and trade with other members.',
+      content: marketplaceContent(),
     },
     fleetEnabled && {
       id: 'fleet',
@@ -395,6 +413,14 @@ function buildSections(opts: {
       subtitle: 'Adjusting balances, session awards, and currency configuration.',
       adminOnly: true,
       content: dkpAdminContent(dkpLabel),
+    },
+    exchangeEnabled && {
+      id: 'marketplace-admin',
+      icon: <Store className="h-4 w-4" />,
+      title: 'Marketplace Administration',
+      subtitle: 'Module toggle and inventory wipe danger zone.',
+      adminOnly: true,
+      content: marketplaceAdminContent(),
     },
     {
       id: 'settings-admin',

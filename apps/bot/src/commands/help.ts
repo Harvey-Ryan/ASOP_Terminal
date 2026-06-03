@@ -94,11 +94,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     fields.push({ name: '🎁 Loot', value: lootLines.join('\n') });
   }
 
-  // ── Exchange ──────────────────────────────────────────────────────────────────
+  // ── Marketplace ───────────────────────────────────────────────────────────────
   if (exchangeEnabled) {
     fields.push({
-      name: '🔄 Exchange',
-      value: '`/whohas <item>` — Search guild member inventories for an item or commodity',
+      name: '🛒 Marketplace',
+      value: [
+        '`/whohas <item>` — Search this guild\'s member inventories for an item or commodity',
+        '`/marketplace search <item>` — Browse active listings for an item across all guilds',
+        '`/marketplace list` — View your own active listings in this server',
+      ].join('\n'),
     });
   }
 
