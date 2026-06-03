@@ -15,7 +15,7 @@ import { GameDataPage } from './pages/settings/GameDataPage';
 import { ScDataPage } from './pages/settings/ScDataPage';
 import { AuctionsPage } from './pages/AuctionsPage';
 import { DkpPage } from './pages/DkpPage';
-import { ExchangePage } from './pages/ExchangePage';
+import { MarketplacePage } from './pages/MarketplacePage';
 import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
 import { FleetPage } from './pages/FleetPage';
 import { BlueprintsPage } from './pages/BlueprintsPage';
@@ -61,7 +61,9 @@ export default function App() {
           <Route path="servers/:guildId/settings/sc-data" element={<ScDataPage />} />
           <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />
           <Route path="servers/:guildId/dkp" element={<DkpPage />} />
-          <Route path="servers/:guildId/exchange" element={<ExchangePage />} />
+          <Route path="servers/:guildId/marketplace" element={<MarketplacePage />} />
+          {/* Legacy redirect — keep until any bookmarks expire */}
+          <Route path="servers/:guildId/exchange" element={<Navigate to="../marketplace" replace />} />
           <Route path="servers/:guildId/settings/modules/exchange" element={<ExchangeSettingsPage />} />
           <Route path="servers/:guildId/fleet" element={<FleetPage />} />
           <Route path="servers/:guildId/roster" element={<RosterPage />} />

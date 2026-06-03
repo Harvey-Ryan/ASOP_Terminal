@@ -332,11 +332,11 @@ export function DashboardLayout() {
 
               {exchangeEnabled && (
                 <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/exchange`}
+                  to={`/dashboard/servers/${activeGuild.id}/marketplace`}
                   className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
                   <ArrowLeftRight className="h-4 w-4 shrink-0" />
-                  Exchange
+                  Marketplace
                 </NavLink>
               )}
 

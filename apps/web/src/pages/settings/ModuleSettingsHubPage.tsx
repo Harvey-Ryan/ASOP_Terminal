@@ -23,8 +23,8 @@ const MODULES: ModuleTile[] = [
     slug: 'dkp',
   },
   {
-    label: 'Exchange',
-    description: 'Item exchange listings and trade settings.',
+    label: 'Marketplace',
+    description: 'Cross-guild item listings, trade requests, and inventory settings.',
     icon: ShoppingCart,
     slug: 'exchange',
   },

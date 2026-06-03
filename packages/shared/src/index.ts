@@ -490,9 +490,11 @@ export function resolveProxy(
   return result;
 }
 
-// ── Exchange (member inventory) ───────────────────────────────────────────────
+// ── Marketplace (member inventory + cross-guild listings) ────────────────────
 
 export type InventoryItemType = 'ITEM' | 'COMMODITY';
+
+export type TradeStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
 
 export interface InventoryEntryDto {
   id: string;
@@ -505,6 +507,10 @@ export interface InventoryEntryDto {
   quantity: number;
   qualityLevel: number | null;
   location: string | null;
+  forSale: boolean;
+  quantityListed: number | null;
+  askingPrice: number | null;
+  priceNote: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -518,9 +524,13 @@ export interface UpsertInventoryEntryBody {
   quantity: number;
   qualityLevel?: number | null;
   location?: string | null;
+  forSale?: boolean;
+  quantityListed?: number | null;
+  askingPrice?: number | null;
+  priceNote?: string | null;
 }
 
-/** One group returned by the Exchange search endpoint */
+/** One group returned by the guild-scoped inventory search endpoint */
 export interface InventorySearchGroup {
   itemName: string;
   itemType: InventoryItemType;
@@ -528,6 +538,47 @@ export interface InventorySearchGroup {
   /** null means "no QL specified" */
   qualityLevel: number | null;
   entries: InventoryEntryDto[];
+}
+
+/** A single listing on the cross-guild marketplace browse endpoint */
+export interface MarketplaceListingDto {
+  id: string;
+  /** The seller's guild id */
+  guildId: string;
+  /** The seller's guild name (denormalised at list time) */
+  guildName: string;
+  userId: string;
+  username: string;
+  itemType: InventoryItemType;
+  externalItemId: number;
+  itemName: string;
+  quantity: number;
+  quantityListed: number | null;
+  qualityLevel: number | null;
+  location: string | null;
+  askingPrice: number | null;
+  priceNote: string | null;
+  listedAt: string;
+}
+
+export interface CreateTradeBody {
+  inventoryEntryId: string;
+  quantityRequested: number;
+  note?: string;
+}
+
+export interface TradeDto {
+  id: string;
+  inventoryEntryId: string;
+  listingSnapshot: MarketplaceListingDto;
+  buyerGuildId: string;
+  buyerId: string;
+  buyerUsername: string;
+  quantityRequested: number;
+  note: string | null;
+  status: TradeStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── Fleet Registry ────────────────────────────────────────────────────────────

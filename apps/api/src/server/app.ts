@@ -15,6 +15,7 @@ import { auctionRouter } from './routes/loot-auction.js';
 import { auctionRouter as standaloneAuctionRouter } from './routes/auction.js';
 import { uexRouter } from './routes/uex.js';
 import { exchangeRouter } from './routes/exchange.js';
+import { marketplaceRouter } from './routes/marketplace.js';
 import { scRouter } from './routes/sc.js';
 import { fleetRouter, fleetyardsRouter } from './routes/fleet.js';
 import { rsiRouter } from './routes/rsi.js';
@@ -180,6 +181,7 @@ export function createServer(): express.Express {
   app.use('/api', uexRouter);
   app.use('/api', scRouter);
   app.use('/api/guilds', exchangeRouter);
+  app.use('/api', marketplaceRouter);
   app.use('/api/guilds', fleetRouter);
   app.use('/api', fleetyardsRouter);
   app.use('/api/guilds', rsiRouter);

@@ -969,9 +969,16 @@ model UexCommodity {
   @@index([isIllegal])
 }
 
-// ── Exchange (member inventory) ───────────────────────────────────────────────
+// ── Marketplace (member inventory + cross-guild listings) ────────────────────
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
 
 /// One inventory slot per member per item per location. Unique on (guildId, userId, itemType, externalItemId, location).
+/// When forSale is true the entry is visible on the cross-guild marketplace.
 model InventoryEntry {
   id             String   @id @default(cuid())
   guildId        String
@@ -994,6 +1001,17 @@ model InventoryEntry {
   /// False when the member has left the guild. Entries are preserved but
   /// hidden from search results and /whohas. Reset to true on rejoin.
   memberActive   Boolean  @default(true)
+  /// Whether this entry is publicly listed on the marketplace
+  forSale        Boolean  @default(false)
+  /// Quantity available for sale; null means all of quantity
+  quantityListed Float?
+  /// Asking price in whole aUEC; null when priceNote is used instead
+  askingPrice    Int?
+  /// Free-text price note e.g. "Negotiable" or "Trade for Agricium"
+  priceNote      String?
+
+  trades         Trade[]
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1001,6 +1019,29 @@ model InventoryEntry {
   @@index([guildId, userId])
   @@index([guildId, memberActive])
   @@index([guildId, userId, itemType, externalItemId, location, qualityLevel])
+  @@index([forSale, memberActive, itemType, externalItemId])
+}
+
+/// A buyer's request to purchase a marketplace listing.
+/// listingSnapshot captures the listing state at request time for history.
+model Trade {
+  id                String      @id @default(cuid())
+  inventoryEntryId  String
+  inventoryEntry    InventoryEntry @relation(fields: [inventoryEntryId], references: [id], onDelete: Cascade)
+  /// Denormalised snapshot of the listing at the moment the trade was requested
+  listingSnapshot   Json
+  buyerGuildId      String
+  buyerId           String
+  buyerUsername     String
+  quantityRequested Float
+  /// Optional message from the buyer to the seller
+  note              String?
+  status            TradeStatus @default(PENDING)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([inventoryEntryId, status])
+  @@index([buyerId])
 }
 
 // ── Fleet Registry ────────────────────────────────────────────────────────────

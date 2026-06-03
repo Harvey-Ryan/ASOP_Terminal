@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import type { ApiResponse, InventoryEntryDto, InventorySearchGroup, UpsertInventoryEntryBody, InventoryItemType } from '@dem/shared';
 
+
 export const exchangeRouter = Router();
 
 // ── DTO helper ────────────────────────────────────────────────────────────────
@@ -19,6 +20,10 @@ function toDto(row: {
   quantity: number;
   qualityLevel: number | null;
   location: string | null;
+  forSale: boolean;
+  quantityListed: number | null;
+  askingPrice: number | null;
+  priceNote: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): InventoryEntryDto {
@@ -33,6 +38,10 @@ function toDto(row: {
     quantity: row.quantity,
     qualityLevel: row.qualityLevel,
     location: row.location,
+    forSale: row.forSale,
+    quantityListed: row.quantityListed,
+    askingPrice: row.askingPrice,
+    priceNote: row.priceNote,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -125,9 +134,16 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
       return;
     }
 
+    const listingData = body.forSale !== undefined ? {
+      forSale: body.forSale,
+      quantityListed: body.forSale ? (body.quantityListed ?? null) : null,
+      askingPrice: body.forSale ? (body.askingPrice ?? null) : null,
+      priceNote: body.forSale ? (body.priceNote?.trim() || null) : null,
+    } : {};
+
     const row = await prisma.inventoryEntry.update({
       where: { id: body.id },
-      data: { username, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel, location },
+      data: { username, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel, location, ...listingData },
     });
     res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
     return;
