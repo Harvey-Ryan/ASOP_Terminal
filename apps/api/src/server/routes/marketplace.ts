@@ -34,7 +34,7 @@ async function sendBotDm(userId: string, content: string): Promise<void> {
 // Keyed by "recipientId:tradeId". A DM is only sent if no DM has been sent for
 // this conversation in the last 5 minutes, preventing spam in rapid exchanges.
 
-const DM_COOLDOWN_MS = 5 * 60 * 1000;
+const DM_COOLDOWN_MS = 60 * 60 * 1000;
 const dmCooldowns = new Map<string, number>();
 
 function maybeSendMessageDm(recipientId: string, tradeId: string, content: string) {

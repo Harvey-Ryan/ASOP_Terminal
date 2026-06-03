@@ -1142,8 +1142,7 @@ export function MarketplacePage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [activeTab, setActiveTab] = useState<TabId>('browse');
 
-  // Fetch pending count eagerly so the Trades tab label is decorated immediately,
-  // without waiting for the user to click the tab.
+  // Both queries are seeded/shared with the layout's queries — no extra requests.
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ['marketplace-pending-count', guildId],
     queryFn: () => marketplaceApi.getPendingCount(guildId!),
@@ -1151,13 +1150,20 @@ export function MarketplacePage() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['marketplace-unread-count', guildId],
+    queryFn: () => marketplaceApi.getUnreadMessageCount(guildId!),
+    enabled: !!guildId,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
 
   if (!guildId) return null;
 
-  const TABS: { id: TabId; label: string; Icon: React.ElementType; badge?: number }[] = [
+  const TABS: { id: TabId; label: string; Icon: React.ElementType; pendingBadge?: number; messageBadge?: number }[] = [
     { id: 'browse',    label: 'Browse',       Icon: Store },
     { id: 'inventory', label: 'My Inventory', Icon: Package },
-    { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight, badge: pendingCount },
+    { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight, pendingBadge: pendingCount, messageBadge: unreadCount },
   ];
 
   return (
@@ -1170,7 +1176,7 @@ export function MarketplacePage() {
       </div>
 
       <div className="flex border-b border-border">
-        {TABS.map(({ id, label, Icon, badge }) => (
+        {TABS.map(({ id, label, Icon, pendingBadge, messageBadge }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
@@ -1183,9 +1189,14 @@ export function MarketplacePage() {
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
-            {badge != null && badge > 0 && (
+            {(pendingBadge ?? 0) > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black">
-                {badge}
+                {pendingBadge}
+              </span>
+            )}
+            {(messageBadge ?? 0) > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                {(messageBadge ?? 0) > 99 ? '99+' : messageBadge}
               </span>
             )}
           </button>

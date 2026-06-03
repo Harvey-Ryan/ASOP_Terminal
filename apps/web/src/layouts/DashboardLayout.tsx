@@ -145,8 +145,8 @@ export function DashboardLayout() {
     queryKey: ['marketplace-unread-count', activeGuildId],
     queryFn: () => marketplaceApi.getUnreadMessageCount(activeGuildId!),
     enabled: !!activeGuildId && exchangeEnabled,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
   const fleetEnabled        = myPerms?.fleetEnabled        ?? true;
