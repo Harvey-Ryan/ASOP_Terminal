@@ -69,20 +69,18 @@ async function postToAllianceThreads(
     where: { eventId },
     select: { threadId: true },
   });
-  for (const { threadId } of allianceGuilds) {
-    if (!threadId) continue;
-    try {
-      const thread = await client.channels.fetch(threadId);
-      if (thread?.isThread()) {
+  await Promise.allSettled(
+    allianceGuilds
+      .filter(({ threadId }) => threadId)
+      .map(async ({ threadId }) => {
+        const thread = await client.channels.fetch(threadId!);
+        if (!thread?.isThread()) return;
         const wasArchived = thread.archived ?? false;
         if (wasArchived) await thread.setArchived(false).catch(() => null);
         await thread.send(row ? { embeds: [embed], components: [row] } : { embeds: [embed] });
         if (wasArchived) await thread.setArchived(true).catch(() => null);
-      }
-    } catch {
-      // Alliance guild thread may be inaccessible — skip silently
-    }
-  }
+      }),
+  );
 }
 
 function getNextPicker(position: number, draftOrder: string[]): string | null {
@@ -160,9 +158,9 @@ export async function notifySnakeTurn(eventId: string) {
   if (pickerRole) {
     const freshRole = await guild.roles.fetch(pickerRole.id).catch(() => null);
     if (freshRole) {
-      for (const [, member] of freshRole.members) {
-        await member.roles.remove(freshRole).catch(() => null);
-      }
+      await Promise.allSettled(
+        [...freshRole.members.values()].map((member) => member.roles.remove(freshRole).catch(() => null)),
+      );
     }
   }
 
@@ -260,9 +258,9 @@ export async function notifyStandaloneSnakeTurn(sessionId: string) {
   if (pickerRole) {
     const freshRole = await guild.roles.fetch(pickerRole.id).catch(() => null);
     if (freshRole) {
-      for (const [, member] of freshRole.members) {
-        await member.roles.remove(freshRole).catch(() => null);
-      }
+      await Promise.allSettled(
+        [...freshRole.members.values()].map((member) => member.roles.remove(freshRole).catch(() => null)),
+      );
     }
   }
 
@@ -356,44 +354,42 @@ export async function notifyLootComplete(sessionId: string) {
     if (event) sessionLabel = event.name;
   }
 
-  for (const [userId, { entries }] of winners) {
-    // Stack entries with identical name+QL — keep first pick number, sum count
-    type StackedEntry = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
-    const stacked: StackedEntry[] = [];
-    for (const e of entries) {
-      const key = `${e.name}__${e.qualityLevel ?? ''}`;
-      const existing = stacked.find((s) => `${s.name}__${s.qualityLevel ?? ''}` === key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        stacked.push({ name: e.name, qualityLevel: e.qualityLevel, count: 1, pickNumber: e.pickNumber, rollValue: e.rollValue, dkpSpent: e.dkpSpent });
+  await Promise.allSettled(
+    [...winners.entries()].map(async ([userId, { entries }]) => {
+      // Stack entries with identical name+QL — keep first pick number, sum count
+      type StackedEntry = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
+      const stacked: StackedEntry[] = [];
+      for (const e of entries) {
+        const key = `${e.name}__${e.qualityLevel ?? ''}`;
+        const existing = stacked.find((s) => `${s.name}__${s.qualityLevel ?? ''}` === key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          stacked.push({ name: e.name, qualityLevel: e.qualityLevel, count: 1, pickNumber: e.pickNumber, rollValue: e.rollValue, dkpSpent: e.dkpSpent });
+        }
       }
-    }
 
-    const lines = stacked.map((e) => {
-      const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
-      const ct = e.count > 1 ? ` ×${e.count}` : '';
-      let suffix = '';
-      if (e.rollValue != null) suffix = ` (rolled ${e.rollValue})`;
-      else if (e.dkpSpent != null && e.dkpSpent > 0) suffix = ` (${e.dkpSpent} DKP)`;
-      else if (e.pickNumber != null) suffix = ` (pick #${e.pickNumber + 1})`;
-      return `• ${e.name}${ql}${ct}${suffix}`;
-    });
+      const lines = stacked.map((e) => {
+        const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
+        const ct = e.count > 1 ? ` ×${e.count}` : '';
+        let suffix = '';
+        if (e.rollValue != null) suffix = ` (rolled ${e.rollValue})`;
+        else if (e.dkpSpent != null && e.dkpSpent > 0) suffix = ` (${e.dkpSpent} DKP)`;
+        else if (e.pickNumber != null) suffix = ` (pick #${e.pickNumber + 1})`;
+        return `• ${e.name}${ql}${ct}${suffix}`;
+      });
 
-    const content = [
-      `🎁 **Loot Session Complete — ${sessionLabel}**`,
-      '',
-      'Your items:',
-      ...lines,
-    ].join('\n');
+      const content = [
+        `🎁 **Loot Session Complete — ${sessionLabel}**`,
+        '',
+        'Your items:',
+        ...lines,
+      ].join('\n');
 
-    try {
       const discordUser = await client.users.fetch(userId);
       await discordUser.send({ content });
-    } catch {
-      // User may have DMs disabled — skip silently
-    }
-  }
+    }),
+  );
 }
 
 const METHOD_LABELS: Record<string, string> = {

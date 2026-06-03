@@ -170,13 +170,9 @@ async function checkReminders() {
       const membersInVc = new Set<string>();
 
       for (const vcId of vcIds) {
-        try {
-          const ch = await client.channels.fetch(vcId);
-          if (ch?.type === ChannelType.GuildVoice) {
-            ch.members.forEach((m) => membersInVc.add(m.id));
-          }
-        } catch {
-          // VC may not exist yet — that's fine
+        const ch = client.channels.cache.get(vcId);
+        if (ch?.type === ChannelType.GuildVoice) {
+          ch.members.forEach((m) => membersInVc.add(m.id));
         }
       }
 
