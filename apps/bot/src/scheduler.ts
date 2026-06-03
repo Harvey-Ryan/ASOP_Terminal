@@ -32,27 +32,33 @@ export async function startScheduler() {
       where: { status: { in: ['PENDING', 'ACTIVE'] }, discordEventId: { not: null } },
       include: { rsvps: true },
     });
+    const results = await Promise.allSettled(
+      activeEvents
+        .filter((e) => e.discordEventId)
+        .map(async (event) => {
+          const guild = await client.guilds.fetch(event.guildId);
+          const scheduled = await guild.scheduledEvents.fetch(event.discordEventId!).catch(() => null);
+          if (!scheduled) return 0;
+          const subscribers = await scheduled.fetchSubscribers({ withMember: true }).catch(() => null);
+          if (!subscribers) return 0;
+          const existingIds = new Set(event.rsvps.map((r) => r.userId));
+          let count = 0;
+          for (const sub of subscribers.values()) {
+            if (existingIds.has(sub.user.id)) continue;
+            const username = sub.member?.displayName ?? sub.user.username;
+            await joinRoster(event.id, sub.user.id, username).catch((err) =>
+              console.error(`[bot] Startup sync: joinRoster failed for ${sub.user.id}:`, err),
+            );
+            count++;
+          }
+          return count;
+        }),
+    );
+
     let syncCount = 0;
-    for (const event of activeEvents) {
-      if (!event.discordEventId) continue;
-      try {
-        const guild = await client.guilds.fetch(event.guildId);
-        const scheduled = await guild.scheduledEvents.fetch(event.discordEventId).catch(() => null);
-        if (!scheduled) continue;
-        const subscribers = await scheduled.fetchSubscribers({ withMember: true }).catch(() => null);
-        if (!subscribers) continue;
-        const existingIds = new Set(event.rsvps.map((r) => r.userId));
-        for (const sub of subscribers.values()) {
-          if (existingIds.has(sub.user.id)) continue;
-          const username = sub.member?.displayName ?? sub.user.username;
-          await joinRoster(event.id, sub.user.id, username).catch((err) =>
-            console.error(`[bot] Startup sync: joinRoster failed for ${sub.user.id}:`, err),
-          );
-          syncCount++;
-        }
-      } catch (err) {
-        console.error(`[bot] Startup sync: failed for event ${event.id}:`, err);
-      }
+    for (const result of results) {
+      if (result.status === 'fulfilled') syncCount += result.value;
+      else console.error('[bot] Startup sync: failed for an event:', result.reason);
     }
     if (activeEvents.length > 0) {
       console.log(`[bot] Startup subscriber sync: added ${syncCount} missing subscriber(s) across ${activeEvents.length} event(s)`);
@@ -100,11 +106,13 @@ async function checkEventStart() {
     },
     take: 10,
   });
-  for (const event of starting) {
-    await postEventLive(event.id).catch((err) =>
-      console.error(`[bot] postEventLive failed for ${event.id}:`, err),
-    );
-  }
+  await Promise.allSettled(
+    starting.map((event) =>
+      postEventLive(event.id).catch((err) =>
+        console.error(`[bot] postEventLive failed for ${event.id}:`, err),
+      ),
+    ),
+  );
 }
 
 // ── Discord setup for web-created events ─────────────────────────────────────
@@ -173,17 +181,16 @@ async function checkReminders() {
       }
 
       // DM roster members who are NOT in a monitored VC
-      for (const rsvp of event.rsvps) {
-        if (membersInVc.has(rsvp.userId)) continue;
-        try {
-          const user = await client.users.fetch(rsvp.userId);
-          await user.send(
-            `⏰ **${event.name}** starts in 15 minutes! Join a voice channel to participate.\n📍 Muster Point: ${event.musterPoint ?? 'See event details'}`,
-          );
-        } catch {
-          // DMs may be disabled — silently skip
-        }
-      }
+      await Promise.allSettled(
+        event.rsvps
+          .filter((rsvp) => !membersInVc.has(rsvp.userId))
+          .map(async (rsvp) => {
+            const user = await client.users.fetch(rsvp.userId);
+            await user.send(
+              `⏰ **${event.name}** starts in 15 minutes! Join a voice channel to participate.\n📍 Muster Point: ${event.musterPoint ?? 'See event details'}`,
+            );
+          }),
+      );
     }
 
     await prisma.eventReminder.update({ where: { id: reminder.id }, data: { sent: true } });
@@ -219,32 +226,24 @@ async function checkVcCreation() {
 
 async function checkVcActivity() {
   const events = await prisma.event.findMany({
-    where: { status: 'ACTIVE' },
+    where: { status: 'ACTIVE', vcIds: { not: '[]' } },
   });
 
+  const activeEventIds: string[] = [];
   for (const event of events) {
     const vcIds = JSON.parse(event.vcIds) as string[];
-    if (vcIds.length === 0) continue;
+    const anyPresent = vcIds.some((vcId) => {
+      const ch = client.channels.cache.get(vcId);
+      return ch?.type === ChannelType.GuildVoice && ch.members.size > 0;
+    });
+    if (anyPresent) activeEventIds.push(event.id);
+  }
 
-    let anyPresent = false;
-    for (const vcId of vcIds) {
-      try {
-        const ch = await client.channels.fetch(vcId);
-        if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) {
-          anyPresent = true;
-          break;
-        }
-      } catch {
-        // Channel deleted or unavailable
-      }
-    }
-
-    if (anyPresent) {
-      await prisma.event.update({
-        where: { id: event.id },
-        data: { lastVcActivityAt: new Date() },
-      });
-    }
+  if (activeEventIds.length > 0) {
+    await prisma.event.updateMany({
+      where: { id: { in: activeEventIds } },
+      data: { lastVcActivityAt: new Date() },
+    });
   }
 }
 
@@ -315,18 +314,10 @@ async function checkEndedEvents() {
       continue;
     }
 
-    let anyonePresent = false;
-    for (const vcId of vcIds) {
-      try {
-        const ch = await client.channels.fetch(vcId);
-        if (ch?.type === ChannelType.GuildVoice && ch.members.size > 0) {
-          anyonePresent = true;
-          break;
-        }
-      } catch {
-        // VC unavailable — treat as empty
-      }
-    }
+    const anyonePresent = vcIds.some((vcId) => {
+      const ch = client.channels.cache.get(vcId);
+      return ch?.type === ChannelType.GuildVoice && ch.members.size > 0;
+    });
 
     if (anyonePresent) {
       // VCs still occupied — reset the empty timer if it was running

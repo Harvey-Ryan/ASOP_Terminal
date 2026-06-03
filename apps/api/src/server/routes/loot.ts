@@ -822,10 +822,32 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
   const usernameMap = new Map(event.rsvps.map((r) => [r.userId, r.username]));
 
   if (session.dkpAward > 0) {
-    for (const userId of confirmedIds) {
-      const username = usernameMap.get(userId) ?? userId;
-      await applyDkp(guildId, userId, username, session.dkpAward, `Attendance: ${event.name}`);
-    }
+    // Upsert all balances in parallel, then batch the writes
+    const balances = await Promise.all(
+      confirmedIds.map((userId) =>
+        prisma.dkpBalance.upsert({
+          where: { guildId_userId: { guildId, userId } },
+          create: { guildId, userId, username: usernameMap.get(userId) ?? userId, balance: 0 },
+          update: { username: usernameMap.get(userId) ?? userId },
+        }),
+      ),
+    );
+    await Promise.all([
+      prisma.dkpBalance.updateMany({
+        where: { id: { in: balances.map((b) => b.id) } },
+        data: { balance: { increment: session.dkpAward } },
+      }),
+      prisma.dkpTransaction.createMany({
+        data: confirmedIds.map((userId, i) => ({
+          balanceId: balances[i]!.id,
+          guildId,
+          userId,
+          username: usernameMap.get(userId) ?? userId,
+          amount: session.dkpAward,
+          reason: `Attendance: ${event.name}`,
+        })),
+      }),
+    ]);
   }
 
   if (session.method === 'DKP') {
@@ -834,6 +856,8 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
         if (a.dkpSpent && a.dkpSpent > 0) {
           // Cap deduction at the bidder's current balance — guards against balance
           // being manually adjusted between assignment time and completion.
+          // Sequential per-user: same user winning multiple items must see
+          // their updated balance after each deduction to prevent going negative.
           const bal = await prisma.dkpBalance.findUnique({
             where: { guildId_userId: { guildId, userId: a.userId } },
           });

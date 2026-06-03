@@ -8,65 +8,54 @@ const LOOT_PICKER_ROLE = 'Loot Picker';
 async function buildDraftUserTagMap(eventId: string, draftOrder: string[]): Promise<Map<string, string>> {
   if (draftOrder.length === 0) return new Map();
 
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { guildId: true } });
+  // Query 1+2: event guildId + alliance guild snowflakes in one fetch
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { guildId: true, allianceGuilds: { select: { discordGuildId: true } } },
+  });
   if (!event) return new Map();
 
-  // Collect all Discord guild IDs involved in this event
-  const allianceRows = await prisma.eventAllianceGuild.findMany({
-    where: { eventId },
-    select: { discordGuildId: true },
-  });
-  const discordGuildIds = [event.guildId, ...allianceRows.map((r) => r.discordGuildId)];
+  const discordGuildIds = [event.guildId, ...event.allianceGuilds.map((r) => r.discordGuildId)];
 
-  // Resolve to Guild DB rows with their alliance tags
+  // Query 3: Guild DB rows with alliance tags
   const guilds = await prisma.guild.findMany({
     where: { guildId: { in: discordGuildIds } },
     select: { id: true, guildId: true, settings: { select: { allianceTag: true } } },
   });
 
-  // Guild DB id -> tag (only guilds that have a tag set)
   const guildDbIdToTag = new Map<string, string>();
   for (const g of guilds) {
     if (g.settings?.allianceTag) guildDbIdToTag.set(g.id, g.settings.allianceTag);
   }
   if (guildDbIdToTag.size === 0) return new Map();
 
-  // Discord snowflake -> User DB id
+  const taggedGuildIds = [...guildDbIdToTag.keys()];
+  const hostGuildDbId = guilds.find((g) => g.guildId === event.guildId)?.id;
+
+  // Query 4+5: users + their memberships in tagged guilds, joined
   const users = await prisma.user.findMany({
     where: { discordId: { in: draftOrder } },
-    select: { id: true, discordId: true },
-  });
-
-  // GuildMember records linking these users to any of the involved guilds
-  const memberships = await prisma.guildMember.findMany({
-    where: {
-      userId: { in: users.map((u) => u.id) },
-      guildId: { in: [...guildDbIdToTag.keys()] },
+    select: {
+      discordId: true,
+      guildMembers: {
+        where: { guildId: { in: taggedGuildIds } },
+        select: { guildId: true },
+      },
     },
-    select: { userId: true, guildId: true },
   });
 
-  // User DB id -> tag (first guild with a tag wins; host guild checked first)
-  const hostGuildDbId = guilds.find((g) => g.guildId === event.guildId)?.id;
-  const userDbIdToTag = new Map<string, string>();
-  for (const m of memberships) {
-    if (m.guildId === hostGuildDbId && !userDbIdToTag.has(m.userId)) {
-      const tag = guildDbIdToTag.get(m.guildId);
-      if (tag) userDbIdToTag.set(m.userId, tag);
-    }
-  }
-  for (const m of memberships) {
-    if (!userDbIdToTag.has(m.userId)) {
-      const tag = guildDbIdToTag.get(m.guildId);
-      if (tag) userDbIdToTag.set(m.userId, tag);
-    }
-  }
-
-  // Discord snowflake -> tag
+  // Discord snowflake -> tag (host guild takes priority over alliance guilds)
   const result = new Map<string, string>();
   for (const u of users) {
-    const tag = userDbIdToTag.get(u.id);
-    if (tag) result.set(u.discordId, tag);
+    const hostMembership = u.guildMembers.find((m) => m.guildId === hostGuildDbId);
+    if (hostMembership) {
+      const tag = guildDbIdToTag.get(hostMembership.guildId);
+      if (tag) { result.set(u.discordId, tag); continue; }
+    }
+    for (const m of u.guildMembers) {
+      const tag = guildDbIdToTag.get(m.guildId);
+      if (tag) { result.set(u.discordId, tag); break; }
+    }
   }
   return result;
 }

@@ -68,13 +68,6 @@ export function startInternalServer() {
       return;
     }
 
-    const rsvpReassignMatch = req.url?.match(/^\/trigger\/rsvp-reassign\/([^/]+)\/([^/]+)$/);
-    if (rsvpReassignMatch) {
-      // Announcement is handled by the debounced queueRosterUpdate above.
-      res.writeHead(202).end();
-      return;
-    }
-
     const draftOrderMatch = req.url?.match(/^\/trigger\/draft-order\/([^/]+)$/);
     if (draftOrderMatch) {
       const eventId = draftOrderMatch[1]!;
