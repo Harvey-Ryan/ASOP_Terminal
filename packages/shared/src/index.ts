@@ -579,6 +579,8 @@ export interface TradeDto {
   quantityRequested: number;
   note: string | null;
   status: TradeStatus;
+  /** False when the seller's guild membership is inactive (left the guild). */
+  sellerActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

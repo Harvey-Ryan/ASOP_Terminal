@@ -67,6 +67,7 @@ function tradeToDto(t: {
   id: string; inventoryEntryId: string; listingSnapshot: unknown;
   buyerGuildId: string; buyerId: string; buyerUsername: string;
   quantityRequested: number; note: string | null; status: string;
+  sellerActive: boolean;
   createdAt: Date; updatedAt: Date;
 }): TradeDto {
   return {
@@ -79,6 +80,7 @@ function tradeToDto(t: {
     quantityRequested: t.quantityRequested,
     note: t.note,
     status: t.status as TradeStatus,
+    sellerActive: t.sellerActive,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -179,17 +181,22 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades', requireAuth, async 
   const [incoming, outgoing] = await Promise.all([
     prisma.trade.findMany({
       where: { inventoryEntry: { guildId, userId: me } },
+      include: { inventoryEntry: { select: { memberActive: true } } },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.trade.findMany({
       where: { buyerGuildId: guildId, buyerId: me },
+      include: { inventoryEntry: { select: { memberActive: true } } },
       orderBy: { createdAt: 'desc' },
     }),
   ]);
 
   res.json({
     success: true,
-    data: { incoming: incoming.map(tradeToDto), outgoing: outgoing.map(tradeToDto) },
+    data: {
+      incoming: incoming.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive })),
+      outgoing: outgoing.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive })),
+    },
   } satisfies ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>);
 });
 
@@ -249,7 +256,7 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades', requireAuth, async
     `**New trade request!** ${buyerName} wants to buy **${body.quantityRequested}x ${listing.itemName}** from your marketplace listing.${body.note ? `\n> "${body.note}"` : ''}\n\nSign in to ASOP Terminal to accept or decline.`,
   ).catch(() => null);
 
-  res.status(201).json({ success: true, data: tradeToDto(trade) } satisfies ApiResponse<TradeDto>);
+  res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true }) } satisfies ApiResponse<TradeDto>);
 });
 
 // ── PATCH /api/guilds/:guildId/marketplace/trades/:tradeId/accept ─────────────
