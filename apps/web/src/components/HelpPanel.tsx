@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   HelpCircle, CalendarDays, Coins, Gavel, Gift, Store,
-  Ship, Users, Settings, ChevronDown, ChevronRight, Shield,
+  Ship, Users, Settings, ChevronDown, ChevronRight, Shield, Network,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -287,6 +287,50 @@ function rsiContent() {
   );
 }
 
+function allianceContent() {
+  return (
+    <>
+      <H>What Is an Alliance?</H>
+      <P>An alliance is a named group of servers that have agreed to coordinate together. Once your guild joins an alliance, events shared by any member guild appear on your dashboard automatically — no separate login or server required.</P>
+      <Divider />
+      <H>Alliance Events on Your Dashboard</H>
+      <P>Shared events show alongside your own guild's events with a small alliance indicator. Click them to open the event detail and RSVP exactly as you would for a local event. The event is hosted by another guild but your RSVP is recorded under your guild's roster.</P>
+      <Divider />
+      <H>Per-Guild Role Slots</H>
+      <P>Alliance events use <B>per-guild role slots</B> — each member guild has its own set of role assignments. This lets the host org define a role structure (e.g. Infantry ×10, Pilot ×4) and each guild fills its own complement independently. Your role choice only affects your guild's roster, not other guilds'.</P>
+      <Divider />
+      <H>Org Tags</H>
+      <P>Each guild can set a short <B>Org Tag</B> (up to 4 characters, e.g. <code className="font-mono text-xs bg-muted px-1 rounded">ASOP</code>) in Alliance settings. This tag appears next to member names in event lists, bot roster embeds, and snake draft order announcements so participants can identify which org each member belongs to.</P>
+    </>
+  );
+}
+
+function allianceAdminContent() {
+  return (
+    <>
+      <H>Creating an Alliance</H>
+      <P>Go to <B>Module Settings → Alliance</B> and click <B>New Alliance</B>. Give it a name (e.g. "Northern Coalition") and confirm. Your server is added as the first accepted member automatically.</P>
+      <Divider />
+      <H>Inviting Other Servers</H>
+      <P>Open an alliance card and click <B>Invite Server</B>. Search the list of bot-installed guilds and select one to send an invitation. The invited server sees a <B>Pending Alliance Invitations</B> banner on their Alliance settings page and can accept or reject. Pending invitations are shown with an "Awaiting" badge on your card until resolved.</P>
+      <P>To cancel a pending invitation before it is accepted, hover the awaiting server row and click the remove button.</P>
+      <Divider />
+      <H>Accepting Invitations</H>
+      <P>When another guild invites yours, a highlighted <B>Pending Alliance Invitations</B> card appears at the top of your Alliance settings page. Click <B>Accept</B> to join the alliance, or <B>Reject</B> to decline. Accepted guilds immediately appear as members on all alliance cards across every member server.</P>
+      <Divider />
+      <H>Sharing Events</H>
+      <P>When creating or editing an event, use the <B>Alliance</B> selector in the event form to choose which alliance to share it with. The event is then visible on every member guild's dashboard. The bot automatically creates a forum thread and Discord scheduled event in each member guild, and loot result announcements are broadcast to all alliance threads when a session completes.</P>
+      <P>Only guilds the host server is an accepted member of appear in the alliance dropdown. Removing the alliance share from an event un-broadcasts it.</P>
+      <Divider />
+      <H>Org Tag &amp; Manager Roles</H>
+      <P>Set your guild's <B>Org Tag</B> (up to 4 alphanumeric characters) in Alliance settings. It appears in event lists and bot embeds to identify your guild within the alliance. Use <B>Alliance Manager Roles</B> to grant non-admin Discord roles the ability to create, invite, and manage alliances — server admins always have this permission regardless of the role setting.</P>
+      <Divider />
+      <H>Removing Members &amp; Deleting Alliances</H>
+      <P>Hover any accepted member row in an alliance card and click the remove button to remove that server from the alliance. To delete an alliance entirely, use the trash icon on the alliance card header. Both actions take effect immediately across all member servers.</P>
+    </>
+  );
+}
+
 function marketplaceAdminContent() {
   return (
     <>
@@ -385,6 +429,13 @@ function buildSections(opts: {
       subtitle: 'Bio token verification and org membership cross-reference.',
       content: rsiContent(),
     },
+    {
+      id: 'alliance',
+      icon: <Network className="h-4 w-4" />,
+      title: 'Alliance & Cross-Server Events',
+      subtitle: 'Cross-guild events, per-guild role slots, and org tags.',
+      content: allianceContent(),
+    },
   ].filter(Boolean) as GuideSection[];
 
   if (!isManager) return member;
@@ -413,6 +464,14 @@ function buildSections(opts: {
       subtitle: 'Adjusting balances, session awards, and currency configuration.',
       adminOnly: true,
       content: dkpAdminContent(dkpLabel),
+    },
+    {
+      id: 'alliance-admin',
+      icon: <Network className="h-4 w-4" />,
+      title: 'Alliance Administration',
+      subtitle: 'Creating alliances, inviting servers, sharing events, org tags.',
+      adminOnly: true,
+      content: allianceAdminContent(),
     },
     exchangeEnabled && {
       id: 'marketplace-admin',
