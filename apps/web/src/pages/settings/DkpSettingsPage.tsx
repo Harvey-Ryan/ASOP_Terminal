@@ -63,6 +63,7 @@ export function DkpSettingsPage() {
     mutationFn: (data: Partial<GuildSettingsData>) => settingsApi.updateSettings(guildId!, data),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
+      queryClient.invalidateQueries({ queryKey: ['my-permissions', guildId] });
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2500);

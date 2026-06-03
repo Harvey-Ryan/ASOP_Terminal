@@ -15,6 +15,7 @@ import {
 import {
   getGuildIconUrl,
   resolveAvatarUrl,
+  canManageGuild,
 } from '@dem/shared';
 import type { ApiResponse, DiscordUser, ManagedGuild, MeResponse } from '@dem/shared';
 
@@ -150,17 +151,63 @@ authRouter.get('/me', requireAuth, async (req, res) => {
           prisma.guild.findMany({ select: { guildId: true } }),
         ]);
         const botGuildIds = new Set(botGuildRows.map((g) => g.guildId));
-        guilds = raw
-          .filter((g) => botGuildIds.has(g.id))
-          .map((g) => ({
-            id: g.id,
-            name: g.name,
-            icon: g.icon,
-            iconUrl: getGuildIconUrl(g.id, g.icon),
-            owner: g.owner,
-            permissions: g.permissions,
-            hasBotInstalled: true,
-          }))
+        const botGuilds   = raw.filter((g) => botGuildIds.has(g.id));
+
+        // Guild managers always have access.
+        const managerGuilds = botGuilds.filter((g) =>  canManageGuild(g));
+        const memberGuilds  = botGuilds.filter((g) => !canManageGuild(g));
+
+        // For non-managers: open when no viewer roles are configured;
+        // otherwise the user must hold one of the configured roles.
+        let accessibleMemberGuilds: typeof memberGuilds = [];
+        if (memberGuilds.length > 0) {
+          const configs = await prisma.guild.findMany({
+            where:  { guildId: { in: memberGuilds.map((g) => g.id) } },
+            select: { guildId: true, settings: { select: { viewerRoles: true, eventCreatorRoles: true } } },
+          });
+          const configMap = new Map(configs.map((c) => [c.guildId, c.settings]));
+          const botToken  = process.env['DISCORD_TOKEN'];
+
+          accessibleMemberGuilds = (
+            await Promise.all(
+              memberGuilds.map(async (g) => {
+                const s       = configMap.get(g.id);
+                const allowed = [
+                  ...(JSON.parse(s?.viewerRoles      ?? '[]') as string[]),
+                  ...(JSON.parse(s?.eventCreatorRoles ?? '[]') as string[]),
+                ];
+
+                if (allowed.length === 0) return g; // no roles configured — open access
+
+                if (!botToken) return g; // bot token unavailable — fail open
+                try {
+                  const r = await fetch(
+                    `https://discord.com/api/v10/guilds/${g.id}/members/${dbUser.discordId}`,
+                    { headers: { Authorization: `Bot ${botToken}` } },
+                  );
+                  if (r.ok) {
+                    const member = (await r.json()) as { roles: string[] };
+                    return member.roles.some((id) => allowed.includes(id)) ? g : null;
+                  }
+                } catch {}
+                return null;
+              }),
+            )
+          ).filter((g): g is (typeof memberGuilds)[0] => g !== null);
+        }
+
+        const toDto = (g: (typeof botGuilds)[0]): ManagedGuild => ({
+          id:              g.id,
+          name:            g.name,
+          icon:            g.icon,
+          iconUrl:         getGuildIconUrl(g.id, g.icon),
+          owner:           g.owner,
+          permissions:     g.permissions,
+          hasBotInstalled: true,
+        });
+
+        guilds = [...managerGuilds, ...accessibleMemberGuilds]
+          .map(toDto)
           .sort((a, b) => {
             if (a.owner !== b.owner) return a.owner ? -1 : 1;
             return a.name.localeCompare(b.name);

@@ -25,6 +25,7 @@ import { CraftingCalculatorSettingsPage } from './pages/settings/CraftingCalcula
 import { RosterPage } from './pages/RosterPage';
 import { AllianceSettingsPage } from './pages/settings/AllianceSettingsPage';
 import { KanbanPage } from './pages/KanbanPage';
+import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
 import { LootSettingsPage } from './pages/settings/LootSettingsPage';
 import { ModuleSettingsHubPage } from './pages/settings/ModuleSettingsHubPage';
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<CraftingCalculatorSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/alliance" element={<AllianceSettingsPage />} />
           <Route path="kanban" element={<KanbanPage />} />
+          <Route path="settings/notifications" element={<NotificationSettingsPage />} />
         </Route>
 
         {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}

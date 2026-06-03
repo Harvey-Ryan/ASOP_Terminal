@@ -581,9 +581,30 @@ export interface TradeDto {
   status: TradeStatus;
   /** False when the seller's guild membership is inactive (left the guild). */
   sellerActive: boolean;
+  /** Number of messages from the other party that the current user has not yet read. */
+  unreadCount: number;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TradeMessageDto {
+  id: string;
+  tradeId: string;
+  senderId: string;
+  senderUsername: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface UserNotificationPrefsDto {
+  dmTradeRequest: boolean;
+  dmTradeStatus: boolean;
+  dmTradeCancelled: boolean;
+  dmTradeMessage: boolean;
+  dmEventReminder: boolean;
+}
+
+export type UpdateNotificationPrefsBody = Partial<UserNotificationPrefsDto>;
 
 // ── Fleet Registry ────────────────────────────────────────────────────────────
 

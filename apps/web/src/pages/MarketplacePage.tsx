@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Package, Plus, Trash2, Pencil, X, Check,
-  Tag, Store, ArrowLeftRight,
+  Tag, Store, ArrowLeftRight, ChevronDown, ChevronUp, Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import type {
   InventoryItemType,
   MarketplaceListingDto,
   TradeDto,
+  TradeMessageDto,
 } from '@dem/shared';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -847,22 +848,130 @@ function InventoryTab({ guildId }: { guildId: string }) {
 
 // ── Tab 3 — Trades ────────────────────────────────────────────────────────────
 
+function TradeChat({ trade, guildId, myDiscordId }: { trade: TradeDto; guildId: string; myDiscordId: string }) {
+  const qc = useQueryClient();
+  const [text, setText] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ['trade-messages', guildId, trade.id],
+    queryFn: () => marketplaceApi.getMessages(guildId, trade.id),
+    refetchInterval: 3_000,
+    staleTime: 0,
+  });
+
+  const sendMut = useMutation({
+    mutationFn: (body: string) => marketplaceApi.sendMessage(guildId, trade.id, body),
+    onSuccess: () => {
+      setText('');
+      qc.invalidateQueries({ queryKey: ['trade-messages', guildId, trade.id] });
+    },
+  });
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || sendMut.isPending) return;
+    sendMut.mutate(trimmed);
+  }
+
+  const listing = trade.listingSnapshot;
+
+  return (
+    <div className="border-t border-border/50 mt-1 pt-3 pb-1">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+        Negotiation · {listing.itemName}
+      </div>
+
+      {/* Message history */}
+      <div className="space-y-2 max-h-56 overflow-y-auto pr-1 mb-3">
+        {isLoading && <p className="text-xs text-muted-foreground italic">Loading…</p>}
+        {!isLoading && messages.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No messages yet. Start the negotiation.</p>
+        )}
+        {messages.map((msg: TradeMessageDto) => {
+          const isMe = msg.senderId === myDiscordId;
+          return (
+            <div key={msg.id} className={cn('flex flex-col', isMe ? 'items-end' : 'items-start')}>
+              <div
+                className={cn(
+                  'max-w-[75%] rounded-lg px-3 py-2 text-sm break-words',
+                  isMe
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground',
+                )}
+              >
+                {msg.body}
+              </div>
+              <span className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                {isMe ? 'You' : msg.senderUsername} · {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type a message…"
+          maxLength={1000}
+          className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <Button type="submit" size="sm" disabled={!text.trim() || sendMut.isPending} className="gap-1">
+          <Send className="h-3.5 w-3.5" />
+          {sendMut.isPending ? '…' : 'Send'}
+        </Button>
+      </form>
+      {sendMut.isError && (
+        <p className="text-xs text-destructive mt-1">Failed to send. Try again.</p>
+      )}
+    </div>
+  );
+}
+
 function TradeRow({
   trade,
   guildId,
   role,
+  myDiscordId,
 }: {
   trade: TradeDto;
   guildId: string;
   role: 'buyer' | 'seller';
+  myDiscordId: string;
 }) {
   const qc = useQueryClient();
+  const [chatOpen, setChatOpen] = useState(false);
   const listing = trade.listingSnapshot;
   const invalidate = () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
 
   const acceptMut  = useMutation({ mutationFn: () => marketplaceApi.acceptTrade(guildId, trade.id),  onSuccess: invalidate });
   const declineMut = useMutation({ mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id), onSuccess: invalidate });
   const cancelMut  = useMutation({ mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),  onSuccess: invalidate });
+  const markReadMut = useMutation({
+    mutationFn: () => marketplaceApi.markAsRead(guildId, trade.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
+      qc.invalidateQueries({ queryKey: ['marketplace-unread-count', guildId] });
+    },
+  });
+
+  // Mark as read when chat is opened and there are unread messages
+  useEffect(() => {
+    if (chatOpen && trade.unreadCount > 0) {
+      markReadMut.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatOpen]);
 
   const busy = acceptMut.isPending || declineMut.isPending || cancelMut.isPending;
 
@@ -870,43 +979,62 @@ function TradeRow({
     trade.status === 'ACCEPTED'  ? 'text-green-400' :
     trade.status === 'DECLINED'  ? 'text-destructive' :
     trade.status === 'CANCELLED' ? 'text-muted-foreground' :
-    'text-amber-400';
+    'text-yellow-400';
+
+  const ChevronIcon = chatOpen ? ChevronUp : ChevronDown;
 
   return (
-    <div className="flex items-center gap-3 py-3 text-sm flex-wrap">
-      <div className="flex-1 min-w-0">
-        <div className="font-medium">
-          {fmtQty(trade.quantityRequested, listing.itemType)} × {listing.itemName}
+    <div className="relative py-3 text-sm">
+      {/* Unread badge — top-right corner of the row, clear of the chevron */}
+      {!chatOpen && trade.unreadCount > 0 && (
+        <span className="absolute top-1 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground leading-none pointer-events-none">
+          {trade.unreadCount > 99 ? '99+' : trade.unreadCount}
+        </span>
+      )}
+      {/* Clickable header row — toggles chat panel */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setChatOpen((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChatOpen((v) => !v); } }}
+        className="flex items-center gap-3 flex-wrap cursor-pointer select-none rounded-md -mx-2 px-2 py-1 hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="font-medium">
+            {fmtQty(trade.quantityRequested, listing.itemType)} × {listing.itemName}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {role === 'seller'
+              ? `From ${trade.buyerUsername} · ${listing.guildName}`
+              : `Seller: ${listing.username} · ${listing.guildName}`}
+            {trade.note && <span className="ml-2 italic">"{trade.note}"</span>}
+            {role === 'buyer' && !trade.sellerActive && trade.status === 'PENDING' && (
+              <span className="ml-2 text-amber-400">· Seller left this guild</span>
+            )}
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          {role === 'seller'
-            ? `From ${trade.buyerUsername} · ${listing.guildName}`
-            : `Seller: ${listing.username} · ${listing.guildName}`}
-          {trade.note && <span className="ml-2 italic">"{trade.note}"</span>}
-          {role === 'buyer' && !trade.sellerActive && trade.status === 'PENDING' && (
-            <span className="ml-2 text-amber-400">· Seller left this guild</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <ChevronIcon className={cn('h-4 w-4 transition-colors', chatOpen ? 'text-primary' : 'text-muted-foreground')} />
+          <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
+          {trade.status === 'PENDING' && role === 'seller' && (
+            <>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); acceptMut.mutate(); }} disabled={busy}>Accept</Button>
+              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); declineMut.mutate(); }} disabled={busy}>Decline</Button>
+              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelMut.mutate(); }} disabled={busy}
+                className="text-muted-foreground hover:text-foreground">
+                Cancel
+              </Button>
+            </>
           )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
-        {trade.status === 'PENDING' && role === 'seller' && (
-          <>
-            <Button size="sm" onClick={() => acceptMut.mutate()} disabled={busy}>Accept</Button>
-            <Button size="sm" variant="outline" onClick={() => declineMut.mutate()} disabled={busy}>Decline</Button>
-            <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
+          {trade.status === 'PENDING' && role === 'buyer' && (
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelMut.mutate(); }} disabled={busy}
               className="text-muted-foreground hover:text-foreground">
               Cancel
             </Button>
-          </>
-        )}
-        {trade.status === 'PENDING' && role === 'buyer' && (
-          <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
-            className="text-muted-foreground hover:text-foreground">
-            Cancel
-          </Button>
-        )}
+          )}
+        </div>
       </div>
+      {chatOpen && <TradeChat trade={trade} guildId={guildId} myDiscordId={myDiscordId} />}
     </div>
   );
 }
@@ -917,6 +1045,8 @@ const isOldResolved = (t: TradeDto) =>
 
 function TradesTab({ guildId }: { guildId: string }) {
   const [showHistory, setShowHistory] = useState(false);
+  const { user } = useAuth();
+  const myDiscordId = user?.id ?? '';
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-trades', guildId],
@@ -972,7 +1102,7 @@ function TradesTab({ guildId }: { guildId: string }) {
             <CardContent className="pt-2 pb-0">
               <div className="divide-y divide-border">
                 {visibleIncoming.map((t) => (
-                  <TradeRow key={t.id} trade={t} guildId={guildId} role="seller" />
+                  <TradeRow key={t.id} trade={t} guildId={guildId} role="seller" myDiscordId={myDiscordId} />
                 ))}
               </div>
             </CardContent>
@@ -989,7 +1119,7 @@ function TradesTab({ guildId }: { guildId: string }) {
             <CardContent className="pt-2 pb-0">
               <div className="divide-y divide-border">
                 {visibleOutgoing.map((t) => (
-                  <TradeRow key={t.id} trade={t} guildId={guildId} role="buyer" />
+                  <TradeRow key={t.id} trade={t} guildId={guildId} role="buyer" myDiscordId={myDiscordId} />
                 ))}
               </div>
             </CardContent>
@@ -1010,8 +1140,7 @@ export function MarketplacePage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [activeTab, setActiveTab] = useState<TabId>('browse');
 
-  // Fetch pending count eagerly so the Trades tab label is decorated immediately,
-  // without waiting for the user to click the tab.
+  // Both queries are seeded/shared with the layout's queries — no extra requests.
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ['marketplace-pending-count', guildId],
     queryFn: () => marketplaceApi.getPendingCount(guildId!),
@@ -1019,13 +1148,20 @@ export function MarketplacePage() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['marketplace-unread-count', guildId],
+    queryFn: () => marketplaceApi.getUnreadMessageCount(guildId!),
+    enabled: !!guildId,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
 
   if (!guildId) return null;
 
-  const TABS: { id: TabId; label: string; Icon: React.ElementType; badge?: number }[] = [
+  const TABS: { id: TabId; label: string; Icon: React.ElementType; pendingBadge?: number; messageBadge?: number }[] = [
     { id: 'browse',    label: 'Browse',       Icon: Store },
     { id: 'inventory', label: 'My Inventory', Icon: Package },
-    { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight, badge: pendingCount },
+    { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight, pendingBadge: pendingCount, messageBadge: unreadCount },
   ];
 
   return (
@@ -1038,7 +1174,7 @@ export function MarketplacePage() {
       </div>
 
       <div className="flex border-b border-border">
-        {TABS.map(({ id, label, Icon, badge }) => (
+        {TABS.map(({ id, label, Icon, pendingBadge, messageBadge }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
@@ -1051,9 +1187,14 @@ export function MarketplacePage() {
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
-            {badge != null && badge > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black">
-                {badge}
+            {(pendingBadge ?? 0) > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
+                {pendingBadge}
+              </span>
+            )}
+            {(messageBadge ?? 0) > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                {(messageBadge ?? 0) > 99 ? '99+' : messageBadge}
               </span>
             )}
           </button>

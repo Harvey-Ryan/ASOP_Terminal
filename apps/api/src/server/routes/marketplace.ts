@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
-import type { ApiResponse, MarketplaceListingDto, TradeDto, CreateTradeBody, InventoryItemType, TradeStatus } from '@dem/shared';
+import type { ApiResponse, MarketplaceListingDto, TradeDto, TradeMessageDto, CreateTradeBody, InventoryItemType, TradeStatus } from '@dem/shared';
 
 export const marketplaceRouter = Router();
 
 // ── Discord DM helper ─────────────────────────────────────────────────────────
 // Best-effort: silently swallows all errors so a failed DM never breaks the
 // main request.
+
+const WEB_URL = process.env['WEB_URL'] ?? 'http://localhost:5173';
+const NOTIF_SETTINGS_URL = `${WEB_URL}/dashboard/settings/notifications`;
+const NOTIF_FOOTER = `\n\nChange notification settings: ${NOTIF_SETTINGS_URL}`;
 
 async function sendBotDm(userId: string, content: string): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];
@@ -28,6 +32,42 @@ async function sendBotDm(userId: string, content: string): Promise<void> {
   } catch {
     // intentionally swallowed
   }
+}
+
+// ── Notification preference lookup ────────────────────────────────────────────
+// Looks up prefs by Discord snowflake. Returns all-enabled defaults if the user
+// has never logged in or has no saved preferences.
+
+type NotifKey = 'dmTradeRequest' | 'dmTradeStatus' | 'dmTradeCancelled' | 'dmTradeMessage';
+
+async function canSendDm(discordId: string, key: NotifKey): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { discordId },
+    select: {
+      notificationPrefs: {
+        select: { dmTradeRequest: true, dmTradeStatus: true, dmTradeCancelled: true, dmTradeMessage: true },
+      },
+    },
+  });
+  // Unknown user or no saved prefs row → default opt-in
+  if (!user || !user.notificationPrefs) return true;
+  return user.notificationPrefs[key];
+}
+
+// ── Trade message DM debounce ─────────────────────────────────────────────────
+// Keyed by "recipientId:tradeId". A DM is only sent if no DM has been sent for
+// this conversation in the last hour, preventing spam in rapid exchanges.
+
+const DM_COOLDOWN_MS = 60 * 60 * 1000;
+const dmCooldowns = new Map<string, number>();
+
+async function maybeSendMessageDm(recipientId: string, tradeId: string, content: string) {
+  if (!await canSendDm(recipientId, 'dmTradeMessage')) return;
+  const key = `${recipientId}:${tradeId}`;
+  const lastSent = dmCooldowns.get(key) ?? 0;
+  if (Date.now() - lastSent < DM_COOLDOWN_MS) return;
+  dmCooldowns.set(key, Date.now());
+  sendBotDm(recipientId, content).catch(() => null);
 }
 
 // ── DTO helper ────────────────────────────────────────────────────────────────
@@ -67,7 +107,7 @@ function tradeToDto(t: {
   id: string; inventoryEntryId: string; listingSnapshot: unknown;
   buyerGuildId: string; buyerId: string; buyerUsername: string;
   quantityRequested: number; note: string | null; status: string;
-  sellerActive: boolean;
+  sellerActive: boolean; unreadCount: number;
   createdAt: Date; updatedAt: Date;
 }): TradeDto {
   return {
@@ -81,6 +121,7 @@ function tradeToDto(t: {
     note: t.note,
     status: t.status as TradeStatus,
     sellerActive: t.sellerActive,
+    unreadCount: t.unreadCount,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -170,6 +211,52 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades/pending-count', requi
   res.json({ success: true, data: { count } } satisfies ApiResponse<{ count: number }>);
 });
 
+// ── GET /api/guilds/:guildId/marketplace/trades/unread-count ─────────────────
+// Total unread message count across all of the user's trades in this guild.
+// Used by the sidebar badge. IMPORTANT: must be registered before /:tradeId routes.
+
+marketplaceRouter.get('/guilds/:guildId/marketplace/trades/unread-count', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+
+  const trades = await prisma.trade.findMany({
+    where: {
+      OR: [
+        { inventoryEntry: { guildId, userId: me } },
+        { buyerGuildId: guildId, buyerId: me },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (trades.length === 0) {
+    res.json({ success: true, data: { count: 0 } } satisfies ApiResponse<{ count: number }>);
+    return;
+  }
+
+  const tradeIds = trades.map((t) => t.id);
+  const readRecords = await prisma.tradeMessageRead.findMany({
+    where: { userId: me, tradeId: { in: tradeIds } },
+  });
+  const readMap = new Map(readRecords.map((r) => [r.tradeId, r.lastReadAt]));
+
+  const counts = await Promise.all(
+    tradeIds.map((id) =>
+      prisma.tradeMessage.count({
+        where: {
+          tradeId: id,
+          senderId: { not: me },
+          ...(readMap.has(id) ? { createdAt: { gt: readMap.get(id)! } } : {}),
+        },
+      }),
+    ),
+  );
+
+  const count = counts.reduce((sum, c) => sum + c, 0);
+  res.json({ success: true, data: { count } } satisfies ApiResponse<{ count: number }>);
+});
+
 // ── GET /api/guilds/:guildId/marketplace/trades ───────────────────────────────
 // Returns trades where the current user is buyer (outgoing) or seller (incoming).
 
@@ -191,11 +278,37 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades', requireAuth, async 
     }),
   ]);
 
+  const allTrades = [...incoming, ...outgoing];
+
+  // Load read records for the current user across all returned trades
+  const readRecords = allTrades.length > 0
+    ? await prisma.tradeMessageRead.findMany({
+        where: { userId: me, tradeId: { in: allTrades.map((t) => t.id) } },
+      })
+    : [];
+  const readMap = new Map(readRecords.map((r) => [r.tradeId, r.lastReadAt]));
+
+  // Count messages sent by the other party after the user's lastReadAt
+  const unreadCounts = await Promise.all(
+    allTrades.map((t) => {
+      const lastReadAt = readMap.get(t.id);
+      return prisma.tradeMessage.count({
+        where: {
+          tradeId: t.id,
+          senderId: { not: me },
+          ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+        },
+      });
+    }),
+  );
+
+  const unreadMap = new Map(allTrades.map((t, i) => [t.id, unreadCounts[i]!]));
+
   res.json({
     success: true,
     data: {
-      incoming: incoming.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive })),
-      outgoing: outgoing.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive })),
+      incoming: incoming.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 })),
+      outgoing: outgoing.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 })),
     },
   } satisfies ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>);
 });
@@ -251,12 +364,15 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades', requireAuth, async
   });
 
   const buyerName = dbUser.globalName ?? dbUser.username;
-  sendBotDm(
-    listing.userId,
-    `**New trade request!** ${buyerName} wants to buy **${body.quantityRequested}x ${listing.itemName}** from your marketplace listing.${body.note ? `\n> "${body.note}"` : ''}\n\nSign in to ASOP Terminal to accept or decline.`,
-  ).catch(() => null);
+  canSendDm(listing.userId, 'dmTradeRequest').then((ok) => {
+    if (!ok) return;
+    sendBotDm(
+      listing.userId,
+      `New trade request! ${buyerName} wants to buy ${body.quantityRequested}x ${listing.itemName} from your marketplace listing.${body.note ? `\n"${body.note}"` : ''}\n\nSign in to accept or decline: ${WEB_URL}${NOTIF_FOOTER}`,
+    );
+  }).catch(() => null);
 
-  res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true }) } satisfies ApiResponse<TradeDto>);
+  res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true, unreadCount: 0 }) } satisfies ApiResponse<TradeDto>);
 });
 
 // ── PATCH /api/guilds/:guildId/marketplace/trades/:tradeId/accept ─────────────
@@ -305,10 +421,13 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/accept', r
     }),
   ]);
 
-  sendBotDm(
-    trade.buyerId,
-    `**Trade accepted!** ${dbUser.globalName ?? dbUser.username} accepted your request for **${trade.quantityRequested}x ${trade.inventoryEntry.itemName}**. Reach out to arrange the handoff!`,
-  ).catch(() => null);
+  canSendDm(trade.buyerId, 'dmTradeStatus').then((ok) => {
+    if (!ok) return;
+    sendBotDm(
+      trade.buyerId,
+      `Trade accepted! ${dbUser.globalName ?? dbUser.username} accepted your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}. Reach out to arrange the handoff.${NOTIF_FOOTER}`,
+    );
+  }).catch(() => null);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -332,10 +451,13 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/decline', 
 
   await prisma.trade.update({ where: { id: tradeId }, data: { status: 'DECLINED' } });
 
-  sendBotDm(
-    trade.buyerId,
-    `**Trade declined.** ${dbUser.globalName ?? dbUser.username} declined your request for **${trade.quantityRequested}x ${trade.inventoryEntry.itemName}**.`,
-  ).catch(() => null);
+  canSendDm(trade.buyerId, 'dmTradeStatus').then((ok) => {
+    if (!ok) return;
+    sendBotDm(
+      trade.buyerId,
+      `Trade declined. ${dbUser.globalName ?? dbUser.username} declined your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}.${NOTIF_FOOTER}`,
+    );
+  }).catch(() => null);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -374,18 +496,151 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/cancel', r
   const qty = trade.quantityRequested;
 
   if (isBuyer) {
-    // Notify the seller that the buyer walked away
-    sendBotDm(
-      trade.inventoryEntry.userId,
-      `**Trade request cancelled.** ${myName} cancelled their request for **${qty}x ${itemName}**.`,
-    ).catch(() => null);
+    canSendDm(trade.inventoryEntry.userId, 'dmTradeCancelled').then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        trade.inventoryEntry.userId,
+        `Trade request cancelled. ${myName} cancelled their request for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
+      );
+    }).catch(() => null);
   } else {
-    // Seller cancelled — notify the buyer
-    sendBotDm(
-      trade.buyerId,
-      `**Trade cancelled.** ${myName} cancelled the trade for **${qty}x ${itemName}**.`,
-    ).catch(() => null);
+    canSendDm(trade.buyerId, 'dmTradeCancelled').then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        trade.buyerId,
+        `Trade cancelled. ${myName} cancelled the trade for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
+      );
+    }).catch(() => null);
   }
+
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── GET /api/guilds/:guildId/marketplace/trades/:tradeId/messages ─────────────
+// Returns the message history for a trade. Only accessible to buyer and seller.
+
+marketplaceRouter.get('/guilds/:guildId/marketplace/trades/:tradeId/messages', requireAuth, async (req, res) => {
+  const { guildId, tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: { select: { userId: true, guildId: true } } },
+  });
+  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+  }
+  if (trade.buyerId !== me && trade.inventoryEntry.userId !== me) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const messages = await prisma.tradeMessage.findMany({
+    where: { tradeId },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  res.json({
+    success: true,
+    data: messages.map((m) => ({
+      id: m.id,
+      tradeId: m.tradeId,
+      senderId: m.senderId,
+      senderUsername: m.senderUsername,
+      body: m.body,
+      createdAt: m.createdAt.toISOString(),
+    })),
+  } satisfies ApiResponse<TradeMessageDto[]>);
+});
+
+// ── POST /api/guilds/:guildId/marketplace/trades/:tradeId/messages ────────────
+// Sends a message. Only buyer and seller can post; DMs the other party.
+
+marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages', requireAuth, async (req, res) => {
+  const { guildId, tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+  const myName = dbUser.globalName ?? dbUser.username;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: { select: { userId: true, itemName: true, guildId: true } } },
+  });
+  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+  }
+
+  const isBuyer  = trade.buyerId === me;
+  const isSeller = trade.inventoryEntry.userId === me;
+  if (!isBuyer && !isSeller) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  if (trade.status === 'DECLINED' || trade.status === 'CANCELLED') {
+    res.status(409).json({ success: false, error: 'Cannot message on a closed trade' } satisfies ApiResponse); return;
+  }
+
+  const body = (req.body as { body?: unknown }).body;
+  if (typeof body !== 'string' || !body.trim()) {
+    res.status(400).json({ success: false, error: 'body is required' } satisfies ApiResponse); return;
+  }
+  if (body.trim().length > 1000) {
+    res.status(400).json({ success: false, error: 'Message too long (max 1000 characters)' } satisfies ApiResponse); return;
+  }
+
+  const message = await prisma.tradeMessage.create({
+    data: { tradeId, senderId: me, senderUsername: myName, body: body.trim() },
+  });
+
+  const otherParty = isBuyer ? trade.inventoryEntry.userId : trade.buyerId;
+  const itemName = trade.inventoryEntry.itemName;
+  const preview = body.trim().slice(0, 100) + (body.trim().length > 100 ? '…' : '');
+  maybeSendMessageDm(
+    otherParty,
+    tradeId,
+    `${myName} sent a message about your ${itemName} trade: "${preview}"\n\nReply at ${WEB_URL}${NOTIF_FOOTER}`,
+  );
+
+  res.status(201).json({
+    success: true,
+    data: {
+      id: message.id,
+      tradeId: message.tradeId,
+      senderId: message.senderId,
+      senderUsername: message.senderUsername,
+      body: message.body,
+      createdAt: message.createdAt.toISOString(),
+    },
+  } satisfies ApiResponse<TradeMessageDto>);
+});
+
+// ── POST /api/guilds/:guildId/marketplace/trades/:tradeId/messages/read ────────
+// Marks all messages in this trade as read for the current user.
+// IMPORTANT: must be registered before /:tradeId/messages to avoid route clash.
+
+marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages/read', requireAuth, async (req, res) => {
+  const { guildId, tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: { select: { userId: true, guildId: true } } },
+  });
+  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+  }
+  if (trade.buyerId !== me && trade.inventoryEntry.userId !== me) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  await prisma.tradeMessageRead.upsert({
+    where: { tradeId_userId: { tradeId, userId: me } },
+    create: { tradeId, userId: me, lastReadAt: new Date() },
+    update: { lastReadAt: new Date() },
+  });
 
   res.json({ success: true } satisfies ApiResponse);
 });

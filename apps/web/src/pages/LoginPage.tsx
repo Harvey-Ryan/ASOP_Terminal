@@ -26,7 +26,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <img src="/favicon.png" alt="ASOP Terminal" className="h-16 w-16 rounded-2xl object-cover shadow-lg" />
+          <img src="/AsopLogo.jpg" alt="ASOP Terminal" className="h-16 w-16 rounded-2xl object-cover shadow-lg" />
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight">ASOP Terminal</h1>
             <p className="mt-1 text-sm text-muted-foreground">Manage your server events with ease</p>

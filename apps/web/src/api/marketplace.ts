@@ -6,6 +6,7 @@ import type {
   UpsertInventoryEntryBody,
   MarketplaceListingDto,
   TradeDto,
+  TradeMessageDto,
   CreateTradeBody,
 } from '@dem/shared';
 
@@ -66,6 +67,11 @@ export const marketplaceApi = {
       .get<ApiResponse<{ count: number }>>(`/guilds/${guildId}/marketplace/trades/pending-count`)
       .then((r) => r.data?.count ?? 0),
 
+  getUnreadMessageCount: (guildId: string) =>
+    api
+      .get<ApiResponse<{ count: number }>>(`/guilds/${guildId}/marketplace/trades/unread-count`)
+      .then((r) => r.data?.count ?? 0),
+
   getTrades: (guildId: string) =>
     api
       .get<ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>>(
@@ -86,4 +92,17 @@ export const marketplaceApi = {
 
   cancelTrade: (guildId: string, tradeId: string) =>
     api.patch<ApiResponse>(`/guilds/${guildId}/marketplace/trades/${tradeId}/cancel`),
+
+  getMessages: (guildId: string, tradeId: string) =>
+    api
+      .get<ApiResponse<TradeMessageDto[]>>(`/guilds/${guildId}/marketplace/trades/${tradeId}/messages`)
+      .then((r) => r.data ?? []),
+
+  sendMessage: (guildId: string, tradeId: string, body: string) =>
+    api
+      .post<ApiResponse<TradeMessageDto>>(`/guilds/${guildId}/marketplace/trades/${tradeId}/messages`, { body })
+      .then((r) => r.data!),
+
+  markAsRead: (guildId: string, tradeId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/marketplace/trades/${tradeId}/messages/read`),
 };

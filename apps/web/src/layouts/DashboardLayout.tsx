@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -87,6 +87,16 @@ function ProfileDropdown({
           )}
         </div>
       </div>
+
+      <div className="mt-3 pt-3 border-t border-border">
+        <Link
+          to="/dashboard/settings/notifications"
+          onClick={onClose}
+          className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Notification Settings
+        </Link>
+      </div>
     </div>
   );
 }
@@ -139,6 +149,13 @@ export function DashboardLayout() {
     queryFn: () => marketplaceApi.getPendingCount(activeGuildId!),
     enabled: !!activeGuildId && exchangeEnabled,
     staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const { data: unreadMessageCount = 0 } = useQuery({
+    queryKey: ['marketplace-unread-count', activeGuildId],
+    queryFn: () => marketplaceApi.getUnreadMessageCount(activeGuildId!),
+    enabled: !!activeGuildId && exchangeEnabled,
+    staleTime: 60_000,
     refetchInterval: 60_000,
   });
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
@@ -207,7 +224,7 @@ export function DashboardLayout() {
             className="flex cursor-pointer items-center gap-3 hover:opacity-80 transition-opacity"
             onClick={() => navigate('/dashboard')}
           >
-            <img src="/favicon.png" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+            <img src="/AsopLogo.jpg" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             <span className="font-semibold tracking-tight">ASOP Terminal</span>
           </div>
         </div>
@@ -346,9 +363,18 @@ export function DashboardLayout() {
                 >
                   <ArrowLeftRight className="h-4 w-4 shrink-0" />
                   Marketplace
-                  {pendingTradeCount > 0 && (
-                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black shrink-0">
-                      {pendingTradeCount}
+                  {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
+                    <span className="ml-auto flex items-center gap-1 shrink-0">
+                      {pendingTradeCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
+                          {pendingTradeCount}
+                        </span>
+                      )}
+                      {unreadMessageCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                          {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                        </span>
+                      )}
                     </span>
                   )}
                 </NavLink>
@@ -528,8 +554,8 @@ export function DashboardLayout() {
 
       {/* ── Bottom branding bar ── */}
       <footer className="shrink-0 border-t border-border bg-card px-4 py-3 flex items-center justify-between gap-6">
-        <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="shrink-0 opacity-40 hover:opacity-70 transition-opacity">
-          <img src="/uex-api-badge-powered.png" alt="Powered by UEX Corp API" className="h-10 object-contain" />
+        <a href="https://buymeacoffee.com/asopterminal" target="_blank" rel="noreferrer" className="shrink-0 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-foreground">
+          🍺 Buy Me a Beer
         </a>
         <p className="text-[18px] leading-tight text-muted-foreground text-center opacity-40">
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
