@@ -108,6 +108,7 @@ export function DashboardPage() {
           </Button>
         </div>
       ) : (
+        <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {guilds.map((guild) => (
             <Link
@@ -151,6 +152,7 @@ export function DashboardPage() {
             </a>
           </Button>
         </div>
+        </>
       )}
     </div>
   );
