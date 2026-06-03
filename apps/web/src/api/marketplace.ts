@@ -67,6 +67,11 @@ export const marketplaceApi = {
       .get<ApiResponse<{ count: number }>>(`/guilds/${guildId}/marketplace/trades/pending-count`)
       .then((r) => r.data?.count ?? 0),
 
+  getUnreadMessageCount: (guildId: string) =>
+    api
+      .get<ApiResponse<{ count: number }>>(`/guilds/${guildId}/marketplace/trades/unread-count`)
+      .then((r) => r.data?.count ?? 0),
+
   getTrades: (guildId: string) =>
     api
       .get<ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>>(

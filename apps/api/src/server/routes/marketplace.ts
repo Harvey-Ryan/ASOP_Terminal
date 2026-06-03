@@ -186,6 +186,52 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades/pending-count', requi
   res.json({ success: true, data: { count } } satisfies ApiResponse<{ count: number }>);
 });
 
+// ── GET /api/guilds/:guildId/marketplace/trades/unread-count ─────────────────
+// Total unread message count across all of the user's trades in this guild.
+// Used by the sidebar badge. IMPORTANT: must be registered before /:tradeId routes.
+
+marketplaceRouter.get('/guilds/:guildId/marketplace/trades/unread-count', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+
+  const trades = await prisma.trade.findMany({
+    where: {
+      OR: [
+        { inventoryEntry: { guildId, userId: me } },
+        { buyerGuildId: guildId, buyerId: me },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (trades.length === 0) {
+    res.json({ success: true, data: { count: 0 } } satisfies ApiResponse<{ count: number }>);
+    return;
+  }
+
+  const tradeIds = trades.map((t) => t.id);
+  const readRecords = await prisma.tradeMessageRead.findMany({
+    where: { userId: me, tradeId: { in: tradeIds } },
+  });
+  const readMap = new Map(readRecords.map((r) => [r.tradeId, r.lastReadAt]));
+
+  const counts = await Promise.all(
+    tradeIds.map((id) =>
+      prisma.tradeMessage.count({
+        where: {
+          tradeId: id,
+          senderId: { not: me },
+          ...(readMap.has(id) ? { createdAt: { gt: readMap.get(id)! } } : {}),
+        },
+      }),
+    ),
+  );
+
+  const count = counts.reduce((sum, c) => sum + c, 0);
+  res.json({ success: true, data: { count } } satisfies ApiResponse<{ count: number }>);
+});
+
 // ── GET /api/guilds/:guildId/marketplace/trades ───────────────────────────────
 // Returns trades where the current user is buyer (outgoing) or seller (incoming).
 

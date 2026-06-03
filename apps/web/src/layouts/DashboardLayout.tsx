@@ -141,6 +141,13 @@ export function DashboardLayout() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+  const { data: unreadMessageCount = 0 } = useQuery({
+    queryKey: ['marketplace-unread-count', activeGuildId],
+    queryFn: () => marketplaceApi.getUnreadMessageCount(activeGuildId!),
+    enabled: !!activeGuildId && exchangeEnabled,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
   const fleetEnabled        = myPerms?.fleetEnabled        ?? true;
   const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
@@ -346,9 +353,18 @@ export function DashboardLayout() {
                 >
                   <ArrowLeftRight className="h-4 w-4 shrink-0" />
                   Marketplace
-                  {pendingTradeCount > 0 && (
-                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black shrink-0">
-                      {pendingTradeCount}
+                  {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
+                    <span className="ml-auto flex items-center gap-1 shrink-0">
+                      {pendingTradeCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black">
+                          {pendingTradeCount}
+                        </span>
+                      )}
+                      {unreadMessageCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                          {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                        </span>
+                      )}
                     </span>
                   )}
                 </NavLink>

@@ -959,7 +959,10 @@ function TradeRow({
   const cancelMut  = useMutation({ mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),  onSuccess: invalidate });
   const markReadMut = useMutation({
     mutationFn: () => marketplaceApi.markAsRead(guildId, trade.id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
+      qc.invalidateQueries({ queryKey: ['marketplace-unread-count', guildId] });
+    },
   });
 
   // Mark as read when chat is opened and there are unread messages
