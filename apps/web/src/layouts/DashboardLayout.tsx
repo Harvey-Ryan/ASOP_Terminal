@@ -536,6 +536,15 @@ export function DashboardLayout() {
             <KanbanSquare className="h-4 w-4 shrink-0" />
             Development Milestones
           </NavLink>
+          <a
+            href={INVITE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <ExternalLink className="h-4 w-4 shrink-0" />
+            Add Bot to Server
+          </a>
         </div>
 
       </aside>
