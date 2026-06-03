@@ -551,7 +551,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <div className="flex items-center gap-2 min-w-0">
             <Swords className={`h-4 w-4 shrink-0 ${myDraftPick.isMyTurn ? 'text-amber-500' : 'text-muted-foreground'}`} />
             <span className={`text-sm font-medium truncate ${myDraftPick.isMyTurn ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-              {myDraftPick.isMyTurn ? "It's your turn to pick!" : 'Snake draft in progress'}
+              {myDraftPick.isMyTurn ? "It's your turn to pick!" : myDraftPick.method === 'SNAKE_DRAFT' ? 'Snake draft in progress' : 'Loot session in progress'}
               {myDraftPick.itemCount > 0 && ` · ${myDraftPick.itemCount} item${myDraftPick.itemCount !== 1 ? 's' : ''} left`}
             </span>
           </div>

@@ -361,16 +361,17 @@ export interface ServerImageDto {
 
 // ── Snake draft my-pick ───────────────────────────────────────────────────────
 
-/** Returned by GET /api/guilds/loot/my-picks for every active snake draft the user participates in */
+/** Returned by GET /api/guilds/loot/my-picks for every active loot session the user participates in */
 export interface MyPickDto {
   guildId: string;
   guildName: string;
   sessionId: string;
   eventId: string | null;
   eventName: string;
+  method: LootMethod;
   /** Number of unassigned items remaining in the session */
   itemCount: number;
-  /** True when it is currently this user's turn to pick */
+  /** True when it is currently this user's turn to pick (snake draft only) */
   isMyTurn: boolean;
 }
 

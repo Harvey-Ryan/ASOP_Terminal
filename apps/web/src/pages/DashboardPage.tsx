@@ -20,7 +20,7 @@ function DraftPickCard({ pick }: { pick: MyPickDto }) {
         <Swords className={`h-5 w-5 shrink-0 ${isMyTurn ? 'text-amber-500' : 'text-muted-foreground'}`} />
         <div className="min-w-0">
           <p className={`font-medium truncate ${isMyTurn ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
-            {isMyTurn ? `It's your turn to pick in ${pick.guildName}` : `Snake draft in progress — ${pick.guildName}`}
+            {isMyTurn ? `It's your turn to pick in ${pick.guildName}` : pick.method === 'SNAKE_DRAFT' ? `Snake draft in progress — ${pick.guildName}` : `Loot session in progress — ${pick.guildName}`}
           </p>
           <p className="text-sm text-muted-foreground truncate">
             {pick.eventName}

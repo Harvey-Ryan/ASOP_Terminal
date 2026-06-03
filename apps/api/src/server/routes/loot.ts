@@ -125,13 +125,15 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
   const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
   if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
 
-  const sessions = await prisma.lootSession.findMany({
+  const picks: MyPickDto[] = [];
+
+  // ── Snake draft sessions (any) ─────────────────────────────────────────────
+  const snakeSessions = await prisma.lootSession.findMany({
     where: { method: 'SNAKE_DRAFT', status: 'OPEN' },
     include: { items: { include: { assignments: true } } },
   });
 
-  const picks: MyPickDto[] = [];
-  for (const session of sessions) {
+  for (const session of snakeSessions) {
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     if (!draftOrder.includes(dbUser.discordId)) continue;
 
@@ -151,9 +153,50 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
       sessionId: session.id,
       eventId: session.eventId ?? null,
       eventName: event?.name ?? session.name ?? 'Unknown',
+      method: session.method as import('@dem/shared').LootMethod,
       itemCount: totalUnassigned,
       isMyTurn,
     });
+  }
+
+  // ── Non-snake event sessions where user is on the roster ───────────────────
+  const eventSessions = await prisma.lootSession.findMany({
+    where: { method: { not: 'SNAKE_DRAFT' }, status: 'OPEN', eventId: { not: null } },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  if (eventSessions.length > 0) {
+    const eventIds = eventSessions.map((s) => s.eventId!);
+    const rsvps = await prisma.eventRsvp.findMany({
+      where: { eventId: { in: eventIds }, userId: dbUser.discordId },
+      select: { eventId: true },
+    });
+    const rosteredEventIds = new Set(rsvps.map((r) => r.eventId));
+    const relevant = eventSessions.filter((s) => rosteredEventIds.has(s.eventId!));
+
+    if (relevant.length > 0) {
+      const guildIds = [...new Set(relevant.map((s) => s.guildId))];
+      const [guilds, events] = await Promise.all([
+        prisma.guild.findMany({ where: { guildId: { in: guildIds } }, select: { guildId: true, name: true } }),
+        prisma.event.findMany({ where: { id: { in: relevant.map((s) => s.eventId!) } }, select: { id: true, name: true } }),
+      ]);
+      const guildNameMap = new Map(guilds.map((g) => [g.guildId, g.name]));
+      const eventNameMap = new Map(events.map((e) => [e.id, e.name]));
+
+      for (const session of relevant) {
+        const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
+        picks.push({
+          guildId: session.guildId,
+          guildName: guildNameMap.get(session.guildId) ?? session.guildId,
+          sessionId: session.id,
+          eventId: session.eventId!,
+          eventName: eventNameMap.get(session.eventId!) ?? session.name ?? 'Unknown',
+          method: session.method as import('@dem/shared').LootMethod,
+          itemCount: totalUnassigned,
+          isMyTurn: false,
+        });
+      }
+    }
   }
 
   res.json({ success: true, data: picks } satisfies ApiResponse<MyPickDto[]>);
@@ -1195,7 +1238,7 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   const isManager = await assertGuildManager(req, guildId);
 
   const sessions = await prisma.lootSession.findMany({
-    where: { guildId, eventId: null, status: 'OPEN' },
+    where: { guildId, status: 'OPEN' },
     orderBy: { createdAt: 'desc' },
     include: { items: { include: { assignments: true } } },
   });
@@ -1205,13 +1248,26 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
     return;
   }
 
-  // Non-managers see sessions they own or are a draft participant in
+  // Non-managers see sessions they own, are a draft participant in, or are rostered for
   const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
   if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+
+  const eventIds = sessions.map((s) => s.eventId).filter(Boolean) as string[];
+  const rosteredEventIds = eventIds.length > 0
+    ? new Set(
+        (await prisma.eventRsvp.findMany({
+          where: { eventId: { in: eventIds }, userId: dbUser.discordId },
+          select: { eventId: true },
+        })).map((r) => r.eventId),
+      )
+    : new Set<string>();
+
   const mySessions = sessions.filter((s) => {
     if (s.ownerId === dbUser.discordId) return true;
     const draftOrder: string[] = JSON.parse(s.draftOrder);
-    return draftOrder.includes(dbUser.discordId);
+    if (draftOrder.includes(dbUser.discordId)) return true;
+    if (s.eventId && rosteredEventIds.has(s.eventId)) return true;
+    return false;
   });
   res.json({ success: true, data: mySessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
 });
