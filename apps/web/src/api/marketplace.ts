@@ -66,4 +66,7 @@ export const marketplaceApi = {
 
   declineTrade: (guildId: string, tradeId: string) =>
     api.patch<ApiResponse>(`/guilds/${guildId}/marketplace/trades/${tradeId}/decline`),
+
+  cancelTrade: (guildId: string, tradeId: string) =>
+    api.patch<ApiResponse>(`/guilds/${guildId}/marketplace/trades/${tradeId}/cancel`),
 };

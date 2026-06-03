@@ -287,3 +287,53 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/decline', 
 
   res.json({ success: true } satisfies ApiResponse);
 });
+
+// ── PATCH /api/guilds/:guildId/marketplace/trades/:tradeId/cancel ─────────────
+// Either the buyer or the seller can cancel a PENDING trade.
+// Soft-deletes with CANCELLED status; notifies the other party via bot DM.
+
+marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/cancel', requireAuth, async (req, res) => {
+  const { tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+  const myName = dbUser.globalName ?? dbUser.username;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: true },
+  });
+
+  if (!trade || trade.status !== 'PENDING') {
+    res.status(404).json({ success: false, error: 'Trade not found or already resolved' } satisfies ApiResponse);
+    return;
+  }
+
+  const isBuyer  = trade.buyerId === me;
+  const isSeller = trade.inventoryEntry.userId === me;
+
+  if (!isBuyer && !isSeller) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.trade.update({ where: { id: tradeId }, data: { status: 'CANCELLED' } });
+
+  const itemName = trade.inventoryEntry.itemName;
+  const qty = trade.quantityRequested;
+
+  if (isBuyer) {
+    // Notify the seller that the buyer walked away
+    sendBotDm(
+      trade.inventoryEntry.userId,
+      `**Trade request cancelled.** ${myName} cancelled their request for **${qty}x ${itemName}**.`,
+    ).catch(() => null);
+  } else {
+    // Seller cancelled — notify the buyer
+    sendBotDm(
+      trade.buyerId,
+      `**Trade cancelled.** ${myName} cancelled the trade for **${qty}x ${itemName}**.`,
+    ).catch(() => null);
+  }
+
+  res.json({ success: true } satisfies ApiResponse);
+});

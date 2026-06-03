@@ -685,19 +685,18 @@ function TradeRow({
 }) {
   const qc = useQueryClient();
   const listing = trade.listingSnapshot;
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
 
-  const acceptMut = useMutation({
-    mutationFn: () => marketplaceApi.acceptTrade(guildId, trade.id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] }),
-  });
-  const declineMut = useMutation({
-    mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] }),
-  });
+  const acceptMut  = useMutation({ mutationFn: () => marketplaceApi.acceptTrade(guildId, trade.id),  onSuccess: invalidate });
+  const declineMut = useMutation({ mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id), onSuccess: invalidate });
+  const cancelMut  = useMutation({ mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),  onSuccess: invalidate });
+
+  const busy = acceptMut.isPending || declineMut.isPending || cancelMut.isPending;
 
   const statusColor =
-    trade.status === 'ACCEPTED' ? 'text-green-400' :
-    trade.status === 'DECLINED' ? 'text-destructive' :
+    trade.status === 'ACCEPTED'  ? 'text-green-400' :
+    trade.status === 'DECLINED'  ? 'text-destructive' :
+    trade.status === 'CANCELLED' ? 'text-muted-foreground' :
     'text-amber-400';
 
   return (
@@ -709,7 +708,7 @@ function TradeRow({
         <div className="text-xs text-muted-foreground mt-0.5">
           {role === 'seller'
             ? `From ${trade.buyerUsername} · ${listing.guildName}`
-            : `From your listing · ${listing.guildName}`}
+            : `Seller: ${listing.username} · ${listing.guildName}`}
           {trade.note && <span className="ml-2 italic">"{trade.note}"</span>}
         </div>
       </div>
@@ -717,13 +716,19 @@ function TradeRow({
         <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
         {trade.status === 'PENDING' && role === 'seller' && (
           <>
-            <Button size="sm" onClick={() => acceptMut.mutate()} disabled={acceptMut.isPending || declineMut.isPending}>
-              Accept
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => declineMut.mutate()} disabled={acceptMut.isPending || declineMut.isPending}>
-              Decline
+            <Button size="sm" onClick={() => acceptMut.mutate()} disabled={busy}>Accept</Button>
+            <Button size="sm" variant="outline" onClick={() => declineMut.mutate()} disabled={busy}>Decline</Button>
+            <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
+              className="text-muted-foreground hover:text-foreground">
+              Cancel
             </Button>
           </>
+        )}
+        {trade.status === 'PENDING' && role === 'buyer' && (
+          <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
+            className="text-muted-foreground hover:text-foreground">
+            Cancel
+          </Button>
         )}
       </div>
     </div>

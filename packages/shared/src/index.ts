@@ -494,7 +494,7 @@ export function resolveProxy(
 
 export type InventoryItemType = 'ITEM' | 'COMMODITY';
 
-export type TradeStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+export type TradeStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED';
 
 export interface InventoryEntryDto {
   id: string;

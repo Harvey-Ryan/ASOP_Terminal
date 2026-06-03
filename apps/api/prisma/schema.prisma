@@ -975,6 +975,7 @@ enum TradeStatus {
   PENDING
   ACCEPTED
   DECLINED
+  CANCELLED
 }
 
 /// One inventory slot per member per item per location. Unique on (guildId, userId, itemType, externalItemId, location).
