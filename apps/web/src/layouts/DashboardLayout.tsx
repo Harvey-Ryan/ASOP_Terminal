@@ -554,8 +554,8 @@ export function DashboardLayout() {
 
       {/* ── Bottom branding bar ── */}
       <footer className="shrink-0 border-t border-border bg-card px-4 py-3 flex items-center justify-between gap-6">
-        <a href="https://uexcorp.space/" target="_blank" rel="noreferrer" className="shrink-0 opacity-40 hover:opacity-70 transition-opacity">
-          <img src="/uex-api-badge-powered.png" alt="Powered by UEX Corp API" className="h-10 object-contain" />
+        <a href="https://buymeacoffee.com/asopterminal" target="_blank" rel="noreferrer" className="shrink-0 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-foreground">
+          🍺 Buy Me a Beer
         </a>
         <p className="text-[18px] leading-tight text-muted-foreground text-center opacity-40">
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
