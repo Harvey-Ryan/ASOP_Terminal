@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, Network } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -437,25 +437,6 @@ export function DashboardLayout() {
               >
                 <Puzzle className="h-4 w-4 shrink-0" />
                 Module Settings
-              </NavLink>
-
-              {/* Alliance */}
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/settings/modules/alliance`}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  )
-                }
-              >
-                <Network className="h-4 w-4 shrink-0" />
-                Alliance
-                {pendingInvitations.length > 0 && (
-                  <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shrink-0" />
-                )}
               </NavLink>
 
               {/* Game Data */}

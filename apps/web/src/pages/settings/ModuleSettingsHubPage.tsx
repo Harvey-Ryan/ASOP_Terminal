@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, ChevronRight } from 'lucide-react';
+import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Network, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface ModuleTile {
@@ -51,6 +51,12 @@ const MODULES: ModuleTile[] = [
     description: 'Material cost source and crafting fee defaults.',
     icon: Calculator,
     slug: 'crafting-calculator',
+  },
+  {
+    label: 'Alliance',
+    description: 'Cross-guild alliance links, invitations, and shared event settings.',
+    icon: Network,
+    slug: 'alliance',
   },
 ];
 
