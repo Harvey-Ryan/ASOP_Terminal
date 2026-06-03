@@ -979,7 +979,7 @@ function TradeRow({
     trade.status === 'ACCEPTED'  ? 'text-green-400' :
     trade.status === 'DECLINED'  ? 'text-destructive' :
     trade.status === 'CANCELLED' ? 'text-muted-foreground' :
-    'text-amber-400';
+    'text-yellow-400';
 
   const ChevronIcon = chatOpen ? ChevronUp : ChevronDown;
 
@@ -1188,7 +1188,7 @@ export function MarketplacePage() {
             <Icon className="h-3.5 w-3.5" />
             {label}
             {(pendingBadge ?? 0) > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
                 {pendingBadge}
               </span>
             )}

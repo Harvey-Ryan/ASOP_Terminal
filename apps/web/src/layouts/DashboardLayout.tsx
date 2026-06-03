@@ -366,7 +366,7 @@ export function DashboardLayout() {
                   {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
                     <span className="ml-auto flex items-center gap-1 shrink-0">
                       {pendingTradeCount > 0 && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black">
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
                           {pendingTradeCount}
                         </span>
                       )}
