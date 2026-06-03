@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy workspace manifests
-COPY package.json package-lock.json turbo.json ./
+COPY package.json package-lock.json turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/bot/package.json apps/bot/
