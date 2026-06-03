@@ -39,11 +39,23 @@ export const inventoryApi = {
 
 // Marketplace browse (cross-guild)
 export const marketplaceApi = {
-  browse: (params?: { q?: string; itemType?: string; externalItemId?: number }) => {
+  browse: (params?: {
+    q?: string;
+    itemType?: string;
+    filterGuildId?: string;
+    hasPriceOnly?: boolean;
+    sort?: 'newest' | 'price_asc';
+    limit?: number;
+    offset?: number;
+  }) => {
     const qs = new URLSearchParams();
     if (params?.q) qs.set('q', params.q);
     if (params?.itemType) qs.set('itemType', params.itemType);
-    if (params?.externalItemId) qs.set('externalItemId', String(params.externalItemId));
+    if (params?.filterGuildId) qs.set('filterGuildId', params.filterGuildId);
+    if (params?.hasPriceOnly) qs.set('hasPriceOnly', 'true');
+    if (params?.sort) qs.set('sort', params.sort);
+    if (params?.limit != null) qs.set('limit', String(params.limit));
+    if (params?.offset != null) qs.set('offset', String(params.offset));
     return api
       .get<ApiResponse<MarketplaceListingDto[]>>(`/marketplace/browse?${qs}`)
       .then((r) => r.data ?? []);

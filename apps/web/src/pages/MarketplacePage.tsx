@@ -143,22 +143,73 @@ function UexCombobox({
 
 // ── Tab 1 — Browse (cross-guild marketplace) ──────────────────────────────────
 
+const PAGE_SIZE = 50;
+
+type SortMode = 'newest' | 'price_asc';
+type ItemTypeFilter = 'ALL' | 'ITEM' | 'COMMODITY';
+
 function BrowseTab({ guildId }: { guildId: string }) {
   const { user } = useAuth();
-  const [q, setQ] = useState('');
-  const debouncedQ = useDebounce(q, 300);
-  const [requesting, setRequesting] = useState<MarketplaceListingDto | null>(null);
-  const [reqQty, setReqQty] = useState('');
-  const [reqNote, setReqNote] = useState('');
-  const [reqError, setReqError] = useState('');
-
-  const { data: listings = [], isLoading } = useQuery({
-    queryKey: ['marketplace-browse', debouncedQ],
-    queryFn: () => marketplaceApi.browse(debouncedQ ? { q: debouncedQ } : undefined),
-    staleTime: 30_000,
-  });
-
   const qc = useQueryClient();
+
+  // Filter / sort state
+  const [q, setQ]                         = useState('');
+  const debouncedQ                         = useDebounce(q, 300);
+  const [typeFilter, setTypeFilter]        = useState<ItemTypeFilter>('ALL');
+  const [guildOnly, setGuildOnly]          = useState(false);
+  const [fixedPriceOnly, setFixedPriceOnly] = useState(false);
+  const [sort, setSort]                    = useState<SortMode>('newest');
+
+  // Pagination state — listings is the accumulated list across pages
+  const [listings, setListings]  = useState<MarketplaceListingDto[]>([]);
+  const [offset, setOffset]      = useState(0);
+  const [hasMore, setHasMore]    = useState(false);
+  const [loading, setLoading]    = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Request form state
+  const [requesting, setRequesting] = useState<MarketplaceListingDto | null>(null);
+  const [reqQty, setReqQty]         = useState('');
+  const [reqNote, setReqNote]       = useState('');
+  const [reqError, setReqError]     = useState('');
+
+  // Build the browse params object — used as a dependency key
+  const browseParams = {
+    q: debouncedQ || undefined,
+    itemType: typeFilter !== 'ALL' ? typeFilter : undefined,
+    filterGuildId: guildOnly ? guildId : undefined,
+    hasPriceOnly: fixedPriceOnly || undefined,
+    sort,
+    limit: PAGE_SIZE,
+  };
+
+  // When filters/sort change, reset to page 0
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setOffset(0);
+    setRequesting(null);
+    marketplaceApi.browse({ ...browseParams, offset: 0 }).then((rows) => {
+      if (cancelled) return;
+      setListings(rows);
+      setHasMore(rows.length === PAGE_SIZE);
+      setLoading(false);
+    }).catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQ, typeFilter, guildOnly, fixedPriceOnly, sort]);
+
+  function loadMore() {
+    const nextOffset = offset + PAGE_SIZE;
+    setLoadingMore(true);
+    marketplaceApi.browse({ ...browseParams, offset: nextOffset }).then((rows) => {
+      setListings((prev) => [...prev, ...rows]);
+      setOffset(nextOffset);
+      setHasMore(rows.length === PAGE_SIZE);
+      setLoadingMore(false);
+    }).catch(() => setLoadingMore(false));
+  }
+
   const requestMut = useMutation({
     mutationFn: () => {
       if (!requesting) throw new Error('No listing selected');
@@ -174,10 +225,8 @@ function BrowseTab({ guildId }: { guildId: string }) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
-      setRequesting(null);
-      setReqQty('');
-      setReqNote('');
-      setReqError('');
+      qc.invalidateQueries({ queryKey: ['marketplace-pending-count', guildId] });
+      setRequesting(null); setReqQty(''); setReqNote(''); setReqError('');
     },
     onError: (e: Error) => setReqError(e.message),
   });
@@ -197,112 +246,176 @@ function BrowseTab({ guildId }: { guildId: string }) {
         />
       </div>
 
-      {isLoading && (
+      {/* Filters + sort bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Item type segmented control */}
+        <div className="flex rounded-md border border-border overflow-hidden text-xs font-medium shrink-0">
+          {(['ALL', 'ITEM', 'COMMODITY'] as ItemTypeFilter[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={cn(
+                'px-3 py-1.5 transition-colors',
+                typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+            >
+              {t === 'ALL' ? 'All' : t === 'COMMODITY' ? 'Commodity' : 'Item'}
+            </button>
+          ))}
+        </div>
+
+        {/* Toggle chips */}
+        <button
+          onClick={() => setGuildOnly((v) => !v)}
+          className={cn(
+            'rounded-full border px-3 py-1 text-xs font-medium transition-colors shrink-0',
+            guildOnly ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:border-primary/50',
+          )}
+        >
+          This guild only
+        </button>
+        <button
+          onClick={() => setFixedPriceOnly((v) => !v)}
+          className={cn(
+            'rounded-full border px-3 py-1 text-xs font-medium transition-colors shrink-0',
+            fixedPriceOnly ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:border-primary/50',
+          )}
+        >
+          Fixed price only
+        </button>
+
+        {/* Sort */}
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortMode)}
+          className="ml-auto rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring text-muted-foreground"
+        >
+          <option value="newest">Newest first</option>
+          <option value="price_asc">Price: low → high</option>
+        </select>
+      </div>
+
+      {/* Results */}
+      {loading && (
         <div className="space-y-2">
           {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
         </div>
       )}
 
-      {!isLoading && listings.length === 0 && (
+      {!loading && listings.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-12">
           {q ? `No listings match "${q}".` : 'No items listed for sale yet.'}
         </p>
       )}
 
-      {listings.length > 0 && (
-        <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-          {listings.map((listing) => {
-            const available = listing.quantityListed ?? listing.quantity;
-            const isOwn = listing.userId === myId;
-            const isOpen = requesting?.id === listing.id;
+      {!loading && listings.length > 0 && (
+        <>
+          <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+            {listings.map((listing) => {
+              const available = listing.quantityListed ?? listing.quantity;
+              const isOwn = listing.userId === myId;
+              const isOpen = requesting?.id === listing.id;
 
-            return (
-              <div key={listing.id} className="bg-card">
-                <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{listing.itemName}</span>
-                      <span className="text-xs rounded px-1.5 py-0.5 font-mono bg-muted text-muted-foreground shrink-0">
-                        {listing.itemType === 'COMMODITY' ? 'COM' : 'ITEM'}
-                      </span>
-                      {listing.qualityLevel !== null && (
-                        <span className="text-xs text-muted-foreground">QL {listing.qualityLevel}</span>
-                      )}
+              return (
+                <div key={listing.id} className="bg-card">
+                  <div className="flex items-center gap-3 px-4 py-3 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{listing.itemName}</span>
+                        <span className="text-xs rounded px-1.5 py-0.5 font-mono bg-muted text-muted-foreground shrink-0">
+                          {listing.itemType === 'COMMODITY' ? 'COM' : 'ITEM'}
+                        </span>
+                        {listing.qualityLevel !== null && (
+                          <span className="text-xs text-muted-foreground">QL {listing.qualityLevel}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground">
+                          {listing.username} · {listing.guildName}
+                        </span>
+                        {listing.location && (
+                          <span className="text-xs text-muted-foreground">📍 {listing.location}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                      <span className="text-xs text-muted-foreground">
-                        {listing.username} · {listing.guildName}
-                      </span>
-                      {listing.location && (
-                        <span className="text-xs text-muted-foreground">📍 {listing.location}</span>
+
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground tabular-nums">{fmtQty(available, listing.itemType)}</p>
+                        <PriceBadge listing={listing} />
+                      </div>
+                      {!isOwn && (
+                        <Button
+                          size="sm"
+                          variant={isOpen ? 'outline' : 'default'}
+                          onClick={() => {
+                            if (isOpen) { setRequesting(null); setReqQty(''); setReqNote(''); setReqError(''); }
+                            else { setRequesting(listing); setReqQty(''); setReqNote(''); setReqError(''); }
+                          }}
+                        >
+                          {isOpen ? 'Cancel' : 'Request'}
+                        </Button>
+                      )}
+                      {isOwn && (
+                        <span className="text-xs text-muted-foreground italic">Your listing</span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground tabular-nums">{fmtQty(available, listing.itemType)}</p>
-                      <PriceBadge listing={listing} />
-                    </div>
-                    {!isOwn && (
-                      <Button
-                        size="sm"
-                        variant={isOpen ? 'outline' : 'default'}
-                        onClick={() => {
-                          if (isOpen) { setRequesting(null); setReqQty(''); setReqNote(''); setReqError(''); }
-                          else { setRequesting(listing); setReqQty(''); setReqNote(''); setReqError(''); }
-                        }}
-                      >
-                        {isOpen ? 'Cancel' : 'Request'}
+                  {/* Inline request form */}
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-1 border-t border-border bg-background/50 space-y-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Trade Request</p>
+                      <div className="flex flex-wrap gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground block mb-1">
+                            Quantity (max {fmtQty(available, listing.itemType)})
+                          </label>
+                          <input
+                            autoFocus
+                            type="number"
+                            min={0.001}
+                            max={available}
+                            step={listing.itemType === 'COMMODITY' ? 0.001 : 1}
+                            value={reqQty}
+                            onChange={(e) => setReqQty(e.target.value)}
+                            className="w-28 rounded border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+                            placeholder="Qty"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-[160px]">
+                          <label className="text-xs text-muted-foreground block mb-1">Message to seller (optional)</label>
+                          <input
+                            value={reqNote}
+                            onChange={(e) => setReqNote(e.target.value)}
+                            placeholder="e.g. Available evenings, ping me on Discord"
+                            className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+                          />
+                        </div>
+                      </div>
+                      {reqError && <p className="text-xs text-destructive">{reqError}</p>}
+                      <Button size="sm" onClick={() => requestMut.mutate()} disabled={!reqQty || requestMut.isPending}>
+                        {requestMut.isPending ? 'Sending…' : 'Send Request'}
                       </Button>
-                    )}
-                    {isOwn && (
-                      <span className="text-xs text-muted-foreground italic">Your listing</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Inline request form */}
-                {isOpen && (
-                  <div className="px-4 pb-4 pt-1 border-t border-border bg-background/50 space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Trade Request</p>
-                    <div className="flex flex-wrap gap-2">
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">
-                          Quantity (max {fmtQty(available, listing.itemType)})
-                        </label>
-                        <input
-                          autoFocus
-                          type="number"
-                          min={0.001}
-                          max={available}
-                          step={listing.itemType === 'COMMODITY' ? 0.001 : 1}
-                          value={reqQty}
-                          onChange={(e) => setReqQty(e.target.value)}
-                          className="w-28 rounded border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-                          placeholder="Qty"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-[160px]">
-                        <label className="text-xs text-muted-foreground block mb-1">Message to seller (optional)</label>
-                        <input
-                          value={reqNote}
-                          onChange={(e) => setReqNote(e.target.value)}
-                          placeholder="e.g. Available evenings, ping me on Discord"
-                          className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      </div>
                     </div>
-                    {reqError && <p className="text-xs text-destructive">{reqError}</p>}
-                    <Button size="sm" onClick={() => requestMut.mutate()} disabled={!reqQty || requestMut.isPending}>
-                      {requestMut.isPending ? 'Sending…' : 'Send Request'}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : `Load ${PAGE_SIZE} more`}
+              </Button>
+            </div>
+          )}
+          {!hasMore && listings.length >= PAGE_SIZE && (
+            <p className="text-center text-xs text-muted-foreground pt-2">All listings loaded.</p>
+          )}
+        </>
       )}
     </div>
   );

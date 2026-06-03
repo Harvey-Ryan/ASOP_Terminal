@@ -84,36 +84,60 @@ function tradeToDto(t: {
 
 // ── GET /api/marketplace/browse ───────────────────────────────────────────────
 // Returns all active for-sale listings across ALL guilds.
-// Optional query params: q (item name search), itemType, externalItemId
+// Query params:
+//   q             – item name text search (case-insensitive, partial)
+//   itemType      – ITEM | COMMODITY (omit for both)
+//   filterGuildId – restrict to a single guild's listings
+//   hasPriceOnly  – "true" → only listings with a fixed aUEC price
+//   sort          – "newest" (default) | "price_asc"
+//   limit         – max rows returned, capped at 50 (default 50)
+//   offset        – rows to skip for load-more pagination (default 0)
+
+const BROWSE_MAX = 50;
 
 marketplaceRouter.get('/marketplace/browse', requireAuth, async (req, res) => {
-  const q            = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
-  const itemType     = typeof req.query.itemType === 'string' ? req.query.itemType : undefined;
-  const rawId        = req.query.externalItemId;
-  const externalItemId = rawId ? parseInt(String(rawId), 10) : undefined;
+  const q             = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const itemType      = typeof req.query.itemType === 'string' ? req.query.itemType : undefined;
+  const filterGuildId = typeof req.query.filterGuildId === 'string' ? req.query.filterGuildId : undefined;
+  const hasPriceOnly  = req.query.hasPriceOnly === 'true';
+  const sort          = req.query.sort === 'price_asc' ? 'price_asc' : 'newest';
+  const rawLimit      = parseInt(String(req.query.limit ?? ''), 10);
+  const rawOffset     = parseInt(String(req.query.offset ?? ''), 10);
+  const limit         = Math.min(isNaN(rawLimit) || rawLimit <= 0 ? BROWSE_MAX : rawLimit, BROWSE_MAX);
+  const offset        = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
   if (itemType && !['ITEM', 'COMMODITY'].includes(itemType)) {
     res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse);
     return;
   }
 
+  const orderBy =
+    sort === 'price_asc'
+      ? [{ askingPrice: { sort: 'asc' as const, nulls: 'last' as const } }, { updatedAt: 'desc' as const }]
+      : [{ updatedAt: 'desc' as const }, { itemName: 'asc' as const }];
+
   const rows = await prisma.inventoryEntry.findMany({
     where: {
       forSale: true,
       memberActive: true,
       ...(itemType ? { itemType } : {}),
-      ...(externalItemId && !isNaN(externalItemId) ? { externalItemId } : {}),
+      ...(filterGuildId ? { guildId: filterGuildId } : {}),
+      ...(hasPriceOnly ? { askingPrice: { not: null } } : {}),
       ...(q ? { itemName: { contains: q, mode: 'insensitive' } } : {}),
     },
-    orderBy: [{ itemName: 'asc' }, { askingPrice: 'asc' }],
+    orderBy,
+    take: limit,
+    skip: offset,
   });
 
-  // Batch-load guild names from the Guild table (keyed by Discord snowflake)
+  // Batch-load guild names only for the returned rows
   const guildIds = [...new Set(rows.map((r) => r.guildId))];
-  const guilds = await prisma.guild.findMany({
-    where: { guildId: { in: guildIds } },
-    select: { guildId: true, name: true },
-  });
+  const guilds = guildIds.length > 0
+    ? await prisma.guild.findMany({
+        where: { guildId: { in: guildIds } },
+        select: { guildId: true, name: true },
+      })
+    : [];
   const guildNameMap = new Map(guilds.map((g) => [g.guildId, g.name]));
 
   const data: MarketplaceListingDto[] = rows.map((row) =>
