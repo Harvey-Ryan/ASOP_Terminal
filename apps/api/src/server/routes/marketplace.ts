@@ -123,6 +123,22 @@ marketplaceRouter.get('/marketplace/browse', requireAuth, async (req, res) => {
   res.json({ success: true, data } satisfies ApiResponse<MarketplaceListingDto[]>);
 });
 
+// ── GET /api/guilds/:guildId/marketplace/trades/pending-count ─────────────────
+// Lightweight count of PENDING incoming trades for the current user (as seller).
+// Used by the sidebar badge — intentionally returns only the number, not the rows.
+// IMPORTANT: must be registered before /:tradeId routes or Express matches "pending-count" as an id.
+
+marketplaceRouter.get('/guilds/:guildId/marketplace/trades/pending-count', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+
+  const count = await prisma.trade.count({
+    where: { inventoryEntry: { guildId, userId: dbUser.discordId }, status: 'PENDING' },
+  });
+
+  res.json({ success: true, data: { count } } satisfies ApiResponse<{ count: number }>);
+});
+
 // ── GET /api/guilds/:guildId/marketplace/trades ───────────────────────────────
 // Returns trades where the current user is buyer (outgoing) or seller (incoming).
 

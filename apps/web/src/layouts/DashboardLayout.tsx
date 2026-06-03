@@ -15,6 +15,7 @@ import { HelpPanel } from '@/components/HelpPanel';
 import { RsiVerifyGate } from '@/components/RsiVerifyGate';
 import { settingsApi } from '@/api/settings';
 import { allianceApi } from '@/api/alliance';
+import { marketplaceApi } from '@/api/marketplace';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -132,6 +133,14 @@ export function DashboardLayout() {
   const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
+
+  const { data: pendingTradeCount = 0 } = useQuery({
+    queryKey: ['marketplace-pending-count', activeGuildId],
+    queryFn: () => marketplaceApi.getPendingCount(activeGuildId!),
+    enabled: !!activeGuildId && exchangeEnabled,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
   const lootEnabled     = myPerms?.lootEnabled      ?? true;
   const fleetEnabled        = myPerms?.fleetEnabled        ?? true;
   const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
@@ -337,6 +346,11 @@ export function DashboardLayout() {
                 >
                   <ArrowLeftRight className="h-4 w-4 shrink-0" />
                   Marketplace
+                  {pendingTradeCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black shrink-0">
+                      {pendingTradeCount}
+                    </span>
+                  )}
                 </NavLink>
               )}
 

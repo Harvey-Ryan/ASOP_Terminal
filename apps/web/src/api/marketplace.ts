@@ -49,6 +49,11 @@ export const marketplaceApi = {
       .then((r) => r.data ?? []);
   },
 
+  getPendingCount: (guildId: string) =>
+    api
+      .get<ApiResponse<{ count: number }>>(`/guilds/${guildId}/marketplace/trades/pending-count`)
+      .then((r) => r.data?.count ?? 0),
+
   getTrades: (guildId: string) =>
     api
       .get<ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>>(

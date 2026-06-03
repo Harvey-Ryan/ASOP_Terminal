@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -798,19 +798,29 @@ function TradesTab({ guildId }: { guildId: string }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { id: 'browse',    label: 'Browse',       Icon: Store },
-  { id: 'inventory', label: 'My Inventory', Icon: Package },
-  { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight },
-] as const;
-
-type TabId = (typeof TABS)[number]['id'];
+type TabId = 'browse' | 'inventory' | 'trades';
 
 export function MarketplacePage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [activeTab, setActiveTab] = useState<TabId>('browse');
 
+  // Fetch pending count eagerly so the Trades tab label is decorated immediately,
+  // without waiting for the user to click the tab.
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['marketplace-pending-count', guildId],
+    queryFn: () => marketplaceApi.getPendingCount(guildId!),
+    enabled: !!guildId,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   if (!guildId) return null;
+
+  const TABS: { id: TabId; label: string; Icon: React.ElementType; badge?: number }[] = [
+    { id: 'browse',    label: 'Browse',       Icon: Store },
+    { id: 'inventory', label: 'My Inventory', Icon: Package },
+    { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight, badge: pendingCount },
+  ];
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -822,7 +832,7 @@ export function MarketplacePage() {
       </div>
 
       <div className="flex border-b border-border">
-        {TABS.map(({ id, label, Icon }) => (
+        {TABS.map(({ id, label, Icon, badge }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
@@ -835,6 +845,11 @@ export function MarketplacePage() {
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
+            {badge != null && badge > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-black">
+                {badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
