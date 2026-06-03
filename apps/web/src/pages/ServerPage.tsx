@@ -855,6 +855,9 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const location = event.musterPoint ?? '—';
   const userRsvp = userId ? event.rsvps.find((r) => r.userId === userId) : undefined;
+  const userRoleName = userRsvp?.role
+    ? (event.roles.find((r) => (r.id ?? r.name) === userRsvp.role)?.name ?? userRsvp.role)
+    : null;
   const allianceForEvent = event.allianceId ? alliances.find((a) => a.id === event.allianceId) : null;
   const orgTags = allianceForEvent
     ? allianceForEvent.members.filter((m) => m.status === 'ACCEPTED' && m.allianceTag).map((m) => m.allianceTag as string)
@@ -898,7 +901,7 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
           <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
         </div>
         <div className="flex-1 px-4 py-3 hidden md:block">
-          <span className="text-[21px] line-clamp-2">{userRsvp?.role ?? '—'}</span>
+          <span className="text-[21px] line-clamp-2">{userRoleName ?? '—'}</span>
         </div>
         <div className="flex-1 px-4 py-3 flex justify-end">
           <span className="rounded p-1.5 bg-primary text-primary-foreground group-hover:bg-background group-hover:text-primary transition-colors">

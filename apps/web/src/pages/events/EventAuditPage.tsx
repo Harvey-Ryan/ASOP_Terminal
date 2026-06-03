@@ -42,12 +42,14 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function AttendeeRow({
   rsvp,
+  roleName,
   currentUserId,
   checked,
   wasInVc,
   onChange,
 }: {
   rsvp: RsvpDto;
+  roleName?: string;
   currentUserId?: string;
   checked: boolean;
   wasInVc: boolean;
@@ -65,8 +67,8 @@ function AttendeeRow({
           <span className={`text-sm font-medium truncate ${checked ? '' : 'line-through text-muted-foreground'}`}>
             {name}
           </span>
-          {rsvp.role && (
-            <span className="text-xs text-muted-foreground truncate">{rsvp.role}</span>
+          {roleName && (
+            <span className="text-xs text-muted-foreground truncate">{roleName}</span>
           )}
         </div>
         {wasInVc && (
@@ -271,6 +273,7 @@ export function EventAuditPage() {
                 <AttendeeRow
                   key={rsvp.userId}
                   rsvp={rsvp}
+                  roleName={rsvp.role ? (event.roles.find((r) => (r.id ?? r.name) === rsvp.role)?.name ?? rsvp.role) : undefined}
                   currentUserId={user?.id}
                   checked={attendance[rsvp.userId] ?? false}
                   wasInVc={event.vcAttendees.includes(rsvp.userId)}
