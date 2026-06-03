@@ -511,6 +511,8 @@ export interface InventoryEntryDto {
   quantityListed: number | null;
   askingPrice: number | null;
   priceNote: string | null;
+  /** ISO timestamp of when the listing was last published or price-renewed. Null if never listed. */
+  listedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

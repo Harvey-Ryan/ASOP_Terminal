@@ -32,13 +32,15 @@ async function sendBotDm(userId: string, content: string): Promise<void> {
 
 // ── DTO helper ────────────────────────────────────────────────────────────────
 
+const LISTING_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
 function toListingDto(
   row: {
     id: string; guildId: string; userId: string; username: string;
     itemType: string; externalItemId: number; itemName: string;
     quantity: number; quantityListed: number | null; qualityLevel: number | null;
     location: string | null; askingPrice: number | null; priceNote: string | null;
-    updatedAt: Date;
+    listedAt: Date | null; updatedAt: Date;
   },
   guildName: string,
 ): MarketplaceListingDto {
@@ -57,7 +59,7 @@ function toListingDto(
     location: row.location,
     askingPrice: row.askingPrice,
     priceNote: row.priceNote,
-    listedAt: row.updatedAt.toISOString(),
+    listedAt: (row.listedAt ?? row.updatedAt).toISOString(),
   };
 }
 
@@ -111,15 +113,18 @@ marketplaceRouter.get('/marketplace/browse', requireAuth, async (req, res) => {
     return;
   }
 
+  const expiryCutoff = new Date(Date.now() - LISTING_TTL_MS);
+
   const orderBy =
     sort === 'price_asc'
-      ? [{ askingPrice: { sort: 'asc' as const, nulls: 'last' as const } }, { updatedAt: 'desc' as const }]
-      : [{ updatedAt: 'desc' as const }, { itemName: 'asc' as const }];
+      ? [{ askingPrice: { sort: 'asc' as const, nulls: 'last' as const } }, { listedAt: { sort: 'desc' as const, nulls: 'last' as const } }]
+      : [{ listedAt: { sort: 'desc' as const, nulls: 'last' as const } }, { itemName: 'asc' as const }];
 
   const rows = await prisma.inventoryEntry.findMany({
     where: {
       forSale: true,
       memberActive: true,
+      listedAt: { gte: expiryCutoff },
       ...(itemType ? { itemType } : {}),
       ...(filterGuildId ? { guildId: filterGuildId } : {}),
       ...(hasPriceOnly ? { askingPrice: { not: null } } : {}),

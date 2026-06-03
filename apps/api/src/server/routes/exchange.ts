@@ -24,6 +24,7 @@ function toDto(row: {
   quantityListed: number | null;
   askingPrice: number | null;
   priceNote: string | null;
+  listedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): InventoryEntryDto {
@@ -42,6 +43,7 @@ function toDto(row: {
     quantityListed: row.quantityListed,
     askingPrice: row.askingPrice,
     priceNote: row.priceNote,
+    listedAt: row.listedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -134,12 +136,28 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
       return;
     }
 
-    const listingData = body.forSale !== undefined ? {
-      forSale: body.forSale,
-      quantityListed: body.forSale ? (body.quantityListed ?? null) : null,
-      askingPrice: body.forSale ? (body.askingPrice ?? null) : null,
-      priceNote: body.forSale ? (body.priceNote?.trim() || null) : null,
-    } : {};
+    let listingData: Record<string, unknown> = {};
+    if (body.forSale !== undefined) {
+      if (body.forSale) {
+        const newPrice = body.askingPrice ?? null;
+        const newNote = body.priceNote?.trim() || null;
+        // Reset listedAt only when the price or note actually changes (enforces
+        // renew-requires-price-adjustment rule). Also resets on first listing.
+        const priceChanged =
+          !entry.forSale ||
+          entry.askingPrice !== newPrice ||
+          (entry.priceNote ?? null) !== newNote;
+        listingData = {
+          forSale: true,
+          quantityListed: body.quantityListed ?? null,
+          askingPrice: newPrice,
+          priceNote: newNote,
+          ...(priceChanged ? { listedAt: new Date() } : {}),
+        };
+      } else {
+        listingData = { forSale: false, quantityListed: null, askingPrice: null, priceNote: null, listedAt: null };
+      }
+    }
 
     const row = await prisma.inventoryEntry.update({
       where: { id: body.id },

@@ -30,6 +30,20 @@ type UexResult =
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
+const LISTING_TTL_DAYS = 14;
+const LISTING_TTL_MS   = LISTING_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+function isExpired(listedAt: string | null): boolean {
+  if (!listedAt) return false;
+  return Date.now() - new Date(listedAt).getTime() > LISTING_TTL_MS;
+}
+
+function daysUntilExpiry(listedAt: string | null): number | null {
+  if (!listedAt) return null;
+  const remaining = new Date(listedAt).getTime() + LISTING_TTL_MS - Date.now();
+  return Math.ceil(remaining / (24 * 60 * 60 * 1000));
+}
+
 function fmtQty(qty: number, type: InventoryItemType) {
   const n = qty % 1 === 0 ? qty.toFixed(0) : qty.toFixed(type === 'COMMODITY' ? 3 : 2);
   return type === 'COMMODITY' ? `${n} cSCU` : `×${n}`;
@@ -472,9 +486,18 @@ function ListingEditor({
 
   return (
     <div className="mt-2 rounded-md border border-border bg-card p-3 space-y-3 text-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {entry.forSale ? 'Update Listing' : 'List for Sale'}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {entry.forSale ? (isExpired(entry.listedAt) ? 'Renew Listing' : 'Update Listing') : 'List for Sale'}
+        </p>
+        {entry.forSale && (
+          <p className="text-xs text-muted-foreground">
+            {isExpired(entry.listedAt)
+              ? <span className="text-amber-400">Expired — change your price to renew for {LISTING_TTL_DAYS} days</span>
+              : `Change your price to renew for ${LISTING_TTL_DAYS} days`}
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <div>
@@ -617,9 +640,14 @@ function InventoryRow({
           <span className="text-xs rounded px-1.5 py-0.5 font-mono bg-muted text-muted-foreground shrink-0">
             {entry.itemType === 'COMMODITY' ? 'COM' : 'ITEM'}
           </span>
-          {entry.forSale && (
+          {entry.forSale && !isExpired(entry.listedAt) && (
             <span className="text-xs rounded-full px-2 py-0.5 bg-green-500/10 text-green-400 font-medium">
               Listed
+            </span>
+          )}
+          {entry.forSale && isExpired(entry.listedAt) && (
+            <span className="text-xs rounded-full px-2 py-0.5 bg-amber-500/10 text-amber-400 font-medium">
+              Expired
             </span>
           )}
         </div>
@@ -661,6 +689,16 @@ function InventoryRow({
             {entry.quantityListed != null ? fmtQty(entry.quantityListed, entry.itemType) : 'All'} listed
           </span>
           <PriceBadge listing={entry} />
+          {isExpired(entry.listedAt) ? (
+            <span className="text-amber-400">Expired — update price to renew</span>
+          ) : (
+            (() => {
+              const days = daysUntilExpiry(entry.listedAt);
+              return days !== null && days <= 3
+                ? <span className="text-amber-400">Expires in {days}d</span>
+                : null;
+            })()
+          )}
         </div>
       )}
     </div>

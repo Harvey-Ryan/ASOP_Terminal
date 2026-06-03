@@ -1010,6 +1010,9 @@ model InventoryEntry {
   askingPrice    Int?
   /// Free-text price note e.g. "Negotiable" or "Trade for Agricium"
   priceNote      String?
+  /// Timestamp of when this entry was last listed (or re-listed with a new price).
+  /// Null until first listed. Cleared when unlisted. Soft-expiry check uses this field.
+  listedAt       DateTime?
 
   trades         Trade[]
 
