@@ -143,6 +143,14 @@ export function DashboardPage() {
             </Link>
           ))}
         </div>
+        <div>
+          <Button asChild variant="outline" className="gap-2">
+            <a href={INVITE_URL} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+              Add to Another Server
+            </a>
+          </Button>
+        </div>
       )}
     </div>
   );
