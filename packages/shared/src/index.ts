@@ -585,6 +585,15 @@ export interface TradeDto {
   updatedAt: string;
 }
 
+export interface TradeMessageDto {
+  id: string;
+  tradeId: string;
+  senderId: string;
+  senderUsername: string;
+  body: string;
+  createdAt: string;
+}
+
 // ── Fleet Registry ────────────────────────────────────────────────────────────
 
 export interface FleetEntryDto {

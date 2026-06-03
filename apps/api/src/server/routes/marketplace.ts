@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
-import type { ApiResponse, MarketplaceListingDto, TradeDto, CreateTradeBody, InventoryItemType, TradeStatus } from '@dem/shared';
+import type { ApiResponse, MarketplaceListingDto, TradeDto, TradeMessageDto, CreateTradeBody, InventoryItemType, TradeStatus } from '@dem/shared';
 
 export const marketplaceRouter = Router();
 
@@ -28,6 +28,21 @@ async function sendBotDm(userId: string, content: string): Promise<void> {
   } catch {
     // intentionally swallowed
   }
+}
+
+// ── Trade message DM debounce ─────────────────────────────────────────────────
+// Keyed by "recipientId:tradeId". A DM is only sent if no DM has been sent for
+// this conversation in the last 5 minutes, preventing spam in rapid exchanges.
+
+const DM_COOLDOWN_MS = 5 * 60 * 1000;
+const dmCooldowns = new Map<string, number>();
+
+function maybeSendMessageDm(recipientId: string, tradeId: string, content: string) {
+  const key = `${recipientId}:${tradeId}`;
+  const lastSent = dmCooldowns.get(key) ?? 0;
+  if (Date.now() - lastSent < DM_COOLDOWN_MS) return;
+  dmCooldowns.set(key, Date.now());
+  sendBotDm(recipientId, content).catch(() => null);
 }
 
 // ── DTO helper ────────────────────────────────────────────────────────────────
@@ -388,4 +403,103 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/cancel', r
   }
 
   res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── GET /api/guilds/:guildId/marketplace/trades/:tradeId/messages ─────────────
+// Returns the message history for a trade. Only accessible to buyer and seller.
+
+marketplaceRouter.get('/guilds/:guildId/marketplace/trades/:tradeId/messages', requireAuth, async (req, res) => {
+  const { guildId, tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: { select: { userId: true, guildId: true } } },
+  });
+  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+  }
+  if (trade.buyerId !== me && trade.inventoryEntry.userId !== me) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const messages = await prisma.tradeMessage.findMany({
+    where: { tradeId },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  res.json({
+    success: true,
+    data: messages.map((m) => ({
+      id: m.id,
+      tradeId: m.tradeId,
+      senderId: m.senderId,
+      senderUsername: m.senderUsername,
+      body: m.body,
+      createdAt: m.createdAt.toISOString(),
+    })),
+  } satisfies ApiResponse<TradeMessageDto[]>);
+});
+
+// ── POST /api/guilds/:guildId/marketplace/trades/:tradeId/messages ────────────
+// Sends a message. Only buyer and seller can post; DMs the other party.
+
+marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages', requireAuth, async (req, res) => {
+  const { guildId, tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+  const myName = dbUser.globalName ?? dbUser.username;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: { select: { userId: true, itemName: true, guildId: true } } },
+  });
+  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+  }
+
+  const isBuyer  = trade.buyerId === me;
+  const isSeller = trade.inventoryEntry.userId === me;
+  if (!isBuyer && !isSeller) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+  if (trade.status === 'DECLINED' || trade.status === 'CANCELLED') {
+    res.status(409).json({ success: false, error: 'Cannot message on a closed trade' } satisfies ApiResponse); return;
+  }
+
+  const body = (req.body as { body?: unknown }).body;
+  if (typeof body !== 'string' || !body.trim()) {
+    res.status(400).json({ success: false, error: 'body is required' } satisfies ApiResponse); return;
+  }
+  if (body.trim().length > 1000) {
+    res.status(400).json({ success: false, error: 'Message too long (max 1000 characters)' } satisfies ApiResponse); return;
+  }
+
+  const message = await prisma.tradeMessage.create({
+    data: { tradeId, senderId: me, senderUsername: myName, body: body.trim() },
+  });
+
+  const otherParty = isBuyer ? trade.inventoryEntry.userId : trade.buyerId;
+  const itemName = trade.inventoryEntry.itemName;
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  maybeSendMessageDm(
+    otherParty,
+    tradeId,
+    `💬 **${myName}** sent a message about your **${itemName}** trade.\n> ${body.trim().slice(0, 100)}${body.trim().length > 100 ? '…' : ''}\n\nReply at ${webUrl}`,
+  );
+
+  res.status(201).json({
+    success: true,
+    data: {
+      id: message.id,
+      tradeId: message.tradeId,
+      senderId: message.senderId,
+      senderUsername: message.senderUsername,
+      body: message.body,
+      createdAt: message.createdAt.toISOString(),
+    },
+  } satisfies ApiResponse<TradeMessageDto>);
 });

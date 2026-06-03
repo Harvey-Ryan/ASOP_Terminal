@@ -1044,8 +1044,23 @@ model Trade {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
+  messages  TradeMessage[]
+
   @@index([inventoryEntryId, status])
   @@index([buyerId])
+}
+
+/// A message sent between buyer and seller during trade negotiation.
+model TradeMessage {
+  id              String   @id @default(cuid())
+  tradeId         String
+  trade           Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  senderId        String
+  senderUsername  String
+  body            String   @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([tradeId, createdAt])
 }
 
 // ── Fleet Registry ────────────────────────────────────────────────────────────

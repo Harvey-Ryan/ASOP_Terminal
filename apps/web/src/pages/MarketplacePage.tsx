@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Package, Plus, Trash2, Pencil, X, Check,
-  Tag, Store, ArrowLeftRight,
+  Tag, Store, ArrowLeftRight, MessageCircle, Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import type {
   InventoryItemType,
   MarketplaceListingDto,
   TradeDto,
+  TradeMessageDto,
 } from '@dem/shared';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -847,16 +848,109 @@ function InventoryTab({ guildId }: { guildId: string }) {
 
 // ── Tab 3 — Trades ────────────────────────────────────────────────────────────
 
+function TradeChat({ trade, guildId, myDiscordId }: { trade: TradeDto; guildId: string; myDiscordId: string }) {
+  const qc = useQueryClient();
+  const [text, setText] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ['trade-messages', guildId, trade.id],
+    queryFn: () => marketplaceApi.getMessages(guildId, trade.id),
+    refetchInterval: 3_000,
+    staleTime: 0,
+  });
+
+  const sendMut = useMutation({
+    mutationFn: (body: string) => marketplaceApi.sendMessage(guildId, trade.id, body),
+    onSuccess: () => {
+      setText('');
+      qc.invalidateQueries({ queryKey: ['trade-messages', guildId, trade.id] });
+    },
+  });
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || sendMut.isPending) return;
+    sendMut.mutate(trimmed);
+  }
+
+  const listing = trade.listingSnapshot;
+
+  return (
+    <div className="border-t border-border/50 mt-1 pt-3 pb-1">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+        Negotiation · {listing.itemName}
+      </div>
+
+      {/* Message history */}
+      <div className="space-y-2 max-h-56 overflow-y-auto pr-1 mb-3">
+        {isLoading && <p className="text-xs text-muted-foreground italic">Loading…</p>}
+        {!isLoading && messages.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No messages yet. Start the negotiation.</p>
+        )}
+        {messages.map((msg: TradeMessageDto) => {
+          const isMe = msg.senderId === myDiscordId;
+          return (
+            <div key={msg.id} className={cn('flex flex-col', isMe ? 'items-end' : 'items-start')}>
+              <div
+                className={cn(
+                  'max-w-[75%] rounded-lg px-3 py-2 text-sm break-words',
+                  isMe
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground',
+                )}
+              >
+                {msg.body}
+              </div>
+              <span className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                {isMe ? 'You' : msg.senderUsername} · {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type a message…"
+          maxLength={1000}
+          className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <Button type="submit" size="sm" disabled={!text.trim() || sendMut.isPending} className="gap-1">
+          <Send className="h-3.5 w-3.5" />
+          {sendMut.isPending ? '…' : 'Send'}
+        </Button>
+      </form>
+      {sendMut.isError && (
+        <p className="text-xs text-destructive mt-1">Failed to send. Try again.</p>
+      )}
+    </div>
+  );
+}
+
 function TradeRow({
   trade,
   guildId,
   role,
+  myDiscordId,
 }: {
   trade: TradeDto;
   guildId: string;
   role: 'buyer' | 'seller';
+  myDiscordId: string;
 }) {
   const qc = useQueryClient();
+  const [chatOpen, setChatOpen] = useState(false);
   const listing = trade.listingSnapshot;
   const invalidate = () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
 
@@ -873,40 +967,56 @@ function TradeRow({
     'text-amber-400';
 
   return (
-    <div className="flex items-center gap-3 py-3 text-sm flex-wrap">
-      <div className="flex-1 min-w-0">
-        <div className="font-medium">
-          {fmtQty(trade.quantityRequested, listing.itemType)} × {listing.itemName}
+    <div className="py-3 text-sm">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="font-medium">
+            {fmtQty(trade.quantityRequested, listing.itemType)} × {listing.itemName}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {role === 'seller'
+              ? `From ${trade.buyerUsername} · ${listing.guildName}`
+              : `Seller: ${listing.username} · ${listing.guildName}`}
+            {trade.note && <span className="ml-2 italic">"{trade.note}"</span>}
+            {role === 'buyer' && !trade.sellerActive && trade.status === 'PENDING' && (
+              <span className="ml-2 text-amber-400">· Seller left this guild</span>
+            )}
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          {role === 'seller'
-            ? `From ${trade.buyerUsername} · ${listing.guildName}`
-            : `Seller: ${listing.username} · ${listing.guildName}`}
-          {trade.note && <span className="ml-2 italic">"{trade.note}"</span>}
-          {role === 'buyer' && !trade.sellerActive && trade.status === 'PENDING' && (
-            <span className="ml-2 text-amber-400">· Seller left this guild</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setChatOpen((v) => !v)}
+            className={cn(
+              'rounded-md p-1.5 transition-colors',
+              chatOpen
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+            )}
+            title="Negotiation chat"
+          >
+            <MessageCircle className="h-4 w-4" />
+          </button>
+          <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
+          {trade.status === 'PENDING' && role === 'seller' && (
+            <>
+              <Button size="sm" onClick={() => acceptMut.mutate()} disabled={busy}>Accept</Button>
+              <Button size="sm" variant="outline" onClick={() => declineMut.mutate()} disabled={busy}>Decline</Button>
+              <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
+                className="text-muted-foreground hover:text-foreground">
+                Cancel
+              </Button>
+            </>
           )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
-        {trade.status === 'PENDING' && role === 'seller' && (
-          <>
-            <Button size="sm" onClick={() => acceptMut.mutate()} disabled={busy}>Accept</Button>
-            <Button size="sm" variant="outline" onClick={() => declineMut.mutate()} disabled={busy}>Decline</Button>
+          {trade.status === 'PENDING' && role === 'buyer' && (
             <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
               className="text-muted-foreground hover:text-foreground">
               Cancel
             </Button>
-          </>
-        )}
-        {trade.status === 'PENDING' && role === 'buyer' && (
-          <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
-            className="text-muted-foreground hover:text-foreground">
-            Cancel
-          </Button>
-        )}
+          )}
+        </div>
       </div>
+      {chatOpen && <TradeChat trade={trade} guildId={guildId} myDiscordId={myDiscordId} />}
     </div>
   );
 }
@@ -917,6 +1027,8 @@ const isOldResolved = (t: TradeDto) =>
 
 function TradesTab({ guildId }: { guildId: string }) {
   const [showHistory, setShowHistory] = useState(false);
+  const { user } = useAuth();
+  const myDiscordId = user?.id ?? '';
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-trades', guildId],
@@ -972,7 +1084,7 @@ function TradesTab({ guildId }: { guildId: string }) {
             <CardContent className="pt-2 pb-0">
               <div className="divide-y divide-border">
                 {visibleIncoming.map((t) => (
-                  <TradeRow key={t.id} trade={t} guildId={guildId} role="seller" />
+                  <TradeRow key={t.id} trade={t} guildId={guildId} role="seller" myDiscordId={myDiscordId} />
                 ))}
               </div>
             </CardContent>
@@ -989,7 +1101,7 @@ function TradesTab({ guildId }: { guildId: string }) {
             <CardContent className="pt-2 pb-0">
               <div className="divide-y divide-border">
                 {visibleOutgoing.map((t) => (
-                  <TradeRow key={t.id} trade={t} guildId={guildId} role="buyer" />
+                  <TradeRow key={t.id} trade={t} guildId={guildId} role="buyer" myDiscordId={myDiscordId} />
                 ))}
               </div>
             </CardContent>
