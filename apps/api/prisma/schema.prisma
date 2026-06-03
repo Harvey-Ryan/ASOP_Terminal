@@ -1063,6 +1063,17 @@ model TradeMessage {
   @@index([tradeId, createdAt])
 }
 
+/// Tracks when a trade party last viewed the messages for a trade.
+/// Used to compute the unread message badge on the Trades tab.
+model TradeMessageRead {
+  tradeId    String
+  userId     String
+  lastReadAt DateTime @default(now())
+
+  @@id([tradeId, userId])
+  @@index([userId])
+}
+
 // ── Fleet Registry ────────────────────────────────────────────────────────────
 
 /// One ship registration per member per ship (uniqued on guildId + userId + shipSlug).

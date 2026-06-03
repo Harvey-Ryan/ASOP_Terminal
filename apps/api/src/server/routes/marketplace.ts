@@ -82,7 +82,7 @@ function tradeToDto(t: {
   id: string; inventoryEntryId: string; listingSnapshot: unknown;
   buyerGuildId: string; buyerId: string; buyerUsername: string;
   quantityRequested: number; note: string | null; status: string;
-  sellerActive: boolean;
+  sellerActive: boolean; unreadCount: number;
   createdAt: Date; updatedAt: Date;
 }): TradeDto {
   return {
@@ -96,6 +96,7 @@ function tradeToDto(t: {
     note: t.note,
     status: t.status as TradeStatus,
     sellerActive: t.sellerActive,
+    unreadCount: t.unreadCount,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -206,11 +207,37 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades', requireAuth, async 
     }),
   ]);
 
+  const allTrades = [...incoming, ...outgoing];
+
+  // Load read records for the current user across all returned trades
+  const readRecords = allTrades.length > 0
+    ? await prisma.tradeMessageRead.findMany({
+        where: { userId: me, tradeId: { in: allTrades.map((t) => t.id) } },
+      })
+    : [];
+  const readMap = new Map(readRecords.map((r) => [r.tradeId, r.lastReadAt]));
+
+  // Count messages sent by the other party after the user's lastReadAt
+  const unreadCounts = await Promise.all(
+    allTrades.map((t) => {
+      const lastReadAt = readMap.get(t.id);
+      return prisma.tradeMessage.count({
+        where: {
+          tradeId: t.id,
+          senderId: { not: me },
+          ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+        },
+      });
+    }),
+  );
+
+  const unreadMap = new Map(allTrades.map((t, i) => [t.id, unreadCounts[i]!]));
+
   res.json({
     success: true,
     data: {
-      incoming: incoming.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive })),
-      outgoing: outgoing.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive })),
+      incoming: incoming.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 })),
+      outgoing: outgoing.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 })),
     },
   } satisfies ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>);
 });
@@ -271,7 +298,7 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades', requireAuth, async
     `**New trade request!** ${buyerName} wants to buy **${body.quantityRequested}x ${listing.itemName}** from your marketplace listing.${body.note ? `\n> "${body.note}"` : ''}\n\nSign in to ASOP Terminal to accept or decline.`,
   ).catch(() => null);
 
-  res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true }) } satisfies ApiResponse<TradeDto>);
+  res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true, unreadCount: 0 }) } satisfies ApiResponse<TradeDto>);
 });
 
 // ── PATCH /api/guilds/:guildId/marketplace/trades/:tradeId/accept ─────────────
@@ -502,4 +529,34 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages', 
       createdAt: message.createdAt.toISOString(),
     },
   } satisfies ApiResponse<TradeMessageDto>);
+});
+
+// ── POST /api/guilds/:guildId/marketplace/trades/:tradeId/messages/read ────────
+// Marks all messages in this trade as read for the current user.
+// IMPORTANT: must be registered before /:tradeId/messages to avoid route clash.
+
+marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages/read', requireAuth, async (req, res) => {
+  const { guildId, tradeId } = req.params as { guildId: string; tradeId: string };
+  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
+  const me = dbUser.discordId;
+
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+    include: { inventoryEntry: { select: { userId: true, guildId: true } } },
+  });
+  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+  }
+  if (trade.buyerId !== me && trade.inventoryEntry.userId !== me) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  await prisma.tradeMessageRead.upsert({
+    where: { tradeId_userId: { tradeId, userId: me } },
+    create: { tradeId, userId: me, lastReadAt: new Date() },
+    update: { lastReadAt: new Date() },
+  });
+
+  res.json({ success: true } satisfies ApiResponse);
 });

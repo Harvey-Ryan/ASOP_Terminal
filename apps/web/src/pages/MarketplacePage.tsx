@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Package, Plus, Trash2, Pencil, X, Check,
-  Tag, Store, ArrowLeftRight, MessageCircle, Send,
+  Tag, Store, ArrowLeftRight, ChevronDown, ChevronUp, Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -957,6 +957,18 @@ function TradeRow({
   const acceptMut  = useMutation({ mutationFn: () => marketplaceApi.acceptTrade(guildId, trade.id),  onSuccess: invalidate });
   const declineMut = useMutation({ mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id), onSuccess: invalidate });
   const cancelMut  = useMutation({ mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),  onSuccess: invalidate });
+  const markReadMut = useMutation({
+    mutationFn: () => marketplaceApi.markAsRead(guildId, trade.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] }),
+  });
+
+  // Mark as read when chat is opened and there are unread messages
+  useEffect(() => {
+    if (chatOpen && trade.unreadCount > 0) {
+      markReadMut.mutate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatOpen]);
 
   const busy = acceptMut.isPending || declineMut.isPending || cancelMut.isPending;
 
@@ -966,9 +978,18 @@ function TradeRow({
     trade.status === 'CANCELLED' ? 'text-muted-foreground' :
     'text-amber-400';
 
+  const ChevronIcon = chatOpen ? ChevronUp : ChevronDown;
+
   return (
     <div className="py-3 text-sm">
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* Clickable header row — toggles chat panel */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setChatOpen((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChatOpen((v) => !v); } }}
+        className="flex items-center gap-3 flex-wrap cursor-pointer select-none rounded-md -mx-2 px-2 py-1 hover:bg-muted/50 transition-colors"
+      >
         <div className="flex-1 min-w-0">
           <div className="font-medium">
             {fmtQty(trade.quantityRequested, listing.itemType)} × {listing.itemName}
@@ -984,32 +1005,28 @@ function TradeRow({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setChatOpen((v) => !v)}
-            className={cn(
-              'rounded-md p-1.5 transition-colors',
-              chatOpen
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+          {/* Chevron with unread badge */}
+          <div className="relative">
+            <ChevronIcon className={cn('h-4 w-4 transition-colors', chatOpen ? 'text-primary' : 'text-muted-foreground')} />
+            {!chatOpen && trade.unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground leading-none">
+                {trade.unreadCount > 99 ? '99+' : trade.unreadCount}
+              </span>
             )}
-            title="Negotiation chat"
-          >
-            <MessageCircle className="h-4 w-4" />
-          </button>
+          </div>
           <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
           {trade.status === 'PENDING' && role === 'seller' && (
             <>
-              <Button size="sm" onClick={() => acceptMut.mutate()} disabled={busy}>Accept</Button>
-              <Button size="sm" variant="outline" onClick={() => declineMut.mutate()} disabled={busy}>Decline</Button>
-              <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); acceptMut.mutate(); }} disabled={busy}>Accept</Button>
+              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); declineMut.mutate(); }} disabled={busy}>Decline</Button>
+              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelMut.mutate(); }} disabled={busy}
                 className="text-muted-foreground hover:text-foreground">
                 Cancel
               </Button>
             </>
           )}
           {trade.status === 'PENDING' && role === 'buyer' && (
-            <Button size="sm" variant="ghost" onClick={() => cancelMut.mutate()} disabled={busy}
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelMut.mutate(); }} disabled={busy}
               className="text-muted-foreground hover:text-foreground">
               Cancel
             </Button>

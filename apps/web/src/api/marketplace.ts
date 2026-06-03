@@ -97,4 +97,7 @@ export const marketplaceApi = {
     api
       .post<ApiResponse<TradeMessageDto>>(`/guilds/${guildId}/marketplace/trades/${tradeId}/messages`, { body })
       .then((r) => r.data!),
+
+  markAsRead: (guildId: string, tradeId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/marketplace/trades/${tradeId}/messages/read`),
 };
