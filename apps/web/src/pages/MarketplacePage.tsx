@@ -984,7 +984,13 @@ function TradeRow({
   const ChevronIcon = chatOpen ? ChevronUp : ChevronDown;
 
   return (
-    <div className="py-3 text-sm">
+    <div className="relative py-3 text-sm">
+      {/* Unread badge — top-right corner of the row, clear of the chevron */}
+      {!chatOpen && trade.unreadCount > 0 && (
+        <span className="absolute top-1 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground leading-none pointer-events-none">
+          {trade.unreadCount > 99 ? '99+' : trade.unreadCount}
+        </span>
+      )}
       {/* Clickable header row — toggles chat panel */}
       <div
         role="button"
@@ -1008,15 +1014,7 @@ function TradeRow({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {/* Chevron with unread badge */}
-          <div className="relative">
-            <ChevronIcon className={cn('h-4 w-4 transition-colors', chatOpen ? 'text-primary' : 'text-muted-foreground')} />
-            {!chatOpen && trade.unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground leading-none">
-                {trade.unreadCount > 99 ? '99+' : trade.unreadCount}
-              </span>
-            )}
-          </div>
+          <ChevronIcon className={cn('h-4 w-4 transition-colors', chatOpen ? 'text-primary' : 'text-muted-foreground')} />
           <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
           {trade.status === 'PENDING' && role === 'seller' && (
             <>
