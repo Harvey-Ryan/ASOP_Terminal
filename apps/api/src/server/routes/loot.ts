@@ -273,8 +273,18 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
   const attendees: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
   const shuffled = [...attendees].sort(() => Math.random() - 0.5);
 
+  // Persist usernames for all attendees (includes cross-guild members via EventRsvp)
+  const rsvps = attendees.length > 0
+    ? await prisma.eventRsvp.findMany({
+        where: { eventId, userId: { in: attendees } },
+        select: { userId: true, username: true },
+      })
+    : [];
+  const usernameMap = new Map(rsvps.map((r) => [r.userId, r.username]));
+  const participants = attendees.map((userId) => ({ userId, username: usernameMap.get(userId) ?? userId }));
+
   const session = await prisma.lootSession.create({
-    data: { eventId, guildId, method, dkpAward, draftOrder: JSON.stringify(shuffled) },
+    data: { eventId, guildId, method, dkpAward, draftOrder: JSON.stringify(shuffled), participants: JSON.stringify(participants) },
     include: { items: { include: { assignments: true } } },
   });
 
@@ -321,12 +331,26 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
   // Deduplicate draft order while preserving first-seen position
   const dedupedOrder = draftOrder ? [...new Set(draftOrder)] : undefined;
 
+  // When the participant list changes, refresh stored usernames from EventRsvp
+  let refreshedParticipants: string | undefined;
+  if (dedupedOrder !== undefined) {
+    const rsvps = dedupedOrder.length > 0
+      ? await prisma.eventRsvp.findMany({
+          where: { eventId, userId: { in: dedupedOrder } },
+          select: { userId: true, username: true },
+        })
+      : [];
+    const usernameMap = new Map(rsvps.map((r) => [r.userId, r.username]));
+    refreshedParticipants = JSON.stringify(dedupedOrder.map((userId) => ({ userId, username: usernameMap.get(userId) ?? userId })));
+  }
+
   const updated = await prisma.lootSession.update({
     where: { eventId },
     data: {
       ...(method ? { method } : {}),
       ...(dkpAward !== undefined ? { dkpAward } : {}),
       ...(dedupedOrder ? { draftOrder: JSON.stringify(dedupedOrder) } : {}),
+      ...(refreshedParticipants !== undefined ? { participants: refreshedParticipants } : {}),
     },
     include: { items: { include: { assignments: true } } },
   });
