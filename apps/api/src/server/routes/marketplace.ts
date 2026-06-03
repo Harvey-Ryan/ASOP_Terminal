@@ -9,6 +9,10 @@ export const marketplaceRouter = Router();
 // Best-effort: silently swallows all errors so a failed DM never breaks the
 // main request.
 
+const WEB_URL = process.env['WEB_URL'] ?? 'http://localhost:5173';
+const NOTIF_SETTINGS_URL = `${WEB_URL}/dashboard/settings/notifications`;
+const NOTIF_FOOTER = `\n\nChange notification settings: ${NOTIF_SETTINGS_URL}`;
+
 async function sendBotDm(userId: string, content: string): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];
   if (!token) return;
@@ -30,14 +34,35 @@ async function sendBotDm(userId: string, content: string): Promise<void> {
   }
 }
 
+// ── Notification preference lookup ────────────────────────────────────────────
+// Looks up prefs by Discord snowflake. Returns all-enabled defaults if the user
+// has never logged in or has no saved preferences.
+
+type NotifKey = 'dmTradeRequest' | 'dmTradeStatus' | 'dmTradeCancelled' | 'dmTradeMessage';
+
+async function canSendDm(discordId: string, key: NotifKey): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { discordId },
+    select: {
+      notificationPrefs: {
+        select: { dmTradeRequest: true, dmTradeStatus: true, dmTradeCancelled: true, dmTradeMessage: true },
+      },
+    },
+  });
+  // Unknown user or no saved prefs row → default opt-in
+  if (!user || !user.notificationPrefs) return true;
+  return user.notificationPrefs[key];
+}
+
 // ── Trade message DM debounce ─────────────────────────────────────────────────
 // Keyed by "recipientId:tradeId". A DM is only sent if no DM has been sent for
-// this conversation in the last 5 minutes, preventing spam in rapid exchanges.
+// this conversation in the last hour, preventing spam in rapid exchanges.
 
 const DM_COOLDOWN_MS = 60 * 60 * 1000;
 const dmCooldowns = new Map<string, number>();
 
-function maybeSendMessageDm(recipientId: string, tradeId: string, content: string) {
+async function maybeSendMessageDm(recipientId: string, tradeId: string, content: string) {
+  if (!await canSendDm(recipientId, 'dmTradeMessage')) return;
   const key = `${recipientId}:${tradeId}`;
   const lastSent = dmCooldowns.get(key) ?? 0;
   if (Date.now() - lastSent < DM_COOLDOWN_MS) return;
@@ -339,10 +364,13 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades', requireAuth, async
   });
 
   const buyerName = dbUser.globalName ?? dbUser.username;
-  sendBotDm(
-    listing.userId,
-    `**New trade request!** ${buyerName} wants to buy **${body.quantityRequested}x ${listing.itemName}** from your marketplace listing.${body.note ? `\n> "${body.note}"` : ''}\n\nSign in to ASOP Terminal to accept or decline.`,
-  ).catch(() => null);
+  canSendDm(listing.userId, 'dmTradeRequest').then((ok) => {
+    if (!ok) return;
+    sendBotDm(
+      listing.userId,
+      `New trade request! ${buyerName} wants to buy ${body.quantityRequested}x ${listing.itemName} from your marketplace listing.${body.note ? `\n"${body.note}"` : ''}\n\nSign in to accept or decline: ${WEB_URL}${NOTIF_FOOTER}`,
+    );
+  }).catch(() => null);
 
   res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true, unreadCount: 0 }) } satisfies ApiResponse<TradeDto>);
 });
@@ -393,10 +421,13 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/accept', r
     }),
   ]);
 
-  sendBotDm(
-    trade.buyerId,
-    `**Trade accepted!** ${dbUser.globalName ?? dbUser.username} accepted your request for **${trade.quantityRequested}x ${trade.inventoryEntry.itemName}**. Reach out to arrange the handoff!`,
-  ).catch(() => null);
+  canSendDm(trade.buyerId, 'dmTradeStatus').then((ok) => {
+    if (!ok) return;
+    sendBotDm(
+      trade.buyerId,
+      `Trade accepted! ${dbUser.globalName ?? dbUser.username} accepted your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}. Reach out to arrange the handoff.${NOTIF_FOOTER}`,
+    );
+  }).catch(() => null);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -420,10 +451,13 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/decline', 
 
   await prisma.trade.update({ where: { id: tradeId }, data: { status: 'DECLINED' } });
 
-  sendBotDm(
-    trade.buyerId,
-    `**Trade declined.** ${dbUser.globalName ?? dbUser.username} declined your request for **${trade.quantityRequested}x ${trade.inventoryEntry.itemName}**.`,
-  ).catch(() => null);
+  canSendDm(trade.buyerId, 'dmTradeStatus').then((ok) => {
+    if (!ok) return;
+    sendBotDm(
+      trade.buyerId,
+      `Trade declined. ${dbUser.globalName ?? dbUser.username} declined your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}.${NOTIF_FOOTER}`,
+    );
+  }).catch(() => null);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -462,17 +496,21 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/cancel', r
   const qty = trade.quantityRequested;
 
   if (isBuyer) {
-    // Notify the seller that the buyer walked away
-    sendBotDm(
-      trade.inventoryEntry.userId,
-      `**Trade request cancelled.** ${myName} cancelled their request for **${qty}x ${itemName}**.`,
-    ).catch(() => null);
+    canSendDm(trade.inventoryEntry.userId, 'dmTradeCancelled').then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        trade.inventoryEntry.userId,
+        `Trade request cancelled. ${myName} cancelled their request for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
+      );
+    }).catch(() => null);
   } else {
-    // Seller cancelled — notify the buyer
-    sendBotDm(
-      trade.buyerId,
-      `**Trade cancelled.** ${myName} cancelled the trade for **${qty}x ${itemName}**.`,
-    ).catch(() => null);
+    canSendDm(trade.buyerId, 'dmTradeCancelled').then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        trade.buyerId,
+        `Trade cancelled. ${myName} cancelled the trade for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
+      );
+    }).catch(() => null);
   }
 
   res.json({ success: true } satisfies ApiResponse);
@@ -557,11 +595,11 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages', 
 
   const otherParty = isBuyer ? trade.inventoryEntry.userId : trade.buyerId;
   const itemName = trade.inventoryEntry.itemName;
-  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const preview = body.trim().slice(0, 100) + (body.trim().length > 100 ? '…' : '');
   maybeSendMessageDm(
     otherParty,
     tradeId,
-    `💬 **${myName}** sent a message about your **${itemName}** trade.\n> ${body.trim().slice(0, 100)}${body.trim().length > 100 ? '…' : ''}\n\nReply at ${webUrl}`,
+    `${myName} sent a message about your ${itemName} trade: "${preview}"\n\nReply at ${WEB_URL}${NOTIF_FOOTER}`,
   );
 
   res.status(201).json({

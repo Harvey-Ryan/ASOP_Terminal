@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -86,6 +86,16 @@ function ProfileDropdown({
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-border">
+        <Link
+          to="/dashboard/settings/notifications"
+          onClick={onClose}
+          className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Notification Settings
+        </Link>
       </div>
     </div>
   );

@@ -25,10 +25,11 @@ model User {
 
   rsiHandle    String?
 
-  accounts        Account[]
-  guildMembers    GuildMember[]
-  templates       EventTemplate[]
-  fleetyardsLink  FleetyardsLink?
+  accounts           Account[]
+  guildMembers       GuildMember[]
+  templates          EventTemplate[]
+  fleetyardsLink     FleetyardsLink?
+  notificationPrefs  UserNotificationPrefs?
 }
 
 /// OAuth tokens for a user/provider pair.
@@ -1072,6 +1073,26 @@ model TradeMessageRead {
 
   @@id([tradeId, userId])
   @@index([userId])
+}
+
+// ── Notification Preferences ─────────────────────────────────────────────────
+
+/// Per-user opt-out toggles for Discord DM notifications.
+/// All fields default true (opt-out model); a row is created on first PUT.
+model UserNotificationPrefs {
+  userId           String  @id
+  /// DM when someone requests a trade on your listing (you're the seller)
+  dmTradeRequest   Boolean @default(true)
+  /// DM when your trade request is accepted or declined (you're the buyer)
+  dmTradeStatus    Boolean @default(true)
+  /// DM when the other party cancels a trade
+  dmTradeCancelled Boolean @default(true)
+  /// DM when you receive a new message in a negotiation
+  dmTradeMessage   Boolean @default(true)
+  /// DM 15 minutes before an event you've RSVP'd to
+  dmEventReminder  Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ── Fleet Registry ────────────────────────────────────────────────────────────

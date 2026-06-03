@@ -180,14 +180,32 @@ async function checkReminders() {
         }
       }
 
-      // DM roster members who are NOT in a monitored VC
+      // Batch-load notification prefs for all RSVPs that are not in a VC
+      const eligibleRsvps = event.rsvps.filter((rsvp) => !membersInVc.has(rsvp.userId));
+      const discordIds = eligibleRsvps.map((r) => r.userId);
+      const usersWithPrefs = discordIds.length > 0
+        ? await prisma.user.findMany({
+            where: { discordId: { in: discordIds } },
+            select: { discordId: true, notificationPrefs: { select: { dmEventReminder: true } } },
+          })
+        : [];
+      const prefsMap = new Map(usersWithPrefs.map((u) => [u.discordId, u.notificationPrefs]));
+
+      const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+      const notifFooter = `\n\nChange notification settings: ${webUrl}/dashboard/settings/notifications`;
+
+      // DM roster members who are NOT in a monitored VC and have not opted out
       await Promise.allSettled(
-        event.rsvps
-          .filter((rsvp) => !membersInVc.has(rsvp.userId))
+        eligibleRsvps
+          .filter((rsvp) => {
+            const prefs = prefsMap.get(rsvp.userId);
+            // Unknown user or no saved prefs → default opt-in
+            return prefs === undefined || prefs === null || (prefs.dmEventReminder !== false);
+          })
           .map(async (rsvp) => {
             const user = await client.users.fetch(rsvp.userId);
             await user.send(
-              `⏰ **${event.name}** starts in 15 minutes! Join a voice channel to participate.\n📍 Muster Point: ${event.musterPoint ?? 'See event details'}`,
+              `${event.name} starts in 15 minutes! Join a voice channel to participate.\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
             );
           }),
       );

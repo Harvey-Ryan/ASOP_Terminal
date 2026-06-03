@@ -596,6 +596,16 @@ export interface TradeMessageDto {
   createdAt: string;
 }
 
+export interface UserNotificationPrefsDto {
+  dmTradeRequest: boolean;
+  dmTradeStatus: boolean;
+  dmTradeCancelled: boolean;
+  dmTradeMessage: boolean;
+  dmEventReminder: boolean;
+}
+
+export type UpdateNotificationPrefsBody = Partial<UserNotificationPrefsDto>;
+
 // ── Fleet Registry ────────────────────────────────────────────────────────────
 
 export interface FleetEntryDto {
