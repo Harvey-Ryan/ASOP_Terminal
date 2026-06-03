@@ -197,7 +197,9 @@ function SortableCard({
                 onCancel={() => setEditDesc(false)}
               />
             ) : card.description ? (
-              <p className="text-xs text-muted-foreground whitespace-pre-wrap">{card.description}</p>
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap overflow-hidden max-h-0 group-hover:max-h-40 transition-[max-height] duration-200 ease-out">
+                {card.description}
+              </p>
             ) : null}
 
             {isAdmin && (
