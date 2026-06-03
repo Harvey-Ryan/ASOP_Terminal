@@ -224,7 +224,7 @@ export function DashboardLayout() {
             className="flex cursor-pointer items-center gap-3 hover:opacity-80 transition-opacity"
             onClick={() => navigate('/dashboard')}
           >
-            <img src="/favicon.png" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+            <img src="/AsopLogo.jpg" alt="ASOP Terminal" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             <span className="font-semibold tracking-tight">ASOP Terminal</span>
           </div>
         </div>
