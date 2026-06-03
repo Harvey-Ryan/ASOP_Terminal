@@ -69,9 +69,10 @@ export async function joinRoster(eventId: string, userId: string, username: stri
     try {
       const thread = await client.channels.fetch(event.threadId);
       if (thread?.isThread()) {
+        await thread.members.add(userId).catch(() => null);
         const embed = new EmbedBuilder()
           .setColor(0x57f287)
-          .setDescription(`👋 **${username}** has joined the roster.`);
+          .setDescription(`👋 <@${userId}> has joined the roster.`);
         await thread.send({ embeds: [embed] });
       } else {
         console.warn(`[bot] joinRoster: channel ${event.threadId} is not a thread`);

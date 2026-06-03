@@ -1225,37 +1225,6 @@ export function LootPage() {
               </div>
             </div>
 
-            {[...session.items]
-              .sort((a, b) => {
-                const aAssigned = a.assignments.length > 0 ? 1 : 0;
-                const bAssigned = b.assignments.length > 0 ? 1 : 0;
-                if (aAssigned !== bAssigned) return aAssigned - bAssigned;
-                return a.sortOrder - b.sortOrder;
-              })
-              .filter((item) => !hideAssigned || item.assignments.length === 0)
-              .map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                session={session}
-                auction={auctionQuery.data?.[item.id] ?? null}
-                dkpBalances={dkpQuery.data ?? []}
-                eligiblePlayers={eligiblePlayers}
-                allRsvpMap={allRsvpMap}
-                allAssignmentCount={allAssignmentCount}
-                skipCount={skipCount}
-                onRolled={invalidate}
-                onAssigned={invalidate}
-                onDelete={invalidate}
-                onAuctionChange={invalidate}
-                guildId={guildId!}
-                eventId={eventId!}
-                currentUserId={user?.id}
-                myEffectiveBalance={myEffectiveBalance}
-                isManager={isManager}
-              />
-            ))}
-
             {/* Add item — managers only */}
             {isManager && session.status === 'OPEN' && (
               <form
@@ -1307,8 +1276,39 @@ export function LootPage() {
               </form>
             )}
 
+            {[...session.items]
+              .sort((a, b) => {
+                const aAssigned = a.assignments.length > 0 ? 1 : 0;
+                const bAssigned = b.assignments.length > 0 ? 1 : 0;
+                if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+                return a.sortOrder - b.sortOrder;
+              })
+              .filter((item) => !hideAssigned || item.assignments.length === 0)
+              .map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                session={session}
+                auction={auctionQuery.data?.[item.id] ?? null}
+                dkpBalances={dkpQuery.data ?? []}
+                eligiblePlayers={eligiblePlayers}
+                allRsvpMap={allRsvpMap}
+                allAssignmentCount={allAssignmentCount}
+                skipCount={skipCount}
+                onRolled={invalidate}
+                onAssigned={invalidate}
+                onDelete={invalidate}
+                onAuctionChange={invalidate}
+                guildId={guildId!}
+                eventId={eventId!}
+                currentUserId={user?.id}
+                myEffectiveBalance={myEffectiveBalance}
+                isManager={isManager}
+              />
+            ))}
+
             {session.items.length === 0 && (
-              <p className="text-sm text-muted-foreground italic py-2">No items yet. Add items above to start distributing loot.</p>
+              <p className="text-sm text-muted-foreground italic py-2">No items yet. Add the first item above.</p>
             )}
           </div>
 
