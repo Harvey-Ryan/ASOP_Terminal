@@ -911,7 +911,13 @@ function TradeRow({
   );
 }
 
+const TRADE_HISTORY_CUTOFF_MS = 30 * 24 * 60 * 60 * 1000;
+const isOldResolved = (t: TradeDto) =>
+  t.status !== 'PENDING' && Date.now() - new Date(t.updatedAt).getTime() > TRADE_HISTORY_CUTOFF_MS;
+
 function TradesTab({ guildId }: { guildId: string }) {
+  const [showHistory, setShowHistory] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-trades', guildId],
     queryFn: () => marketplaceApi.getTrades(guildId),
@@ -920,6 +926,9 @@ function TradesTab({ guildId }: { guildId: string }) {
 
   const incoming = data?.incoming ?? [];
   const outgoing = data?.outgoing ?? [];
+  const hiddenCount = incoming.filter(isOldResolved).length + outgoing.filter(isOldResolved).length;
+  const visibleIncoming = showHistory ? incoming : incoming.filter((t) => !isOldResolved(t));
+  const visibleOutgoing = showHistory ? outgoing : outgoing.filter((t) => !isOldResolved(t));
 
   if (isLoading) {
     return <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>;
@@ -933,17 +942,36 @@ function TradesTab({ guildId }: { guildId: string }) {
     );
   }
 
+  const historyToggle = hiddenCount > 0 && (
+    <div className="flex justify-center pt-2">
+      <button
+        onClick={() => setShowHistory((v) => !v)}
+        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+      >
+        {showHistory ? 'Hide history' : `Show ${hiddenCount} older trade${hiddenCount === 1 ? '' : 's'}`}
+      </button>
+    </div>
+  );
+
+  const nothingVisible = visibleIncoming.length === 0 && visibleOutgoing.length === 0;
+
   return (
     <div className="space-y-6">
-      {incoming.length > 0 && (
+      {nothingVisible && (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No recent activity.
+        </p>
+      )}
+
+      {visibleIncoming.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Incoming Requests ({incoming.length})
+            Incoming Requests ({visibleIncoming.length})
           </h3>
           <Card>
             <CardContent className="pt-2 pb-0">
               <div className="divide-y divide-border">
-                {incoming.map((t) => (
+                {visibleIncoming.map((t) => (
                   <TradeRow key={t.id} trade={t} guildId={guildId} role="seller" />
                 ))}
               </div>
@@ -952,15 +980,15 @@ function TradesTab({ guildId }: { guildId: string }) {
         </div>
       )}
 
-      {outgoing.length > 0 && (
+      {visibleOutgoing.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            My Requests ({outgoing.length})
+            My Requests ({visibleOutgoing.length})
           </h3>
           <Card>
             <CardContent className="pt-2 pb-0">
               <div className="divide-y divide-border">
-                {outgoing.map((t) => (
+                {visibleOutgoing.map((t) => (
                   <TradeRow key={t.id} trade={t} guildId={guildId} role="buyer" />
                 ))}
               </div>
@@ -968,6 +996,8 @@ function TradesTab({ guildId }: { guildId: string }) {
           </Card>
         </div>
       )}
+
+      {historyToggle}
     </div>
   );
 }
