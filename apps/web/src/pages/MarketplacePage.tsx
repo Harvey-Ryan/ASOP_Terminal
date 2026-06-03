@@ -679,6 +679,7 @@ function InventoryTab({ guildId }: { guildId: string }) {
   const [ql, setQl] = useState('');
   const [loc, setLoc] = useState('');
   const [formError, setFormError] = useState('');
+  const [listedOnly, setListedOnly] = useState(false);
 
   const { data: inventory = [], isLoading } = useQuery({
     queryKey: ['exchange-inventory', guildId],
@@ -712,6 +713,9 @@ function InventoryTab({ guildId }: { guildId: string }) {
   });
 
   const isCommodity = selected?.type === 'COMMODITY';
+
+  const listedCount = inventory.filter((e) => e.forSale).length;
+  const visibleInventory = listedOnly ? inventory.filter((e) => e.forSale) : inventory;
 
   return (
     <div className="space-y-6">
@@ -762,19 +766,37 @@ function InventoryTab({ guildId }: { guildId: string }) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Package className="h-4 w-4" /> My Inventory
-            {user && <span className="text-xs font-normal text-muted-foreground ml-1">— {user.globalName ?? user.username}</span>}
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="h-4 w-4" /> My Inventory
+              {user && <span className="text-xs font-normal text-muted-foreground ml-1">— {user.globalName ?? user.username}</span>}
+            </CardTitle>
+            {listedCount > 0 && (
+              <button
+                onClick={() => setListedOnly((v) => !v)}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors shrink-0',
+                  listedOnly
+                    ? 'border-green-500 bg-green-500/10 text-green-400'
+                    : 'border-border bg-card text-muted-foreground hover:border-green-500/50',
+                )}
+              >
+                {listedOnly ? 'All items' : `Listed (${listedCount})`}
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading && <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 rounded" />)}</div>}
           {!isLoading && inventory.length === 0 && (
             <p className="text-sm text-muted-foreground py-4 text-center">Your inventory is empty. Add items above.</p>
           )}
-          {!isLoading && inventory.length > 0 && (
+          {!isLoading && listedOnly && visibleInventory.length === 0 && (
+            <p className="text-sm text-muted-foreground py-4 text-center">No items currently listed for sale.</p>
+          )}
+          {!isLoading && visibleInventory.length > 0 && (
             <div className="divide-y divide-border">
-              {inventory.map((entry) => (
+              {visibleInventory.map((entry) => (
                 <InventoryRow key={entry.id} entry={entry} guildId={guildId} />
               ))}
             </div>
