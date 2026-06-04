@@ -236,11 +236,14 @@ export function getBlueprintByUuid(uuid: string): LocalBlueprint | undefined {
   return _blueprintByUuid.get(uuid);
 }
 
-export const BLUEPRINT_TYPES: string[] = [...new Set(BLUEPRINTS.map(b => b.type))].sort();
+export const OBTAINABLE_BLUEPRINTS: LocalBlueprint[] = BLUEPRINTS.filter(b => b.missions.length > 0);
+
+export const BLUEPRINT_TYPES: string[] = [...new Set(OBTAINABLE_BLUEPRINTS.map(b => b.type))].sort();
 
 export function searchBlueprints(q: string, type?: string): LocalBlueprint[] {
   const query = q.trim().toLowerCase();
   return BLUEPRINTS.filter(b => {
+    if (b.missions.length === 0) return false;
     const matchesType = !type || b.type === type;
     const matchesQ    = !query || b.name.toLowerCase().includes(query) || b.type.toLowerCase().includes(query);
     return matchesType && matchesQ;

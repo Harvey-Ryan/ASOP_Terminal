@@ -4,7 +4,7 @@ import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Info, Layers } fro
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  BLUEPRINTS,
+  OBTAINABLE_BLUEPRINTS,
   BLUEPRINT_TYPES,
   searchBlueprints,
   getBlueprintByUuid,
@@ -748,7 +748,7 @@ export function CraftingCalculatorPage() {
         <p className="text-xs text-muted-foreground">
           {results.length} blueprint{results.length !== 1 ? 's' : ''}
           {results.length === 100 ? ' (showing first 100)' : ''}{' '}
-          of {BLUEPRINTS.length} total
+          of {OBTAINABLE_BLUEPRINTS.length} total
         </p>
       </div>
 
