@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -163,8 +163,19 @@ export function DashboardLayout() {
   const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
   const craftingEnabled     = myPerms?.craftingEnabled     ?? true;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [profileOpen,   setProfileOpen]   = useState(false);
+  const [navCollapsed,  setNavCollapsed]  = useState(() =>
+    localStorage.getItem('nav-collapsed') === 'true',
+  );
+
+  function toggleNav() {
+    setNavCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('nav-collapsed', String(next));
+      return next;
+    });
+  }
   const [localDisplayName, setLocalDisplayName] = useState('');
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -199,11 +210,20 @@ export function DashboardLayout() {
 
   const navCls = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+      navCollapsed
+        ? 'flex items-center justify-center rounded-md p-2 text-sm transition-colors'
+        : 'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
       isActive
         ? 'bg-primary text-primary-foreground font-medium'
         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
     );
+
+  const serverNavCls = cn(
+    navCollapsed
+      ? 'flex items-center justify-center rounded-md p-2 text-sm transition-colors'
+      : 'flex items-center gap-3 rounded-md py-2 pl-3 pr-3 text-sm transition-colors',
+    'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -307,22 +327,40 @@ export function DashboardLayout() {
 
         {/* ── Sidebar ── */}
         <aside className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-transform lg:static lg:z-auto lg:translate-x-0 lg:w-60',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-all duration-300 lg:relative lg:z-auto lg:translate-x-0',
+          navCollapsed ? 'lg:w-14' : 'lg:w-60',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}>
+          {/* Collapse toggle — desktop only, sits on the right edge */}
+          <button
+            onClick={toggleNav}
+            title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="absolute -right-3 top-6 z-50 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground shadow-sm transition-colors"
+          >
+            {navCollapsed
+              ? <ChevronsRight className="h-3.5 w-3.5" />
+              : <ChevronsLeft  className="h-3.5 w-3.5" />
+            }
+          </button>
+
           {/* Server list */}
           <nav className="flex-1 overflow-y-auto p-2 space-y-0.5" onClick={() => setSidebarOpen(false)}>
           {guilds.length === 0 ? (
             <div className="px-3 py-3">
-              <p className="text-xs text-muted-foreground mb-2">No servers with the bot installed.</p>
+              {!navCollapsed && <p className="text-xs text-muted-foreground mb-2">No servers with the bot installed.</p>}
               <a
                 href={INVITE_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                title="Add to a server"
+                className={cn(
+                  navCollapsed
+                    ? 'flex items-center justify-center rounded-md p-2 text-xs text-primary hover:bg-accent transition-colors'
+                    : 'flex items-center gap-1.5 text-xs text-primary hover:underline',
+                )}
               >
-                <ExternalLink className="h-3 w-3" />
-                Add to a server
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                {!navCollapsed && 'Add to a server'}
               </a>
             </div>
           ) : activeGuild ? (
@@ -330,52 +368,63 @@ export function DashboardLayout() {
               <NavLink
                 to={`/dashboard/servers/${activeGuild.id}`}
                 end
-                className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                title={navCollapsed ? 'Dashboard' : undefined}
+                className={serverNavCls}
               >
                 <LayoutDashboard className="h-4 w-4 shrink-0" />
-                Dashboard
+                {!navCollapsed && 'Dashboard'}
               </NavLink>
 
               {dkpEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/auctions`}
-                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title={navCollapsed ? 'Auctions' : undefined}
+                  className={serverNavCls}
                 >
                   <Gavel className="h-4 w-4 shrink-0" />
-                  Auctions
+                  {!navCollapsed && 'Auctions'}
                 </NavLink>
               )}
 
               {dkpEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/dkp`}
-                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title={navCollapsed ? dkpLabel : undefined}
+                  className={serverNavCls}
                 >
                   <Coins className="h-4 w-4 shrink-0" />
-                  {dkpLabel}
+                  {!navCollapsed && dkpLabel}
                 </NavLink>
               )}
 
               {exchangeEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/marketplace`}
-                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title={navCollapsed ? 'Marketplace' : undefined}
+                  className={cn(serverNavCls, 'relative')}
                 >
                   <ArrowLeftRight className="h-4 w-4 shrink-0" />
-                  Marketplace
-                  {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
-                    <span className="ml-auto flex items-center gap-1 shrink-0">
-                      {pendingTradeCount > 0 && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
-                          {pendingTradeCount}
+                  {!navCollapsed && (
+                    <>
+                      Marketplace
+                      {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
+                        <span className="ml-auto flex items-center gap-1 shrink-0">
+                          {pendingTradeCount > 0 && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
+                              {pendingTradeCount}
+                            </span>
+                          )}
+                          {unreadMessageCount > 0 && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                              {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                            </span>
+                          )}
                         </span>
                       )}
-                      {unreadMessageCount > 0 && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                          {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
-                        </span>
-                      )}
-                    </span>
+                    </>
+                  )}
+                  {navCollapsed && (pendingTradeCount > 0 || unreadMessageCount > 0) && (
+                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
                   )}
                 </NavLink>
               )}
@@ -383,54 +432,61 @@ export function DashboardLayout() {
               {fleetEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/fleet`}
-                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title={navCollapsed ? 'Fleet' : undefined}
+                  className={serverNavCls}
                 >
                   <Ship className="h-4 w-4 shrink-0" />
-                  Fleet
+                  {!navCollapsed && 'Fleet'}
                 </NavLink>
               )}
 
               {showAdminNav && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/roster`}
-                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title={navCollapsed ? 'RSI Roster' : undefined}
+                  className={serverNavCls}
                 >
                   <Users className="h-4 w-4 shrink-0" />
-                  RSI Roster
+                  {!navCollapsed && 'RSI Roster'}
                 </NavLink>
               )}
 
               {lootEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/loot`}
-                  className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title={navCollapsed ? 'Loot' : undefined}
+                  className={serverNavCls}
                 >
                   <Package className="h-4 w-4 shrink-0" />
-                  Loot
+                  {!navCollapsed && 'Loot'}
                 </NavLink>
               )}
 
               {(blueprintsEnabled || craftingEnabled) && (
                 <>
-                  <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    In Development
-                  </p>
+                  {!navCollapsed && (
+                    <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      In Development
+                    </p>
+                  )}
                   {blueprintsEnabled && (
                     <NavLink
                       to={`/dashboard/servers/${activeGuild.id}/blueprints`}
-                      className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                      title={navCollapsed ? 'Blueprints' : undefined}
+                      className={serverNavCls}
                     >
                       <BookOpen className="h-4 w-4 shrink-0" />
-                      Blueprints
+                      {!navCollapsed && 'Blueprints'}
                     </NavLink>
                   )}
                   {craftingEnabled && (
                     <NavLink
                       to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
-                      className="flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                      title={navCollapsed ? 'Crafting Calculator' : undefined}
+                      className={serverNavCls}
                     >
                       <Calculator className="h-4 w-4 shrink-0" />
-                      Crafting Calculator
+                      {!navCollapsed && 'Crafting Calculator'}
                     </NavLink>
                   )}
                 </>
@@ -444,11 +500,12 @@ export function DashboardLayout() {
                   key={guild.id}
                   to={`/dashboard/servers/${guild.id}`}
                   end
+                  title={navCollapsed ? guild.name : undefined}
                   className={navCls}
                 >
                   <GuildIcon guild={guild} />
-                  <span className="truncate">{guild.name}</span>
-                  {guild.hasBotInstalled && (
+                  {!navCollapsed && <span className="truncate">{guild.name}</span>}
+                  {!navCollapsed && guild.hasBotInstalled && (
                     <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Bot installed" />
                   )}
                 </NavLink>
@@ -459,51 +516,46 @@ export function DashboardLayout() {
           {/* ── Org Settings section ── */}
           {showAdminNav && (
             <>
-              <p className="px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Org Settings
-              </p>
+              {!navCollapsed && (
+                <p className="px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Org Settings
+                </p>
+              )}
 
-              {/* Module Settings */}
               <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/settings/modules`}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  )
-                }
+                to={`/dashboard/servers/${activeGuild!.id}/settings/modules`}
+                title={navCollapsed ? 'Module Settings' : undefined}
+                className={navCls}
               >
                 <Puzzle className="h-4 w-4 shrink-0" />
-                Module Settings
+                {!navCollapsed && 'Module Settings'}
               </NavLink>
 
-              {/* Game Data */}
               <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/settings/game-data`}
+                to={`/dashboard/servers/${activeGuild!.id}/settings/game-data`}
+                title={navCollapsed ? 'Game Data' : undefined}
                 className={navCls}
               >
                 <Database className="h-4 w-4 shrink-0" />
-                Game Data
+                {!navCollapsed && 'Game Data'}
               </NavLink>
 
-              {/* SC Database */}
               <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/settings/sc-data`}
+                to={`/dashboard/servers/${activeGuild!.id}/settings/sc-data`}
+                title={navCollapsed ? 'SC Database' : undefined}
                 className={navCls}
               >
                 <Rocket className="h-4 w-4 shrink-0" />
-                SC Database
+                {!navCollapsed && 'SC Database'}
               </NavLink>
 
-              {/* Org Settings */}
               <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/settings/bot`}
+                to={`/dashboard/servers/${activeGuild!.id}/settings/bot`}
+                title={navCollapsed ? 'Org Settings' : undefined}
                 className={navCls}
               >
                 <Settings className="h-4 w-4 shrink-0" />
-                Org Settings
+                {!navCollapsed && 'Org Settings'}
               </NavLink>
             </>
           )}
@@ -511,30 +563,34 @@ export function DashboardLayout() {
 
         {/* Sidebar footer – help + dashboard link */}
         <div className="border-t border-border p-2 space-y-0.5">
-          <HelpPanel
-            isManager={showAdminNav}
-            dkpLabel={dkpLabel}
-            eventBotEnabled={eventBotEnabled}
-            dkpEnabled={dkpEnabled}
-            lootEnabled={lootEnabled}
-            exchangeEnabled={exchangeEnabled}
-            fleetEnabled={fleetEnabled}
-            rsiOrgRequired={myPerms?.rsiOrgRequired ?? false}
-          />
+          {!navCollapsed && (
+            <HelpPanel
+              isManager={showAdminNav}
+              dkpLabel={dkpLabel}
+              eventBotEnabled={eventBotEnabled}
+              dkpEnabled={dkpEnabled}
+              lootEnabled={lootEnabled}
+              exchangeEnabled={exchangeEnabled}
+              fleetEnabled={fleetEnabled}
+              rsiOrgRequired={myPerms?.rsiOrgRequired ?? false}
+            />
+          )}
           <NavLink
             to="/dashboard"
             end
+            title={navCollapsed ? 'Server List' : undefined}
             className={navCls}
           >
             <List className="h-4 w-4 shrink-0" />
-            Server List
+            {!navCollapsed && 'Server List'}
           </NavLink>
           <NavLink
             to="/dashboard/kanban"
+            title={navCollapsed ? 'Development Milestones' : undefined}
             className={navCls}
           >
             <KanbanSquare className="h-4 w-4 shrink-0" />
-            Development Milestones
+            {!navCollapsed && 'Development Milestones'}
           </NavLink>
         </div>
 
