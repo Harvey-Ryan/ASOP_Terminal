@@ -1,0 +1,582 @@
+﻿[
+    {
+        "UUID":  "a04a1503-ac5c-4520-bc22-4b1a1a198eff",
+        "Name":  "Anvil Ballista",
+        "ClassName":  "ANVL_Ballista",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Keep your airspace clear of danger with the Anvil Ballista. Originally designed to defend outposts from Vanduul attacks, this mobile missile defense system packs a powerful loadout, allowing the Ballista to stand firm against any threat, whether it arrives by air or land.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "85c2efa9-0544-49e9-9090-0287c9ecff3b",
+        "Name":  "Anvil Ballista",
+        "ClassName":  "ANVL_Ballista_PU_AI_NT",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Keep your airspace clear of danger with the Anvil Ballista. Originally designed to defend outposts from Vanduul attacks, this mobile missile defense system packs a powerful loadout, allowing the Ballista to stand firm against any threat, whether it arrives by air or land.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "fadb9c23-3d33-442a-9504-5ee4d709c8fa",
+        "Name":  "Anvil Ballista",
+        "ClassName":  "ANVL_Ballista_EA_UEE",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Keep your airspace clear of danger with the Anvil Ballista. Originally designed to defend outposts from Vanduul attacks, this mobile missile defense system packs a powerful loadout, allowing the Ballista to stand firm against any threat, whether it arrives by air or land.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "58684c6c-bfac-48a1-a2c3-067b284ebc6a",
+        "Name":  "Anvil Ballista",
+        "ClassName":  "ANVL_Ballista_EA_Outlaw",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Keep your airspace clear of danger with the Anvil Ballista. Originally designed to defend outposts from Vanduul attacks, this mobile missile defense system packs a powerful loadout, allowing the Ballista to stand firm against any threat, whether it arrives by air or land.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "50f551e3-3435-4cbe-9ecf-8712855a8e27",
+        "Name":  "Anvil Ballista Dunestalker",
+        "ClassName":  "ANVL_Ballista_Dunestalker",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Keep your airspace clear of danger with the Anvil Ballista. Originally designed to defend outposts from Vanduul attacks, this mobile missile defense system packs a powerful loadout, allowing the Ballista to stand firm against any threat, whether it arrives by air or land. The Dunestalker variant features a naturalistic paint scheme ideal for blending into harsh landscapes.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "aaeb976b-7a79-4a9c-91ee-07ed05d4a399",
+        "Name":  "Anvil Ballista Snowblind",
+        "ClassName":  "ANVL_Ballista_Snowblind",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Keep your airspace clear of danger with the Anvil Ballista. Originally designed to defend outposts from Vanduul attacks, this mobile missile defense system packs a powerful loadout, allowing the Ballista to stand firm against any threat, whether it arrives by air or land. The Snowblind variant comes in a grey camouflage pattern to keep it concealed against rocky or lunar terrain.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "422ff39d-aaab-42a8-b434-a62449e7f415",
+        "Name":  "Anvil Centurion",
+        "ClassName":  "ANVL_Centurion_AI_NineTails",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Built on Anvil\u0027s popular Atlas Platform, the Centurion presents a tactical solution for short-range anti-aircraft operations. Thanks to the Centurion\u0027s custom energy-based AA turret, your forces can establish ground superiority by assuring immediate threats from above are dealt with quickly and efficiently.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "27515ffd-04df-413f-8533-34612d906c7d",
+        "Name":  "Anvil Centurion",
+        "ClassName":  "ANVL_Centurion",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Built on Anvil\u0027s popular Atlas Platform, the Centurion presents a tactical solution for short-range anti-aircraft operations. Thanks to the Centurion\u0027s custom energy-based AA turret, your forces can establish ground superiority by assuring immediate threats from above are dealt with quickly and efficiently.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "9c26b25a-9285-4074-94d1-163db2aa8cbb",
+        "Name":  "Anvil Spartan",
+        "ClassName":  "ANVL_Spartan",
+        "Manufacturer":  {
+                             "Code":  "ANVL",
+                             "Name":  "Anvil Aerospace",
+                             "UUID":  "b922abdb-0634-4358-9eee-60118f3cf3a7"
+                         },
+        "Description":  "Built on Anvil\u0027s robust Atlas Platform, the same chassis used for their devastating Ballista air defense system, the Spartan is a fully armored transport outfitted with eight jump seats. The Spartan\u0027s rugged frame makes it perfect for all kinds of terrain, and its remote Gatling turret helps clear the area for easier deployment.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "09c9fa95-5b5a-4200-9ff8-3b288df9925b",
+        "Name":  "Argo ATLS",
+        "ClassName":  "ARGO_ATLS",
+        "Manufacturer":  null,
+        "Description":  "Thanks to a rigorous process of real-world testing, this next-generation assisted transport loading system from Argo Astronautics features a fully redesigned cockpit that makes wearing this latest ATLS power suit feel more like a natural extension of the user\u0027s body than ever before. With smoother leg actuators than previous versions alongside the powerful integrated tractor beam, transferring bulky cargo efficiently and precisely has never been easier.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "a10bcff6-7985-431f-b0ea-bdb51e6d3f98",
+        "Name":  "Argo ATLS GEO",
+        "ClassName":  "ARGO_ATLS_GEO",
+        "Manufacturer":  {
+                             "Code":  "ARGO",
+                             "Name":  "Argo Astronautics",
+                             "UUID":  "9e1f5a35-edcc-4d19-bede-08e2730043c5"
+                         },
+        "Description":  "Building upon the rock-solid foundation offered by the ATLS, the engineers at Argo Astronautics have masterfully converted the power suit into the ideal personal mining platform. Featuring a mining laser, tractor beam and removable ore storage, the ATLS GEO is an all-in-one solution for harvesting the maximum potential value from your deposits.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "d4abc245-9a8d-43fe-a33d-c7988af62d0f",
+        "Name":  "Argo ATLS GEO IKTI",
+        "ClassName":  "ARGO_ATLS_GEO_IKTI",
+        "Manufacturer":  {
+                             "Code":  "BANU",
+                             "Name":  "Banu",
+                             "UUID":  "2b5ba252-e826-4356-ac0d-8d88007ea386"
+                         },
+        "Description":  "Handcrafted by Wikelo, this bespoke variant of the ATLS GEO power suit removes everything that\u0027s not guns and replaces them with guns. The GEO\u0027s resource pod gets upgraded into a jump pack for improved mobility.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "4a7a4b9d-ae3c-4375-af63-4100f831f43c",
+        "Name":  "Argo ATLS IKTI",
+        "ClassName":  "ARGO_ATLS_IKTI",
+        "Manufacturer":  {
+                             "Code":  "BANU",
+                             "Name":  "Banu",
+                             "UUID":  "2b5ba252-e826-4356-ac0d-8d88007ea386"
+                         },
+        "Description":  "Handcrafted by Wikelo, this bespoke variant of the ATLS power suit removes everything that\u0027s not guns and replaces them with guns.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "a13e7de9-3c22-4981-86ec-6b38394d1b10",
+        "Name":  "Argo ATLS IKTI Rad",
+        "ClassName":  "ARGO_ATLS_IKTI_ARGOS",
+        "Manufacturer":  {
+                             "Code":  "BANU",
+                             "Name":  "Banu",
+                             "UUID":  "2b5ba252-e826-4356-ac0d-8d88007ea386"
+                         },
+        "Description":  "Taking an Argo ATLS modified for combat by the Banu merchant Wikelo, ASD has made further adjustments to the power suit so that it\u0027s better able to survive the deadly radiation storms on Pyro I.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "e8efe30c-5a1e-4ca2-a956-424b352f80c2",
+        "Name":  "Argo CSV-SM",
+        "ClassName":  "ARGO_CSV_Cargo",
+        "Manufacturer":  {
+                             "Code":  "ARGO",
+                             "Name":  "Argo Astronautics",
+                             "UUID":  "9e1f5a35-edcc-4d19-bede-08e2730043c5"
+                         },
+        "Description":  "You got your plot of land, you\u0027ve got the right construction materials, and now you\u0027re ready to watch your dreams take shape. The ideal companion to the CSV-FM, the CSV Supply Model provides additional storage for all the resources required to build your next settlement.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "48a46604-7786-44f5-9c22-fa298fad141e",
+        "Name":  "ATLS Cool Metal Color",
+        "ClassName":  "ARGO_ATLS_GEO_Collector_Grad03",
+        "Manufacturer":  {
+                             "Code":  "ARGO",
+                             "Name":  "Argo Astronautics",
+                             "UUID":  "9e1f5a35-edcc-4d19-bede-08e2730043c5"
+                         },
+        "Description":  "Wikelo give deep red and green colors to make ATLS legs look like they cooling from heat. Very pretty.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "f183c17c-eb46-47d6-8029-24f4189be6f2",
+        "Name":  "ATLS Orange Line",
+        "ClassName":  "ARGO_ATLS_GEO_Collector_Grad02",
+        "Manufacturer":  {
+                             "Code":  "ARGO",
+                             "Name":  "Argo Astronautics",
+                             "UUID":  "9e1f5a35-edcc-4d19-bede-08e2730043c5"
+                         },
+        "Description":  "Many Human work place have orange color there. Must mean work to you. This suit does work. Make sense.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "8b2016c5-0eba-4cc7-87a2-24b7cd4b82d8",
+        "Name":  "ATLS Snowland Color",
+        "ClassName":  "ARGO_ATLS_GEO_Collector_Grad01",
+        "Manufacturer":  {
+                             "Code":  "ARGO",
+                             "Name":  "Argo Astronautics",
+                             "UUID":  "9e1f5a35-edcc-4d19-bede-08e2730043c5"
+                         },
+        "Description":  "Wikelo travel to one Human planet and find very cold, but very pretty. This remind of that.",
+        "VehicleType":  "PowerSuit"
+    },
+    {
+        "UUID":  "fb484074-f33f-4977-a052-2937e8508acc",
+        "Name":  "Drake Mule",
+        "ClassName":  "DRAK_Mule",
+        "Manufacturer":  {
+                             "Code":  "DRAK",
+                             "Name":  "Drake Interplanetary",
+                             "UUID":  "6116471c-891d-4830-8968-650b6deafc00"
+                         },
+        "Description":  "The six-wheeled Drake Mule is a dependable workhorse for all sorts of loading and hauling jobs. Whether transporting cargo over rough terrain or ferrying it onto larger vessels and cargo decks, the Mule sees even the toughest contracts through to the end. Plain and simple.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "3e911bb5-1a94-4501-bd63-560557f1b492",
+        "Name":  "Greycat MDC",
+        "ClassName":  "GRIN_MDC",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Building upon a robust and sturdy industrial frame, Greycat has crafted the MDC Mobile Defense Center into an effective combat vehicle ready to protect your interests from remote mining sites to patrolling high-value processing centers thanks to its mounted PDS turret.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "91c9418e-6240-4fb1-a18a-1e22ebfb7747",
+        "Name":  "Greycat MTC",
+        "ClassName":  "GRIN_MTC",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "As an expert in industrial operations, Greycat understands that jobsite security is a vital part of any successful business venture. Not only that, but to be fully effective, you need to be able to get your security personnel and their equipment to wherever they\u0027re needed most. That\u0027s why the MTC Mobile Tactical Center is such an important addition to your next venture. Nimble enough to access the difficult terrain encountered at remote operations and equipped with enough suit lockers, weapon racks, and storage to tackle a wide host of issues, the Greycat MTC could make all the difference when it comes to turning a potential problem into potential profit.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "41ff82e7-ce4e-4dbc-ad7c-7ef52fbe569c",
+        "Name":  "Greycat PTV",
+        "ClassName":  "GRIN_PTV",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "The Greycat PTV is a simple and practical buggy frequently used to reduce travel times in large hangars or outposts.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "38714460-738c-4d8f-9f73-1201269b4650",
+        "Name":  "Greycat PTV",
+        "ClassName":  "GRIN_PTV_NoCrimesAgainst",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "The Greycat PTV is a simple and practical buggy frequently used to reduce travel times in large hangars or outposts.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "62e33393-5d68-4191-aba5-3b81ce4f3bf9",
+        "Name":  "Greycat ROC",
+        "ClassName":  "GRIN_ROC",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "By focusing on the essentials of terrestrial-based mining, Greycat Industrial designed their hardworking, no-nonsense ROC (Remote Ore Collector) to complement the miners who use it. From its precision gimbaled mining arm to its all-terrain wheels, this solo-operated vehicle shows how important it is to have the right tool for the job.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "14d6ba03-86ad-47f8-b940-e8a82d2d52b6",
+        "Name":  "Greycat ROC-DS",
+        "ClassName":  "GRIN_ROC_DS",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "By focusing on the essentials of terrestrial-based mining, Greycat Industrial designed their hardworking, no-nonsense ROC-DS (Remote Ore Collector Dual Seat) to let mining pairs do more while in the field. The ROC-DS raises the ground-mining game by adding extra cargo capacity and a second seat to operate the precision gimbaled mining arm. Greycat even upgraded the driver\u0027s cab with a protective enclosure to allow for longer excursions in harsh conditions. With the ROC-DS, mining duos now have the right tool to comfortably collect more ore.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "d4662193-10ab-4912-8ca4-d64ead0e6f3b",
+        "Name":  "Greycat STV",
+        "ClassName":  "GRIN_STV",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Get ready to have some serious fun on the job with the STV from Greycat. This Sport Terrain Vehicle was built by pros for pros and features blazing speed and convenient built-in storage.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "bfdf94df-32fc-497c-b9fa-c98f3fa4c83b",
+        "Name":  "Greycat UTV",
+        "ClassName":  "GRIN_UTV",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "The Greycat UTV is a durable, utility buggy designed to transport light cargo loads across rugged terrain. Whether you\u0027re coordinating freight storage or making a supply run to a neighboring outpost, the straightforward design of the UTV allows operators to focus on tackling the job at hand.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "5289315e-c808-474f-b432-bac7e1b2f175",
+        "Name":  "Power Suit",
+        "ClassName":  "PowerSuit",
+        "Manufacturer":  null,
+        "Description":  "",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "fb95f69c-ca55-4bf7-93a8-b75edaf6d303",
+        "Name":  "RSI Lynx",
+        "ClassName":  "RSI_Lynx_AI_CIV",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "RSI designed the Lynx Rover to be a vehicle capable of exploring a wide variety of terrains while still delivering a top-rated and finely tuned driving experience.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "4c034eef-329c-4336-850e-49bfb1f06a15",
+        "Name":  "RSI Lynx",
+        "ClassName":  "RSI_Lynx",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "RSI designed the Lynx Rover to be a vehicle capable of exploring a wide variety of terrains while still delivering a top-rated and finely tuned driving experience.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "ca7a8468-c497-4a16-95d6-030f4a79bfe4",
+        "Name":  "RSI Ursa",
+        "ClassName":  "RSI_Ursa_Rover_Prison",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Built by RSI specifically for the planetside explorer, the Ursa Rover offers civilians military-grade all-terrain capabilities and stands as the rugged standard in ground-based scouting, mapping and discovery applications.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "287fde8a-3c93-44ac-bab1-a463f250b95b",
+        "Name":  "RSI Ursa",
+        "ClassName":  "RSI_Ursa_Rover_AI_CIV_RaceAnnouncer",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Built by RSI specifically for the planetside explorer, the Ursa Rover offers civilians military-grade all-terrain capabilities and stands as the rugged standard in ground-based scouting, mapping and discovery applications.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "143c5344-d70e-4feb-942f-99b5920f374d",
+        "Name":  "RSI Ursa",
+        "ClassName":  "RSI_Ursa_Rover_Unmanned_Template",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Built by RSI specifically for the planetside explorer, the Ursa Rover offers civilians military-grade all-terrain capabilities and stands as the rugged standard in ground-based scouting, mapping and discovery applications.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "192920e0-90c6-432d-84dd-c3e500f364f9",
+        "Name":  "RSI Ursa",
+        "ClassName":  "RSI_Ursa_Rover_Unmanned_FF",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Built by RSI specifically for the planetside explorer, the Ursa Rover offers civilians military-grade all-terrain capabilities and stands as the rugged standard in ground-based scouting, mapping and discovery applications.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "8c375d7e-0e44-42e8-b84b-c8d6b2e1256c",
+        "Name":  "RSI Ursa",
+        "ClassName":  "RSI_Ursa_Rover",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Built by RSI specifically for the planetside explorer, the Ursa Rover offers civilians military-grade all-terrain capabilities and stands as the rugged standard in ground-based scouting, mapping and discovery applications.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "54a26e9d-b7a4-420b-b3e1-b036a25b45f7",
+        "Name":  "RSI Ursa",
+        "ClassName":  "RSI_Ursa_Rover_AI_CIV",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Built by RSI specifically for the planetside explorer, the Ursa Rover offers civilians military-grade all-terrain capabilities and stands as the rugged standard in ground-based scouting, mapping and discovery applications.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "953f8277-43a5-4f88-b139-ee997ee5c482",
+        "Name":  "RSI Ursa Fortuna",
+        "ClassName":  "RSI_Ursa_Rover_Emerald",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Fortune favors the bold. The most trusted name in all-terrain exploration embodies the essence of good fortune and success with this commemorative limited-edition Ursa Rover.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "ebf015be-7bf9-44e9-ad9c-b5c65f00c530",
+        "Name":  "RSI Ursa Medivac",
+        "ClassName":  "RSI_Ursa_Medivac",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Even in the most remote of planetside destinations, there are people who could use a helping hand. Designed by RSI to cross even the most rugged terrain, the Ursa Medivac features a Tier 3 Medical Bed ideal for offering aid wherever its needed most.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "6b621d46-86d6-4f5a-835f-b98242c51876",
+        "Name":  "RSI Ursa Medivac Wikelo Special",
+        "ClassName":  "RSI_Ursa_Medivac_Stealth",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "Even in the most remote of planetside destinations, there are people who could use a helping hand. Designed by RSI to cross even the most rugged terrain, the Ursa Medivac features a Tier 3 Medical Bed ideal for offering aid wherever its needed most.\n\nWikelo here. Made change here. Add parts to give a little more use. Hope you like.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "cfd2dc81-1b29-4c38-b84f-2127b4a52401",
+        "Name":  "Tumbril Cyclone",
+        "ClassName":  "TMBL_Cyclone_Indestructible",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "With a potent combination of speed, maneuverability, and rugged durability, the Cyclone is a perfect choice for local deliveries and transport between planetside homesteads and outposts.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "8dbb42e4-e127-4153-9694-2845142c3e51",
+        "Name":  "Tumbril Cyclone",
+        "ClassName":  "TMBL_Cyclone",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "With a potent combination of speed, maneuverability, and rugged durability, the Cyclone is a perfect choice for local deliveries and transport between planetside homesteads and outposts.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "0194943d-1164-4b5f-a85e-79ebc0ebe621",
+        "Name":  "Tumbril Cyclone AA",
+        "ClassName":  "TMBL_Cyclone_AA",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "A battlefield equalizer, the Cyclone AA comes equipped with a surface-to-air missile and countermeasure package to provide cover for ground troops against airborne targets.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "bda93768-c01f-40b4-a92e-f31876cd33d0",
+        "Name":  "Tumbril Cyclone MT",
+        "ClassName":  "TMBL_Cyclone_MT",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "Following the success of the initial release of the Cyclone, Tumbril has taken your feedback and expanded their popular line of tactical vehicles with the all new Cyclone MT. Outfitted with a combination gun and missile turret, this module offers increased combat options in the field.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "064951d7-3dd0-49c2-8b88-d2d7f809633e",
+        "Name":  "Tumbril Cyclone RC",
+        "ClassName":  "TMBL_Cyclone_RC",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "For those who like to push the limits of speed, the Cyclone RC features a modified intake system to allow for controlled bursts of speed as well as tools to customize handling.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "b389839d-fdf9-4c41-850a-4e7461250304",
+        "Name":  "Tumbril Cyclone RN",
+        "ClassName":  "TMBL_Cyclone_RN",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "Stay mobile and aware with the Cyclone RN. This light reconnaissance vehicle is the perfect solution for scouting runs, providing fast and detailed scans of terrain as well as beacon placement.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "f80914cf-643e-4b7e-b715-eaf9aa572954",
+        "Name":  "Tumbril Cyclone TR",
+        "ClassName":  "TMBL_Cyclone_TR",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "Designed for militia and security use, the Cyclone TR module features upgraded armor and a single Human-operated turret capable of mounting a Size 1 weapon and a responsive 360° field of fire.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "b8a352bb-74a8-415b-9e08-77f684ac91b8",
+        "Name":  "Tumbril Nova",
+        "ClassName":  "TMBL_Nova",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "Tumbril\u0027s new Nova is a classic battlefield warrior, reimagined for the modern age. This heavy tank offers a devastating combination of weaponry to eliminate threats on the ground and in the air.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "515269d2-fea4-473f-b416-5f6677a54b55",
+        "Name":  "Tumbril Storm",
+        "ClassName":  "TMBL_Storm",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "Originally introduced in 2606 during the Second Tevarin War, the Tumbril Storm single-operator mini-tank was built to blitz battlefields and take out enemy artillery. Reimagined from the ground up to be faster, stronger, and more impactful than ever, the latest Storm is a true force of nature, well-suited to the frenetic landscape of modern warfare.",
+        "VehicleType":  "GroundVehicle"
+    },
+    {
+        "UUID":  "8bbcd2cd-1e4b-4b0b-a65c-385bb2a02c32",
+        "Name":  "Tumbril Storm AA",
+        "ClassName":  "TMBL_Storm_AA",
+        "Manufacturer":  {
+                             "Code":  "TMBL",
+                             "Name":  "Tumbril Land Systems",
+                             "UUID":  "bb1024bc-b82e-491c-820c-36662c36feb3"
+                         },
+        "Description":  "Originally introduced in 2606 during the Second Tevarin War, the Tumbril Storm single-operator mini-tank was built to blitz battlefields and take out enemy artillery. Reimagined from the ground up to be faster, stronger, and more impactful than ever, the Storm AA is a true force of nature, equipped with a barrage of missiles to provide cover against airborne and ground targets.",
+        "VehicleType":  "GroundVehicle"
+    }
+]

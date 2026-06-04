@@ -1,0 +1,464 @@
+﻿[
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Acidic",
+        "System":  "Generic",
+        "Body":  "Acidic Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Acidic",
+        "System":  "Generic",
+        "Body":  "Acidic Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "AsteroidCluster_Low_Yield",
+        "System":  "Generic",
+        "Body":  "Asteroid Cluster (Low Yield)",
+        "BodyType":  "AsteroidCluster",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "AsteroidCluster_Medium_Yield",
+        "System":  "Generic",
+        "Body":  "Asteroid Cluster (Medium Yield)",
+        "BodyType":  "AsteroidCluster",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Rock",
+        "System":  "Generic",
+        "Body":  "Rock Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Rock",
+        "System":  "Generic",
+        "Body":  "Rock Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Sand",
+        "System":  "Generic",
+        "Body":  "Sand Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Sand",
+        "System":  "Generic",
+        "Body":  "Sand Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "HPP_SpaceDerelict_General",
+        "System":  "Generic",
+        "Body":  "Space Derelict",
+        "BodyType":  "Derelict",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Nyx_GlaciemRing",
+        "System":  "Nyx",
+        "Body":  "Glaciem Ring",
+        "BodyType":  "AsteroidRing",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Nyx_KeegerBelt",
+        "System":  "Nyx",
+        "Body":  "Keeger Belt",
+        "BodyType":  "AsteroidBelt",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Acidic_Pyro",
+        "System":  "Pyro",
+        "Body":  "Acidic Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "HPP_Pyro_AkiroCluster",
+        "System":  "Pyro",
+        "Body":  "Akiro Cluster",
+        "BodyType":  "AsteroidCluster",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro_Cool01",
+        "System":  "Pyro",
+        "Body":  "Pyro Cold Zone 1",
+        "BodyType":  "DeepSpace",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro_Cool02",
+        "System":  "Pyro",
+        "Body":  "Pyro Cold Zone 2",
+        "BodyType":  "DeepSpace",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro_DeepSpaceAsteroids",
+        "System":  "Pyro",
+        "Body":  "Pyro Deep Space Asteroids",
+        "BodyType":  "AsteroidBelt",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro1",
+        "System":  "Pyro",
+        "Body":  "Pyro I (Monox)",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro2",
+        "System":  "Pyro",
+        "Body":  "Pyro II (Ignis)",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro3",
+        "System":  "Pyro",
+        "Body":  "Pyro III (Bloom)",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro4",
+        "System":  "Pyro",
+        "Body":  "Pyro IV (Fuego)",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro5b",
+        "System":  "Pyro",
+        "Body":  "Pyro V â€” Adir",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro5f",
+        "System":  "Pyro",
+        "Body":  "Pyro V â€” Aios",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro5c",
+        "System":  "Pyro",
+        "Body":  "Pyro V â€” Fairo",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro5e",
+        "System":  "Pyro",
+        "Body":  "Pyro V â€” Iginia",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro5a",
+        "System":  "Pyro",
+        "Body":  "Pyro V â€” Vatra",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro5d",
+        "System":  "Pyro",
+        "Body":  "Pyro V â€” Vili",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro6",
+        "System":  "Pyro",
+        "Body":  "Pyro VI (Terminus)",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro_Warm01",
+        "System":  "Pyro",
+        "Body":  "Pyro Warm Zone 1",
+        "BodyType":  "DeepSpace",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Pyro_Warm02",
+        "System":  "Pyro",
+        "Body":  "Pyro Warm Zone 2",
+        "BodyType":  "DeepSpace",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Rock_Pyro",
+        "System":  "Pyro",
+        "Body":  "Rock Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Rock_Pyro",
+        "System":  "Pyro",
+        "Body":  "Rock Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Sand_Pyro",
+        "System":  "Pyro",
+        "Body":  "Sand Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Sand_Pyro",
+        "System":  "Pyro",
+        "Body":  "Sand Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "HPP_AaronHalo",
+        "System":  "Stanton",
+        "Body":  "Aaron Halo Asteroid Belt",
+        "BodyType":  "AsteroidBelt",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton1b",
+        "System":  "Stanton",
+        "Body":  "Aberdeen",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Acidic_Stanton",
+        "System":  "Stanton",
+        "Body":  "Acidic Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Acidic_Stanton",
+        "System":  "Stanton",
+        "Body":  "Acidic Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "HPP_Stanton1a",
+        "System":  "Stanton",
+        "Body":  "Arial",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton4a",
+        "System":  "Stanton",
+        "Body":  "Calliope",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton2b",
+        "System":  "Stanton",
+        "Body":  "Cellin",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton4b",
+        "System":  "Stanton",
+        "Body":  "Clio",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton2a",
+        "System":  "Stanton",
+        "Body":  "Daymar",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton4c",
+        "System":  "Stanton",
+        "Body":  "Euterpe",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton1",
+        "System":  "Stanton",
+        "Body":  "Hurston",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton1d",
+        "System":  "Stanton",
+        "Body":  "Ita",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_A",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point A",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_B",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point B",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_C",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point C",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_D",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point D",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_E",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point E",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_F",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point F",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_G",
+        "System":  "Stanton",
+        "Body":  "Lagrange Point G",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton3b",
+        "System":  "Stanton",
+        "Body":  "Lyria",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton1c",
+        "System":  "Stanton",
+        "Body":  "Magda",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton4",
+        "System":  "Stanton",
+        "Body":  "microTech",
+        "BodyType":  "Planet",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Lagrange_Occupied",
+        "System":  "Stanton",
+        "Body":  "Occupied Lagrange Point",
+        "BodyType":  "LagrangePoint",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_ResourceRush_Gold",
+        "System":  "Stanton",
+        "Body":  "Resource Rush â€” Gold",
+        "BodyType":  "Event",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_ResourceRush_Gold_HighDensity",
+        "System":  "Stanton",
+        "Body":  "Resource Rush â€” Gold (High Density)",
+        "BodyType":  "Event",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Rock_Stanton",
+        "System":  "Stanton",
+        "Body":  "Rock Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Rock_Stanton",
+        "System":  "Stanton",
+        "Body":  "Rock Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Unoccupied_Sand_Stanton",
+        "System":  "Stanton",
+        "Body":  "Sand Cave",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "Loot_Caves_Occupied_Sand_Stanton",
+        "System":  "Stanton",
+        "Body":  "Sand Cave (Occupied)",
+        "BodyType":  "Cave",
+        "MiningType":  "FPS"
+    },
+    {
+        "Provider":  "HPP_ShipGraveyard_001",
+        "System":  "Stanton",
+        "Body":  "Ship Graveyard",
+        "BodyType":  "Derelict",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton3a",
+        "System":  "Stanton",
+        "Body":  "Wala",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton2c",
+        "System":  "Stanton",
+        "Body":  "Yela",
+        "BodyType":  "Moon",
+        "MiningType":  "Ship"
+    },
+    {
+        "Provider":  "HPP_Stanton2c_Belt",
+        "System":  "Stanton",
+        "Body":  "Yela Asteroid Belt",
+        "BodyType":  "AsteroidBelt",
+        "MiningType":  "Ship"
+    }
+]

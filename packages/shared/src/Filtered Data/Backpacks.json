@@ -1,0 +1,1843 @@
+﻿[
+    {
+        "UUID":  "d502827b-23b7-4e61-ab6d-86cba29b6f30",
+        "Name":  "Arden-CL Backpack",
+        "ClassName":  "rrs_combat_light_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide variety of armors.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "8bd4e563-afab-4c59-87f6-7f17ed723b27",
+        "Name":  "Arden-CL Backpack Archangel",
+        "ClassName":  "rrs_combat_light_backpack_01_04_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide variety of armors.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7744c18c-397d-40d1-a920-08541048f1e0",
+        "Name":  "Arden-CL Backpack Balefire",
+        "ClassName":  "rrs_combat_light_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide variety of armors.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "fdee87a2-f94a-45eb-9080-78ceaefea156",
+        "Name":  "Arden-CL Backpack Chairman\u0027s Club",
+        "ClassName":  "rrs_combat_light_backpack_02_02_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide of variety armors.\n\nThe Chairman\u0027s Club edition is clad in black with rich gold highlights.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "6d3e0441-f24e-4c38-94b5-ada3af8a4609",
+        "Name":  "Arden-CL Backpack Elysium",
+        "ClassName":  "rrs_combat_light_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide of variety armors. \n\nThe Elysium edition combines bright gold detailing of winged skulls with a navy blue.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "45d17cb6-95f1-4987-b41e-c7210ded2376",
+        "Name":  "Arden-CL Backpack Red Alert",
+        "ClassName":  "rrs_combat_light_backpack_01_01_iae2022",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide variety of armors.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "fdf82c64-ae1d-45cb-b907-2f61ac634a96",
+        "Name":  "Arden-CL Backpack Rime",
+        "ClassName":  "rrs_combat_light_backpack_01_03_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Whether carrying supplies into a combat zone or simply hauling extra gear, the Arden-CL backpack is battle ready and tested. Roussimoff Rehabilitation Systems designed the backpack with a universal core connector allowing it to attach to a wide variety of armors.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "173269f1-e6fe-494a-99df-e390a63dac84",
+        "Name":  "Aril Backpack",
+        "ClassName":  "grin_utility_medium_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "eb317ed0-685b-451f-91df-50df5598f0cd",
+        "Name":  "Aril Backpack Black Cherry",
+        "ClassName":  "grin_utility_medium_backpack_01_01_02",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "eee19707-3e2d-436a-9a6e-0a447c28fd07",
+        "Name":  "Aril Backpack Harvester",
+        "ClassName":  "grin_utility_medium_backpack_01_01_03",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "0e790ea4-8034-4eae-b1d9-a742e46bb27f",
+        "Name":  "Aril Backpack Hazard",
+        "ClassName":  "grin_utility_medium_backpack_01_01_04",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "de5b1185-7287-4341-9b11-dd2df19e2d59",
+        "Name":  "Aril Backpack Quicksilver",
+        "ClassName":  "grin_utility_medium_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "2ffe84b3-a881-4b82-bb1d-9cbf3b1e340c",
+        "Name":  "Aril Backpack Red Alert",
+        "ClassName":  "grin_utility_medium_backpack_01_01_iae2022",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "edee517a-f240-4037-ba34-ef840711b845",
+        "Name":  "Aril Backpack Red Alert",
+        "ClassName":  "grin_utility_medium_backpack_01_citcon2954prez_02",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "64bdb6f1-f4e8-4222-9365-2dbbb67ccd99",
+        "Name":  "Aril Backpack Red Alert",
+        "ClassName":  "grin_utility_medium_backpack_01_citcon2954prez_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Originally designed for miners, the Aril armor comes with an attachable backpack that can accommodate a variety of tools and supplies to keep your hands free. The Aril backpack is available in a variety of vibrant colors to fit your personal taste and for easy identification on the jobsite.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "89211f2f-f43c-4764-8a48-474a43d92549",
+        "Name":  "Cataby Backpack Lifeforce Edition",
+        "ClassName":  "hdtc_utility_light_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "HDTC",
+                             "Name":  "Hardin Tactical",
+                             "UUID":  "8368a760-84b4-4359-bda1-7b015dc0c884"
+                         },
+        "Description":  "The Cataby is a stylish backpack built by Hardin Tactical to withstand rigorous adventures. The unique rectangle shape features a hard frame fitted around a durable and expandable softshell with two zippered pockets allowing for easy access to essentials. The MPUV-1C Edition also comes with a commemorative patch to celebrate the Argo Cargo\u0027s 2951 Best in Show victory.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "9f23e726-7e6c-4272-9f1a-0cb3b0998ac4",
+        "Name":  "Cataby Backpack MPUV-1C Edition",
+        "ClassName":  "hdtc_utility_light_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "HDTC",
+                             "Name":  "Hardin Tactical",
+                             "UUID":  "8368a760-84b4-4359-bda1-7b015dc0c884"
+                         },
+        "Description":  "The Cataby is a stylish backpack built by Hardin Tactical to withstand rigorous adventures. The unique rectangle shape features a hard frame fitted around a durable and expandable softshell with two zippered pockets allowing for easy access to essentials. The MPUV-1C Edition also comes with a commemorative patch to celebrate the Argo Cargo\u0027s 2951 Best in Show victory.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "bba48b2a-0b61-4040-9dc8-0999137c6895",
+        "Name":  "Chiron Backpack",
+        "ClassName":  "vgl_utility_light_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "Engineered with first responders in mind, the Chiron backpack provides an ideal carryall for critical supplies with quick access to the medical essentials that are stored inside.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "91ed5cd2-a953-4dcf-83d1-68dc52aa188a",
+        "Name":  "Chiron Backpack Foundation",
+        "ClassName":  "vgl_utility_light_backpack_01_04_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "Engineered with first responders in mind, the Chiron backpack provides an ideal carryall for critical supplies with quick access to the medical essentials that are stored inside.\n\nCelebrate the UEE\u0027s commitment to building a brighter future with this Foundation Festival special edition. Designed with Guides and other community leaders in mind, it features a teal polyfiber underlayer and matching accents on the carbon plating sections.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f674b2a2-a589-4957-a8b3-e2b62708c894",
+        "Name":  "Chiron Backpack Heartthrob",
+        "ClassName":  "vgl_utility_light_backpack_02_01_01",
+        "Manufacturer":  null,
+        "Description":  "Engineered with first responders in mind, the Chiron backpack provides an ideal carryall for critical supplies with quick access to the medical essentials that are stored inside.\n\nThe Heartthrob edition is a dreamy, shimmering violet adorned with bright digital hearts; perfect for making friends and foes weak in the knees.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "ac1cddc4-b4c9-4240-acf9-c2bb7c1d831a",
+        "Name":  "Chiron Backpack Lifesaver",
+        "ClassName":  "vgl_utility_light_backpack_01_03_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "Engineered with first responders in mind, the Chiron backpack provides an ideal carryall for critical supplies with quick access to the medical essentials that are stored inside.\n\nThe Lifesaver edition was styled for first responders to be highly visible with a teal, white, and red color scheme.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "649b433d-93ef-4fa2-85c2-c54eb5b44595",
+        "Name":  "Chiron Backpack Purgatory Camo",
+        "ClassName":  "vgl_utility_light_backpack_01_05_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "Engineered with first responders in mind, the Chiron backpack provides an ideal carryall for critical supplies with quick access to the medical essentials that are stored inside.\n\nThe Purgatory Camo edition features a sleek gray-on-gray pattern.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c4153a6c-f7e2-436b-84fa-ebf29e5aa33f",
+        "Name":  "Chiron Backpack Samaritan",
+        "ClassName":  "vgl_utility_light_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "Engineered with first responders in mind, the Chiron backpack provides an ideal carryall for critical supplies with quick access to the medical essentials that are stored inside.\n\nThe Samaritan edition was styled for first responders to be highly visible with a red, white, and grey color scheme.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f997c5ec-51a7-4f5b-8e42-d3ec66d8db5a",
+        "Name":  "CitizenCon 2954 Storage Chest",
+        "ClassName":  "Lootable_PU_Container_Citizencon2954",
+        "Manufacturer":  null,
+        "Description":  "Bring home too many keepsakes and memorabilia from the 2954 CitizenCon? Then this functional chest featuring the blue event logo is the perfect storage solution for your hab or hangar.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "fb904353-c334-4674-874c-874b64a4c6db",
+        "Name":  "CSP-68H Backpack",
+        "ClassName":  "cds_combat_heavy_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68H Backpack. Originally designed for the rigors of combat support, this heavy backpack has become popular thanks to its durability and a patented core connector that helps the CSP-68H sit comfortably and balanced on the back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7928692a-2a2f-4649-96bb-75bf772a163b",
+        "Name":  "CSP-68H Backpack Red Alert",
+        "ClassName":  "cds_combat_heavy_backpack_01_iae2022_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68H Backpack. Originally designed for the rigors of combat support, this heavy backpack has become popular thanks to its durability and a patented core connector that helps the CSP-68H sit comfortably and balanced on the back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "d176699d-7032-4eeb-a351-3e27d567e4a7",
+        "Name":  "CSP-68L Backpack",
+        "ClassName":  "cds_combat_light_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68L Backpack. Originally designed for the rigors of combat support, this light backpack has become popular thanks to its durability and a patented core connector that helps the CSP-68L sit comfortably and balanced on the back.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "22eb018b-376e-4718-b1fa-42b14d07e5a6",
+        "Name":  "CSP-68L Backpack Cayman",
+        "ClassName":  "cds_combat_light_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68L Backpack. Originally designed for the rigors of combat support, this light backpack has become popular thanks to its durability and patented core connector that helps the CSP-68L sit comfortably and balanced on the back. The Cayman edition features a vibrant metallic green finish with geometric patterns for a color that changes slightly based on lighting conditions.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "b6d25fdc-38b2-455a-a36c-63545734da97",
+        "Name":  "CSP-68L Backpack Epoque",
+        "ClassName":  "cds_combat_light_backpack_01_05_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68L Backpack. Originally designed for the rigors of combat support, this light backpack has become popular thanks to its durability and a patented core connector that helps the CSP-68L sit comfortably and balanced on the back.\n\nThe Epoque edition features a navy and black coloring, finished with baroque gold detailing.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "77080f6f-e3d0-434a-b43b-1b5d5c99e06f",
+        "Name":  "CSP-68L Backpack Forest Camo",
+        "ClassName":  "cds_combat_light_backpack_02_02_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68L Backpack. Originally designed for the rigors of combat support, this light backpack has become popular thanks to its durability and patented core connector that helps the CSP-68L sit comfortably and balanced on the back. The Forest Camo edition features a special digital green camo pattern with silver highlights.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "2ad12fcf-6fdb-4ead-9559-ee7d2d5cacaa",
+        "Name":  "CSP-68L Backpack Night Camo",
+        "ClassName":  "cds_combat_light_backpack_02_03_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68L Backpack. Originally designed for the rigors of combat support, this light backpack has become popular thanks to its durability and patented core connector that helps the CSP-68L sit comfortably and balanced on the back. The Night Camo edition features a special textured finish and mixes black camo and silver for a subtle yet striking look.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f5fbd0ef-8f54-47a5-94ff-f7f9b4c323d3",
+        "Name":  "CSP-68M Backpack",
+        "ClassName":  "cds_combat_medium_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68M Backpack. Originally designed for the rigors combat support, this medium backpack has become popular thanks to its durability and a patented core connector that helps the CSP-68M sit comfortably and balanced on the back.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "dda5fe81-7978-4bb9-86e5-c551f4d66e12",
+        "Name":  "CSP-68M Backpack Epoque",
+        "ClassName":  "cds_combat_medium_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Be ready for any situation with the CSP-68M Backpack. Originally designed for the rigors combat support, this medium backpack has become popular thanks to its durability and a patented core connector that helps the CSP-68M sit comfortably and balanced on the back.\n\nThe Epoque edition features a navy and black coloring, finished with baroque gold detailing.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "d3814df9-6fca-4ecc-aad7-6cbe2e4d8066",
+        "Name":  "GCD-Army Backpack",
+        "ClassName":  "cds_combat_medium_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Headed to the front lines? Bring everything you need and more with the GCD-Army Backpack. With an impressive carrying capacity and an outer shell made from an impact-resistant composite, it\u0027s the perfect way to ensure your valuables stay safe during the heat of combat.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f3e516b1-1fed-4f98-86fd-970e84786ddf",
+        "Name":  "Geist Backpack",
+        "ClassName":  "cds_combat_light_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "1f5ae92e-620d-4234-82cd-89aa90f0eacc",
+        "Name":  "Geist Backpack ASD Edition",
+        "ClassName":  "cds_combat_light_backpack_01_03_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.\n\nThe ASD Edition features a dark urban camo pattern alongside ASD\u0027s signature logo.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "6b526bcf-646e-4c70-86af-7f0adab11e4a",
+        "Name":  "Geist Backpack Desert",
+        "ClassName":  "cds_combat_light_backpack_01_02_15",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "87350c7e-d9d6-4e77-ad9b-570027d99dff",
+        "Name":  "Geist Backpack Forest",
+        "ClassName":  "cds_combat_light_backpack_01_02_16",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "bfc4076a-bf6d-4cf4-966a-84f76908c896",
+        "Name":  "Geist Backpack Golden Blossom",
+        "ClassName":  "cds_combat_light_backpack_03_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.\n\nThis matte black stealth armor is embellished with intricate golden flowers, giving your enemies one final glimpse of life before death.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "ed345298-87d0-4938-bc08-9f1c37e1a6cf",
+        "Name":  "Geist Backpack Rogue",
+        "ClassName":  "cds_combat_light_backpack_01_02_02",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5d4fc095-7a9f-44a6-b9e6-adbd124fcc9c",
+        "Name":  "Geist Backpack Snow Camo",
+        "ClassName":  "cds_combat_light_backpack_01_04_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.\n\nFeaturing a hooded shawl and a white digital camo pattern, the Snow Camo edition is perfect for stalking prey in frozen environments.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "b32c8292-3509-45c2-8420-77587156319a",
+        "Name":  "Geist Backpack Whiteout",
+        "ClassName":  "cds_combat_light_backpack_01_02_10",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "An ideal synthesis of strength and technology, the Geist Stealth Armor has been crafted from military-grade carbon silk sourced from the same manufacturers that protect the UEE\u0027s special forces. Hair-thin filaments woven into the fabric mask the wearer\u0027s emissions, making them undetectable via radar, and specialized tubing built into the soles of the boots dampens the sound of footsteps.",
+        "CapacitySCU":  0.02,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "80674bc3-0798-45cc-9bc0-3a46cb140f91",
+        "Name":  "Inmate Workpack",
+        "ClassName":  "uba_prison_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "UBA",
+                             "Name":  "Universal Body Armor",
+                             "UUID":  "04ded06f-7862-4771-b40f-aa310b74ee17"
+                         },
+        "Description":  "This sturdy Inmate Workpack provides ample storage capacity and evenly distributes weight across the wearer\u0027s back allowing them to carry more during every shift. It also features secure bottom straps to allow you to determine oxygen tank size on a per inmate basis, minimizing escape risk.",
+        "CapacitySCU":  0.051,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "84982692-cf64-4157-a03d-678a2e297ddc",
+        "Name":  "MacFlex \"Rucksack\" Backpack",
+        "ClassName":  "rsi_light_utility_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The MacFlex Backpack is a back-mounted hard-shell case that provides extra commodity storage options. Whether bringing extra supplies on a long excursion or filling it with ore after a successful mining run, the MacFlex Backpack will be there to carry the load.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5efb60f7-0296-4f1f-8871-f4548ae67727",
+        "Name":  "MacFlex Backpack Canary Yellow",
+        "ClassName":  "rsi_light_utility_backpack_01_01_04",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The MacFlex Backpack is a back-mounted hard-shell case that provides extra commodity storage options. Whether bringing extra supplies on a long excursion or filling it with ore after a successful mining run, the MacFlex Backpack will be there to carry the load.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "d714596d-a4b0-4734-a12f-39058537c0fe",
+        "Name":  "MacFlex Backpack Granite Red",
+        "ClassName":  "rsi_light_utility_backpack_01_01_13",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The MacFlex Backpack is a back-mounted hard-shell case that provides extra commodity storage options. Whether bringing extra supplies on a long excursion or filling it with ore after a successful mining run, the MacFlex Backpack will be there to carry the load.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "3802599d-c685-49a3-b174-cd4c6f29b6cc",
+        "Name":  "MacFlex Backpack Grey",
+        "ClassName":  "rsi_light_utility_backpack_01_01_11",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The MacFlex Backpack is a back-mounted hard-shell case that provides extra commodity storage options. Whether bringing extra supplies on a long excursion or filling it with ore after a successful mining run, the MacFlex Backpack will be there to carry the load.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "485b0ac2-bfb2-47d0-9bdb-4a9448eefb4f",
+        "Name":  "MacFlex Backpack Orange",
+        "ClassName":  "rsi_light_utility_backpack_01_01_02",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The MacFlex Backpack is a back-mounted hard-shell case that provides extra commodity storage options. Whether bringing extra supplies on a long excursion or filling it with ore after a successful mining run, the MacFlex Backpack will be there to carry the load.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "e4851c07-fddb-40f5-ae65-6fbcfb08ee0c",
+        "Name":  "MacFlex Backpack White",
+        "ClassName":  "rsi_light_utility_backpack_01_01_10",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The MacFlex Backpack is a back-mounted hard-shell case that provides extra commodity storage options. Whether bringing extra supplies on a long excursion or filling it with ore after a successful mining run, the MacFlex Backpack will be there to carry the load.",
+        "CapacitySCU":  0.026,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c6ce6063-0d43-470a-aef3-49e65289a53e",
+        "Name":  "Morozov-CH Backpack",
+        "ClassName":  "rrs_combat_heavy_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "4dea576d-458e-4237-aeb7-cdcb6db48d7f",
+        "Name":  "Morozov-CH Backpack (Modified)",
+        "ClassName":  "rrs_combat_heavy_backpack_01_9tails_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "This version of Roussimoff Rehabilitation Systems\u0027 Morozov-CH backpack has been modified from its original form. Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "72284e09-4347-472c-81cd-d95166304b8c",
+        "Name":  "Morozov-CH Backpack Aftershock",
+        "ClassName":  "rrs_combat_heavy_backpack_01_01_12",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "06f1ddc0-91fb-4740-823f-975244f2b452",
+        "Name":  "Morozov-CH Backpack Brushdrift",
+        "ClassName":  "rrs_combat_heavy_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f19807b9-521e-413d-9b19-618bfa748b1a",
+        "Name":  "Morozov-CH Backpack Crusader Edition",
+        "ClassName":  "rrs_combat_heavy_backpack_01_crus01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back. The Crusader Edition was made specifically for the company\u0027s security services.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5eb572f2-236d-4650-a8d0-47a81293d91d",
+        "Name":  "Morozov-CH Backpack Lifeforce",
+        "ClassName":  "rrs_combat_heavy_backpack_01_03_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7db071b7-1285-4cdf-ad28-13adc6e2192e",
+        "Name":  "Morozov-CH Backpack Pyrotechnic",
+        "ClassName":  "rrs_combat_heavy_backpack_04_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the RRS Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for all manner of industrial work. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back. The Pyrotechnic Amalgamated Edition was made specifically for the company\u0027s mining efforts in Pyro during the 26th century.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "8cd029aa-27fe-4846-b527-594817ad3487",
+        "Name":  "Morozov-CH Backpack Pyrotechnic Horizon",
+        "ClassName":  "rrs_combat_heavy_backpack_04_02_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the RRS Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for all manner of industrial work. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back. The Gold Horizon Edition was made specifically for the company\u0027s operations in Pyro during the 26th century.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c618883f-74aa-4597-acbf-99bfd2a5ce86",
+        "Name":  "Morozov-CH Backpack Red Alert",
+        "ClassName":  "rrs_combat_heavy_backpack_01_01_iae2022",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "bf7dc239-a0f1-4a48-b3d7-b30b3eeaf2a2",
+        "Name":  "Morozov-CH Backpack Redshift",
+        "ClassName":  "rrs_combat_heavy_backpack_03_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "9a5d5351-6336-4629-b068-850555c6d286",
+        "Name":  "Morozov-CH Backpack Snowdrift",
+        "ClassName":  "rrs_combat_heavy_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "95370c49-95dd-4a49-be87-f117966266cd",
+        "Name":  "Morozov-CH Backpack Terracotta",
+        "ClassName":  "rrs_combat_heavy_backpack_01_01_03",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7063d4ef-e198-49a4-8da0-0230e3474dcf",
+        "Name":  "Morozov-CH Backpack Thule",
+        "ClassName":  "rrs_combat_heavy_backpack_01_01_10",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for battlefield action. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f41b841e-d49d-43af-b806-f0d9f5b7f731",
+        "Name":  "Morozov-CH-I Backpack Gideon",
+        "ClassName":  "rrs_combat_heavy_backpack_05_01_01",
+        "Manufacturer":  {
+                             "Code":  "RRS",
+                             "Name":  "Roussimoff Rehabilitation Systems",
+                             "UUID":  "73a6ba90-8f53-423d-ad0b-96e81b7e18a5"
+                         },
+        "Description":  "Comfortably carry vital gear with the RRS Morozov-CH backpack. This softshell bag is made with an advanced duraweave that\u0027s lightweight yet ready for all manner of industrial work. It also features several easy to access pockets and a plethora of straps to keep supplies secure and tight to your back. The Gideon edition features a heavily worn teal finish with yellow accents.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5c007fa0-4354-47c6-b1e3-03c9fd9d2be3",
+        "Name":  "Novikov \"Ascension\" Backpack",
+        "ClassName":  "clda_env_heavy_backpack_01_iae2023_01",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to complement this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey. This special IAE 2953 edition is decorated with a copper and white damascus pattern inspired by Gatac Manufacture\u0027s Syulen.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7c3ca522-2dc3-4ad2-9cca-c2f87f2d4174",
+        "Name":  "Novikov \"Expo\" Backpack",
+        "ClassName":  "clda_env_heavy_backpack_01_01_expo",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov \"Expo\". Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "6eec764f-f5df-4760-90bc-594c8c16fa86",
+        "Name":  "Novikov Backpack",
+        "ClassName":  "clda_env_heavy_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "eeaec661-8544-4554-947a-e685fbe6c418",
+        "Name":  "Novikov Backpack Crush",
+        "ClassName":  "clda_env_heavy_backpack_01_03_01",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey.\n\nThe Crush edition consists of a polished black metal with brushed bronze detailing.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "26f34f18-206a-485e-bf5e-ddda6852a8c5",
+        "Name":  "Novikov Backpack Halcyon",
+        "ClassName":  "clda_env_heavy_backpack_01_02_04",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey.\n\nThe Halcyon edition displays a sharp contrast of bold yellow and muted black.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "0bcd0305-b5a4-4ddc-b69c-861886a6b3ee",
+        "Name":  "Novikov Backpack Mire",
+        "ClassName":  "clda_env_heavy_backpack_01_02_16",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey.\n\nThe Mire edition features natural greens and industrial grays.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "278f244d-4dff-411e-bf23-c795135a6852",
+        "Name":  "Novikov Backpack Patina",
+        "ClassName":  "clda_env_heavy_backpack_01_02_17",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey.\n\nThe Patina edition offers a grounded look combining soft teal with bronze.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "855aabae-2c59-4a79-9e81-0376f9ddc7f6",
+        "Name":  "Novikov Backpack Smolder",
+        "ClassName":  "clda_env_heavy_backpack_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "Confidently explore cold environments while wearing the Novikov. Caldera designed a spacious backpack to compliment this advanced exploration suit, so those venturing across unknown terrain can bring enough supplies to survive the journey. \n\nThe Smolder edition is primarily gray and black with sharp red segments.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "3e79b1d5-d213-4c0d-b212-eba3399bcfa2",
+        "Name":  "Palatino Backpack",
+        "ClassName":  "qrt_utility_heavy_backpack_01_01_01",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "e0ea0ccd-736b-47ef-a57e-6bca61e8e1e1",
+        "Name":  "Palatino Backpack Daystar",
+        "ClassName":  "qrt_utility_heavy_backpack_01_01_04",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "4974a180-0a7b-436f-9eae-bbb9ccfdd35c",
+        "Name":  "Palatino Backpack Deadlock",
+        "ClassName":  "qrt_utility_heavy_backpack_01_02_01",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage. The Deadlock variant features a grey camo pattern with yellow highlights.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "877290d3-a275-414f-9eb1-7d2fce3c4fdb",
+        "Name":  "Palatino Backpack Mark I",
+        "ClassName":  "qrt_utility_heavy_backpack_02_01_01",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage. The Mark I variant is primarily icy white with blue and red highlights.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "62f4655f-7fbb-40c0-92bb-9bf82d531fe8",
+        "Name":  "Palatino Backpack Metropolis",
+        "ClassName":  "qrt_utility_heavy_backpack_01_01_17",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "b48bd712-6f2e-4e53-bc33-8dfcc34a86d1",
+        "Name":  "Palatino Backpack Moonfall",
+        "ClassName":  "qrt_utility_heavy_backpack_01_01_10",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "2821c4a9-6eb5-4cde-91e3-e2d862bb419a",
+        "Name":  "Palatino Backpack Necropolis",
+        "ClassName":  "qrt_utility_heavy_backpack_01_01_12",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "2146dce8-da07-4c37-adda-4ea98b5ab1d0",
+        "Name":  "Palatino Backpack Shadow Gild",
+        "ClassName":  "qrt_utility_heavy_backpack_01_03_01",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage. The Shadow Gild variant is dark gray and features stylish gold highlights.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "aa3a3eeb-9d03-414e-8ef2-0988a9b88fb6",
+        "Name":  "Palatino Backpack Sunstone",
+        "ClassName":  "qrt_utility_heavy_backpack_01_01_03",
+        "Manufacturer":  null,
+        "Description":  "Elegant design meets innovation with the Palatino armor from Quirinus Tech. The associated backpack seamlessly integrates into the armor, matching its silhouette while also providing ample storage.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "f48257c7-d224-4d32-8279-6368e3c2a09b",
+        "Name":  "Pembroke Backpack",
+        "ClassName":  "clda_utility_heavy_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Designed to extend the limits of Human endurance, the Pembroke was built to withstand the extreme heat of inhospitable high temperature environments. Based off of Caldera\u0027s best-in-class exploration armor platform, an advanced sensor suite intelligently adjusts to environmental conditions so the wearer\u0027s body temperature remains stable. A spacious backpack compliments this advanced armor, so those seeking to cross bold new horizons can depend on the Pembroke to see them to the journey\u0027s end.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "38ec64d5-e99f-447b-899f-cb5392b3a236",
+        "Name":  "Pembroke Backpack RSI Edition (Modified)",
+        "ClassName":  "clda_utility_heavy_backpack_02_9tails_01",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "This version of Caldera\u0027s Pembroke backpack has been modified from its original form. Designed to extend the limits of Human endurance, the Pembroke RSI Edition was built to withstand the extreme heat of inhospitable high temperature environments. Based off of Caldera\u0027s best-in-class exploration armor platform, an advanced sensor suite intelligently adjusts to environmental conditions so the wearer\u0027s body temperature remains stable. Featuring a spacious backpack, the special RSI Edition of the Pembroke ensures those seeking to cross bold new horizons do so in style.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c1b15afb-991e-41d5-86ef-2f4772fa06ca",
+        "Name":  "Pembroke Backpack RSI Graphite Edition",
+        "ClassName":  "clda_utility_heavy_backpack_02_01_12",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Designed to extend the limits of Human endurance, the Pembroke RSI Edition was built to withstand the extreme heat of inhospitable high temperature environments. Based off of Caldera\u0027s best-in-class exploration armor platform, an advanced sensor suite intelligently adjusts to environmental conditions so the wearer\u0027s body temperature remains stable. Featuring a spacious backpack, the special RSI Edition of the Pembroke ensures those seeking to cross bold new horizons do so in style.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7217e929-f89a-4f91-9a14-1fbd0cbd7a53",
+        "Name":  "Pembroke Backpack RSI Ivory Edition",
+        "ClassName":  "clda_utility_heavy_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Designed to extend the limits of Human endurance, the Pembroke RSI Edition was built to withstand the extreme heat of inhospitable high temperature environments. Based off of Caldera\u0027s best-in-class exploration armor platform, an advanced sensor suite intelligently adjusts to environmental conditions so the wearer\u0027s body temperature remains stable. Featuring a spacious backpack, the special RSI Edition of the Pembroke ensures those seeking to cross bold new horizons do so in style.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c3cb1b86-2df0-42fa-b1d1-37d0b2f4a558",
+        "Name":  "Pembroke Backpack RSI Sunburst Edition",
+        "ClassName":  "clda_utility_heavy_backpack_02_01_04",
+        "Manufacturer":  {
+                             "Code":  "CLDA",
+                             "Name":  "Caldera",
+                             "UUID":  "eddc1a94-7840-4855-9889-544821d4d739"
+                         },
+        "Description":  "Designed to extend the limits of Human endurance, the Pembroke RSI Edition was built to withstand the extreme heat of inhospitable high temperature environments. Based off of Caldera\u0027s best-in-class exploration armor platform, an advanced sensor suite intelligently adjusts to environmental conditions so the wearer\u0027s body temperature remains stable. Featuring a spacious backpack, the special RSI Edition of the Pembroke ensures those seeking to cross bold new horizons do so in style.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "3836161f-d7a4-4792-b43e-2bdea8294bcc",
+        "Name":  "RCMBNT-PWL-1",
+        "ClassName":  "Carryable_TBO_ASDReward_pwl1",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-PWL and REAGENT-01 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "ea2cddb5-2c04-4e0c-9fa2-76a4748c9398",
+        "Name":  "RCMBNT-PWL-2",
+        "ClassName":  "Carryable_TBO_ASDReward_pwl2",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-PWL and REAGENT-02 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "5eac0c3e-ff6c-46f3-8067-898ad9fd5929",
+        "Name":  "RCMBNT-PWL-3",
+        "ClassName":  "Carryable_TBO_ASDReward_pwl3",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-PWL and REAGENT-03 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "378ddc31-5d39-4511-9d77-48fc052df7b7",
+        "Name":  "RCMBNT-RGL-1",
+        "ClassName":  "Carryable_TBO_ASDReward_rgl1",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-RGL and REAGENT-01 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "2043df43-9347-4e32-90a4-48494e33c08c",
+        "Name":  "RCMBNT-RGL-2",
+        "ClassName":  "Carryable_TBO_ASDReward_rgl2",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-RGL and REAGENT-02 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "4f192f87-ca4a-40e2-9985-1c5bc78da461",
+        "Name":  "RCMBNT-RGL-3",
+        "ClassName":  "Carryable_TBO_ASDReward_rgl3",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-RGL and REAGENT-03 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "817c395c-22a3-4f08-89dc-0c17ca03112c",
+        "Name":  "RCMBNT-XTL-1",
+        "ClassName":  "Carryable_TBO_ASDReward_xtl1",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-XTL and REAGENT-01 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "4d0b2ad9-d49f-4877-896d-84fcb78ddc38",
+        "Name":  "RCMBNT-XTL-2",
+        "ClassName":  "Carryable_TBO_ASDReward_xtl2",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-XTL and REAGENT-02 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "1b4efba7-c395-4c46-b2e5-ebeae4961f24",
+        "Name":  "RCMBNT-XTL-3",
+        "ClassName":  "Carryable_TBO_ASDReward_xtl3",
+        "Manufacturer":  null,
+        "Description":  "An imprint recombinant sample created from CTLST-XTL and REAGENT-03 as part of Dr. Logan Jorrit\u0027s Project Hyperion experiment.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "f034b39f-4d86-4dbc-9d9a-4544041dde08",
+        "Name":  "Salvaged Skull 1 SCU Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_1SCU_Pirate",
+        "Manufacturer":  null,
+        "Description":  "It may be used to transport \"goods\", but this battered and scarred 1 SCU container is anything but thanks to its vivid skull markings.",
+        "CapacitySCU":  1,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "5e8c3960-4f0f-496a-8a7a-8a308311d33b",
+        "Name":  "Salvaged Skull 2 SCU Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_2SCU_Pirate",
+        "Manufacturer":  null,
+        "Description":  "It may be used to transport \"goods\", but this battered and scarred 2 SCU container is anything but thanks to its vivid skull markings.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "0d4d304f-caf1-40d5-9c2d-74ad8af14cd0",
+        "Name":  "Salvaged Skull 4 SCU Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_4SCU_Pirate",
+        "Manufacturer":  null,
+        "Description":  "It may be used to transport \"goods\", but this battered and scarred 4 SCU container is anything but thanks to its vivid skull markings.",
+        "CapacitySCU":  4,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "1c0e750c-6c3a-4215-ad5b-3712e8d2dd97",
+        "Name":  "Salvaged Skull 8 SCU Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_8SCU_Pirate",
+        "Manufacturer":  null,
+        "Description":  "It may be used to transport \"goods\", but this battered and scarred 8 SCU container is anything but thanks to its vivid skull markings.",
+        "CapacitySCU":  8,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "4a8738c7-c9dc-4e35-b8d6-05ed5c891812",
+        "Name":  "Sinkhole Backpack",
+        "ClassName":  "doom_combat_medium_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "DOOM",
+                             "Name":  "Doomsday",
+                             "UUID":  "b495993e-c10a-41e4-876d-1de96de54e33"
+                         },
+        "Description":  "Stop lugging all your loot by hand. The Sinkhole backpack gives you plenty of space to store everything you need, while leaving your hands free for whatever mischief you have in mind.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "ec96a58f-4675-4fc4-bbd7-33e3332e105f",
+        "Name":  "Stirling Exploration Backpack",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "b58d295c-0ac5-49cd-ba74-708f566fc845",
+        "Name":  "Stirling Exploration Backpack Alkaline Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_03",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. Influenced by refined ores, the Alkaline Edition fuses black, bronze, and gray accents.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "1105ec5d-77b7-4ef5-911e-138d80f80994",
+        "Name":  "Stirling Exploration Backpack ASD Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_02_01_ASD",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The ASD Edition was contracted specifically by Associated Science \u0026 Development to provide protection for their scientists working in laboratories with radioactive materials.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "b0865ce7-1aa5-4ba9-8821-e13b2361c407",
+        "Name":  "Stirling Exploration Backpack Chroma Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_13",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Chroma Edition features a vibrant metallic red with against grey with black highlights.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "6fa2057f-c865-426d-9f08-b3627bbbb477",
+        "Name":  "Stirling Exploration Backpack Granite Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_04",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Granite Edition uses blacks, beiges, and grays inspired by dark stones and excavated rocks.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5f0bf42e-95fc-479b-ac02-46ce5d0dfb5b",
+        "Name":  "Stirling Exploration Backpack Olympian Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_04_01",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Olympian Edition melds gleaming yellows and golds with a subtle hexagonal pattern, completed with a reflective visor to create an almost luminous appearance.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "cc7c3f5f-c7ef-45cd-ada8-ca580fc4f108",
+        "Name":  "Stirling Exploration Backpack Sandstorm Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_15",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Sandstorm Edition merges tans, beiges, and grays providing a sandy appearance.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "1eb980e9-1cad-41f5-b01f-d1c1d00d7c68",
+        "Name":  "Stirling Exploration Backpack Sediment Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_02",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Sediment Edition blends reds, blacks, and grays reminiscent of clay and other planetary minerals.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "819a69f2-412d-48f1-8232-3192fd765d80",
+        "Name":  "Stirling Exploration Backpack Transistor Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_03_01",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Transistor Edition is primarily copper with a white accent that cuts down the middle, finished with a tinted yellow visor.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "ffed2a85-50bc-4e64-b0dc-8d9f743537b7",
+        "Name":  "Stirling Exploration Backpack Tungsten Edition",
+        "ClassName":  "rsi_utility_heavy_backpack_02_01_18",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Tungsten Edition combines blues, grays, and silvers creating a metallic appearance.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "204ccbc6-b28c-4edb-a2eb-251ebf7ea328",
+        "Name":  "Stirling Hazard Backpack",
+        "ClassName":  "rsi_utility_heavy_backpack_02_05_01",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "This heavy duty backpack is compatible with the Stirling suit and provides a convenient storage solution. The Hazard Edition is safety yellow with diagonal black stripes and has a tinted visor for enhanced eyesight protection.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "44512a35-3a37-48b9-bf0e-c1bf87b4503b",
+        "Name":  "Stor*All 1 SCU Self-Storage Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_1SCU",
+        "Manufacturer":  null,
+        "Description":  "Designed by one of the most trusted names in cargo pods, the Stor*All Self-Storage Container provides a convenient place to keep anything too cumbersome to carry on your person. Its durable impact-resistant construction is sealed to survive the vacuum of space.",
+        "CapacitySCU":  1,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "d6f1b600-353d-42d7-a592-450172889f00",
+        "Name":  "Stor*All 2 SCU Self-Storage Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_2SCU",
+        "Manufacturer":  null,
+        "Description":  "Designed by one of the most trusted names in cargo pods, the Stor*All Self-Storage Container provides a convenient place to keep anything too cumbersome to carry on your person. Its durable impact-resistant construction is sealed to survive the vacuum of space.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "ced4ab55-c8d0-42d9-86d9-71f97eb38872",
+        "Name":  "Stor*All 4 SCU Self-Storage Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_4SCU",
+        "Manufacturer":  null,
+        "Description":  "Designed by one of the most trusted names in cargo pods, the Stor*All Self-Storage Container provides a convenient place to keep anything too cumbersome to carry on your person. Its durable impact-resistant construction is sealed to survive the vacuum of space.",
+        "CapacitySCU":  4,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "b82a3996-9e29-4839-8177-00a44ee57710",
+        "Name":  "Stor*All 8 SCU Self-Storage Container",
+        "ClassName":  "Carryable_TBO_ASDReward_TEMPLATE",
+        "Manufacturer":  null,
+        "Description":  "Designed by one of the most trusted names in cargo pods, the Stor*All Self-Storage Container provides a convenient place to keep anything too cumbersome to carry on your person. Its durable impact-resistant construction is sealed to survive the vacuum of space.",
+        "CapacitySCU":  2,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "64d1c96f-a7c4-492f-a12e-91699e3b01bc",
+        "Name":  "Stor*All 8 SCU Self-Storage Container",
+        "ClassName":  "Carryable_TBO_InventoryContainer_8SCU",
+        "Manufacturer":  null,
+        "Description":  "Designed by one of the most trusted names in cargo pods, the Stor*All Self-Storage Container provides a convenient place to keep anything too cumbersome to carry on your person. Its durable impact-resistant construction is sealed to survive the vacuum of space.",
+        "CapacitySCU":  8,
+        "Type":  "InventoryContainer"
+    },
+    {
+        "UUID":  "a5bb46f9-c728-46c6-a4b2-53f21d96813a",
+        "Name":  "Strata Backpack",
+        "ClassName":  "grin_utility_medium_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "0d08ab87-18e7-41e8-a8a7-3d31852a2b5b",
+        "Name":  "Strata Backpack Amber",
+        "ClassName":  "grin_utility_medium_backpack_02_01_03",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "3bb8ddf3-d6e3-4709-894b-9abfa4260c05",
+        "Name":  "Strata Backpack ArcCorp Edition",
+        "ClassName":  "grin_utility_medium_backpack_02_05_02",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The ArcCorp Edition was made specifically for the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "9c20742f-d7f6-4327-9179-f2f72a5cbf64",
+        "Name":  "Strata Backpack Crusader Edition",
+        "ClassName":  "grin_utility_medium_backpack_02_04_07",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The Crusader Edition was made specifically for the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "cad74bcb-b5aa-451c-ab1d-3732913b3ced",
+        "Name":  "Strata Backpack Greycat Edition",
+        "ClassName":  "grin_utility_medium_backpack_03_02_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The Greycat Edition features the colors and logo of the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7524df82-4578-464b-a917-d3b6c31462f6",
+        "Name":  "Strata Backpack Heatwave",
+        "ClassName":  "grin_utility_medium_backpack_03_04_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The Heatwave edition is primarily black with glowing red highlights.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "ccf4a001-4581-48f1-b084-ca4a922ccdf4",
+        "Name":  "Strata Backpack Hurston Black",
+        "ClassName":  "grin_utility_medium_backpack_02_07_12",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The Hurston Black variant was made specifically for the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7fdd79ca-f01e-4560-8db2-09d450de563a",
+        "Name":  "Strata Backpack Hurston Edition",
+        "ClassName":  "grin_utility_medium_backpack_02_03_11",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The Hurston Edition was made specifically for the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "8dd9f9b6-d7e2-4a65-9e22-212912392689",
+        "Name":  "Strata Backpack Lodestar",
+        "ClassName":  "grin_utility_medium_backpack_02_01_12",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "8e3b50aa-62bb-442f-8088-2ed1e5a64bfe",
+        "Name":  "Strata Backpack microTech Edition",
+        "ClassName":  "grin_utility_medium_backpack_02_02_10",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The microTech Edition was made specifically for the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "79ab505c-1ee4-4111-8f53-732e9ca2e91d",
+        "Name":  "Strata Backpack Neptune",
+        "ClassName":  "grin_utility_medium_backpack_02_01_07",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "420fe0da-40b1-4db6-94d6-72055715cdff",
+        "Name":  "Strata Backpack Pyrotechnic Edition",
+        "ClassName":  "grin_utility_medium_backpack_03_01_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. This edition features the colors and logo of the now defunct Pyrotechnic Amalgamated.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "9aa83b58-32de-45f2-b273-7d5e21e7a174",
+        "Name":  "Strata Backpack Shire",
+        "ClassName":  "grin_utility_medium_backpack_02_01_16",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "96337cf5-d1b3-4b86-a086-09342d91f917",
+        "Name":  "Strata Backpack Shubin Edition",
+        "ClassName":  "grin_utility_medium_backpack_03_03_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "Made for miners but ready for any adventure, Greycat Industrial\u0027s Strata armor provides premium protection and convenient features. Each piece features an angular and precise design to deliver coverage where it\u0027s most needed most. A toolbelt with convenient pouches and a reinforced backpack offers plenty of storage. The award-winning helmet design has been copied by other manufacturers, but the original still reigns supreme with its high quality materials and next-gen air filtration system that enables clean breathing whether in a deep mine or hostile atmospheres. The Shubin Edition was made specifically for the company.",
+        "CapacitySCU":  0.043,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "7176bf25-ae7d-45d7-b99b-7974d3e8b599",
+        "Name":  "Testudo Backpack",
+        "ClassName":  "qrt_combat_medium_backpack_01_01_01",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "a5327582-23fb-43db-a5ec-f3961e1761a3",
+        "Name":  "Testudo Backpack Clanguard",
+        "ClassName":  "qrt_combat_medium_backpack_02_01_01",
+        "Manufacturer":  {
+                             "Code":  "CDS",
+                             "Name":  "Clark Defense Systems",
+                             "UUID":  "8a7bd715-5b97-404f-b02e-0d0cc593f608"
+                         },
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set. The Clanguard version has been modified with Vanduul materials and alien artifacts.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "d463ff3b-ada2-4fd3-8155-6e8c5ecc6bbc",
+        "Name":  "Testudo Backpack Combustion",
+        "ClassName":  "qrt_combat_medium_backpack_01_01_02",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c7714630-8e01-4be4-9fd4-f123a192a3eb",
+        "Name":  "Testudo Backpack Deathblow",
+        "ClassName":  "qrt_combat_medium_backpack_02_02_01",
+        "Manufacturer":  null,
+        "Description":  "Based on Quirinus Tech\u0027s Testudo medium backpack, the Deathblow variant has received unauthorized aftermarket modifications. The backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "4db99faa-eb48-4f97-a757-99cd29add137",
+        "Name":  "Testudo Backpack Disrupt Camo",
+        "ClassName":  "qrt_combat_medium_backpack_03_01_01",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.\n\nThe Disrupt Camo edition utilizes carbon fiber grays and blacks printed in a disruptive pattern to keep your enemies guessing.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "17d9c6b5-8a2c-4900-9639-2026707570b6",
+        "Name":  "Testudo Backpack Earthshake",
+        "ClassName":  "qrt_combat_medium_backpack_01_01_15",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "a22612b1-4479-43fb-9bfb-7c054a0f1de1",
+        "Name":  "Testudo Backpack Nightveil",
+        "ClassName":  "qrt_combat_medium_backpack_01_01_10",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "91d97a2d-2b19-48a9-9246-b64567fe0e88",
+        "Name":  "Testudo Backpack Purgatory Camo",
+        "ClassName":  "qrt_combat_medium_backpack_01_02_01",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.\n\nThe Purgatory Camo edition features a sleek gray-on-gray pattern.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5f7161bc-36a1-443e-aace-59ff91ab8a06",
+        "Name":  "Testudo Backpack Turfwar",
+        "ClassName":  "qrt_combat_medium_backpack_01_01_16",
+        "Manufacturer":  null,
+        "Description":  "The Testudo backpack may feel as light as a feather in your hands, but it can hold an impressive amount of weight thanks to its use of the same tough yet lightweight plating as the armor set.",
+        "CapacitySCU":  0.036,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "a03c4c8e-e555-448a-a916-53c3af014635",
+        "Name":  "ThermoWeave Breathing Apparatus",
+        "ClassName":  "grin_refinery_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "GRIN",
+                             "Name":  "Greycat Industrial",
+                             "UUID":  "819545f4-18af-49a6-814e-ca4fd08f56e5"
+                         },
+        "Description":  "The ThermoWeave breathing apparatus integrates with the hood to ensure a constant flow of breathable oxygen regardless of air quality conditions.",
+        "CapacitySCU":  0.089,
+        "Type":  "Char_Clothing_Backpack"
+    },
+    {
+        "UUID":  "1f3915f0-8832-4ea8-ad9d-84b9ee59296d",
+        "Name":  "Warden Backpack",
+        "ClassName":  "vgl_backpack_heavy_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to rise to any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "66b4cbc7-3e47-4902-a30d-ad502259bf80",
+        "Name":  "Warden Backpack Crimson Camo",
+        "ClassName":  "vgl_combat_heavy_backpack_01_08_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThis edition features a bold red digital camo pattern.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "e7c00518-0760-41df-acfb-6ca578099ca1",
+        "Name":  "Warden Backpack Daimyo",
+        "ClassName":  "vgl_combat_heavy_backpack_01_07_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Daimyo edition is colored brown and gray with polished steel plating.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "06da4100-fcb1-463f-ae8c-e1860593b64f",
+        "Name":  "Warden Backpack Delta Camo",
+        "ClassName":  "vgl_combat_heavy_backpack_01_09_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThis edition features a brown, gray, and tan camo pattern with brass accents.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "568c481b-bb7c-4e36-be46-787eceedfa7a",
+        "Name":  "Warden Backpack Epoque",
+        "ClassName":  "vgl_backpack_heavy_01_02_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Epoque edition features a navy and black coloring, finished with baroque gold detailing.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "c62568d1-d741-4b4d-8bd9-612b6732c37c",
+        "Name":  "Warden Backpack Hemlock Camo",
+        "ClassName":  "vgl_combat_heavy_backpack_01_05_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Hemlock edition features a green camo pattern.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "b5b507bd-67ff-4e0b-8acd-d96e041903ac",
+        "Name":  "Warden Backpack HighSec",
+        "ClassName":  "vgl_combat_heavy_backpack_01_04_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe HighSec edition features a carbon fiber finish with red accents.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "53c1ab65-7aaa-4965-b0e2-0ba5a262e4d2",
+        "Name":  "Warden Backpack Hiro",
+        "ClassName":  "vgl_combat_heavy_backpack_01_10_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Hiro edition features a clean white finish with dark gray accents.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5631d510-9a72-4b63-a7d9-e148defdf80c",
+        "Name":  "Warden Backpack Keystone",
+        "ClassName":  "vgl_combat_heavy_backpack_01_03_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Keystone edition features a white, gray and blue finish with URW logos.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "fb1b6f01-28cd-4185-b2cb-d8dd86c998d2",
+        "Name":  "Warden Backpack Monde",
+        "ClassName":  "vgl_combat_heavy_backpack_01_06_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Monde edition features a dark metal finish.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "5ca7d59d-99a5-4b49-8c32-60d8368e6181",
+        "Name":  "Warden Backpack Purgatory Camo",
+        "ClassName":  "vgl_combat_heavy_backpack_01_12_01",
+        "Manufacturer":  {
+                             "Code":  "VGL",
+                             "Name":  "Virgil",
+                             "UUID":  "0e6d8f1b-ebb8-4773-8ca4-f25d737c8709"
+                         },
+        "Description":  "This hard backpack from Virgil, Ltd. makes travel easy. Whether you need a place to carry your weapons or you\u0027ve decided to bring some extra rations along for a long journey, this backpack was designed to handle any occasion. The interior features a generous, closeable pocket to keep your small items from falling out of place.\n\nThe Purgatory Camo edition features a sleek gray-on-gray pattern.",
+        "CapacitySCU":  0.053,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "a511e130-95d3-45af-971e-6d0139e69a81",
+        "Name":  "Zeus Exploration Backpack Starscape",
+        "ClassName":  "rsi_utility_heavy_backpack_01_01_12",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The Zeus Exploration Suit has been designed to honor some of the earliest space pioneers, the RSI crews who developed and tested the Zeus, the first commercial spacecraft. While the suit is styled to match those used centuries ago with attachments for a helmet and backpack, it contains all of the modern technology and conveniences expected by present-day explorers. The Zeus offers good resistance to harsh environments and excellent storage space for sample-collecting during EVAs. The Starscape variant honors the black color scheme worn by RSI engineers.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "3c584b93-bf9d-4a6e-999d-6c21b81c08be",
+        "Name":  "Zeus Exploration Suit Backpack",
+        "ClassName":  "rsi_utility_heavy_backpack_01_01_01",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The Zeus Exploration Suit has been designed to honor some of the earliest space pioneers, the RSI crews who developed and tested the Zeus, the first commercial spacecraft. While the suit is styled to match those used centuries ago with attachments for a helmet and backpack, it contains all of the modern technology and conveniences expected by present-day explorers. The Zeus offers good resistance to harsh environments and excellent storage space for sample-collecting during EVAs.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    },
+    {
+        "UUID":  "70188e91-7947-4e1a-897e-ae743362603c",
+        "Name":  "Zeus Exploration Suit Backpack Solar",
+        "ClassName":  "rsi_utility_heavy_backpack_01_01_03",
+        "Manufacturer":  {
+                             "Code":  "RSI",
+                             "Name":  "Roberts Space Industries",
+                             "UUID":  "093e6eba-93fa-4dad-b3dd-38966934e34e"
+                         },
+        "Description":  "The Zeus Exploration Suit has been designed to honor some of the earliest space pioneers, the RSI crews who developed and tested the Zeus, the first commercial spacecraft. While the suit is styled to match those used centuries ago with attachments for a helmet and backpack, it contains all of the modern technology and conveniences expected by present-day explorers. The Zeus offers good resistance to harsh environments and excellent storage space for sample-collecting during EVAs. The Solar variant honors the orange color scheme worn by RSI test pilots.",
+        "CapacitySCU":  0.062,
+        "Type":  "Char_Armor_Backpack"
+    }
+]
