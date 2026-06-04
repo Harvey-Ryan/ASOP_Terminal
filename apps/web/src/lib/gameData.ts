@@ -1,4 +1,5 @@
 import blueprintsRaw  from '@gamedata/Blueprints.json'
+import missionsRaw    from '@gamedata/Missions.json'
 import resourcesRaw   from '@gamedata/Resources.json'
 import fpsArmorRaw    from '@gamedata/FpsArmor.json'
 import scRaw          from '@gamedata/ShipComponents.json'
@@ -121,7 +122,8 @@ type FwItem    = typeof fwRaw[number];
 
 // ── Lookup maps ───────────────────────────────────────────────────────────────
 
-const PLACEHOLDER = '<= PLACEHOLDER =>';
+const PLACEHOLDER    = '<= PLACEHOLDER =>';
+const UNINITIALIZED  = '<= UNINITIALIZED =>';
 
 const resMap = new Map(resourcesRaw.map(r => [r.UUID, r.Name]));
 
@@ -372,3 +374,88 @@ export function getBaseStats(itemUuid: string, type: string): ItemBaseStats | nu
   if (fw) return { kind: 'generic', hp: null };
   return { kind: 'generic', hp: null };
 }
+
+// ── Mission contracts ─────────────────────────────────────────────────────────
+
+export interface MissionBlueprintEntry {
+  name: string;
+  blueprintUuid: string;
+}
+
+export interface MissionPool {
+  locations: string[];
+  blueprints: MissionBlueprintEntry[];
+}
+
+export interface MissionContract {
+  title: string;
+  description: string;
+  missionType: string | null;
+  missionGiver: string | null;
+  faction: string | null;
+  locations: string[];
+  pools: MissionPool[];
+}
+
+type RawMission = typeof missionsRaw[number];
+type RawContent = { ItemName: string; ItemUUID: string; BlueprintUUID: string };
+
+function buildMissionContracts(): MissionContract[] {
+  const relevant = (missionsRaw as RawMission[]).filter(
+    m => Array.isArray((m.BlueprintReward as { Contents?: RawContent[] } | null)?.Contents)
+      && ((m.BlueprintReward as { Contents?: RawContent[] }).Contents!.length > 0),
+  );
+
+  const byTitle = new Map<string, RawMission[]>();
+  for (const m of relevant) {
+    const t = m.Title ?? 'Unknown';
+    if (!byTitle.has(t)) byTitle.set(t, []);
+    byTitle.get(t)!.push(m);
+  }
+
+  const result: MissionContract[] = [];
+
+  for (const [title, missions] of byTitle) {
+    // Dedup pools by sorted blueprint-UUID fingerprint
+    const poolsByFingerprint = new Map<string, { locations: Set<string>; blueprints: MissionBlueprintEntry[] }>();
+
+    for (const m of missions) {
+      const contents = ((m.BlueprintReward as { Contents?: RawContent[] }).Contents ?? []);
+      const fingerprint = contents.map(c => c.BlueprintUUID).sort().join('|');
+      if (!poolsByFingerprint.has(fingerprint)) {
+        poolsByFingerprint.set(fingerprint, {
+          locations: new Set(Array.isArray(m.Locations) ? m.Locations as string[] : []),
+          blueprints: contents.map(c => ({ name: c.ItemName, blueprintUuid: c.BlueprintUUID })),
+        });
+      } else {
+        const entry = poolsByFingerprint.get(fingerprint)!;
+        for (const loc of (Array.isArray(m.Locations) ? m.Locations as string[] : [])) {
+          entry.locations.add(loc);
+        }
+      }
+    }
+
+    const pools: MissionPool[] = [...poolsByFingerprint.values()].map(p => ({
+      locations: [...p.locations].sort(),
+      blueprints: p.blueprints,
+    }));
+
+    const first = missions[0];
+    const rawFaction = first.Faction as string | null;
+
+    result.push({
+      title,
+      description: (first.Description as string | null) ?? '',
+      missionType: (first.MissionType as string | null) ?? null,
+      missionGiver: (first.MissionGiver as string | null) ?? null,
+      faction: rawFaction && rawFaction !== PLACEHOLDER && rawFaction !== UNINITIALIZED
+        ? rawFaction : null,
+      locations: [...new Set(pools.flatMap(p => p.locations))].sort(),
+      pools,
+    });
+  }
+
+  return result.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+export const MISSION_CONTRACTS: MissionContract[] = buildMissionContracts();

@@ -1,17 +1,19 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Info, Layers } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Info, Layers, MapPin, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   OBTAINABLE_BLUEPRINTS,
   BLUEPRINT_TYPES,
+  MISSION_CONTRACTS,
   searchBlueprints,
   getBlueprintByUuid,
   getBaseStats,
   interpolateStat,
   combinedMultiplier,
   type LocalBlueprint,
+  type MissionContract,
   type ItemBaseStats,
 } from '@/lib/gameData';
 
@@ -49,6 +51,164 @@ function fmtMission(raw: string): string {
     .replace(/Title/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function fmtContractTitle(raw: string): string {
+  return raw
+    .replace(/~mission\([^|)]+\|([^)]+)\)/g, (_, inner: string) =>
+      inner.replace(/([A-Z])/g, ' $1').replace(/\bTitle\b/gi, '').trim()
+    )
+    .replace(/~mission\(([^)]+)\)/g, (_, inner: string) =>
+      inner.replace(/([A-Z])/g, ' $1').trim()
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function fmtDescription(raw: string): string {
+  return raw
+    .replace(/<EM4>(.*?)<\/EM4>/g, '$1')
+    .replace(/~mission\([^|)]+\|([^)]+)\)/g, (_, inner: string) =>
+      inner.replace(/([A-Z])/g, ' $1').trim()
+    )
+    .replace(/~mission\(([^)]+)\)/g, '[...]')
+    .trim();
+}
+
+// ── Contract modal ────────────────────────────────────────────────────────────
+
+function ContractModal({
+  contract,
+  onClose,
+  onSelectBlueprint,
+}: {
+  contract: MissionContract;
+  onClose: () => void;
+  onSelectBlueprint: (uuid: string) => void;
+}) {
+  const multiPool = contract.pools.length > 1;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-border shrink-0">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold leading-tight">{fmtContractTitle(contract.title)}</h2>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                {contract.missionType && (
+                  <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5 font-medium">
+                    {contract.missionType}
+                  </span>
+                )}
+                {contract.missionGiver && (
+                  <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5">
+                    {contract.missionGiver}
+                  </span>
+                )}
+                {contract.faction && contract.faction !== contract.missionGiver && (
+                  <span className="text-[11px] bg-primary/10 text-primary rounded px-2 py-0.5 font-mono">
+                    {contract.faction}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+          {/* Reward note */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2">
+            <span className="font-semibold text-foreground">aUEC:</span> Calculated (scales with difficulty &amp; distance)
+            <span className="mx-1 opacity-30">·</span>
+            <span className="font-semibold text-foreground">Rep:</span> No data available
+          </div>
+
+          {/* Locations */}
+          {contract.locations.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <MapPin className="h-3 w-3" /> Locations
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {contract.locations.map(loc => (
+                  <span key={loc} className="text-[11px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">
+                    {loc}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Description */}
+          {contract.description && (
+            <div className="space-y-1.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <FileText className="h-3 w-3" /> Description
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap rounded border border-border/50 bg-muted/20 px-3 py-2.5 max-h-40 overflow-y-auto">
+                {fmtDescription(contract.description)}
+              </p>
+            </div>
+          )}
+
+          {/* Blueprint pools */}
+          <div className="space-y-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <Layers className="h-3 w-3" /> Blueprints
+            </p>
+            {contract.pools.map((pool, pi) => (
+              <div key={pi} className="rounded-md border border-border overflow-hidden">
+                {multiPool && (
+                  <div className="px-3 py-1.5 bg-muted/30 border-b border-border/60 flex items-center gap-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className="text-[11px] text-muted-foreground">
+                      {pool.locations.length > 0 ? pool.locations.slice(0, 5).join(', ') + (pool.locations.length > 5 ? ` +${pool.locations.length - 5} more` : '') : 'Default (all locations)'}
+                    </span>
+                  </div>
+                )}
+                <div className="divide-y divide-border/40">
+                  {pool.blueprints.map(bp => {
+                    const found = getBlueprintByUuid(bp.blueprintUuid);
+                    return (
+                      <div key={bp.blueprintUuid} className="flex items-center justify-between px-3 py-2">
+                        <span className="text-sm text-foreground">{bp.name}</span>
+                        {found ? (
+                          <button
+                            onClick={() => { onSelectBlueprint(bp.blueprintUuid); onClose(); }}
+                            className="text-[11px] text-primary hover:underline shrink-0 ml-3"
+                          >
+                            View recipe →
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground/40 shrink-0 ml-3 italic">no recipe</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Product Stats section ─────────────────────────────────────────────────────
@@ -698,8 +858,9 @@ function BlueprintRow({
 export function CraftingCalculatorPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
-  const [search,     setSearch]     = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [search,         setSearch]         = useState('');
+  const [typeFilter,     setTypeFilter]     = useState('');
+  const [contractModal,  setContractModal]  = useState<MissionContract | null>(null);
 
   const results = useMemo(
     () => searchBlueprints(search, typeFilter || undefined).slice(0, 100),
@@ -752,6 +913,24 @@ export function CraftingCalculatorPage() {
         </p>
       </div>
 
+      {/* ── Contracts band ─────────────────────────────────────────────────── */}
+      <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 pt-1">
+          Contracts
+        </span>
+        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+          {MISSION_CONTRACTS.map(mc => (
+            <button
+              key={mc.title}
+              onClick={() => setContractModal(mc)}
+              className="shrink-0 px-2 py-0.5 text-[11px] rounded border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/40 transition-colors whitespace-nowrap"
+            >
+              {fmtContractTitle(mc.title)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ── List ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
         {results.length === 0 ? (
@@ -775,6 +954,17 @@ export function CraftingCalculatorPage() {
           ))
         )}
       </div>
+
+      {/* ── Contract modal ──────────────────────────────────────────────────── */}
+      {contractModal && (
+        <ContractModal
+          contract={contractModal}
+          onClose={() => setContractModal(null)}
+          onSelectBlueprint={uuid =>
+            navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`)
+          }
+        />
+      )}
     </div>
   );
 }
