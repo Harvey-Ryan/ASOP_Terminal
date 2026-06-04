@@ -768,7 +768,7 @@ export function CraftingCalculatorPage() {
               key={bp.uuid}
               bp={bp}
               selected={false}
-              onClick={() => navigate(`/servers/${guildId}/crafting-calculator/${bp.uuid}`)}
+              onClick={() => navigate(`/dashboard/servers/${guildId}/crafting-calculator/${bp.uuid}`)}
             />
           ))
         )}
@@ -784,7 +784,7 @@ export function CraftingCalculatorDetailPage() {
   const navigate = useNavigate();
 
   const bp = blueprintUuid ? getBlueprintByUuid(blueprintUuid) : undefined;
-  const handleBack = () => navigate(`/servers/${guildId}/crafting-calculator`);
+  const handleBack = () => navigate(`/dashboard/servers/${guildId}/crafting-calculator`);
 
   if (!bp) {
     return (
