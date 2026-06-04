@@ -128,13 +128,21 @@ export async function announceDraftOrder(eventId: string) {
   await postToAllianceThreads(eventId, embed);
 }
 
-export async function notifySnakeTurn(eventId: string) {
-  const session = await prisma.lootSession.findUnique({
-    where: { eventId },
-    include: { items: { include: { assignments: true } } },
-  });
-  if (!session || session.method !== 'SNAKE_DRAFT' || session.status === 'COMPLETED') return;
+// ── Shared snake-draft turn notification core ─────────────────────────────────
+// Called by both notifySnakeTurn (event-linked) and notifyStandaloneSnakeTurn.
+// Handles role management, the DM attempt, and delegates the DM-failure fallback
+// to the caller via onDmFail so each path can post to its own channel/thread.
 
+async function handleSnakeTurnNotification(
+  session: {
+    draftOrder: string;
+    guildId: string;
+    skipCount: number;
+    items: Array<{ assignments: unknown[] }>;
+  },
+  lootUrl: string,
+  onDmFail: (nextPickerId: string, row: ActionRowBuilder<ButtonBuilder>) => Promise<void>,
+): Promise<void> {
   const draftOrder: string[] = JSON.parse(session.draftOrder);
   if (draftOrder.length === 0) return;
 
@@ -177,18 +185,12 @@ export async function notifySnakeTurn(eventId: string) {
     if (nextMember) await nextMember.roles.add(pickerRole).catch(() => null);
   }
 
-  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
-  const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/events/${eventId}/loot`;
-
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel('View Loot Pool')
       .setStyle(ButtonStyle.Link)
       .setURL(lootUrl),
   );
-
-  // Fetch event thread now — needed for DM fallback even if DM succeeds
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { threadId: true } });
 
   let dmSent = false;
   try {
@@ -199,17 +201,35 @@ export async function notifySnakeTurn(eventId: string) {
     });
     dmSent = true;
   } catch {
-    console.warn(`[bot] DM failed for snake draft picker ${nextPickerId} — falling back to thread ping`);
+    console.warn(`[bot] DM failed for snake draft picker ${nextPickerId}`);
   }
 
-  // When DM fails post a ping to the event thread (and alliance threads) so the
-  // draft doesn't stall silently. Cross-guild pickers with DMs off will see the
-  // mention in their guild's alliance thread.
   if (!dmSent) {
+    await onDmFail(nextPickerId, row);
+  }
+}
+
+export async function notifySnakeTurn(eventId: string) {
+  const session = await prisma.lootSession.findUnique({
+    where: { eventId },
+    include: { items: { include: { assignments: true } } },
+  });
+  if (!session || session.method !== 'SNAKE_DRAFT' || session.status === 'COMPLETED') return;
+
+  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+  const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/events/${eventId}/loot`;
+
+  // Fetch event thread now — needed for DM fallback even if DM succeeds
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { threadId: true } });
+
+  await handleSnakeTurnNotification(session, lootUrl, async (nextPickerId, row) => {
     const fallbackEmbed = new EmbedBuilder()
       .setDescription(`🐍 <@${nextPickerId}> — it's your turn to pick in the snake draft! *(DM delivery failed)*`)
       .setColor(0xf59e0b);
 
+    // When DM fails post a ping to the event thread (and alliance threads) so the
+    // draft doesn't stall silently. Cross-guild pickers with DMs off will see the
+    // mention in their guild's alliance thread.
     if (event?.threadId) {
       try {
         const thread = await client.channels.fetch(event.threadId);
@@ -225,7 +245,7 @@ export async function notifySnakeTurn(eventId: string) {
     }
 
     await postToAllianceThreads(eventId, fallbackEmbed, row);
-  }
+  });
 }
 
 export async function notifyStandaloneSnakeTurn(sessionId: string) {
@@ -235,55 +255,8 @@ export async function notifyStandaloneSnakeTurn(sessionId: string) {
   });
   if (!session || session.method !== 'SNAKE_DRAFT' || session.status === 'COMPLETED') return;
 
-  const draftOrder: string[] = JSON.parse(session.draftOrder);
-  if (draftOrder.length === 0) return;
-
-  const allAssignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
-  const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
-
-  const guild = await client.guilds.fetch(session.guildId).catch(() => null);
-  if (!guild) return;
-
-  // Find or create the "Loot Picker" role
-  let pickerRole = guild.roles.cache.find((r) => r.name === LOOT_PICKER_ROLE);
-  if (!pickerRole) {
-    pickerRole = await guild.roles.create({
-      name: LOOT_PICKER_ROLE,
-      color: 0xf59e0b,
-      reason: 'Snake draft loot picker indicator',
-    }).catch(() => null) ?? undefined;
-  }
-
-  // Remove role from all current holders
-  if (pickerRole) {
-    const freshRole = await guild.roles.fetch(pickerRole.id).catch(() => null);
-    if (freshRole) {
-      await Promise.allSettled(
-        [...freshRole.members.values()].map((member) => member.roles.remove(freshRole).catch(() => null)),
-      );
-    }
-  }
-
-  if (session.items.length > 0 && totalUnassigned === 0) return;
-
-  const effectivePosition = allAssignmentCount + session.skipCount;
-  const nextPickerId = getNextPicker(effectivePosition, draftOrder);
-  if (!nextPickerId) return;
-
-  if (pickerRole) {
-    const nextMember = await guild.members.fetch(nextPickerId).catch(() => null);
-    if (nextMember) await nextMember.roles.add(pickerRole).catch(() => null);
-  }
-
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
   const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/loot/sessions/${sessionId}`;
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('View Loot Pool')
-      .setStyle(ButtonStyle.Link)
-      .setURL(lootUrl),
-  );
 
   // Fetch loot channel now — needed for DM fallback
   const guildRecord = await prisma.guild.findUnique({
@@ -292,20 +265,8 @@ export async function notifyStandaloneSnakeTurn(sessionId: string) {
   });
   const lootChannelId = guildRecord?.settings?.lootChannelId ?? null;
 
-  let dmSent = false;
-  try {
-    const discordUser = await client.users.fetch(nextPickerId);
-    await discordUser.send({
-      content: `🐍 It's your turn to pick in the snake draft!\n\nClick below to view the remaining loot and select your reward.`,
-      components: [row],
-    });
-    dmSent = true;
-  } catch {
-    console.warn(`[bot] DM failed for standalone snake draft picker ${nextPickerId} — falling back to loot channel ping`);
-  }
-
-  // When DM fails post a ping to the configured loot channel so the draft doesn't stall.
-  if (!dmSent && lootChannelId) {
+  await handleSnakeTurnNotification(session, lootUrl, async (nextPickerId, row) => {
+    if (!lootChannelId) return;
     try {
       const ch = await client.channels.fetch(lootChannelId);
       if (ch?.isTextBased() && 'send' in ch) {
@@ -317,7 +278,7 @@ export async function notifyStandaloneSnakeTurn(sessionId: string) {
     } catch (err) {
       console.error(`[bot] Loot-channel fallback also failed for standalone snake draft picker ${nextPickerId}:`, err);
     }
-  }
+  });
 }
 
 export async function notifyLootComplete(sessionId: string) {
@@ -354,8 +315,19 @@ export async function notifyLootComplete(sessionId: string) {
     if (event) sessionLabel = event.name;
   }
 
+  // Batch-load notification prefs so we can skip opted-out users
+  const winnerIds = [...winners.keys()];
+  const usersWithPrefs = await prisma.user.findMany({
+    where: { discordId: { in: winnerIds } },
+    select: { discordId: true, notificationPrefs: { select: { dmLootComplete: true } } },
+  });
+  const prefsMap = new Map(usersWithPrefs.map((u) => [u.discordId, u.notificationPrefs]));
+
   await Promise.allSettled(
     [...winners.entries()].map(async ([userId, { entries }]) => {
+      const prefs = prefsMap.get(userId);
+      // Unknown user (no DB record) or no saved prefs → default opt-in
+      if (prefs !== undefined && prefs !== null && prefs.dmLootComplete === false) return;
       // Stack entries with identical name+QL — keep first pick number, sum count
       type StackedEntry = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
       const stacked: StackedEntry[] = [];

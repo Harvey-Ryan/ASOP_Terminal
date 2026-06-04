@@ -11,6 +11,7 @@ const DEFAULTS: UserNotificationPrefsDto = {
   dmTradeCancelled: true,
   dmTradeMessage:   true,
   dmEventReminder:  true,
+  dmLootComplete:   true,
 };
 
 // ── GET /api/notifications/prefs ──────────────────────────────────────────────
@@ -37,7 +38,7 @@ notificationsRouter.put('/notifications/prefs', requireAuth, async (req, res) =>
 
   const allowed: (keyof UserNotificationPrefsDto)[] = [
     'dmTradeRequest', 'dmTradeStatus', 'dmTradeCancelled',
-    'dmTradeMessage', 'dmEventReminder',
+    'dmTradeMessage', 'dmEventReminder', 'dmLootComplete',
   ];
 
   const update: Partial<UserNotificationPrefsDto> = {};

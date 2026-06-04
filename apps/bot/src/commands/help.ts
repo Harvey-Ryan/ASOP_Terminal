@@ -34,8 +34,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const exchangeEnabled = settings?.exchangeEnabled  ?? true;
   const fleetEnabled    = settings?.fleetEnabled    ?? true;
 
-  const eventCreatorRoles: string[]    = JSON.parse(settings?.eventCreatorRoles    ?? '[]');
-  const lootDraftCreatorRoles: string[] = JSON.parse(settings?.lootDraftCreatorRoles ?? '[]');
+  const eventCreatorRoles: string[]     = (() => { try { return JSON.parse(settings?.eventCreatorRoles    ?? '[]') as string[]; } catch { return []; } })();
+  const lootDraftCreatorRoles: string[] = (() => { try { return JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[]; } catch { return []; } })();
 
   // Determine what the user can do
   const member = interaction.member;

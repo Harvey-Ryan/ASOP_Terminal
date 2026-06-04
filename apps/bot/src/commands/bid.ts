@@ -110,7 +110,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
+    let bidRejected = false;
     await prisma.$transaction(async (tx) => {
+      const freshBal = await tx.dkpBalance.findUnique({ where: { guildId_userId: { guildId, userId } } });
+      if (amount > (freshBal?.balance ?? 0)) { bidRejected = true; return; }
+
       await tx.auctionBid.upsert({
         where: { auctionId_userId: { auctionId: standaloneAuction.id, userId } },
         create: { auctionId: standaloneAuction.id, userId, username, amount: amount, maxBid: amount },
@@ -125,6 +129,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         });
       }
     });
+    if (bidRejected) {
+      await interaction.editReply(`❌ Insufficient ${dkpLabel}. Your balance changed before the bid was confirmed.`);
+      return;
+    }
 
     await postOrUpdateStandaloneAuctionMessage(standaloneAuction.id).catch(() => null);
 
@@ -195,7 +203,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   // Place or raise the bid
+  let bidRejected = false;
   await prisma.$transaction(async (tx) => {
+    const freshBal = await tx.dkpBalance.findUnique({ where: { guildId_userId: { guildId, userId } } });
+    const freshWon = await tx.lootAssignment.findMany({
+      where: { item: { sessionId: auction.item.session.id }, userId },
+      select: { dkpSpent: true },
+    });
+    const freshCommitted = freshWon.reduce((s, a) => s + (a.dkpSpent ?? 0), 0);
+    if (amount > (freshBal?.balance ?? 0) - freshCommitted) { bidRejected = true; return; }
+
     await tx.lootAuctionBid.upsert({
       where: { auctionId_userId: { auctionId: auction.id, userId } },
       create: { auctionId: auction.id, userId, username, amount: amount, maxBid: amount },
@@ -210,6 +227,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       });
     }
   });
+  if (bidRejected) {
+    await interaction.editReply(`❌ Insufficient ${dkpLabel}. Your balance changed before the bid was confirmed.`);
+    return;
+  }
 
   // Update the Discord embed in the forum thread
   await postOrUpdateAuctionMessage(auction.id).catch(() => null);

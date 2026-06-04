@@ -602,6 +602,7 @@ export interface UserNotificationPrefsDto {
   dmTradeCancelled: boolean;
   dmTradeMessage: boolean;
   dmEventReminder: boolean;
+  dmLootComplete: boolean;
 }
 
 export type UpdateNotificationPrefsBody = Partial<UserNotificationPrefsDto>;

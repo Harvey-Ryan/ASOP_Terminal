@@ -198,24 +198,26 @@ async function applyDkpForStandaloneAuction(
   amount: number,
   title: string,
 ): Promise<void> {
-  const balance = await prisma.dkpBalance.upsert({
-    where: { guildId_userId: { guildId, userId } },
-    create: { guildId, userId, username, balance: 0 },
-    update: {},
-  });
-  await prisma.dkpBalance.update({
-    where: { id: balance.id },
-    data: { balance: { increment: -amount }, username },
-  });
-  await prisma.dkpTransaction.create({
-    data: {
-      balanceId: balance.id,
-      guildId,
-      userId,
-      username,
-      amount: -amount,
-      reason: `Standalone Auction: ${title}`,
-    },
+  await prisma.$transaction(async (tx) => {
+    const balance = await tx.dkpBalance.upsert({
+      where: { guildId_userId: { guildId, userId } },
+      create: { guildId, userId, username, balance: 0 },
+      update: {},
+    });
+    await tx.dkpBalance.update({
+      where: { id: balance.id },
+      data: { balance: { increment: -amount }, username },
+    });
+    await tx.dkpTransaction.create({
+      data: {
+        balanceId: balance.id,
+        guildId,
+        userId,
+        username,
+        amount: -amount,
+        reason: `Standalone Auction: ${title}`,
+      },
+    });
   });
 }
 

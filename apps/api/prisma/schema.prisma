@@ -1091,6 +1091,8 @@ model UserNotificationPrefs {
   dmTradeMessage   Boolean @default(true)
   /// DM 15 minutes before an event you've RSVP'd to
   dmEventReminder  Boolean @default(true)
+  /// DM when a loot session you participated in completes
+  dmLootComplete   Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

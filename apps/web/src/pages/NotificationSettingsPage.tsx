@@ -158,6 +158,13 @@ export function NotificationSettingsPage() {
                 onChange={() => toggle('dmEventReminder')}
                 disabled={busy}
               />
+              <PrefRow
+                label="Loot session complete"
+                description="DM with your loot summary when a session you participated in is completed."
+                checked={prefs.dmLootComplete}
+                onChange={() => toggle('dmLootComplete')}
+                disabled={busy}
+              />
             </CardContent>
           </Card>
 

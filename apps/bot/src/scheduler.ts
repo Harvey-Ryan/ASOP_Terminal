@@ -185,26 +185,43 @@ async function checkReminders() {
             select: { discordId: true, notificationPrefs: { select: { dmEventReminder: true } } },
           })
         : [];
-      const prefsMap = new Map(usersWithPrefs.map((u) => [u.discordId, u.notificationPrefs]));
+      const prefsMap = new Map<string, { dmEventReminder: boolean } | null>(
+        usersWithPrefs.map((u) => [u.discordId, u.notificationPrefs]),
+      );
 
       const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
       const notifFooter = `\n\nChange notification settings: ${webUrl}/dashboard/settings/notifications`;
 
       // DM roster members who are NOT in a monitored VC and have not opted out
-      await Promise.allSettled(
-        eligibleRsvps
-          .filter((rsvp) => {
-            const prefs = prefsMap.get(rsvp.userId);
-            // Unknown user or no saved prefs → default opt-in
-            return prefs === undefined || prefs === null || (prefs.dmEventReminder !== false);
-          })
-          .map(async (rsvp) => {
-            const user = await client.users.fetch(rsvp.userId);
-            await user.send(
-              `${event.name} starts in 15 minutes! Join a voice channel to participate.\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
-            );
-          }),
+      const dmTargets = eligibleRsvps.filter((rsvp) => {
+        const prefs = prefsMap.get(rsvp.userId);
+        // Unknown user or no saved prefs → default opt-in
+        return prefs === undefined || prefs === null || (prefs.dmEventReminder !== false);
+      });
+
+      if (dmTargets.length === 0) {
+        // No one to DM — mark sent so we don't revisit this reminder
+        await prisma.eventReminder.update({ where: { id: reminder.id }, data: { sent: true } });
+        continue;
+      }
+
+      const dmResults = await Promise.allSettled(
+        dmTargets.map(async (rsvp) => {
+          const user = await client.users.fetch(rsvp.userId);
+          await user.send(
+            `${event.name} starts in 15 minutes! Join a voice channel to participate.\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
+          );
+        }),
       );
+
+      const anySucceeded = dmResults.some((r) => r.status === 'fulfilled');
+      if (anySucceeded) {
+        await prisma.eventReminder.update({ where: { id: reminder.id }, data: { sent: true } });
+      } else {
+        console.error(`[bot] All DMs failed for reminder ${reminder.id} (event ${event.id}) — will retry next tick`);
+      }
+
+      continue; // skip the unconditional update below for DM reminders
     }
 
     await prisma.eventReminder.update({ where: { id: reminder.id }, data: { sent: true } });

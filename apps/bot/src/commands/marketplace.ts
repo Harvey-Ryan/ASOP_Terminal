@@ -174,9 +174,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const expiryCutoff = new Date(Date.now() - LISTING_TTL_MS);
 
+    const FIELD_LIMIT = 25;
     const listings = await prisma.inventoryEntry.findMany({
       where: { guildId: interaction.guildId, userId: interaction.user.id, forSale: true },
       orderBy: [{ itemName: 'asc' }],
+      take: FIELD_LIMIT + 1,
     });
 
     if (listings.length === 0) {
@@ -184,14 +186,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
 
+    const truncated = listings.length > FIELD_LIMIT;
+    const visible = listings.slice(0, FIELD_LIMIT);
+    const footerParts = [
+      `${listings.length > FIELD_LIMIT ? `${FIELD_LIMIT}+ ` : listings.length} listing${listings.length !== 1 ? 's' : ''}`,
+      interaction.guild?.name ?? 'This server',
+      ...(truncated ? ['showing first 25 — see dashboard for all'] : []),
+    ];
+
     const embed = new EmbedBuilder()
       .setTitle('📦 My Listings')
       .setColor(0x5865f2)
-      .setFooter({ text: `${listings.length} listing${listings.length !== 1 ? 's' : ''} · ${interaction.guild?.name ?? 'This server'}` });
+      .setFooter({ text: footerParts.join(' · ') });
 
-    for (const l of listings) {
-      const available   = l.quantityListed ?? l.quantity;
-      const isExpired   = l.listedAt !== null && l.listedAt < expiryCutoff;
+    for (const l of visible) {
+      const available  = l.quantityListed ?? l.quantity;
+      const isExpired  = l.listedAt !== null && l.listedAt < expiryCutoff;
       const ql          = l.qualityLevel !== null ? ` · QL ${l.qualityLevel}` : '';
       const loc         = l.location ? ` · 📍 ${l.location}` : '';
       const expiryNote  = isExpired ? '\n⚠️ Expired — update price to renew' : '';
