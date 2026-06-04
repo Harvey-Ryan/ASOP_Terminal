@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Info, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -529,7 +530,14 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
     <div className="flex flex-col h-full overflow-hidden bg-card">
       {/* Header */}
       <div className="px-5 py-4 border-b border-border shrink-0">
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onClose}
+            className="shrink-0 flex items-center gap-1 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-bold leading-tight">{bp.name}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -685,115 +693,113 @@ function BlueprintRow({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function CraftingCalculatorPage() {
+  const { guildId } = useParams<{ guildId: string }>();
+  const navigate = useNavigate();
   const [search,     setSearch]     = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [selected,   setSelected]   = useState<LocalBlueprint | null>(null);
 
   const results = useMemo(
     () => searchBlueprints(search, typeFilter || undefined).slice(0, 100),
     [search, typeFilter],
   );
 
-  function handleSelect(bp: LocalBlueprint) {
-    setSelected(prev => (prev?.uuid === bp.uuid ? null : bp));
+  return (
+    <div className="flex flex-col h-full -m-6 overflow-hidden">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Crafting Calculator</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Browse blueprints, inspect recipes, and calculate quality-scaled stat outputs.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search blueprints…"
+              className="w-full pl-9 pr-4 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">All types</option>
+            {BLUEPRINT_TYPES.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {results.length} blueprint{results.length !== 1 ? 's' : ''}
+          {results.length === 100 ? ' (showing first 100)' : ''}{' '}
+          of {BLUEPRINTS.length} total
+        </p>
+      </div>
+
+      {/* ── List ───────────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto">
+        {results.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-center px-6">
+            <p className="text-muted-foreground text-sm">No blueprints found.</p>
+            {(search || typeFilter) && (
+              <Button variant="link" size="sm" className="mt-2"
+                onClick={() => { setSearch(''); setTypeFilter(''); }}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          results.map(bp => (
+            <BlueprintRow
+              key={bp.uuid}
+              bp={bp}
+              selected={false}
+              onClick={() => navigate(`/servers/${guildId}/crafting-calculator/${bp.uuid}`)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Blueprint detail page ─────────────────────────────────────────────────────
+
+export function CraftingCalculatorDetailPage() {
+  const { blueprintUuid, guildId } = useParams<{ blueprintUuid: string; guildId: string }>();
+  const navigate = useNavigate();
+
+  const bp = blueprintUuid ? getBlueprintByUuid(blueprintUuid) : undefined;
+  const handleBack = () => navigate(`/servers/${guildId}/crafting-calculator`);
+
+  if (!bp) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+        <p className="text-muted-foreground text-sm">Blueprint not found.</p>
+        <Button variant="outline" size="sm" onClick={handleBack}>
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Back to Blueprints
+        </Button>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col h-full -m-6 overflow-hidden">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="px-6 border-b border-border shrink-0 bg-background">
-        {selected ? (
-          <div className="py-3">
-            <button
-              onClick={() => setSelected(null)}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </button>
-          </div>
-        ) : (
-          <div className="pt-6 pb-4 space-y-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Crafting Calculator</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Browse blueprints, inspect recipes, and calculate quality-scaled stat outputs.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search blueprints…"
-                  className="w-full pl-9 pr-4 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                {search && (
-                  <button
-                    onClick={() => setSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <select
-                value={typeFilter}
-                onChange={e => setTypeFilter(e.target.value)}
-                className="w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">All types</option>
-                {BLUEPRINT_TYPES.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {results.length} blueprint{results.length !== 1 ? 's' : ''}
-              {results.length === 100 ? ' (showing first 100)' : ''}{' '}
-              of {BLUEPRINTS.length} total
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* ── List (visible only when no blueprint selected) ──────────────────── */}
-      {!selected && (
-        <div className="flex-1 overflow-y-auto">
-          {results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center px-6">
-              <p className="text-muted-foreground text-sm">No blueprints found.</p>
-              {(search || typeFilter) && (
-                <Button variant="link" size="sm" className="mt-2"
-                  onClick={() => { setSearch(''); setTypeFilter(''); }}>
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          ) : (
-            results.map(bp => (
-              <BlueprintRow
-                key={bp.uuid}
-                bp={bp}
-                selected={false}
-                onClick={() => handleSelect(bp)}
-              />
-            ))
-          )}
-        </div>
-      )}
-
-      {/* ── Detail panel (full-width, fills remaining space) ───────────────── */}
-      {selected && (
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <BlueprintDetail
-            key={selected.uuid}
-            bp={selected}
-            onClose={() => setSelected(null)}
-          />
-        </div>
-      )}
+      <BlueprintDetail bp={bp} onClose={handleBack} />
     </div>
   );
 }
