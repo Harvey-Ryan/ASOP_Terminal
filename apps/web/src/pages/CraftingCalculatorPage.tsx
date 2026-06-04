@@ -17,6 +17,7 @@ import {
   type ItemBaseStats,
 } from '@/lib/gameData';
 
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtSecs(s: number) {
@@ -678,9 +679,12 @@ const PRESET_FREE = -1;
 const PRESETS: [string, number][] = [['Min', 0], ['Base', 500], ['Max', 1000]];
 
 function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => void }) {
+  const { guildId } = useParams<{ guildId: string }>();
+  const navigate    = useNavigate();
   const [tab,    setTab]    = useState<'craft' | 'disassemble'>('craft');
   const [qls,    setQls]    = useState<number[]>(() => bp.components.map(() => 500));
   const [preset, setPreset] = useState<number>(500);
+  const [contractModal, setContractModal] = useState<MissionContract | null>(null);
 
   function applyPreset(v: number) {
     setPreset(v);
@@ -692,9 +696,12 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
     setPreset(PRESET_FREE);
   }
 
-  const missionsFormatted = useMemo(() =>
-    [...new Set(bp.missions.map(fmtMission))].slice(0, 8),
-  [bp.missions]);
+  const relevantContracts = useMemo(
+    () => MISSION_CONTRACTS.filter(mc =>
+      mc.pools.some(pool => pool.blueprints.some(entry => entry.blueprintUuid === bp.uuid))
+    ),
+    [bp.uuid],
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-card">
@@ -723,21 +730,36 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
         </div>
       </div>
 
-      {/* Missions */}
-      {missionsFormatted.length > 0 && (
-        <div className="px-5 py-2.5 border-b border-border shrink-0 bg-muted/20">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-            Missions ({bp.missions.length})
-          </p>
+      {/* Contracts */}
+      {relevantContracts.length > 0 && (
+        <div className="px-5 py-2.5 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 pt-0.5">
+            Contracts
+          </span>
           <div className="flex flex-wrap gap-1.5">
-            {missionsFormatted.map((m, i) => (
-              <span key={i} className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">{m}</span>
+            {relevantContracts.map(mc => (
+              <button
+                key={mc.title}
+                onClick={() => setContractModal(mc)}
+                className="shrink-0 px-2 py-0.5 text-[11px] rounded border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/40 transition-colors whitespace-nowrap"
+              >
+                {fmtContractTitle(mc.title)}
+              </button>
             ))}
-            {bp.missions.length > 8 && (
-              <span className="text-[10px] text-muted-foreground/50">+{bp.missions.length - 8} more</span>
-            )}
           </div>
         </div>
+      )}
+
+      {/* Contract modal */}
+      {contractModal && (
+        <ContractModal
+          contract={contractModal}
+          onClose={() => setContractModal(null)}
+          onSelectBlueprint={uuid => {
+            setContractModal(null);
+            navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`);
+          }}
+        />
       )}
 
       {/* Tabs */}
@@ -865,9 +887,8 @@ function BlueprintRow({
 export function CraftingCalculatorPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
-  const [search,         setSearch]         = useState('');
-  const [typeFilter,     setTypeFilter]     = useState('');
-  const [contractModal,  setContractModal]  = useState<MissionContract | null>(null);
+  const [search,     setSearch]     = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
 
   const results = useMemo(
     () => searchBlueprints(search, typeFilter || undefined).slice(0, 100),
@@ -920,24 +941,6 @@ export function CraftingCalculatorPage() {
         </p>
       </div>
 
-      {/* ── Contracts band ─────────────────────────────────────────────────── */}
-      <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 pt-1">
-          Contracts
-        </span>
-        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-          {MISSION_CONTRACTS.map(mc => (
-            <button
-              key={mc.title}
-              onClick={() => setContractModal(mc)}
-              className="shrink-0 px-2 py-0.5 text-[11px] rounded border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/40 transition-colors whitespace-nowrap"
-            >
-              {fmtContractTitle(mc.title)}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* ── List ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
         {results.length === 0 ? (
@@ -962,16 +965,6 @@ export function CraftingCalculatorPage() {
         )}
       </div>
 
-      {/* ── Contract modal ──────────────────────────────────────────────────── */}
-      {contractModal && (
-        <ContractModal
-          contract={contractModal}
-          onClose={() => setContractModal(null)}
-          onSelectBlueprint={uuid =>
-            navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`)
-          }
-        />
-      )}
     </div>
   );
 }
