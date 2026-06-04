@@ -2,6 +2,7 @@
     {
         "UUID":  "dc6fbcbb-5990-4ed5-82ee-93152dab7845",
         "Name":  "Agricium",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  350,
                                  "Resistance":  0.5,
@@ -146,14 +147,14 @@
                                  "AverageProbability":  0.2839
                              },
                              {
-                                 "Name":  "Taranite",
-                                 "SharedRockTypes":  29,
-                                 "AverageProbability":  0.2
-                             },
-                             {
                                  "Name":  "Bexalite",
                                  "SharedRockTypes":  29,
                                  "AverageProbability":  0.2138
+                             },
+                             {
+                                 "Name":  "Taranite",
+                                 "SharedRockTypes":  29,
+                                 "AverageProbability":  0.2
                              },
                              {
                                  "Name":  "Quantainium",
@@ -176,14 +177,14 @@
                                  "AverageProbability":  0.875
                              },
                              {
-                                 "Name":  "Stileron",
-                                 "SharedRockTypes":  7,
-                                 "AverageProbability":  0.07
-                             },
-                             {
                                  "Name":  "Riccite",
                                  "SharedRockTypes":  7,
                                  "AverageProbability":  0.0871
+                             },
+                             {
+                                 "Name":  "Stileron",
+                                 "SharedRockTypes":  7,
+                                 "AverageProbability":  0.07
                              },
                              {
                                  "Name":  "Aluminum",
@@ -196,6 +197,21 @@
                                  "AverageProbability":  0.75
                              },
                              {
+                                 "Name":  "Tungsten",
+                                 "SharedRockTypes":  3,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Tin",
+                                 "SharedRockTypes":  3,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Silicon",
+                                 "SharedRockTypes":  3,
+                                 "AverageProbability":  1
+                             },
+                             {
                                  "Name":  "Corundum",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  1
@@ -206,12 +222,7 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Silicon",
-                                 "SharedRockTypes":  3,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Tin",
+                                 "Name":  "Iron",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  1
                              },
@@ -221,30 +232,21 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Tungsten",
-                                 "SharedRockTypes":  3,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Iron",
-                                 "SharedRockTypes":  3,
+                                 "Name":  "Pressurized Ice",
+                                 "SharedRockTypes":  1,
                                  "AverageProbability":  1
                              },
                              {
                                  "Name":  "Borase",
                                  "SharedRockTypes":  1,
                                  "AverageProbability":  0.4
-                             },
-                             {
-                                 "Name":  "Pressurized Ice",
-                                 "SharedRockTypes":  1,
-                                 "AverageProbability":  1
                              }
                          ]
     },
     {
         "UUID":  "48c7080a-bbef-43d2-901a-698321ed4340",
         "Name":  "Aluminum",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  0,
                                  "Resistance":  -0.4,
@@ -399,8 +401,280 @@
                          ]
     },
     {
+        "UUID":  "2ee59447-83e0-4f26-899e-df66780008e3",
+        "Name":  "Aphorite",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  0,
+                                 "Resistance":  0,
+                                 "OptimalWindowMidpoint":  0.7,
+                                 "OptimalWindowMidpointRandomness":  0,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  0,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro1",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro2",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro3",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro4",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5d",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5e",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5f",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro6",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1d",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.586
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.611
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.573
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "fde0cd65-8827-4b23-804d-cc8845dfa7ac",
         "Name":  "Aslarite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  700,
                                  "Resistance":  0.5,
@@ -538,9 +812,9 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Gold",
+                                 "Name":  "Ouratite",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  0.25
+                                 "AverageProbability":  0.3
                              },
                              {
                                  "Name":  "Quantainium",
@@ -548,9 +822,9 @@
                                  "AverageProbability":  0.0775
                              },
                              {
-                                 "Name":  "Ouratite",
+                                 "Name":  "Gold",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  0.3
+                                 "AverageProbability":  0.25
                              },
                              {
                                  "Name":  "Iron",
@@ -570,8 +844,136 @@
                          ]
     },
     {
+        "UUID":  "76e7e6e9-6508-47a1-a381-e34ec1c997ce",
+        "Name":  "Beradom",
+        "MiningType":  "GroundVehicle",
+        "MiningProperties":  {
+                                 "Instability":  0,
+                                 "Resistance":  0,
+                                 "OptimalWindowMidpoint":  0.7,
+                                 "OptimalWindowMidpointRandomness":  0,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  0,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro1",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro3",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.5
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5d",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.64
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.16
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.04
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.0370
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1d",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.0385
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.56
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.48
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.24
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.48
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.56
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.28
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.12
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.2
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.12
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "93c8b7df-d6ac-4b4f-a115-b0e3afc238b8",
         "Name":  "Beryl",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  350,
                                  "Resistance":  0.65,
@@ -705,14 +1107,14 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Taranite",
-                                 "SharedRockTypes":  40,
-                                 "AverageProbability":  0.2718
-                             },
-                             {
                                  "Name":  "Gold",
                                  "SharedRockTypes":  40,
                                  "AverageProbability":  0.2142
+                             },
+                             {
+                                 "Name":  "Taranite",
+                                 "SharedRockTypes":  40,
+                                 "AverageProbability":  0.2718
                              },
                              {
                                  "Name":  "Bexalite",
@@ -740,14 +1142,14 @@
                                  "AverageProbability":  0.9278
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  8,
-                                 "AverageProbability":  0.0987
-                             },
-                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  8,
                                  "AverageProbability":  0.0888
+                             },
+                             {
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  8,
+                                 "AverageProbability":  0.0987
                              },
                              {
                                  "Name":  "Quartz",
@@ -755,7 +1157,7 @@
                                  "AverageProbability":  0.94
                              },
                              {
-                                 "Name":  "Tin",
+                                 "Name":  "Tungsten",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              },
@@ -765,12 +1167,12 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Titanium",
+                                 "Name":  "Tin",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Corundum",
+                                 "Name":  "Titanium",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              },
@@ -780,12 +1182,12 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Tungsten",
+                                 "Name":  "Copper",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Copper",
+                                 "Name":  "Corundum",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              }
@@ -794,6 +1196,7 @@
     {
         "UUID":  "999e3149-fd10-49ac-914f-8911e61c6122",
         "Name":  "Bexalite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  600,
                                  "Resistance":  0.6,
@@ -949,19 +1352,24 @@
                                  "AverageProbability":  0.9875
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  29,
-                                 "AverageProbability":  0.0938
-                             },
-                             {
                                  "Name":  "Agricium",
                                  "SharedRockTypes":  29,
                                  "AverageProbability":  0.5621
                              },
                              {
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  29,
+                                 "AverageProbability":  0.0938
+                             },
+                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  29,
                                  "AverageProbability":  0.0869
+                             },
+                             {
+                                 "Name":  "Tin",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  1
                              },
                              {
                                  "Name":  "Corundum",
@@ -989,11 +1397,6 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Tin",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  1
-                             },
-                             {
                                  "Name":  "Tungsten",
                                  "SharedRockTypes":  13,
                                  "AverageProbability":  1
@@ -1013,6 +1416,7 @@
     {
         "UUID":  "33bff393-42f1-4f70-85a1-71e695ed2a5a",
         "Name":  "Borase",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  40,
                                  "Resistance":  0.3,
@@ -1128,14 +1532,14 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Bexalite",
-                                 "SharedRockTypes":  42,
-                                 "AverageProbability":  0.2952
-                             },
-                             {
                                  "Name":  "Gold",
                                  "SharedRockTypes":  42,
                                  "AverageProbability":  0.3714
+                             },
+                             {
+                                 "Name":  "Bexalite",
+                                 "SharedRockTypes":  42,
+                                 "AverageProbability":  0.2952
                              },
                              {
                                  "Name":  "Taranite",
@@ -1163,14 +1567,14 @@
                                  "AverageProbability":  0.4
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  7,
-                                 "AverageProbability":  0.0986
-                             },
-                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  7,
                                  "AverageProbability":  0.1014
+                             },
+                             {
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  7,
+                                 "AverageProbability":  0.0986
                              },
                              {
                                  "Name":  "Quartz",
@@ -1178,12 +1582,12 @@
                                  "AverageProbability":  0.925
                              },
                              {
-                                 "Name":  "Tungsten",
+                                 "Name":  "Tin",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Tin",
+                                 "Name":  "Tungsten",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  1
                              },
@@ -1230,8 +1634,69 @@
                          ]
     },
     {
+        "UUID":  "169ed316-3944-432f-88fa-0a39c5e6d2de",
+        "Name":  "Carinite",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  300,
+                                 "Resistance":  0.5,
+                                 "OptimalWindowMidpoint":  0.4,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  10,
+                                 "ExplosionMultiplier":  0.5,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  {
+
+                           },
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
+        "UUID":  "60d46a41-5930-4a13-9c72-bd988192d3a1",
+        "Name":  "Carinite (Pure)",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  300,
+                                 "Resistance":  0.5,
+                                 "OptimalWindowMidpoint":  0.4,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  10,
+                                 "ExplosionMultiplier":  0.5,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  {
+
+                           },
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
+        "UUID":  "c793af1c-7dab-457e-a74d-88c435c9708b",
+        "Name":  "Carinite (ROC)",
+        "MiningType":  "GroundVehicle",
+        "MiningProperties":  {
+                                 "Instability":  300,
+                                 "Resistance":  0.5,
+                                 "OptimalWindowMidpoint":  0.4,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  10,
+                                 "ExplosionMultiplier":  0.5,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  {
+
+                           },
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "a789f57a-e12b-4bcd-8132-e0c03d84fc89",
         "Name":  "Copper",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  50,
                                  "Resistance":  -0.7,
@@ -1400,6 +1865,11 @@
                                  "AverageProbability":  0.2736
                              },
                              {
+                                 "Name":  "Quantainium",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  0.0807
+                             },
+                             {
                                  "Name":  "Gold",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  0.2357
@@ -1410,19 +1880,14 @@
                                  "AverageProbability":  0.2379
                              },
                              {
-                                 "Name":  "Quantainium",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  0.0807
-                             },
-                             {
                                  "Name":  "Laranite",
                                  "SharedRockTypes":  5,
                                  "AverageProbability":  0.59
                              },
                              {
-                                 "Name":  "Hephaestanite",
+                                 "Name":  "Tin",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  0.45
+                                 "AverageProbability":  1
                              },
                              {
                                  "Name":  "Beryl",
@@ -1430,9 +1895,9 @@
                                  "AverageProbability":  0.4625
                              },
                              {
-                                 "Name":  "Tin",
+                                 "Name":  "Hephaestanite",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  1
+                                 "AverageProbability":  0.45
                              },
                              {
                                  "Name":  "Agricium",
@@ -1449,6 +1914,7 @@
     {
         "UUID":  "4236c16b-c47f-4083-9e26-4313733f2326",
         "Name":  "Corundum",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  50,
                                  "Resistance":  0.1,
@@ -1546,9 +2012,9 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Gold",
+                                 "Name":  "Bexalite",
                                  "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2214
+                                 "AverageProbability":  0.2071
                              },
                              {
                                  "Name":  "Quantainium",
@@ -1556,9 +2022,9 @@
                                  "AverageProbability":  0.0829
                              },
                              {
-                                 "Name":  "Bexalite",
+                                 "Name":  "Gold",
                                  "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2071
+                                 "AverageProbability":  0.2214
                              },
                              {
                                  "Name":  "Taranite",
@@ -1571,14 +2037,14 @@
                                  "AverageProbability":  0.52
                              },
                              {
-                                 "Name":  "Hephaestanite",
-                                 "SharedRockTypes":  4,
-                                 "AverageProbability":  0.7
-                             },
-                             {
                                  "Name":  "Aluminum",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Hephaestanite",
+                                 "SharedRockTypes":  4,
+                                 "AverageProbability":  0.7
                              },
                              {
                                  "Name":  "Beryl",
@@ -1598,8 +2064,534 @@
                          ]
     },
     {
+        "UUID":  "c2a1ab26-6b2a-4258-8bae-b32cf08818bc",
+        "Name":  "Dolivine",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  0,
+                                 "Resistance":  0.1,
+                                 "OptimalWindowMidpoint":  0.6,
+                                 "OptimalWindowMidpointRandomness":  0,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  0,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro1",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro2",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro3",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro4",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5d",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5e",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5f",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro6",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1d",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.354
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.369
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.3470
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
+        "UUID":  "7e0eaf11-77e6-48c9-a184-f88648e7c148",
+        "Name":  "Feynmaline",
+        "MiningType":  "GroundVehicle",
+        "MiningProperties":  {
+                                 "Instability":  200,
+                                 "Resistance":  0,
+                                 "OptimalWindowMidpoint":  0.6,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  1,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro4",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5e",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro6",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.04
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.52
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.64
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.3704
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1d",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.2692
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.12
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.4
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.08
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.04
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.04
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.04
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.04
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.12
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
+        "UUID":  "7e465c37-1d58-4533-a6e4-13abf1073554",
+        "Name":  "Glacosite",
+        "MiningType":  "GroundVehicle",
+        "MiningProperties":  {
+                                 "Instability":  0,
+                                 "Resistance":  0.1,
+                                 "OptimalWindowMidpoint":  0.6,
+                                 "OptimalWindowMidpointRandomness":  0,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  0,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro2",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.5
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5f",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  1
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.32
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.32
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.32
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.5926
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1d",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.6923
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.32
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.12
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.68
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.48
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.4
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.68
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4a",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.84
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4b",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.68
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4c",
+                                   "Group":  "GroundVehicle_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.88
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "21825507-7923-4683-9bf3-9cfe316940e3",
         "Name":  "Gold",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  550,
                                  "Resistance":  0.5,
@@ -1760,27 +2752,17 @@
                                  "AverageProbability":  0.5645
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  29,
-                                 "AverageProbability":  0.0938
-                             },
-                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  29,
                                  "AverageProbability":  0.0869
                              },
                              {
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  29,
+                                 "AverageProbability":  0.0938
+                             },
+                             {
                                  "Name":  "Tin",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Copper",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Titanium",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
@@ -1790,12 +2772,22 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Corundum",
+                                 "Name":  "Titanium",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
                              {
                                  "Name":  "Iron",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Corundum",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Copper",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
@@ -1832,8 +2824,226 @@
                          ]
     },
     {
+        "UUID":  "3af2af8d-5850-4900-ac7a-f9b38a959a07",
+        "Name":  "Hadanite",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  200,
+                                 "Resistance":  0,
+                                 "OptimalWindowMidpoint":  0.6,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  1,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro1",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro2",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro4",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5d",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5f",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton1d",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton2c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.06
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "61189578-ed7a-4491-9774-37ae2f82b8b0",
         "Name":  "Hephaestanite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  400,
                                  "Resistance":  -0.3,
@@ -1990,14 +3200,14 @@
                                  "AverageProbability":  0.194
                              },
                              {
-                                 "Name":  "Taranite",
-                                 "SharedRockTypes":  41,
-                                 "AverageProbability":  0.2902
-                             },
-                             {
                                  "Name":  "Bexalite",
                                  "SharedRockTypes":  41,
                                  "AverageProbability":  0.3146
+                             },
+                             {
+                                 "Name":  "Taranite",
+                                 "SharedRockTypes":  41,
+                                 "AverageProbability":  0.2902
                              },
                              {
                                  "Name":  "Quantainium",
@@ -2020,14 +3230,14 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  9,
-                                 "AverageProbability":  0.0867
-                             },
-                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  9,
                                  "AverageProbability":  0.08
+                             },
+                             {
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  9,
+                                 "AverageProbability":  0.0867
                              },
                              {
                                  "Name":  "Quartz",
@@ -2035,7 +3245,7 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Tin",
+                                 "Name":  "Copper",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              },
@@ -2045,7 +3255,7 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Copper",
+                                 "Name":  "Tin",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
                              },
@@ -2075,20 +3285,21 @@
                                  "AverageProbability":  0.5
                              },
                              {
-                                 "Name":  "Borase",
-                                 "SharedRockTypes":  1,
-                                 "AverageProbability":  0.4
-                             },
-                             {
                                  "Name":  "Pressurized Ice",
                                  "SharedRockTypes":  1,
                                  "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Borase",
+                                 "SharedRockTypes":  1,
+                                 "AverageProbability":  0.4
                              }
                          ]
     },
     {
         "UUID":  "f386a33c-ac9a-400a-a7b8-fe1fc7c8d270",
         "Name":  "Iron",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  50,
                                  "Resistance":  -0.4,
@@ -2270,14 +3481,14 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Quantainium",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  0.0864
-                             },
-                             {
                                  "Name":  "Gold",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  0.2429
+                             },
+                             {
+                                 "Name":  "Quantainium",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  0.0864
                              },
                              {
                                  "Name":  "Bexalite",
@@ -2295,16 +3506,6 @@
                                  "AverageProbability":  0.5
                              },
                              {
-                                 "Name":  "Aslarite",
-                                 "SharedRockTypes":  4,
-                                 "AverageProbability":  0.375
-                             },
-                             {
-                                 "Name":  "Hephaestanite",
-                                 "SharedRockTypes":  4,
-                                 "AverageProbability":  0.525
-                             },
-                             {
                                  "Name":  "Ouratite",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  0.3
@@ -2315,20 +3516,226 @@
                                  "AverageProbability":  0.5125
                              },
                              {
-                                 "Name":  "Borase",
-                                 "SharedRockTypes":  3,
-                                 "AverageProbability":  0.5667
+                                 "Name":  "Hephaestanite",
+                                 "SharedRockTypes":  4,
+                                 "AverageProbability":  0.525
+                             },
+                             {
+                                 "Name":  "Aslarite",
+                                 "SharedRockTypes":  4,
+                                 "AverageProbability":  0.375
                              },
                              {
                                  "Name":  "Agricium",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  0.6667
+                             },
+                             {
+                                 "Name":  "Borase",
+                                 "SharedRockTypes":  3,
+                                 "AverageProbability":  0.5667
                              }
                          ]
     },
     {
+        "UUID":  "f5b8c10a-521b-40f6-8761-1863e71fb8d4",
+        "Name":  "Jaclium",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  100,
+                                 "Resistance":  0.5,
+                                 "OptimalWindowMidpoint":  0.5,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  3,
+                                 "ExplosionMultiplier":  1,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  {
+
+                           },
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
+        "UUID":  "7e324c5c-1b28-400a-ab66-290188ef282c",
+        "Name":  "Janalite",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  300,
+                                 "Resistance":  0.3,
+                                 "OptimalWindowMidpoint":  0.3,
+                                 "OptimalWindowMidpointRandomness":  0,
+                                 "OptimalWindowThinness":  10,
+                                 "ExplosionMultiplier":  1,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  [
+                               {
+                                   "Provider":  "HPP_Pyro3",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro5e",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Pyro6",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.125,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton3b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4a",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4b",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "HPP_Stanton4c",
+                                   "Group":  "FPS_Mineables",
+                                   "GroupProbability":  0.25,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.4,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Occupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Acidic_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Rock_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.6,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Pyro",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               },
+                               {
+                                   "Provider":  "Loot_Caves_Unoccupied_Sand_Stanton",
+                                   "Group":  "FPS mineables",
+                                   "GroupProbability":  0.5,
+                                   "RelativeProbability":  0.02
+                               }
+                           ],
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "7f4599b0-a2b2-4178-8c7e-13292054ab20",
         "Name":  "Laranite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  400,
                                  "Resistance":  0.5,
@@ -2431,14 +3838,14 @@
                                  "AverageProbability":  0.1928
                              },
                              {
-                                 "Name":  "Taranite",
-                                 "SharedRockTypes":  48,
-                                 "AverageProbability":  0.2792
-                             },
-                             {
                                  "Name":  "Bexalite",
                                  "SharedRockTypes":  48,
                                  "AverageProbability":  0.2667
+                             },
+                             {
+                                 "Name":  "Taranite",
+                                 "SharedRockTypes":  48,
+                                 "AverageProbability":  0.2792
                              },
                              {
                                  "Name":  "Quantainium",
@@ -2486,17 +3893,12 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Titanium",
-                                 "SharedRockTypes":  5,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Copper",
-                                 "SharedRockTypes":  5,
-                                 "AverageProbability":  1
-                             },
-                             {
                                  "Name":  "Iron",
+                                 "SharedRockTypes":  5,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Titanium",
                                  "SharedRockTypes":  5,
                                  "AverageProbability":  1
                              },
@@ -2511,20 +3913,26 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Aslarite",
-                                 "SharedRockTypes":  2,
-                                 "AverageProbability":  0.25
+                                 "Name":  "Copper",
+                                 "SharedRockTypes":  5,
+                                 "AverageProbability":  1
                              },
                              {
                                  "Name":  "Ouratite",
                                  "SharedRockTypes":  2,
                                  "AverageProbability":  0.1
+                             },
+                             {
+                                 "Name":  "Aslarite",
+                                 "SharedRockTypes":  2,
+                                 "AverageProbability":  0.25
                              }
                          ]
     },
     {
         "UUID":  "392b4dca-449a-4d4d-8fef-beab024d9ee7",
         "Name":  "Lindinium",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  1000,
                                  "Resistance":  0.95,
@@ -2557,6 +3965,7 @@
     {
         "UUID":  "989f9b73-f636-4f35-a81d-579dcbe3f0ab",
         "Name":  "Ouratite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  600,
                                  "Resistance":  0.6,
@@ -2594,9 +4003,9 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Aslarite",
+                                 "Name":  "Agricium",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  0.375
+                                 "AverageProbability":  0.8
                              },
                              {
                                  "Name":  "Quantainium",
@@ -2604,9 +4013,9 @@
                                  "AverageProbability":  0.0775
                              },
                              {
-                                 "Name":  "Agricium",
+                                 "Name":  "Gold",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  0.8
+                                 "AverageProbability":  0.25
                              },
                              {
                                  "Name":  "Iron",
@@ -2614,25 +4023,26 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Gold",
+                                 "Name":  "Aslarite",
                                  "SharedRockTypes":  4,
-                                 "AverageProbability":  0.25
-                             },
-                             {
-                                 "Name":  "Laranite",
-                                 "SharedRockTypes":  2,
-                                 "AverageProbability":  0.55
+                                 "AverageProbability":  0.375
                              },
                              {
                                  "Name":  "Hephaestanite",
                                  "SharedRockTypes":  2,
                                  "AverageProbability":  0.4
+                             },
+                             {
+                                 "Name":  "Laranite",
+                                 "SharedRockTypes":  2,
+                                 "AverageProbability":  0.55
                              }
                          ]
     },
     {
         "UUID":  "f9f3251a-8e48-408a-b957-f1e3d5d3e213",
         "Name":  "Pressurized Ice",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  0,
                                  "Resistance":  -0.5,
@@ -2760,32 +4170,17 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Hephaestanite",
-                                 "SharedRockTypes":  1,
-                                 "AverageProbability":  0.5
-                             },
-                             {
-                                 "Name":  "Gold",
-                                 "SharedRockTypes":  1,
-                                 "AverageProbability":  0.1
-                             },
-                             {
-                                 "Name":  "Agricium",
-                                 "SharedRockTypes":  1,
-                                 "AverageProbability":  0.8
-                             },
-                             {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  1,
-                                 "AverageProbability":  0.12
-                             },
-                             {
                                  "Name":  "Borase",
                                  "SharedRockTypes":  1,
                                  "AverageProbability":  0.4
                              },
                              {
-                                 "Name":  "Taranite",
+                                 "Name":  "Hephaestanite",
+                                 "SharedRockTypes":  1,
+                                 "AverageProbability":  0.5
+                             },
+                             {
+                                 "Name":  "Bexalite",
                                  "SharedRockTypes":  1,
                                  "AverageProbability":  0.3
                              },
@@ -2795,15 +4190,31 @@
                                  "AverageProbability":  0.06
                              },
                              {
-                                 "Name":  "Bexalite",
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  1,
+                                 "AverageProbability":  0.12
+                             },
+                             {
+                                 "Name":  "Taranite",
                                  "SharedRockTypes":  1,
                                  "AverageProbability":  0.3
+                             },
+                             {
+                                 "Name":  "Agricium",
+                                 "SharedRockTypes":  1,
+                                 "AverageProbability":  0.8
+                             },
+                             {
+                                 "Name":  "Gold",
+                                 "SharedRockTypes":  1,
+                                 "AverageProbability":  0.1
                              }
                          ]
     },
     {
         "UUID":  "bde5a2c8-2ef4-46ac-9403-2fcb79e4016c",
         "Name":  "Quantainium",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  1000,
                                  "Resistance":  0.95,
@@ -2969,12 +4380,7 @@
                                  "AverageProbability":  0.98
                              },
                              {
-                                 "Name":  "Copper",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Corundum",
+                                 "Name":  "Titanium",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
@@ -2984,7 +4390,12 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Titanium",
+                                 "Name":  "Copper",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Corundum",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
@@ -3008,6 +4419,7 @@
     {
         "UUID":  "35121003-f1af-481a-b16f-7f48d8af0efb",
         "Name":  "Quartz",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  50,
                                  "Resistance":  -0.7,
@@ -3110,14 +4522,14 @@
                                  "AverageProbability":  0.14
                              },
                              {
-                                 "Name":  "Bexalite",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2071
-                             },
-                             {
                                  "Name":  "Gold",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  0.2643
+                             },
+                             {
+                                 "Name":  "Bexalite",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  0.2071
                              },
                              {
                                  "Name":  "Taranite",
@@ -3130,24 +4542,24 @@
                                  "AverageProbability":  0.725
                              },
                              {
-                                 "Name":  "Beryl",
-                                 "SharedRockTypes":  5,
-                                 "AverageProbability":  0.58
-                             },
-                             {
                                  "Name":  "Laranite",
                                  "SharedRockTypes":  5,
                                  "AverageProbability":  0.43
                              },
                              {
-                                 "Name":  "Borase",
-                                 "SharedRockTypes":  4,
-                                 "AverageProbability":  0.425
+                                 "Name":  "Beryl",
+                                 "SharedRockTypes":  5,
+                                 "AverageProbability":  0.58
                              },
                              {
                                  "Name":  "Silicon",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Borase",
+                                 "SharedRockTypes":  4,
+                                 "AverageProbability":  0.425
                              },
                              {
                                  "Name":  "Agricium",
@@ -3164,6 +4576,7 @@
     {
         "UUID":  "86d00bd8-08f7-4231-b375-a609803fc46d",
         "Name":  "Riccite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  850,
                                  "Resistance":  0.95,
@@ -3219,6 +4632,11 @@
                            ],
         "CoOccursWith":  [
                              {
+                                 "Name":  "Gold",
+                                 "SharedRockTypes":  29,
+                                 "AverageProbability":  0.2483
+                             },
+                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  29,
                                  "AverageProbability":  0.0869
@@ -3227,11 +4645,6 @@
                                  "Name":  "Bexalite",
                                  "SharedRockTypes":  29,
                                  "AverageProbability":  0.2793
-                             },
-                             {
-                                 "Name":  "Gold",
-                                 "SharedRockTypes":  29,
-                                 "AverageProbability":  0.2483
                              },
                              {
                                  "Name":  "Taranite",
@@ -3281,8 +4694,49 @@
                          ]
     },
     {
+        "UUID":  "af5ae7e0-467e-44c1-abd1-b5ce8ed63bcf",
+        "Name":  "Sadaryx",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  200,
+                                 "Resistance":  0,
+                                 "OptimalWindowMidpoint":  0.6,
+                                 "OptimalWindowMidpointRandomness":  0.2,
+                                 "OptimalWindowThinness":  0,
+                                 "ExplosionMultiplier":  1,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  {
+
+                           },
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
+        "UUID":  "8bb75cd2-f59d-40a5-9077-55089c1626c4",
+        "Name":  "Saldynium",
+        "MiningType":  "FPS",
+        "MiningProperties":  {
+                                 "Instability":  100,
+                                 "Resistance":  0,
+                                 "OptimalWindowMidpoint":  0.5,
+                                 "OptimalWindowMidpointRandomness":  0,
+                                 "OptimalWindowThinness":  5,
+                                 "ExplosionMultiplier":  1,
+                                 "ClusterFactor":  0
+                             },
+        "SpawnLocations":  {
+
+                           },
+        "CoOccursWith":  {
+
+                         }
+    },
+    {
         "UUID":  "4a47cad8-0271-4048-b19b-d9b52521fc20",
         "Name":  "Savrilium",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  1000,
                                  "Resistance":  0.95,
@@ -3322,6 +4776,7 @@
     {
         "UUID":  "7bbd3197-a6e1-49b3-a495-0b7ef4f8ce40",
         "Name":  "Silicon",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  50,
                                  "Resistance":  -0.2,
@@ -3473,6 +4928,11 @@
                            ],
         "CoOccursWith":  [
                              {
+                                 "Name":  "Bexalite",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  0.2714
+                             },
+                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  0.0821
@@ -3483,19 +4943,14 @@
                                  "AverageProbability":  0.2571
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  0.0964
-                             },
-                             {
-                                 "Name":  "Bexalite",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2714
-                             },
-                             {
                                  "Name":  "Taranite",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  0.3214
+                             },
+                             {
+                                 "Name":  "Riccite",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  0.0964
                              },
                              {
                                  "Name":  "Hephaestanite",
@@ -3532,6 +4987,7 @@
     {
         "UUID":  "8cd317a3-df9b-4315-8ac3-0f1fca42dfd4",
         "Name":  "Stileron",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  870,
                                  "Resistance":  0.6,
@@ -3651,6 +5107,7 @@
     {
         "UUID":  "06cafea0-49fe-4dce-b0f0-dc583316c66d",
         "Name":  "Taranite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  700,
                                  "Resistance":  0.5,
@@ -3742,14 +5199,14 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Bexalite",
-                                 "SharedRockTypes":  144,
-                                 "AverageProbability":  0.2428
-                             },
-                             {
                                  "Name":  "Gold",
                                  "SharedRockTypes":  144,
                                  "AverageProbability":  0.2304
+                             },
+                             {
+                                 "Name":  "Bexalite",
+                                 "SharedRockTypes":  144,
+                                 "AverageProbability":  0.2428
                              },
                              {
                                  "Name":  "Quantainium",
@@ -3772,14 +5229,14 @@
                                  "AverageProbability":  0.5663
                              },
                              {
-                                 "Name":  "Aluminum",
-                                 "SharedRockTypes":  36,
-                                 "AverageProbability":  0.9875
-                             },
-                             {
                                  "Name":  "Borase",
                                  "SharedRockTypes":  36,
                                  "AverageProbability":  0.55
+                             },
+                             {
+                                 "Name":  "Aluminum",
+                                 "SharedRockTypes":  36,
+                                 "AverageProbability":  0.9875
                              },
                              {
                                  "Name":  "Stileron",
@@ -3797,17 +5254,7 @@
                                  "AverageProbability":  0.5621
                              },
                              {
-                                 "Name":  "Corundum",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Quartz",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  1
-                             },
-                             {
-                                 "Name":  "Titanium",
+                                 "Name":  "Tin",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
@@ -3822,7 +5269,17 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Tin",
+                                 "Name":  "Corundum",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Titanium",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  1
+                             },
+                             {
+                                 "Name":  "Quartz",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  1
                              },
@@ -3846,6 +5303,7 @@
     {
         "UUID":  "1b4c4042-5fdc-4b52-bec4-07085cb3520a",
         "Name":  "Tin",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  0,
                                  "Resistance":  -0.2,
@@ -4009,6 +5467,11 @@
                            ],
         "CoOccursWith":  [
                              {
+                                 "Name":  "Bexalite",
+                                 "SharedRockTypes":  14,
+                                 "AverageProbability":  0.2857
+                             },
+                             {
                                  "Name":  "Stileron",
                                  "SharedRockTypes":  14,
                                  "AverageProbability":  0.0936
@@ -4019,9 +5482,9 @@
                                  "AverageProbability":  0.25
                              },
                              {
-                                 "Name":  "Bexalite",
+                                 "Name":  "Riccite",
                                  "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2857
+                                 "AverageProbability":  0.0893
                              },
                              {
                                  "Name":  "Taranite",
@@ -4029,19 +5492,9 @@
                                  "AverageProbability":  0.2786
                              },
                              {
-                                 "Name":  "Riccite",
-                                 "SharedRockTypes":  14,
-                                 "AverageProbability":  0.0893
-                             },
-                             {
                                  "Name":  "Laranite",
                                  "SharedRockTypes":  5,
                                  "AverageProbability":  0.56
-                             },
-                             {
-                                 "Name":  "Hephaestanite",
-                                 "SharedRockTypes":  4,
-                                 "AverageProbability":  0.5875
                              },
                              {
                                  "Name":  "Beryl",
@@ -4054,20 +5507,26 @@
                                  "AverageProbability":  1
                              },
                              {
-                                 "Name":  "Agricium",
-                                 "SharedRockTypes":  3,
-                                 "AverageProbability":  0.6167
+                                 "Name":  "Hephaestanite",
+                                 "SharedRockTypes":  4,
+                                 "AverageProbability":  0.5875
                              },
                              {
                                  "Name":  "Borase",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  0.5667
+                             },
+                             {
+                                 "Name":  "Agricium",
+                                 "SharedRockTypes":  3,
+                                 "AverageProbability":  0.6167
                              }
                          ]
     },
     {
         "UUID":  "07570c9f-fdf6-4bca-a56b-c42809ec0e01",
         "Name":  "Titanium",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  0,
                                  "Resistance":  0.1,
@@ -4195,9 +5654,9 @@
                            ],
         "CoOccursWith":  [
                              {
-                                 "Name":  "Gold",
+                                 "Name":  "Bexalite",
                                  "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2357
+                                 "AverageProbability":  0.2714
                              },
                              {
                                  "Name":  "Quantainium",
@@ -4205,9 +5664,9 @@
                                  "AverageProbability":  0.0771
                              },
                              {
-                                 "Name":  "Bexalite",
+                                 "Name":  "Gold",
                                  "SharedRockTypes":  14,
-                                 "AverageProbability":  0.2714
+                                 "AverageProbability":  0.2357
                              },
                              {
                                  "Name":  "Taranite",
@@ -4230,14 +5689,14 @@
                                  "AverageProbability":  0.52
                              },
                              {
-                                 "Name":  "Beryl",
-                                 "SharedRockTypes":  4,
-                                 "AverageProbability":  0.55
-                             },
-                             {
                                  "Name":  "Hephaestanite",
                                  "SharedRockTypes":  4,
                                  "AverageProbability":  0.45
+                             },
+                             {
+                                 "Name":  "Beryl",
+                                 "SharedRockTypes":  4,
+                                 "AverageProbability":  0.55
                              },
                              {
                                  "Name":  "Borase",
@@ -4249,6 +5708,7 @@
     {
         "UUID":  "75b37a54-45c9-4f27-ac09-9830f092dd86",
         "Name":  "Torite",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  550,
                                  "Resistance":  0.25,
@@ -4299,6 +5759,7 @@
     {
         "UUID":  "60f116f4-c02a-45b2-9ded-333747795124",
         "Name":  "Tungsten",
+        "MiningType":  "Ship",
         "MiningProperties":  {
                                  "Instability":  0,
                                  "Resistance":  -0.4,
@@ -4377,14 +5838,14 @@
                                  "AverageProbability":  0.2769
                              },
                              {
-                                 "Name":  "Gold",
-                                 "SharedRockTypes":  13,
-                                 "AverageProbability":  0.2538
-                             },
-                             {
                                  "Name":  "Quantainium",
                                  "SharedRockTypes":  13,
                                  "AverageProbability":  0.0738
+                             },
+                             {
+                                 "Name":  "Gold",
+                                 "SharedRockTypes":  13,
+                                 "AverageProbability":  0.2538
                              },
                              {
                                  "Name":  "Taranite",
@@ -4407,14 +5868,14 @@
                                  "AverageProbability":  0.5333
                              },
                              {
-                                 "Name":  "Borase",
-                                 "SharedRockTypes":  3,
-                                 "AverageProbability":  0.5167
-                             },
-                             {
                                  "Name":  "Hephaestanite",
                                  "SharedRockTypes":  3,
                                  "AverageProbability":  0.5333
+                             },
+                             {
+                                 "Name":  "Borase",
+                                 "SharedRockTypes":  3,
+                                 "AverageProbability":  0.5167
                              },
                              {
                                  "Name":  "Lindinium",
