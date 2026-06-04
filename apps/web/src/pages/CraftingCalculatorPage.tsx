@@ -579,7 +579,12 @@ function ComponentCard({
               max={1000}
               value={ql}
               onChange={e => onChange(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
-              className="w-14 text-right font-mono text-xs font-bold text-primary bg-transparent border-b border-primary/40 focus:outline-none focus:border-primary"
+              className={cn(
+                'w-14 text-right font-mono text-xs font-bold bg-transparent focus:outline-none',
+                ql > 500 ? 'text-green-500 border-b border-green-500/40 focus:border-green-500'
+                : ql < 500 ? 'text-red-500 border-b border-red-500/40 focus:border-red-500'
+                : 'text-foreground border-b border-border focus:border-foreground',
+              )}
             />
           </div>
           <input
@@ -589,7 +594,10 @@ function ComponentCard({
             step={5}
             value={ql}
             onChange={e => onChange(Number(e.target.value))}
-            className="w-full accent-primary h-1.5"
+            className={cn(
+              'w-full h-1.5',
+              ql > 500 ? 'accent-green-500' : ql < 500 ? 'accent-red-500' : 'accent-foreground',
+            )}
           />
         </div>
       )}
@@ -597,14 +605,13 @@ function ComponentCard({
       {activeStats.map(s => {
         const mult   = interpolateStat(s, ql);
         const pctChg = (mult - 1) * 100;
-        const better = pctChg > 0;
         return (
           <div key={s.key} className="space-y-0.5">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">{s.label}</span>
               <span className={cn(
                 'font-mono font-semibold',
-                better ? 'text-green-500' : pctChg < 0 ? 'text-red-500' : 'text-muted-foreground',
+                ql > 500 ? 'text-green-500' : ql < 500 ? 'text-red-500' : 'text-foreground',
               )}>
                 {fmtMult(mult)} {fmtPct(pctChg)}
               </span>
