@@ -121,6 +121,8 @@ type FwItem    = typeof fwRaw[number];
 
 // ── Lookup maps ───────────────────────────────────────────────────────────────
 
+const PLACEHOLDER = '<= PLACEHOLDER =>';
+
 const resMap = new Map(resourcesRaw.map(r => [r.UUID, r.Name]));
 
 const allItems: AnyItem[] = [
@@ -136,8 +138,8 @@ const allItems: AnyItem[] = [
 
 const itemMetaMap = new Map(
   allItems.map(i => [i.UUID, {
-    name:         i.Name,
-    manufacturer: i.Manufacturer?.Name ?? null,
+    name:         i.Name !== PLACEHOLDER ? i.Name : null,
+    manufacturer: (i.Manufacturer?.Name && i.Manufacturer.Name !== PLACEHOLDER) ? i.Manufacturer.Name : null,
   }]),
 );
 
@@ -148,8 +150,6 @@ const fwMap    = new Map(fwRaw.map(i    => [i.UUID, i as FwItem]));
 const swMap    = new Map(swRaw.map(i    => [i.UUID, i as SwItem]));
 
 // ── Blueprint pre-processing ──────────────────────────────────────────────────
-
-const PLACEHOLDER = '<= PLACEHOLDER =>';
 
 function resolveMaterialName(uuid: string | null, kind: string): string {
   if (!uuid) return 'Unknown';

@@ -221,7 +221,9 @@ function WeaponStats({
 }) {
   const dmgM = mults['weapon_damage']   ?? 1;
   const rpmM = mults['weapon_firerate'] ?? 1;
-  if (base.modes.length === 0) return null;
+  if (base.modes.length === 0) {
+    return <p className="text-xs text-muted-foreground/60 italic">No fire mode data available in local dataset.</p>;
+  }
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Weapon</p>
