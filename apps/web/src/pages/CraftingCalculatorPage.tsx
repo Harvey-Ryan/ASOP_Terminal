@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Info, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -63,6 +63,9 @@ function ArmorStats({
   base: Extract<ItemBaseStats, { kind: 'armor' }>;
   mults: Record<string, number>;
 }) {
+  const [open, setOpen] = useState(true);
+  const toggle = useCallback(() => setOpen(o => !o), []);
+
   const dmg  = mults['armor_damagemitigation']     ?? 1;
   const tMin = mults['armor_temperaturemin']        ?? 1;
   const tMax = mults['armor_temperaturemax']        ?? 1;
@@ -78,62 +81,80 @@ function ArmorStats({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Damage Resistance</p>
-        <div className="grid grid-cols-3 gap-2">
-          {resFields.map(([label, bv]) => {
-            const crafted = applyStatFormula('armor_damagemitigation', bv, dmg);
-            const delta   = crafted - bv;
-            const better  = crafted < bv;
-            return (
-              <div key={label} className="rounded border border-border bg-muted/30 px-2.5 py-2 space-y-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-                <p className="text-xs font-mono">{resDisplay(bv)}</p>
-                {dmg !== 1 && (
-                  <p className={cn('text-xs font-mono font-bold', better ? 'text-green-500' : 'text-red-500')}>
-                    → {resDisplay(crafted)}
-                    <span className="ml-1 text-[10px]">{fmtPct(delta * 100)}</span>
-                  </p>
-                )}
+    <div className="space-y-3">
+      {/* Collapsible card: Damage Mitigation + Temperature side by side */}
+      <div className="rounded border border-border overflow-hidden">
+        <button
+          onClick={toggle}
+          className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+        >
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Damage Mitigation &amp; Temperature
+          </span>
+          <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', open && 'rotate-90')} />
+        </button>
+
+        {open && (
+          <div className="grid grid-cols-2 gap-px bg-border">
+            {/* Left: Damage Resistance */}
+            <div className="bg-card p-3 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mitigation</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {resFields.map(([label, bv]) => {
+                  const crafted = applyStatFormula('armor_damagemitigation', bv, dmg);
+                  const delta   = crafted - bv;
+                  const better  = crafted < bv;
+                  return (
+                    <div key={label} className="rounded border border-border bg-muted/30 px-2 py-1.5 space-y-0.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                      <p className="text-[11px] font-mono">{resDisplay(bv)}</p>
+                      {dmg !== 1 && (
+                        <p className={cn('text-[10px] font-mono font-bold', better ? 'text-green-500' : 'text-red-500')}>
+                          → {resDisplay(crafted)}
+                          <span className="ml-0.5 text-[9px]">{fmtPct(delta * 100)}</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            {/* Right: Temperature */}
+            <div className="bg-card p-3 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Temperature</p>
+              {base.temperature ? (
+                <table className="w-full text-xs">
+                  <tbody>
+                    <tr className="border-b border-border/40">
+                      <td className="py-1.5 text-muted-foreground">Min</td>
+                      <td className="py-1.5 text-right font-mono">{base.temperature.min.toFixed(1)}°C</td>
+                      {tMin !== 1 && (
+                        <td className="py-1.5 text-right font-mono font-bold text-green-500 text-[10px]">
+                          → {(base.temperature.min * tMin).toFixed(1)}°C
+                        </td>
+                      )}
+                    </tr>
+                    <tr>
+                      <td className="py-1.5 text-muted-foreground">Max</td>
+                      <td className="py-1.5 text-right font-mono">{base.temperature.max.toFixed(1)}°C</td>
+                      {tMax !== 1 && (
+                        <td className="py-1.5 text-right font-mono font-bold text-green-500 text-[10px]">
+                          → {(base.temperature.max * tMax).toFixed(1)}°C
+                        </td>
+                      )}
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-xs text-muted-foreground/50 italic">No data</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {base.temperature && (tMin !== 1 || tMax !== 1) && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Temperature</p>
-          <div className="rounded border border-border overflow-hidden">
-            <table className="w-full text-xs">
-              <tbody>
-                <tr className="border-b border-border/40">
-                  <td className="px-3 py-2 text-muted-foreground">Min</td>
-                  <td className="px-3 py-2 text-right font-mono">{base.temperature.min.toFixed(1)}°C</td>
-                  {tMin !== 1 && (
-                    <td className="px-3 py-2 text-right font-mono font-bold text-green-500">
-                      → {(base.temperature.min * tMin).toFixed(1)}°C
-                      <span className="ml-1 text-[10px]">{fmtPct((tMin - 1) * 100)}</span>
-                    </td>
-                  )}
-                </tr>
-                <tr>
-                  <td className="px-3 py-2 text-muted-foreground">Max</td>
-                  <td className="px-3 py-2 text-right font-mono">{base.temperature.max.toFixed(1)}°C</td>
-                  {tMax !== 1 && (
-                    <td className="px-3 py-2 text-right font-mono font-bold text-green-500">
-                      → {(base.temperature.max * tMax).toFixed(1)}°C
-                      <span className="ml-1 text-[10px]">{fmtPct((tMax - 1) * 100)}</span>
-                    </td>
-                  )}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
+      {/* Radiation (separate, only when relevant) */}
       {base.radiation && rad !== 1 && (
         <div className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Radiation</p>
@@ -599,7 +620,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
             </div>
 
             {/* Component cards */}
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               {bp.components.map((comp, i) => (
                 <ComponentCard
                   key={`${comp.slot}-${i}`}
@@ -680,62 +701,60 @@ export function CraftingCalculatorPage() {
   return (
     <div className="flex flex-col h-full -m-6 overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
-        {!selected && (
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Crafting Calculator</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Browse blueprints, inspect recipes, and calculate quality-scaled stat outputs.
-            </p>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          {selected && (
+      <div className="px-6 border-b border-border shrink-0 bg-background">
+        {selected ? (
+          <div className="py-3">
             <button
               onClick={() => setSelected(null)}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md shrink-0"
+              className="flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
             </button>
-          )}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search blueprints…"
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
           </div>
-
-          <select
-            value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}
-            className="w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All types</option>
-            {BLUEPRINT_TYPES.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-
-        {!selected && (
-          <p className="text-xs text-muted-foreground">
-            {results.length} blueprint{results.length !== 1 ? 's' : ''}
-            {results.length === 100 ? ' (showing first 100)' : ''}{' '}
-            of {BLUEPRINTS.length} total
-          </p>
+        ) : (
+          <div className="pt-6 pb-4 space-y-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Crafting Calculator</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Browse blueprints, inspect recipes, and calculate quality-scaled stat outputs.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search blueprints…"
+                  className="w-full pl-9 pr-4 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <select
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value)}
+                className="w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All types</option>
+                {BLUEPRINT_TYPES.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {results.length} blueprint{results.length !== 1 ? 's' : ''}
+              {results.length === 100 ? ' (showing first 100)' : ''}{' '}
+              of {BLUEPRINTS.length} total
+            </p>
+          </div>
         )}
       </div>
 
