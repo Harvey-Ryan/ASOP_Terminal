@@ -165,7 +165,7 @@ function processBlueprint(b: typeof blueprintsRaw[number]): LocalBlueprint {
     slot: c.Slot,
     material: {
       uuid:        c.Material.UUID ?? '',
-      name:        resolveMaterialName(c.Material.UUID, c.Material.Kind),
+      name:        c.Material.Name ?? resolveMaterialName(c.Material.UUID, c.Material.Kind),
       kind:        c.Material.Kind as 'resource' | 'item' | 'group',
       quantityScu: c.Material.QuantityScu ?? null,
       quantity:    c.Material.Quantity    ?? null,
@@ -194,7 +194,7 @@ function processBlueprint(b: typeof blueprintsRaw[number]): LocalBlueprint {
         timeSecs:   b.Dismantle.TimeSeconds,
         efficiency: b.Dismantle.Efficiency ?? 0.5,
         returns: (b.Dismantle.Returns ?? []).map(r => ({
-          name:        resolveMaterialName(r.UUID, r.Kind),
+          name:        r.Name ?? resolveMaterialName(r.UUID, r.Kind),
           quantityScu: r.QuantityScu ?? null,
           quantity:    r.Quantity    ?? null,
         })),
