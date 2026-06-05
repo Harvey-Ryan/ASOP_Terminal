@@ -238,14 +238,29 @@ export function getBlueprintByUuid(uuid: string): LocalBlueprint | undefined {
   return _blueprintByUuid.get(uuid);
 }
 
-export const OBTAINABLE_BLUEPRINTS: LocalBlueprint[] = BLUEPRINTS.filter(b => b.missions.length > 0);
+// Derive obtainable set directly from Missions.json BlueprintPool so the 171
+// blueprints that gained mission links in the new data are included.
+type _RawBpItem = { Name: string; ItemUUID: string; BlueprintUUID: string };
+type _RawBpPool = { Chance: number; PoolUUID: string; Items: _RawBpItem | _RawBpItem[] };
+const _missionBpUuids = new Set<string>(
+  (missionsRaw as Array<{ BlueprintPool?: _RawBpPool[] | null }>)
+    .filter(m => Array.isArray(m.BlueprintPool))
+    .flatMap(m =>
+      (m.BlueprintPool as _RawBpPool[]).flatMap(p => {
+        const items = Array.isArray(p.Items) ? p.Items : (p.Items ? [p.Items] : []);
+        return items.map(i => i.BlueprintUUID);
+      })
+    ),
+);
+
+export const OBTAINABLE_BLUEPRINTS: LocalBlueprint[] = BLUEPRINTS.filter(b => _missionBpUuids.has(b.uuid));
 
 export const BLUEPRINT_TYPES: string[] = [...new Set(OBTAINABLE_BLUEPRINTS.map(b => b.type))].sort();
 
 export function searchBlueprints(q: string, type?: string): LocalBlueprint[] {
   const query = q.trim().toLowerCase();
   return BLUEPRINTS.filter(b => {
-    if (b.missions.length === 0) return false;
+    if (!_missionBpUuids.has(b.uuid)) return false;
     const matchesType = !type || b.type === type;
     const matchesQ    = !query || b.name.toLowerCase().includes(query) || b.type.toLowerCase().includes(query);
     return matchesType && matchesQ;
@@ -404,13 +419,20 @@ export interface MissionContract {
 }
 
 type RawMission = typeof missionsRaw[number];
-type RawContent = { ItemName: string; ItemUUID: string; BlueprintUUID: string };
+type RawContent = { Name: string; ItemUUID: string; BlueprintUUID: string };
+type RawPool    = { Chance: number; PoolUUID: string; Items: RawContent | RawContent[] };
+
+function normaliseItems(items: RawContent | RawContent[] | null | undefined): RawContent[] {
+  if (!items) return [];
+  return Array.isArray(items) ? items : [items];
+}
 
 function buildMissionContracts(): MissionContract[] {
-  const relevant = (missionsRaw as RawMission[]).filter(
-    m => Array.isArray((m.BlueprintReward as { Contents?: RawContent[] } | null)?.Contents)
-      && ((m.BlueprintReward as { Contents?: RawContent[] }).Contents!.length > 0),
-  );
+  // Filter to missions that have at least one BlueprintPool entry with items
+  const relevant = (missionsRaw as RawMission[]).filter(m => {
+    const pools = m.BlueprintPool as RawPool[] | null;
+    return Array.isArray(pools) && pools.some(p => normaliseItems(p.Items as RawContent | RawContent[]).length > 0);
+  });
 
   const byTitle = new Map<string, RawMission[]>();
   for (const m of relevant) {
@@ -422,21 +444,25 @@ function buildMissionContracts(): MissionContract[] {
   const result: MissionContract[] = [];
 
   for (const [title, missions] of byTitle) {
-    // Dedup pools by sorted blueprint-UUID fingerprint
+    // Dedup pools by sorted blueprint-UUID fingerprint across all pools of all missions
     const poolsByFingerprint = new Map<string, { locations: Set<string>; blueprints: MissionBlueprintEntry[] }>();
 
     for (const m of missions) {
-      const contents = ((m.BlueprintReward as { Contents?: RawContent[] }).Contents ?? []);
-      const fingerprint = contents.map(c => c.BlueprintUUID).sort().join('|');
-      if (!poolsByFingerprint.has(fingerprint)) {
-        poolsByFingerprint.set(fingerprint, {
-          locations: new Set(Array.isArray(m.Locations) ? m.Locations as string[] : []),
-          blueprints: contents.map(c => ({ name: c.ItemName, blueprintUuid: c.BlueprintUUID })),
-        });
-      } else {
-        const entry = poolsByFingerprint.get(fingerprint)!;
-        for (const loc of (Array.isArray(m.Locations) ? m.Locations as string[] : [])) {
-          entry.locations.add(loc);
+      const rawPools = (m.BlueprintPool as RawPool[] | null) ?? [];
+      const mLocations = Array.isArray(m.Locations) ? m.Locations as string[] : [];
+
+      for (const pool of rawPools) {
+        const contents = normaliseItems(pool.Items as RawContent | RawContent[]);
+        if (contents.length === 0) continue;
+        const fingerprint = contents.map(c => c.BlueprintUUID).sort().join('|');
+        if (!poolsByFingerprint.has(fingerprint)) {
+          poolsByFingerprint.set(fingerprint, {
+            locations: new Set(mLocations),
+            blueprints: contents.map(c => ({ name: c.Name, blueprintUuid: c.BlueprintUUID })),
+          });
+        } else {
+          const entry = poolsByFingerprint.get(fingerprint)!;
+          for (const loc of mLocations) entry.locations.add(loc);
         }
       }
     }
