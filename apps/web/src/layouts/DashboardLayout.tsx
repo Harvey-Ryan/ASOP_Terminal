@@ -328,7 +328,7 @@ export function DashboardLayout() {
         {/* ── Sidebar ── */}
         <aside className={cn(
           'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-all duration-300 lg:relative lg:z-auto lg:translate-x-0',
-          navCollapsed ? 'lg:w-14' : 'lg:w-60',
+          navCollapsed ? 'lg:w-14' : 'lg:w-56',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}>
           {/* Collapse toggle — desktop only, sits on the right edge */}
