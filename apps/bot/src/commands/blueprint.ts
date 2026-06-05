@@ -225,6 +225,22 @@ async function handleContracts(interaction: ChatInputCommandInteraction): Promis
     }
     if (stats.length) lines.push(stats.join(' · '));
 
+    // Line 3: reputation XP rewards
+    if (contract.reputation.length > 0) {
+      const byFaction = new Map<string, typeof contract.reputation>();
+      for (const r of contract.reputation) {
+        const arr = byFaction.get(r.faction) ?? [];
+        arr.push(r);
+        byFaction.set(r.faction, arr);
+      }
+      const repParts = [...byFaction.entries()].slice(0, 3).map(([faction, reps]) => {
+        const xpStr = reps.map((r) => `+${r.xp} ${scopeLabel(r.scope)}`).join(', ');
+        return `${xpStr} (${faction})`;
+      });
+      lines.push(`⭐ ${repParts.join(' · ')}`);
+    }
+
+    // Line 4: locations
     if (locsSorted.length > 0) {
       const preview = locsSorted.slice(0, 3).join(', ');
       const extra   = locsSorted.length > 3 ? ` +${locsSorted.length - 3} more` : '';
@@ -248,4 +264,14 @@ function resolve(rawValue: string) {
     BLUEPRINT_BY_UUID.get(rawValue) ??
     BLUEPRINTS.find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase())
   );
+}
+
+function scopeLabel(scope: string): string {
+  switch (scope) {
+    case 'FactionReputation':            return 'XP';
+    case 'Affinity':                     return 'Affinity';
+    case 'BountyHunter_BountyHuntersGuild': return 'BHG';
+    case 'ShipCombat_HeadHunters':       return 'Headhunters';
+    default: return scope.replace(/_/g, ' ');
+  }
 }

@@ -55,6 +55,16 @@ function estimateAuec(time: number | null, riskScore: number): { low: number; hi
   return { low: mid * 0.8, high: mid * 1.2 };
 }
 
+function scopeLabel(scope: string): string {
+  switch (scope) {
+    case 'FactionReputation':               return 'XP';
+    case 'Affinity':                        return 'Affinity';
+    case 'BountyHunter_BountyHuntersGuild': return 'BHG';
+    case 'ShipCombat_HeadHunters':          return 'Headhunters';
+    default: return scope.replace(/_/g, ' ');
+  }
+}
+
 function diffCls(score: number): string {
   if (score <= 3) return 'text-green-500 border-green-500/30 bg-green-500/10';
   if (score <= 4) return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10';
@@ -202,7 +212,7 @@ function ContractCard({
             {totalBps} blueprint{totalBps !== 1 ? 's' : ''}
           </span>
           {auecEst && (
-            <span className={cn('text-[11px] font-semibold ml-auto', diffTextCls(riskScore))}>
+            <span className="text-[11px] font-semibold ml-auto text-blue-400">
               ~{fmtAuec(auecEst.low)}–{fmtAuec(auecEst.high)} aUEC
               <span className="text-[9px] text-muted-foreground font-normal ml-0.5">est.</span>
             </span>
@@ -227,14 +237,20 @@ function ContractCard({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-foreground">aUEC:</span>
               {auecEst
-                ? <><span className={cn('font-semibold', diffTextCls(riskScore))}>~{fmtAuec(auecEst.low)}–{fmtAuec(auecEst.high)}</span> <span className="opacity-60">(est. · varies with distance)</span></>
+                ? <><span className="font-semibold text-blue-400">~{fmtAuec(auecEst.low)}–{fmtAuec(auecEst.high)}</span> <span className="opacity-60">(est. · varies with distance)</span></>
                 : 'Calculated (scales with difficulty & distance)'
               }
             </div>
             {contract.reputation.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-semibold text-foreground">Rep XP:</span>
-                {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
+                {contract.reputation.map((r, i) => (
+                  <span key={i}>
+                    <span className="font-semibold text-blue-400">+{r.xp.toLocaleString()} {scopeLabel(r.scope)}</span>
+                    <span className="opacity-60 ml-0.5">({r.faction})</span>
+                    {i < contract.reputation.length - 1 && <span className="opacity-40 mx-1">·</span>}
+                  </span>
+                ))}
               </div>
             )}
           </div>

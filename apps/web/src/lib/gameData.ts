@@ -405,6 +405,7 @@ export interface MissionPool {
 export interface MissionReputation {
   faction: string;
   xp: number;
+  scope: string;
 }
 
 export interface MissionDifficulty {
@@ -498,9 +499,9 @@ function buildMissionContracts(): MissionContract[] {
 
     const rawRep = first.Reputation;
     const reputation: MissionReputation[] = Array.isArray(rawRep)
-      ? (rawRep as Array<{ Faction?: string; XP?: number }>)
+      ? (rawRep as Array<{ Faction?: string; XP?: number; Scope?: string }>)
           .filter(r => r.Faction && r.Faction !== PLACEHOLDER && r.Faction !== UNINITIALIZED && r.XP != null)
-          .map(r => ({ faction: r.Faction!, xp: r.XP! }))
+          .map(r => ({ faction: r.Faction!, xp: r.XP!, scope: r.Scope ?? 'FactionReputation' }))
       : [];
 
     // Difficulty — parse numeric suffix + human label from each dimension string

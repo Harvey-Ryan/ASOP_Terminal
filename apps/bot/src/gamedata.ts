@@ -46,6 +46,7 @@ interface RawStanding {
 interface RawReputation {
   Faction?: string;
   XP?: number;
+  Scope?: string;
 }
 
 interface RawMission {
@@ -80,7 +81,7 @@ export interface ContractDifficulty {
 export interface ContractStanding   { name: string; minReputation: number }
 export interface ContractBlueprint  { name: string; blueprintUuid: string }
 export interface ContractPool       { locations: string[]; blueprints: ContractBlueprint[] }
-export interface ContractReputation { faction: string; xp: number }
+export interface ContractReputation { faction: string; xp: number; scope: string }
 
 export interface MissionContract {
   title:                 string;
@@ -190,7 +191,7 @@ function buildContracts(): MissionContract[] {
       Array.isArray(first.Reputation) ? first.Reputation : []
     )
       .filter((r) => !!cleanStr(r.Faction) && r.XP != null)
-      .map((r) => ({ faction: r.Faction!, xp: r.XP! }));
+      .map((r) => ({ faction: r.Faction!, xp: r.XP!, scope: r.Scope ?? 'FactionReputation' }));
 
     // 4-dimension difficulty with numeric scores and human labels
     const rd = first.Difficulty;
