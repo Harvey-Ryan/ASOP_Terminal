@@ -545,9 +545,9 @@ function ComponentCard({
   const activeStats = comp.stats;
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       {/* Slot header */}
-      <div className="shrink-0 px-2.5 py-1.5 border-b border-border bg-muted/20 flex items-center justify-between">
+      <div className="px-2.5 py-1.5 border-b border-border bg-muted/20 flex items-center justify-between">
         <p className="text-xs font-bold text-foreground leading-tight">{comp.slot}</p>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>⛏</span>
@@ -566,7 +566,7 @@ function ComponentCard({
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 overflow-hidden px-2.5 py-2 flex flex-col gap-2">
+      <div className="px-2.5 py-2 flex flex-col gap-2">
         {activeStats.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -904,7 +904,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
                   ))}
                 </div>
               </div>
-              <div className="flex-1 min-h-0 p-2 grid grid-cols-2 gap-2 [grid-auto-rows:minmax(0,1fr)]">
+              <div className="overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start">
                 {bp.components.map((comp, i) => (
                   <ComponentCard
                     key={`${comp.slot}-${i}`}
