@@ -407,6 +407,23 @@ export interface MissionReputation {
   xp: number;
 }
 
+export interface MissionDifficulty {
+  mechanicalSkill: number;
+  mechanicalSkillLabel: string;
+  mentalLoad: number;
+  mentalLoadLabel: string;
+  riskOfLoss: number;
+  riskOfLossLabel: string;
+  gameKnowledge: number;
+  gameKnowledgeLabel: string;
+  profile: string | null;
+}
+
+export interface MissionStanding {
+  name: string;
+  minReputation: number;
+}
+
 export interface MissionContract {
   title: string;
   description: string;
@@ -416,6 +433,10 @@ export interface MissionContract {
   locations: string[];
   pools: MissionPool[];
   reputation: MissionReputation[];
+  difficulty: MissionDifficulty | null;
+  timeToCompleteMinutes: number | null;
+  minStanding: MissionStanding | null;
+  illegal: boolean;
 }
 
 type RawMission = typeof missionsRaw[number];
@@ -482,6 +503,35 @@ function buildMissionContracts(): MissionContract[] {
           .map(r => ({ faction: r.Faction!, xp: r.XP! }))
       : [];
 
+    // Difficulty — parse numeric suffix + human label from each dimension string
+    type RawDifficulty = { MechanicalSkill?: string; MentalLoad?: string; RiskOfLoss?: string; GameKnowledge?: string; Profile?: string } | null;
+    const rawDiff = first.Difficulty as RawDifficulty;
+    function diffScore(raw: string | null | undefined): number {
+      const m = raw?.match(/_(\d+)$/);
+      return m ? parseInt(m[1], 10) : 0;
+    }
+    function diffLabel(raw: string | null | undefined): string {
+      return raw?.replace(/_\d+$/, '').replace(/_/g, ' ') ?? '';
+    }
+    const difficulty: MissionDifficulty | null = rawDiff ? {
+      mechanicalSkill:      diffScore(rawDiff.MechanicalSkill),
+      mechanicalSkillLabel: diffLabel(rawDiff.MechanicalSkill),
+      mentalLoad:           diffScore(rawDiff.MentalLoad),
+      mentalLoadLabel:      diffLabel(rawDiff.MentalLoad),
+      riskOfLoss:           diffScore(rawDiff.RiskOfLoss),
+      riskOfLossLabel:      diffLabel(rawDiff.RiskOfLoss),
+      gameKnowledge:        diffScore(rawDiff.GameKnowledge),
+      gameKnowledgeLabel:   diffLabel(rawDiff.GameKnowledge),
+      profile:              rawDiff.Profile ?? null,
+    } : null;
+
+    // Standing requirement
+    type RawStanding = { Name?: string; MinReputation?: number } | null;
+    const rawMin = first.MinStanding as RawStanding;
+    const minStanding: MissionStanding | null = (rawMin?.Name && rawMin.MinReputation != null)
+      ? { name: rawMin.Name, minReputation: rawMin.MinReputation }
+      : null;
+
     result.push({
       title,
       description: (first.Description as string | null) ?? '',
@@ -492,6 +542,10 @@ function buildMissionContracts(): MissionContract[] {
       locations: [...new Set(pools.flatMap(p => p.locations))].sort(),
       pools,
       reputation,
+      difficulty,
+      timeToCompleteMinutes: (first.TimeToCompleteMinutes as number | null) ?? null,
+      minStanding,
+      illegal: (first.Illegal as boolean | null) ?? false,
     });
   }
 

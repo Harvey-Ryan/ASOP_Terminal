@@ -65,6 +65,80 @@ function fmtDescription(raw: string): string {
     .trim();
 }
 
+function fmtDiffLabel(raw: string): string {
+  return raw.replace(/_\d+$/, '').replace(/_/g, ' ');
+}
+
+function fmtMinutes(m: number): string {
+  if (m < 60) return `~${Math.round(m)}m`;
+  const h = Math.floor(m / 60);
+  const rem = Math.round(m % 60);
+  return rem > 0 ? `~${h}h ${rem}m` : `~${h}h`;
+}
+
+function diffCls(score: number): string {
+  if (score <= 3) return 'text-green-500 border-green-500/30 bg-green-500/10';
+  if (score <= 4) return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10';
+  if (score <= 5) return 'text-orange-500 border-orange-500/30 bg-orange-500/10';
+  return 'text-red-500 border-red-500/30 bg-red-500/10';
+}
+
+import type { MissionDifficulty, MissionStanding } from '@/lib/gameData';
+
+function DifficultyBlock({ diff, time, standing, illegal }: {
+  diff: MissionDifficulty | null;
+  time: number | null;
+  standing: MissionStanding | null;
+  illegal: boolean;
+}) {
+  type DimDef = { label: string; score: number; detail: string };
+  const dims: DimDef[] = diff ? [
+    { label: 'Risk',       score: diff.riskOfLoss,      detail: diff.riskOfLossLabel },
+    { label: 'Mental',     score: diff.mentalLoad,       detail: diff.mentalLoadLabel },
+    { label: 'Mechanical', score: diff.mechanicalSkill,  detail: diff.mechanicalSkillLabel },
+    { label: 'Knowledge',  score: diff.gameKnowledge,    detail: diff.gameKnowledgeLabel },
+  ] : [];
+
+  return (
+    <div className="space-y-2">
+      {/* Meta row: time + profile + standing + illegal */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {time != null && (
+          <span className="text-[11px] font-mono bg-muted text-muted-foreground rounded px-2 py-0.5">
+            ⏱ {fmtMinutes(time)}
+          </span>
+        )}
+        {diff?.profile && (
+          <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5">{diff.profile}</span>
+        )}
+        {standing && standing.minReputation > 0 && (
+          <span className="text-[11px] bg-primary/10 text-primary rounded px-2 py-0.5 font-medium">
+            {standing.name} ({standing.minReputation.toLocaleString()}+ rep)
+          </span>
+        )}
+        {illegal && (
+          <span className="text-[11px] bg-red-500/10 text-red-500 border border-red-500/20 rounded px-2 py-0.5 font-semibold">
+            Illegal
+          </span>
+        )}
+      </div>
+
+      {/* Difficulty grid */}
+      {dims.length > 0 && (
+        <div className="grid grid-cols-2 gap-1.5">
+          {dims.map(({ label, score, detail }) => score > 0 ? (
+            <div key={label} className={cn('rounded border px-2 py-1.5', diffCls(score))}>
+              <p className="text-[9px] font-semibold uppercase tracking-wider opacity-70">{label}</p>
+              <p className="text-[11px] font-medium leading-tight mt-0.5">{score}/7</p>
+              {detail && <p className="text-[10px] opacity-60 leading-tight mt-0.5 capitalize">{detail.toLowerCase()}</p>}
+            </div>
+          ) : null)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Contract modal ────────────────────────────────────────────────────────────
 
 function ContractModal({
@@ -122,7 +196,15 @@ function ContractModal({
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
-          {/* Reward note */}
+          {/* Difficulty + meta */}
+          <DifficultyBlock
+            diff={contract.difficulty}
+            time={contract.timeToCompleteMinutes}
+            standing={contract.minStanding}
+            illegal={contract.illegal}
+          />
+
+          {/* Reward row */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2 flex-wrap">
             <span className="font-semibold text-foreground">aUEC:</span> Calculated (scales with difficulty &amp; distance)
             {contract.reputation.length > 0 && (
@@ -699,6 +781,26 @@ function ContractSidebarCard({
 
       {expanded && (
         <div className="px-3 py-2.5 space-y-2.5">
+          {/* Compact difficulty + meta */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {contract.timeToCompleteMinutes != null && (
+              <span className="text-[10px] font-mono bg-muted text-muted-foreground rounded px-1.5 py-0.5">
+                ⏱ {fmtMinutes(contract.timeToCompleteMinutes)}
+              </span>
+            )}
+            {contract.difficulty && (
+              <span className={cn('text-[10px] border rounded px-1.5 py-0.5 font-semibold', diffCls(contract.difficulty.riskOfLoss))}>
+                Risk {contract.difficulty.riskOfLoss}/7
+              </span>
+            )}
+            {contract.illegal && (
+              <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 rounded px-1.5 py-0.5 font-semibold">Illegal</span>
+            )}
+            {contract.minStanding && contract.minStanding.minReputation > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary rounded px-1.5 py-0.5">{contract.minStanding.name}</span>
+            )}
+          </div>
+
           {contract.reputation.length > 0 && (
             <div className="text-[11px] bg-muted/30 rounded px-2.5 py-1.5 text-muted-foreground">
               <span className="font-semibold text-foreground">Rep XP: </span>
