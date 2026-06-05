@@ -715,7 +715,13 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
             Back
           </button>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold leading-tight">{bp.name}</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-bold leading-tight">{bp.name}</h2>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                <Clock className="h-3.5 w-3.5" />
+                {fmtSecs(bp.craftTimeSecs)}
+              </span>
+            </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {bp.manufacturer && (
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">
@@ -830,11 +836,6 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
               ))}
             </div>
 
-            {/* Craft time */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground border-t border-border pt-3">
-              <Clock className="h-4 w-4 shrink-0" />
-              Craft time: <strong className="text-foreground">{fmtSecs(bp.craftTimeSecs)}</strong>
-            </div>
           </>
         )}
       </div>
