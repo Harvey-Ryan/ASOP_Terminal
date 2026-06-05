@@ -502,19 +502,20 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
   if (!baseStats) return null;
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product Stats</p>
-      <div className="rounded-md border border-border bg-muted/20 px-4 py-3 space-y-4">
-        <div className="flex items-center gap-2 flex-wrap">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center justify-between">
+        <p className="text-xs font-bold text-foreground">Product Stats</p>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {bp.manufacturer && (
-            <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
+            <span className="text-[11px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
               {bp.manufacturer}
             </span>
           )}
-          {bp.mass != null && <span className="text-xs text-muted-foreground">{bp.mass} kg</span>}
-          {bp.subtype    && <span className="text-xs text-muted-foreground capitalize">{bp.subtype}</span>}
+          {bp.mass != null && <span className="text-[11px] text-muted-foreground">{bp.mass} kg</span>}
+          {bp.subtype    && <span className="text-[11px] text-muted-foreground capitalize">{bp.subtype}</span>}
         </div>
-
+      </div>
+      <div className="px-4 py-3 space-y-4">
         {baseStats.kind === 'armor'        && <ArmorStats        base={baseStats} mults={mults} />}
         {baseStats.kind === 'shield'       && <ShieldStats       base={baseStats} mults={mults} />}
         {baseStats.kind === 'weapon'       && <WeaponStats       base={baseStats} mults={mults} />}
@@ -544,80 +545,86 @@ function ComponentCard({
   const activeStats = comp.stats;
 
   return (
-    <div className="rounded-md border border-border bg-card p-3 space-y-3">
-      <p className="text-sm font-semibold text-primary">{comp.slot}</p>
-
-      <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Slot header */}
+      <div className="px-3 py-2 border-b border-border bg-muted/20 flex items-center justify-between">
+        <p className="text-xs font-bold text-foreground leading-tight">{comp.slot}</p>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>⛏</span>
           <span className="font-medium text-foreground">{comp.material.name}</span>
-        </div>
-        <span className="text-muted-foreground tabular-nums">
-          {comp.material.quantityScu != null
-            ? `${comp.material.quantityScu} SCU`
-            : comp.material.quantity != null
-              ? `×${comp.material.quantity}`
-              : '—'}
+          <span className="tabular-nums">
+            {comp.material.quantityScu != null
+              ? `${comp.material.quantityScu} SCU`
+              : comp.material.quantity != null
+                ? `×${comp.material.quantity}`
+                : '—'}
+          </span>
           {comp.material.minQuality > 0 && (
-            <span className="ml-1 opacity-60">(min {comp.material.minQuality})</span>
+            <span className="opacity-60">(min {comp.material.minQuality})</span>
           )}
-        </span>
+        </div>
       </div>
 
-      {activeStats.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Quality</span>
+      {/* Body */}
+      <div className="px-3 py-3 space-y-3">
+        {activeStats.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Quality</span>
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                value={ql}
+                onChange={e => onChange(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
+                className={cn(
+                  'w-14 text-right font-mono text-xs font-bold bg-transparent focus:outline-none',
+                  ql > 500 ? 'text-green-500 border-b border-green-500/40 focus:border-green-500'
+                  : ql < 500 ? 'text-red-500 border-b border-red-500/40 focus:border-red-500'
+                  : 'text-foreground border-b border-border focus:border-foreground',
+                )}
+              />
+            </div>
             <input
-              type="number"
+              type="range"
               min={0}
               max={1000}
+              step={5}
               value={ql}
-              onChange={e => onChange(Math.max(0, Math.min(1000, Number(e.target.value) || 0)))}
+              onChange={e => onChange(Number(e.target.value))}
               className={cn(
-                'w-14 text-right font-mono text-xs font-bold bg-transparent focus:outline-none',
-                ql > 500 ? 'text-green-500 border-b border-green-500/40 focus:border-green-500'
-                : ql < 500 ? 'text-red-500 border-b border-red-500/40 focus:border-red-500'
-                : 'text-foreground border-b border-border focus:border-foreground',
+                'w-full h-1.5',
+                ql > 500 ? 'accent-green-500' : ql < 500 ? 'accent-red-500' : 'accent-foreground',
               )}
             />
           </div>
-          <input
-            type="range"
-            min={0}
-            max={1000}
-            step={5}
-            value={ql}
-            onChange={e => onChange(Number(e.target.value))}
-            className={cn(
-              'w-full h-1.5',
-              ql > 500 ? 'accent-green-500' : ql < 500 ? 'accent-red-500' : 'accent-foreground',
-            )}
-          />
-        </div>
-      )}
+        )}
 
-      {activeStats.map(s => {
-        const mult   = interpolateStat(s, ql);
-        const pctChg = (mult - 1) * 100;
-        return (
-          <div key={s.key} className="space-y-0.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{s.label}</span>
-              <span className={cn(
-                'font-mono font-semibold',
-                ql > 500 ? 'text-green-500' : ql < 500 ? 'text-red-500' : 'text-foreground',
-              )}>
-                {fmtMult(mult)} {fmtPct(pctChg)}
-              </span>
+        {activeStats.map(s => {
+          const mult   = interpolateStat(s, ql);
+          const pctChg = (mult - 1) * 100;
+          return (
+            <div key={s.key} className="space-y-0.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{s.label}</span>
+                <span className={cn(
+                  'font-mono font-semibold',
+                  ql > 500 ? 'text-green-500' : ql < 500 ? 'text-red-500' : 'text-foreground',
+                )}>
+                  {fmtMult(mult)} {fmtPct(pctChg)}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground/50">
+                Q: {s.qualityMin}–{s.qualityMax} · ×{s.multiplierAtMin.toFixed(2)}–{s.multiplierAtMax.toFixed(2)} · Base 500
+              </p>
             </div>
-            <p className="text-[10px] text-muted-foreground/50">
-              Q: {s.qualityMin}–{s.qualityMax} · ×{s.multiplierAtMin.toFixed(2)}–{s.multiplierAtMax.toFixed(2)} · Base 500
-            </p>
-          </div>
-        );
-      })}
+          );
+        })}
 
+        {activeStats.length === 0 && (
+          <p className="text-xs text-muted-foreground/50 italic">No quality stats for this slot.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -631,32 +638,29 @@ function DisassembleView({ bp }: { bp: LocalBlueprint }) {
   const d = bp.dismantle;
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 text-sm rounded-md border border-border px-4 py-2.5 bg-muted/20">
-        <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="text-muted-foreground">Time</span>
-        <span className="font-semibold">{fmtSecs(d.timeSecs)}</span>
-        <span className="text-green-500 font-semibold ml-auto">{(d.efficiency * 100).toFixed(0)}% recovery</span>
-      </div>
-
-      {d.returns.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Returns</p>
-          <div className="rounded-md border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody>
-                {d.returns.map((r, i) => (
-                  <tr key={i} className="border-b border-border/40 last:border-0">
-                    <td className="px-3 py-2 font-medium">{r.name}</td>
-                    <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                      {r.quantityScu != null ? `${r.quantityScu} SCU` : r.quantity != null ? `×${r.quantity}` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-3">
+          <Wrench className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="text-xs font-bold text-foreground">Disassemble</span>
+          <span className="ml-auto text-xs text-muted-foreground">{fmtSecs(d.timeSecs)}</span>
+          <span className="text-xs text-green-500 font-semibold">{(d.efficiency * 100).toFixed(0)}% recovery</span>
         </div>
-      )}
+
+        {d.returns.length > 0 && (
+          <table className="w-full text-sm">
+            <tbody>
+              {d.returns.map((r, i) => (
+                <tr key={i} className="border-b border-border/40 last:border-0">
+                  <td className="px-4 py-2 font-medium">{r.name}</td>
+                  <td className="px-4 py-2 text-right font-mono text-muted-foreground">
+                    {r.quantityScu != null ? `${r.quantityScu} SCU` : r.quantity != null ? `×${r.quantity}` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
@@ -692,9 +696,9 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-card">
+    <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border shrink-0">
+      <div className="px-5 py-4 border-b border-border shrink-0 bg-card">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
@@ -757,7 +761,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
       )}
 
       {/* Tabs */}
-      <div className="px-5 py-3 border-b border-border shrink-0 flex items-center gap-2">
+      <div className="px-5 py-3 border-b border-border shrink-0 flex items-center gap-2 bg-card">
         <button
           onClick={() => setTab('craft')}
           className={cn(
@@ -792,37 +796,39 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
           <>
             <ProductStats bp={bp} qls={qls} />
 
-            {/* Quality presets */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
-                Presets
-              </span>
-              {PRESETS.map(([label, v]) => (
-                <button
-                  key={label}
-                  onClick={() => applyPreset(v)}
-                  className={cn(
-                    'px-2.5 py-1 text-xs rounded font-medium transition-colors',
-                    preset === v
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Component cards */}
-            <div className="grid grid-cols-2 gap-3">
-              {bp.components.map((comp, i) => (
-                <ComponentCard
-                  key={`${comp.slot}-${i}`}
-                  comp={comp}
-                  ql={qls[i] ?? 500}
-                  onChange={v => setSlot(i, v)}
-                />
-              ))}
+            {/* Components */}
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-3">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-bold text-foreground">Components</span>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Presets</span>
+                  {PRESETS.map(([label, v]) => (
+                    <button
+                      key={label}
+                      onClick={() => applyPreset(v)}
+                      className={cn(
+                        'px-2 py-0.5 text-xs rounded font-medium transition-colors',
+                        preset === v
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-3 grid grid-cols-2 gap-3">
+                {bp.components.map((comp, i) => (
+                  <ComponentCard
+                    key={`${comp.slot}-${i}`}
+                    comp={comp}
+                    ql={qls[i] ?? 500}
+                    onChange={v => setSlot(i, v)}
+                  />
+                ))}
+              </div>
             </div>
 
           </>
