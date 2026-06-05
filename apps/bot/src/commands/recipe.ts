@@ -3,7 +3,7 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
-import { prisma } from '../db.js';
+import { BLUEPRINTS, BLUEPRINT_BY_UUID } from '../gamedata.js';
 import { buildRecipeEmbed } from '../utils/scUtils.js';
 
 export const data = new SlashCommandBuilder()
@@ -20,19 +20,16 @@ export const data = new SlashCommandBuilder()
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  const focused = interaction.options.getFocused();
+  const focused = interaction.options.getFocused().toLowerCase();
 
-  const rows = await prisma.scBlueprint.findMany({
-    where:   { outputName: { contains: focused, mode: 'insensitive' } },
-    orderBy: { outputName: 'asc' },
-    take:    25,
-    select:  { uuid: true, outputName: true, outputType: true },
-  });
+  const matches = BLUEPRINTS
+    .filter((b) => b.outputName.toLowerCase().includes(focused))
+    .slice(0, 25);
 
   await interaction.respond(
-    rows.map((r) => ({
-      name:  r.outputType ? `${r.outputName} (${r.outputType})` : r.outputName,
-      value: r.uuid,
+    matches.map((b) => ({
+      name:  b.outputType ? `${b.outputName} (${b.outputType})` : b.outputName,
+      value: b.uuid,
     })),
   );
 }
@@ -43,23 +40,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply();
   const rawValue = interaction.options.getString('name', true);
 
-  const bp = await prisma.scBlueprint.findFirst({
-    where: {
-      OR: [
-        { uuid: rawValue },
-        { outputName: { equals: rawValue, mode: 'insensitive' } },
-      ],
-    },
-    include: {
-      tiers: {
-        orderBy: { tierIndex: 'asc' },
-        include: {
-          materials: { orderBy: { name: 'asc' } },
-          modifiers: { orderBy: { key:  'asc' } },
-        },
-      },
-    },
-  });
+  const bp =
+    BLUEPRINT_BY_UUID.get(rawValue) ??
+    BLUEPRINTS.find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase());
 
   if (!bp) {
     await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });

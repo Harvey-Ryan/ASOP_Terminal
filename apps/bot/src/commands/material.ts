@@ -4,11 +4,11 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
-import { prisma } from '../db.js';
+import { MATERIAL_NAMES, getBlueprintsForMaterial } from '../gamedata.js';
 
 export const data = new SlashCommandBuilder()
   .setName('material')
-  .setDescription('Look up Star Citizen crafting materials from the scunpacked database')
+  .setDescription('Look up Star Citizen crafting materials')
   .addSubcommand((sub) =>
     sub
       .setName('usedby')
@@ -24,107 +24,77 @@ export const data = new SlashCommandBuilder()
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
-export async function autocomplete(interaction: AutocompleteInteraction) {
-  const focused = interaction.options.getFocused();
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  const focused = interaction.options.getFocused().toLowerCase();
 
-  const rows = await prisma.scBlueprintMaterial.findMany({
-    where: { name: { contains: focused, mode: 'insensitive' } },
-    select: { name: true },
-    distinct: ['name'],
-    orderBy: { name: 'asc' },
-    take: 25,
-  });
+  const matches = MATERIAL_NAMES
+    .filter((n) => n.includes(focused))
+    .slice(0, 25);
 
-  await interaction.respond(rows.map((r) => ({ name: r.name, value: r.name })));
+  await interaction.respond(matches.map((n) => ({ name: n, value: n })));
 }
 
 // ── Execute ───────────────────────────────────────────────────────────────────
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const sub = interaction.options.getSubcommand();
   if (sub === 'usedby') return handleUsedBy(interaction);
 }
 
 // ── /material usedby ──────────────────────────────────────────────────────────
 
-async function handleUsedBy(interaction: ChatInputCommandInteraction) {
+async function handleUsedBy(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   const materialName = interaction.options.getString('name', true).trim();
 
-  // Find all blueprint tiers that contain this material
-  const matchedMaterials = await prisma.scBlueprintMaterial.findMany({
-    where: { name: { contains: materialName, mode: 'insensitive' } },
-    select: { tierId: true, name: true, quantityScu: true, quantity: true },
-    take: 200,
-  });
+  // Find all blueprints using any material name containing the search term
+  const search  = materialName.toLowerCase();
+  const matches = MATERIAL_NAMES.filter((n) => n.includes(search));
 
-  if (matchedMaterials.length === 0) {
+  if (matches.length === 0) {
     await interaction.editReply({ content: `No blueprints found that use **${materialName}**.` });
     return;
   }
 
-  // Group by exact material name to find the canonical match
-  const nameCounts = new Map<string, number>();
-  for (const m of matchedMaterials) {
-    nameCounts.set(m.name, (nameCounts.get(m.name) ?? 0) + 1);
-  }
+  // Collect all matching blueprints (de-duped)
+  const bpSet = new Set(matches.flatMap((n) => getBlueprintsForMaterial(n)));
+  const blueprints = [...bpSet].sort((a, b) => a.outputName.localeCompare(b.outputName));
+  const total   = blueprints.length;
+  const showing = blueprints.slice(0, 20);
 
-  // Resolve tier IDs → blueprint UUIDs
-  const tierIds = [...new Set(matchedMaterials.map((m) => m.tierId))];
-  const tiers = await prisma.scBlueprintTier.findMany({
-    where: { id: { in: tierIds } },
-    select: { blueprintUuid: true },
-    distinct: ['blueprintUuid'],
-  });
+  // For the title, prefer an exact match
+  const exactMatch = matches.find((n) => n === search) ?? matches[0]!;
 
-  const blueprintUuids = [...new Set(tiers.map((t) => t.blueprintUuid))];
-  const blueprints = await prisma.scBlueprint.findMany({
-    where: { uuid: { in: blueprintUuids } },
-    orderBy: { outputName: 'asc' },
-    take: 20,
-    select: {
-      uuid: true,
-      outputName: true,
-      outputType: true,
-      outputGrade: true,
-    },
-  });
-
-  const total = blueprintUuids.length;
-  const showing = blueprints.length;
-
-  // Find the quantities for the first exact match (best match label)
-  const firstMatch = matchedMaterials.find((m) =>
-    m.name.toLowerCase() === materialName.toLowerCase(),
-  ) ?? matchedMaterials[0]!;
-  const qty = firstMatch.quantityScu != null
-    ? `${firstMatch.quantityScu} SCU`
-    : firstMatch.quantity != null
-      ? `×${firstMatch.quantity}`
-      : '';
+  // Find qty from first blueprint that uses the exact-matched material name
+  const firstBp = getBlueprintsForMaterial(exactMatch)[0];
+  const firstMat = firstBp?.materials.find((m) => m.name.toLowerCase() === exactMatch);
+  const qty = firstMat
+    ? firstMat.quantityScu != null
+      ? `${firstMat.quantityScu} SCU`
+      : firstMat.quantity != null
+        ? `×${firstMat.quantity}`
+        : ''
+    : '';
 
   const embed = new EmbedBuilder()
-    .setTitle(`🔩 Blueprints using "${firstMatch.name}"${qty ? ` (${qty})` : ''}`)
+    .setTitle(`🔩 Blueprints using "${exactMatch}"${qty ? ` (${qty})` : ''}`)
     .setColor(0x10b981)
     .setFooter({
-      text: `scunpacked · ${total} blueprint${total === 1 ? '' : 's'} total${showing < total ? `, showing ${showing}` : ''}`,
+      text: `Star Citizen · ${total} blueprint${total === 1 ? '' : 's'} total${showing.length < total ? `, showing ${showing.length}` : ''}`,
     });
 
-  const lines = blueprints.map((b) => {
+  const lines = showing.map((b) => {
     const grade = b.outputGrade ? ` · Grade ${b.outputGrade}` : '';
     return `• **${b.outputName}** — \`${b.outputType}\`${grade}`;
   });
 
-  if (lines.length > 0) {
-    embed.setDescription(lines.join('\n'));
-  }
+  if (lines.length > 0) embed.setDescription(lines.join('\n'));
 
-  // Show all distinct material names that matched (in case of fuzzy hit)
-  if (nameCounts.size > 1) {
-    const variantLines = [...nameCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
+  // Show matched variant names when the search hit multiple distinct names
+  if (matches.length > 1) {
+    const variantLines = matches
       .slice(0, 5)
-      .map(([n, c]) => `• ${n} (${c})`);
+      .map((n) => `• ${n} (${getBlueprintsForMaterial(n).length})`);
     embed.addFields([{ name: 'Matched variants', value: variantLines.join('\n'), inline: false }]);
   }
 

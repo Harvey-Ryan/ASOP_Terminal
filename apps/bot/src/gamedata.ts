@@ -11,7 +11,12 @@ const DATA_DIR = resolve(
   '../../../packages/shared/src/Filtered Data',
 );
 
-// ── Raw JSON shapes ───────────────────────────────────────────────────────────
+function loadJson<T>(file: string): T {
+  const raw = readFileSync(resolve(DATA_DIR, file), 'utf8').replace(/^﻿/, '');
+  return JSON.parse(raw) as T;
+}
+
+// ── Mission contract raw JSON shapes ─────────────────────────────────────────
 
 interface RawBpItem {
   Name: string;
@@ -121,9 +126,7 @@ function cleanStr(s: string | undefined | null): string | null {
 
 function buildContracts(): MissionContract[] {
   console.log('[gamedata] Loading Missions.json…');
-  const raw = JSON.parse(
-    readFileSync(resolve(DATA_DIR, 'Missions.json'), 'utf8'),
-  ) as RawMission[];
+  const raw = loadJson<RawMission[]>('Missions.json');
 
   // Keep only missions that have at least one blueprint pool with items
   const relevant = raw.filter(
@@ -259,3 +262,186 @@ export function getContractsForBlueprint(blueprintUuid: string): MissionContract
 export const BLUEPRINT_UUIDS_WITH_CONTRACTS: ReadonlySet<string> = new Set(
   _byBlueprint.keys(),
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Blueprint + Resource data (Blueprints.json / Resources.json)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Raw JSON shapes ───────────────────────────────────────────────────────────
+
+interface RawResource { UUID: string; Name: string }
+
+interface RawStat {
+  Key:             string;
+  Label:           string;
+  QualityMin:      number;
+  QualityMax:      number;
+  MultiplierAtMin: number;
+  MultiplierAtMax: number;
+  UnitFormat:      string | null;
+}
+
+interface RawMaterial {
+  UUID:        string | null;
+  Name:        string | null;
+  Kind:        string;
+  Quantity:    number | null;
+  QuantityScu: number | null;
+  MinQuality:  number | null;
+}
+
+interface RawComponent {
+  Slot:     string;
+  Material: RawMaterial;
+  Stats:    RawStat[];
+}
+
+interface RawDismantle {
+  TimeSeconds: number | null;
+  Efficiency:  number | null;
+}
+
+interface RawLocalBlueprint {
+  UUID:             string;
+  Key:              string;
+  Name:             string;
+  ItemUUID:         string;
+  Type:             string;
+  Subtype:          string | null;
+  Grade:            string | null;
+  CraftTimeSeconds: number;
+  Components:       RawComponent[];
+  Dismantle:        RawDismantle | null;
+}
+
+// ── Exported types ────────────────────────────────────────────────────────────
+
+export interface LocalMaterial {
+  name:        string;
+  uuid:        string | null;
+  kind:        string;
+  slot:        string;
+  quantity:    number | null;
+  quantityScu: number | null;
+  minQuality:  number | null;
+}
+
+export interface LocalModifier {
+  key:          string;
+  name:         string;
+  qualityMin:   number;
+  qualityMax:   number;
+  modifierAtMin: number;
+  modifierAtMax: number;
+  unitFormat:   string | null;
+}
+
+export interface LocalBlueprint {
+  uuid:               string;
+  key:                string;
+  outputName:         string;
+  outputType:         string;
+  outputSubtype:      string | null;
+  outputGrade:        string | null;
+  craftTimeSecs:      number;
+  materials:          LocalMaterial[];
+  modifiers:          LocalModifier[];
+  dismantleTimeSecs:  number | null;
+  dismantleEfficiency: number | null;
+}
+
+// ── Build function ────────────────────────────────────────────────────────────
+
+function buildBlueprints(): LocalBlueprint[] {
+  console.log('[gamedata] Loading Resources.json…');
+  const resources = loadJson<RawResource[]>('Resources.json');
+  const resMap = new Map<string, string>(resources.map((r) => [r.UUID, r.Name]));
+
+  console.log('[gamedata] Loading Blueprints.json…');
+  const raw = loadJson<RawLocalBlueprint[]>('Blueprints.json');
+
+  const result: LocalBlueprint[] = [];
+
+  for (const bp of raw) {
+    if (!bp.UUID || !bp.Name || bp.Name === PLACEHOLDER || bp.Name === UNINITIALIZED) continue;
+
+    const materials: LocalMaterial[] = [];
+    const modifiers: LocalModifier[] = [];
+
+    for (const comp of bp.Components ?? []) {
+      const m = comp.Material;
+      const resolvedName =
+        m.Name ??
+        (m.UUID ? (resMap.get(m.UUID) ?? comp.Slot) : comp.Slot);
+
+      materials.push({
+        name:        resolvedName,
+        uuid:        m.UUID,
+        kind:        m.Kind,
+        slot:        comp.Slot,
+        quantity:    m.Quantity,
+        quantityScu: m.QuantityScu,
+        minQuality:  m.MinQuality,
+      });
+
+      for (const stat of comp.Stats ?? []) {
+        modifiers.push({
+          key:          stat.Key,
+          name:         stat.Label,
+          qualityMin:   stat.QualityMin,
+          qualityMax:   stat.QualityMax,
+          modifierAtMin: stat.MultiplierAtMin,
+          modifierAtMax: stat.MultiplierAtMax,
+          unitFormat:   stat.UnitFormat,
+        });
+      }
+    }
+
+    result.push({
+      uuid:               bp.UUID,
+      key:                bp.Key,
+      outputName:         bp.Name,
+      outputType:         bp.Type,
+      outputSubtype:      (!bp.Subtype || bp.Subtype === 'UNDEFINED') ? null : bp.Subtype,
+      outputGrade:        bp.Grade ?? null,
+      craftTimeSecs:      bp.CraftTimeSeconds,
+      materials,
+      modifiers,
+      dismantleTimeSecs:  bp.Dismantle?.TimeSeconds ?? null,
+      dismantleEfficiency: bp.Dismantle?.Efficiency ?? null,
+    });
+  }
+
+  result.sort((a, b) => a.outputName.localeCompare(b.outputName));
+  console.log(`[gamedata] ${result.length} blueprints loaded`);
+  return result;
+}
+
+// ── Exported blueprint data ───────────────────────────────────────────────────
+
+export const BLUEPRINTS: LocalBlueprint[] = buildBlueprints();
+
+export const BLUEPRINT_BY_UUID: ReadonlyMap<string, LocalBlueprint> = new Map(
+  BLUEPRINTS.map((b) => [b.uuid, b]),
+);
+
+/** material name (lower-cased) → blueprints that use it */
+const _byMaterial = new Map<string, Set<LocalBlueprint>>();
+for (const bp of BLUEPRINTS) {
+  for (const m of bp.materials) {
+    const key = m.name.toLowerCase();
+    const set = _byMaterial.get(key) ?? new Set<LocalBlueprint>();
+    set.add(bp);
+    _byMaterial.set(key, set);
+  }
+}
+
+/** Distinct material names sorted alphabetically (for autocomplete). */
+export const MATERIAL_NAMES: readonly string[] = [..._byMaterial.keys()]
+  .sort((a, b) => a.localeCompare(b));
+
+/** Returns blueprints that use the given material (case-insensitive exact match). */
+export function getBlueprintsForMaterial(materialName: string): LocalBlueprint[] {
+  const set = _byMaterial.get(materialName.toLowerCase());
+  return set ? [...set].sort((a, b) => a.outputName.localeCompare(b.outputName)) : [];
+}
