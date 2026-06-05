@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, X, MapPin, Layers, FileText } from 'lucide-react';
+import { Search, X, MapPin, Layers, FileText, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MISSION_CONTRACTS,
@@ -42,11 +42,31 @@ function fmtMinutes(m: number): string {
   return rem > 0 ? `~${h}h ${rem}m` : `~${h}h`;
 }
 
+function fmtAuec(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  return `${Math.round(n / 1000)}k`;
+}
+
+// Community-benchmarked estimate: ~2,500 aUEC/min at risk-3 baseline, ×1.5 per tier.
+// Distance to objective is not in our data and will cause variance.
+function estimateAuec(time: number | null, riskScore: number): { low: number; high: number } | null {
+  if (!time || !riskScore) return null;
+  const mid = time * 2500 * Math.pow(1.5, riskScore - 3);
+  return { low: mid * 0.8, high: mid * 1.2 };
+}
+
 function diffCls(score: number): string {
   if (score <= 3) return 'text-green-500 border-green-500/30 bg-green-500/10';
   if (score <= 4) return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10';
   if (score <= 5) return 'text-orange-500 border-orange-500/30 bg-orange-500/10';
   return 'text-red-500 border-red-500/30 bg-red-500/10';
+}
+
+function diffTextCls(score: number): string {
+  if (score <= 3) return 'text-green-500';
+  if (score <= 4) return 'text-yellow-500';
+  if (score <= 5) return 'text-orange-500';
+  return 'text-red-500';
 }
 
 function DifficultyBlock({ diff, time, standing, illegal }: {
@@ -109,125 +129,186 @@ function ContractCard({
   contract: MissionContract;
   onViewRecipe: (uuid: string) => void;
 }) {
+  const [expanded,     setExpanded]     = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
-  const multiPool = contract.pools.length > 1;
-  const desc = contract.description ? fmtDescription(contract.description) : '';
+
+  const multiPool   = contract.pools.length > 1;
+  const desc        = contract.description ? fmtDescription(contract.description) : '';
+  const totalBps    = contract.pools.flatMap(p => p.blueprints).length;
+  const riskScore   = contract.difficulty?.riskOfLoss ?? 0;
+  const auecEst     = estimateAuec(contract.timeToCompleteMinutes, riskScore);
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border bg-muted/20">
-        <h3 className="text-sm font-bold leading-tight">{fmtContractTitle(contract.title)}</h3>
+    <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+
+      {/* ── Overview (always visible, click to expand) ── */}
+      <button
+        onClick={() => setExpanded(o => !o)}
+        className="w-full text-left px-4 pt-3 pb-3 hover:bg-accent/30 transition-colors"
+      >
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-bold leading-snug">{fmtContractTitle(contract.title)}</h3>
+          <ChevronDown className={cn(
+            'h-4 w-4 shrink-0 text-muted-foreground mt-0.5 transition-transform duration-200',
+            expanded && 'rotate-180',
+          )} />
+        </div>
+
+        {/* Chips */}
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           {contract.missionType && (
-            <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5 font-medium">
+            <span className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-medium">
               {contract.missionType}
             </span>
           )}
           {contract.missionGiver && (
-            <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5">
+            <span className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">
               {contract.missionGiver}
             </span>
           )}
           {contract.faction && contract.faction !== contract.missionGiver && (
-            <span className="text-[11px] bg-primary/10 text-primary rounded px-2 py-0.5 font-mono">
+            <span className="text-[10px] bg-primary/10 text-primary rounded px-1.5 py-0.5 font-mono">
               {contract.faction}
             </span>
           )}
-        </div>
-      </div>
-
-      <div className="px-4 py-3 space-y-3">
-        {/* Difficulty + meta */}
-        <DifficultyBlock
-          diff={contract.difficulty}
-          time={contract.timeToCompleteMinutes}
-          standing={contract.minStanding}
-          illegal={contract.illegal}
-        />
-
-        {/* aUEC + Reputation */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-1.5">
-          <span className="font-semibold text-foreground">aUEC:</span>
-          Calculated (scales with difficulty &amp; distance)
-          {contract.reputation.length > 0 && (
-            <>
-              <span className="mx-1 opacity-30">·</span>
-              <span className="font-semibold text-foreground">Rep XP:</span>
-              {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
-            </>
+          {contract.illegal && (
+            <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 rounded px-1.5 py-0.5 font-semibold">
+              Illegal
+            </span>
           )}
         </div>
 
-        {/* Locations */}
-        {contract.locations.length > 0 && (
-          <div className="flex items-start gap-2">
-            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-            <div className="flex flex-wrap gap-1">
-              {contract.locations.map(loc => (
-                <span key={loc} className="text-[11px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">
-                  {loc}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Stats row */}
+        <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+          {contract.timeToCompleteMinutes != null && (
+            <span className="text-[11px] font-mono text-muted-foreground">
+              ⏱ {fmtMinutes(contract.timeToCompleteMinutes)}
+            </span>
+          )}
+          {riskScore > 0 && (
+            <span className={cn('text-[11px] font-semibold border rounded px-1.5 py-0.5', diffCls(riskScore))}>
+              Risk {riskScore}/7
+            </span>
+          )}
+          {contract.locations.length > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              {contract.locations.length} location{contract.locations.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Layers className="h-3 w-3" />
+            {totalBps} blueprint{totalBps !== 1 ? 's' : ''}
+          </span>
+          {auecEst && (
+            <span className={cn('text-[11px] font-semibold ml-auto', diffTextCls(riskScore))}>
+              ~{fmtAuec(auecEst.low)}–{fmtAuec(auecEst.high)} aUEC
+              <span className="text-[9px] text-muted-foreground font-normal ml-0.5">est.</span>
+            </span>
+          )}
+        </div>
+      </button>
 
-        {/* Description — collapsed by default */}
-        {desc && (
-          <div className="space-y-1">
-            <button
-              onClick={() => setDescExpanded(o => !o)}
-              className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Description
-              <span className="text-[9px]">{descExpanded ? '▲' : '▼'}</span>
-            </button>
-            {descExpanded && (
-              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap rounded border border-border/50 bg-muted/20 px-3 py-2 max-h-36 overflow-y-auto">
-                {desc}
-              </p>
+      {/* ── Expanded detail ── */}
+      {expanded && (
+        <div className="border-t border-border px-4 py-3 space-y-3">
+
+          {/* Difficulty grid */}
+          <DifficultyBlock
+            diff={contract.difficulty}
+            time={contract.timeToCompleteMinutes}
+            standing={contract.minStanding}
+            illegal={contract.illegal}
+          />
+
+          {/* aUEC + Rep */}
+          <div className="text-xs text-muted-foreground bg-muted/30 rounded px-3 py-1.5 space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-foreground">aUEC:</span>
+              {auecEst
+                ? <><span className={cn('font-semibold', diffTextCls(riskScore))}>~{fmtAuec(auecEst.low)}–{fmtAuec(auecEst.high)}</span> <span className="opacity-60">(est. · varies with distance)</span></>
+                : 'Calculated (scales with difficulty & distance)'
+              }
+            </div>
+            {contract.reputation.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-foreground">Rep XP:</span>
+                {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
+              </div>
             )}
           </div>
-        )}
 
-        {/* Blueprint pools */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Blueprints</span>
-          </div>
-          {contract.pools.map((pool, pi) => (
-            <div key={pi} className="rounded border border-border overflow-hidden">
-              {multiPool && (
-                <div className="px-3 py-1.5 bg-muted/30 border-b border-border/60 flex items-center gap-2">
-                  <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <span className="text-[11px] text-muted-foreground">
-                    {pool.locations.length > 0
-                      ? pool.locations.slice(0, 5).join(', ') +
-                        (pool.locations.length > 5 ? ` +${pool.locations.length - 5} more` : '')
-                      : 'Default (all locations)'}
+          {/* Locations */}
+          {contract.locations.length > 0 && (
+            <div className="flex items-start gap-2">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="flex flex-wrap gap-1">
+                {contract.locations.map(loc => (
+                  <span key={loc} className="text-[11px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">
+                    {loc}
                   </span>
-                </div>
-              )}
-              <div className="divide-y divide-border/40">
-                {pool.blueprints.map(bp => (
-                  <div key={bp.blueprintUuid} className="flex items-center justify-between px-3 py-2">
-                    <span className="text-xs text-foreground">{bp.name}</span>
-                    <button
-                      onClick={() => onViewRecipe(bp.blueprintUuid)}
-                      className="text-[11px] text-primary hover:underline shrink-0 ml-3"
-                    >
-                      View recipe →
-                    </button>
-                  </div>
                 ))}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Description */}
+          {desc && (
+            <div className="space-y-1">
+              <button
+                onClick={e => { e.stopPropagation(); setDescExpanded(o => !o); }}
+                className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Description
+                <span className="text-[9px]">{descExpanded ? '▲' : '▼'}</span>
+              </button>
+              {descExpanded && (
+                <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap rounded border border-border/50 bg-muted/20 px-3 py-2 max-h-36 overflow-y-auto">
+                  {desc}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Blueprint pools */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Blueprints</span>
+            </div>
+            {contract.pools.map((pool, pi) => (
+              <div key={pi} className="rounded border border-border overflow-hidden">
+                {multiPool && (
+                  <div className="px-3 py-1.5 bg-muted/30 border-b border-border/60 flex items-center gap-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className="text-[11px] text-muted-foreground">
+                      {pool.locations.length > 0
+                        ? pool.locations.slice(0, 5).join(', ') +
+                          (pool.locations.length > 5 ? ` +${pool.locations.length - 5} more` : '')
+                        : 'Default (all locations)'}
+                    </span>
+                  </div>
+                )}
+                <div className="divide-y divide-border/40">
+                  {pool.blueprints.map(bp => (
+                    <div key={bp.blueprintUuid} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-xs text-foreground">{bp.name}</span>
+                      <button
+                        onClick={() => onViewRecipe(bp.blueprintUuid)}
+                        className="text-[11px] text-primary hover:underline shrink-0 ml-3"
+                      >
+                        View recipe →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -296,7 +377,6 @@ export function BlueprintsPage() {
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
         <h3 className="text-lg font-bold tracking-tight">Blueprint Search</h3>
 
-        {/* Autocomplete */}
         <div ref={wrapperRef} className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
           <input
@@ -372,16 +452,19 @@ export function BlueprintsPage() {
             <p className="text-xs text-muted-foreground">
               {contracts.length} contract{contracts.length !== 1 ? 's' : ''} for{' '}
               <strong className="text-foreground">{submittedBp.name}</strong>
+              <span className="ml-2 opacity-50">· aUEC estimates based on community-measured rates; vary with distance</span>
             </p>
-            {contracts.map(mc => (
-              <ContractCard
-                key={mc.title}
-                contract={mc}
-                onViewRecipe={uuid =>
-                  navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`)
-                }
-              />
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {contracts.map(mc => (
+                <ContractCard
+                  key={mc.title}
+                  contract={mc}
+                  onViewRecipe={uuid =>
+                    navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`)
+                  }
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
