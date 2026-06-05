@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Info, Layers, MapPin, FileText } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Layers, MapPin, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -624,12 +624,6 @@ function ComponentCard({
         );
       })}
 
-      {comp.material.kind === 'item' && (
-        <div className="flex items-center gap-1.5 text-[10px] text-amber-500/80 border border-amber-500/20 rounded px-2 py-1">
-          <Info className="h-3 w-3 shrink-0" />
-          Crafted component — sub-recipe pending
-        </div>
-      )}
     </div>
   );
 }
