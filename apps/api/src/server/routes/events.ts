@@ -265,7 +265,7 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
 
   if (role !== null) {
     const roles = JSON.parse(event.roles) as EventRole[];
-    if (!roles.some((r) => r.name === role)) {
+    if (!roles.some((r) => r.id === role || r.name === role)) {
       res.status(400).json({ success: false, error: 'Invalid role' } satisfies ApiResponse);
       return;
     }
@@ -436,7 +436,7 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
       return;
     }
     const roles = JSON.parse(event.roles) as EventRole[];
-    if (!roles.some((r) => r.name === role)) {
+    if (!roles.some((r) => r.id === role || r.name === role)) {
       res.status(400).json({ success: false, error: 'Invalid role' } satisfies ApiResponse);
       return;
     }
