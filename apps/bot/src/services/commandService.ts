@@ -10,11 +10,12 @@ import * as uexCommand from '../commands/uex.js';
 import * as whohasCommand from '../commands/whohas.js';
 import * as blueprintCommand from '../commands/blueprint.js';
 import * as materialCommand from '../commands/material.js';
+import * as recipeCommand from '../commands/recipe.js';
 import * as fleetCommand from '../commands/fleet.js';
 import * as helpCommand from '../commands/help.js';
 import * as marketplaceCommand from '../commands/marketplace.js';
 
-const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), lootCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), uexCommand.data.toJSON(), whohasCommand.data.toJSON(), blueprintCommand.data.toJSON(), materialCommand.data.toJSON(), fleetCommand.data.toJSON(), helpCommand.data.toJSON(), marketplaceCommand.data.toJSON()];
+const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), lootCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), uexCommand.data.toJSON(), whohasCommand.data.toJSON(), blueprintCommand.data.toJSON(), materialCommand.data.toJSON(), recipeCommand.data.toJSON(), fleetCommand.data.toJSON(), helpCommand.data.toJSON(), marketplaceCommand.data.toJSON()];
 
 export async function registerCommands(clientId?: string): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];

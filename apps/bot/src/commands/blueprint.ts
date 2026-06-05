@@ -5,10 +5,12 @@ import {
   type AutocompleteInteraction,
 } from 'discord.js';
 import { prisma } from '../db.js';
+import { getContractsForBlueprint, BLUEPRINT_UUIDS_WITH_CONTRACTS } from '../gamedata.js';
+import { formatSeconds, estimateAuec, fmtAuec, buildRecipeEmbed } from '../utils/scUtils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('blueprint')
-  .setDescription('Look up Star Citizen crafting blueprints from the scunpacked database')
+  .setDescription('Look up Star Citizen crafting blueprints')
   .addSubcommand((sub) =>
     sub
       .setName('search')
@@ -40,23 +42,41 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
           .setAutocomplete(true),
       ),
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('contracts')
+      .setDescription('Show which mission contracts can reward a blueprint')
+      .addStringOption((opt) =>
+        opt
+          .setName('name')
+          .setDescription('Blueprint name (start typing for suggestions)')
+          .setRequired(true)
+          .setAutocomplete(true),
+      ),
   );
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
-export async function autocomplete(interaction: AutocompleteInteraction) {
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused();
+  const sub     = interaction.options.getSubcommand(false);
 
+  // For contracts, fetch extra rows so we have enough after filtering to known-obtainable blueprints
   const rows = await prisma.scBlueprint.findMany({
-    where: { outputName: { contains: focused, mode: 'insensitive' } },
+    where:   { outputName: { contains: focused, mode: 'insensitive' } },
     orderBy: { outputName: 'asc' },
-    take: 25,
-    select: { uuid: true, outputName: true, outputType: true },
+    take:    sub === 'contracts' ? 100 : 25,
+    select:  { uuid: true, outputName: true, outputType: true },
   });
 
+  const suggestions = sub === 'contracts'
+    ? rows.filter((r) => BLUEPRINT_UUIDS_WITH_CONTRACTS.has(r.uuid)).slice(0, 25)
+    : rows;
+
   await interaction.respond(
-    rows.map((r) => ({
-      name: r.outputType ? `${r.outputName} (${r.outputType})` : r.outputName,
+    suggestions.map((r) => ({
+      name:  r.outputType ? `${r.outputName} (${r.outputType})` : r.outputName,
       value: r.uuid,
     })),
   );
@@ -64,23 +84,24 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
 
 // ── Execute ───────────────────────────────────────────────────────────────────
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const sub = interaction.options.getSubcommand();
-  if (sub === 'search')   return handleSearch(interaction);
-  if (sub === 'recipe')   return handleRecipe(interaction);
+  if (sub === 'search')    return handleSearch(interaction);
+  if (sub === 'recipe')    return handleRecipe(interaction);
   if (sub === 'dismantle') return handleDismantle(interaction);
+  if (sub === 'contracts') return handleContracts(interaction);
 }
 
 // ── /blueprint search ─────────────────────────────────────────────────────────
 
-async function handleSearch(interaction: ChatInputCommandInteraction) {
+async function handleSearch(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   const query = interaction.options.getString('name', true).trim();
 
   const rows = await prisma.scBlueprint.findMany({
-    where: { outputName: { contains: query, mode: 'insensitive' } },
+    where:   { outputName: { contains: query, mode: 'insensitive' } },
     orderBy: { outputName: 'asc' },
-    take: 15,
+    take:    15,
     include: { _count: { select: { tiers: true } } },
   });
 
@@ -106,7 +127,7 @@ async function handleSearch(interaction: ChatInputCommandInteraction) {
 
 // ── /blueprint recipe ─────────────────────────────────────────────────────────
 
-async function handleRecipe(interaction: ChatInputCommandInteraction) {
+async function handleRecipe(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   const rawValue = interaction.options.getString('name', true);
 
@@ -122,7 +143,7 @@ async function handleRecipe(interaction: ChatInputCommandInteraction) {
         orderBy: { tierIndex: 'asc' },
         include: {
           materials: { orderBy: { name: 'asc' } },
-          modifiers: { orderBy: { key: 'asc' } },
+          modifiers: { orderBy: { key:  'asc' } },
         },
       },
     },
@@ -133,71 +154,12 @@ async function handleRecipe(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle(`📋 ${bp.outputName}`)
-    .setColor(0x00b0f4)
-    .setFooter({ text: 'scunpacked · Star Citizen Blueprint Database' });
-
-  const fields: { name: string; value: string; inline: boolean }[] = [];
-
-  fields.push({ name: 'Type',  value: bp.outputType,  inline: true });
-  if (bp.outputSubtype) fields.push({ name: 'Subtype', value: bp.outputSubtype, inline: true });
-  if (bp.outputGrade)   fields.push({ name: 'Grade',   value: bp.outputGrade,   inline: true });
-
-  // Show all tiers (cap at 3 to stay under Discord's embed field limit)
-  const tiersToShow = bp.tiers.slice(0, 3);
-  for (const tier of tiersToShow) {
-    const header = bp.tiers.length > 1 ? `Tier ${tier.tierIndex + 1}` : 'Materials';
-    const time = formatSeconds(tier.craftTimeSecs);
-
-    if (tier.materials.length === 0) {
-      fields.push({ name: `${header} · ⏱ ${time}`, value: '_No materials listed_', inline: false });
-      continue;
-    }
-
-    const matLines = tier.materials.map((m) => {
-      const qty = m.quantityScu != null
-        ? `${m.quantityScu} SCU`
-        : m.quantity != null
-          ? `×${m.quantity}`
-          : '';
-      const qual = m.minQuality ? ` _(min q${m.minQuality})_` : '';
-      return `• **${m.name}** ${qty}${qual}`;
-    });
-
-    fields.push({
-      name: `${header} · ⏱ ${time}`,
-      value: matLines.slice(0, 20).join('\n') + (matLines.length > 20 ? `\n_…and ${matLines.length - 20} more_` : ''),
-      inline: false,
-    });
-
-    // Quality modifiers
-    if (tier.modifiers.length > 0) {
-      const modLines = tier.modifiers.map((mod) => {
-        const lo = (mod.modifierAtMin * 100).toFixed(0);
-        const hi = (mod.modifierAtMax * 100).toFixed(0);
-        const unit = mod.unitFormat ?? '%';
-        return `• **${mod.name}**: ${lo}${unit} → ${hi}${unit}`;
-      });
-      fields.push({
-        name: `${header} · Quality Range (q${tiersToShow[0]?.modifiers[0]?.qualityMin ?? 0}–${tiersToShow[0]?.modifiers[0]?.qualityMax ?? 100})`,
-        value: modLines.slice(0, 10).join('\n'),
-        inline: false,
-      });
-    }
-  }
-
-  if (bp.tiers.length > 3) {
-    fields.push({ name: '​', value: `_…${bp.tiers.length - 3} more tier(s) not shown_`, inline: false });
-  }
-
-  embed.addFields(fields);
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [buildRecipeEmbed(bp)] });
 }
 
 // ── /blueprint dismantle ──────────────────────────────────────────────────────
 
-async function handleDismantle(interaction: ChatInputCommandInteraction) {
+async function handleDismantle(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   const rawValue = interaction.options.getString('name', true);
 
@@ -216,7 +178,9 @@ async function handleDismantle(interaction: ChatInputCommandInteraction) {
   }
 
   if (bp.dismantleTimeSecs == null && bp.dismantleEfficiency == null) {
-    await interaction.editReply({ content: `**${bp.outputName}** has no dismantle data recorded.` });
+    await interaction.editReply({
+      content: `**${bp.outputName}** has no dismantle data recorded.`,
+    });
     return;
   }
 
@@ -226,19 +190,102 @@ async function handleDismantle(interaction: ChatInputCommandInteraction) {
     .setFooter({ text: 'scunpacked · Star Citizen Blueprint Database' });
 
   const fields: { name: string; value: string; inline: boolean }[] = [];
-  if (bp.dismantleTimeSecs != null) fields.push({ name: 'Time',       value: formatSeconds(bp.dismantleTimeSecs), inline: true });
+  if (bp.dismantleTimeSecs   != null) fields.push({ name: 'Time',     value: formatSeconds(bp.dismantleTimeSecs),                   inline: true });
   if (bp.dismantleEfficiency != null) fields.push({ name: 'Recovery', value: `${(bp.dismantleEfficiency * 100).toFixed(0)}%`, inline: true });
 
   embed.addFields(fields);
   await interaction.editReply({ embeds: [embed] });
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── /blueprint contracts ──────────────────────────────────────────────────────
 
-function formatSeconds(secs: number): string {
-  if (secs < 60)   return `${secs}s`;
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ${secs % 60}s`;
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  return `${h}h ${m}m`;
+async function handleContracts(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+  const rawValue = interaction.options.getString('name', true);
+
+  const bp = await prisma.scBlueprint.findFirst({
+    where: {
+      OR: [
+        { uuid: rawValue },
+        { outputName: { equals: rawValue, mode: 'insensitive' } },
+      ],
+    },
+    select: { uuid: true, outputName: true, outputType: true },
+  });
+
+  if (!bp) {
+    await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });
+    return;
+  }
+
+  const contracts = getContractsForBlueprint(bp.uuid);
+
+  if (contracts.length === 0) {
+    await interaction.editReply({
+      content: `No mission contracts found for **${bp.outputName}**. This blueprint may not be obtainable through contract missions.`,
+    });
+    return;
+  }
+
+  const total   = contracts.length;
+  const toShow  = contracts.slice(0, 10);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Contracts Rewarding "${bp.outputName}"`)
+    .setColor(0x6366f1)
+    .setFooter({
+      text: `Star Citizen · ${total} contract${total !== 1 ? 's' : ''}${
+        total > toShow.length ? ` · showing ${toShow.length} of ${total}` : ''
+      }`,
+    });
+
+  for (const contract of toShow) {
+    // Resolve locations for the specific pool(s) that contain this blueprint
+    const relevantLocs = new Set<string>();
+    for (const pool of contract.pools) {
+      if (pool.blueprints.some((b) => b.blueprintUuid === bp.uuid)) {
+        for (const loc of pool.locations) relevantLocs.add(loc);
+      }
+    }
+    const locsSorted = [...relevantLocs].sort();
+
+    const lines: string[] = [];
+
+    // Line 1: type · giver · faction · illegal flag
+    const meta: string[] = [];
+    if (contract.missionType)  meta.push(`\`${contract.missionType}\``);
+    if (contract.missionGiver) meta.push(`Giver: ${contract.missionGiver}`);
+    if (contract.faction)      meta.push(contract.faction);
+    if (contract.illegal)      meta.push('⚠️ **ILLEGAL**');
+    if (meta.length)           lines.push(meta.join(' · '));
+
+    // Line 2: time · risk score · aUEC estimate · standing requirement
+    const stats: string[] = [];
+    if (contract.timeToCompleteMinutes) stats.push(`⏱ ${contract.timeToCompleteMinutes} min`);
+    const risk = contract.difficulty?.riskOfLoss;
+    if (risk) {
+      stats.push(`Risk ${risk}/7`);
+      const est = estimateAuec(contract.timeToCompleteMinutes, risk);
+      if (est) stats.push(`~${fmtAuec(est.low)}–${fmtAuec(est.high)} aUEC est.`);
+    }
+    if (contract.minStanding) {
+      stats.push(`Req: ${contract.minStanding.name} ${contract.minStanding.minReputation}`);
+    }
+    if (stats.length) lines.push(stats.join(' · '));
+
+    // Line 3: locations
+    if (locsSorted.length > 0) {
+      const preview = locsSorted.slice(0, 3).join(', ');
+      const extra   = locsSorted.length > 3 ? ` +${locsSorted.length - 3} more` : '';
+      lines.push(`📍 ${preview}${extra}`);
+    }
+
+    embed.addFields({
+      name:   contract.illegal ? `${contract.title} ⚠️` : contract.title,
+      value:  lines.join('\n') || '_No additional details_',
+      inline: false,
+    });
+  }
+
+  await interaction.editReply({ embeds: [embed] });
 }

@@ -14,6 +14,7 @@ import * as uexCommand from './commands/uex.js';
 import * as whohasCommand from './commands/whohas.js';
 import * as blueprintCommand from './commands/blueprint.js';
 import * as materialCommand from './commands/material.js';
+import * as recipeCommand from './commands/recipe.js';
 import * as lootCommand from './commands/loot.js';
 import * as fleetCommand from './commands/fleet.js';
 import * as helpCommand from './commands/help.js';
@@ -38,6 +39,7 @@ const commands = new Map<string, Command>([
   ['whohas', whohasCommand],
   ['blueprint', blueprintCommand],
   ['material', materialCommand],
+  ['recipe', recipeCommand],
   ['fleet', fleetCommand],
   ['help', helpCommand],
   ['marketplace', marketplaceCommand],
