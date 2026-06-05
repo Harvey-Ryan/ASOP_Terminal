@@ -219,12 +219,7 @@ export function BlueprintsPage() {
     <div className="flex flex-col h-full -m-6 overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Blueprints</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Search for a blueprint to see which contracts offer it.
-          </p>
-        </div>
+        <h3 className="text-lg font-bold tracking-tight">Blueprint Search</h3>
 
         {/* Autocomplete */}
         <div ref={wrapperRef} className="relative">
