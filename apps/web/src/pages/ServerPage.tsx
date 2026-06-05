@@ -1247,8 +1247,8 @@ export function ServerPage() {
           )}
         </div>
 
-        {/* Recent Loot column */}
-        {canView && <RecentLootCard guildId={guildId!} />}
+        {/* Recent Loot column — only shown at lg+ where the two-column layout is active */}
+        {canView && <div className="hidden lg:block"><RecentLootCard guildId={guildId!} /></div>}
       </div>
     </div>
   );
