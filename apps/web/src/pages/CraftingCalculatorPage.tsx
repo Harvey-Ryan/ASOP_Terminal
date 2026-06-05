@@ -503,7 +503,7 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center justify-between">
+      <div className="px-3 py-1.5 border-b border-border bg-muted/20 flex items-center justify-between">
         <p className="text-xs font-bold text-foreground">Product Stats</p>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {bp.manufacturer && (
@@ -515,7 +515,7 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
           {bp.subtype    && <span className="text-[11px] text-muted-foreground capitalize">{bp.subtype}</span>}
         </div>
       </div>
-      <div className="px-4 py-3 space-y-4">
+      <div className="px-3 py-2 space-y-3">
         {baseStats.kind === 'armor'        && <ArmorStats        base={baseStats} mults={mults} />}
         {baseStats.kind === 'shield'       && <ShieldStats       base={baseStats} mults={mults} />}
         {baseStats.kind === 'weapon'       && <WeaponStats       base={baseStats} mults={mults} />}
@@ -547,7 +547,7 @@ function ComponentCard({
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
       {/* Slot header */}
-      <div className="shrink-0 px-3 py-2 border-b border-border bg-muted/20 flex items-center justify-between">
+      <div className="shrink-0 px-2.5 py-1.5 border-b border-border bg-muted/20 flex items-center justify-between">
         <p className="text-xs font-bold text-foreground leading-tight">{comp.slot}</p>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>⛏</span>
@@ -566,7 +566,7 @@ function ComponentCard({
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 overflow-hidden px-3 py-3 flex flex-col gap-3">
+      <div className="flex-1 min-h-0 overflow-hidden px-2.5 py-2 flex flex-col gap-2">
         {activeStats.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -639,7 +639,7 @@ function DisassembleView({ bp }: { bp: LocalBlueprint }) {
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex-1 min-h-0 rounded-lg border border-border bg-card overflow-hidden flex flex-col">
-        <div className="shrink-0 px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-3">
+        <div className="shrink-0 px-3 py-1.5 border-b border-border bg-muted/20 flex items-center gap-3">
           <Wrench className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="text-xs font-bold text-foreground">Disassemble</span>
           <span className="ml-auto text-xs text-muted-foreground">{fmtSecs(d.timeSecs)}</span>
@@ -698,7 +698,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border shrink-0 bg-card">
+      <div className="px-4 py-2 border-b border-border shrink-0 bg-card">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
@@ -730,7 +730,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
 
       {/* Contracts */}
       {relevantContracts.length > 0 && (
-        <div className="px-5 py-2.5 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
+        <div className="px-4 py-1.5 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 pt-0.5">
             Contracts
           </span>
@@ -761,7 +761,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
       )}
 
       {/* Tabs */}
-      <div className="px-5 py-3 border-b border-border shrink-0 flex items-center gap-2 bg-card">
+      <div className="px-4 py-2 border-b border-border shrink-0 flex items-center gap-2 bg-card">
         <button
           onClick={() => setTab('craft')}
           className={cn(
@@ -789,7 +789,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 flex flex-col px-5 py-4 gap-4">
+      <div className="flex-1 min-h-0 flex flex-col px-3 py-2.5 gap-2.5">
         {tab === 'disassemble' ? (
           <DisassembleView bp={bp} />
         ) : (
@@ -798,7 +798,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
 
             {/* Components */}
             <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border bg-card overflow-hidden">
-              <div className="shrink-0 px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-3">
+              <div className="shrink-0 px-3 py-1.5 border-b border-border bg-muted/20 flex items-center gap-3">
                 <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs font-bold text-foreground">Components</span>
                 <div className="flex items-center gap-1.5 ml-auto">
@@ -819,7 +819,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
                   ))}
                 </div>
               </div>
-              <div className="flex-1 min-h-0 p-3 grid grid-cols-2 gap-3 [grid-auto-rows:minmax(0,1fr)]">
+              <div className="flex-1 min-h-0 p-2 grid grid-cols-2 gap-2 [grid-auto-rows:minmax(0,1fr)]">
                 {bp.components.map((comp, i) => (
                   <ComponentCard
                     key={`${comp.slot}-${i}`}
