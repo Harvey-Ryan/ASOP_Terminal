@@ -665,6 +665,89 @@ function DisassembleView({ bp }: { bp: LocalBlueprint }) {
   );
 }
 
+// ── Contract sidebar card ─────────────────────────────────────────────────────
+
+function ContractSidebarCard({
+  contract,
+  onSelectBlueprint,
+}: {
+  contract: MissionContract;
+  onSelectBlueprint: (uuid: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const desc = contract.description ? fmtDescription(contract.description) : '';
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <button
+        onClick={() => setExpanded(o => !o)}
+        className="w-full px-3 py-2 border-b border-border bg-muted/20 flex items-start gap-2 text-left hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold leading-tight">{fmtContractTitle(contract.title)}</p>
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
+            {contract.missionType && (
+              <span className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">{contract.missionType}</span>
+            )}
+            {contract.faction && contract.faction !== contract.missionGiver && (
+              <span className="text-[10px] bg-primary/10 text-primary rounded px-1.5 py-0.5 font-mono">{contract.faction}</span>
+            )}
+          </div>
+        </div>
+        <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5 transition-transform', expanded && 'rotate-90')} />
+      </button>
+
+      {expanded && (
+        <div className="px-3 py-2.5 space-y-2.5">
+          {contract.reputation.length > 0 && (
+            <div className="text-[11px] bg-muted/30 rounded px-2.5 py-1.5 text-muted-foreground">
+              <span className="font-semibold text-foreground">Rep XP: </span>
+              {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
+            </div>
+          )}
+
+          {contract.locations.length > 0 && (
+            <div className="flex items-start gap-1.5">
+              <MapPin className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="flex flex-wrap gap-1">
+                {contract.locations.map(loc => (
+                  <span key={loc} className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">{loc}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {desc && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">{desc}</p>
+          )}
+
+          <div className="space-y-1">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="h-3 w-3" /> Blueprints
+            </p>
+            {contract.pools.flatMap(pool => pool.blueprints).map(entry => {
+              const found = getBlueprintByUuid(entry.blueprintUuid);
+              return (
+                <div key={entry.blueprintUuid} className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-foreground truncate">{entry.name}</span>
+                  {found && (
+                    <button
+                      onClick={() => onSelectBlueprint(entry.blueprintUuid)}
+                      className="text-[10px] text-primary hover:underline shrink-0"
+                    >
+                      View →
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Blueprint detail panel ────────────────────────────────────────────────────
 
 const PRESET_FREE = -1;
@@ -696,7 +779,9 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
+    <div className="flex flex-row h-full overflow-hidden bg-background">
+      {/* ── Left column ── */}
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 py-2 border-b border-border shrink-0 bg-card">
         <div className="flex items-center gap-3">
@@ -728,9 +813,9 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
         </div>
       </div>
 
-      {/* Contracts */}
+      {/* Contracts pill row — hidden when sidebar is active */}
       {relevantContracts.length > 0 && (
-        <div className="px-4 py-1.5 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
+        <div className="2xl:hidden px-4 py-1.5 border-b border-border shrink-0 bg-muted/10 flex items-start gap-3">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 pt-0.5">
             Contracts
           </span>
@@ -834,6 +919,29 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
           </>
         )}
       </div>
+      </div>{/* end left column */}
+
+      {/* ── Right sidebar: contracts (2xl+) ── */}
+      {relevantContracts.length > 0 && (
+        <div className="hidden 2xl:flex flex-col w-72 shrink-0 border-l border-border overflow-hidden bg-background">
+          <div className="shrink-0 px-3 py-2 border-b border-border bg-card flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-bold text-foreground">Contracts</span>
+            <span className="ml-auto text-xs text-muted-foreground">{relevantContracts.length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {relevantContracts.map(mc => (
+              <ContractSidebarCard
+                key={mc.title}
+                contract={mc}
+                onSelectBlueprint={uuid => {
+                  navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
