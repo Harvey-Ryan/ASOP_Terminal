@@ -328,7 +328,7 @@ export function DashboardLayout() {
         {/* ── Sidebar ── */}
         <aside className={cn(
           'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-all duration-300 lg:relative lg:z-auto lg:translate-x-0',
-          navCollapsed ? 'lg:w-14' : 'lg:w-60',
+          navCollapsed ? 'lg:w-14' : 'lg:w-[216px]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}>
           {/* Collapse toggle — desktop only, sits on the right edge */}
@@ -482,11 +482,11 @@ export function DashboardLayout() {
                   {craftingEnabled && (
                     <NavLink
                       to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
-                      title={navCollapsed ? 'Crafting Calculator' : undefined}
+                      title={navCollapsed ? 'Crafting Calc' : undefined}
                       className={serverNavCls}
                     >
                       <Calculator className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'Crafting Calculator'}
+                      {!navCollapsed && 'Crafting Calc'}
                     </NavLink>
                   )}
                 </>
@@ -586,11 +586,11 @@ export function DashboardLayout() {
           </NavLink>
           <NavLink
             to="/dashboard/kanban"
-            title={navCollapsed ? 'Development Milestones' : undefined}
+            title={navCollapsed ? 'Roadmap' : undefined}
             className={navCls}
           >
             <KanbanSquare className="h-4 w-4 shrink-0" />
-            {!navCollapsed && 'Development Milestones'}
+            {!navCollapsed && 'Roadmap'}
           </NavLink>
         </div>
 
@@ -609,17 +609,17 @@ export function DashboardLayout() {
       </div>
 
       {/* ── Bottom branding bar ── */}
-      <footer className="shrink-0 border-t border-border bg-card px-4 py-3 flex items-center justify-between gap-6">
-        <a href="https://buymeacoffee.com/asopterminal" target="_blank" rel="noreferrer" className="shrink-0 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-foreground">
+      <footer className="shrink-0 border-t border-border bg-card px-4 py-1.5 flex items-center justify-between gap-6">
+        <a href="https://buymeacoffee.com/asopterminal" target="_blank" rel="noreferrer" className="shrink-0 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap text-xs font-medium text-muted-foreground hover:text-foreground">
           🍺 Buy Me a Beer
         </a>
-        <p className="text-[18px] leading-tight text-muted-foreground text-center opacity-40">
+        <p className="text-[9px] leading-tight text-muted-foreground text-center opacity-40">
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
         </p>
         <img
           src="/MadeByTheCommunity_White.png"
           alt="Made by the Community"
-          className="h-10 object-contain shrink-0 opacity-40 hover:opacity-100 hover:scale-[3] origin-bottom-right transition-all duration-200 cursor-pointer z-50"
+          className="h-5 object-contain shrink-0 opacity-40 hover:opacity-100 hover:scale-[3] origin-bottom-right transition-all duration-200 cursor-pointer z-50"
         />
       </footer>
     </div>
