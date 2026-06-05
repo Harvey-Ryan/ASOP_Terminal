@@ -350,6 +350,22 @@ export interface LocalBlueprint {
   dismantleEfficiency: number | null;
 }
 
+// ── Build helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Converts a C-style printf format string (e.g. "%+.2f %%", "%.2f RPM")
+ * into a plain unit suffix for display.
+ * - Strip leading "%[+]?[.N]f" specifier
+ * - Decode "%%" → "%"
+ * - Fallback to "%" for null / no-match
+ */
+function parseUnitFormat(fmt: string | null): string {
+  if (!fmt) return '%';
+  const suffix = fmt.replace(/^%[+]?\.?\d*f\s*/, '').trim();
+  if (suffix === '%%' || suffix === '') return '%';
+  return suffix;
+}
+
 // ── Build function ────────────────────────────────────────────────────────────
 
 function buildBlueprints(): LocalBlueprint[] {
@@ -392,7 +408,7 @@ function buildBlueprints(): LocalBlueprint[] {
           qualityMax:   stat.QualityMax,
           modifierAtMin: stat.MultiplierAtMin,
           modifierAtMax: stat.MultiplierAtMax,
-          unitFormat:   stat.UnitFormat,
+          unitFormat:   parseUnitFormat(stat.UnitFormat),
         });
       }
     }
