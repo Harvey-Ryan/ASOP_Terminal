@@ -880,12 +880,7 @@ export function CraftingCalculatorPage() {
     <div className="flex flex-col h-full -m-6 overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Crafting Calculator</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Browse blueprints, inspect recipes, and calculate quality-scaled stat outputs.
-          </p>
-        </div>
+        <h3 className="text-lg font-bold tracking-tight">Crafting Calculator</h3>
         <div className="flex gap-2">
           <div ref={wrapperRef} className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
