@@ -71,10 +71,17 @@ function ContractCard({
       </div>
 
       <div className="px-4 py-3 space-y-3">
-        {/* aUEC */}
+        {/* aUEC + Reputation */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-1.5">
           <span className="font-semibold text-foreground">aUEC:</span>
           Calculated (scales with difficulty &amp; distance)
+          {contract.reputation.length > 0 && (
+            <>
+              <span className="mx-1 opacity-30">·</span>
+              <span className="font-semibold text-foreground">Rep XP:</span>
+              {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
+            </>
+          )}
         </div>
 
         {/* Locations */}

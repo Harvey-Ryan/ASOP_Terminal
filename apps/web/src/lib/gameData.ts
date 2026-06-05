@@ -387,6 +387,11 @@ export interface MissionPool {
   blueprints: MissionBlueprintEntry[];
 }
 
+export interface MissionReputation {
+  faction: string;
+  xp: number;
+}
+
 export interface MissionContract {
   title: string;
   description: string;
@@ -395,6 +400,7 @@ export interface MissionContract {
   faction: string | null;
   locations: string[];
   pools: MissionPool[];
+  reputation: MissionReputation[];
 }
 
 type RawMission = typeof missionsRaw[number];
@@ -443,6 +449,13 @@ function buildMissionContracts(): MissionContract[] {
     const first = missions[0];
     const rawFaction = first.Faction as string | null;
 
+    const rawRep = first.Reputation;
+    const reputation: MissionReputation[] = Array.isArray(rawRep)
+      ? (rawRep as Array<{ Faction?: string; XP?: number }>)
+          .filter(r => r.Faction && r.Faction !== PLACEHOLDER && r.Faction !== UNINITIALIZED && r.XP != null)
+          .map(r => ({ faction: r.Faction!, xp: r.XP! }))
+      : [];
+
     result.push({
       title,
       description: (first.Description as string | null) ?? '',
@@ -452,6 +465,7 @@ function buildMissionContracts(): MissionContract[] {
         ? rawFaction : null,
       locations: [...new Set(pools.flatMap(p => p.locations))].sort(),
       pools,
+      reputation,
     });
   }
 

@@ -134,10 +134,15 @@ function ContractModal({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
           {/* Reward note */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2 flex-wrap">
             <span className="font-semibold text-foreground">aUEC:</span> Calculated (scales with difficulty &amp; distance)
-            <span className="mx-1 opacity-30">·</span>
-            <span className="font-semibold text-foreground">Rep:</span> No data available
+            {contract.reputation.length > 0 && (
+              <>
+                <span className="mx-1 opacity-30">·</span>
+                <span className="font-semibold text-foreground">Rep XP:</span>
+                {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
+              </>
+            )}
           </div>
 
           {/* Locations */}
