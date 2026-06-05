@@ -915,7 +915,7 @@ export function CraftingCalculatorPage() {
                       navigate(`/dashboard/servers/${guildId}/crafting-calculator/${bp.uuid}`);
                     }}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-accent transition-colors',
+                      'w-full flex items-center gap-3 px-3 py-2.5 text-left bg-background hover:bg-accent transition-colors',
                       'border-b border-border/40 last:border-0',
                     )}
                   >
