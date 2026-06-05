@@ -1006,7 +1006,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
                   ))}
                 </div>
               </div>
-              <div className="overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start">
+              <div className="flex-1 min-h-0 overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start">
                 {bp.components.map((comp, i) => (
                   <ComponentCard
                     key={`${comp.slot}-${i}`}
