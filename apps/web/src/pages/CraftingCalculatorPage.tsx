@@ -1092,7 +1092,7 @@ export function CraftingCalculatorPage() {
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
         <h3 className="text-lg font-bold tracking-tight">Crafting Calculator</h3>
         <div className="flex flex-wrap gap-2">
-          <div ref={wrapperRef} className="relative flex-1 min-w-0">
+          <div ref={wrapperRef} className="relative w-full lg:w-1/3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
             <input
               value={inputValue}

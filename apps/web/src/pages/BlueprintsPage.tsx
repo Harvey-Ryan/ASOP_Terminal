@@ -393,7 +393,7 @@ export function BlueprintsPage() {
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
         <h3 className="text-lg font-bold tracking-tight">Blueprint Search</h3>
 
-        <div ref={wrapperRef} className="relative">
+        <div ref={wrapperRef} className="relative w-full lg:w-1/3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
           <input
             value={inputValue}
