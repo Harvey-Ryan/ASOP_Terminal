@@ -900,7 +900,7 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       </div>
 
       {/* Location + Status + Role + Actions */}
-      <div className="w-12 sm:w-5/12 shrink-0 flex items-center">
+      <div className="w-12 sm:w-5/12 shrink-0 flex self-stretch items-start">
         <div className="flex-[2] px-4 py-3 hidden lg:block">
           <span className="text-[21px] line-clamp-2">{location}</span>
         </div>
