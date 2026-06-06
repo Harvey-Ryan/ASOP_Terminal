@@ -906,8 +906,8 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       </div>
 
       {/* Location */}
-      <div className="hidden lg:block w-40 shrink-0 px-4 py-3">
-        <span className="text-[21px] line-clamp-1">{location}</span>
+      <div className="hidden lg:block w-52 shrink-0 px-4 py-3">
+        <span className="text-[21px] leading-snug">{location}</span>
       </div>
 
       {/* Status */}
@@ -1220,7 +1220,7 @@ export function ServerPage() {
                 <div className="w-20 shrink-0 px-4 py-2">Date</div>
                 <div className="hidden sm:block w-28 shrink-0 px-4 py-2">Time</div>
                 <div className="flex-1 px-4 py-2">Event</div>
-                <div className="hidden lg:block w-40 shrink-0 px-4 py-2">Location</div>
+                <div className="hidden lg:block w-52 shrink-0 px-4 py-2">Location</div>
                 <div className="hidden sm:block w-28 shrink-0 px-4 py-2">Status</div>
                 <div className="hidden md:block 2xl:hidden w-28 shrink-0 px-4 py-2">Role</div>
                 <div className="hidden sm:block w-24 shrink-0 px-4 py-2 text-center">Actions</div>
