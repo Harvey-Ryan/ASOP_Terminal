@@ -869,10 +869,16 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
     >
       {/* Date */}
-      <div className="w-20 shrink-0 flex flex-col items-center px-4 py-3 text-center gap-0.5">
-        <CalendarDays className="h-3.5 w-3.5 opacity-50" />
-        <span className="text-[14px] font-bold uppercase leading-none opacity-75">{month}</span>
-        <span className="text-[24px] font-bold leading-tight">{day}</span>
+      <div className="w-20 shrink-0 flex items-center justify-center px-3 py-3">
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-11 flex flex-col items-stretch rounded overflow-hidden border-2 border-current/40">
+            <div className="h-2 bg-current/50" />
+            <div className="flex items-center justify-center py-1.5 bg-current/10">
+              <span className="text-[20px] font-extrabold leading-none">{day}</span>
+            </div>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest opacity-60">{month}</span>
+        </div>
       </div>
 
       {/* Time */}
