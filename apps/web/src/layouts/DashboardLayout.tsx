@@ -375,25 +375,14 @@ export function DashboardLayout() {
                 {!navCollapsed && 'Dashboard'}
               </NavLink>
 
-              {dkpEnabled && (
+              {lootEnabled && (
                 <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/auctions`}
-                  title={navCollapsed ? 'Auctions' : undefined}
+                  to={`/dashboard/servers/${activeGuild.id}/loot`}
+                  title={navCollapsed ? 'Loot' : undefined}
                   className={serverNavCls}
                 >
-                  <Gavel className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Auctions'}
-                </NavLink>
-              )}
-
-              {dkpEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/dkp`}
-                  title={navCollapsed ? dkpLabel : undefined}
-                  className={serverNavCls}
-                >
-                  <Coins className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && dkpLabel}
+                  <Package className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Loot'}
                 </NavLink>
               )}
 
@@ -429,6 +418,28 @@ export function DashboardLayout() {
                 </NavLink>
               )}
 
+              {dkpEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/auctions`}
+                  title={navCollapsed ? 'Auction' : undefined}
+                  className={serverNavCls}
+                >
+                  <Gavel className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Auction'}
+                </NavLink>
+              )}
+
+              {dkpEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/dkp`}
+                  title={navCollapsed ? dkpLabel : undefined}
+                  className={serverNavCls}
+                >
+                  <Coins className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && dkpLabel}
+                </NavLink>
+              )}
+
               {fleetEnabled && (
                 <NavLink
                   to={`/dashboard/servers/${activeGuild.id}/fleet`}
@@ -437,28 +448,6 @@ export function DashboardLayout() {
                 >
                   <Ship className="h-4 w-4 shrink-0" />
                   {!navCollapsed && 'Fleet'}
-                </NavLink>
-              )}
-
-              {showAdminNav && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/roster`}
-                  title={navCollapsed ? 'RSI Roster' : undefined}
-                  className={serverNavCls}
-                >
-                  <Users className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'RSI Roster'}
-                </NavLink>
-              )}
-
-              {lootEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/loot`}
-                  title={navCollapsed ? 'Loot' : undefined}
-                  className={serverNavCls}
-                >
-                  <Package className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Loot'}
                 </NavLink>
               )}
 
@@ -521,6 +510,15 @@ export function DashboardLayout() {
                   Org Settings
                 </p>
               )}
+
+              <NavLink
+                to={`/dashboard/servers/${activeGuild!.id}/roster`}
+                title={navCollapsed ? 'RSI Roster' : undefined}
+                className={navCls}
+              >
+                <Users className="h-4 w-4 shrink-0" />
+                {!navCollapsed && 'RSI Roster'}
+              </NavLink>
 
               <NavLink
                 to={`/dashboard/servers/${activeGuild!.id}/settings/modules`}
