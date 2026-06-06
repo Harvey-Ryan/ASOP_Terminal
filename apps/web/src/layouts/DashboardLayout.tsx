@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Scale } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -610,6 +610,31 @@ export function DashboardLayout() {
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <Outlet context={{ displayName } satisfies DashboardOutletContext} />
           </div>
+
+          {/* ── Desktop footer ── */}
+          <footer className="hidden lg:flex shrink-0 items-center justify-between border-t border-border px-6 h-9 gap-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="relative group">
+                <Scale className="h-3.5 w-3.5 shrink-0 text-muted-foreground cursor-default" />
+                <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-80 rounded-lg border border-border bg-popover text-popover-foreground text-xs p-3 shadow-xl leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                  ASOP Terminal is an unofficial fan-made tool and is not affiliated with, endorsed by, or connected to Cloud Imperium Games or Roberts Space Industries Corp. Star Citizen® is a registered trademark of Cloud Imperium Rights LLC.
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground truncate">
+                Unofficial fan-made tool · Not affiliated with Cloud Imperium Games
+              </span>
+            </div>
+
+            <a
+              href="https://buymeacoffee.com/asopterminal"
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>🍺</span>
+              Buy Me a Beer
+            </a>
+          </footer>
         </main>
       </div>
 
