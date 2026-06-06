@@ -866,7 +866,7 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
+      className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-black"
     >
       {/* Date */}
       <div className="w-20 shrink-0 flex items-center justify-center px-3 py-3">
