@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Layers, MapPin, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -1053,37 +1053,25 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
 export function CraftingCalculatorPage() {
   const { guildId }  = useParams<{ guildId: string }>();
   const navigate     = useNavigate();
-  const [inputValue,   setInputValue]   = useState('');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [typeFilter,   setTypeFilter]   = useState('');
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
 
-  const suggestions = useMemo(
-    () => (inputValue.length > 1 ? searchBlueprints(inputValue, typeFilter || undefined).slice(0, 10) : []),
+  const browseList = useMemo(
+    () => (typeFilter || inputValue.length > 1)
+      ? searchBlueprints(inputValue, typeFilter || undefined).slice(0, 25)
+      : [],
     [inputValue, typeFilter],
   );
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, []);
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && suggestions.length > 0) {
+    if (e.key === 'Enter' && browseList.length > 0) {
       e.preventDefault();
-      navigate(`/dashboard/servers/${guildId}/crafting-calculator/${suggestions[0].uuid}`);
+      navigate(`/dashboard/servers/${guildId}/crafting-calculator/${browseList[0].uuid}`);
     }
-    if (e.key === 'Escape') setDropdownOpen(false);
   }
 
   function handleClear() {
     setInputValue('');
-    setDropdownOpen(false);
   }
 
   return (
@@ -1092,15 +1080,21 @@ export function CraftingCalculatorPage() {
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
         <h3 className="text-lg font-bold tracking-tight">Crafting Calculator</h3>
         <div className="flex flex-wrap gap-2">
-          <div ref={wrapperRef} className="relative w-full lg:w-1/3">
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="w-full sm:w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">All types</option>
+            {BLUEPRINT_TYPES.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <div className="relative w-full lg:w-1/3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
             <input
               value={inputValue}
-              onChange={e => {
-                setInputValue(e.target.value);
-                setDropdownOpen(true);
-              }}
-              onFocus={() => { if (inputValue.length > 1) setDropdownOpen(true); }}
+              onChange={e => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search blueprints…"
               autoComplete="off"
@@ -1114,62 +1108,43 @@ export function CraftingCalculatorPage() {
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
-
-            {dropdownOpen && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-border bg-popover shadow-lg overflow-hidden">
-                {suggestions.map(bp => (
-                  <button
-                    key={bp.uuid}
-                    onMouseDown={e => {
-                      e.preventDefault();
-                      setDropdownOpen(false);
-                      navigate(`/dashboard/servers/${guildId}/crafting-calculator/${bp.uuid}`);
-                    }}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 text-left bg-background hover:bg-accent transition-colors',
-                      'border-b border-border/40 last:border-0',
-                    )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{bp.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground font-mono">{bp.type}</span>
-                        {bp.subtype && (
-                          <span className="text-xs text-muted-foreground capitalize">{bp.subtype}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
-                      {bp.grade && <span>G{bp.grade}</span>}
-                      <Clock className="h-3 w-3" />
-                      <span className="tabular-nums">{fmtSecs(bp.craftTimeSecs)}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-          <select
-            value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}
-            className="w-full sm:w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All types</option>
-            {BLUEPRINT_TYPES.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
         </div>
       </div>
 
-      {/* ── Empty state ─────────────────────────────────────────────────────── */}
+      {/* ── Browse list / empty state ────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-3">
-          <Search className="h-8 w-8 text-muted-foreground/25" />
-          <p className="text-sm text-muted-foreground">
-            Search for a blueprint above to view its recipe.
-          </p>
-        </div>
+        {browseList.length > 0 ? (
+          <div className="divide-y divide-border">
+            {browseList.map(bp => (
+              <button
+                key={bp.uuid}
+                onClick={() => navigate(`/dashboard/servers/${guildId}/crafting-calculator/${bp.uuid}`)}
+                className="w-full flex items-center gap-3 px-6 py-2.5 text-left hover:bg-accent transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{bp.name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-muted-foreground font-mono">{bp.type}</span>
+                    {bp.subtype && <span className="text-xs text-muted-foreground capitalize">{bp.subtype}</span>}
+                  </div>
+                </div>
+                <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
+                  {bp.grade && <span>G{bp.grade}</span>}
+                  <Clock className="h-3 w-3" />
+                  <span className="tabular-nums">{fmtSecs(bp.craftTimeSecs)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-3">
+            <Search className="h-8 w-8 text-muted-foreground/25" />
+            <p className="text-sm text-muted-foreground">
+              Select a type or search above to browse blueprints.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
