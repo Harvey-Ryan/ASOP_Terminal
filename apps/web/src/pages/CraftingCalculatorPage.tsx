@@ -1006,7 +1006,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
                   ))}
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start">
+              <div className="flex-1 min-h-0 overflow-y-auto p-2 grid grid-cols-1 sm:grid-cols-2 gap-2 content-start">
                 {bp.components.map((comp, i) => (
                   <ComponentCard
                     key={`${comp.slot}-${i}`}
@@ -1091,8 +1091,8 @@ export function CraftingCalculatorPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-4 border-b border-border shrink-0 bg-background space-y-4">
         <h3 className="text-lg font-bold tracking-tight">Crafting Calculator</h3>
-        <div className="flex gap-2">
-          <div ref={wrapperRef} className="relative flex-1">
+        <div className="flex flex-wrap gap-2">
+          <div ref={wrapperRef} className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
             <input
               value={inputValue}
@@ -1152,7 +1152,7 @@ export function CraftingCalculatorPage() {
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
-            className="w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full sm:w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">All types</option>
             {BLUEPRINT_TYPES.map(t => (

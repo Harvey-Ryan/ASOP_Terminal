@@ -887,6 +887,11 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
             <span key={tag} className="font-mono text-sm font-bold text-sky-400 shrink-0">[{tag}]</span>
           ))}
         </div>
+        {/* Time + status visible only on mobile */}
+        <div className="sm:hidden flex items-center gap-3 mt-0.5 opacity-80">
+          <span className="text-[15px] font-medium">{time}</span>
+          {userRsvp && <span className="text-[13px] opacity-70">Rostered</span>}
+        </div>
         {event.recurType && (
           <p className="text-[15px] opacity-60 line-clamp-2">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
         )}
@@ -1090,7 +1095,7 @@ export function ServerPage() {
       )}
 
       {/* Responsive two-column layout: events left, loot right */}
-      <div className={`grid grid-cols-1 gap-6 items-start${canView ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
+      <div className={`grid grid-cols-1 gap-6 items-start max-w-[1600px] mx-auto w-full${canView ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
         <div className="h-[70vh] min-h-[400px] lg:h-[720px] flex flex-col overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}

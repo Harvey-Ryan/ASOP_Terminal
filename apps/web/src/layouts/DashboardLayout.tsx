@@ -592,6 +592,15 @@ export function DashboardLayout() {
             <KanbanSquare className="h-4 w-4 shrink-0" />
             {!navCollapsed && 'Roadmap'}
           </NavLink>
+          <a
+            href="https://buymeacoffee.com/asopterminal"
+            target="_blank"
+            rel="noreferrer"
+            className="lg:hidden flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            <span className="shrink-0">🍺</span>
+            Buy Me a Beer
+          </a>
         </div>
 
       </aside>
@@ -608,20 +617,6 @@ export function DashboardLayout() {
         </main>
       </div>
 
-      {/* ── Bottom branding bar ── */}
-      <footer className="shrink-0 border-t border-border bg-card px-4 py-1.5 flex items-center justify-between gap-6">
-        <a href="https://buymeacoffee.com/asopterminal" target="_blank" rel="noreferrer" className="shrink-0 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-foreground">
-          🍺 Buy Me a Beer
-        </a>
-        <p className="text-[18px] leading-tight text-muted-foreground text-center opacity-40">
-          Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
-        </p>
-        <img
-          src="/MadeByTheCommunity_White.png"
-          alt="Made by the Community"
-          className="h-10 object-contain shrink-0 opacity-40 hover:opacity-100 hover:scale-[3] origin-bottom-right transition-all duration-200 cursor-pointer z-50"
-        />
-      </footer>
     </div>
   );
 }

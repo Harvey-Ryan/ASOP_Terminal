@@ -470,7 +470,7 @@ export function BlueprintsPage() {
               <strong className="text-foreground">{submittedBp.name}</strong>
               <span className="ml-2 opacity-50">· aUEC estimates based on community-measured rates; vary with distance</span>
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
               {contracts.map(mc => (
                 <ContractCard
                   key={mc.title}
