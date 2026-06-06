@@ -871,13 +871,19 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       {/* Date */}
       <div className="w-20 shrink-0 flex items-center justify-center px-3 py-3">
         <div className="flex flex-col items-center gap-1">
-          <div className="w-11 flex flex-col items-stretch rounded overflow-hidden border-2 border-current/40">
-            <div className="h-2 bg-current/50" />
-            <div className="flex items-center justify-center py-1.5 bg-current/10">
-              <span className="text-[20px] font-extrabold leading-none">{day}</span>
+          <div className="w-11 border-2 border-current rounded-sm overflow-hidden">
+            {/* Binding bar with ring holes */}
+            <div className="flex justify-around items-center bg-current/20 border-b-2 border-current px-2 py-1">
+              <span className="w-1.5 h-1.5 rounded-full border-[1.5px] border-current block" />
+              <span className="w-1.5 h-1.5 rounded-full border-[1.5px] border-current block" />
+            </div>
+            {/* Day number */}
+            <div className="flex items-center justify-center py-1.5">
+              <span className="text-[22px] font-black leading-none">{day}</span>
             </div>
           </div>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest opacity-60">{month}</span>
+          {/* Month below */}
+          <span className="text-[10px] font-extrabold uppercase tracking-widest opacity-70">{month}</span>
         </div>
       </div>
 
