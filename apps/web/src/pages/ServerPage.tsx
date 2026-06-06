@@ -869,7 +869,8 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       className="group w-full text-left flex items-center bg-primary text-primary-foreground hover:bg-background hover:text-primary transition-colors border-b border-background/40 last:border-b-0"
     >
       {/* Date */}
-      <div className="w-20 shrink-0 flex flex-col items-center px-4 py-3 text-center">
+      <div className="w-20 shrink-0 flex flex-col items-center px-4 py-3 text-center gap-0.5">
+        <CalendarDays className="h-3.5 w-3.5 opacity-50" />
         <span className="text-[14px] font-bold uppercase leading-none opacity-75">{month}</span>
         <span className="text-[24px] font-bold leading-tight">{day}</span>
       </div>
@@ -899,22 +900,26 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
         )}
       </div>
 
-      {/* Location + Status + Role + Actions */}
-      <div className="w-12 sm:w-5/12 shrink-0 flex self-stretch items-start">
-        <div className="flex-[2] px-4 py-3 hidden lg:block">
-          <span className="text-[21px] line-clamp-2">{location}</span>
-        </div>
-        <div className="flex-1 px-4 py-3 hidden sm:flex items-center justify-center">
-          <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
-        </div>
-        <div className="flex-1 px-4 py-3 hidden md:block xl:hidden">
-          <span className="text-[21px] line-clamp-2">{userRoleName ?? '—'}</span>
-        </div>
-        <div className="flex-1 px-4 py-3 flex justify-end">
-          <span className="rounded p-1.5 bg-primary text-primary-foreground group-hover:bg-background group-hover:text-primary transition-colors">
-            <ChevronsRight className="h-12 w-12 stroke-[3]" />
-          </span>
-        </div>
+      {/* Location */}
+      <div className="hidden lg:block w-40 shrink-0 px-4 py-3">
+        <span className="text-[21px] line-clamp-1">{location}</span>
+      </div>
+
+      {/* Status */}
+      <div className="hidden sm:flex w-28 shrink-0 px-4 py-3 items-center justify-center">
+        <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
+      </div>
+
+      {/* Role */}
+      <div className="hidden md:block xl:hidden w-28 shrink-0 px-4 py-3">
+        <span className="text-[21px] line-clamp-2">{userRoleName ?? '—'}</span>
+      </div>
+
+      {/* Actions */}
+      <div className="w-24 shrink-0 px-4 py-3 flex justify-end">
+        <span className="rounded p-1.5 bg-primary text-primary-foreground group-hover:bg-background group-hover:text-primary transition-colors">
+          <ChevronsRight className="h-12 w-12 stroke-[3]" />
+        </span>
       </div>
     </button>
   );
@@ -1210,12 +1215,10 @@ export function ServerPage() {
                 <div className="w-20 shrink-0 px-4 py-2">Date</div>
                 <div className="hidden sm:block w-28 shrink-0 px-4 py-2">Time</div>
                 <div className="flex-1 px-4 py-2">Event</div>
-                <div className="w-12 sm:w-5/12 shrink-0 flex items-center">
-                  <div className="flex-[2] px-4 py-2 hidden lg:block">Location</div>
-                  <div className="flex-1 px-4 py-2 hidden sm:block">Status</div>
-                  <div className="flex-1 px-4 py-2 hidden md:block xl:hidden">Role</div>
-                  <div className="flex-1 px-4 py-2 text-center hidden sm:block">Actions</div>
-                </div>
+                <div className="hidden lg:block w-40 shrink-0 px-4 py-2">Location</div>
+                <div className="hidden sm:block w-28 shrink-0 px-4 py-2">Status</div>
+                <div className="hidden md:block xl:hidden w-28 shrink-0 px-4 py-2">Role</div>
+                <div className="hidden sm:block w-24 shrink-0 px-4 py-2 text-center">Actions</div>
               </div>
 
               {active.isError && (
