@@ -881,12 +881,14 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
 
       {/* Event */}
       <div className="flex-1 px-4 py-3 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
-          {orgTags.map((tag) => (
-            <span key={tag} className="font-mono text-sm font-bold text-sky-400 shrink-0">[{tag}]</span>
-          ))}
-        </div>
+        <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
+        {orgTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-0.5">
+            {orgTags.map((tag) => (
+              <span key={tag} className="font-mono text-sm font-bold text-sky-400 shrink-0">[{tag}]</span>
+            ))}
+          </div>
+        )}
         {/* Time + status visible only on mobile */}
         <div className="sm:hidden flex items-center gap-3 mt-0.5 opacity-80">
           <span className="text-[15px] font-medium">{time}</span>
@@ -905,7 +907,7 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
         <div className="flex-1 px-4 py-3 hidden sm:flex items-center justify-center">
           <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
         </div>
-        <div className="flex-1 px-4 py-3 hidden md:block">
+        <div className="flex-1 px-4 py-3 hidden md:block xl:hidden">
           <span className="text-[21px] line-clamp-2">{userRoleName ?? '—'}</span>
         </div>
         <div className="flex-1 px-4 py-3 flex justify-end">
@@ -940,7 +942,7 @@ function RecentLootCard({ guildId }: { guildId: string }) {
   const event = data as RecentLootEvent | null | undefined;
 
   return (
-    <div className="h-[50vh] min-h-[360px] lg:h-[720px] flex flex-col rounded-xl border border-border bg-card p-5">
+    <div className="h-[50vh] min-h-[360px] xl:h-[720px] flex flex-col rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
@@ -1095,7 +1097,7 @@ export function ServerPage() {
       )}
 
       {/* Responsive two-column layout: events left, loot right */}
-      <div className={`grid grid-cols-1 gap-6 items-start max-w-[1600px] mx-auto w-full${canView ? ' lg:grid-cols-[1fr_360px]' : ''}`}>
+      <div className={`grid grid-cols-1 gap-6 items-start max-w-[1600px] mx-auto w-full${canView ? ' xl:grid-cols-[1fr_360px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
         <div className="h-[70vh] min-h-[400px] lg:h-[720px] flex flex-col overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}
@@ -1211,7 +1213,7 @@ export function ServerPage() {
                 <div className="w-12 sm:w-5/12 shrink-0 flex items-center">
                   <div className="flex-[2] px-4 py-2 hidden lg:block">Location</div>
                   <div className="flex-1 px-4 py-2 hidden sm:block">Status</div>
-                  <div className="flex-1 px-4 py-2 hidden md:block">Role</div>
+                  <div className="flex-1 px-4 py-2 hidden md:block xl:hidden">Role</div>
                   <div className="flex-1 px-4 py-2 text-center hidden sm:block">Actions</div>
                 </div>
               </div>
@@ -1253,7 +1255,7 @@ export function ServerPage() {
         </div>
 
         {/* Recent Loot column — only shown at lg+ where the two-column layout is active */}
-        {canView && <div className="hidden lg:block"><RecentLootCard guildId={guildId!} /></div>}
+        {canView && <div className="hidden xl:block"><RecentLootCard guildId={guildId!} /></div>}
       </div>
     </div>
   );
