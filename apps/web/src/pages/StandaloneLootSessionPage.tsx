@@ -755,7 +755,7 @@ export function StandaloneLootSessionPage() {
 
   if (sessionQuery.isLoading) {
     return (
-      <div className="max-w-2xl space-y-4">
+      <div className="max-w-4xl space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-48 rounded-xl" />
       </div>
@@ -764,7 +764,7 @@ export function StandaloneLootSessionPage() {
 
   if (!session) {
     return (
-      <div className="max-w-2xl space-y-4">
+      <div className="max-w-4xl space-y-4">
         <button onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Back to Loot
         </button>
@@ -791,7 +791,7 @@ export function StandaloneLootSessionPage() {
   const notInDraft = session.participants.filter((p) => !draftSet.has(p.userId));
 
   return (
-    <div className={isSnakeDraft ? 'space-y-5' : 'max-w-2xl space-y-5'}>
+    <div className={isSnakeDraft ? 'space-y-5' : 'max-w-4xl space-y-5'}>
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

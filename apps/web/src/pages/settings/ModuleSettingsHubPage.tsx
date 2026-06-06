@@ -65,7 +65,7 @@ export function ModuleSettingsHubPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Module Settings</h1>
         <p className="text-muted-foreground mt-0.5 text-sm">Configure each module independently.</p>

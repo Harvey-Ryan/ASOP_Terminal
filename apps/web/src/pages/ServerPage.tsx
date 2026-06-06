@@ -916,7 +916,7 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       </div>
 
       {/* Role */}
-      <div className="hidden md:block xl:hidden w-28 shrink-0 px-4 py-3">
+      <div className="hidden md:block 2xl:hidden w-28 shrink-0 px-4 py-3">
         <span className="text-[21px] line-clamp-2">{userRoleName ?? '—'}</span>
       </div>
 
@@ -952,7 +952,7 @@ function RecentLootCard({ guildId }: { guildId: string }) {
   const event = data as RecentLootEvent | null | undefined;
 
   return (
-    <div className="h-[50vh] min-h-[360px] xl:h-[720px] flex flex-col rounded-xl border border-border bg-card p-5">
+    <div className="h-[50vh] min-h-[360px] 2xl:h-[960px] flex flex-col rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
@@ -1107,9 +1107,9 @@ export function ServerPage() {
       )}
 
       {/* Responsive two-column layout: events left, loot right */}
-      <div className={`grid grid-cols-1 gap-6 items-start max-w-[1600px] mx-auto w-full${canView ? ' xl:grid-cols-[1fr_360px]' : ''}`}>
+      <div className={`grid grid-cols-1 gap-6 items-start w-full${canView ? ' 2xl:grid-cols-[1fr_380px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
-        <div className="h-[70vh] min-h-[400px] lg:h-[720px] flex flex-col overflow-hidden rounded-xl border border-border">
+        <div className="h-[70vh] min-h-[400px] lg:h-[820px] 2xl:h-[960px] flex flex-col overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}
           <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2 shrink-0" />
 
@@ -1222,7 +1222,7 @@ export function ServerPage() {
                 <div className="flex-1 px-4 py-2">Event</div>
                 <div className="hidden lg:block w-40 shrink-0 px-4 py-2">Location</div>
                 <div className="hidden sm:block w-28 shrink-0 px-4 py-2">Status</div>
-                <div className="hidden md:block xl:hidden w-28 shrink-0 px-4 py-2">Role</div>
+                <div className="hidden md:block 2xl:hidden w-28 shrink-0 px-4 py-2">Role</div>
                 <div className="hidden sm:block w-24 shrink-0 px-4 py-2 text-center">Actions</div>
               </div>
 
@@ -1263,7 +1263,7 @@ export function ServerPage() {
         </div>
 
         {/* Recent Loot column — only shown at lg+ where the two-column layout is active */}
-        {canView && <div className="hidden xl:block"><RecentLootCard guildId={guildId!} /></div>}
+        {canView && <div className="hidden 2xl:block"><RecentLootCard guildId={guildId!} /></div>}
       </div>
     </div>
   );

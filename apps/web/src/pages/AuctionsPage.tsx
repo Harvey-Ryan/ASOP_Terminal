@@ -334,7 +334,7 @@ export function AuctionsPage() {
 
   if (auctionsQuery.isLoading) {
     return (
-      <div className="max-w-2xl space-y-4">
+      <div className="max-w-4xl space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-48 rounded-xl" />
       </div>
@@ -342,7 +342,7 @@ export function AuctionsPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

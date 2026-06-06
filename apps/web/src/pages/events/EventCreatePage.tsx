@@ -8,7 +8,7 @@ export function EventCreatePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <button
         onClick={() => navigate(-1)}
         className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

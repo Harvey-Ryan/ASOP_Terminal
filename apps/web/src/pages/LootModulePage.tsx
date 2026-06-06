@@ -336,7 +336,7 @@ export function LootModulePage() {
       : 'border-transparent text-muted-foreground hover:text-foreground'}`;
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">🎁 Loot</h1>

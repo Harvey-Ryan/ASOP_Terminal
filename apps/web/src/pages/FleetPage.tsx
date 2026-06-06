@@ -584,7 +584,7 @@ export function FleetPage() {
   if (!guildId) return null;
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Fleet Registry</h1>
         <p className="text-sm text-muted-foreground mt-1">

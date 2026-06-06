@@ -58,7 +58,7 @@ export function PermissionsPage() {
   const isError = rolesQuery.isError || settingsQuery.isError;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Permissions</h1>
         <p className="mt-1 text-muted-foreground">Control which Discord roles can create events.</p>

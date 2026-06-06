@@ -90,7 +90,7 @@ export function NotificationSettingsPage() {
   const busy = updateMut.isPending;
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Notification Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">

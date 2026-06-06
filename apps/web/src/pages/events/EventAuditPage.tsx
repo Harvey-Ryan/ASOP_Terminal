@@ -182,7 +182,7 @@ export function EventAuditPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-2xl space-y-4">
+      <div className="max-w-4xl space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 rounded-xl" />
       </div>
@@ -191,7 +191,7 @@ export function EventAuditPage() {
 
   if (isError || !event) {
     return (
-      <div className="max-w-2xl">
+      <div className="max-w-4xl">
         <p className="text-destructive text-sm">Failed to load event.</p>
       </div>
     );
@@ -207,7 +207,7 @@ export function EventAuditPage() {
   const canComplete = existingSession != null || hadLoot !== null;
 
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

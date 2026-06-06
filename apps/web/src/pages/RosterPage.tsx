@@ -82,7 +82,7 @@ export function RosterPage() {
   const orgOnly = data?.orgOnly ?? [];
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-4xl">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
