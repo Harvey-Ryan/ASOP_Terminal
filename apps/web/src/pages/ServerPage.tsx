@@ -952,7 +952,7 @@ function RecentLootCard({ guildId }: { guildId: string }) {
   const event = data as RecentLootEvent | null | undefined;
 
   return (
-    <div className="h-[50vh] min-h-[360px] 2xl:h-[960px] flex flex-col rounded-xl border border-border bg-card p-5">
+    <div className="h-full flex flex-col rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
@@ -1088,10 +1088,10 @@ export function ServerPage() {
   const openAuction = openAuctionQuery.data;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full -m-6 overflow-hidden flex flex-col gap-6 p-6">
       {/* Active auction notification */}
       {openAuction && (
-        <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 gap-3">
+        <div className="shrink-0 flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Gavel className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="text-sm font-medium truncate text-amber-600 dark:text-amber-400">
@@ -1107,9 +1107,9 @@ export function ServerPage() {
       )}
 
       {/* Responsive two-column layout: events left, loot right */}
-      <div className={`grid grid-cols-1 gap-6 items-start w-full${canView ? ' 2xl:grid-cols-[1fr_380px]' : ''}`}>
+      <div className={`flex-1 min-h-0 grid grid-cols-1 gap-6 w-full${canView ? ' 2xl:grid-cols-[1fr_380px]' : ''}`}>
         {/* Events panel – Fleet Manager style */}
-        <div className="h-[70vh] min-h-[400px] lg:h-[820px] 2xl:h-[960px] flex flex-col overflow-hidden rounded-xl border border-border">
+        <div className="min-h-0 flex flex-col overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}
           <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2 shrink-0" />
 
@@ -1263,7 +1263,7 @@ export function ServerPage() {
         </div>
 
         {/* Recent Loot column — only shown at lg+ where the two-column layout is active */}
-        {canView && <div className="hidden 2xl:block"><RecentLootCard guildId={guildId!} /></div>}
+        {canView && <div className="hidden 2xl:flex flex-col min-h-0"><RecentLootCard guildId={guildId!} /></div>}
       </div>
     </div>
   );
