@@ -251,9 +251,14 @@ export function EventCreateForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+    if (!name.trim()) { setFormError('Event name is required.'); return; }
+    if (!description.trim()) { setFormError('Description is required.'); return; }
+    if (!musterPoint.trim()) { setFormError('Muster Point is required (used as the Discord event location).'); return; }
     if (!startDate || !startTime) { setFormError('Start date and time are required.'); return; }
     const startIso = new Date(`${startDate}T${startTime}:00`);
     if (isNaN(startIso.getTime())) { setFormError('Invalid start date or time.'); return; }
+    const validRoles = roles.filter((r) => r.name.trim());
+    if (validRoles.length === 0) { setFormError('At least one role is required.'); return; }
     const durationMins = parseInt(duration) || 0;
     const endIso = durationMins > 0 ? new Date(startIso.getTime() + durationMins * 60_000) : undefined;
 
@@ -266,13 +271,13 @@ export function EventCreateForm({
     }
 
     mutate({
-      name,
-      description: description || undefined,
-      musterPoint: musterPoint || undefined,
+      name: name.trim(),
+      description: description.trim(),
+      musterPoint: musterPoint.trim(),
       startTime: startIso.toISOString(),
       endTime: endIso?.toISOString(),
       recurType: (recurType as 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') || undefined,
-      roles: roles.filter((r) => r.name.trim()),
+      roles: validRoles,
       vcNames: vcNames.filter(Boolean),
       briefingChannel,
       imageUrl: selectedImageUrl ?? undefined,
@@ -401,7 +406,7 @@ export function EventCreateForm({
 
       {/* Description */}
       <div className={rowCls}>
-        <span className={labelCls}>Description</span>
+        <span className={labelCls}>Description *</span>
         <div className="flex-1">
           <textarea className={`${inputCls} resize-none`} rows={3} value={description}
             onChange={(e) => setDescription(e.target.value)} placeholder="Details about this event…" />
@@ -410,7 +415,10 @@ export function EventCreateForm({
 
       {/* Muster Point */}
       <div className={rowCls}>
-        <span className={labelCls}>Muster Point</span>
+        <span className={labelCls}>
+          Muster Point *
+          <span className="block text-[10px] opacity-50 normal-case tracking-normal mt-0.5">Discord Location</span>
+        </span>
         <div className="flex-1">
           <input className={inputCls} value={musterPoint}
             onChange={(e) => setMusterPoint(e.target.value)} placeholder="Main Gate, Zone 7, etc." />
@@ -461,7 +469,7 @@ export function EventCreateForm({
 
       {/* Roles */}
       <div className={rowCls}>
-        <span className={labelCls}>Roles</span>
+        <span className={labelCls}>Roles *</span>
         <div className="flex-1 space-y-2">
           {(() => {
             const selectedAlliance = alliances.find((a) => a.id === selectedAllianceId);
