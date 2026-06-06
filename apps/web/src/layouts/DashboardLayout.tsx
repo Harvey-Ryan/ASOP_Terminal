@@ -163,16 +163,36 @@ export function DashboardLayout() {
   const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
   const craftingEnabled     = myPerms?.craftingEnabled     ?? true;
 
-  const [sidebarOpen,   setSidebarOpen]   = useState(false);
-  const [profileOpen,   setProfileOpen]   = useState(false);
-  const [navCollapsed,  setNavCollapsed]  = useState(() =>
+  const [sidebarOpen,      setSidebarOpen]      = useState(false);
+  const [profileOpen,      setProfileOpen]      = useState(false);
+  const [navCollapsed,     setNavCollapsed]     = useState(() =>
     localStorage.getItem('nav-collapsed') === 'true',
+  );
+  const [toolsOpen,        setToolsOpen]        = useState(() =>
+    localStorage.getItem('nav-tools-open') !== 'false',
+  );
+  const [orgSettingsOpen,  setOrgSettingsOpen]  = useState(() =>
+    localStorage.getItem('nav-orgsettings-open') !== 'false',
   );
 
   function toggleNav() {
     setNavCollapsed(prev => {
       const next = !prev;
       localStorage.setItem('nav-collapsed', String(next));
+      return next;
+    });
+  }
+  function toggleTools() {
+    setToolsOpen(prev => {
+      const next = !prev;
+      localStorage.setItem('nav-tools-open', String(next));
+      return next;
+    });
+  }
+  function toggleOrgSettings() {
+    setOrgSettingsOpen(prev => {
+      const next = !prev;
+      localStorage.setItem('nav-orgsettings-open', String(next));
       return next;
     });
   }
@@ -454,29 +474,38 @@ export function DashboardLayout() {
               {(blueprintsEnabled || craftingEnabled) && (
                 <>
                   {!navCollapsed && (
-                    <p className="px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      In Development
-                    </p>
-                  )}
-                  {blueprintsEnabled && (
-                    <NavLink
-                      to={`/dashboard/servers/${activeGuild.id}/blueprints`}
-                      title={navCollapsed ? 'Blueprints' : undefined}
-                      className={serverNavCls}
+                    <button
+                      type="button"
+                      onClick={toggleTools}
+                      className="w-full flex items-center justify-between px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      <BookOpen className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'Blueprints'}
-                    </NavLink>
+                      <span>Tools</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${toolsOpen ? '' : '-rotate-90'}`} />
+                    </button>
                   )}
-                  {craftingEnabled && (
-                    <NavLink
-                      to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
-                      title={navCollapsed ? 'Crafting Calc' : undefined}
-                      className={serverNavCls}
-                    >
-                      <Calculator className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'Crafting Calc'}
-                    </NavLink>
+                  {(navCollapsed || toolsOpen) && (
+                    <>
+                      {blueprintsEnabled && (
+                        <NavLink
+                          to={`/dashboard/servers/${activeGuild.id}/blueprints`}
+                          title={navCollapsed ? 'Blueprints' : undefined}
+                          className={serverNavCls}
+                        >
+                          <BookOpen className="h-4 w-4 shrink-0" />
+                          {!navCollapsed && 'Blueprints'}
+                        </NavLink>
+                      )}
+                      {craftingEnabled && (
+                        <NavLink
+                          to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
+                          title={navCollapsed ? 'Crafting Calc' : undefined}
+                          className={serverNavCls}
+                        >
+                          <Calculator className="h-4 w-4 shrink-0" />
+                          {!navCollapsed && 'Crafting Calc'}
+                        </NavLink>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -506,55 +535,64 @@ export function DashboardLayout() {
           {showAdminNav && (
             <>
               {!navCollapsed && (
-                <p className="px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Org Settings
-                </p>
+                <button
+                  type="button"
+                  onClick={toggleOrgSettings}
+                  className="w-full flex items-center justify-between px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>Org Settings</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${orgSettingsOpen ? '' : '-rotate-90'}`} />
+                </button>
               )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild!.id}/roster`}
-                title={navCollapsed ? 'RSI Roster' : undefined}
-                className={navCls}
-              >
-                <Users className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'RSI Roster'}
-              </NavLink>
+              {(navCollapsed || orgSettingsOpen) && (
+                <>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild!.id}/roster`}
+                    title={navCollapsed ? 'RSI Roster' : undefined}
+                    className={navCls}
+                  >
+                    <Users className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'RSI Roster'}
+                  </NavLink>
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild!.id}/settings/modules`}
-                title={navCollapsed ? 'Module Settings' : undefined}
-                className={navCls}
-              >
-                <Puzzle className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'Module Settings'}
-              </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild!.id}/settings/modules`}
+                    title={navCollapsed ? 'Module Settings' : undefined}
+                    className={navCls}
+                  >
+                    <Puzzle className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Module Settings'}
+                  </NavLink>
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild!.id}/settings/game-data`}
-                title={navCollapsed ? 'Game Data' : undefined}
-                className={navCls}
-              >
-                <Database className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'Game Data'}
-              </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild!.id}/settings/game-data`}
+                    title={navCollapsed ? 'Game Data' : undefined}
+                    className={navCls}
+                  >
+                    <Database className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Game Data'}
+                  </NavLink>
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild!.id}/settings/sc-data`}
-                title={navCollapsed ? 'SC Database' : undefined}
-                className={navCls}
-              >
-                <Rocket className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'SC Database'}
-              </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild!.id}/settings/sc-data`}
+                    title={navCollapsed ? 'SC Database' : undefined}
+                    className={navCls}
+                  >
+                    <Rocket className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'SC Database'}
+                  </NavLink>
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild!.id}/settings/bot`}
-                title={navCollapsed ? 'Org Settings' : undefined}
-                className={navCls}
-              >
-                <Settings className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'Org Settings'}
-              </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild!.id}/settings/bot`}
+                    title={navCollapsed ? 'Org Settings' : undefined}
+                    className={navCls}
+                  >
+                    <Settings className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Org Settings'}
+                  </NavLink>
+                </>
+              )}
             </>
           )}
         </nav>
