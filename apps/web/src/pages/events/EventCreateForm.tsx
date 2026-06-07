@@ -536,11 +536,19 @@ export function EventCreateForm({
         <div className="flex-1 space-y-2">
           {(() => {
             const selectedAlliance = alliances.find((a) => a.id === selectedAllianceId);
-            const guildOptions = (allianceEnabled && selectedAlliance)
+            const allianceOptions: { guildId: string; label: string }[] = (allianceEnabled && selectedAlliance)
               ? selectedAlliance.members
                   .filter((m) => m.status === 'ACCEPTED')
                   .map((m) => ({ guildId: m.guildId, label: m.guildId === guildId ? `${m.name} (You)` : m.name }))
-              : undefined;
+              : [];
+            const directOptions: { guildId: string; label: string }[] = (directInviteEnabled && directGuildIds.length > 0)
+              ? allGuilds
+                  .filter((g) => g.guildId === guildId || directGuildIds.includes(g.guildId))
+                  .map((g) => ({ guildId: g.guildId, label: g.guildId === guildId ? `${g.name} (You)` : g.name }))
+              : [];
+            const seenIds = new Set(allianceOptions.map((o) => o.guildId));
+            const merged = [...allianceOptions, ...directOptions.filter((o) => !seenIds.has(o.guildId))];
+            const guildOptions = merged.length > 0 ? merged : undefined;
             return roles.map((role, i) => (
               <RoleRow key={i} role={role}
                 inputRef={(el) => { roleInputRefs.current[i] = el; }}
