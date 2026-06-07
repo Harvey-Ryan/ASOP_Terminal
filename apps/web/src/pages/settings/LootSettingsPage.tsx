@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ChannelSelect, ToggleSwitch, RolePicker } from '@/components/settings/SettingsControls';
+import { ChannelSelect, ToggleSwitch, RolePicker, SettingTooltip } from '@/components/settings/SettingsControls';
 
 const LOOT_METHODS = [
   { value: 'RANDOM_ROLL', label: '🎲 Random Roll — items are distributed by dice roll' },
@@ -114,6 +114,7 @@ export function LootSettingsPage() {
                 description={form.lootEnabled
                   ? 'Members can create and participate in loot sessions.'
                   : 'Loot is disabled. The Loot nav link will be hidden for all members.'}
+                tooltip="Controls whether loot sessions are active for this server. When disabled, the Loot nav link is hidden and no new sessions can be started. Existing completed sessions remain accessible to admins."
               />
             </CardContent>
           </Card>
@@ -121,7 +122,10 @@ export function LootSettingsPage() {
           {/* Results channel */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Results Channel</CardTitle>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                Results Channel
+                <SettingTooltip content="The Discord channel where the bot posts a loot summary embed when a session is completed. The summary lists every item, its distribution method, and the recipient. Leave unset to skip Discord posting entirely." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
@@ -140,7 +144,10 @@ export function LootSettingsPage() {
           {/* Default method */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Default Distribution Method</CardTitle>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                Default Distribution Method
+                <SettingTooltip content="The distribution method pre-selected when creating a new loot session. This is a convenience default only — the method can always be changed per session. Random Roll: dice-based winner. Snake Draft: turn-based picking order. DKP Bid: proxy auction using points balance." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
@@ -161,7 +168,10 @@ export function LootSettingsPage() {
           {/* Session creator roles */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Session Creators</CardTitle>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                Session Creators
+                <SettingTooltip content="Discord roles whose members can start loot sessions. If no roles are selected, any server member can create a session. Server admins always have this permission. This applies to both standalone sessions and event-attached loot." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

@@ -293,11 +293,14 @@ function allianceContent() {
       <H>What Is an Alliance?</H>
       <P>An alliance is a named group of servers that have agreed to coordinate together. Once your guild joins an alliance, events shared by any member guild appear on your dashboard automatically — no separate login or server required.</P>
       <Divider />
-      <H>Alliance Events on Your Dashboard</H>
-      <P>Shared events show alongside your own guild's events with a small alliance indicator. Click them to open the event detail and RSVP exactly as you would for a local event. The event is hosted by another guild but your RSVP is recorded under your guild's roster.</P>
+      <H>Individual Allies</H>
+      <P>In addition to named alliances, you can connect with a single server directly without creating a group. An <B>Individual Ally</B> is a one-to-one connection — shared events between just the two of you, without other servers involved. Individual allies appear in the Allies section of your Alliance settings page.</P>
+      <Divider />
+      <H>Shared Events on Your Dashboard</H>
+      <P>Shared events (from alliances or individual allies) appear alongside your own guild's events. Click any event card to open the detail view and RSVP exactly as you would for a local event. The event is hosted by another guild but your RSVP is recorded under your guild's roster.</P>
       <Divider />
       <H>Per-Guild Role Slots</H>
-      <P>Alliance events use <B>per-guild role slots</B> — each member guild has its own set of role assignments. This lets the host org define a role structure (e.g. Infantry ×10, Pilot ×4) and each guild fills its own complement independently. Your role choice only affects your guild's roster, not other guilds'.</P>
+      <P>Shared events use <B>per-guild role slots</B> — each participating guild has its own set of role assignments. The host org defines the role structure (e.g. Infantry ×10, Pilot ×4) and each guild fills its own complement independently. Your role choice only affects your guild's roster, not other guilds'. This applies to both alliance-shared events and direct-invite shares.</P>
       <Divider />
       <H>Org Tags</H>
       <P>Each guild can set a short <B>Org Tag</B> (up to 4 characters, e.g. <code className="font-mono text-xs bg-muted px-1 rounded">ASOP</code>) in Alliance settings. This tag appears next to member names in event lists, bot roster embeds, and snake draft order announcements so participants can identify which org each member belongs to.</P>
@@ -308,25 +311,31 @@ function allianceContent() {
 function allianceAdminContent() {
   return (
     <>
-      <H>Creating an Alliance</H>
+      <H>Creating a Named Alliance</H>
       <P>Go to <B>Module Settings → Alliance</B> and click <B>New Alliance</B>. Give it a name (e.g. "Northern Coalition") and confirm. Your server is added as the first accepted member automatically.</P>
       <Divider />
-      <H>Inviting Other Servers</H>
-      <P>Open an alliance card and click <B>Invite Server</B>. Search the list of bot-installed guilds and select one to send an invitation. The invited server sees a <B>Pending Alliance Invitations</B> banner on their Alliance settings page and can accept or reject. Pending invitations are shown with an "Awaiting" badge on your card until resolved.</P>
+      <H>Inviting Individual Allies</H>
+      <P>The <B>Individual Allies</B> section on the Alliance settings page lets you connect directly with a single server — no named group required. Click <B>Invite Ally</B>, search for the target server, and select it. The receiving server sees a <B>Pending Alliance Invitations</B> card labelled "Direct ally request" and can accept or reject. Once accepted, both servers can share events with each other independently.</P>
+      <Divider />
+      <H>Inviting Servers to a Named Alliance</H>
+      <P>Open an alliance card and click <B>Invite Server</B>. Search the list of bot-installed guilds and select one to send an invitation. The invited server sees the invitation in their Alliance settings and can accept or reject. Pending invitations show an "Awaiting" badge on your card until resolved.</P>
       <P>To cancel a pending invitation before it is accepted, hover the awaiting server row and click the remove button.</P>
       <Divider />
       <H>Accepting Invitations</H>
-      <P>When another guild invites yours, a highlighted <B>Pending Alliance Invitations</B> card appears at the top of your Alliance settings page. Click <B>Accept</B> to join the alliance, or <B>Reject</B> to decline. Accepted guilds immediately appear as members on all alliance cards across every member server.</P>
+      <P>When another guild invites yours — whether to a named alliance or as a direct ally — a highlighted <B>Pending Alliance Invitations</B> card appears at the top of your Alliance settings page. Click <B>Accept</B> to join, or <B>Reject</B> to decline. Accepted connections immediately become active for both servers.</P>
       <Divider />
-      <H>Sharing Events</H>
-      <P>When creating or editing an event, use the <B>Alliance</B> selector in the event form to choose which alliance to share it with. The event is then visible on every member guild's dashboard. The bot automatically creates a forum thread and Discord scheduled event in each member guild, and loot result announcements are broadcast to all alliance threads when a session completes.</P>
-      <P>Only guilds the host server is an accepted member of appear in the alliance dropdown. Removing the alliance share from an event un-broadcasts it.</P>
+      <H>Sharing Events via Alliance or Direct Invite</H>
+      <P>When creating or editing an event, use the <B>Alliance</B> selector to choose which named alliance to share it with. For direct ally or cross-alliance sharing, use the <B>Direct Invites</B> toggle to pick individual guilds from your connected allies and alliance members.</P>
+      <P>When a guild accepts an event share, the bot automatically creates a forum thread and Discord scheduled event in that guild. Loot result announcements are broadcast to all connected guild threads when a session completes.</P>
+      <Divider />
+      <H>Per-Guild Role Slots on Shared Events</H>
+      <P>When a shared event uses role slots, each participating guild gets its own independent copy of the slot roster. You can set different capacity limits per guild from the event's role slot configuration. Individual ally guilds follow the same per-guild slot system as full alliance members.</P>
       <Divider />
       <H>Org Tag &amp; Manager Roles</H>
-      <P>Set your guild's <B>Org Tag</B> (up to 4 alphanumeric characters) in Alliance settings. It appears in event lists and bot embeds to identify your guild within the alliance. Use <B>Alliance Manager Roles</B> to grant non-admin Discord roles the ability to create, invite, and manage alliances — server admins always have this permission regardless of the role setting.</P>
+      <P>Set your guild's <B>Org Tag</B> (up to 4 alphanumeric characters) in Alliance settings. It appears in event lists and bot embeds to identify your guild within any alliance or shared event. Use <B>Alliance Manager Roles</B> to grant non-admin Discord roles the ability to create, invite, and manage alliances — server admins always have this permission regardless of the role setting.</P>
       <Divider />
       <H>Removing Members &amp; Deleting Alliances</H>
-      <P>Hover any accepted member row in an alliance card and click the remove button to remove that server from the alliance. To delete an alliance entirely, use the trash icon on the alliance card header. Both actions take effect immediately across all member servers.</P>
+      <P>Hover any accepted member row in an alliance card and click the remove button to remove that server from the alliance. To delete a named alliance entirely, use the trash icon on the alliance card header. To remove a direct ally, hover their row in the Individual Allies section and click the remove button. All actions take effect immediately.</P>
     </>
   );
 }
@@ -349,12 +358,13 @@ function settingsContent(dkpLabel: string) {
       <H>Permissions</H>
       <P>The <B>Org Settings</B> panel controls who can edit module settings. Assign Discord roles to <B>Module Settings Editors</B> to allow non-admin members to configure channels and module options. <B>Viewer Roles</B> grant members access to view events and loot without being a server admin.</P>
       <Divider />
-      <H>Module Settings</H>
-      <P>Each module (Event Bot, DKP, Loot, Marketplace, Fleet) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link and features for all members. Disabled modules are completely hidden.</P>
+      <H>Module Settings &amp; Setting Tooltips</H>
+      <P>Each module (Event Bot, DKP, Loot, Marketplace, Fleet, Blueprints, Crafting Calculator, Alliance) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link for all members. Disabled modules are completely hidden.</P>
+      <P>Every setting input has a <B>?</B> icon next to its label. Hovering it shows a detailed explanation of what that setting controls and how it affects the bot and dashboard.</P>
       <P>The DKP module settings page also lets you set the <B>currency label</B> (e.g. renaming "DKP" to "Credits"), the default auction duration, and the minimum valid bid.</P>
       <Divider />
-      <H>Bot Configuration</H>
-      <P>In the <B>Event Bot</B> module settings, configure which Discord channels receive event announcements and voice category for auto-created VCs. In <B>DKP</B> module settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings, set the channel for loot result posts.</P>
+      <H>Bot Channel Configuration</H>
+      <P>In <B>Event Bot</B> module settings, configure the forum channel for event threads, the scheduled events channel, and the voice category for auto-created VCs. In <B>DKP</B> settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings, set the channel for loot result posts.</P>
       <Divider />
       <H>RSI Org Tag</H>
       <P>Set your org's RSI tag in <B>Org Settings</B> to enable the RSI Roster and bio verification requirement. Once set, all members must verify their RSI handle before accessing the dashboard.</P>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ToggleSwitch } from '@/components/settings/SettingsControls';
+import { ToggleSwitch, SettingTooltip } from '@/components/settings/SettingsControls';
 import { fleetApi } from '@/api/fleet';
 
 type FleetForm = Pick<GuildSettingsData, 'fleetEnabled'>;
@@ -109,6 +109,7 @@ export function FleetSettingsPage() {
                 description={form.fleetEnabled
                   ? 'Members can register and browse their ships.'
                   : 'Fleet Registry is disabled. The Fleet nav link will be hidden for all members.'}
+                tooltip="Controls whether the Fleet Registry is active for this server. When disabled, the Fleet nav link is hidden and ship registration is unavailable. Existing fleet data is preserved and reappears when the module is re-enabled."
               />
             </CardContent>
           </Card>

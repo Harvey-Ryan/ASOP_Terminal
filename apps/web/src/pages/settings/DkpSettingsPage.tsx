@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ChannelSelect, ToggleSwitch } from '@/components/settings/SettingsControls';
+import { ChannelSelect, ToggleSwitch, SettingTooltip } from '@/components/settings/SettingsControls';
 
 type DkpForm = Pick<
   GuildSettingsData,
@@ -106,6 +106,7 @@ export function DkpSettingsPage() {
                 description={form.dkpEnabled
                   ? 'Members can view the leaderboard and participate in auctions.'
                   : 'DKP and Auctions are disabled. Both nav links will be hidden.'}
+                tooltip="Controls whether DKP (points tracking) and Auctions are active for this server. When disabled, both nav links are hidden and DKP attendance awards from loot sessions are skipped."
               />
             </CardContent>
           </Card>
@@ -116,7 +117,10 @@ export function DkpSettingsPage() {
               <CardTitle className="text-base">Currency</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="dkpLabel">Currency Label</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-sm font-medium" htmlFor="dkpLabel">Currency Label</label>
+                <SettingTooltip content='The name of your points currency shown throughout the dashboard, bot messages, and DM notifications. Change this to match your org\'s terminology — e.g. "Credits", "Points", or "Merits". Max 30 characters.' />
+              </div>
               <p className="text-xs text-muted-foreground">
                 The name shown throughout the UI and bot messages, e.g. "Credits" or "Points".
               </p>
@@ -139,7 +143,10 @@ export function DkpSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="auctionChannel">Announcement Channel</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="auctionChannel">Announcement Channel</label>
+                  <SettingTooltip content="The Discord channel where the bot posts a live bid embed when a standalone auction starts. The embed updates in real time as bids are placed. Leave unset to disable standalone auction announcements in Discord." />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   When an auction starts, the bot posts a live bid embed in this channel.
                 </p>
@@ -153,7 +160,10 @@ export function DkpSettingsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="auctionDuration">Default Auction Duration</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="auctionDuration">Default Auction Duration</label>
+                  <SettingTooltip content="The pre-filled duration in hours when creating a new standalone auction. Individual auctions can override this value at creation time. Must be between 1 and 168 hours (7 days)." />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Hours a new standalone auction runs before closing (1–168).
                 </p>
@@ -175,7 +185,10 @@ export function DkpSettingsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="minBid">Minimum Bid</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="minBid">Minimum Bid</label>
+                  <SettingTooltip content={`The lowest bid amount accepted in any auction for this server. Set to 0 for no minimum. Members attempting to bid below this value will be rejected by the bot. Applies to both standalone auctions and loot ${form.dkpLabel || 'DKP'} Bid sessions.`} />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Smallest valid bid amount in {form.dkpLabel || 'DKP'}. Set to 0 for no minimum.
                 </p>

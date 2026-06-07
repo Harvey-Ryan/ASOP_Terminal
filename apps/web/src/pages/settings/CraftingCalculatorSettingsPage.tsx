@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ToggleSwitch } from '@/components/settings/SettingsControls';
+import { ToggleSwitch, SettingTooltip } from '@/components/settings/SettingsControls';
 
 type CraftingForm = Pick<GuildSettingsData, 'craftingEnabled'>;
 
@@ -84,6 +84,7 @@ export function CraftingCalculatorSettingsPage() {
                 description={form.craftingEnabled
                   ? 'Members can access the crafting calculator.'
                   : 'Crafting Calculator is disabled. The nav link will be hidden for all members.'}
+                tooltip="Controls whether the Crafting Calculator is visible to members of this server. When disabled, the Crafting Calculator nav link is hidden. No data is affected when toggling this setting."
               />
             </CardContent>
           </Card>

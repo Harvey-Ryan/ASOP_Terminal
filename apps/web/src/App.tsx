@@ -31,9 +31,11 @@ import { LootSettingsPage } from './pages/settings/LootSettingsPage';
 import { ModuleSettingsHubPage } from './pages/settings/ModuleSettingsHubPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export default function App() {
   return (
+    <TooltipProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -86,5 +88,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
+    </TooltipProvider>
   );
 }

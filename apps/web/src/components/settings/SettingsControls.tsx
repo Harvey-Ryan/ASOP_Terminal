@@ -1,6 +1,34 @@
-import { X } from 'lucide-react';
+import React from 'react';
+import { X, HelpCircle } from 'lucide-react';
 import type { DiscordChannel } from '@/api/settings';
 import type { DiscordRoleDto } from '@dem/shared';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
+// ── SettingTooltip ────────────────────────────────────────────────────────────
+
+export function SettingTooltip({ content }: { content: React.ReactNode }) {
+  return (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="More information"
+          className="inline-flex shrink-0 text-muted-foreground/60 hover:text-muted-foreground transition-colors focus:outline-none"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="right"
+        align="start"
+        className="max-w-xs text-xs leading-relaxed px-3 py-2.5 shadow-lg"
+      >
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 // ── Channel type icons ────────────────────────────────────────────────────────
 
@@ -77,16 +105,21 @@ export function ToggleSwitch({
   onChange,
   label,
   description,
+  tooltip,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
   description?: string;
+  tooltip?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
-        <p className="text-sm font-medium">{label}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium">{label}</p>
+          {tooltip && <SettingTooltip content={tooltip} />}
+        </div>
         {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
       </div>
       <button

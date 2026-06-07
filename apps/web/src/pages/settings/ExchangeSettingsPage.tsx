@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ToggleSwitch } from '@/components/settings/SettingsControls';
+import { ToggleSwitch, SettingTooltip } from '@/components/settings/SettingsControls';
 import { inventoryApi } from '@/api/marketplace';
 
 type ExchangeForm = Pick<GuildSettingsData, 'exchangeEnabled'>;
@@ -102,6 +102,7 @@ export function ExchangeSettingsPage() {
                 description={form.exchangeEnabled
                   ? 'Members can manage their inventory and list items for sale on the cross-guild marketplace.'
                   : 'Marketplace is disabled. The nav link will be hidden for all members.'}
+                tooltip="Controls whether the cross-guild Marketplace is active for this server. When disabled, the Marketplace nav link is hidden, inventory management is unavailable, and this server's listings are hidden from the platform-wide Browse page."
               />
             </CardContent>
           </Card>

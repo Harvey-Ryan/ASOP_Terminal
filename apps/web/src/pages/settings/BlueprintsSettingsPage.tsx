@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ToggleSwitch } from '@/components/settings/SettingsControls';
+import { ToggleSwitch, SettingTooltip } from '@/components/settings/SettingsControls';
 
 type BlueprintsForm = Pick<GuildSettingsData, 'blueprintsEnabled'>;
 
@@ -84,6 +84,7 @@ export function BlueprintsSettingsPage() {
                 description={form.blueprintsEnabled
                   ? 'Members can browse and search SC blueprints.'
                   : 'Blueprints is disabled. The Blueprints nav link will be hidden for all members.'}
+                tooltip="Controls whether the Star Citizen Blueprints browser is visible to members of this server. When disabled, the Blueprints nav link is hidden. Existing blueprint data is not affected."
               />
             </CardContent>
           </Card>

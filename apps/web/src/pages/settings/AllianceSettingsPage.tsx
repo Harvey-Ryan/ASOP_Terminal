@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { allianceApi } from '@/api/alliance';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { RolePicker } from '@/components/settings/SettingsControls';
+import { RolePicker, SettingTooltip } from '@/components/settings/SettingsControls';
 import { getGuildIconUrl } from '@dem/shared';
 import type { AllianceDto, AllianceGuildDto, AllianceInvitationDto } from '@dem/shared';
 
@@ -587,6 +587,7 @@ export function AllianceSettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             Org Tag
+            <SettingTooltip content="A short 4-character alphanumeric identifier for your guild within alliances (e.g. ASOP). Appears next to member names in event lists, bot roster embeds, and snake draft order announcements so participants can quickly identify which org each member belongs to." />
             {tagFlash && (
               <span className="flex items-center gap-1 text-xs font-normal text-green-500">
                 <Check className="h-3.5 w-3.5" /> Saved
@@ -656,7 +657,10 @@ export function AllianceSettingsPage() {
       ) : (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Alliance Manager Roles</CardTitle>
+            <CardTitle className="text-base flex items-center gap-1.5">
+              Alliance Manager Roles
+              <SettingTooltip content="Discord roles whose members can create alliances, invite servers, rename alliances, and remove members. Server admins always have this permission. Leave empty to restrict all alliance management to server admins only." />
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
-import { ChannelSelect, ToggleSwitch, RolePicker } from '@/components/settings/SettingsControls';
+import { ChannelSelect, ToggleSwitch, RolePicker, SettingTooltip } from '@/components/settings/SettingsControls';
 
 const TIMEZONES = [
   { value: 'UTC',                               label: 'UTC' },
@@ -172,6 +172,7 @@ export function ModuleEventBotPage() {
                 description={form.eventBotEnabled
                   ? 'Members can create and view events.'
                   : 'Event Bot is disabled. The Events nav link will be hidden for all members.'}
+                tooltip="Controls whether the Event module is active for this server. When disabled, the Events nav link is hidden from all members and no event threads or scheduled events are posted to Discord."
               />
             </CardContent>
           </Card>
@@ -183,7 +184,10 @@ export function ModuleEventBotPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="forumChannel">Forum Channel</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="forumChannel">Forum Channel</label>
+                  <SettingTooltip content="The Discord forum channel where the bot creates a new thread for each event. The thread displays the event details, roster embed, and loot results. Must be a Forum-type channel — text and announcement channels are not supported here." />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Where the bot posts event threads and roster embeds. Must be a Forum channel.
                 </p>
@@ -197,7 +201,10 @@ export function ModuleEventBotPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="eventChannel">Scheduled Events Channel</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="eventChannel">Scheduled Events Channel</label>
+                  <SettingTooltip content="A text or announcement channel used as the location for Discord's built-in Scheduled Events feature. The bot creates a Discord Scheduled Event here for each app event, making it visible in the server's Events tab and on the Discord client home screen." />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Text or announcement channel where the bot creates Discord Scheduled Events.
                 </p>
@@ -211,7 +218,10 @@ export function ModuleEventBotPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="vcCategory">Voice Channel Category</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="vcCategory">Voice Channel Category</label>
+                  <SettingTooltip content="The channel category where the bot automatically creates voice channels 30 minutes before each event starts. Channels are named after the event's configured voice rooms and are archived when the event ends. Leave unset to disable auto-VC creation." />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Category where the bot auto-creates event voice channels 30 minutes before start.
                 </p>
@@ -229,7 +239,10 @@ export function ModuleEventBotPage() {
           {/* Timezone */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Timezone</CardTitle>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                Timezone
+                <SettingTooltip content="The timezone used when displaying all event times in the dashboard, bot messages, DM notifications, and Discord Scheduled Events. Applies to this server only — allied guilds each use their own timezone setting." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
@@ -250,7 +263,10 @@ export function ModuleEventBotPage() {
           {/* Event Creator Roles */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Event Creators</CardTitle>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                Event Creators
+                <SettingTooltip content="Discord roles whose members are allowed to create, edit, and end events. Server administrators always have this permission regardless of this setting. Leave empty to restrict event creation to server admins only." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
