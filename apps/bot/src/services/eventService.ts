@@ -214,6 +214,13 @@ async function _setupDiscordForEvent(eventId: string) {
     data: { discordEventId, threadId, rosterMessageId },
   });
 
+  // ── Post Discord event link to configured text channel (host guild) ───────
+  if (!event.discordEventId && discordEventId) {
+    await postEventLink(event.guildId, discordEventId).catch((err) =>
+      console.error('[bot] postEventLink failed for host guild:', err),
+    );
+  }
+
   // ── Alliance guild setup (forum threads + scheduled events, no VCs) ──────
   if ((event as unknown as EventForAlliance).allianceId) {
     await setupAllianceGuilds(event as unknown as EventForAlliance).catch((err) =>
@@ -320,6 +327,11 @@ async function setupAllianceGuilds(event: EventForAlliance) {
           return null;
         });
         memberDiscordEventId = scheduled?.id ?? null;
+        if (memberDiscordEventId) {
+          await postEventLink(memberDiscordGuildId, memberDiscordEventId).catch((err) =>
+            console.error(`[bot] postEventLink failed for alliance guild ${memberDiscordGuildId}:`, err),
+          );
+        }
       }
 
       await prisma.eventAllianceGuild.create({
@@ -893,6 +905,22 @@ async function resolveForumChannelId(discordGuildId: string): Promise<string | n
   return guild?.settings?.forumChannelId ?? process.env['FORUM_CHANNEL_ID'] ?? null;
 }
 
+async function postEventLink(discordGuildId: string, scheduledEventId: string): Promise<void> {
+  const guildRecord = await prisma.guild
+    .findUnique({ where: { guildId: discordGuildId }, include: { settings: true } })
+    .catch(() => null);
+  const channelId = guildRecord?.settings?.eventChannelId ?? null;
+  if (!channelId) return;
+  try {
+    const ch = await client.channels.fetch(channelId).catch(() => null);
+    if (ch?.isTextBased() && ch.isSendable()) {
+      await ch.send(`https://discord.com/events/${discordGuildId}/${scheduledEventId}`);
+    }
+  } catch (err) {
+    console.error(`[bot] Failed to post event link to channel ${channelId}:`, err);
+  }
+}
+
 export async function resolveVcCategoryId(discordGuildId: string): Promise<string | null> {
   const guild = await prisma.guild
     .findUnique({ where: { guildId: discordGuildId }, include: { settings: true } })
@@ -1021,6 +1049,11 @@ export async function setupDiscordForShare(shareId: string): Promise<void> {
       return null;
     });
     discordEventId = scheduled?.id ?? null;
+    if (discordEventId) {
+      await postEventLink(receivingDiscordGuildId, discordEventId).catch((err) =>
+        console.error(`[bot] postEventLink failed for shared guild ${receivingDiscordGuildId}:`, err),
+      );
+    }
   }
 
   await prisma.eventAllianceGuild.create({
