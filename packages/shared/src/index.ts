@@ -959,6 +959,7 @@ export interface AllianceGuildDto {
 export interface AllianceDto {
   id: string;
   name: string;
+  isDirect: boolean;
   members: AllianceGuildDto[];
   createdAt: string;
   updatedAt: string;
@@ -969,6 +970,7 @@ export interface AllianceInvitationDto {
   memberId: string;
   allianceId: string;
   allianceName: string;
+  isDirect: boolean;
   invitedByGuildId: string | null;
   invitedByGuildName: string | null;
   invitedByGuildIcon: string | null;

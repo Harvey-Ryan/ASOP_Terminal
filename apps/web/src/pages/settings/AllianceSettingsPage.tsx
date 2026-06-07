@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Network, Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronUp, Server,
-  UserPlus, AlertCircle, Clock, CheckCircle2, XCircle, Info,
+  UserPlus, AlertCircle, Clock, CheckCircle2, XCircle, Info, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,13 +78,24 @@ function PendingInvitations({
             className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-background/60 px-3 py-2.5"
           >
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{inv.allianceName}</p>
-              {inv.invitedByGuildName ? (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Invited by <span className="text-foreground font-medium">{inv.invitedByGuildName}</span>
-                </p>
+              {inv.isDirect ? (
+                <>
+                  <p className="text-sm font-medium truncate">
+                    {inv.invitedByGuildName ?? 'A guild'} wants to be your ally
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Direct ally request</p>
+                </>
               ) : (
-                <p className="text-xs text-muted-foreground mt-0.5">Invitation source unknown</p>
+                <>
+                  <p className="text-sm font-medium truncate">{inv.allianceName}</p>
+                  {inv.invitedByGuildName ? (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Invited by <span className="text-foreground font-medium">{inv.invitedByGuildName}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-0.5">Invitation source unknown</p>
+                  )}
+                </>
               )}
             </div>
             <Button
@@ -168,6 +179,68 @@ function AddMemberPanel({
               onClose();
             }}
             disabled={addMember.isPending}
+            className="w-full flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted transition-colors text-left"
+          >
+            <GuildIcon guild={g} size={5} />
+            <span className="truncate">{g.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Invite individual ally panel ──────────────────────────────────────────────
+
+function InviteAllyPanel({
+  allGuilds,
+  callerGuildId,
+  existingAllyGuildIds,
+  onClose,
+}: {
+  allGuilds: AllianceGuildDto[];
+  callerGuildId: string;
+  existingAllyGuildIds: Set<string>;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const queryClient = useQueryClient();
+
+  const invite = useMutation({
+    mutationFn: (targetGuildId: string) => allianceApi.inviteDirect(callerGuildId, targetGuildId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alliances'] });
+      onClose();
+    },
+  });
+
+  const filtered = allGuilds.filter(
+    (g) =>
+      g.guildId !== callerGuildId &&
+      !existingAllyGuildIds.has(g.guildId) &&
+      g.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <Input
+        placeholder="Search servers…"
+        value={search}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        className="h-8 text-sm mb-2"
+        autoFocus
+      />
+      <div className="max-h-48 overflow-y-auto space-y-0.5">
+        {filtered.length === 0 && (
+          <p className="text-xs text-muted-foreground py-2 text-center">
+            {search ? 'No servers match' : 'No servers available'}
+          </p>
+        )}
+        {filtered.map((g) => (
+          <button
+            key={g.guildId}
+            onClick={() => invite.mutate(g.guildId)}
+            disabled={invite.isPending}
             className="w-full flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted transition-colors text-left"
           >
             <GuildIcon guild={g} size={5} />
@@ -447,6 +520,43 @@ export function AllianceSettingsPage() {
     },
   });
 
+  const removeDirectAlly = useMutation({
+    mutationFn: (allianceId: string) => allianceApi.remove(allianceId, guildId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alliances'] }),
+  });
+
+  // Flat list of all guilds this guild is allied with (direct or via named alliance)
+  const individualAllies = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { guildId: string; name: string; icon: string | null; allianceId: string; isDirect: boolean }[] = [];
+    for (const a of alliances) {
+      for (const m of a.members) {
+        if (m.status === 'ACCEPTED' && m.guildId !== guildId && !seen.has(m.guildId)) {
+          seen.add(m.guildId);
+          result.push({ guildId: m.guildId, name: m.name, icon: m.icon, allianceId: a.id, isDirect: a.isDirect });
+        }
+      }
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [alliances, guildId]);
+
+  // Set of Discord guild IDs already allied with (pending or accepted) — used to exclude from invite picker
+  const existingAllyGuildIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of alliances) {
+      if (a.isDirect) {
+        for (const m of a.members) {
+          if (m.guildId !== guildId) ids.add(m.guildId);
+        }
+      }
+    }
+    return ids;
+  }, [alliances, guildId]);
+
+  const [showInviteAlly, setShowInviteAlly] = useState(false);
+
+  const namedAlliances = alliances.filter((a) => !a.isDirect);
+
   const roles = rolesData ?? [];
   const isSettingsLoading = rolesLoading || settingsLoading;
 
@@ -630,11 +740,80 @@ export function AllianceSettingsPage() {
         </div>
       )}
 
-      {!alliancesLoading && !isError && alliances.length === 0 && !creating && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12 text-center">
+      {/* ── Individual Allies ── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4 shrink-0" />
+            Individual Allies
+            {!showInviteAlly && (
+              <Button
+                size="sm" variant="outline"
+                className="ml-auto h-7 text-xs"
+                onClick={() => setShowInviteAlly(true)}
+              >
+                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                Invite Ally
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          {showInviteAlly && (
+            <InviteAllyPanel
+              allGuilds={allGuilds}
+              callerGuildId={guildId}
+              existingAllyGuildIds={existingAllyGuildIds}
+              onClose={() => setShowInviteAlly(false)}
+            />
+          )}
+          {alliancesLoading ? (
+            <div className="space-y-2 pt-1">
+              <Skeleton className="h-9 rounded-md" />
+              <Skeleton className="h-9 rounded-md" />
+            </div>
+          ) : individualAllies.length === 0 && !showInviteAlly ? (
+            <p className="text-xs text-muted-foreground py-2 italic">
+              No allied servers yet. Invite a guild directly or join an alliance.
+            </p>
+          ) : (
+            <div className="space-y-0">
+              {individualAllies.map((ally) => (
+                <div
+                  key={ally.guildId}
+                  className="flex items-center gap-2.5 py-1.5 border-b border-border/50 last:border-0 group"
+                >
+                  <GuildIcon guild={{ guildId: ally.guildId, icon: ally.icon, name: ally.name }} size={6} />
+                  <span className="flex-1 text-sm truncate">{ally.name}</span>
+                  {ally.isDirect && (
+                    <span className="text-[10px] font-medium text-sky-400 uppercase tracking-wide shrink-0">
+                      Direct
+                    </span>
+                  )}
+                  {ally.isDirect && (
+                    <Button
+                      size="icon" variant="ghost"
+                      className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                      title="Remove ally"
+                      onClick={() => { if (confirm(`Remove ${ally.name} as an ally?`)) removeDirectAlly.mutate(ally.allianceId); }}
+                      disabled={removeDirectAlly.isPending}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Named alliance groups ── */}
+      {!alliancesLoading && !isError && namedAlliances.length === 0 && !creating && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-10 text-center">
           <Network className="h-8 w-8 text-muted-foreground mb-3" />
-          <p className="text-sm font-medium">No alliances yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Create an alliance to group servers together.</p>
+          <p className="text-sm font-medium">No alliance groups yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Create an alliance to group multiple servers together.</p>
           <Button size="sm" className="mt-4" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4 mr-1.5" />
             New Alliance
@@ -642,7 +821,7 @@ export function AllianceSettingsPage() {
         </div>
       )}
 
-      {alliances.map((alliance) => (
+      {namedAlliances.map((alliance) => (
         <AllianceCard
           key={alliance.id}
           alliance={alliance}

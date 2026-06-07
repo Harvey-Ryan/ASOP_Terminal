@@ -24,6 +24,7 @@ type MemberRow = {
 function toDto(alliance: {
   id: string;
   name: string;
+  isDirect: boolean;
   createdAt: Date;
   updatedAt: Date;
   members: MemberRow[];
@@ -31,6 +32,7 @@ function toDto(alliance: {
   return {
     id: alliance.id,
     name: alliance.name,
+    isDirect: alliance.isDirect,
     members: alliance.members.map((m) => ({
       id: m.guild.id,
       guildId: m.guild.guildId,
@@ -92,6 +94,7 @@ allianceRouter.get('/alliances/invitations', requireAuth, async (req, res) => {
         memberId: m.id,
         allianceId: m.allianceId,
         allianceName: m.alliance.name,
+        isDirect: m.alliance.isDirect,
         invitedByGuildId: m.invitedByGuildId,
         invitedByGuildName,
         invitedByGuildIcon,
@@ -119,6 +122,69 @@ allianceRouter.get('/alliances', requireAuth, async (req, res) => {
   });
 
   res.json({ success: true, data: alliances.map(toDto) } satisfies ApiResponse<AllianceDto[]>);
+});
+
+// ── POST /api/alliances/direct ────────────────────────────────────────────────
+// Send a direct 1-to-1 ally invite without creating a named alliance.
+
+allianceRouter.post('/alliances/direct', requireAuth, async (req, res) => {
+  const body = req.body as { callerGuildId?: string; targetGuildId?: string };
+  const callerGuildId = typeof body.callerGuildId === 'string' ? body.callerGuildId.trim() : '';
+  const targetGuildId = typeof body.targetGuildId === 'string' ? body.targetGuildId.trim() : '';
+
+  if (!callerGuildId || !targetGuildId) {
+    res.status(400).json({ success: false, error: 'callerGuildId and targetGuildId are required' } satisfies ApiResponse);
+    return;
+  }
+  if (callerGuildId === targetGuildId) {
+    res.status(400).json({ success: false, error: 'Cannot invite yourself' } satisfies ApiResponse);
+    return;
+  }
+  if (!(await assertAllianceManager(req, callerGuildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const [callerGuild, targetGuild] = await Promise.all([
+    prisma.guild.findUnique({ where: { guildId: callerGuildId } }),
+    prisma.guild.findUnique({ where: { guildId: targetGuildId } }),
+  ]);
+
+  if (!callerGuild || !targetGuild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  // Check if a direct relationship already exists (either direction)
+  const existing = await prisma.alliance.findFirst({
+    where: {
+      isDirect: true,
+      AND: [
+        { members: { some: { guildId: callerGuild.id } } },
+        { members: { some: { guildId: targetGuild.id } } },
+      ],
+    },
+  });
+  if (existing) {
+    res.status(409).json({ success: false, error: 'Already allied with this guild' } satisfies ApiResponse);
+    return;
+  }
+
+  const alliance = await prisma.alliance.create({
+    data: {
+      name: `${callerGuild.name} & ${targetGuild.name}`,
+      isDirect: true,
+      members: {
+        create: [
+          { guildId: callerGuild.id, status: 'ACCEPTED' },
+          { guildId: targetGuild.id, status: 'PENDING', invitedByGuildId: callerGuildId },
+        ],
+      },
+    },
+    include: memberInclude,
+  });
+
+  res.status(201).json({ success: true, data: toDto(alliance) } satisfies ApiResponse<AllianceDto>);
 });
 
 // ── POST /api/alliances ───────────────────────────────────────────────────────

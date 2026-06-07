@@ -835,6 +835,7 @@ model EventGuildShare {
 model Alliance {
   id        String           @id @default(cuid())
   name      String
+  isDirect  Boolean          @default(false)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 

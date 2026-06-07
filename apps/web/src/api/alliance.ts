@@ -48,4 +48,7 @@ export const allianceApi = {
 
   rejectInvitation: (memberId: string, discordGuildId: string) =>
     api.delete<ApiResponse>(`/alliances/invitations/${memberId}?discordGuildId=${discordGuildId}`),
+
+  inviteDirect: (callerGuildId: string, targetGuildId: string) =>
+    api.post<ApiResponse<AllianceDto>>('/alliances/direct', { callerGuildId, targetGuildId }).then((r) => r.data!),
 };
