@@ -1283,10 +1283,17 @@ export function ServerPage() {
     retry: 1,
   });
 
+  const guildSettingsQuery = useQuery({
+    queryKey: ['guild-settings', guildId],
+    queryFn: () => settingsApi.getSettings(guildId!),
+    enabled: !!guildId,
+    staleTime: 5 * 60_000,
+  });
+
   const openAuctionQuery = useQuery({
     queryKey: ['auctions', guildId, 'open'],
     queryFn: () => auctionsApi.list(guildId!),
-    enabled: !!guildId,
+    enabled: !!guildId && (guildSettingsQuery.data?.dkpEnabled ?? false),
     refetchInterval: 10_000,
     select: (data) => data.find((a) => a.status === 'OPEN'),
   });
