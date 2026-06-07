@@ -936,3 +936,102 @@ async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined
     return undefined;
   }
 }
+
+// ── Set up Discord entities for a single accepted share ───────────────────────
+
+export async function setupDiscordForShare(shareId: string): Promise<void> {
+  console.log(`[setupDiscordForShare] start — shareId=${shareId}`);
+
+  const share = await prisma.eventGuildShare.findUnique({
+    where: { id: shareId },
+    include: {
+      event: { include: { rsvps: { select: { userId: true, role: true } } } },
+      guild: true,
+    },
+  });
+
+  if (!share) {
+    console.error(`[setupDiscordForShare] share ${shareId} not found`);
+    return;
+  }
+  if (share.status !== 'ACCEPTED') {
+    console.warn(`[setupDiscordForShare] share ${shareId} is not ACCEPTED (status=${share.status})`);
+    return;
+  }
+
+  const { event, guild } = share;
+  const receivingDiscordGuildId = guild.guildId;
+
+  const existing = await prisma.eventAllianceGuild.findUnique({
+    where: { eventId_discordGuildId: { eventId: event.id, discordGuildId: receivingDiscordGuildId } },
+  });
+  if (existing) {
+    console.log(`[setupDiscordForShare] already set up for guild ${receivingDiscordGuildId}, skipping`);
+    return;
+  }
+
+  const roles = JSON.parse(event.roles) as EventRole[];
+  const guildTagMap = await buildGuildTagMap(roles);
+
+  const [imageAttachment, imageDataUri] = await Promise.all([
+    event.imageUrl ? fetchImageAttachment(event.imageUrl) : Promise.resolve(null),
+    event.imageUrl ? fetchImageAsDataUri(event.imageUrl) : Promise.resolve(undefined),
+  ]);
+  const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
+
+  let threadId: string | null = null;
+  let rosterMessageId: string | null = null;
+  let discordEventId: string | null = null;
+
+  const discordGuild = await client.guilds.fetch(receivingDiscordGuildId);
+
+  const forumChannelId = await resolveForumChannelId(receivingDiscordGuildId);
+  if (forumChannelId) {
+    const ch = await client.channels.fetch(forumChannelId).catch(() => null);
+    if (ch?.type === ChannelType.GuildForum) {
+      const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
+      const components = buildRoleButtons(event.id, roles, [], receivingDiscordGuildId);
+      const thread = await (ch as ForumChannel).threads.create({
+        name: event.name,
+        message: {
+          embeds: [embed],
+          components,
+          files: imageAttachment ? [imageAttachment.builder] : [],
+        },
+      });
+      threadId = thread.id;
+      const starter = await thread.fetchStarterMessage().catch(() => null);
+      rosterMessageId = starter?.id ?? null;
+      console.log(`[setupDiscordForShare] thread created in ${receivingDiscordGuildId} — ${threadId}`);
+    }
+  }
+
+  if (event.startTime > new Date()) {
+    const scheduled = await discordGuild.scheduledEvents.create({
+      name: event.name,
+      description: buildScheduledEventDescription(event.description, receivingDiscordGuildId, threadId),
+      scheduledStartTime: event.startTime,
+      scheduledEndTime,
+      privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
+      entityType: GuildScheduledEventEntityType.External,
+      entityMetadata: { location: event.musterPoint ?? event.name },
+      ...(imageDataUri ? { image: imageDataUri } : {}),
+    }).catch((err) => {
+      console.error(`[setupDiscordForShare] failed to create scheduled event in ${receivingDiscordGuildId}:`, err);
+      return null;
+    });
+    discordEventId = scheduled?.id ?? null;
+  }
+
+  await prisma.eventAllianceGuild.create({
+    data: {
+      eventId: event.id,
+      discordGuildId: receivingDiscordGuildId,
+      threadId,
+      rosterMessageId,
+      discordEventId,
+    },
+  });
+
+  console.log(`[setupDiscordForShare] done — shareId=${shareId}, guild=${receivingDiscordGuildId}`);
+}

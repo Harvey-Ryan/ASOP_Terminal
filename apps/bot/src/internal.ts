@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare } from './services/eventService.js';
 import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
@@ -134,6 +134,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await postEventLive(eventId).catch((err) =>
         console.error(`[bot:internal] postEventLive (force-start) failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const shareAcceptedMatch = req.url?.match(/^\/trigger\/share-accepted\/([^/]+)$/);
+    if (shareAcceptedMatch) {
+      const shareId = shareAcceptedMatch[1]!;
+      res.writeHead(202).end();
+      await setupDiscordForShare(shareId).catch((err) =>
+        console.error(`[bot:internal] setupDiscordForShare failed for ${shareId}:`, err),
       );
       return;
     }
