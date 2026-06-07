@@ -22,7 +22,7 @@ export function SettingTooltip({ content }: { content: React.ReactNode }) {
       <TooltipContent
         side="right"
         align="start"
-        className="max-w-xs text-xs leading-relaxed px-3 py-2.5 shadow-lg"
+        className="max-w-xs text-xs leading-relaxed px-3 py-2.5 shadow-lg bg-secondary border-border text-foreground"
       >
         {content}
       </TooltipContent>
