@@ -75,6 +75,39 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/guilds/:guildId/events/pending-shares ───────────────────────────
+// Must be registered BEFORE /:eventId so Express doesn't eat "pending-shares"
+// as a path parameter.
+
+eventsRouter.get('/:guildId/events/pending-shares', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+
+  if (!(await assertEventViewer(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const events = await prisma.event.findMany({
+    where: {
+      status: { not: 'COMPLETED' },
+      guildShares: { some: { guildId: guild.id, status: 'PENDING' } },
+    },
+    orderBy: { startTime: 'asc' },
+    include: {
+      rsvps: true,
+      guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+    },
+  });
+
+  res.json({ success: true, data: events.map(toDto) } satisfies ApiResponse<EventDto[]>);
+});
+
 // ── GET /api/guilds/:guildId/events/:eventId ─────────────────────────────────
 
 eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
@@ -853,37 +886,6 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
 }
 
 // ── Share routes ──────────────────────────────────────────────────────────────
-
-// GET /api/guilds/:guildId/events/pending-shares
-// Returns events that have a PENDING share for this guild (receiving side).
-eventsRouter.get('/:guildId/events/pending-shares', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-
-  if (!(await assertEventViewer(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
-    return;
-  }
-
-  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
-  if (!guild) {
-    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
-    return;
-  }
-
-  const events = await prisma.event.findMany({
-    where: {
-      status: { not: 'COMPLETED' },
-      guildShares: { some: { guildId: guild.id, status: 'PENDING' } },
-    },
-    orderBy: { startTime: 'asc' },
-    include: {
-      rsvps: true,
-      guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
-    },
-  });
-
-  res.json({ success: true, data: events.map(toDto) } satisfies ApiResponse<EventDto[]>);
-});
 
 // POST /api/guilds/:guildId/events/:eventId/shares/direct
 // Host invites a single guild by Discord guild ID.
