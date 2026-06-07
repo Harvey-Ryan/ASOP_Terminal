@@ -247,11 +247,17 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
         <div className="flex-1 space-y-2">
           {(() => {
             const selectedAlliance = alliances.find((a) => a.id === selectedAllianceId);
-            const guildOptions = selectedAlliance
+            const allianceOptions: { guildId: string; label: string }[] = selectedAlliance
               ? selectedAlliance.members
                   .filter((m) => m.status === 'ACCEPTED')
                   .map((m) => ({ guildId: m.guildId, label: m.guildId === guildId ? `${m.name} (You)` : m.name }))
-              : undefined;
+              : [];
+            const shareOptions: { guildId: string; label: string }[] = (ev.shares ?? [])
+              .filter((s) => s.status === 'ACCEPTED')
+              .map((s) => ({ guildId: s.guildDiscordId, label: s.guildName }));
+            const seenIds = new Set(allianceOptions.map((o) => o.guildId));
+            const merged = [...allianceOptions, ...shareOptions.filter((o) => !seenIds.has(o.guildId))];
+            const guildOptions = merged.length > 0 ? merged : undefined;
             return roles.map((role, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <input
