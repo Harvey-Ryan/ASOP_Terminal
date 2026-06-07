@@ -119,7 +119,7 @@ export function DkpSettingsPage() {
             <CardContent className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <label className="text-sm font-medium" htmlFor="dkpLabel">Currency Label</label>
-                <SettingTooltip content='The name of your points currency shown throughout the dashboard, bot messages, and DM notifications. Change this to match your org\'s terminology — e.g. "Credits", "Points", or "Merits". Max 30 characters.' />
+                <SettingTooltip content={`The name of your points currency shown throughout the dashboard, bot messages, and DM notifications. Change this to match your org's terminology — e.g. "Credits", "Points", or "Merits". Max 30 characters.`} />
               </div>
               <p className="text-xs text-muted-foreground">
                 The name shown throughout the UI and bot messages, e.g. "Credits" or "Points".
