@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, CreateEventBody, EventDto, EventTemplateDto } from '@dem/shared';
+import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventTemplateDto } from '@dem/shared';
 
 export const eventsApi = {
   list: (guildId: string) =>
@@ -47,4 +47,24 @@ export const eventsApi = {
     eventId: string,
     body: { hadLoot: boolean; lootNotes?: string; confirmedAttendees?: string[] },
   ) => api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/complete`, body).then((r) => r),
+
+  // ── Share API ──────────────────────────────────────────────────────────────
+
+  listPendingShares: (guildId: string) =>
+    api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events/pending-shares`).then((r) => r.data!),
+
+  inviteGuildDirect: (guildId: string, eventId: string, targetDiscordGuildId: string) =>
+    api.post<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/direct`, { targetDiscordGuildId }).then((r) => r.data!),
+
+  inviteAlliance: (guildId: string, eventId: string, allianceId: string) =>
+    api.post<ApiResponse<{ created: number }>>(`/guilds/${guildId}/events/${eventId}/shares/alliance`, { allianceId }).then((r) => r.data!),
+
+  cancelShare: (guildId: string, eventId: string, shareId: string) =>
+    api.delete<ApiResponse>(`/guilds/${guildId}/events/${eventId}/shares/${shareId}`).then((r) => r),
+
+  reinviteShare: (guildId: string, eventId: string, shareId: string) =>
+    api.patch<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/${shareId}/reinvite`, {}).then((r) => r.data!),
+
+  respondToShare: (guildId: string, eventId: string, action: 'accept' | 'decline') =>
+    api.patch<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/respond`, { action }).then((r) => r.data!),
 };

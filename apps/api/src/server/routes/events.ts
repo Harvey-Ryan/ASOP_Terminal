@@ -7,10 +7,18 @@ import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
-import type { ApiResponse, CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
+import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 
 export const eventsRouter = Router();
 
+type EventWithRsvpsAndShares = Prisma.EventGetPayload<{
+  include: {
+    rsvps: true;
+    guildShares: { include: { guild: { select: { id: true; guildId: true; name: true } } } };
+  };
+}>;
+
+// kept for routes that don't need shares (e.g. RSVP updates)
 type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true } }>;
 
 const RECUR_TYPES = ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'] as const;
@@ -27,24 +35,37 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
       return;
     }
 
-    // Include events shared with alliances that this guild has accepted.
+    const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+    if (!guild) {
+      res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+      return;
+    }
+
+    // Grandfathered: alliance memberships for old-style allianceId-based sharing
     const memberships = await prisma.allianceMember.findMany({
       where: { guild: { guildId }, status: 'ACCEPTED' },
       select: { allianceId: true },
     });
     const allianceIds = memberships.map((m) => m.allianceId);
 
-    const guildFilter = allianceIds.length > 0
-      ? { OR: [{ guildId }, { allianceId: { in: allianceIds } }] }
-      : { guildId };
+    const statusFilter = completed ? { status: 'COMPLETED' } : { status: { not: 'COMPLETED' } };
 
     const events = await prisma.event.findMany({
-      where: completed
-        ? { ...guildFilter, status: 'COMPLETED' }
-        : { ...guildFilter, status: { not: 'COMPLETED' } },
+      where: {
+        ...statusFilter,
+        OR: [
+          { guildId },
+          ...(allianceIds.length > 0 ? [{ allianceId: { in: allianceIds } }] : []),
+          // New invite system: events accepted via EventGuildShare
+          { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
+        ],
+      },
       orderBy: { startTime: completed ? 'desc' : 'asc' },
       take: 50,
-      include: { rsvps: true },
+      include: {
+        rsvps: true,
+        guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+      },
     });
 
     res.json({ success: true, data: events.map(toDto) } satisfies ApiResponse<EventDto[]>);
@@ -64,7 +85,12 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
     return;
   }
 
-  // Allow viewing own events and alliance-shared events.
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
   const memberships = await prisma.allianceMember.findMany({
     where: { guild: { guildId }, status: 'ACCEPTED' },
     select: { allianceId: true },
@@ -77,9 +103,13 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
       OR: [
         { guildId },
         ...(allianceIds.length > 0 ? [{ allianceId: { in: allianceIds } }] : []),
+        { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
       ],
     },
-    include: { rsvps: true },
+    include: {
+      rsvps: true,
+      guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+    },
   });
 
   if (!event) {
@@ -195,8 +225,56 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         createdById: dbUser.discordId,
         status: 'PENDING',
       },
-      include: { rsvps: true },
+      include: {
+        rsvps: true,
+        guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+      },
     });
+
+    // Create PENDING share invites for alliance members (excluding host guild)
+    if (body.allianceId) {
+      const hostGuild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+      if (hostGuild) {
+        const allianceMembers = await prisma.allianceMember.findMany({
+          where: { allianceId: body.allianceId, status: 'ACCEPTED', NOT: { guildId: hostGuild.id } },
+          select: { guildId: true },
+        });
+        if (allianceMembers.length > 0) {
+          await prisma.eventGuildShare.createMany({
+            data: allianceMembers.map((m) => ({
+              eventId: event.id,
+              guildId: m.guildId,
+              sourceType: 'ALLIANCE' as const,
+              allianceId: body.allianceId!,
+              status: 'PENDING' as const,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    }
+
+    // Create PENDING share invites for directly specified guilds
+    if (Array.isArray(body.directGuildIds) && body.directGuildIds.length > 0) {
+      const hostGuild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+      if (hostGuild) {
+        const targetGuilds = await prisma.guild.findMany({
+          where: { guildId: { in: body.directGuildIds as string[] }, NOT: { guildId } },
+          select: { id: true },
+        });
+        if (targetGuilds.length > 0) {
+          await prisma.eventGuildShare.createMany({
+            data: targetGuilds.map((g) => ({
+              eventId: event.id,
+              guildId: g.id,
+              sourceType: 'DIRECT' as const,
+              status: 'PENDING' as const,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    }
 
     const now = new Date();
     const reminders = [
@@ -411,7 +489,14 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
   }
 
-  const updated = await prisma.event.update({ where: { id: eventId }, data, include: { rsvps: true } });
+  const updated = await prisma.event.update({
+    where: { id: eventId },
+    data,
+    include: {
+      rsvps: true,
+      guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+    },
+  });
   triggerBot(`/trigger/sync/${eventId}`);
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
@@ -573,6 +658,12 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
     },
   });
 
+  // Expire all PENDING shares — event is over, can no longer accept
+  await prisma.eventGuildShare.updateMany({
+    where: { eventId, status: 'PENDING' },
+    data: { status: 'DECLINED', respondedAt: new Date() },
+  });
+
   triggerBot(`/trigger/complete/${eventId}`);
 
   res.json({ success: true, message: 'Event completed' } satisfies ApiResponse);
@@ -709,7 +800,25 @@ eventsRouter.get('/:guildId/event-templates', requireAuth, async (req, res) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toDto(event: EventWithRsvps): EventDto {
+function toShareDto(
+  s: EventWithRsvpsAndShares['guildShares'][number],
+): EventGuildShareDto {
+  return {
+    id: s.id,
+    eventId: s.eventId,
+    guildId: s.guild.id,
+    guildDiscordId: s.guild.guildId,
+    guildName: s.guild.name,
+    sourceType: s.sourceType as 'ALLIANCE' | 'DIRECT',
+    allianceId: s.allianceId,
+    status: s.status as 'PENDING' | 'ACCEPTED' | 'DECLINED',
+    invitedAt: s.invitedAt.toISOString(),
+    respondedAt: s.respondedAt?.toISOString() ?? null,
+  };
+}
+
+function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
+  const withShares = event as EventWithRsvpsAndShares;
   return {
     id: event.id,
     guildId: event.guildId,
@@ -739,5 +848,273 @@ function toDto(event: EventWithRsvps): EventDto {
     botCleanedUp: event.botCleanedUp,
     poll: event.pollData ? (JSON.parse(event.pollData) as EventPoll) : null,
     allianceId: event.allianceId ?? null,
+    shares: withShares.guildShares ? withShares.guildShares.map(toShareDto) : [],
   };
 }
+
+// ── Share routes ──────────────────────────────────────────────────────────────
+
+// GET /api/guilds/:guildId/events/pending-shares
+// Returns events that have a PENDING share for this guild (receiving side).
+eventsRouter.get('/:guildId/events/pending-shares', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+
+  if (!(await assertEventViewer(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const events = await prisma.event.findMany({
+    where: {
+      status: { not: 'COMPLETED' },
+      guildShares: { some: { guildId: guild.id, status: 'PENDING' } },
+    },
+    orderBy: { startTime: 'asc' },
+    include: {
+      rsvps: true,
+      guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+    },
+  });
+
+  res.json({ success: true, data: events.map(toDto) } satisfies ApiResponse<EventDto[]>);
+});
+
+// POST /api/guilds/:guildId/events/:eventId/shares/direct
+// Host invites a single guild by Discord guild ID.
+eventsRouter.post('/:guildId/events/:eventId/shares/direct', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const { targetDiscordGuildId } = req.body as { targetDiscordGuildId?: string };
+  if (!targetDiscordGuildId) {
+    res.status(400).json({ success: false, error: 'targetDiscordGuildId is required' } satisfies ApiResponse);
+    return;
+  }
+
+  const target = await prisma.guild.findUnique({
+    where: { guildId: targetDiscordGuildId },
+    select: { id: true, guildId: true, name: true },
+  });
+  if (!target) {
+    res.status(404).json({ success: false, error: 'Target guild not found' } satisfies ApiResponse);
+    return;
+  }
+  if (target.guildId === guildId) {
+    res.status(400).json({ success: false, error: 'Cannot invite your own guild' } satisfies ApiResponse);
+    return;
+  }
+
+  // Upsert: create if not exists; if DECLINED, re-invite (reset to PENDING)
+  const existing = await prisma.eventGuildShare.findUnique({
+    where: { eventId_guildId: { eventId, guildId: target.id } },
+  });
+
+  if (existing && existing.status === 'PENDING') {
+    res.status(409).json({ success: false, error: 'Invite already pending for this guild' } satisfies ApiResponse);
+    return;
+  }
+  if (existing && existing.status === 'ACCEPTED') {
+    res.status(409).json({ success: false, error: 'Guild has already accepted this event' } satisfies ApiResponse);
+    return;
+  }
+
+  const share = await prisma.eventGuildShare.upsert({
+    where: { eventId_guildId: { eventId, guildId: target.id } },
+    create: { eventId, guildId: target.id, sourceType: 'DIRECT', status: 'PENDING' },
+    update: { status: 'PENDING', respondedAt: null, invitedAt: new Date() },
+    include: { guild: { select: { id: true, guildId: true, name: true } } },
+  });
+
+  res.status(201).json({ success: true, data: toShareDto(share) } satisfies ApiResponse<EventGuildShareDto>);
+});
+
+// POST /api/guilds/:guildId/events/:eventId/shares/alliance
+// Host invites all ACCEPTED members of an alliance. Skips any already-invited guilds.
+eventsRouter.post('/:guildId/events/:eventId/shares/alliance', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const { allianceId } = req.body as { allianceId?: string };
+  if (!allianceId) {
+    res.status(400).json({ success: false, error: 'allianceId is required' } satisfies ApiResponse);
+    return;
+  }
+
+  const hostGuild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!hostGuild) {
+    res.status(404).json({ success: false, error: 'Host guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const allianceMembers = await prisma.allianceMember.findMany({
+    where: { allianceId, status: 'ACCEPTED', NOT: { guildId: hostGuild.id } },
+    select: { guildId: true },
+  });
+
+  if (allianceMembers.length === 0) {
+    res.status(200).json({ success: true, data: { created: 0 } } satisfies ApiResponse);
+    return;
+  }
+
+  // Only create for guilds that don't already have any share (PENDING/ACCEPTED/DECLINED)
+  const existingShares = await prisma.eventGuildShare.findMany({
+    where: { eventId, guildId: { in: allianceMembers.map((m) => m.guildId) } },
+    select: { guildId: true },
+  });
+  const existingGuildIds = new Set(existingShares.map((s) => s.guildId));
+  const toCreate = allianceMembers.filter((m) => !existingGuildIds.has(m.guildId));
+
+  if (toCreate.length > 0) {
+    await prisma.eventGuildShare.createMany({
+      data: toCreate.map((m) => ({
+        eventId,
+        guildId: m.guildId,
+        sourceType: 'ALLIANCE' as const,
+        allianceId,
+        status: 'PENDING' as const,
+      })),
+    });
+    // Also set event.allianceId so the UI knows which alliance was used
+    if (!event.allianceId) {
+      await prisma.event.update({ where: { id: eventId }, data: { allianceId } });
+    }
+  }
+
+  res.json({ success: true, data: { created: toCreate.length } } satisfies ApiResponse);
+});
+
+// DELETE /api/guilds/:guildId/events/:eventId/shares/:shareId
+// Host cancels / revokes a pending invite.
+eventsRouter.delete('/:guildId/events/:eventId/shares/:shareId', requireAuth, async (req, res) => {
+  const { guildId, eventId, shareId } = req.params as { guildId: string; eventId: string; shareId: string };
+
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const share = await prisma.eventGuildShare.findFirst({ where: { id: shareId, eventId } });
+  if (!share) {
+    res.status(404).json({ success: false, error: 'Share not found' } satisfies ApiResponse);
+    return;
+  }
+
+  await prisma.eventGuildShare.delete({ where: { id: shareId } });
+  res.json({ success: true } satisfies ApiResponse);
+});
+
+// PATCH /api/guilds/:guildId/events/:eventId/shares/:shareId/reinvite
+// Host re-invites a guild that previously declined.
+eventsRouter.patch('/:guildId/events/:eventId/shares/:shareId/reinvite', requireAuth, async (req, res) => {
+  const { guildId, eventId, shareId } = req.params as { guildId: string; eventId: string; shareId: string };
+
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const share = await prisma.eventGuildShare.findFirst({ where: { id: shareId, eventId } });
+  if (!share) {
+    res.status(404).json({ success: false, error: 'Share not found' } satisfies ApiResponse);
+    return;
+  }
+  if (share.status !== 'DECLINED') {
+    res.status(409).json({ success: false, error: 'Can only re-invite a declined share' } satisfies ApiResponse);
+    return;
+  }
+
+  const updated = await prisma.eventGuildShare.update({
+    where: { id: shareId },
+    data: { status: 'PENDING', respondedAt: null, invitedAt: new Date() },
+    include: { guild: { select: { id: true, guildId: true, name: true } } },
+  });
+
+  res.json({ success: true, data: toShareDto(updated) } satisfies ApiResponse<EventGuildShareDto>);
+});
+
+// PATCH /api/guilds/:guildId/events/:eventId/shares/respond
+// Receiving guild accepts or declines an invite.
+eventsRouter.patch('/:guildId/events/:eventId/shares/respond', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const { action } = req.body as { action?: 'accept' | 'decline' };
+  if (action !== 'accept' && action !== 'decline') {
+    res.status(400).json({ success: false, error: 'action must be "accept" or "decline"' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const share = await prisma.eventGuildShare.findUnique({
+    where: { eventId_guildId: { eventId, guildId: guild.id } },
+  });
+  if (!share) {
+    res.status(404).json({ success: false, error: 'Invite not found' } satisfies ApiResponse);
+    return;
+  }
+  if (share.status !== 'PENDING') {
+    res.status(409).json({ success: false, error: 'Invite is no longer pending' } satisfies ApiResponse);
+    return;
+  }
+
+  const newStatus = action === 'accept' ? 'ACCEPTED' : 'DECLINED';
+  const updated = await prisma.eventGuildShare.update({
+    where: { id: share.id },
+    data: { status: newStatus, respondedAt: new Date() },
+    include: { guild: { select: { id: true, guildId: true, name: true } } },
+  });
+
+  if (action === 'accept') {
+    // Notify bot to post the event to this guild's Discord
+    triggerBot(`/trigger/share-accepted/${share.id}`);
+  }
+
+  res.json({ success: true, data: toShareDto(updated) } satisfies ApiResponse<EventGuildShareDto>);
+});

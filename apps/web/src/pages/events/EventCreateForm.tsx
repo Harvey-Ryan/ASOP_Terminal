@@ -188,6 +188,8 @@ export function EventCreateForm({
   const [pollDuration, setPollDuration] = useState(24);
   const [allianceEnabled, setAllianceEnabled] = useState(false);
   const [selectedAllianceId, setSelectedAllianceId] = useState('');
+  const [directInviteEnabled, setDirectInviteEnabled] = useState(false);
+  const [directGuildIds, setDirectGuildIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Refs for keyboard-driven add-row focus
@@ -202,6 +204,13 @@ export function EventCreateForm({
   const { data: alliances = [] } = useQuery({
     queryKey: ['alliances', guildId],
     queryFn: () => allianceApi.list(guildId),
+  });
+
+  const { data: allGuilds = [] } = useQuery({
+    queryKey: ['alliances', 'guilds'],
+    queryFn: () => allianceApi.listGuilds(),
+    staleTime: 5 * 60_000,
+    enabled: directInviteEnabled,
   });
 
   const uploadMutation = useMutation({
@@ -284,6 +293,7 @@ export function EventCreateForm({
       repeatFromTemplateId: fromTemplateId,
       poll,
       allianceId: allianceEnabled && selectedAllianceId ? selectedAllianceId : undefined,
+      directGuildIds: directInviteEnabled && directGuildIds.length > 0 ? directGuildIds : undefined,
     });
   }
 
@@ -325,6 +335,20 @@ export function EventCreateForm({
             }}>
             <Network className="h-3.5 w-3.5" />
             Alliance Share
+          </Button>
+          <Button type="button" variant="outline" size="sm"
+            className={`gap-1.5 bg-primary border-2 transition-colors ${
+              directInviteEnabled
+                ? 'border-primary-foreground text-primary-foreground'
+                : 'border-primary-foreground/30 text-primary-foreground/50 hover:border-primary-foreground hover:text-primary-foreground'
+            }`}
+            onClick={() => {
+              const next = !directInviteEnabled;
+              setDirectInviteEnabled(next);
+              if (!next) setDirectGuildIds([]);
+            }}>
+            <Network className="h-3.5 w-3.5" />
+            Direct Invite
           </Button>
           {repeatSource && (
             <span className="text-xs text-primary-foreground/60">
@@ -375,6 +399,45 @@ export function EventCreateForm({
                   </div>
                 );
               })()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Direct invite picker */}
+      {directInviteEnabled && (
+        <div className="bg-primary px-5 py-3 border-b border-background/40">
+          <p className="text-xs font-bold uppercase tracking-widest text-primary-foreground/70 mb-2">
+            Direct Guild Invites — guilds will see this in their Pending tab
+          </p>
+          {allGuilds.filter((g) => g.guildId !== guildId).length === 0 ? (
+            <p className="text-sm text-primary-foreground/60 italic">No other guilds found in the system.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allGuilds
+                .filter((g) => g.guildId !== guildId)
+                .map((g) => {
+                  const selected = directGuildIds.includes(g.guildId);
+                  return (
+                    <button
+                      key={g.guildId}
+                      type="button"
+                      onClick={() =>
+                        setDirectGuildIds((prev) =>
+                          selected ? prev.filter((id) => id !== g.guildId) : [...prev, g.guildId],
+                        )
+                      }
+                      className={`inline-flex items-center gap-1 text-xs border rounded px-2 py-0.5 transition-colors ${
+                        selected
+                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                          : 'bg-primary-foreground/5 text-primary-foreground/60 border-primary-foreground/20 hover:border-primary-foreground/50 hover:text-primary-foreground'
+                      }`}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                      {g.name}
+                    </button>
+                  );
+                })}
             </div>
           )}
         </div>

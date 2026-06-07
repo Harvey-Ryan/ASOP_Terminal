@@ -177,12 +177,28 @@ export interface CreateEventBody {
   poll?: EventPoll;
   /** Alliance ID to share this event across all member guilds; null removes the existing share */
   allianceId?: string | null;
+  /** Discord guild IDs to directly invite at creation time */
+  directGuildIds?: string[];
 }
 
 export interface RsvpDto {
   userId: string;
   username: string;
   role: string | null;
+}
+
+/** One share invite record — returned inside EventDto.shares */
+export interface EventGuildShareDto {
+  id: string;
+  eventId: string;
+  guildId: string;
+  guildDiscordId: string;
+  guildName: string;
+  sourceType: 'ALLIANCE' | 'DIRECT';
+  allianceId: string | null;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  invitedAt: string;
+  respondedAt: string | null;
 }
 
 /** Event as returned by the API */
@@ -215,6 +231,7 @@ export interface EventDto {
   botCleanedUp: boolean;
   poll: EventPoll | null;
   allianceId: string | null;
+  shares: EventGuildShareDto[];
 }
 
 // ── Loot ─────────────────────────────────────────────────────────────────────

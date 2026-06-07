@@ -14,7 +14,7 @@ import { lootApi } from '@/api/loot';
 import { auctionsApi } from '@/api/auctions';
 import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
-import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
+import type { AllianceDto, EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { RecentLootEvent } from '@/api/loot';
@@ -45,7 +45,7 @@ const STATUS_BADGE: Record<string, string> = {
   COMPLETED: 'bg-muted text-muted-foreground',
 };
 
-type Tab = 'upcoming' | 'completed';
+type Tab = 'upcoming' | 'completed' | 'pending';
 type View = 'table' | 'create' | 'detail' | 'edit';
 
 const rowCls = 'flex items-start gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
@@ -468,6 +468,8 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const dkpLabel = useDkpLabel(guildId);
+  const [sharePickerOpen, setSharePickerOpen] = useState(false);
+  const [selectedGuildId, setSelectedGuildId] = useState('');
 
   const eventQuery = useQuery({
     queryKey: ['events', guildId, event.id],
@@ -523,6 +525,46 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     refetchInterval: 15_000,
   });
   const myDraftPick: MyPickDto | undefined = myPicksQuery.data?.find((p) => p.eventId === event.id);
+
+  const { data: allGuilds = [] } = useQuery({
+    queryKey: ['alliances', 'guilds'],
+    queryFn: () => allianceApi.listGuilds(),
+    staleTime: 5 * 60_000,
+    enabled: isManager,
+  });
+
+  const { data: alliances = [] } = useQuery({
+    queryKey: ['alliances', guildId],
+    queryFn: () => allianceApi.list(guildId ?? undefined),
+    staleTime: 5 * 60_000,
+    enabled: isManager,
+  });
+
+  function invalidateShares() {
+    queryClient.invalidateQueries({ queryKey: ['events', guildId, event.id] });
+    queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
+  }
+
+  const inviteGuildMutation = useMutation({
+    mutationFn: (targetDiscordGuildId: string) =>
+      eventsApi.inviteGuildDirect(guildId, event.id, targetDiscordGuildId),
+    onSuccess: () => { invalidateShares(); setSharePickerOpen(false); setSelectedGuildId(''); },
+  });
+
+  const inviteAllianceMutation = useMutation({
+    mutationFn: (allianceId: string) => eventsApi.inviteAlliance(guildId, event.id, allianceId),
+    onSuccess: invalidateShares,
+  });
+
+  const cancelShareMutation = useMutation({
+    mutationFn: (shareId: string) => eventsApi.cancelShare(guildId, event.id, shareId),
+    onSuccess: invalidateShares,
+  });
+
+  const reinviteMutation = useMutation({
+    mutationFn: (shareId: string) => eventsApi.reinviteShare(guildId, event.id, shareId),
+    onSuccess: invalidateShares,
+  });
 
   const roles: EventRole[] = ev.roles ?? [];
   const start = new Date(ev.startTime);
@@ -765,6 +807,115 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         </div>
       )}
 
+      {/* Shared With — host managers only, not on completed events */}
+      {canManage && ev.status !== 'COMPLETED' && (
+        <div className={rowCls}>
+          <span className={labelCls}>Shared With</span>
+          <div className="flex-1 space-y-2">
+            {ev.shares.length === 0 && !sharePickerOpen && (
+              <p className="text-lg opacity-50 italic">Not shared</p>
+            )}
+
+            {/* Existing shares list */}
+            {ev.shares.map((s) => {
+              const statusColor =
+                s.status === 'ACCEPTED' ? 'text-green-400' :
+                s.status === 'DECLINED' ? 'text-red-400' :
+                'text-yellow-400';
+              return (
+                <div key={s.id} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg font-medium">{s.guildName}</span>
+                  <span className={`text-[11px] font-bold uppercase tracking-wide ${statusColor}`}>
+                    {s.status}
+                  </span>
+                  <span className="text-[11px] opacity-50 uppercase tracking-wide">
+                    {s.sourceType === 'ALLIANCE' ? 'via Alliance' : 'Direct'}
+                  </span>
+                  <div className="flex gap-1 ml-auto">
+                    {s.status === 'DECLINED' && (
+                      <button
+                        onClick={() => reinviteMutation.mutate(s.id)}
+                        disabled={reinviteMutation.isPending}
+                        className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-50"
+                      >
+                        Re-invite
+                      </button>
+                    )}
+                    {s.status === 'PENDING' && (
+                      <button
+                        onClick={() => cancelShareMutation.mutate(s.id)}
+                        disabled={cancelShareMutation.isPending}
+                        className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Inline guild picker */}
+            {sharePickerOpen && (
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                <select
+                  value={selectedGuildId}
+                  onChange={(e) => setSelectedGuildId(e.target.value)}
+                  className="flex-1 min-w-0 rounded-md bg-primary text-primary-foreground px-2 py-1.5 text-sm border-2 border-primary-foreground/20 focus:outline-none"
+                >
+                  <option value="">— Select guild —</option>
+                  {allGuilds
+                    .filter((g) => g.guildId !== guildId && !ev.shares.some((s) => s.guildDiscordId === g.guildId))
+                    .map((g) => (
+                      <option key={g.guildId} value={g.guildId}>{g.name}</option>
+                    ))
+                  }
+                </select>
+                <button
+                  disabled={!selectedGuildId || inviteGuildMutation.isPending}
+                  onClick={() => inviteGuildMutation.mutate(selectedGuildId)}
+                  className="px-3 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-sky-600 hover:bg-sky-500 text-white transition-colors disabled:opacity-50"
+                >
+                  {inviteGuildMutation.isPending ? 'Sending…' : 'Send Invite'}
+                </button>
+                <button
+                  onClick={() => { setSharePickerOpen(false); setSelectedGuildId(''); }}
+                  className="px-2 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Action buttons row */}
+            <div className="flex gap-2 flex-wrap pt-1">
+              {!sharePickerOpen && (
+                <button
+                  onClick={() => setSharePickerOpen(true)}
+                  className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
+                >
+                  + Invite Guild
+                </button>
+              )}
+              {alliances.length > 0 && alliances.map((a) => {
+                const alreadyInvited = ev.shares.some((s) => s.allianceId === a.id);
+                return (
+                  <button
+                    key={a.id}
+                    disabled={alreadyInvited || inviteAllianceMutation.isPending}
+                    onClick={() => inviteAllianceMutation.mutate(a.id)}
+                    className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-40"
+                    title={alreadyInvited ? 'Alliance already invited' : `Invite all of ${a.name}`}
+                  >
+                    {alreadyInvited ? `✓ ${a.name}` : `+ ${a.name}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer actions */}
       <div className="flex items-center gap-2 bg-primary px-5 py-4">
         {ev.discordEventId == null && ev.status === 'PENDING' && (
@@ -930,6 +1081,100 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
   );
 }
 
+// ── Pending share card (receiving guild view) ─────────────────────────────────
+
+function PendingShareCard({
+  event,
+  guildId,
+  alliances,
+  allGuilds,
+  onRespond,
+}: {
+  event: EventDto;
+  guildId: string;
+  alliances: AllianceDto[];
+  allGuilds: { id: string; guildId: string; name: string }[];
+  onRespond: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const start = new Date(event.startTime);
+  const month = start.toLocaleDateString('en', { month: 'short' });
+  const day = start.getDate();
+  const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+  const hostGuild = allGuilds.find((g) => g.guildId === event.guildId);
+  const myShare = event.shares.find((s) => s.status === 'PENDING');
+  const sourceLabel = myShare?.sourceType === 'ALLIANCE'
+    ? `via ${alliances.find((a) => a.id === myShare.allianceId)?.name ?? 'Alliance'}`
+    : 'Direct Invite';
+
+  const acceptMutation = useMutation({
+    mutationFn: () => eventsApi.respondToShare(guildId, event.id, 'accept'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'pending-shares'] });
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
+      onRespond();
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: () => eventsApi.respondToShare(guildId, event.id, 'decline'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'pending-shares'] });
+      onRespond();
+    },
+  });
+
+  const isMutating = acceptMutation.isPending || declineMutation.isPending;
+
+  return (
+    <div className="flex items-center bg-primary text-primary-foreground border-b border-black">
+      {/* Date */}
+      <div className="w-20 shrink-0 flex items-center justify-center px-3 py-3">
+        <div className="w-12 border-2 border-current rounded-sm overflow-hidden">
+          <div className="bg-current/25 border-b-2 border-current text-center px-1 py-0.5">
+            <span className="text-[10px] font-black uppercase tracking-widest leading-none">{month}</span>
+          </div>
+          <div className="flex items-center justify-center py-2">
+            <span className="text-[28px] font-black leading-none">{day}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Time */}
+      <div className="hidden sm:block w-28 shrink-0 px-4 py-3">
+        <span className="text-[21px] font-medium">{time}</span>
+      </div>
+
+      {/* Event info */}
+      <div className="flex-1 px-4 py-3 min-w-0">
+        <p className="font-semibold text-[18px] leading-tight line-clamp-1">{event.name}</p>
+        <p className="text-[13px] opacity-70 mt-0.5 truncate">
+          {hostGuild ? hostGuild.name : event.guildId} · {sourceLabel}
+        </p>
+      </div>
+
+      {/* Accept / Decline */}
+      <div className="shrink-0 flex items-center gap-2 px-4 py-3">
+        <button
+          disabled={isMutating}
+          onClick={() => acceptMutation.mutate()}
+          className="px-3 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-green-600 hover:bg-green-500 text-white transition-colors disabled:opacity-50"
+        >
+          Accept
+        </button>
+        <button
+          disabled={isMutating}
+          onClick={() => declineMutation.mutate()}
+          className="px-3 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-background/30 hover:bg-background/50 text-primary-foreground transition-colors disabled:opacity-50"
+        >
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Recent Loot card ──────────────────────────────────────────────────────────
 
 function timeAgo(iso: string): string {
@@ -1053,13 +1298,29 @@ export function ServerPage() {
     retry: 1,
   });
 
-  const active = tab === 'upcoming' ? upcomingQuery : completedQuery;
+  const pendingSharesQuery = useQuery({
+    queryKey: ['events', guildId, 'pending-shares'],
+    queryFn: () => eventsApi.listPendingShares(guildId!),
+    enabled: !!guildId && isManager,
+    retry: 1,
+    refetchInterval: 30_000,
+  });
+  const pendingShareCount = pendingSharesQuery.data?.length ?? 0;
+
+  const active = tab === 'upcoming' ? upcomingQuery : tab === 'completed' ? completedQuery : pendingSharesQuery;
 
   const { data: alliances = [] } = useQuery({
     queryKey: ['alliances', guildId],
     queryFn: () => allianceApi.list(guildId ?? undefined),
     staleTime: 5 * 60_000,
     enabled: !!guildId,
+  });
+
+  const { data: allGuilds = [] } = useQuery({
+    queryKey: ['alliances', 'guilds'],
+    queryFn: () => allianceApi.listGuilds(),
+    staleTime: 5 * 60_000,
+    enabled: !!guildId && isManager,
   });
 
   function openDetail(event: EventDto) {
@@ -1132,6 +1393,23 @@ export function ServerPage() {
                       {t}
                     </button>
                   ))}
+                  {isManager && (
+                    <button
+                      onClick={() => setTab('pending')}
+                      className={`relative px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                        tab === 'pending'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Pending
+                      {pendingShareCount > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                          {pendingShareCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1242,7 +1520,7 @@ export function ServerPage() {
                 <div className="flex-1 flex flex-col items-center justify-center text-center bg-primary">
                   <CalendarDays className="h-7 w-7 text-primary-foreground mb-2" />
                   <p className="text-sm text-primary-foreground">
-                    {tab === 'upcoming' ? 'No upcoming events.' : 'No completed events yet.'}
+                    {tab === 'upcoming' ? 'No upcoming events.' : tab === 'completed' ? 'No completed events yet.' : 'No pending event invites.'}
                   </p>
                   {tab === 'upcoming' && isManager && (
                     <Button size="sm" className="mt-3 bg-background text-primary hover:bg-background/80 hover:text-primary"
@@ -1253,9 +1531,21 @@ export function ServerPage() {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto bg-primary [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
-                  {active.data.map((e) => (
-                    <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} alliances={alliances} onClick={() => openDetail(e)} />
-                  ))}
+                  {tab === 'pending'
+                    ? active.data.map((e) => (
+                        <PendingShareCard
+                          key={e.id}
+                          event={e}
+                          guildId={guildId!}
+                          alliances={alliances}
+                          allGuilds={allGuilds}
+                          onRespond={() => {}}
+                        />
+                      ))
+                    : active.data.map((e) => (
+                        <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} alliances={alliances} onClick={() => openDetail(e)} />
+                      ))
+                  }
                 </div>
               )}
             </div>

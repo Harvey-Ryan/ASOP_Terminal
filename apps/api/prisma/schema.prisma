@@ -69,6 +69,7 @@ model Guild {
   members         GuildMember[]
   templates       EventTemplate[]
   allianceMembers AllianceMember[]
+  eventShares     EventGuildShare[]
 }
 
 /// The role a User holds within a Guild.
@@ -216,6 +217,7 @@ model Event {
   reminders      EventReminder[]
   alliance       Alliance?            @relation(fields: [allianceId], references: [id], onDelete: SetNull)
   allianceGuilds EventAllianceGuild[]
+  guildShares    EventGuildShare[]
 
   @@index([guildId])
   @@index([startTime])
@@ -790,6 +792,41 @@ model ScResourceLocation {
   areasJson     String?  // JSON: Area[]
   groupsJson    String?  // JSON: Group[] with Deposits
   syncedAt      DateTime @updatedAt
+}
+
+// ── Event Guild Shares ────────────────────────────────────────────────────────
+
+enum ShareSource {
+  ALLIANCE
+  DIRECT
+}
+
+enum ShareStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Invite record for sharing an event with a non-host guild.
+/// One row per (event, receiving guild); status tracks the invite lifecycle.
+/// @@unique enforces a guild can appear in an event exactly once regardless of source.
+model EventGuildShare {
+  id          String      @id @default(cuid())
+  eventId     String
+  guildId     String      // internal Guild.id (receiving guild — never the host)
+  sourceType  ShareSource
+  allianceId  String?     // set when sourceType = ALLIANCE
+  status      ShareStatus @default(PENDING)
+  invitedAt   DateTime    @default(now())
+  respondedAt DateTime?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, guildId])
+  @@index([eventId])
+  @@index([guildId])
+  @@index([status])
 }
 
 // ── Alliances ─────────────────────────────────────────────────────────────────
