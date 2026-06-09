@@ -217,16 +217,18 @@ function StandaloneItemRow({
     <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium truncate flex items-center gap-1.5 flex-wrap">
-            {item.name}
-            {item.qualityLevel !== null && <span className="text-xs text-muted-foreground">QL {item.qualityLevel}</span>}
-            {item.quantity > 1 && (
-              <span className="text-muted-foreground text-sm">
-                {session.method === 'COMMODITY_DRAFT' ? `Ct. ${item.quantity}` : `×${item.quantity}`}
-              </span>
-            )}
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium truncate">
+              {item.name}
+              {item.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {item.qualityLevel}</span>}
+              {item.quantity > 1 && (
+                <span className="ml-1 text-muted-foreground text-sm">
+                  {session.method === 'COMMODITY_DRAFT' ? `Ct. ${item.quantity}` : `×${item.quantity}`}
+                </span>
+              )}
+            </p>
             <ItemInfoPopover name={item.name} />
-          </p>
+          </div>
           {isAssigned ? (
             <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
               <CheckCircle2 className="h-3.5 w-3.5" />

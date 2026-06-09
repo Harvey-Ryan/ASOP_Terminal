@@ -492,12 +492,14 @@ function ItemRow({
     <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium truncate flex items-center gap-1.5 flex-wrap">
-            {item.name}
-            {item.qualityLevel !== null && <span className="rounded-sm bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 shrink-0">QL {item.qualityLevel}</span>}
-            {item.quantity > 1 && <span className="text-muted-foreground text-sm shrink-0">×{item.quantity}</span>}
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium truncate">
+              {item.name}
+              {item.qualityLevel !== null && <span className="ml-1.5 rounded-sm bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">QL {item.qualityLevel}</span>}
+              {item.quantity > 1 && <span className="ml-1 text-muted-foreground text-sm">×{item.quantity}</span>}
+            </p>
             <ItemInfoPopover name={item.name} />
-          </p>
+          </div>
           {isAssigned ? (
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
