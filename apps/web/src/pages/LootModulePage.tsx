@@ -38,10 +38,10 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
   const canManage = isManager || (!!session.ownerId && session.ownerId === currentUserId);
 
   const toggleMutation = useMutation({
-    mutationFn: ({ itemId, assignmentId }: { itemId: string; assignmentId: string }) =>
+    mutationFn: ({ itemIds, assignmentIds }: { itemIds: string[]; assignmentIds: string[] }) =>
       session.eventId
-        ? lootApi.toggleDelivered(session.guildId, session.eventId!, itemId)
-        : lootApi.toggleDeliveredStandalone(session.guildId, session.id, assignmentId),
+        ? Promise.all(itemIds.map((id) => lootApi.toggleDelivered(session.guildId, session.eventId!, id)))
+        : Promise.all(assignmentIds.map((id) => lootApi.toggleDeliveredStandalone(session.guildId, session.id, id))),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loot-history', session.guildId] });
       queryClient.invalidateQueries({ queryKey: ['loot', 'my-history'] });
@@ -83,7 +83,7 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
 
           {session.method === 'COMMODITY_DRAFT' ? (() => {
             // Group all assignments by participant, stack identical name+QL
-            type StackedLine = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; delivered: boolean; itemId: string; assignmentId: string };
+            type StackedLine = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; delivered: boolean; itemIds: string[]; assignmentIds: string[] };
             type Bucket = { username: string; lines: StackedLine[] };
             const buckets = new Map<string, Bucket>();
             for (const item of session.items) {
@@ -91,8 +91,8 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
                 if (!buckets.has(a.userId)) buckets.set(a.userId, { username: a.username, lines: [] });
                 const key = `${item.name}__${item.qualityLevel ?? ''}`;
                 const existing = buckets.get(a.userId)!.lines.find((l) => `${l.name}__${l.qualityLevel ?? ''}` === key);
-                if (existing) { existing.count++; if (!a.delivered) existing.delivered = false; }
-                else { buckets.get(a.userId)!.lines.push({ name: item.name, qualityLevel: item.qualityLevel, count: 1, pickNumber: a.pickNumber, delivered: a.delivered, itemId: item.id, assignmentId: a.id }); }
+                if (existing) { existing.count++; existing.itemIds.push(item.id); existing.assignmentIds.push(a.id); if (!a.delivered) existing.delivered = false; }
+                else { buckets.get(a.userId)!.lines.push({ name: item.name, qualityLevel: item.qualityLevel, count: 1, pickNumber: a.pickNumber, delivered: a.delivered, itemIds: [item.id], assignmentIds: [a.id] }); }
               }
             }
             return [...buckets.values()].sort((a, b) => a.username.localeCompare(b.username)).map((bucket) => (
@@ -112,7 +112,7 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
                     {canManage && (
                       <button
                         type="button"
-                        onClick={() => toggleMutation.mutate({ itemId: line.itemId, assignmentId: line.assignmentId })}
+                        onClick={() => toggleMutation.mutate({ itemIds: line.itemIds, assignmentIds: line.assignmentIds })}
                         disabled={toggleMutation.isPending}
                         className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
                           line.delivered
@@ -157,7 +157,7 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
                         {canManage && (
                           <button
                             type="button"
-                            onClick={() => toggleMutation.mutate({ itemId: item.id, assignmentId: winner.id })}
+                            onClick={() => toggleMutation.mutate({ itemIds: [item.id], assignmentIds: [winner.id] })}
                             disabled={toggleMutation.isPending}
                             className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
                               winner.delivered
