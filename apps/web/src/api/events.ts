@@ -48,6 +48,9 @@ export const eventsApi = {
     body: { hadLoot: boolean; lootNotes?: string; confirmedAttendees?: string[] },
   ) => api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/complete`, body).then((r) => r),
 
+  reopen: (guildId: string, eventId: string) =>
+    api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/reopen`).then((r) => r),
+
   // ── Share API ──────────────────────────────────────────────────────────────
 
   listPendingShares: (guildId: string) =>

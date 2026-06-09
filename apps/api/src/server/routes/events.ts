@@ -702,6 +702,38 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
   res.json({ success: true, message: 'Event completed' } satisfies ApiResponse);
 });
 
+// ── POST /api/guilds/:guildId/events/:eventId/reopen ─────────────────────────
+
+eventsRouter.post('/:guildId/events/:eventId/reopen', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+  if (event.status !== 'COMPLETED') {
+    res.status(409).json({ success: false, error: 'Only completed events can be re-opened' } satisfies ApiResponse);
+    return;
+  }
+
+  // Restore event to ENDED so managers can act on it again
+  await prisma.event.update({ where: { id: eventId }, data: { status: 'ENDED' } });
+
+  // Re-open loot session if one exists — roster (EventRsvp) records are untouched
+  await prisma.lootSession.updateMany({
+    where: { eventId, status: 'COMPLETED' },
+    data: { status: 'OPEN' },
+  });
+
+  res.json({ success: true, message: 'Event re-opened' } satisfies ApiResponse);
+});
+
 // ── POST /api/guilds/:guildId/event-templates/from-event ─────────────────────
 // Called when the Repeat button is clicked (before the create form opens).
 // Upserts an EventTemplate keyed on sourceEventId (the source event's stable

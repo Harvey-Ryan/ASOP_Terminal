@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -517,6 +517,16 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     },
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: () => eventsApi.reopen(guildId, event.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, event.id] });
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'completed'] });
+      queryClient.invalidateQueries({ queryKey: ['loot', guildId, event.id] });
+    },
+  });
+
   const lootQuery = useQuery({
     queryKey: ['loot', guildId, event.id],
     queryFn: () => lootApi.getSession(guildId, event.id),
@@ -966,6 +976,19 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={onRepeat}>
               <RotateCcw className="h-3.5 w-3.5" />Repeat
+            </Button>
+          )}
+          {canManage && ev.status === 'COMPLETED' && (
+            <Button size="sm" variant="outline"
+              className="gap-1"
+              onClick={() => {
+                if (confirm(`Re-open "${ev.name}"? The event will return to ENDED status and the loot session (if any) will re-open. Rosters are retained.`)) {
+                  reopenMutation.mutate();
+                }
+              }}
+              disabled={reopenMutation.isPending}>
+              <LockOpen className="h-3.5 w-3.5" />
+              {reopenMutation.isPending ? 'Re-opening…' : 'Re-open'}
             </Button>
           )}
           {canManage && ev.status !== 'COMPLETED' && (
