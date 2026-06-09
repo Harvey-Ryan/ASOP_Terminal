@@ -33,10 +33,11 @@ const LOOT_METHODS = ['RANDOM_ROLL', 'DKP', 'SNAKE_DRAFT', 'COMMODITY_DRAFT'] as
 
 // ── DTO helpers ───────────────────────────────────────────────────────────────
 
-function sessionToDto(s: SessionWithItems): LootSessionDto {
+function sessionToDto(s: SessionWithItems, eventName?: string | null): LootSessionDto {
   return {
     id: s.id,
     eventId: s.eventId ?? null,
+    eventName: eventName ?? null,
     name: s.name ?? null,
     guildId: s.guildId,
     method: s.method as LootMethod,
@@ -1383,13 +1384,25 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   const isManager = await assertGuildManager(req, guildId);
 
   const sessions = await prisma.lootSession.findMany({
-    where: { guildId, status: 'OPEN', eventId: null },
+    where: { guildId, status: 'OPEN' },
     orderBy: { createdAt: 'desc' },
     include: { items: { include: { assignments: true } } },
   });
 
+  // Build event name map for event-linked sessions
+  const eventIds = [...new Set(sessions.map((s) => s.eventId).filter(Boolean) as string[])];
+  const eventNameMap = eventIds.length > 0
+    ? new Map(
+        (await prisma.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, name: true } }))
+          .map((e) => [e.id, e.name]),
+      )
+    : new Map<string, string>();
+
+  const toDto = (s: (typeof sessions)[number]) =>
+    sessionToDto(s, s.eventId ? (eventNameMap.get(s.eventId) ?? null) : null);
+
   if (isManager) {
-    res.json({ success: true, data: sessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
+    res.json({ success: true, data: sessions.map(toDto) } satisfies ApiResponse<LootSessionDto[]>);
     return;
   }
 
@@ -1397,7 +1410,6 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
   if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
 
-  const eventIds = sessions.map((s) => s.eventId).filter(Boolean) as string[];
   const rosteredEventIds = eventIds.length > 0
     ? new Set(
         (await prisma.eventRsvp.findMany({
@@ -1414,7 +1426,7 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
     if (s.eventId && rosteredEventIds.has(s.eventId)) return true;
     return false;
   });
-  res.json({ success: true, data: mySessions.map(sessionToDto) } satisfies ApiResponse<LootSessionDto[]>);
+  res.json({ success: true, data: mySessions.map(toDto) } satisfies ApiResponse<LootSessionDto[]>);
 });
 
 // ── POST create standalone session ────────────────────────────────────────────

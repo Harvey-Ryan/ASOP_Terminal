@@ -268,6 +268,7 @@ export interface LootParticipant {
 export interface LootSessionDto {
   id: string;
   eventId: string | null;
+  eventName: string | null;
   name: string | null;
   guildId: string;
   method: LootMethod;

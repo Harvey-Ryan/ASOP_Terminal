@@ -385,10 +385,14 @@ export function LootModulePage() {
           )}
 
           {sessionsQuery.data?.map((session) => {
-            const displayName = session.name ?? 'Unnamed Session';
+            const isEventSession = !!session.eventId;
+            const displayName = session.eventName ?? session.name ?? 'Unnamed Session';
             const participantCount = session.participants.length;
             const itemCount = session.items.length;
             const assignedCount = session.items.filter((i) => i.assignments.length > 0).length;
+            const href = isEventSession
+              ? `/dashboard/servers/${guildId}/events/${session.eventId}/loot`
+              : `/dashboard/servers/${guildId}/loot/sessions/${session.id}`;
 
             return (
               <div
@@ -396,7 +400,12 @@ export function LootModulePage() {
                 className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
               >
                 <div className="flex-1 min-w-0 space-y-1">
-                  <p className="font-medium truncate">{displayName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">{displayName}</p>
+                    {isEventSession && (
+                      <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">event</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span className={`rounded-full border px-2 py-0.5 font-medium ${METHOD_COLORS[session.method]}`}>
                       {METHOD_LABELS[session.method]}
@@ -410,7 +419,7 @@ export function LootModulePage() {
                   size="sm"
                   variant="outline"
                   className="shrink-0 gap-1.5"
-                  onClick={() => navigate(`/dashboard/servers/${guildId}/loot/sessions/${session.id}`)}
+                  onClick={() => navigate(href)}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   Open
