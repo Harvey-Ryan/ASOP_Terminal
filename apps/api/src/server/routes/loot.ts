@@ -1040,32 +1040,24 @@ lootRouter.get('/:guildId/dkp', requireAuth, async (req, res) => {
   res.json({ success: true, data } satisfies ApiResponse<DkpBalanceDto[]>);
 });
 
-// ── GET DKP-eligible players (filtered by viewerRoles if configured) ──────────
+// ── Helper: fetch eligible players for one guild (silent on failure) ──────────
 
-lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  if (!(await assertLootDraftCreator(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
+interface PlayerDto { userId: string; username: string }
 
+async function fetchPlayersForGuild(discordGuildId: string): Promise<PlayerDto[]> {
   const guild = await prisma.guild.findUnique({
-    where: { guildId },
+    where: { guildId: discordGuildId },
     include: { settings: true },
   });
-  if (!guild) {
-    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse); return;
-  }
+  if (!guild) return [];
 
   const viewerRoles: string[] = guild.settings
     ? (JSON.parse(guild.settings.viewerRoles) as string[])
     : [];
 
-  // If viewer roles are configured, query Discord for members holding those roles
   if (viewerRoles.length > 0) {
     const botToken = process.env['DISCORD_TOKEN'];
-    if (!botToken) {
-      res.status(500).json({ success: false, error: 'Bot token not configured' } satisfies ApiResponse); return;
-    }
+    if (!botToken) return [];
 
     interface DiscordMember {
       user: { id: string; username: string; global_name: string | null };
@@ -1073,11 +1065,11 @@ lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
       roles: string[];
     }
 
-    // Paginate up to 5 pages × 1000 = 5000 members
+    // Paginate up to 5 pages × 1 000 = 5 000 members
     const allMembers: DiscordMember[] = [];
     let after = '0';
     for (let page = 0; page < 5; page++) {
-      const url = `https://discord.com/api/v10/guilds/${guildId}/members?limit=1000&after=${after}`;
+      const url = `https://discord.com/api/v10/guilds/${discordGuildId}/members?limit=1000&after=${after}`;
       const r = await fetch(url, { headers: { Authorization: `Bot ${botToken}` } });
       if (!r.ok) break;
       const batch = (await r.json()) as DiscordMember[];
@@ -1088,31 +1080,69 @@ lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
     }
 
     const viewerSet = new Set(viewerRoles);
-    const filtered = allMembers
+    return allMembers
       .filter((m) => m.roles.some((r) => viewerSet.has(r)))
       .map((m) => ({
         userId: m.user.id,
         username: m.nick ?? m.user.global_name ?? m.user.username,
-      }))
-      .sort((a, b) => a.username.localeCompare(b.username));
-
-    res.json({ success: true, data: filtered } satisfies ApiResponse<{ userId: string; username: string }[]>);
-    return;
+      }));
   }
 
-  // No viewer roles configured — fall back to all dashboard-authenticated members
+  // No viewer roles — fall back to dashboard-authenticated members
   const members = await prisma.guildMember.findMany({
     where: { guildId: guild.id },
     include: { user: { select: { discordId: true, globalName: true, username: true } } },
     orderBy: { user: { username: 'asc' } },
   });
 
-  const data = members.map((m) => ({
+  return members.map((m) => ({
     userId: m.user.discordId,
     username: m.user.globalName ?? m.user.username,
   }));
+}
 
-  res.json({ success: true, data } satisfies ApiResponse<{ userId: string; username: string }[]>);
+// ── GET DKP-eligible players (filtered by viewerRoles if configured) ──────────
+
+lootRouter.get('/:guildId/dkp/players', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const { eventId } = req.query as { eventId?: string };
+
+  if (!(await assertLootDraftCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  // Validate the host guild exists and bot token is present if needed
+  const hostGuild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
+  if (!hostGuild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse); return;
+  }
+  const hostViewerRoles: string[] = hostGuild.settings
+    ? (JSON.parse(hostGuild.settings.viewerRoles) as string[])
+    : [];
+  if (hostViewerRoles.length > 0 && !process.env['DISCORD_TOKEN']) {
+    res.status(500).json({ success: false, error: 'Bot token not configured' } satisfies ApiResponse); return;
+  }
+
+  // Collect all Discord guild IDs: host + accepted shares for the event (if provided)
+  const discordGuildIds = [guildId];
+  if (eventId) {
+    const shares = await prisma.eventGuildShare.findMany({
+      where: { eventId, status: 'ACCEPTED' },
+      include: { guild: { select: { guildId: true } } },
+    });
+    for (const s of shares) discordGuildIds.push(s.guild.guildId);
+  }
+
+  // Fetch players from every involved guild; deduplicate by userId (first occurrence wins)
+  const seen = new Map<string, PlayerDto>();
+  for (const dgid of discordGuildIds) {
+    for (const p of await fetchPlayersForGuild(dgid)) {
+      if (!seen.has(p.userId)) seen.set(p.userId, p);
+    }
+  }
+
+  const data = [...seen.values()].sort((a, b) => a.username.localeCompare(b.username));
+  res.json({ success: true, data } satisfies ApiResponse<PlayerDto[]>);
 });
 
 // ── GET DKP transactions (manager = all; member = own) ────────────────────────

@@ -861,9 +861,9 @@ export function LootPage() {
   });
 
   const playersQuery = useQuery({
-    queryKey: ['players', guildId],
-    queryFn: () => lootApi.getPlayers(guildId!),
-    enabled: !!guildId && sessionQuery.data?.method === 'SNAKE_DRAFT',
+    queryKey: ['players', guildId, eventId],
+    queryFn: () => lootApi.getPlayers(guildId!, eventId!),
+    enabled: !!guildId && !!eventId && sessionQuery.data?.method === 'SNAKE_DRAFT',
   });
 
   const session = sessionQuery.data;

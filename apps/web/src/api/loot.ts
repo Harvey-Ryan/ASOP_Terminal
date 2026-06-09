@@ -88,8 +88,10 @@ export const lootApi = {
   getMyDkp: (guildId: string) =>
     api.get<ApiResponse<DkpBalanceDto>>(`/guilds/${guildId}/dkp/me`).then((r) => r.data!),
 
-  getPlayers: (guildId: string) =>
-    api.get<ApiResponse<{ userId: string; username: string }[]>>(`/guilds/${guildId}/dkp/players`).then((r) => r.data ?? []),
+  getPlayers: (guildId: string, eventId?: string) =>
+    api.get<ApiResponse<{ userId: string; username: string }[]>>(
+      `/guilds/${guildId}/dkp/players${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`,
+    ).then((r) => r.data ?? []),
 
   getTransactions: (guildId: string) =>
     api.get<ApiResponse<DkpTransactionDto[]>>(`/guilds/${guildId}/dkp/transactions`).then((r) => r.data ?? []),

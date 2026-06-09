@@ -479,8 +479,8 @@ function ParticipantsPanel({
   const dropdownListRef = useRef<HTMLDivElement>(null);
 
   const playersQuery = useQuery({
-    queryKey: ['players', guildId],
-    queryFn: () => lootApi.getPlayers(guildId),
+    queryKey: ['players', guildId, session.eventId ?? null],
+    queryFn: () => lootApi.getPlayers(guildId, session.eventId ?? undefined),
     enabled: isManager,
     staleTime: 5 * 60 * 1000,
   });
