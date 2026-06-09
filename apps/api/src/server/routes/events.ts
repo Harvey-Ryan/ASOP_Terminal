@@ -534,12 +534,12 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
-// ── PATCH /api/guilds/:guildId/events/:eventId/rsvp/:userId (manager reassign) ─
+// ── PATCH /api/guilds/:guildId/events/:eventId/rsvp/:userId (event creator reassign) ─
 
 eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async (req, res) => {
   const { guildId, eventId, userId } = req.params as { guildId: string; eventId: string; userId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertEventCreator(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
