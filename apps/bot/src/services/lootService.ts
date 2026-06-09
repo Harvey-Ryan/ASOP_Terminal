@@ -447,15 +447,49 @@ export async function announceLootResults(sessionId: string) {
   // Build results embed only when items were assigned
   let embed: EmbedBuilder | null = null;
   if (assignedItems.length > 0) {
-    const lines = assignedItems.map((item) => {
-      const a = item.assignments[0]!;
-      const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
-      let suffix = '';
-      if (a.rollValue != null) suffix = ` *(rolled ${a.rollValue})*`;
-      else if (a.dkpSpent != null) suffix = ` *(${a.dkpSpent} ${dkpLabel})*`;
-      else if (a.pickNumber != null) suffix = ` *(pick #${a.pickNumber + 1})*`;
-      return `**${item.name}${qty}** → <@${a.userId}>${suffix}`;
-    });
+    let description: string;
+
+    if (session.method === 'COMMODITY_DRAFT') {
+      type StackedItem = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null };
+      const memberMap = new Map<string, { username: string; items: StackedItem[] }>();
+
+      for (const item of assignedItems) {
+        for (const a of item.assignments) {
+          if (!memberMap.has(a.userId)) memberMap.set(a.userId, { username: a.username, items: [] });
+          const member = memberMap.get(a.userId)!;
+          const key = `${item.name}__${item.qualityLevel ?? ''}`;
+          const existing = member.items.find((e) => `${e.name}__${e.qualityLevel ?? ''}` === key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            member.items.push({ name: item.name, qualityLevel: item.qualityLevel ?? null, count: 1, pickNumber: a.pickNumber });
+          }
+        }
+      }
+
+      const sections: string[] = [];
+      for (const [, { username, items }] of memberMap) {
+        const itemLines = items.map((e) => {
+          const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
+          const ct = e.count > 1 ? ` ×${e.count}` : '';
+          const pick = e.pickNumber != null ? ` (pick #${e.pickNumber + 1})` : '';
+          return `• ${e.name}${ql}${ct}${pick}`;
+        });
+        sections.push(`**${username}:**\n${itemLines.join('\n')}`);
+      }
+      description = sections.join('\n\n');
+    } else {
+      const lines = assignedItems.map((item) => {
+        const a = item.assignments[0]!;
+        const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
+        let suffix = '';
+        if (a.rollValue != null) suffix = ` *(rolled ${a.rollValue})*`;
+        else if (a.dkpSpent != null) suffix = ` *(${a.dkpSpent} ${dkpLabel})*`;
+        else if (a.pickNumber != null) suffix = ` *(pick #${a.pickNumber + 1})*`;
+        return `**${item.name}${qty}** → <@${a.userId}>${suffix}`;
+      });
+      description = lines.join('\n');
+    }
 
     const methodLabel = session.method === 'DKP'
       ? `🪙 ${dkpLabel}`
@@ -464,7 +498,7 @@ export async function announceLootResults(sessionId: string) {
     embed = new EmbedBuilder()
       .setTitle(`🎁 Loot — ${event.name}`)
       .setColor(0xf59e0b)
-      .setDescription(lines.join('\n'))
+      .setDescription(description)
       .setFooter({ text: `Method: ${methodLabel}` })
       .setTimestamp();
 
