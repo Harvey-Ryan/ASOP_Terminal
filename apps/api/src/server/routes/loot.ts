@@ -272,7 +272,7 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
   }
 
   const attendees: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
-  const shuffled = [...attendees].sort(() => Math.random() - 0.5);
+  const shuffled = shuffle([...attendees]);
 
   // Persist usernames for all attendees (includes cross-guild members via EventRsvp)
   const rsvps = attendees.length > 0
@@ -284,10 +284,18 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
   const usernameMap = new Map(rsvps.map((r) => [r.userId, r.username]));
   const participants = attendees.map((userId) => ({ userId, username: usernameMap.get(userId) ?? userId }));
 
-  const session = await prisma.lootSession.create({
-    data: { eventId, guildId, method, dkpAward, draftOrder: JSON.stringify(shuffled), participants: JSON.stringify(participants) },
-    include: { items: { include: { assignments: true } } },
-  });
+  let session;
+  try {
+    session = await prisma.lootSession.create({
+      data: { eventId, guildId, method, dkpAward, draftOrder: JSON.stringify(shuffled), participants: JSON.stringify(participants) },
+      include: { items: { include: { assignments: true } } },
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === 'P2002') {
+      res.status(409).json({ success: false, error: 'Loot session already exists' } satisfies ApiResponse); return;
+    }
+    throw err;
+  }
 
   triggerBot(`/trigger/loot-session-start/${session.id}`);
 
@@ -329,6 +337,12 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
     res.status(409).json({ success: false, error: 'Draft has already started — order cannot be changed' } satisfies ApiResponse); return;
   }
 
+  if (method !== undefined && existing.draftStarted) {
+    res.status(409).json({ success: false, error: 'Method cannot be changed after draft has started' } satisfies ApiResponse); return;
+  }
+
+  const refreshParticipants = typeof body.refreshParticipants === 'boolean' ? body.refreshParticipants : false;
+
   // Deduplicate draft order while preserving first-seen position
   const dedupedOrder = draftOrder ? [...new Set(draftOrder)] : undefined;
 
@@ -343,6 +357,12 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
       : [];
     const usernameMap = new Map(rsvps.map((r) => [r.userId, r.username]));
     refreshedParticipants = JSON.stringify(dedupedOrder.map((userId) => ({ userId, username: usernameMap.get(userId) ?? userId })));
+  } else if (refreshParticipants) {
+    // Re-sync participants from the event's confirmed attendee list
+    const ev = await prisma.event.findFirst({ where: { id: eventId, guildId }, include: { rsvps: true } });
+    const confirmedIds: string[] = ev?.confirmedAttendees ? JSON.parse(ev.confirmedAttendees) : [];
+    const evUsernameMap = new Map(ev?.rsvps.map((r) => [r.userId, r.username]) ?? []);
+    refreshedParticipants = JSON.stringify(confirmedIds.map((userId) => ({ userId, username: evUsernameMap.get(userId) ?? userId })));
   }
 
   const updated = await prisma.lootSession.update({
@@ -558,8 +578,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/roll', requireAuth
     data: { itemId, userId: winner.userId, username: winner.username, rollValue: winner.rollValue },
   });
 
-  triggerBot(`/trigger/complete/${eventId}`);
-
   res.json({ success: true, data: { rolls, winner } } satisfies ApiResponse);
 });
 
@@ -635,8 +653,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
   // Remove the just-assigned item from everyone's queue
   await prisma.lootDraftQueue.deleteMany({ where: { itemId, sessionId: session.id } });
 
-  triggerBot(`/trigger/complete/${eventId}`);
-
   if (session.method === 'SNAKE_DRAFT' && session.status === 'OPEN') {
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     const prevCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
@@ -686,7 +702,6 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
         data: { itemId: topAvailable.itemId, userId: nextPickerId, username: autoUsername, pickNumber: autoPickCount },
       });
       await prisma.lootDraftQueue.deleteMany({ where: { itemId: topAvailable.itemId, sessionId: session.id } });
-      triggerBot(`/trigger/complete/${eventId}`);
       autoPickCount++;
     }
 
@@ -781,8 +796,6 @@ lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', require
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
-
-  triggerBot(`/trigger/complete/${eventId}`);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -1461,7 +1474,7 @@ lootRouter.post('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   }
 
   const draftOrder = method === 'SNAKE_DRAFT'
-    ? JSON.stringify([...participants].sort(() => Math.random() - 0.5).map((p) => p.userId))
+    ? JSON.stringify(shuffle(participants.map((p) => p.userId)))
     : '[]';
 
   const session = await prisma.lootSession.create({
@@ -1946,6 +1959,22 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/complete', requireAuth, asyn
     if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
   }
   if (session.status === 'COMPLETED') { res.status(409).json({ success: false, error: 'Already completed' } satisfies ApiResponse); return; }
+
+  if (session.method === 'DKP') {
+    for (const item of session.items) {
+      for (const a of item.assignments) {
+        if (a.dkpSpent && a.dkpSpent > 0) {
+          const bal = await prisma.dkpBalance.findUnique({
+            where: { guildId_userId: { guildId, userId: a.userId } },
+          });
+          const actual = Math.min(a.dkpSpent, bal?.balance ?? 0);
+          if (actual > 0) {
+            await applyDkp(guildId, a.userId, a.username, -actual, `Won item: ${item.name}`);
+          }
+        }
+      }
+    }
+  }
 
   await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
   triggerBot(`/trigger/loot-complete/${sessionId}`);

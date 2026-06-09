@@ -36,6 +36,7 @@ const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: 'Random Roll',
   DKP: 'DKP Bid',
   SNAKE_DRAFT: 'Snake Draft',
+  COMMODITY_DRAFT: 'Commodity Draft',
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -524,13 +525,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
       queryClient.invalidateQueries({ queryKey: ['events', guildId, 'completed'] });
       queryClient.invalidateQueries({ queryKey: ['loot', guildId, event.id] });
+      queryClient.invalidateQueries({ queryKey: ['loot-sessions', guildId] });
     },
   });
 
   const lootQuery = useQuery({
     queryKey: ['loot', guildId, event.id],
     queryFn: () => lootApi.getSession(guildId, event.id),
-    enabled: ev.status === 'COMPLETED' || ev.status === 'ENDED',
+    enabled: ev.status === 'COMPLETED' || ev.status === 'ENDED' || ev.status === 'ACTIVE',
   });
   const lootSession = lootQuery.data ?? null;
 
@@ -780,27 +782,56 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             <div className={rowCls}>
               <span className={labelCls}>Items</span>
               <div className="flex-1 space-y-3">
-                {[...lootSession.items].sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
-                  <div key={item.id}>
-                    <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
-                      {item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
-                    </p>
-                    {item.assignments.length > 0 ? (
+                {lootSession.method === 'COMMODITY_DRAFT' ? (() => {
+                  // Group items by name for commodity draft display
+                  const grouped = new Map<string, typeof lootSession.items>();
+                  for (const item of [...lootSession.items].sort((a, b) => a.sortOrder - b.sortOrder)) {
+                    const group = grouped.get(item.name) ?? [];
+                    group.push(item);
+                    grouped.set(item.name, group);
+                  }
+                  return Array.from(grouped.entries()).map(([name, items]) => (
+                    <div key={name}>
+                      <p className="text-base font-extrabold uppercase tracking-widest opacity-90">{name}</p>
                       <div className="mt-0.5 space-y-0.5">
-                        {item.assignments.map((a) => (
-                          <p key={a.id} className="text-lg">
-                            {resolveUsername(a.userId, a.username, userId)}
-                            {a.rollValue != null && <span className="opacity-60 ml-1.5">🎲 {a.rollValue}</span>}
-                            {a.dkpSpent != null && a.dkpSpent > 0 && <span className="opacity-60 ml-1.5">{a.dkpSpent} {dkpLabel}</span>}
-                            {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>}
-                          </p>
-                        ))}
+                        {items.map((item) =>
+                          item.assignments.length > 0 ? (
+                            item.assignments.map((a) => (
+                              <p key={a.id} className="text-lg">
+                                {resolveUsername(a.userId, a.username, userId)}
+                                {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber + 1}</span>}
+                              </p>
+                            ))
+                          ) : (
+                            <p key={item.id} className="text-lg opacity-50 italic">Unassigned</p>
+                          )
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-lg opacity-50 italic mt-0.5">Unassigned</p>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ));
+                })() : (
+                  [...lootSession.items].sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
+                    <div key={item.id}>
+                      <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
+                        {item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                      </p>
+                      {item.assignments.length > 0 ? (
+                        <div className="mt-0.5 space-y-0.5">
+                          {item.assignments.map((a) => (
+                            <p key={a.id} className="text-lg">
+                              {resolveUsername(a.userId, a.username, userId)}
+                              {a.rollValue != null && <span className="opacity-60 ml-1.5">🎲 {a.rollValue}</span>}
+                              {a.dkpSpent != null && a.dkpSpent > 0 && <span className="opacity-60 ml-1.5">{a.dkpSpent} {dkpLabel}</span>}
+                              {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-lg opacity-50 italic mt-0.5">Unassigned</p>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -823,8 +854,8 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         </div>
       )}
 
-      {/* Shared With — host managers only, not on completed events */}
-      {canManage && ev.status !== 'COMPLETED' && (
+      {/* Shared With — host managers only */}
+      {canManage && ev.shares.length > 0 || (canManage && ev.status !== 'COMPLETED') ? (
         <div className={rowCls}>
           <span className={labelCls}>Shared With</span>
           <div className="flex-1 space-y-2">
@@ -847,32 +878,34 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   <span className="text-[11px] opacity-50 uppercase tracking-wide">
                     {s.sourceType === 'ALLIANCE' ? 'via Alliance' : 'Direct'}
                   </span>
-                  <div className="flex gap-1 ml-auto">
-                    {s.status === 'DECLINED' && (
-                      <button
-                        onClick={() => reinviteMutation.mutate(s.id)}
-                        disabled={reinviteMutation.isPending}
-                        className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-50"
-                      >
-                        Re-invite
-                      </button>
-                    )}
-                    {s.status === 'PENDING' && (
-                      <button
-                        onClick={() => cancelShareMutation.mutate(s.id)}
-                        disabled={cancelShareMutation.isPending}
-                        className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
+                  {ev.status !== 'COMPLETED' && (
+                    <div className="flex gap-1 ml-auto">
+                      {s.status === 'DECLINED' && (
+                        <button
+                          onClick={() => reinviteMutation.mutate(s.id)}
+                          disabled={reinviteMutation.isPending}
+                          className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-50"
+                        >
+                          Re-invite
+                        </button>
+                      )}
+                      {s.status === 'PENDING' && (
+                        <button
+                          onClick={() => cancelShareMutation.mutate(s.id)}
+                          disabled={cancelShareMutation.isPending}
+                          className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
 
-            {/* Inline guild picker */}
-            {sharePickerOpen && (
+            {/* Inline guild picker — hidden for completed events */}
+            {ev.status !== 'COMPLETED' && sharePickerOpen && (
               <div className="flex items-center gap-2 flex-wrap mt-1">
                 <select
                   value={selectedGuildId}
@@ -903,34 +936,36 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </div>
             )}
 
-            {/* Action buttons row */}
-            <div className="flex gap-2 flex-wrap pt-1">
-              {!sharePickerOpen && (
-                <button
-                  onClick={() => setSharePickerOpen(true)}
-                  className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
-                >
-                  + Invite Guild
-                </button>
-              )}
-              {alliances.length > 0 && alliances.map((a) => {
-                const alreadyInvited = ev.shares.some((s) => s.allianceId === a.id);
-                return (
+            {/* Action buttons row — hidden for completed events */}
+            {ev.status !== 'COMPLETED' && (
+              <div className="flex gap-2 flex-wrap pt-1">
+                {!sharePickerOpen && (
                   <button
-                    key={a.id}
-                    disabled={alreadyInvited || inviteAllianceMutation.isPending}
-                    onClick={() => inviteAllianceMutation.mutate(a.id)}
-                    className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-40"
-                    title={alreadyInvited ? 'Alliance already invited' : `Invite all of ${a.name}`}
+                    onClick={() => setSharePickerOpen(true)}
+                    className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
                   >
-                    {alreadyInvited ? `✓ ${a.name}` : `+ ${a.name}`}
+                    + Invite Guild
                   </button>
-                );
-              })}
-            </div>
+                )}
+                {alliances.length > 0 && alliances.map((a) => {
+                  const alreadyInvited = ev.shares.some((s) => s.allianceId === a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      disabled={alreadyInvited || inviteAllianceMutation.isPending}
+                      onClick={() => inviteAllianceMutation.mutate(a.id)}
+                      className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-40"
+                      title={alreadyInvited ? 'Alliance already invited' : `Invite all of ${a.name}`}
+                    >
+                      {alreadyInvited ? `✓ ${a.name}` : `+ ${a.name}`}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Footer actions */}
       <div className="flex items-center gap-2 bg-primary px-5 py-4">
@@ -955,11 +990,19 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </Link>
             </Button>
           )}
-          {canManage && ev.status === 'ENDED' && lootSession?.status === 'OPEN' && (
+          {canManage && (ev.status === 'ENDED' || ev.status === 'ACTIVE') && lootSession?.status === 'OPEN' && (
             <Button size="sm" asChild
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
                 <PlayCircle className="h-3.5 w-3.5" />Resume Loot
+              </Link>
+            </Button>
+          )}
+          {canManage && ev.status === 'ACTIVE' && !lootSession && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
+                <PlayCircle className="h-3.5 w-3.5" />Start Loot
               </Link>
             </Button>
           )}
@@ -1099,8 +1142,13 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       </div>
 
       {/* Status */}
-      <div className="hidden sm:flex w-28 shrink-0 px-4 py-3 items-center justify-center">
+      <div className="hidden sm:flex w-28 shrink-0 px-4 py-3 flex-col items-center justify-center gap-1">
         <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
+        {(event.status === 'ENDED' || event.status === 'ACTIVE') && (
+          <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${STATUS_BADGE[event.status]}`}>
+            {event.status}
+          </span>
+        )}
       </div>
 
       {/* Role */}

@@ -47,7 +47,7 @@ export const lootApi = {
   createSession: (guildId: string, eventId: string, body: CreateLootSessionBody) =>
     api.post<ApiResponse<LootSessionDto>>(base(guildId, eventId), body).then((r) => r.data!),
 
-  updateSession: (guildId: string, eventId: string, body: { method?: LootMethod; dkpAward?: number; draftOrder?: string[] }) =>
+  updateSession: (guildId: string, eventId: string, body: { method?: LootMethod; dkpAward?: number; draftOrder?: string[]; refreshParticipants?: boolean }) =>
     api.patch<ApiResponse<LootSessionDto>>(base(guildId, eventId), body).then((r) => r.data!),
 
   addItem: (guildId: string, eventId: string, body: AddLootItemBody) =>

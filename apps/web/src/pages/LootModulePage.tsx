@@ -45,8 +45,8 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loot-history', session.guildId] }),
   });
 
-  const displayName = session.name ?? (session.eventName ? session.eventName : 'Unnamed Session');
-  const label = session.eventName && !session.name ? `📅 ${session.eventName}` : displayName;
+  const displayName = session.eventName ?? session.name ?? 'Unnamed Session';
+  const label = session.eventName ? `📅 ${displayName}` : displayName;
   const itemCount = session.items.length;
   const assignedCount = session.items.filter((i) => i.assignments.length > 0).length;
 
@@ -386,7 +386,8 @@ export function LootModulePage() {
 
           {sessionsQuery.data?.map((session) => {
             const isEventSession = !!session.eventId;
-            const displayName = session.eventName ?? session.name ?? 'Unnamed Session';
+            const baseName = session.eventName ?? session.name ?? 'Unnamed Session';
+            const displayName = session.eventName ? `📅 ${baseName}` : baseName;
             const participantCount = session.participants.length;
             const itemCount = session.items.length;
             const assignedCount = session.items.filter((i) => i.assignments.length > 0).length;

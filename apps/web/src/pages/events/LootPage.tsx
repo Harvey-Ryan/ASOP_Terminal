@@ -23,7 +23,16 @@ const METHOD_LABELS: Record<LootMethod, string> = {
 
 const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
 
-// ── Snake draft helper ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
 
 function getNextPicker(assignmentCount: number, draftOrder: string[]): string | null {
   if (draftOrder.length === 0) return null;
@@ -465,6 +474,12 @@ function ItemRow({
     onSuccess: onDelete,
   });
 
+  const updateItemMutation = useMutation({
+    mutationFn: (body: Partial<{ excludePrevWinners: boolean }>) =>
+      lootApi.updateItem(guildId, eventId, item.id, body),
+    onSuccess: onRolled,
+  });
+
   const nextPicker = session.method === 'SNAKE_DRAFT'
     ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder)
     : null;
@@ -525,7 +540,16 @@ function ItemRow({
                   <RotateCcw className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <Button size="sm" variant="ghost" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} title="Delete item">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  if (isAssigned && !window.confirm(`Delete "${item.name}"? It is assigned to ${winner!.username} — the assignment will be removed.`)) return;
+                  deleteMutation.mutate();
+                }}
+                disabled={deleteMutation.isPending}
+                title="Delete item"
+              >
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
               </Button>
             </>
@@ -540,7 +564,13 @@ function ItemRow({
             🎲 {rollMutation.isPending ? 'Rolling…' : 'Roll Now'}
           </Button>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-            <input type="checkbox" checked={item.excludePrevWinners} readOnly className="h-3 w-3" />
+            <input
+              type="checkbox"
+              checked={item.excludePrevWinners}
+              onChange={(e) => updateItemMutation.mutate({ excludePrevWinners: e.target.checked })}
+              disabled={updateItemMutation.isPending}
+              className="h-3 w-3 cursor-pointer"
+            />
             Exclude prev winners
           </label>
         </div>
@@ -771,7 +801,7 @@ function QueueCard({
 
 // ── Setup form (no session yet) ───────────────────────────────────────────────
 
-function SetupForm({ guildId, eventId, onCreated }: { guildId: string; eventId: string; onCreated: () => void }) {
+function SetupForm({ guildId, eventId, onCreated, eligibleCount }: { guildId: string; eventId: string; onCreated: () => void; eligibleCount: number | undefined }) {
   const [method, setMethod] = useState<LootMethod>('RANDOM_ROLL');
   const [dkpAward, setDkpAward] = useState('0');
 
@@ -786,6 +816,12 @@ function SetupForm({ guildId, eventId, onCreated }: { guildId: string; eventId: 
         <CardTitle>Start Loot Session</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
+        {eligibleCount !== undefined && eligibleCount === 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>No confirmed attendees. Complete the event audit to populate the roster before starting a loot session.</span>
+          </div>
+        )}
         <div className="space-y-2">
           <label className="text-sm font-medium">Distribution Method</label>
           <div className="grid grid-cols-3 gap-2">
@@ -889,7 +925,7 @@ export function LootPage() {
   };
 
   const updateMutation = useMutation({
-    mutationFn: (body: { method?: LootMethod; dkpAward?: number; draftOrder?: string[] }) =>
+    mutationFn: (body: { method?: LootMethod; dkpAward?: number; draftOrder?: string[]; refreshParticipants?: boolean }) =>
       lootApi.updateSession(guildId!, eventId!, body),
     onSuccess: invalidate,
   });
@@ -909,7 +945,7 @@ export function LootPage() {
 
   const completeMutation = useMutation({
     mutationFn: () => lootApi.complete(guildId!, eventId!),
-    onSuccess: () => navigate(`/dashboard/servers/${guildId}?tab=completed`),
+    onSuccess: () => navigate(`/dashboard/servers/${guildId}`),
   });
 
   const commodityRollMutation = useMutation({
@@ -971,7 +1007,7 @@ export function LootPage() {
   // Shuffle the current draft order in-place (preserves manually added members)
   function handleShuffle() {
     if (!session) return;
-    const shuffled = [...session.draftOrder].sort(() => Math.random() - 0.5);
+    const shuffled = shuffleArray([...session.draftOrder]);
     updateMutation.mutate({ draftOrder: shuffled });
   }
 
@@ -1041,7 +1077,7 @@ export function LootPage() {
 
       {/* No session yet — managers only */}
       {!session && isManager && (
-        <SetupForm guildId={guildId!} eventId={eventId!} onCreated={invalidate} />
+        <SetupForm guildId={guildId!} eventId={eventId!} onCreated={invalidate} eligibleCount={event ? eligiblePlayers.length : undefined} />
       )}
       {!session && !isManager && (
         <p className="text-sm text-muted-foreground italic py-4">No loot session has been started for this event yet.</p>
@@ -1087,6 +1123,22 @@ export function LootPage() {
                   />
                 </div>
               </div>
+              {session.status === 'OPEN' && session.method !== 'SNAKE_DRAFT' && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => updateMutation.mutate({ refreshParticipants: true })}
+                    disabled={updateMutation.isPending}
+                    title="Re-sync participant list from confirmed attendees"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Sync Roster
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Re-syncs eligible players from confirmed attendees</span>
+                </div>
+              )}
             </CardContent>
           </Card>}
 
@@ -1370,7 +1422,8 @@ export function LootPage() {
                 const aAssigned = a.assignments.length > 0 ? 1 : 0;
                 const bAssigned = b.assignments.length > 0 ? 1 : 0;
                 if (aAssigned !== bAssigned) return aAssigned - bAssigned;
-                return a.sortOrder - b.sortOrder;
+                if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+                return a.name.localeCompare(b.name);
               })
               .filter((item) => !hideAssigned || item.assignments.length === 0)
               .map((item) => (

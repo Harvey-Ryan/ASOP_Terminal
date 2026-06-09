@@ -731,6 +731,8 @@ eventsRouter.post('/:guildId/events/:eventId/reopen', requireAuth, async (req, r
     data: { status: 'OPEN' },
   });
 
+  triggerBot(`/trigger/sync/${eventId}`);
+
   res.json({ success: true, message: 'Event re-opened' } satisfies ApiResponse);
 });
 
