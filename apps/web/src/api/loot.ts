@@ -79,6 +79,9 @@ export const lootApi = {
   toggleDelivered: (guildId: string, eventId: string, itemId: string) =>
     api.patch<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/assign/delivered`).then((r) => r),
 
+  commodityRoll: (guildId: string, eventId: string) =>
+    api.post<ApiResponse<LootSessionDto>>(`${base(guildId, eventId)}/commodity-roll`, {}).then((r) => r.data!),
+
   complete: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`${base(guildId, eventId)}/complete`).then((r) => r),
 

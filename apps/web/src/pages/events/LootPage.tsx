@@ -912,6 +912,11 @@ export function LootPage() {
     onSuccess: () => navigate(`/dashboard/servers/${guildId}?tab=completed`),
   });
 
+  const commodityRollMutation = useMutation({
+    mutationFn: () => lootApi.commodityRoll(guildId!, eventId!),
+    onSuccess: invalidate,
+  });
+
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
@@ -1376,6 +1381,35 @@ export function LootPage() {
               <p className="text-sm text-muted-foreground italic py-2">No items yet. Add the first item above.</p>
             )}
           </div>
+
+          {/* Commodity roll — shown when any item has a QL set */}
+          {isManager && session.status === 'OPEN' && session.items.some((i) => i.qualityLevel !== null) && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Shuffle className="h-4 w-4 mt-0.5 text-amber-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-400">Commodity Draft</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Items are grouped by name. Within each group, items are sorted by QL (highest first) and distributed via a fresh randomised snake draft. Each group gets its own random order.
+                  </p>
+                </div>
+              </div>
+              {commodityRollMutation.isError && (
+                <p className="text-xs text-destructive">{(commodityRollMutation.error as Error)?.message ?? 'Failed to roll.'}</p>
+              )}
+              <Button
+                onClick={() => commodityRollMutation.mutate()}
+                disabled={commodityRollMutation.isPending || session.participants.length === 0 || session.items.length === 0}
+                className="gap-2"
+              >
+                <Shuffle className="h-4 w-4" />
+                {session.draftStarted ? 'Re-roll Assignments' : 'Roll Assignments'}
+              </Button>
+              {session.draftStarted && (
+                <p className="text-xs text-muted-foreground">Assignments have been rolled. Re-rolling will clear all current assignments.</p>
+              )}
+            </div>
+          )}
 
           {/* Complete — managers only */}
           {isManager && session.status === 'OPEN' && (

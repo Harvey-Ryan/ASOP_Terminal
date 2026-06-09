@@ -966,6 +966,76 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
   res.json({ success: true, message: 'Loot session completed' } satisfies ApiResponse);
 });
 
+// ── POST commodity-roll (event loot) ─────────────────────────────────────────
+// Groups items by name, each group gets its own randomised snake draft order,
+// items sorted by qualityLevel desc within the group. Same algorithm as the
+// standalone COMMODITY_DRAFT but driven by the event session's participant list.
+
+lootRouter.post('/:guildId/events/:eventId/loot/commodity-roll', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const session = await fetchSession(eventId);
+  if (!session) {
+    res.status(404).json({ success: false, error: 'No loot session found' } satisfies ApiResponse); return;
+  }
+  if (session.status !== 'OPEN') {
+    res.status(400).json({ success: false, error: 'Session must be open' } satisfies ApiResponse); return;
+  }
+
+  const participants: LootParticipant[] = JSON.parse(session.participants);
+  if (participants.length === 0) {
+    res.status(400).json({ success: false, error: 'No participants in session' } satisfies ApiResponse); return;
+  }
+  if (session.items.length === 0) {
+    res.status(400).json({ success: false, error: 'No items in session' } satisfies ApiResponse); return;
+  }
+
+  // Group items by name
+  const groups = new Map<string, typeof session.items>();
+  for (const item of session.items) {
+    if (!groups.has(item.name)) groups.set(item.name, []);
+    groups.get(item.name)!.push(item);
+  }
+
+  const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
+  const toCreate: { itemId: string; userId: string; username: string; pickNumber: number }[] = [];
+
+  for (const [, items] of groups) {
+    const order = shuffle(participants.map((p) => p.userId));
+    const sorted = [...items].sort((a, b) => {
+      if (a.qualityLevel === null && b.qualityLevel === null) return 0;
+      if (a.qualityLevel === null) return 1;
+      if (b.qualityLevel === null) return -1;
+      return b.qualityLevel - a.qualityLevel;
+    });
+    let pickIdx = 0;
+    for (const item of sorted) {
+      for (let copy = 0; copy < item.quantity; copy++) {
+        const userId = order[snakePickIndex(pickIdx, order.length)]!;
+        toCreate.push({ itemId: item.id, userId, username: usernameMap.get(userId) ?? userId, pickNumber: pickIdx + 1 });
+        pickIdx++;
+      }
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
+    ...toCreate.map((a) => prisma.lootAssignment.create({ data: a })),
+  ]);
+
+  const updated = await prisma.lootSession.update({
+    where: { id: session.id },
+    data: { draftStarted: true },
+    include: { items: { include: { assignments: true } } },
+  });
+
+  res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
+});
+
 // ── GET recent loot ───────────────────────────────────────────────────────────
 
 lootRouter.get('/:guildId/loot/recent', requireAuth, async (req, res) => {
