@@ -375,10 +375,13 @@ lootRouter.post('/:guildId/events/:eventId/loot/items', requireAuth, async (req,
   let name: string;
   let quantity: number;
   let excludePrevWinners: boolean;
+  let qualityLevel: number | null;
   try {
     name = requireStr(body.name, 'name', 200);
     quantity = optPosInt(body.quantity, 'quantity') ?? 1;
     excludePrevWinners = typeof body.excludePrevWinners === 'boolean' ? body.excludePrevWinners : false;
+    const rawQl = optNonNegInt(body.qualityLevel as unknown, 'qualityLevel');
+    qualityLevel = rawQl !== undefined ? rawQl : null;
   } catch (err) {
     if (err instanceof ValidationError) {
       res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return;
@@ -392,8 +395,26 @@ lootRouter.post('/:guildId/events/:eventId/loot/items', requireAuth, async (req,
   }
 
   const count = await prisma.lootItem.count({ where: { sessionId: session.id } });
+
+  // Commodity items: expand qty into individual rows so each unit is assigned separately
+  if (qualityLevel !== null && quantity > 1) {
+    const created = await prisma.$transaction(
+      Array.from({ length: quantity }, (_, i) =>
+        prisma.lootItem.create({
+          data: { sessionId: session.id, name, quantity: 1, qualityLevel, excludePrevWinners, sortOrder: count + i },
+        }),
+      ),
+    );
+    const first = created[0]!;
+    res.status(201).json({
+      success: true,
+      data: { id: first.id, name: first.name, quantity: first.quantity, excludePrevWinners: first.excludePrevWinners, sortOrder: first.sortOrder, qualityLevel: first.qualityLevel ?? null, assignments: [] } satisfies LootItemDto,
+    } satisfies ApiResponse<LootItemDto>);
+    return;
+  }
+
   const item = await prisma.lootItem.create({
-    data: { sessionId: session.id, name, quantity, excludePrevWinners, sortOrder: count },
+    data: { sessionId: session.id, name, quantity, excludePrevWinners, qualityLevel, sortOrder: count },
     include: { assignments: true },
   });
 

@@ -477,7 +477,11 @@ function ItemRow({
     <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium truncate">{item.name}{item.quantity > 1 && <span className="ml-1 text-muted-foreground text-sm">×{item.quantity}</span>}</p>
+          <p className="font-medium truncate flex items-center gap-1.5 flex-wrap">
+            {item.name}
+            {item.qualityLevel !== null && <span className="rounded-sm bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 shrink-0">QL {item.qualityLevel}</span>}
+            {item.quantity > 1 && <span className="text-muted-foreground text-sm shrink-0">×{item.quantity}</span>}
+          </p>
           {isAssigned ? (
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
@@ -891,9 +895,13 @@ export function LootPage() {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: (name: string) => lootApi.addItem(guildId!, eventId!, { name }),
+    mutationFn: (body: { name: string; qualityLevel?: number | null; quantity?: number }) =>
+      lootApi.addItem(guildId!, eventId!, body),
     onSuccess: () => {
       setNewItemName('');
+      setNewItemQl('');
+      setNewItemQty('1');
+      setIsCommodityItem(false);
       invalidate();
       setTimeout(() => newItemInputRef.current?.focus(), 0);
     },
@@ -908,6 +916,9 @@ export function LootPage() {
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
   const [newItemInputFocused, setNewItemInputFocused] = useState(false);
+  const [isCommodityItem, setIsCommodityItem] = useState(false);
+  const [newItemQl, setNewItemQl] = useState('');
+  const [newItemQty, setNewItemQty] = useState('1');
   const debouncedNewItem = useDebounce(newItemName, 250);
 
   const suggestQuery = useQuery({
@@ -1230,17 +1241,28 @@ export function LootPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (newItemName.trim()) addItemMutation.mutate(newItemName.trim());
+                  if (!newItemName.trim()) return;
+                  if (isCommodityItem) {
+                    const ql = parseInt(newItemQl, 10);
+                    const qty = parseInt(newItemQty || '1', 10);
+                    if (isNaN(ql) || ql < 0 || isNaN(qty) || qty < 1) return;
+                    addItemMutation.mutate({ name: newItemName.trim(), qualityLevel: ql, quantity: qty });
+                  } else {
+                    addItemMutation.mutate({ name: newItemName.trim() });
+                  }
                 }}
-                className="flex gap-2"
+                className="flex gap-2 items-start"
               >
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <input
                     ref={newItemInputRef}
                     className={inputCls}
                     placeholder="Item name…"
                     value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
+                    onChange={(e) => {
+                      setNewItemName(e.target.value);
+                      if (!e.target.value) { setIsCommodityItem(false); setNewItemQl(''); setNewItemQty('1'); }
+                    }}
                     onFocus={() => setNewItemInputFocused(true)}
                     onBlur={() => setNewItemInputFocused(false)}
                     autoComplete="off"
@@ -1254,6 +1276,9 @@ export function LootPage() {
                           onMouseDown={(e) => {
                             e.preventDefault();
                             setNewItemName(s.name);
+                            const isCom = s.type === 'commodity';
+                            setIsCommodityItem(isCom);
+                            if (!isCom) { setNewItemQl(''); setNewItemQty('1'); }
                             setNewItemInputFocused(false);
                             newItemInputRef.current?.focus();
                           }}
@@ -1269,10 +1294,50 @@ export function LootPage() {
                     </div>
                   )}
                 </div>
-                <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending} className="shrink-0 gap-1">
-                  <Plus className="h-4 w-4" />
-                  Add
-                </Button>
+                {isCommodityItem && (
+                  <>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                      placeholder="QL"
+                      value={newItemQl}
+                      onChange={(e) => setNewItemQl(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      title="Quality Level (required)"
+                    />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                      placeholder="Qty"
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      title="Quantity — each unit becomes an individual assignable item"
+                    />
+                  </>
+                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    title={isCommodityItem ? 'Commodity/Material (click to clear)' : 'Mark as commodity/material'}
+                    onClick={() => {
+                      const next = !isCommodityItem;
+                      setIsCommodityItem(next);
+                      if (!next) { setNewItemQl(''); setNewItemQty('1'); }
+                    }}
+                    className={`rounded-sm px-1.5 py-1 text-[10px] font-medium border transition-colors ${isCommodityItem ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'border-border text-muted-foreground hover:border-amber-500/40 hover:text-amber-400'}`}
+                  >
+                    commodity
+                  </button>
+                  <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending || (isCommodityItem && (!newItemQl.trim()))} className="gap-1">
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </Button>
+                </div>
               </form>
             )}
 
