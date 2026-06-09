@@ -114,6 +114,24 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
   if (!(await assertEventViewer(req, guildId))) {
+    // Allow confirmed attendees from allied guilds (e.g. cross-guild snake draft participants)
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (dbUser) {
+      const ev = await prisma.event.findUnique({
+        where: { id: eventId },
+        include: {
+          rsvps: true,
+          guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+        },
+      });
+      if (ev?.confirmedAttendees) {
+        const confirmedIds: string[] = JSON.parse(ev.confirmedAttendees);
+        if (confirmedIds.includes(dbUser.discordId)) {
+          res.json({ success: true, data: toDto(ev) } satisfies ApiResponse<EventDto>);
+          return;
+        }
+      }
+    }
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }

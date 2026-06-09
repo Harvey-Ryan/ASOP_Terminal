@@ -10,7 +10,7 @@ import { lootApi } from '@/api/loot';
 import { settingsApi } from '@/api/settings';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageGuild } from '@dem/shared';
-import type { LootHistorySessionDto, LootMethod } from '@dem/shared';
+import type { LootHistorySessionDto, LootMethod, MyPickDto } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -324,6 +324,15 @@ export function LootModulePage() {
     refetchInterval: tab === 'sessions' ? 10000 : false,
   });
 
+  const myPicksQuery = useQuery({
+    queryKey: ['loot', 'my-picks'],
+    queryFn: () => lootApi.getMyPicks(),
+    enabled: tab === 'sessions',
+    refetchInterval: tab === 'sessions' ? 10000 : false,
+  });
+  // Sessions in guilds the user is not a member of (participating as an allied member)
+  const crossGuildPicks: MyPickDto[] = (myPicksQuery.data ?? []).filter((p) => p.guildId !== guildId);
+
   const historyQuery = useQuery({
     queryKey: ['loot-history', guildId],
     queryFn: () => lootApi.getHistory(guildId!),
@@ -428,6 +437,48 @@ export function LootModulePage() {
               </div>
             );
           })}
+
+          {crossGuildPicks.length > 0 && (
+            <div className="pt-2 space-y-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Participating In</p>
+              {crossGuildPicks.map((pick) => {
+                const href = pick.eventId
+                  ? `/dashboard/servers/${pick.guildId}/events/${pick.eventId}/loot`
+                  : `/dashboard/servers/${pick.guildId}/loot/sessions/${pick.sessionId}`;
+                return (
+                  <div
+                    key={pick.sessionId}
+                    className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
+                  >
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">📅 {pick.eventName}</p>
+                        {pick.isMyTurn && (
+                          <span className="shrink-0 rounded-sm bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-500">your turn</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className={`rounded-full border px-2 py-0.5 font-medium ${METHOD_COLORS[pick.method]}`}>
+                          {METHOD_LABELS[pick.method]}
+                        </span>
+                        <span>{pick.guildName}</span>
+                        <span>{pick.itemCount} item{pick.itemCount !== 1 ? 's' : ''} remaining</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1.5"
+                      onClick={() => navigate(href)}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Open
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
