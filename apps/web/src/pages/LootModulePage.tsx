@@ -346,6 +346,7 @@ export function LootModulePage() {
     queryKey: ['loot', 'my-history'],
     queryFn: () => lootApi.getMyHistory(),
     enabled: tab === 'my-loot',
+    retry: false,
   });
 
   const tabCls = (active: boolean) =>

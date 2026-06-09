@@ -214,11 +214,17 @@ lootRouter.get('/loot/my-history', requireAuth, async (req, res) => {
       items: { some: { assignments: { some: { userId: dbUser.discordId } } } },
     },
     orderBy: { updatedAt: 'desc' },
-    take: 200,
+    take: 100,
     include: {
       items: {
+        where: { assignments: { some: { userId: dbUser.discordId } } },
         orderBy: { sortOrder: 'asc' },
-        include: { assignments: { orderBy: { assignedAt: 'asc' } } },
+        include: {
+          assignments: {
+            where: { userId: dbUser.discordId },
+            orderBy: { assignedAt: 'asc' },
+          },
+        },
       },
     },
   });
