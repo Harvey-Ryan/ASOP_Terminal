@@ -924,6 +924,8 @@ export function LootPage() {
   const [isCommodityItem, setIsCommodityItem] = useState(false);
   const [newItemQl, setNewItemQl] = useState('');
   const [newItemQty, setNewItemQty] = useState('1');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberSearchFocused, setMemberSearchFocused] = useState(false);
   const debouncedNewItem = useDebounce(newItemName, 250);
 
   const suggestQuery = useQuery({
@@ -1186,24 +1188,41 @@ export function LootPage() {
                     {notInDraft.length > 0 ? (
                       <div className="flex items-center gap-2">
                         <p className="text-xs text-muted-foreground shrink-0">Add member:</p>
-                        <select
-                          className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
-                          defaultValue=""
-                          onChange={(e) => {
-                            const userId = e.target.value;
-                            if (userId) {
-                              updateMutation.mutate({ draftOrder: [...session.draftOrder, userId] });
-                              e.target.value = '';
-                            }
-                          }}
-                        >
-                          <option value="" disabled>Select a member…</option>
-                          {notInDraft.map((p) => (
-                            <option key={p.userId} value={p.userId}>
-                              {resolveUsername(p.userId, p.username, user?.id)}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative flex-1">
+                          <input
+                            className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                            placeholder="Search members…"
+                            value={memberSearch}
+                            onChange={(e) => setMemberSearch(e.target.value)}
+                            onFocus={() => setMemberSearchFocused(true)}
+                            onBlur={() => setMemberSearchFocused(false)}
+                            autoComplete="off"
+                          />
+                          {memberSearchFocused && (() => {
+                            const q = memberSearch.toLowerCase();
+                            const filtered = notInDraft.filter((p) =>
+                              resolveUsername(p.userId, p.username, user?.id).toLowerCase().includes(q)
+                            );
+                            return filtered.length > 0 ? (
+                              <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
+                                {filtered.map((p) => (
+                                  <button
+                                    key={p.userId}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      updateMutation.mutate({ draftOrder: [...session.draftOrder, p.userId] });
+                                      setMemberSearch('');
+                                    }}
+                                    className="w-full px-3 py-2 text-xs text-left hover:bg-accent transition-colors truncate"
+                                  >
+                                    {resolveUsername(p.userId, p.username, user?.id)}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground italic">All known members are already in the draft.</p>

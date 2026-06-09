@@ -1383,7 +1383,7 @@ lootRouter.get('/:guildId/loot/sessions', requireAuth, async (req, res) => {
   const isManager = await assertGuildManager(req, guildId);
 
   const sessions = await prisma.lootSession.findMany({
-    where: { guildId, status: 'OPEN' },
+    where: { guildId, status: 'OPEN', eventId: null },
     orderBy: { createdAt: 'desc' },
     include: { items: { include: { assignments: true } } },
   });
