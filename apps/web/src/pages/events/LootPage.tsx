@@ -496,6 +496,7 @@ function ItemRow({
             {item.name}
             {item.qualityLevel !== null && <span className="rounded-sm bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 shrink-0">QL {item.qualityLevel}</span>}
             {item.quantity > 1 && <span className="text-muted-foreground text-sm shrink-0">×{item.quantity}</span>}
+            <ItemInfoPopover name={item.name} />
           </p>
           {isAssigned ? (
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -532,7 +533,6 @@ function ItemRow({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <ItemInfoPopover name={item.name} />
           {isManager && (
             <>
               {isAssigned && (
@@ -1051,7 +1051,7 @@ export function LootPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl space-y-4">
+      <div className="max-w-3xl space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-48 rounded-xl" />
       </div>
@@ -1061,7 +1061,7 @@ export function LootPage() {
   const isSnakeDraft = session?.method === 'SNAKE_DRAFT';
 
   return (
-    <div className={isSnakeDraft ? 'space-y-5' : 'max-w-4xl space-y-5'}>
+    <div className="max-w-3xl space-y-5">
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -1085,7 +1085,7 @@ export function LootPage() {
 
       {/* Active session */}
       {session && (
-        <div className={isSnakeDraft ? 'flex gap-5 items-start' : ''}>
+        <div className={isSnakeDraft ? 'flex flex-col md:flex-row gap-5 items-start' : ''}>
         {/* Main content column */}
         <div className={isSnakeDraft ? 'flex-1 min-w-0 space-y-5' : ''}>
         <>

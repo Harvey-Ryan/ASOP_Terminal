@@ -42,7 +42,10 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
       session.eventId
         ? lootApi.toggleDelivered(session.guildId, session.eventId!, itemId)
         : lootApi.toggleDeliveredStandalone(session.guildId, session.id, assignmentId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loot-history', session.guildId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loot-history', session.guildId] });
+      queryClient.invalidateQueries({ queryKey: ['loot', 'my-history'] });
+    },
   });
 
   const displayName = session.eventName ?? session.name ?? 'Unnamed Session';
@@ -304,8 +307,8 @@ export function LootModulePage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const tab: 'sessions' | 'history' = tabParam === 'history' ? 'history' : 'sessions';
-  function setTab(t: 'sessions' | 'history') { setSearchParams(t === 'sessions' ? {} : { tab: t }); }
+  const tab: 'sessions' | 'history' | 'my-loot' = tabParam === 'history' ? 'history' : tabParam === 'my-loot' ? 'my-loot' : 'sessions';
+  function setTab(t: 'sessions' | 'history' | 'my-loot') { setSearchParams(t === 'sessions' ? {} : { tab: t }); }
   const [newSessionOpen, setNewSessionOpen] = useState(false);
 
   const isManager = guilds.some((g) => g.id === guildId);
@@ -339,6 +342,12 @@ export function LootModulePage() {
     enabled: !!guildId && tab === 'history',
   });
 
+  const myHistoryQuery = useQuery({
+    queryKey: ['loot', 'my-history'],
+    queryFn: () => lootApi.getMyHistory(),
+    enabled: tab === 'my-loot',
+  });
+
   const tabCls = (active: boolean) =>
     `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${active
       ? 'border-primary text-foreground'
@@ -366,6 +375,9 @@ export function LootModulePage() {
         </button>
         <button className={tabCls(tab === 'history')} onClick={() => setTab('history')}>
           History
+        </button>
+        <button className={tabCls(tab === 'my-loot')} onClick={() => setTab('my-loot')}>
+          My Loot
         </button>
       </div>
 
@@ -503,6 +515,31 @@ export function LootModulePage() {
 
           {historyQuery.data?.map((session) => (
             <HistoryRow key={session.id} session={session} isManager={isManager} currentUserId={user?.id} />
+          ))}
+        </div>
+      )}
+
+      {/* My Loot tab — user-scoped history across all guilds */}
+      {tab === 'my-loot' && (
+        <div className="space-y-3 pt-5">
+          {myHistoryQuery.isLoading && (
+            <>
+              <Skeleton className="h-14 rounded-lg" />
+              <Skeleton className="h-14 rounded-lg" />
+              <Skeleton className="h-14 rounded-lg" />
+            </>
+          )}
+
+          {!myHistoryQuery.isLoading && myHistoryQuery.data?.length === 0 && (
+            <Card>
+              <CardContent className="py-10 text-center">
+                <p className="text-muted-foreground text-sm">You haven't received any loot yet.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {myHistoryQuery.data?.map((session) => (
+            <HistoryRow key={session.id} session={session} isManager={false} currentUserId={user?.id} />
           ))}
         </div>
       )}

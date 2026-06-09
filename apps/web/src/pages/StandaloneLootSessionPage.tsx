@@ -217,14 +217,15 @@ function StandaloneItemRow({
     <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium truncate">
+          <p className="font-medium truncate flex items-center gap-1.5 flex-wrap">
             {item.name}
-            {item.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {item.qualityLevel}</span>}
+            {item.qualityLevel !== null && <span className="text-xs text-muted-foreground">QL {item.qualityLevel}</span>}
             {item.quantity > 1 && (
-              <span className="ml-1 text-muted-foreground text-sm">
+              <span className="text-muted-foreground text-sm">
                 {session.method === 'COMMODITY_DRAFT' ? `Ct. ${item.quantity}` : `×${item.quantity}`}
               </span>
             )}
+            <ItemInfoPopover name={item.name} />
           </p>
           {isAssigned ? (
             <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
@@ -238,7 +239,6 @@ function StandaloneItemRow({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <ItemInfoPopover name={item.name} />
           {isManager && (
             <>
               {isAssigned && (
@@ -791,7 +791,7 @@ export function StandaloneLootSessionPage() {
   const notInDraft = session.participants.filter((p) => !draftSet.has(p.userId));
 
   return (
-    <div className={isSnakeDraft ? 'space-y-5' : 'max-w-4xl space-y-5'}>
+    <div className="max-w-3xl space-y-5">
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

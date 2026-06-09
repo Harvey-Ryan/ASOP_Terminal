@@ -108,6 +108,9 @@ export const lootApi = {
   getMyPicks: () =>
     api.get<ApiResponse<MyPickDto[]>>('/guilds/loot/my-picks').then((r) => r.data ?? []),
 
+  getMyHistory: () =>
+    api.get<ApiResponse<LootHistorySessionDto[]>>('/guilds/loot/my-history').then((r) => r.data ?? []),
+
   // ── Auctions ───────────────────────────────────────────────────────────────
 
   getAuctions: (guildId: string, eventId: string) =>

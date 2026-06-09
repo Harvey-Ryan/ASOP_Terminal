@@ -203,6 +203,62 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
   res.json({ success: true, data: picks } satisfies ApiResponse<MyPickDto[]>);
 });
 
+// ── GET my loot history (cross-guild, user-scoped) ─────────────────────────────
+
+lootRouter.get('/loot/my-history', requireAuth, async (req, res) => {
+  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+  if (!dbUser) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+
+  const sessions = await prisma.lootSession.findMany({
+    where: {
+      items: { some: { assignments: { some: { userId: dbUser.discordId } } } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 200,
+    include: {
+      items: {
+        orderBy: { sortOrder: 'asc' },
+        include: { assignments: { orderBy: { assignedAt: 'asc' } } },
+      },
+    },
+  });
+
+  const eventIds = [...new Set(sessions.map((s) => s.eventId).filter(Boolean))] as string[];
+  const events = eventIds.length
+    ? await prisma.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, name: true } })
+    : [];
+  const eventMap = new Map(events.map((e) => [e.id, e.name]));
+
+  const data: LootHistorySessionDto[] = sessions.map((s) => ({
+    id: s.id,
+    eventId: s.eventId ?? null,
+    eventName: s.eventId ? (eventMap.get(s.eventId) ?? null) : null,
+    name: s.name ?? null,
+    guildId: s.guildId,
+    ownerId: s.ownerId ?? null,
+    method: s.method as LootMethod,
+    status: s.status as 'OPEN' | 'COMPLETED',
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+    items: s.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      qualityLevel: item.qualityLevel ?? null,
+      assignments: item.assignments.map((a) => ({
+        id: a.id,
+        userId: a.userId,
+        username: a.username,
+        rollValue: a.rollValue,
+        dkpSpent: a.dkpSpent,
+        pickNumber: a.pickNumber,
+        delivered: a.delivered,
+      })),
+    })),
+  }));
+
+  res.json({ success: true, data } satisfies ApiResponse<LootHistorySessionDto[]>);
+});
+
 // ── GET session ───────────────────────────────────────────────────────────────
 
 lootRouter.get('/:guildId/events/:eventId/loot', requireAuth, async (req, res) => {
