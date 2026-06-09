@@ -1329,7 +1329,7 @@ export function LootPage() {
                 }}
                 className="flex gap-2 items-start"
               >
-                <div className="relative flex-1 min-w-0">
+                <div className="relative w-[50ch] min-w-0">
                   <input
                     ref={newItemInputRef}
                     className={inputCls}
