@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2 } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -945,6 +945,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               disabled={createVcsMutation.isPending || createVcsMutation.isSuccess}>
               <Mic className="h-3.5 w-3.5" />
               {createVcsMutation.isPending ? 'Creating…' : createVcsMutation.isSuccess ? 'Queued' : 'Create VCs'}
+            </Button>
+          )}
+          {canManage && ev.status === 'ENDED' && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/audit`}>
+                <CheckCircle2 className="h-3.5 w-3.5" />Complete Event
+              </Link>
             </Button>
           )}
           {canManage && ev.status === 'ENDED' && lootSession?.status === 'OPEN' && (
