@@ -170,12 +170,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ── Role roster buttons ───────────────────────────────────────────────────
     if (prefix === 'role') {
       const roleKey = value === '__unassigned__' ? null : value;
+      await interaction.deferReply({ ephemeral: true });
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { not: 'COMPLETED' } },
         });
         if (!event) {
-          await interaction.reply({ content: 'This event has already ended.', flags: MessageFlags.Ephemeral });
+          await interaction.editReply({ content: 'This event has already ended.' });
           return;
         }
         let label = 'Unassigned';
@@ -188,35 +189,34 @@ client.on(Events.InteractionCreate, async (interaction) => {
           ? interaction.member.displayName
           : interaction.user.username;
         await setRosterRole(entityId, interaction.user.id, displayName, roleKey);
-        await interaction.reply({
+        await interaction.editReply({
           content: `✅ You are marked as **${label}** for **${event.name}**.`,
-          flags: MessageFlags.Ephemeral,
         });
       } catch (err) {
         console.error('[bot] Role button error:', err);
-        await interaction.reply({ content: '❌ Failed to update roster.', flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: '❌ Failed to update roster.' });
       }
       return;
     }
 
     // ── Leave Roster button ───────────────────────────────────────────────────
     if (prefix === 'leave') {
+      await interaction.deferReply({ ephemeral: true });
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { not: 'COMPLETED' } },
         });
         if (!event) {
-          await interaction.reply({ content: 'This event has already ended.', flags: MessageFlags.Ephemeral });
+          await interaction.editReply({ content: 'This event has already ended.' });
           return;
         }
         await leaveRoster(entityId, interaction.user.id);
-        await interaction.reply({
+        await interaction.editReply({
           content: `✅ You have been removed from the roster for **${event.name}**.`,
-          flags: MessageFlags.Ephemeral,
         });
       } catch (err) {
         console.error('[bot] Leave roster button error:', err);
-        await interaction.reply({ content: '❌ Failed to leave roster.', flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: '❌ Failed to leave roster.' });
       }
       return;
     }
