@@ -106,7 +106,7 @@ function ItemInfoPopover({ name }: { name: string }) {
         <Info className="h-3.5 w-3.5" />
       </button>
       {show && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-card p-3 shadow-xl text-xs pointer-events-none">
+        <div className="absolute left-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-card p-3 shadow-xl text-xs pointer-events-none">
           {infoQuery.isLoading && <p className="text-muted-foreground">Looking up "{name}"…</p>}
           {!infoQuery.isLoading && infoQuery.data === null && <p className="text-muted-foreground">No UEX record found for "{name}".</p>}
           {infoQuery.data && <UexInfoCard data={infoQuery.data} />}
@@ -793,7 +793,7 @@ export function StandaloneLootSessionPage() {
   const notInDraft = session.participants.filter((p) => !draftSet.has(p.userId));
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <button
         onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
