@@ -847,6 +847,35 @@ lootRouter.post('/:guildId/events/:eventId/loot/start-draft', requireAuth, async
   res.json({ success: true } satisfies ApiResponse);
 });
 
+// ── POST restart draft ────────────────────────────────────────────────────────
+
+lootRouter.post('/:guildId/events/:eventId/loot/restart-draft', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertGuildManager(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+  }
+
+  const session = await prisma.lootSession.findUnique({
+    where: { eventId },
+    include: { items: true },
+  });
+  if (!session || session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
+    res.status(400).json({ success: false, error: 'No open snake draft session for this event' } satisfies ApiResponse); return;
+  }
+  if (!session.draftStarted) {
+    res.status(409).json({ success: false, error: 'Draft has not started' } satisfies ApiResponse); return;
+  }
+
+  await prisma.$transaction([
+    prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
+    prisma.lootSession.update({ where: { eventId }, data: { draftStarted: false, skipCount: 0 } }),
+  ]);
+
+  const updated = await fetchSession(eventId);
+  res.json({ success: true, data: sessionToDto(updated!) } satisfies ApiResponse<LootSessionDto>);
+});
+
 // ── DELETE assignment ─────────────────────────────────────────────────────────
 
 lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAuth, async (req, res) => {
@@ -1940,6 +1969,31 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/start-draft', requireAuth, a
 
   triggerBot(`/trigger/standalone-snake-turn/${sessionId}`);
   res.json({ success: true } satisfies ApiResponse);
+});
+
+// ── POST restart draft (standalone) ──────────────────────────────────────────
+
+lootRouter.post('/:guildId/loot/sessions/:sessionId/restart-draft', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  const isManager = await assertGuildManager(req, guildId);
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) { res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse); return; }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return; }
+  }
+  if (session.method !== 'SNAKE_DRAFT' || session.status !== 'OPEN') {
+    res.status(400).json({ success: false, error: 'No open snake draft session' } satisfies ApiResponse); return;
+  }
+  if (!session.draftStarted) { res.status(409).json({ success: false, error: 'Draft has not started' } satisfies ApiResponse); return; }
+
+  await prisma.$transaction([
+    prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
+    prisma.lootSession.update({ where: { id: sessionId }, data: { draftStarted: false, skipCount: 0 } }),
+  ]);
+
+  const updated = await fetchSessionById(sessionId);
+  res.json({ success: true, data: sessionToDto(updated!) } satisfies ApiResponse<LootSessionDto>);
 });
 
 // ── GET draft queue (standalone) ──────────────────────────────────────────────

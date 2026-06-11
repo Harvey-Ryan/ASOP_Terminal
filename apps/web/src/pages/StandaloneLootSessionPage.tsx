@@ -637,6 +637,8 @@ export function StandaloneLootSessionPage() {
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
+  const [restartConfirm, setRestartConfirm] = useState(false);
+  const [preRestartMembers, setPreRestartMembers] = useState<Set<string> | null>(null);
   const [completeConfirm, setCompleteConfirm] = useState(false);
   const [newItemInputFocused, setNewItemInputFocused] = useState(false);
   const debouncedNewItem = useDebounce(newItemName, 250);
@@ -707,6 +709,16 @@ export function StandaloneLootSessionPage() {
     onError: () => setStartConfirm(false),
   });
 
+  const restartDraftMutation = useMutation({
+    mutationFn: () => lootApi.restartDraftStandalone(guildId!, sessionId!),
+    onSuccess: () => {
+      setRestartConfirm(false);
+      setPreRestartMembers(new Set(session!.draftOrder));
+      invalidate();
+    },
+    onError: () => setRestartConfirm(false),
+  });
+
   const isCommodityDraftEarly = session?.method === 'COMMODITY_DRAFT';
 
   const suggestQuery = useQuery({
@@ -748,11 +760,18 @@ export function StandaloneLootSessionPage() {
 
   useEffect(() => { setSuggestHighlight(-1); }, [suggestQuery.data]);
 
-  function handleShuffle() {
+  async function handleShuffleAndStart() {
     if (!session) return;
-    const allIds = session.participants.map((p) => p.userId);
-    const shuffled = [...allIds].sort(() => Math.random() - 0.5);
-    updateMutation.mutate({ draftOrder: shuffled });
+    const currentMembers = new Set(session.draftOrder);
+    const membersChanged = preRestartMembers === null || currentMembers.size !== preRestartMembers.size
+      || [...currentMembers].some((id) => !preRestartMembers.has(id));
+    const order = membersChanged
+      ? [...session.draftOrder].sort(() => Math.random() - 0.5)
+      : session.draftOrder;
+    if (membersChanged) {
+      await updateMutation.mutateAsync({ draftOrder: order });
+    }
+    startDraftMutation.mutate();
   }
 
   if (sessionQuery.isLoading) {
@@ -863,31 +882,39 @@ export function StandaloneLootSessionPage() {
                       </p>
                     )}
                   </div>
-                  {canManage && session.status === 'OPEN' && !session.draftStarted && (
-                    <div className="flex items-center gap-2">
-                      {!startConfirm ? (
-                        <>
-                          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle} disabled={session.participants.length === 0}>
-                            <Shuffle className="h-3 w-3" /> Shuffle
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="gap-1 h-7 text-xs"
-                            onClick={() => setStartConfirm(true)}
-                            disabled={session.draftOrder.length === 0}
-                          >
-                            <Play className="h-3 w-3" /> Start Draft
-                          </Button>
-                        </>
+                  {canManage && session.status === 'OPEN' && (
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {!session.draftStarted && (!startConfirm ? (
+                        <Button
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          onClick={() => setStartConfirm(true)}
+                          disabled={session.draftOrder.length === 0}
+                        >
+                          <Play className="h-3 w-3" /> Shuffle & Start
+                        </Button>
                       ) : (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">Draft order is locked on start.</span>
-                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => startDraftMutation.mutate()} disabled={startDraftMutation.isPending}>
-                            {startDraftMutation.isPending ? 'Starting…' : 'Yes, Start'}
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-xs text-muted-foreground">Order will be shuffled and locked.</span>
+                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={handleShuffleAndStart} disabled={startDraftMutation.isPending || updateMutation.isPending}>
+                            {startDraftMutation.isPending || updateMutation.isPending ? 'Starting…' : 'Yes, Shuffle & Start'}
                           </Button>
                           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStartConfirm(false)}>Cancel</Button>
                         </div>
-                      )}
+                      ))}
+                      {session.draftStarted && (!restartConfirm ? (
+                        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRestartConfirm(true)}>
+                          <RotateCcw className="h-3 w-3" /> Restart Draft
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-xs text-muted-foreground">All picks will be cleared.</span>
+                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => restartDraftMutation.mutate()} disabled={restartDraftMutation.isPending}>
+                            {restartDraftMutation.isPending ? 'Restarting…' : 'Yes, Restart'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setRestartConfirm(false)}>Cancel</Button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1065,9 +1092,9 @@ export function StandaloneLootSessionPage() {
                     quantity: !isNaN(count) && count > 0 ? count : 1,
                   });
                 }}
-                className="flex gap-2 items-start"
+                className="flex flex-wrap gap-2 items-start"
               >
-                <div className="relative w-[50ch] min-w-0">
+                <div className="relative w-full sm:w-[50ch] min-w-0">
                   <input
                     ref={newItemInputRef}
                     className={inputCls}

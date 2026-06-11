@@ -958,6 +958,8 @@ export function LootPage() {
   const [hideAssigned, setHideAssigned] = useState(false);
   const [skipConfirm, setSkipConfirm] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
+  const [restartConfirm, setRestartConfirm] = useState(false);
+  const [preRestartMembers, setPreRestartMembers] = useState<Set<string> | null>(null);
   const [newItemInputFocused, setNewItemInputFocused] = useState(false);
   const [isCommodityItem, setIsCommodityItem] = useState(false);
   const [newItemQl, setNewItemQl] = useState('');
@@ -1006,11 +1008,26 @@ export function LootPage() {
     onError: () => setStartConfirm(false),
   });
 
-  // Shuffle the current draft order in-place (preserves manually added members)
-  function handleShuffle() {
+  const restartDraftMutation = useMutation({
+    mutationFn: () => lootApi.restartDraft(guildId!, eventId!),
+    onSuccess: () => {
+      setRestartConfirm(false);
+      setPreRestartMembers(new Set(session!.draftOrder));
+      invalidate();
+    },
+    onError: () => setRestartConfirm(false),
+  });
+
+  async function handleShuffleAndStart() {
     if (!session) return;
-    const shuffled = shuffleArray([...session.draftOrder]);
-    updateMutation.mutate({ draftOrder: shuffled });
+    const currentMembers = new Set(session.draftOrder);
+    const membersChanged = preRestartMembers === null || currentMembers.size !== preRestartMembers.size
+      || [...currentMembers].some((id) => !preRestartMembers.has(id));
+    const order = membersChanged ? shuffleArray([...session.draftOrder]) : session.draftOrder;
+    if (membersChanged) {
+      await updateMutation.mutateAsync({ draftOrder: order });
+    }
+    startDraftMutation.mutate();
   }
 
   // Lookup map for all known members: RSVPs + DKP players (covers manually-added non-RSVP members)
@@ -1150,35 +1167,45 @@ export function LootPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
-                  {isManager && session.status === 'OPEN' && !session.draftStarted && (
-                    <div className="flex items-center gap-2">
-                      {!startConfirm ? (
-                        <>
-                          <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={handleShuffle}>
-                            <Shuffle className="h-3 w-3" />
-                            Shuffle
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="gap-1 h-7 text-xs"
-                            onClick={() => setStartConfirm(true)}
-                            disabled={session.draftOrder.length === 0}
-                          >
-                            <Play className="h-3 w-3" />
-                            Start Draft
-                          </Button>
-                        </>
+                  {isManager && session.status === 'OPEN' && (
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {!session.draftStarted && (!startConfirm ? (
+                        <Button
+                          size="sm"
+                          className="gap-1 h-7 text-xs"
+                          onClick={() => setStartConfirm(true)}
+                          disabled={session.draftOrder.length === 0}
+                        >
+                          <Play className="h-3 w-3" />
+                          Shuffle & Start
+                        </Button>
                       ) : (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">Draft order is locked on start.</span>
-                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => startDraftMutation.mutate()} disabled={startDraftMutation.isPending}>
-                            {startDraftMutation.isPending ? 'Starting…' : 'Yes, Start'}
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-xs text-muted-foreground">Order will be shuffled and locked.</span>
+                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={handleShuffleAndStart} disabled={startDraftMutation.isPending || updateMutation.isPending}>
+                            {startDraftMutation.isPending || updateMutation.isPending ? 'Starting…' : 'Yes, Shuffle & Start'}
                           </Button>
                           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStartConfirm(false)}>
                             Cancel
                           </Button>
                         </div>
-                      )}
+                      ))}
+                      {session.draftStarted && (!restartConfirm ? (
+                        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRestartConfirm(true)}>
+                          <RotateCcw className="h-3 w-3" />
+                          Restart Draft
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-xs text-muted-foreground">All picks will be cleared.</span>
+                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => restartDraftMutation.mutate()} disabled={restartDraftMutation.isPending}>
+                            {restartDraftMutation.isPending ? 'Restarting…' : 'Yes, Restart'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setRestartConfirm(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1329,9 +1356,9 @@ export function LootPage() {
                     addItemMutation.mutate({ name: newItemName.trim() });
                   }
                 }}
-                className="flex gap-2 items-start"
+                className="flex flex-wrap gap-2 items-start"
               >
-                <div className="relative w-[50ch] min-w-0">
+                <div className="relative w-full sm:w-[50ch] min-w-0">
                   <input
                     ref={newItemInputRef}
                     className={inputCls}
@@ -1487,7 +1514,7 @@ export function LootPage() {
 
           {/* Complete — managers only */}
           {isManager && session.status === 'OPEN' && (
-            <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2 border-t border-border">
               <div className="space-y-1">
                 {session.dkpAward > 0 && (
                   <span className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -1497,7 +1524,7 @@ export function LootPage() {
                 )}
                 <p className="text-xs text-muted-foreground">Changes are saved automatically.</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   onClick={() => navigate(`/dashboard/servers/${guildId}`)}
@@ -1528,7 +1555,7 @@ export function LootPage() {
 
         {/* Queue card — snake draft only */}
         {isSnakeDraft && (
-          <div className="sticky top-4 self-start">
+          <div className="md:sticky md:top-4 self-start">
             <QueueCard
               session={session}
               guildId={guildId!}

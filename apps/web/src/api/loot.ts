@@ -79,6 +79,9 @@ export const lootApi = {
   toggleDelivered: (guildId: string, eventId: string, itemId: string) =>
     api.patch<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/assign/delivered`).then((r) => r),
 
+  restartDraft: (guildId: string, eventId: string) =>
+    api.post<ApiResponse<LootSessionDto>>(`${base(guildId, eventId)}/restart-draft`, {}).then((r) => r.data!),
+
   commodityRoll: (guildId: string, eventId: string) =>
     api.post<ApiResponse<LootSessionDto>>(`${base(guildId, eventId)}/commodity-roll`, {}).then((r) => r.data!),
 
@@ -183,6 +186,9 @@ export const lootApi = {
 
   startDraftStandalone: (guildId: string, sessionId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/start-draft`).then((r) => r),
+
+  restartDraftStandalone: (guildId: string, sessionId: string) =>
+    api.post<ApiResponse<LootSessionDto>>(`/guilds/${guildId}/loot/sessions/${sessionId}/restart-draft`, {}).then((r) => r.data!),
 
   getQueueStandalone: (guildId: string, sessionId: string) =>
     api.get<ApiResponse<LootQueueItemDto[]>>(`/guilds/${guildId}/loot/sessions/${sessionId}/queue`).then((r) => r.data ?? []),
