@@ -33,9 +33,11 @@ async function buildGuildTagMap(roles: EventRole[]): Promise<Record<string, stri
 
 function buildScheduledEventDescription(description: string | null, guildId: string, threadId: string | null): string | undefined {
   const link = threadId ? `https://discord.com/channels/${guildId}/${threadId}` : null;
-  if (description && link) return `${description}\n\n📋 Discussion: ${link}`;
+  let desc = description;
+  if (desc && desc.length > 1000) desc = desc.slice(0, 899) + '…';
+  if (desc && link) return `${desc}\n\n📋 Discussion: ${link}`;
   if (link) return `📋 Discussion: ${link}`;
-  return description ?? undefined;
+  return desc ?? undefined;
 }
 
 // ── Create VCs for an event (idempotent — skips if already created) ──────────
