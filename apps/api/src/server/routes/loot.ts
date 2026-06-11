@@ -438,10 +438,6 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
     include: { items: { include: { assignments: true } } },
   });
 
-  if (draftOrder !== undefined && !existing.draftStarted) {
-    triggerBot(`/trigger/draft-order/${eventId}`);
-  }
-
   res.json({ success: true, data: sessionToDto(updated) } satisfies ApiResponse<LootSessionDto>);
 });
 
@@ -845,6 +841,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/start-draft', requireAuth, async
 
   await prisma.lootSession.update({ where: { eventId }, data: { draftStarted: true } });
 
+  triggerBot(`/trigger/draft-order/${eventId}`);
   triggerBot(`/trigger/snake-turn/${eventId}`);
 
   res.json({ success: true } satisfies ApiResponse);
