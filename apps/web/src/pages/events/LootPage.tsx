@@ -12,6 +12,7 @@ import { scApi } from '@/api/sc';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
+import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto, UexItemDto, UexCommodityDto } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
@@ -24,15 +25,6 @@ const METHOD_LABELS: Record<LootMethod, string> = {
 const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j]!, a[i]!];
-  }
-  return a;
-}
 
 function getNextPicker(assignmentCount: number, draftOrder: string[]): string | null {
   if (draftOrder.length === 0) return null;
@@ -1025,7 +1017,11 @@ export function LootPage() {
       || [...currentMembers].some((id) => !preRestartMembers.has(id));
     const order = membersChanged ? shuffleArray([...session.draftOrder]) : session.draftOrder;
     if (membersChanged) {
-      await updateMutation.mutateAsync({ draftOrder: order });
+      try {
+        await updateMutation.mutateAsync({ draftOrder: order });
+      } catch {
+        return;
+      }
     }
     startDraftMutation.mutate();
   }

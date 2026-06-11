@@ -14,6 +14,7 @@ import { scApi } from '@/api/sc';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
+import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, LootQueueItemDto, UexItemDto, UexCommodityDto, LootParticipant } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
@@ -765,11 +766,13 @@ export function StandaloneLootSessionPage() {
     const currentMembers = new Set(session.draftOrder);
     const membersChanged = preRestartMembers === null || currentMembers.size !== preRestartMembers.size
       || [...currentMembers].some((id) => !preRestartMembers.has(id));
-    const order = membersChanged
-      ? [...session.draftOrder].sort(() => Math.random() - 0.5)
-      : session.draftOrder;
+    const order = membersChanged ? shuffleArray([...session.draftOrder]) : session.draftOrder;
     if (membersChanged) {
-      await updateMutation.mutateAsync({ draftOrder: order });
+      try {
+        await updateMutation.mutateAsync({ draftOrder: order });
+      } catch {
+        return;
+      }
     }
     startDraftMutation.mutate();
   }

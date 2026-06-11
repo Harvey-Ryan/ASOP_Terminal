@@ -869,6 +869,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/restart-draft', requireAuth, asy
 
   await prisma.$transaction([
     prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
+    prisma.lootDraftQueue.deleteMany({ where: { sessionId: session.id } }),
     prisma.lootSession.update({ where: { eventId }, data: { draftStarted: false, skipCount: 0 } }),
   ]);
 
@@ -1989,6 +1990,7 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/restart-draft', requireAuth,
 
   await prisma.$transaction([
     prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
+    prisma.lootDraftQueue.deleteMany({ where: { sessionId } }),
     prisma.lootSession.update({ where: { id: sessionId }, data: { draftStarted: false, skipCount: 0 } }),
   ]);
 
