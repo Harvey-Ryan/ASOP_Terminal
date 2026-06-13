@@ -286,7 +286,10 @@ export function EventCreateForm({
       startTime: startIso.toISOString(),
       endTime: endIso?.toISOString(),
       recurType: (recurType as 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') || undefined,
-      roles: validRoles,
+      roles: validRoles.map((r) => ({
+        ...r,
+        guildId: (allianceEnabled || directInviteEnabled) ? (r.guildId ?? null) : null,
+      })),
       vcNames: vcNames.filter(Boolean),
       briefingChannel,
       imageUrl: selectedImageUrl ?? undefined,

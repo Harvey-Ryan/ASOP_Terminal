@@ -226,135 +226,9 @@ async function _setupDiscordForEvent(eventId: string) {
     );
   }
 
-  // ── Alliance guild setup (forum threads + scheduled events, no VCs) ──────
-  if ((event as unknown as EventForAlliance).allianceId) {
-    await setupAllianceGuilds(event as unknown as EventForAlliance).catch((err) =>
-      console.error('[bot] setupAllianceGuilds failed:', err),
-    );
-  }
-
   // ── Immediate VC creation (start < 30 min away) — host guild only ────────
   if (event.startTime.getTime() - Date.now() < 30 * 60_000) {
     await createVcsForEvent(eventId);
-  }
-}
-
-// ── Set up forum threads + scheduled events in all non-host alliance guilds ──
-
-type EventForAlliance = {
-  id: string;
-  guildId: string;
-  allianceId: string | null;
-  name: string;
-  description: string | null;
-  musterPoint: string | null;
-  startTime: Date;
-  endTime: Date | null;
-  recurType: string | null;
-  roles: string;
-  imageUrl: string | null;
-  rsvps: { userId: string; role: string | null }[];
-};
-
-async function setupAllianceGuilds(event: EventForAlliance) {
-  const alliance = await prisma.alliance.findUnique({
-    where: { id: event.allianceId! },
-    include: { members: { include: { guild: true } } },
-  });
-  if (!alliance) return;
-
-  const roles = JSON.parse(event.roles) as EventRole[];
-  const guildTagMap = await buildGuildTagMap(roles);
-
-  // Pre-fetch image once — reused across all alliance guild setups
-  const [imageAttachment, imageDataUri] = await Promise.all([
-    event.imageUrl ? fetchImageAttachment(event.imageUrl) : Promise.resolve(null),
-    event.imageUrl ? fetchImageAsDataUri(event.imageUrl) : Promise.resolve(undefined),
-  ]);
-  const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
-
-  const eligibleMembers = alliance.members.filter(
-    (m) => (m as { status: string }).status === 'ACCEPTED' && m.guild.guildId !== event.guildId,
-  );
-
-  const results = await Promise.allSettled(
-    eligibleMembers.map(async (member) => {
-      const memberDiscordGuildId = member.guild.guildId;
-
-      const existing = await prisma.eventAllianceGuild.findUnique({
-        where: { eventId_discordGuildId: { eventId: event.id, discordGuildId: memberDiscordGuildId } },
-      });
-      if (existing) return;
-
-      console.log(`[setupAllianceGuilds] setting up guild ${memberDiscordGuildId} for event ${event.id}`);
-
-      let memberThreadId: string | null = null;
-      let memberRosterMessageId: string | null = null;
-      let memberDiscordEventId: string | null = null;
-
-      const memberGuild = await client.guilds.fetch(memberDiscordGuildId);
-
-      // Forum thread
-      const forumChannelId = await resolveForumChannelId(memberDiscordGuildId);
-      if (forumChannelId) {
-        const ch = await client.channels.fetch(forumChannelId).catch(() => null);
-        if (ch?.type === ChannelType.GuildForum) {
-          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
-          const components = buildRoleButtons(event.id, roles, [], memberDiscordGuildId);
-          const thread = await (ch as ForumChannel).threads.create({
-            name: event.name,
-            message: {
-              embeds: [embed],
-              components,
-              files: imageAttachment ? [imageAttachment.builder] : [],
-            },
-          });
-          memberThreadId = thread.id;
-          const starter = await thread.fetchStarterMessage().catch(() => null);
-          memberRosterMessageId = starter?.id ?? null;
-          console.log(`[setupAllianceGuilds] thread created in ${memberDiscordGuildId} — ${memberThreadId}`);
-        }
-      }
-
-      // Discord scheduled event
-      if (event.startTime > new Date()) {
-        const scheduled = await memberGuild.scheduledEvents.create({
-          name: event.name,
-          description: buildScheduledEventDescription(event.description, memberDiscordGuildId, memberThreadId),
-          scheduledStartTime: event.startTime,
-          scheduledEndTime,
-          privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
-          entityType: GuildScheduledEventEntityType.External,
-          entityMetadata: { location: event.musterPoint ?? event.name },
-          ...(imageDataUri ? { image: imageDataUri } : {}),
-        }).catch((err) => {
-          console.error(`[setupAllianceGuilds] failed to create scheduled event in ${memberDiscordGuildId}:`, err);
-          return null;
-        });
-        memberDiscordEventId = scheduled?.id ?? null;
-        if (memberDiscordEventId) {
-          await postEventLink(memberDiscordGuildId, memberDiscordEventId).catch((err) =>
-            console.error(`[bot] postEventLink failed for alliance guild ${memberDiscordGuildId}:`, err),
-          );
-        }
-      }
-
-      await prisma.eventAllianceGuild.create({
-        data: {
-          eventId: event.id,
-          discordGuildId: memberDiscordGuildId,
-          threadId: memberThreadId,
-          rosterMessageId: memberRosterMessageId,
-          discordEventId: memberDiscordEventId,
-        },
-      });
-    }),
-  );
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r?.status === 'rejected') {
-      console.error(`[setupAllianceGuilds] failed for guild ${eligibleMembers[i]?.guild.guildId}:`, r.reason);
-    }
   }
 }
 
@@ -466,15 +340,6 @@ export async function syncDiscordEvent(eventId: string) {
     console.log(`[syncDiscordEvent] no threadId — skipping forum thread update`);
   }
   console.log(`[syncDiscordEvent] done — eventId=${eventId}`);
-
-  // ── Retroactively set up any alliance guilds that don't have entries yet ──
-  // Covers the case where allianceId is assigned (or changed) via the edit form
-  // after the event was already created.
-  if ((event as unknown as EventForAlliance).allianceId) {
-    await setupAllianceGuilds(event as unknown as EventForAlliance).catch((err) =>
-      console.error('[bot] setupAllianceGuilds failed during sync:', err),
-    );
-  }
 
   // ── Sync existing alliance guild threads + scheduled events ───────────────
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });

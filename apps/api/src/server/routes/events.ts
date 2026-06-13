@@ -548,6 +548,30 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
     },
   });
+
+  // If allianceId was added or changed, create PENDING shares for new alliance members
+  if (body.allianceId && body.allianceId !== event.allianceId) {
+    const hostGuild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+    if (hostGuild) {
+      const allianceMembers = await prisma.allianceMember.findMany({
+        where: { allianceId: body.allianceId, status: 'ACCEPTED', NOT: { guildId: hostGuild.id } },
+        select: { guildId: true },
+      });
+      if (allianceMembers.length > 0) {
+        await prisma.eventGuildShare.createMany({
+          data: allianceMembers.map((m) => ({
+            eventId,
+            guildId: m.guildId,
+            sourceType: 'ALLIANCE' as const,
+            allianceId: body.allianceId!,
+            status: 'PENDING' as const,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+  }
+
   triggerBot(`/trigger/sync/${eventId}`);
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
