@@ -96,10 +96,15 @@ export function createServer(): express.Express {
   );
 
   // ── Rate limiting ──────────────────────────────────────────────────────────
-  // Skipped in test mode so the test suite doesn't exhaust its own quotas.
+  // Only enforced in production — dev and test environments are not rate-limited.
 
-  if (!isTest) {
+  if (isProd) {
     const rateLimitMessage = { success: false, error: 'Too many requests, please try again later' };
+
+    // Key by session ID when authenticated so each user gets their own bucket
+    // rather than sharing a bucket with everyone behind the same IP/proxy.
+    const keyGenerator = (req: express.Request) =>
+      (req.sessionID as string | undefined) ?? req.ip ?? 'unknown';
 
     // Stricter limit on auth routes (login/callback initiation)
     app.use(
@@ -107,18 +112,20 @@ export function createServer(): express.Express {
       rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 20,
+        keyGenerator,
         standardHeaders: true,
         legacyHeaders: false,
         message: rateLimitMessage,
       }),
     );
 
-    // General API rate limit
+    // General API rate limit — high enough for active users with polling queries
     app.use(
       '/api/guilds',
       rateLimit({
         windowMs: 15 * 60 * 1000,
-        max: 300,
+        max: 2000,
+        keyGenerator,
         standardHeaders: true,
         legacyHeaders: false,
         message: rateLimitMessage,
