@@ -90,18 +90,21 @@ export function RoleCallPage() {
     queryKey: ['rolecall-stats', guildId],
     queryFn: () => roleCallApi.getStats(guildId!),
     enabled: !!guildId,
+    retry: false,
   });
 
-  const { data: lb, isLoading: lbLoading } = useQuery({
+  const { data: lb, isLoading: lbLoading, isError: lbError } = useQuery({
     queryKey: ['rolecall-leaderboard', guildId, page],
     queryFn: () => roleCallApi.getLeaderboard(guildId!, page),
     enabled: !!guildId && !selectedUserId,
+    retry: false,
   });
 
   const { data: member, isLoading: memberLoading } = useQuery({
     queryKey: ['rolecall-member', guildId, selectedUserId],
     queryFn: () => roleCallApi.getMember(guildId!, selectedUserId!),
     enabled: !!guildId && !!selectedUserId,
+    retry: false,
   });
 
   return (
@@ -250,6 +253,12 @@ export function RoleCallPage() {
                   <Skeleton key={i} className="h-12 w-full" />
                 ))}
               </div>
+            )}
+
+            {lbError && (
+              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                Activity service unavailable. Check that <code>ROLECALL_API_URL</code> is configured.
+              </p>
             )}
 
             {lb?.rows.map((row, i) => (

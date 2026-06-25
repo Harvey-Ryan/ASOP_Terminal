@@ -4,20 +4,29 @@ import type { ApiResponse } from '@dem/shared';
 
 export const roleCallRouter = Router();
 
-const BASE_URL = process.env.ROLECALL_API_URL ?? 'http://localhost:3000';
+const BASE_URL = process.env.ROLECALL_API_URL;
 const API_KEY  = process.env.ROLECALL_API_KEY  ?? '';
 
 async function proxyGet(subpath: string, query: Record<string, string>) {
+  if (!BASE_URL) return { ok: false as const, status: 503, error: 'RoleCall service not configured' };
+
   const qs = new URLSearchParams(query).toString();
   const url = `${BASE_URL}/api${subpath}${qs ? `?${qs}` : ''}`;
-  const r = await fetch(url, {
-    headers: API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {},
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => null) as { error?: string } | null;
-    return { ok: false as const, status: r.status, error: err?.error ?? `RoleCall ${r.status}` };
+
+  try {
+    const r = await fetch(url, {
+      headers: API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {},
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => null) as { error?: string } | null;
+      return { ok: false as const, status: r.status, error: err?.error ?? `RoleCall ${r.status}` };
+    }
+    return { ok: true as const, body: await r.json() as unknown };
+  } catch (err) {
+    console.error('[rolecall] proxy error:', err);
+    return { ok: false as const, status: 502, error: 'RoleCall service unreachable' };
   }
-  return { ok: true as const, body: await r.json() as unknown };
 }
 
 roleCallRouter.get('/rolecall/guilds', requireAuth, async (_req, res) => {
