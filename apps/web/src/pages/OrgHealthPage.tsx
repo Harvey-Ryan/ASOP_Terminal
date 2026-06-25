@@ -178,6 +178,7 @@ export function OrgHealthPage() {
   const [smooth, setSmooth] = useHeatmapPref<boolean>(`heatmap-${guildId}-smooth`, false);
   const [selectedMemberId, setSelectedMemberId] = useState<string>(user?.id ?? '');
   const [eventMetric, setEventMetric] = useState<'attendance' | 'ratio'>('attendance');
+  const [activityType, setActivityType] = useState<'combined' | 'message' | 'voice'>('combined');
 
   // Queries
   const { data: leaderboard } = useQuery({
@@ -188,8 +189,8 @@ export function OrgHealthPage() {
   });
 
   const { data: guildHeatmap, isLoading: guildLoading } = useQuery({
-    queryKey: ['heatmap-guild', guildId, days, timezone],
-    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone }),
+    queryKey: ['heatmap-guild', guildId, days, timezone, activityType],
+    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: activityType }),
     enabled: !!guildId && (isPrivileged || heatmapPublic),
     retry: false,
   });
@@ -197,8 +198,8 @@ export function OrgHealthPage() {
   const effectiveMemberId = isPrivileged ? selectedMemberId : (user?.id ?? '');
 
   const { data: memberHeatmap, isLoading: memberLoading } = useQuery({
-    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone],
-    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone }),
+    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, activityType],
+    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: activityType }),
     enabled: !!guildId && !!effectiveMemberId,
     retry: false,
   });
@@ -269,7 +270,23 @@ export function OrgHealthPage() {
         mapStyle={guildStyle}
         onStyleChange={setGuildStyle}
         smooth={smooth}
-      />
+      >
+        <div className="flex gap-2">
+          {([['combined', 'Combined'], ['message', 'Text'], ['voice', 'Voice']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setActivityType(val)}
+              className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors ${
+                activityType === val
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-input hover:bg-accent'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </HeatmapPanel>
 
       {/* Member Activity */}
       <HeatmapPanel

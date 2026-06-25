@@ -101,11 +101,14 @@ export interface RcRoleChangeLog {
   totalPages: number;
 }
 
+export type RcHeatmapType = 'combined' | 'message' | 'voice';
+
 export interface RcHeatmap {
   grid: number[][];  // [7][24]
   max: number;
   days: number;
   timezone: string;
+  type: RcHeatmapType;
   guild_id: string;
   user_id?: string;
 }
@@ -132,9 +135,9 @@ export const roleCallApi = {
   getRoleChangeLog: (guildId: string, page = 1) =>
     api.get<RcRoleChangeLog>(`/rolecall/role-change-log?guildId=${encodeURIComponent(guildId)}&page=${page}`),
 
-  getGuildHeatmap: (guildId: string, params: { days?: number; timezone?: string }) =>
-    api.get<RcHeatmap>(`/rolecall/heatmap/guild?guildId=${encodeURIComponent(guildId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`),
+  getGuildHeatmap: (guildId: string, params: { days?: number; timezone?: string; type?: RcHeatmapType }) =>
+    api.get<RcHeatmap>(`/rolecall/heatmap/guild?guildId=${encodeURIComponent(guildId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}${params.type ? `&type=${params.type}` : ''}`),
 
-  getMemberHeatmap: (guildId: string, userId: string, params: { days?: number; timezone?: string }) =>
-    api.get<RcHeatmap>(`/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`),
+  getMemberHeatmap: (guildId: string, userId: string, params: { days?: number; timezone?: string; type?: RcHeatmapType }) =>
+    api.get<RcHeatmap>(`/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}${params.type ? `&type=${params.type}` : ''}`),
 };
