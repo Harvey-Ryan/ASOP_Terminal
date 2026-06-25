@@ -94,6 +94,7 @@ function StyleDropdown({ value, onChange }: { value: HeatmapStyle; onChange: (v:
       <option value="dots">Dots</option>
       <option value="hour-chart">Hour Chart</option>
       <option value="day-chart">Day Chart</option>
+      <option value="contour">Contour</option>
     </select>
   );
 }
@@ -105,6 +106,7 @@ interface HeatmapPanelProps {
   max: number;
   mapStyle: HeatmapStyle;
   onStyleChange: (v: HeatmapStyle) => void;
+  smooth: boolean;
   ratioGrid?: (number | null)[][];
   showRatio?: boolean;
   children?: React.ReactNode;
@@ -117,6 +119,7 @@ function HeatmapPanel({
   max,
   mapStyle,
   onStyleChange,
+  smooth,
   ratioGrid,
   showRatio,
   children,
@@ -142,6 +145,7 @@ function HeatmapPanel({
             grid={grid}
             max={max}
             style={mapStyle}
+            smooth={smooth}
             ratioGrid={ratioGrid}
             showRatio={showRatio}
           />
@@ -171,6 +175,7 @@ export function OrgHealthPage() {
   const [guildStyle, setGuildStyle] = useHeatmapPref<HeatmapStyle>(`heatmap-${guildId}-guild-style`, 'block');
   const [memberStyle, setMemberStyle] = useHeatmapPref<HeatmapStyle>(`heatmap-${guildId}-member-style`, 'block');
   const [eventStyle, setEventStyle] = useHeatmapPref<HeatmapStyle>(`heatmap-${guildId}-event-style`, 'block');
+  const [smooth, setSmooth] = useHeatmapPref<boolean>(`heatmap-${guildId}-smooth`, false);
   const [selectedMemberId, setSelectedMemberId] = useState<string>(user?.id ?? '');
   const [eventMetric, setEventMetric] = useState<'attendance' | 'ratio'>('attendance');
 
@@ -243,6 +248,16 @@ export function OrgHealthPage() {
             ))}
           </select>
         </div>
+        <button
+          onClick={() => setSmooth(!smooth)}
+          className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors ${
+            smooth
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'border-input hover:bg-accent'
+          }`}
+        >
+          Smooth
+        </button>
       </div>
 
       {/* Guild Activity */}
@@ -253,6 +268,7 @@ export function OrgHealthPage() {
         max={guildHeatmap?.max ?? 0}
         mapStyle={guildStyle}
         onStyleChange={setGuildStyle}
+        smooth={smooth}
       />
 
       {/* Member Activity */}
@@ -263,6 +279,7 @@ export function OrgHealthPage() {
         max={memberHeatmap?.max ?? 0}
         mapStyle={memberStyle}
         onStyleChange={setMemberStyle}
+        smooth={smooth}
       >
         {isPrivileged && leaderboard && (
           <select
@@ -289,6 +306,7 @@ export function OrgHealthPage() {
         max={eventHeatmap?.maxAttendance ?? 0}
         mapStyle={eventStyle}
         onStyleChange={setEventStyle}
+        smooth={smooth}
         ratioGrid={eventHeatmap?.ratioGrid}
         showRatio={eventMetric === 'ratio'}
       >
