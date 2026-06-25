@@ -121,3 +121,21 @@ roleCallRouter.get('/rolecall/role-change-log', requireAuth, async (req, res) =>
   }
   res.json(result.body);
 });
+
+roleCallRouter.get('/rolecall/heatmap/guild', requireAuth, async (req, res) => {
+  const result = await proxyGet('/heatmap/guild', req.query as Record<string, string>);
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
+    return;
+  }
+  res.json(result.body);
+});
+
+roleCallRouter.get('/rolecall/heatmap/user', requireAuth, async (req, res) => {
+  const result = await proxyGet('/heatmap/user', req.query as Record<string, string>);
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
+    return;
+  }
+  res.json(result.body);
+});

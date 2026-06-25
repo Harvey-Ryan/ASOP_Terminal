@@ -34,6 +34,7 @@ export interface GuildSettingsData {
   blueprintsEnabled: boolean;
   craftingEnabled: boolean;
   activityEnabled: boolean;
+  activityHeatmapPublic: boolean;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
   lootDefaultMethod: string;
@@ -53,8 +54,19 @@ export interface GuildMyPermissions {
   blueprintsEnabled: boolean;
   craftingEnabled: boolean;
   activityEnabled: boolean;
+  activityHeatmapPublic: boolean;
   rsiOrgRequired: boolean;
   rsiVerified: boolean;
+}
+
+export interface EventHeatmapData {
+  attendanceGrid: number[][];
+  ratioGrid: (number | null)[][];
+  eventCountGrid: number[][];
+  maxAttendance: number;
+  days: number;
+  timezone: string;
+  eventCount: number;
 }
 
 function requireData<T>(r: ApiResponse<T>): T {
@@ -89,4 +101,7 @@ export const settingsApi = {
 
   updateBotConfig: (guildId: string, data: { globalCommandsEnabled: boolean }) =>
     api.patch<ApiResponse<{ globalCommandsEnabled: boolean }>>(`/guilds/${guildId}/settings/bot-config`, data).then(requireData),
+
+  getEventHeatmap: (guildId: string, params: { days?: number; timezone?: string }) =>
+    api.get<ApiResponse<EventHeatmapData>>(`/guilds/${guildId}/heatmap/events?days=${params.days ?? 180}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`).then(requireData),
 };

@@ -23,6 +23,7 @@ import { kanbanRouter } from './routes/kanban.js';
 import { allianceRouter } from './routes/alliance.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { roleCallRouter } from './routes/rolecall.js';
+import { heatmapRouter } from './routes/heatmap.js';
 import type { ApiResponse } from '@dem/shared';
 
 const PgSession = ConnectPgSimple(session);
@@ -198,6 +199,7 @@ export function createServer(): express.Express {
   app.use('/api', allianceRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', roleCallRouter);
+  app.use('/api/guilds', heatmapRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

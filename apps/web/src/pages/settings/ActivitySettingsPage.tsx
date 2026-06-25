@@ -80,10 +80,16 @@ export function ActivitySettingsPage() {
   const [enabledDirty, setEnabledDirty] = useState(false);
   const [enabledFlash, setEnabledFlash] = useState(false);
 
+  const [heatmapPublic, setHeatmapPublic] = useState(true);
+  const [heatmapPublicDirty, setHeatmapPublicDirty] = useState(false);
+  const [heatmapPublicFlash, setHeatmapPublicFlash] = useState(false);
+
   useEffect(() => {
     if (saved) {
       setEnabled(saved.activityEnabled ?? true);
       setEnabledDirty(false);
+      setHeatmapPublic(saved.activityHeatmapPublic ?? true);
+      setHeatmapPublicDirty(false);
     }
   }, [saved]);
 
@@ -95,6 +101,17 @@ export function ActivitySettingsPage() {
       setEnabledDirty(false);
       setEnabledFlash(true);
       setTimeout(() => setEnabledFlash(false), 2500);
+    },
+  });
+
+  const heatmapPublicMutation = useMutation({
+    mutationFn: (data: Partial<GuildSettingsData>) => settingsApi.updateSettings(guildId!, data),
+    onSuccess: (data) => {
+      if (data) queryClient.setQueryData(['settings', guildId], data);
+      queryClient.invalidateQueries({ queryKey: ['my-permissions', guildId] });
+      setHeatmapPublicDirty(false);
+      setHeatmapPublicFlash(true);
+      setTimeout(() => setHeatmapPublicFlash(false), 2500);
     },
   });
 
@@ -200,6 +217,23 @@ export function ActivitySettingsPage() {
               disabled={enabledMutation.isPending}
             >
               {enabledFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+            </Button>
+          )}
+          {!loading && (
+            <ToggleSwitch
+              label="Members can view Org Health"
+              description="Allow all members to see the Guild Activity and Event Planning heat maps. Managers always have access."
+              checked={heatmapPublic}
+              onChange={(v) => { setHeatmapPublic(v); setHeatmapPublicDirty(true); }}
+            />
+          )}
+          {heatmapPublicDirty && (
+            <Button
+              size="sm"
+              onClick={() => heatmapPublicMutation.mutate({ activityHeatmapPublic: heatmapPublic })}
+              disabled={heatmapPublicMutation.isPending}
+            >
+              {heatmapPublicFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
             </Button>
           )}
         </CardContent>

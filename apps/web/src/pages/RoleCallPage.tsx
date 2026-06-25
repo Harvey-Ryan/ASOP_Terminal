@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { RcLeaderboardRow } from '@/api/rolecall';
+import { OrgHealthPage } from './OrgHealthPage';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,7 @@ export function RoleCallPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const tab = searchParams.get('tab') ?? 'leaderboard';
   const selectedUserId = searchParams.get('member');
   const [page, setPage] = useState(1);
 
@@ -150,6 +152,34 @@ export function RoleCallPage() {
         <h1 className="text-lg font-semibold">Activity</h1>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-border">
+        <button
+          onClick={() => navigate('.')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === 'leaderboard'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Leaderboard
+        </button>
+        <button
+          onClick={() => navigate('?tab=health')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === 'health'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Org Health
+        </button>
+      </div>
+
+      {tab === 'health' ? (
+        <OrgHealthPage />
+      ) : (
+        <>
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {statsLoading ? (
@@ -334,6 +364,8 @@ export function RoleCallPage() {
             )}
           </CardContent>
         </Card>
+      )}
+        </>
       )}
     </div>
   );

@@ -101,6 +101,15 @@ export interface RcRoleChangeLog {
   totalPages: number;
 }
 
+export interface RcHeatmap {
+  grid: number[][];  // [7][24]
+  max: number;
+  days: number;
+  timezone: string;
+  guild_id: string;
+  user_id?: string;
+}
+
 export const roleCallApi = {
   getGuilds: () =>
     api.get<RcGuild[]>('/rolecall/guilds'),
@@ -122,4 +131,10 @@ export const roleCallApi = {
 
   getRoleChangeLog: (guildId: string, page = 1) =>
     api.get<RcRoleChangeLog>(`/rolecall/role-change-log?guildId=${encodeURIComponent(guildId)}&page=${page}`),
+
+  getGuildHeatmap: (guildId: string, params: { days?: number; timezone?: string }) =>
+    api.get<RcHeatmap>(`/rolecall/heatmap/guild?guildId=${encodeURIComponent(guildId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`),
+
+  getMemberHeatmap: (guildId: string, userId: string, params: { days?: number; timezone?: string }) =>
+    api.get<RcHeatmap>(`/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`),
 };
