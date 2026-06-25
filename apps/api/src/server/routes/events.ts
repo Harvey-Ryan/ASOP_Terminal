@@ -612,16 +612,16 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
 // ── POST /api/guilds/:guildId/events/:eventId/end ─────────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res) => {
-  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  const { eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
     return;
   }
 
-  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
-  if (!event) {
-    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+  if (!(await assertGuildManager(req, event.guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
   if (event.status === 'COMPLETED') {
@@ -640,16 +640,16 @@ eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res)
 // ── POST /api/guilds/:guildId/events/:eventId/start ──────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/start', requireAuth, async (req, res) => {
-  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  const { eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
     return;
   }
 
-  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
-  if (!event) {
-    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+  if (!(await assertGuildManager(req, event.guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
   if (event.status !== 'PENDING') {
@@ -666,14 +666,14 @@ eventsRouter.post('/:guildId/events/:eventId/start', requireAuth, async (req, re
 // ── POST /api/guilds/:guildId/events/:eventId/vcs ────────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/vcs', requireAuth, async (req, res) => {
-  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  const { eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) { res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse); return; }
+
+  if (!(await assertGuildManager(req, event.guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
-
-  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
-  if (!event) { res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse); return; }
   if (event.status === 'COMPLETED' || event.status === 'ENDED') {
     res.status(409).json({ success: false, error: 'Event is already over' } satisfies ApiResponse); return;
   }
@@ -685,16 +685,16 @@ eventsRouter.post('/:guildId/events/:eventId/vcs', requireAuth, async (req, res)
 // ── POST /api/guilds/:guildId/events/:eventId/complete ────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req, res) => {
-  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  const { eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
     return;
   }
 
-  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
-  if (!event) {
-    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+  if (!(await assertGuildManager(req, event.guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
   if (event.status !== 'ENDED') {
