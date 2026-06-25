@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { roleCallApi } from '@/api/rolecall';
@@ -90,9 +90,19 @@ function LeaderboardRowItem({
 
 export function RoleCallPage() {
   const { guildId } = useParams<{ guildId: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const selectedUserId = searchParams.get('member');
   const [page, setPage] = useState(1);
+
+  function selectMember(userId: string) {
+    navigate(`?member=${encodeURIComponent(userId)}`);
+  }
+
+  function clearMember() {
+    navigate('.');
+  }
 
   const { data: myPerms } = useQuery({
     queryKey: ['my-permissions', guildId],
@@ -107,7 +117,7 @@ export function RoleCallPage() {
 
   function handleRowClick(userId: string) {
     if (isPrivileged || userId === user?.id) {
-      setSelectedUserId(userId);
+      selectMember(userId);
     }
   }
 
@@ -162,7 +172,7 @@ export function RoleCallPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setSelectedUserId(null)}
+            onClick={clearMember}
             className="gap-1 text-muted-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
