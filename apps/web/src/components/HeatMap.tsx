@@ -211,14 +211,14 @@ export function HeatMap({ grid, max, style, className, smooth, ratioGrid, showRa
   if (style === 'contour') {
     const HOURS = 24, DAYS = 7, LEVELS = 8;
 
-    const values = new Float64Array(DAYS * HOURS);
+    const values: number[] = new Array(DAYS * HOURS).fill(0);
     for (let d = 0; d < DAYS; d++) {
       for (let h = 0; h < HOURS; h++) {
         values[d * HOURS + h] = cellValue(d, h);
       }
     }
 
-    const peak = showRatio ? 1 : Math.max(1, ...Array.from(values));
+    const peak = showRatio ? 1 : Math.max(1, ...values);
     const thresholds = Array.from({ length: LEVELS }, (_, i) =>
       (peak * (i + 1)) / (LEVELS + 1)
     );
