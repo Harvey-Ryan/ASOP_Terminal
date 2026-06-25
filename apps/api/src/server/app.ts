@@ -3,7 +3,7 @@ import cors from 'cors';
 import session from 'express-session';
 import ConnectPgSimple from 'connect-pg-simple';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import path from 'node:path';
 import { authRouter } from './routes/auth.js';
 import { guildsRouter } from './routes/guilds.js';
@@ -105,7 +105,7 @@ export function createServer(): express.Express {
     // Key by session ID when authenticated so each user gets their own bucket
     // rather than sharing a bucket with everyone behind the same IP/proxy.
     const keyGenerator = (req: express.Request) =>
-      (req.sessionID as string | undefined) ?? req.ip ?? 'unknown';
+      (req.sessionID as string | undefined) ?? ipKeyGenerator(req.ip ?? '');
 
     // Stricter limit on auth routes (login/callback initiation)
     app.use(
