@@ -9,7 +9,6 @@ interface HeatMapProps {
   max: number;
   style: HeatmapStyle;
   className?: string;
-  smooth?: boolean;       // apply Gaussian kernel along the hour axis
   // Optional second overlay for ratio (used in event panel)
   ratioGrid?: (number | null)[][];
   showRatio?: boolean;    // if true, color by ratioGrid instead of grid
@@ -78,17 +77,17 @@ function cellColor(alpha: number): string {
   return `hsl(var(--primary) / ${alpha})`;
 }
 
-export function HeatMap({ grid, max, style, className, smooth, ratioGrid, showRatio }: HeatMapProps) {
+export function HeatMap({ grid, max, style, className, ratioGrid, showRatio }: HeatMapProps) {
   const uid = useId().replace(/:/g, '');
 
-  // Contour always uses smoothing — discrete grid produces unreadable stepped lines without it.
+  // Contour uses 2D Gaussian smoothing — discrete grid produces stepped lines without it.
   const activeGrid = useMemo(
-    () => ((smooth || style === 'contour') && !showRatio ? gaussianSmooth(grid) : grid),
-    [grid, smooth, style, showRatio],
+    () => (style === 'contour' && !showRatio ? gaussianSmooth(grid) : grid),
+    [grid, style, showRatio],
   );
   const activeMax = useMemo(
-    () => ((smooth || style === 'contour') && !showRatio ? Math.max(1, ...activeGrid.flat()) : max),
-    [activeGrid, smooth, style, showRatio, max],
+    () => (style === 'contour' && !showRatio ? Math.max(1, ...activeGrid.flat()) : max),
+    [activeGrid, style, showRatio, max],
   );
   const effectiveMax = showRatio ? 1 : activeMax;
 
