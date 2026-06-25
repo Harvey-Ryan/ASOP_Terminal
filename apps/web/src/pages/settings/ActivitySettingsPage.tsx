@@ -23,6 +23,15 @@ function timeAgo(iso: string) {
   return mo < 12 ? `${mo}mo ago` : `${Math.floor(mo / 12)}y ago`;
 }
 
+function FieldLabel({ htmlFor, label, description }: { htmlFor?: string; label: string; description?: string }) {
+  return (
+    <div className="space-y-0.5">
+      <label className="text-sm font-medium" htmlFor={htmlFor}>{label}</label>
+      {description && <p className="text-xs text-muted-foreground">{description}</p>}
+    </div>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function RoleChangeRow({ row }: { row: RcRoleChangeRow }) {
@@ -213,9 +222,13 @@ export function ActivitySettingsPage() {
             <>
               {/* Inactivity threshold */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Inactivity Threshold (days)</label>
-                <p className="text-xs text-muted-foreground">Members inactive for this many days are marked inactive and have roles updated.</p>
+                <FieldLabel
+                  htmlFor="inactivity-days"
+                  label="Inactivity Threshold (days)"
+                  description="Members inactive for this many days are marked inactive and have roles updated."
+                />
                 <input
+                  id="inactivity-days"
                   type="number"
                   min={1}
                   max={365}
@@ -228,49 +241,69 @@ export function ActivitySettingsPage() {
               {/* Roles */}
               {rolesLoading ? <Skeleton className="h-10 w-full" /> : (
                 <>
-                  <RolePicker
-                    label="Active Role"
-                    description="Role assigned to members who are actively participating."
-                    roles={roles}
-                    selected={rcForm.active_role_id ? [rcForm.active_role_id] : []}
-                    onChange={([id]) => setRcField('active_role_id', id ?? null)}
-                    max={1}
-                  />
-                  <RolePicker
-                    label="Inactive Role"
-                    description="Role assigned to members who have been marked inactive."
-                    roles={roles}
-                    selected={rcForm.inactive_role_id ? [rcForm.inactive_role_id] : []}
-                    onChange={([id]) => setRcField('inactive_role_id', id ?? null)}
-                    max={1}
-                  />
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      label="Active Role"
+                      description="Role assigned to members who are actively participating."
+                    />
+                    <RolePicker
+                      roles={roles}
+                      selected={rcForm.active_role_id ? [rcForm.active_role_id] : []}
+                      onChange={([id]) => setRcField('active_role_id', id ?? null)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      label="Inactive Role"
+                      description="Role assigned to members who have been marked inactive."
+                    />
+                    <RolePicker
+                      roles={roles}
+                      selected={rcForm.inactive_role_id ? [rcForm.inactive_role_id] : []}
+                      onChange={([id]) => setRcField('inactive_role_id', id ?? null)}
+                    />
+                  </div>
                 </>
               )}
 
               {/* Channels */}
               {channelsLoading ? <Skeleton className="h-10 w-full" /> : (
                 <>
-                  <ChannelSelect
-                    label="Achievements Channel"
-                    description="Channel where achievement unlock notifications are posted."
-                    channels={textChannels}
-                    value={rcForm.achievements_channel_id}
-                    onChange={(v) => setRcField('achievements_channel_id', v)}
-                  />
-                  <ChannelSelect
-                    label="Leaderboard Channel"
-                    description="Channel where the leaderboard is automatically posted on schedule."
-                    channels={textChannels}
-                    value={rcForm.leaderboard_channel_id}
-                    onChange={(v) => setRcField('leaderboard_channel_id', v)}
-                  />
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      htmlFor="achievements-channel"
+                      label="Achievements Channel"
+                      description="Channel where achievement unlock notifications are posted."
+                    />
+                    <ChannelSelect
+                      id="achievements-channel"
+                      channels={textChannels}
+                      value={rcForm.achievements_channel_id}
+                      onChange={(v) => setRcField('achievements_channel_id', v)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      htmlFor="leaderboard-channel"
+                      label="Leaderboard Channel"
+                      description="Channel where the leaderboard is automatically posted on schedule."
+                    />
+                    <ChannelSelect
+                      id="leaderboard-channel"
+                      channels={textChannels}
+                      value={rcForm.leaderboard_channel_id}
+                      onChange={(v) => setRcField('leaderboard_channel_id', v)}
+                    />
+                  </div>
                 </>
               )}
 
               {/* Leaderboard schedule */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Leaderboard Schedule</label>
-                <p className="text-xs text-muted-foreground">How often the leaderboard auto-posts to the configured channel.</p>
+                <FieldLabel
+                  label="Leaderboard Schedule"
+                  description="How often the leaderboard auto-posts to the configured channel."
+                />
                 <div className="flex gap-2">
                   {(['daily', 'weekly'] as const).map((opt) => (
                     <button
@@ -290,14 +323,15 @@ export function ActivitySettingsPage() {
 
               {/* Score weights */}
               <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium">Score Weights</label>
-                  <p className="text-xs text-muted-foreground">Points per message and per voice minute used to calculate member scores.</p>
-                </div>
+                <FieldLabel
+                  label="Score Weights"
+                  description="Points per message and per voice minute used to calculate member scores."
+                />
                 <div className="flex gap-6">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Message</label>
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide" htmlFor="msg-weight">Message</label>
                     <input
+                      id="msg-weight"
                       type="number"
                       min={0}
                       step={0.1}
@@ -307,8 +341,9 @@ export function ActivitySettingsPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Voice (per min)</label>
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide" htmlFor="voice-weight">Voice (per min)</label>
                     <input
+                      id="voice-weight"
                       type="number"
                       min={0}
                       step={0.1}

@@ -4,7 +4,10 @@ import type { ApiResponse } from '@dem/shared';
 
 export const roleCallRouter = Router();
 
-const BASE_URL = process.env.ROLECALL_API_URL;
+const _rawUrl  = process.env.ROLECALL_API_URL?.trim();
+const BASE_URL = _rawUrl
+  ? _rawUrl.startsWith('http') ? _rawUrl : `https://${_rawUrl}`
+  : undefined;
 const API_KEY  = process.env.ROLECALL_API_KEY  ?? '';
 
 async function proxyGet(subpath: string, query: Record<string, string>) {
