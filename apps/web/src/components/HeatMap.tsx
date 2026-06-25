@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { contours } from 'd3-contour';
 import { cn } from '@/lib/utils';
 
@@ -15,24 +15,38 @@ interface HeatMapProps {
   showRatio?: boolean;    // if true, color by ratioGrid instead of grid
 }
 
-// 1-D Gaussian kernel (sigma=1, radius=3) applied along hours, wrapping at 0/23.
+// 2-D separable Gaussian: horizontal pass (wrapping) then vertical pass (clamping).
 // Ratios are not smoothed since they aren't linearly additive.
 function gaussianSmooth(grid: number[][]): number[][] {
-  const HOURS = 24;
-  const sigma = 1.0;
-  const radius = 3;
-  const weights = Array.from({ length: radius * 2 + 1 }, (_, i) => {
-    const k = i - radius;
-    return Math.exp(-(k * k) / (2 * sigma * sigma));
-  });
-  const total = weights.reduce((a, b) => a + b, 0);
+  const HOURS = 24, DAYS = 7;
 
-  return grid.map((row) =>
+  const makeWeights = (sigma: number, radius: number) =>
+    Array.from({ length: radius * 2 + 1 }, (_, i) => Math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)));
+
+  // Horizontal pass — sigma=1, radius=3, wrapping at hour boundaries
+  const hWeights = makeWeights(1.0, 3);
+  const hTotal   = hWeights.reduce((a, b) => a + b, 0);
+  const hSmoothed = grid.map((row) =>
     Array.from({ length: HOURS }, (_, h) => {
       let sum = 0;
-      for (let k = -radius; k <= radius; k++) {
+      for (let k = -3; k <= 3; k++) {
         const srcH = ((h + k) % HOURS + HOURS) % HOURS;
-        sum += (row[srcH] ?? 0) * (weights[k + radius] ?? 0);
+        sum += (row[srcH] ?? 0) * (hWeights[k + 3] ?? 0);
+      }
+      return sum / hTotal;
+    })
+  );
+
+  // Vertical pass — sigma=1, radius=2, clamping at day boundaries
+  const vWeights = makeWeights(1.0, 2);
+  return Array.from({ length: DAYS }, (_, d) =>
+    Array.from({ length: HOURS }, (_, h) => {
+      let sum = 0, total = 0;
+      for (let k = -2; k <= 2; k++) {
+        const srcD = Math.max(0, Math.min(DAYS - 1, d + k));
+        const w = vWeights[k + 2] ?? 0;
+        sum += (hSmoothed[srcD]?.[h] ?? 0) * w;
+        total += w;
       }
       return sum / total;
     })
@@ -65,6 +79,8 @@ function cellColor(alpha: number): string {
 }
 
 export function HeatMap({ grid, max, style, className, smooth, ratioGrid, showRatio }: HeatMapProps) {
+  const uid = useId().replace(/:/g, '');
+
   // Contour always uses smoothing — discrete grid produces unreadable stepped lines without it.
   const activeGrid = useMemo(
     () => ((smooth || style === 'contour') && !showRatio ? gaussianSmooth(grid) : grid),
@@ -209,7 +225,7 @@ export function HeatMap({ grid, max, style, className, smooth, ratioGrid, showRa
   // ── Contour map ────────────────────────────────────────────────────────────
 
   if (style === 'contour') {
-    const HOURS = 24, DAYS = 7, LEVELS = 8;
+    const HOURS = 24, DAYS = 7, LEVELS = 12;
 
     const values: number[] = new Array(DAYS * HOURS).fill(0);
     for (let d = 0; d < DAYS; d++) {
@@ -224,6 +240,8 @@ export function HeatMap({ grid, max, style, className, smooth, ratioGrid, showRa
     );
 
     const contourData = contours().size([HOURS, DAYS]).thresholds(thresholds)(values);
+    const filterId = `cf-${uid}`;
+    const clipId   = `cc-${uid}`;
 
     return (
       <div className={cn('w-full overflow-x-auto', className)}>
@@ -252,19 +270,31 @@ export function HeatMap({ grid, max, style, className, smooth, ratioGrid, showRa
               className="flex-1"
               style={{ height: '140px' }}
             >
+              <defs>
+                <filter id={filterId} x="-5%" y="-10%" width="110%" height="120%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="0.28" />
+                </filter>
+                <clipPath id={clipId}>
+                  <rect x={0} y={0} width={24} height={7} />
+                </clipPath>
+              </defs>
               {/* Base fill */}
               <rect x={0} y={0} width={24} height={7} fill="hsl(var(--muted))" opacity={0.4} />
-              {/* Filled contour layers, lowest threshold first */}
-              {contourData.map((c, i) => {
-                const alpha = 0.15 + (i / (LEVELS - 1)) * 0.8;
-                return (
-                  <path
-                    key={i}
-                    d={geoJsonToPath(c.coordinates as [number, number][][][])}
-                    fill={cellColor(alpha)}
-                  />
-                );
-              })}
+              {/* Filled contour layers — blurred then clipped to bounds */}
+              <g clipPath={`url(#${clipId})`}>
+                <g filter={`url(#${filterId})`}>
+                  {contourData.map((c, i) => {
+                    const alpha = 0.15 + (i / (LEVELS - 1)) * 0.8;
+                    return (
+                      <path
+                        key={i}
+                        d={geoJsonToPath(c.coordinates as [number, number][][][])}
+                        fill={cellColor(alpha)}
+                      />
+                    );
+                  })}
+                </g>
+              </g>
               {/* Subtle day-row dividers */}
               {Array.from({ length: 6 }, (_, d) => (
                 <line
