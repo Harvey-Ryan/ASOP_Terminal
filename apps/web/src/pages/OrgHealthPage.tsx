@@ -173,7 +173,7 @@ export function OrgHealthPage() {
   const [memberStyle, setMemberStyle] = useHeatmapPref<HeatmapStyle>(`heatmap-${guildId}-member-style`, 'block');
   const [eventStyle, setEventStyle] = useHeatmapPref<HeatmapStyle>(`heatmap-${guildId}-event-style`, 'block');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(user?.id ?? '');
-  const [eventMetric, setEventMetric] = useState<'attendance' | 'ratio' | 'activity'>('attendance');
+  const [eventMetric, setEventMetric] = useState<'attendance' | 'ratio'>('attendance');
   const [activityType, setActivityType] = useState<'combined' | 'message' | 'voice'>('combined');
 
   // Queries
@@ -304,16 +304,17 @@ export function OrgHealthPage() {
       {/* Event Planning */}
       <HeatmapPanel
         title="Event Planning"
-        loading={eventMetric === 'activity' ? guildLoading : eventLoading}
-        grid={eventMetric === 'activity' ? guildHeatmap?.grid : eventHeatmap?.attendanceGrid}
-        max={eventMetric === 'activity' ? (guildHeatmap?.max ?? 0) : (eventHeatmap?.maxAttendance ?? 0)}
+        loading={eventLoading}
+        grid={eventHeatmap?.attendanceGrid}
+        max={eventHeatmap?.maxAttendance ?? 0}
         mapStyle={eventStyle}
         onStyleChange={setEventStyle}
+
         ratioGrid={eventHeatmap?.ratioGrid}
         showRatio={eventMetric === 'ratio'}
       >
         <div className="flex gap-2">
-          {([['attendance', 'Attendance'], ['ratio', 'RSVP Ratio'], ['activity', 'Member Activity']] as const).map(([opt, label]) => (
+          {(['attendance', 'ratio'] as const).map((opt) => (
             <button
               key={opt}
               onClick={() => setEventMetric(opt)}
@@ -323,18 +324,13 @@ export function OrgHealthPage() {
                   : 'border-input hover:bg-accent'
               }`}
             >
-              {label}
+              {opt === 'attendance' ? 'Attendance' : 'RSVP Ratio'}
             </button>
           ))}
         </div>
-        {eventMetric !== 'activity' && eventHeatmap && (
+        {eventHeatmap && (
           <p className="text-xs text-muted-foreground">
             Based on {eventHeatmap.eventCount} past {eventHeatmap.eventCount === 1 ? 'event' : 'events'}.
-          </p>
-        )}
-        {eventMetric === 'activity' && (
-          <p className="text-xs text-muted-foreground">
-            Peak member activity — use this to find optimal scheduling windows.
           </p>
         )}
       </HeatmapPanel>
