@@ -172,7 +172,8 @@ export function ActivitySettingsPage() {
   });
 
   const channels = channelData?.channels ?? [];
-  const textChannels = channels.filter((c) => c.type === 0);
+  // Include text (0) and announcement/news (5) channels
+  const textChannels = channels.filter((c) => c.type === 0 || c.type === 5);
   const roles = rolesData ?? [];
   const loading = settingsLoading || channelsLoading || rolesLoading;
 
@@ -277,9 +278,10 @@ export function ActivitySettingsPage() {
                     />
                     <ChannelSelect
                       id="achievements-channel"
-                      channels={textChannels}
+                      channels={channels}
                       value={rcForm.achievements_channel_id}
                       onChange={(v) => setRcField('achievements_channel_id', v)}
+                      types={[0, 5]}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -290,9 +292,10 @@ export function ActivitySettingsPage() {
                     />
                     <ChannelSelect
                       id="leaderboard-channel"
-                      channels={textChannels}
+                      channels={channels}
                       value={rcForm.leaderboard_channel_id}
                       onChange={(v) => setRcField('leaderboard_channel_id', v)}
+                      types={[0, 5]}
                     />
                   </div>
                 </>
