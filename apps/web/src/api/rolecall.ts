@@ -69,6 +69,38 @@ export interface RcMember {
   member: { displayName: string; username: string; avatar: string };
 }
 
+export interface RcConfig {
+  guild_id: string;
+  inactivity_days: number;
+  active_role_id: string | null;
+  inactive_role_id: string | null;
+  achievements_channel_id: string | null;
+  leaderboard_channel_id: string | null;
+  leaderboard_schedule: 'daily' | 'weekly';
+  message_weight: number;
+  voice_weight: number;
+}
+
+export interface RcRoleChangeRow {
+  id: number;
+  user_id: string;
+  change_type: string;
+  roles_removed: string[] | null;
+  roles_added: string[] | null;
+  reason: string | null;
+  changed_at: string;
+  displayName: string;
+  username: string;
+  avatar: string;
+}
+
+export interface RcRoleChangeLog {
+  rows: RcRoleChangeRow[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export const roleCallApi = {
   getGuilds: () =>
     api.get<RcGuild[]>('/rolecall/guilds'),
@@ -81,4 +113,13 @@ export const roleCallApi = {
 
   getMember: (guildId: string, userId: string) =>
     api.get<RcMember>(`/rolecall/member?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}`),
+
+  getConfig: (guildId: string) =>
+    api.get<RcConfig>(`/rolecall/config?guildId=${encodeURIComponent(guildId)}`),
+
+  updateConfig: (guildId: string, data: Partial<Omit<RcConfig, 'guild_id'>>) =>
+    api.patch<RcConfig>(`/rolecall/config?guildId=${encodeURIComponent(guildId)}`, data),
+
+  getRoleChangeLog: (guildId: string, page = 1) =>
+    api.get<RcRoleChangeLog>(`/rolecall/role-change-log?guildId=${encodeURIComponent(guildId)}&page=${page}`),
 };

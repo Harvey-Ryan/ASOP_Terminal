@@ -25,6 +25,7 @@ import { CraftingCalculatorSettingsPage } from './pages/settings/CraftingCalcula
 import { RosterPage } from './pages/RosterPage';
 import { RoleCallPage } from './pages/RoleCallPage';
 import { AllianceSettingsPage } from './pages/settings/AllianceSettingsPage';
+import { ActivitySettingsPage } from './pages/settings/ActivitySettingsPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/blueprints" element={<BlueprintsSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<CraftingCalculatorSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/alliance" element={<AllianceSettingsPage />} />
+          <Route path="servers/:guildId/settings/modules/activity" element={<ActivitySettingsPage />} />
           <Route path="kanban" element={<KanbanPage />} />
           <Route path="settings/notifications" element={<NotificationSettingsPage />} />
         </Route>

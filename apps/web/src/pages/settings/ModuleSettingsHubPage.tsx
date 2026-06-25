@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Network, ChevronRight } from 'lucide-react';
+import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Network, Trophy, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface ModuleTile {
@@ -57,6 +57,12 @@ const MODULES: ModuleTile[] = [
     description: 'Cross-guild alliance links, invitations, and shared event settings.',
     icon: Network,
     slug: 'alliance',
+  },
+  {
+    label: 'Activity',
+    description: 'RoleCallBot integration — inactivity tracking, leaderboard, and role change log.',
+    icon: Trophy,
+    slug: 'activity',
   },
 ];
 

@@ -134,6 +134,8 @@ model GuildSettings {
   blueprintsEnabled     Boolean  @default(true)
   /// Whether the Crafting Calculator module is enabled for this guild
   craftingEnabled       Boolean  @default(true)
+  /// Whether the Activity (RoleCallBot) module is enabled for this guild
+  activityEnabled       Boolean  @default(true)
   /// Default duration in hours for new standalone DKP auctions (1–168)
   dkpDefaultAuctionDuration Int  @default(24)
   /// Minimum valid bid amount for DKP auctions (0 = no minimum)

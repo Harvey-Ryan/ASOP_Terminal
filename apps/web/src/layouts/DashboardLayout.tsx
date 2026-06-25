@@ -158,10 +158,11 @@ export function DashboardLayout() {
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
-  const lootEnabled     = myPerms?.lootEnabled      ?? true;
-  const fleetEnabled        = myPerms?.fleetEnabled        ?? true;
-  const blueprintsEnabled   = myPerms?.blueprintsEnabled   ?? true;
-  const craftingEnabled     = myPerms?.craftingEnabled     ?? true;
+  const lootEnabled       = myPerms?.lootEnabled      ?? true;
+  const fleetEnabled      = myPerms?.fleetEnabled     ?? true;
+  const blueprintsEnabled = myPerms?.blueprintsEnabled ?? true;
+  const craftingEnabled   = myPerms?.craftingEnabled  ?? true;
+  const activityEnabled   = myPerms?.activityEnabled  ?? true;
 
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [profileOpen,      setProfileOpen]      = useState(false);
@@ -471,14 +472,16 @@ export function DashboardLayout() {
                 </NavLink>
               )}
 
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/activity`}
-                title={navCollapsed ? 'Activity' : undefined}
-                className={serverNavCls}
-              >
-                <Trophy className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'Activity'}
-              </NavLink>
+              {activityEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/activity`}
+                  title={navCollapsed ? 'Activity' : undefined}
+                  className={serverNavCls}
+                >
+                  <Trophy className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Activity'}
+                </NavLink>
+              )}
 
               {(blueprintsEnabled || craftingEnabled) && (
                 <>

@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { roleCallApi } from '@/api/rolecall';
+import { settingsApi } from '@/api/settings';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,15 +49,20 @@ function LeaderboardRowItem({
   row,
   rank,
   onClick,
+  clickable,
 }: {
   row: RcLeaderboardRow;
   rank: number;
   onClick: () => void;
+  clickable: boolean;
 }) {
   return (
     <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-left border-b border-border last:border-0"
+      onClick={clickable ? onClick : undefined}
+      className={cn(
+        'w-full flex items-center gap-3 px-4 py-3 transition-colors text-left border-b border-border last:border-0',
+        clickable ? 'hover:bg-accent cursor-pointer' : 'cursor-default',
+      )}
     >
       <span className="w-6 text-center text-sm shrink-0">
         {rank <= 3 ? MEDALS[rank - 1] : rank}
@@ -83,8 +90,26 @@ function LeaderboardRowItem({
 
 export function RoleCallPage() {
   const { guildId } = useParams<{ guildId: string }>();
+  const { user } = useAuth();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+
+  const { data: myPerms } = useQuery({
+    queryKey: ['my-permissions', guildId],
+    queryFn: () => settingsApi.getMyPermissions(guildId!),
+    enabled: !!guildId,
+    staleTime: 60_000,
+  });
+
+  // Managers and module editors can view any member's detail.
+  // Regular members can only view their own.
+  const isPrivileged = myPerms?.canManageEvents ?? false;
+
+  function handleRowClick(userId: string) {
+    if (isPrivileged || userId === user?.id) {
+      setSelectedUserId(userId);
+    }
+  }
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['rolecall-stats', guildId],
@@ -266,7 +291,8 @@ export function RoleCallPage() {
                 key={row.user_id}
                 row={row}
                 rank={(page - 1) * 25 + i + 1}
-                onClick={() => setSelectedUserId(row.user_id)}
+                onClick={() => handleRowClick(row.user_id)}
+                clickable={isPrivileged || row.user_id === user?.id}
               />
             ))}
 
