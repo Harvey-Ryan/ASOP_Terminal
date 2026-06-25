@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { prisma } from '../../lib/prisma.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const roleCallRouter = Router();
@@ -119,6 +120,44 @@ roleCallRouter.get('/rolecall/role-change-log', requireAuth, async (req, res) =>
     res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
     return;
   }
+  res.json(result.body);
+});
+
+// ── GET /rolecall/public/heatmap ─────────────────────────────────────────────
+// No auth — serves guild heatmap when activityHeatmapPublic is enabled.
+
+roleCallRouter.get('/rolecall/public/heatmap', async (req, res) => {
+  const { guildId, type = 'combined', timezone = 'UTC', days = '365' } = req.query as Record<string, string>;
+
+  if (!guildId) {
+    res.status(400).json({ success: false, error: 'guildId required' } satisfies ApiResponse);
+    return;
+  }
+  if (!['combined', 'message', 'voice'].includes(type)) {
+    res.status(400).json({ success: false, error: 'type must be combined, message, or voice' } satisfies ApiResponse);
+    return;
+  }
+
+  const guild = await prisma.guild.findUnique({
+    where: { guildId },
+    include: { settings: { select: { activityHeatmapPublic: true } } },
+  });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+  if (!guild.settings?.activityHeatmapPublic) {
+    res.status(403).json({ success: false, error: 'Activity heatmap is not public for this guild' } satisfies ApiResponse);
+    return;
+  }
+
+  const result = await proxyGet('/heatmap/guild', { guildId, type, timezone, days });
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
+    return;
+  }
+
+  res.setHeader('Cache-Control', 'public, max-age=300');
   res.json(result.body);
 });
 

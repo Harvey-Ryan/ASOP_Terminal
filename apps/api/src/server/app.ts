@@ -66,9 +66,12 @@ export function createServer(): express.Express {
 
   // ── CORS ──────────────────────────────────────────────────────────────────
 
+  const webOrigin    = process.env.WEB_URL ?? 'http://localhost:5173';
+  const publicOrigin = process.env.PUBLIC_SITE_URL;
+
   app.use(
     cors({
-      origin: process.env.WEB_URL ?? 'http://localhost:5173',
+      origin: publicOrigin ? [webOrigin, publicOrigin] : webOrigin,
       credentials: true,
     }),
   );
