@@ -108,6 +108,7 @@ interface HeatmapPanelProps {
   onStyleChange: (v: HeatmapStyle) => void;
   ratioGrid?: (number | null)[][];
   showRatio?: boolean;
+  overlayGrid?: number[][];
   children?: React.ReactNode;
 }
 
@@ -120,6 +121,7 @@ function HeatmapPanel({
   onStyleChange,
   ratioGrid,
   showRatio,
+  overlayGrid,
   children,
 }: HeatmapPanelProps) {
   return (
@@ -145,6 +147,7 @@ function HeatmapPanel({
             style={mapStyle}
             ratioGrid={ratioGrid}
             showRatio={showRatio}
+            overlayGrid={overlayGrid}
           />
         )}
       </CardContent>
@@ -174,7 +177,6 @@ export function OrgHealthPage() {
   const [eventStyle, setEventStyle] = useHeatmapPref<HeatmapStyle>(`heatmap-${guildId}-event-style`, 'block');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(user?.id ?? '');
   const [eventMetric, setEventMetric] = useState<'attendance' | 'ratio'>('attendance');
-  const [activityType, setActivityType] = useState<'combined' | 'message' | 'voice'>('combined');
 
   // Queries
   const { data: leaderboard } = useQuery({
@@ -184,18 +186,37 @@ export function OrgHealthPage() {
     retry: false,
   });
 
-  const { data: guildHeatmap, isLoading: guildLoading } = useQuery({
-    queryKey: ['heatmap-guild', guildId, days, timezone, activityType],
-    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: activityType }),
+  // Guild activity: combined for non-contour styles; text + voice for dual-layer contour.
+  const { data: guildHeatmap, isLoading: guildCombinedLoading } = useQuery({
+    queryKey: ['heatmap-guild', guildId, days, timezone, 'combined'],
+    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: 'combined' }),
     enabled: !!guildId && (isPrivileged || heatmapPublic),
     retry: false,
   });
+  const { data: guildTextHeatmap, isLoading: guildTextLoading } = useQuery({
+    queryKey: ['heatmap-guild', guildId, days, timezone, 'message'],
+    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: 'message' }),
+    enabled: !!guildId && (isPrivileged || heatmapPublic) && guildStyle === 'contour',
+    retry: false,
+  });
+  const { data: guildVoiceHeatmap, isLoading: guildVoiceLoading } = useQuery({
+    queryKey: ['heatmap-guild', guildId, days, timezone, 'voice'],
+    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: 'voice' }),
+    enabled: !!guildId && (isPrivileged || heatmapPublic) && guildStyle === 'contour',
+    retry: false,
+  });
+
+  const isDualLayer = guildStyle === 'contour';
+  const guildLoading = isDualLayer ? (guildTextLoading || guildVoiceLoading) : guildCombinedLoading;
+  const guildGrid    = isDualLayer ? guildTextHeatmap?.grid   : guildHeatmap?.grid;
+  const guildMax     = isDualLayer ? (guildTextHeatmap?.max ?? 0) : (guildHeatmap?.max ?? 0);
+  const guildOverlay = isDualLayer ? guildVoiceHeatmap?.grid  : undefined;
 
   const effectiveMemberId = isPrivileged ? selectedMemberId : (user?.id ?? '');
 
   const { data: memberHeatmap, isLoading: memberLoading } = useQuery({
-    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, activityType],
-    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: activityType }),
+    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'combined'],
+    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'combined' }),
     enabled: !!guildId && !!effectiveMemberId,
     retry: false,
   });
@@ -251,28 +272,12 @@ export function OrgHealthPage() {
       <HeatmapPanel
         title="Guild Activity"
         loading={guildLoading}
-        grid={guildHeatmap?.grid}
-        max={guildHeatmap?.max ?? 0}
+        grid={guildGrid}
+        max={guildMax}
         mapStyle={guildStyle}
         onStyleChange={setGuildStyle}
-
-      >
-        <div className="flex gap-2">
-          {([['combined', 'Combined'], ['message', 'Text'], ['voice', 'Voice']] as const).map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setActivityType(val)}
-              className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors ${
-                activityType === val
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-input hover:bg-accent'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </HeatmapPanel>
+        overlayGrid={guildOverlay}
+      />
 
       {/* Member Activity */}
       <HeatmapPanel

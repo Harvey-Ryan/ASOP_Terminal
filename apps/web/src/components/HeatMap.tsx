@@ -12,6 +12,8 @@ interface HeatMapProps {
   // Optional second overlay for ratio (used in event panel)
   ratioGrid?: (number | null)[][];
   showRatio?: boolean;    // if true, color by ratioGrid instead of grid
+  // Dual-layer contour: when provided, grid = text (orange), overlayGrid = voice (yellow)
+  overlayGrid?: number[][];
 }
 
 // 2-D separable Gaussian: horizontal pass (wrapping) then vertical pass (clamping).
@@ -77,7 +79,7 @@ function cellColor(alpha: number): string {
   return `hsl(var(--primary) / ${alpha})`;
 }
 
-export function HeatMap({ grid, max, style, className, ratioGrid, showRatio }: HeatMapProps) {
+export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, overlayGrid }: HeatMapProps) {
   const uid = useId().replace(/:/g, '');
 
   // Contour uses 2D Gaussian smoothing — discrete grid produces stepped lines without it.
@@ -88,6 +90,16 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio }: H
   const activeMax = useMemo(
     () => (style === 'contour' && !showRatio ? Math.max(1, ...activeGrid.flat()) : max),
     [activeGrid, style, showRatio, max],
+  );
+
+  // Smoothed overlay grid (voice) for dual-layer contour.
+  const smoothedOverlay = useMemo(
+    () => (style === 'contour' && overlayGrid ? gaussianSmooth(overlayGrid) : null),
+    [overlayGrid, style],
+  );
+  const overlayPeak = useMemo(
+    () => (smoothedOverlay ? Math.max(1, ...smoothedOverlay.flat()) : 1),
+    [smoothedOverlay],
   );
   const effectiveMax = showRatio ? 1 : activeMax;
 
@@ -226,21 +238,34 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio }: H
   if (style === 'contour') {
     const HOURS = 24, DAYS = 7, LEVELS = 12;
 
-    const values: number[] = new Array(DAYS * HOURS).fill(0);
+    const baseValues: number[] = new Array(DAYS * HOURS).fill(0);
     for (let d = 0; d < DAYS; d++) {
       for (let h = 0; h < HOURS; h++) {
-        values[d * HOURS + h] = cellValue(d, h);
+        baseValues[d * HOURS + h] = cellValue(d, h);
       }
     }
 
-    const peak = showRatio ? 1 : Math.max(1, ...values);
-    const thresholds = Array.from({ length: LEVELS }, (_, i) =>
-      (peak * (i + 1)) / (LEVELS + 1)
-    );
+    const basePeak = showRatio ? 1 : Math.max(1, ...baseValues);
+    const baseThresholds = Array.from({ length: LEVELS }, (_, i) => (basePeak * (i + 1)) / (LEVELS + 1));
+    const baseContourData = contours().size([HOURS, DAYS]).thresholds(baseThresholds)(baseValues);
 
-    const contourData = contours().size([HOURS, DAYS]).thresholds(thresholds)(values);
-    const filterId = `cf-${uid}`;
-    const clipId   = `cc-${uid}`;
+    // Voice overlay contour data (only when dual-layer mode is active)
+    const overlayContourData = smoothedOverlay
+      ? (() => {
+          const vals: number[] = new Array(DAYS * HOURS).fill(0);
+          for (let d = 0; d < DAYS; d++) {
+            for (let h = 0; h < HOURS; h++) {
+              vals[d * HOURS + h] = smoothedOverlay[d]?.[h] ?? 0;
+            }
+          }
+          const thresholds = Array.from({ length: LEVELS }, (_, i) => (overlayPeak * (i + 1)) / (LEVELS + 1));
+          return contours().size([HOURS, DAYS]).thresholds(thresholds)(vals);
+        })()
+      : null;
+
+    const filterId  = `cf-${uid}`;
+    const clipId    = `cc-${uid}`;
+    const isDual    = !!overlayContourData;
 
     return (
       <div className={cn('w-full overflow-x-auto', className)}>
@@ -279,21 +304,41 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio }: H
               </defs>
               {/* Base fill */}
               <rect x={0} y={0} width={24} height={7} fill="hsl(var(--muted))" opacity={0.4} />
-              {/* Filled contour layers — blurred then clipped to bounds */}
+              {/* Bottom layer: text (orange) or single-layer (primary color) */}
               <g clipPath={`url(#${clipId})`}>
                 <g filter={`url(#${filterId})`}>
-                  {contourData.map((c, i) => {
+                  {baseContourData.map((c, i) => {
                     const alpha = 0.15 + (i / (LEVELS - 1)) * 0.8;
+                    const fill = isDual
+                      ? `rgba(255,120,30,${alpha})`
+                      : cellColor(alpha);
                     return (
                       <path
                         key={i}
                         d={geoJsonToPath(c.coordinates as [number, number][][][])}
-                        fill={cellColor(alpha)}
+                        fill={fill}
                       />
                     );
                   })}
                 </g>
               </g>
+              {/* Top layer: voice (yellow) — only in dual-layer mode */}
+              {overlayContourData && (
+                <g clipPath={`url(#${clipId})`}>
+                  <g filter={`url(#${filterId})`}>
+                    {overlayContourData.map((c, i) => {
+                      const alpha = 0.15 + (i / (LEVELS - 1)) * 0.8;
+                      return (
+                        <path
+                          key={i}
+                          d={geoJsonToPath(c.coordinates as [number, number][][][])}
+                          fill={`rgba(255,200,60,${alpha})`}
+                        />
+                      );
+                    })}
+                  </g>
+                </g>
+              )}
               {/* Subtle day-row dividers */}
               {Array.from({ length: 6 }, (_, d) => (
                 <line
@@ -306,6 +351,19 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio }: H
               ))}
             </svg>
           </div>
+          {/* Color key — only shown in dual-layer mode */}
+          {isDual && (
+            <div className="flex gap-4 mt-2 pl-10">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(255,120,30,0.9)' }} />
+                <span className="text-[11px] text-muted-foreground">Text</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(255,200,60,0.9)' }} />
+                <span className="text-[11px] text-muted-foreground">Voice</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
