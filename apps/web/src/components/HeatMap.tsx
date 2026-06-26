@@ -310,7 +310,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
                   {baseContourData.map((c, i) => {
                     const alpha = 0.15 + (i / (LEVELS - 1)) * 0.8;
                     const fill = isDual
-                      ? `rgba(255,120,30,${alpha})`
+                      ? `rgba(255,155,50,${alpha})`
                       : cellColor(alpha);
                     return (
                       <path
@@ -355,7 +355,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
           {isDual && (
             <div className="flex gap-4 mt-2 pl-10">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(255,120,30,0.9)' }} />
+                <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(255,155,50,0.9)' }} />
                 <span className="text-[11px] text-muted-foreground">Text</span>
               </div>
               <div className="flex items-center gap-1.5">

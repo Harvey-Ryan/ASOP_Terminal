@@ -214,12 +214,30 @@ export function OrgHealthPage() {
 
   const effectiveMemberId = isPrivileged ? selectedMemberId : (user?.id ?? '');
 
-  const { data: memberHeatmap, isLoading: memberLoading } = useQuery({
+  const { data: memberHeatmap, isLoading: memberCombinedLoading } = useQuery({
     queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'combined'],
     queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'combined' }),
     enabled: !!guildId && !!effectiveMemberId,
     retry: false,
   });
+  const { data: memberTextHeatmap, isLoading: memberTextLoading } = useQuery({
+    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'message'],
+    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'message' }),
+    enabled: !!guildId && !!effectiveMemberId && memberStyle === 'contour',
+    retry: false,
+  });
+  const { data: memberVoiceHeatmap, isLoading: memberVoiceLoading } = useQuery({
+    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'voice'],
+    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'voice' }),
+    enabled: !!guildId && !!effectiveMemberId && memberStyle === 'contour',
+    retry: false,
+  });
+
+  const isMemberDual    = memberStyle === 'contour';
+  const memberLoading   = isMemberDual ? (memberTextLoading || memberVoiceLoading) : memberCombinedLoading;
+  const memberGrid      = isMemberDual ? memberTextHeatmap?.grid  : memberHeatmap?.grid;
+  const memberMax       = isMemberDual ? (memberTextHeatmap?.max ?? 0) : (memberHeatmap?.max ?? 0);
+  const memberOverlay   = isMemberDual ? memberVoiceHeatmap?.grid : undefined;
 
   const { data: eventHeatmap, isLoading: eventLoading } = useQuery({
     queryKey: ['heatmap-event', guildId, days, timezone],
@@ -283,11 +301,11 @@ export function OrgHealthPage() {
       <HeatmapPanel
         title="Member Activity"
         loading={memberLoading}
-        grid={memberHeatmap?.grid}
-        max={memberHeatmap?.max ?? 0}
+        grid={memberGrid}
+        max={memberMax}
         mapStyle={memberStyle}
         onStyleChange={setMemberStyle}
-
+        overlayGrid={memberOverlay}
       >
         {isPrivileged && leaderboard && (
           <select
