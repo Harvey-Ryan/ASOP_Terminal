@@ -123,6 +123,15 @@ roleCallRouter.get('/rolecall/role-change-log', requireAuth, async (req, res) =>
   res.json(result.body);
 });
 
+roleCallRouter.get('/rolecall/left-members', requireAuth, async (req, res) => {
+  const result = await proxyGet('/left-members', req.query as Record<string, string>);
+  if (!result.ok) {
+    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
+    return;
+  }
+  res.json(result.body);
+});
+
 // ── GET /rolecall/public/heatmap ─────────────────────────────────────────────
 // No auth — serves guild heatmap when activityHeatmapPublic is enabled.
 

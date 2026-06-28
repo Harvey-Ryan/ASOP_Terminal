@@ -101,6 +101,23 @@ export interface RcRoleChangeLog {
   totalPages: number;
 }
 
+export interface RcLeftMember {
+  user_id: string;
+  message_count: number;
+  voice_minutes: number;
+  streak_days: number;
+  last_active_at: string | null;
+  left_at: string | null;
+  displayName: string;
+  username: string;
+  avatar: string;
+}
+
+export interface RcLeftMembers {
+  rows: RcLeftMember[];
+  total: number;
+}
+
 export type RcHeatmapType = 'combined' | 'message' | 'voice';
 
 export interface RcHeatmap {
@@ -134,6 +151,9 @@ export const roleCallApi = {
 
   getRoleChangeLog: (guildId: string, page = 1) =>
     api.get<RcRoleChangeLog>(`/rolecall/role-change-log?guildId=${encodeURIComponent(guildId)}&page=${page}`),
+
+  getLeftMembers: (guildId: string) =>
+    api.get<RcLeftMembers>(`/rolecall/left-members?guildId=${encodeURIComponent(guildId)}`),
 
   getGuildHeatmap: (guildId: string, params: { days?: number; timezone?: string; type?: RcHeatmapType }) =>
     api.get<RcHeatmap>(`/rolecall/heatmap/guild?guildId=${encodeURIComponent(guildId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}${params.type ? `&type=${params.type}` : ''}`),

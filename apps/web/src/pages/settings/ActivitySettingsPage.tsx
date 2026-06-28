@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { settingsApi } from '@/api/settings';
 import { roleCallApi } from '@/api/rolecall';
-import type { RcConfig, RcRoleChangeRow } from '@/api/rolecall';
+import type { RcConfig, RcRoleChangeRow, RcLeftMember } from '@/api/rolecall';
 import { ChannelSelect, ToggleSwitch, RolePicker } from '@/components/settings/SettingsControls';
 import type { GuildSettingsData } from '@/api/settings';
 
@@ -33,6 +33,38 @@ function FieldLabel({ htmlFor, label, description }: { htmlFor?: string; label: 
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function fmtVoice(mins: number) {
+  if (mins < 60) return `${Math.round(mins)}m`;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function FormerMemberRow({ row }: { row: RcLeftMember }) {
+  return (
+    <div className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+      <Avatar className="h-8 w-8 shrink-0">
+        <AvatarImage src={row.avatar} alt={row.displayName} />
+        <AvatarFallback className="text-xs">{row.displayName[0]?.toUpperCase() ?? '?'}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{row.displayName}</p>
+        <p className="text-xs text-muted-foreground">
+          {row.message_count.toLocaleString()} msgs · {fmtVoice(Number(row.voice_minutes))} voice
+        </p>
+      </div>
+      <div className="text-right shrink-0 space-y-0.5">
+        {row.left_at && (
+          <p className="text-xs text-muted-foreground">Left {timeAgo(row.left_at)}</p>
+        )}
+        {row.last_active_at && (
+          <p className="text-xs text-muted-foreground">Last active {timeAgo(row.last_active_at)}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function RoleChangeRow({ row }: { row: RcRoleChangeRow }) {
   return (
@@ -177,6 +209,14 @@ export function ActivitySettingsPage() {
       setRcFlash(true);
       setTimeout(() => setRcFlash(false), 2500);
     },
+  });
+
+  // ── Former members ────────────────────────────────────────────────────────
+  const { data: leftMembers, isLoading: leftLoading, isError: leftError } = useQuery({
+    queryKey: ['rolecall-left-members', guildId],
+    queryFn: () => roleCallApi.getLeftMembers(guildId!),
+    enabled: !!guildId,
+    retry: false,
   });
 
   // ── Role change log ───────────────────────────────────────────────────────
@@ -407,6 +447,34 @@ export function ActivitySettingsPage() {
               </div>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Former members ───────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Former Members
+            </CardTitle>
+            {leftMembers && leftMembers.total > 0 && (
+              <span className="text-xs text-muted-foreground">{leftMembers.total} record{leftMembers.total !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {leftLoading && (
+            <div className="space-y-2 py-2">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          )}
+          {leftError && (
+            <p className="py-4 text-sm text-muted-foreground text-center">Could not load former members.</p>
+          )}
+          {leftMembers && leftMembers.rows.length === 0 && (
+            <p className="py-4 text-sm text-muted-foreground text-center">No members have left yet.</p>
+          )}
+          {leftMembers?.rows.map((row) => <FormerMemberRow key={row.user_id} row={row} />)}
         </CardContent>
       </Card>
 
