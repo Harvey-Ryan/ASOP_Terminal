@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
-import { setupDiscordForEvent, endEvent, deleteEventVcs, createVcsForEvent, postEventLive } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, deleteEventVcs, createVcsForEvent, postEventLive, updatePostEventEmbed } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { formatMinutes } from './utils/time.js';
@@ -74,7 +74,9 @@ export async function startScheduler() {
     await checkVcCreation().catch((e) => console.error('[bot] checkVcCreation error:', e));
     await checkVcActivity().catch((e) => console.error('[bot] checkVcActivity error:', e));
     await checkInactivityEnd().catch((e) => console.error('[bot] checkInactivityEnd error:', e));
+    await checkEventEnd().catch((e) => console.error('[bot] checkEventEnd error:', e));
     await checkEndedEvents().catch((e) => console.error('[bot] checkEndedEvents error:', e));
+    await checkAutoComplete().catch((e) => console.error('[bot] checkAutoComplete error:', e));
     await closeExpiredAuctions().catch((e) => console.error('[bot] closeExpiredAuctions error:', e));
     await closeExpiredStandaloneAuctions().catch((e) => console.error('[bot] closeExpiredStandaloneAuctions error:', e));
   });
@@ -295,6 +297,47 @@ async function checkInactivityEnd() {
 
     console.log(`[bot] Auto-ending event ${event.id} (${event.name}) due to VC inactivity`);
     await prisma.event.update({ where: { id: event.id }, data: { status: 'ENDED' } });
+  }
+}
+
+// ── End events whose endTime has passed ──────────────────────────────────────
+
+async function checkEventEnd() {
+  const now = new Date();
+  const transitioned = await prisma.event.updateMany({
+    where: { status: 'ACTIVE', endTime: { not: null, lte: now } },
+    data: { status: 'ENDED' },
+  });
+  if (transitioned.count > 0) {
+    console.log(`[bot] Transitioned ${transitioned.count} event(s) ACTIVE → ENDED at end time`);
+  }
+}
+
+// ── Auto-complete ENDED events after 24h grace period ────────────────────────
+
+async function checkAutoComplete() {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60_000);
+  const events = await prisma.event.findMany({
+    where: {
+      status: 'ENDED',
+      botCleanedUp: true,
+      endTime: { not: null, lte: cutoff },
+    },
+    take: 10,
+  });
+
+  for (const event of events) {
+    await prisma.$transaction(async (tx) => {
+      await tx.event.update({ where: { id: event.id }, data: { status: 'COMPLETED' } });
+      await tx.eventGuildShare.updateMany({
+        where: { eventId: event.id, status: 'PENDING' },
+        data: { status: 'DECLINED', respondedAt: new Date() },
+      });
+    });
+    console.log(`[bot] Auto-completed event ${event.id} (${event.name}) after 24h grace period`);
+    await updatePostEventEmbed(event.id).catch((err) =>
+      console.error(`[bot] updatePostEventEmbed failed for ${event.id}:`, err),
+    );
   }
 }
 
