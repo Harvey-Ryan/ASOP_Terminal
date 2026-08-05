@@ -55,7 +55,12 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
         ...statusFilter,
         OR: [
           { guildId },
-          ...(allianceIds.length > 0 ? [{ allianceId: { in: allianceIds } }] : []),
+          // Grandfathered: old-style allianceId events that predate EventGuildShare.
+          // Excluded when a share record exists (any status) — those events use the
+          // guildShares clause below and must be explicitly accepted.
+          ...(allianceIds.length > 0
+            ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
+            : []),
           // New invite system: events accepted via EventGuildShare
           { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
         ],
@@ -153,7 +158,11 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
       id: eventId,
       OR: [
         { guildId },
-        ...(allianceIds.length > 0 ? [{ allianceId: { in: allianceIds } }] : []),
+        // Grandfathered: old-style allianceId events that predate EventGuildShare.
+        // Excluded when a share record exists (any status) — those must be accepted.
+        ...(allianceIds.length > 0
+          ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
+          : []),
         { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
       ],
     },
