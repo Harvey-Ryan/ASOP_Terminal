@@ -276,7 +276,11 @@ export async function syncDiscordEvent(eventId: string) {
         });
         console.log(`[syncDiscordEvent] Discord scheduled event updated`);
       } else {
-        console.warn(`[syncDiscordEvent] scheduled event ${event.discordEventId} not found in guild`);
+        // Scheduled event was deleted externally (e.g. manually via Discord).
+        // Null out the stored ID — checkPendingDiscordSetup will recreate it on the
+        // next scheduler tick if the event is still PENDING or ACTIVE.
+        console.warn(`[syncDiscordEvent] scheduled event ${event.discordEventId} not found in guild — clearing stored id for recreation`);
+        await prisma.event.update({ where: { id: event.id }, data: { discordEventId: null } });
       }
     } catch (err) {
       console.error('[bot] Failed to update Discord scheduled event:', err);
@@ -734,6 +738,9 @@ export async function spawnNextRecurrence(eventId: string) {
   const nextEnd = event.endTime ? nextOccurrence(event.endTime, event.recurType) : null;
   const now = new Date();
 
+  // Cast to access pollData — it is a real column but not yet in the shared type
+  const pollDataRaw = (event as unknown as { pollData?: string | null }).pollData ?? null;
+
   const next = await prisma.event.create({
     data: {
       guildId: event.guildId,
@@ -747,6 +754,7 @@ export async function spawnNextRecurrence(eventId: string) {
       vcNames: event.vcNames,
       briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
+      pollData: pollDataRaw,
       createdById: event.createdById,
       status: 'PENDING',
     },
@@ -810,6 +818,60 @@ async function fetchImageAttachment(imageUrl: string): Promise<{ builder: Attach
   }
 }
 
+// ── Revoke an accepted share: clean up Discord artifacts in the receiving guild ─
+
+export async function revokeDiscordShare(shareId: string): Promise<void> {
+  console.log(`[revokeDiscordShare] start — shareId=${shareId}`);
+
+  const share = await prisma.eventGuildShare.findUnique({
+    where: { id: shareId },
+    include: { guild: true },
+  });
+
+  if (!share) {
+    console.error(`[revokeDiscordShare] share ${shareId} not found`);
+    return;
+  }
+
+  const receivingDiscordGuildId = share.guild.guildId;
+
+  const ag = await prisma.eventAllianceGuild.findUnique({
+    where: { eventId_discordGuildId: { eventId: share.eventId, discordGuildId: receivingDiscordGuildId } },
+  });
+
+  if (!ag) {
+    console.log(`[revokeDiscordShare] no EventAllianceGuild record found for ${receivingDiscordGuildId} — nothing to clean up`);
+    return;
+  }
+
+  // Delete the Discord scheduled event in the receiving guild
+  if (ag.discordEventId) {
+    const memberGuild = await client.guilds.fetch(receivingDiscordGuildId).catch(() => null);
+    if (memberGuild) {
+      await memberGuild.scheduledEvents.delete(ag.discordEventId).catch((err: unknown) =>
+        console.error(`[revokeDiscordShare] failed to delete scheduled event in ${receivingDiscordGuildId}:`, err),
+      );
+    }
+  }
+
+  // Post revocation notice in the thread and archive it
+  if (ag.threadId) {
+    const thread = await client.channels.fetch(ag.threadId).catch(() => null);
+    if (thread?.isThread()) {
+      if (thread.archived) await thread.setArchived(false).catch(() => null);
+      await thread.send('❌ This event invitation has been revoked by the host guild.').catch(() => null);
+      await thread.setArchived(true).catch(() => null);
+    }
+  }
+
+  // Remove the EventAllianceGuild record so the receiving guild has no residual access
+  await prisma.eventAllianceGuild.delete({ where: { id: ag.id } }).catch((err) =>
+    console.error(`[revokeDiscordShare] failed to delete EventAllianceGuild for ${receivingDiscordGuildId}:`, err),
+  );
+
+  console.log(`[revokeDiscordShare] done — shareId=${shareId}, guild=${receivingDiscordGuildId}`);
+}
+
 async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined> {
   const apiBase = (process.env['API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
   const fullUrl = `${apiBase}${imageUrl}`;
@@ -831,7 +893,22 @@ async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined
 
 // ── Set up Discord entities for a single accepted share ───────────────────────
 
+const setupShareInFlight = new Set<string>();
+
 export async function setupDiscordForShare(shareId: string): Promise<void> {
+  if (setupShareInFlight.has(shareId)) {
+    console.log(`[setupDiscordForShare] already in progress — skipping ${shareId}`);
+    return;
+  }
+  setupShareInFlight.add(shareId);
+  try {
+    await _setupDiscordForShare(shareId);
+  } finally {
+    setupShareInFlight.delete(shareId);
+  }
+}
+
+async function _setupDiscordForShare(shareId: string): Promise<void> {
   console.log(`[setupDiscordForShare] start — shareId=${shareId}`);
 
   const share = await prisma.eventGuildShare.findUnique({

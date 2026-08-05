@@ -388,7 +388,32 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     return;
   }
 
-  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  // Resolve the requesting guild's DB id for shared-event visibility checks
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  // Build the same visibility OR clause used by GET /events — supports guest-guild RSVPs
+  const memberships = await prisma.allianceMember.findMany({
+    where: { guild: { guildId }, status: 'ACCEPTED' },
+    select: { allianceId: true },
+  });
+  const allianceIds = memberships.map((m) => m.allianceId);
+
+  const event = await prisma.event.findFirst({
+    where: {
+      id: eventId,
+      OR: [
+        { guildId },
+        ...(allianceIds.length > 0
+          ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
+          : []),
+        { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
+      ],
+    },
+  });
   if (!event) {
     res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
     return;
@@ -434,7 +459,8 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
 
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true } });
+  // eventId is the unique PK — guildId check is not needed after we've already verified visibility
+  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
@@ -448,13 +474,43 @@ eventsRouter.delete('/:guildId/events/:eventId/rsvp', requireAuth, async (req, r
     return;
   }
 
+  // Verify the requesting guild can see this event before allowing the un-RSVP
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+
+  const memberships = await prisma.allianceMember.findMany({
+    where: { guild: { guildId }, status: 'ACCEPTED' },
+    select: { allianceId: true },
+  });
+  const allianceIds = memberships.map((m) => m.allianceId);
+
+  const event = await prisma.event.findFirst({
+    where: {
+      id: eventId,
+      OR: [
+        { guildId },
+        ...(allianceIds.length > 0
+          ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
+          : []),
+        { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
+      ],
+    },
+  });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
   await prisma.eventRsvp.deleteMany({ where: { eventId, userId: dbUser.discordId } });
 
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true } });
+  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
@@ -1118,7 +1174,20 @@ eventsRouter.delete('/:guildId/events/:eventId/shares/:shareId', requireAuth, as
     return;
   }
 
-  await prisma.eventGuildShare.delete({ where: { id: shareId } });
+  if (share.status === 'ACCEPTED') {
+    // Soft-revoke: keep the record so the bot trigger can look up the guild for cleanup.
+    // The DECLINED status immediately removes the guild's read access (GET queries filter
+    // on status: ACCEPTED). The bot will archive their thread and delete their scheduled event.
+    await prisma.eventGuildShare.update({
+      where: { id: shareId },
+      data: { status: 'DECLINED', respondedAt: new Date() },
+    });
+    triggerBot(`/trigger/share-revoked/${shareId}`);
+  } else {
+    // PENDING or DECLINED — no Discord artifacts exist yet; hard delete is safe.
+    await prisma.eventGuildShare.delete({ where: { id: shareId } });
+  }
+
   res.json({ success: true } satisfies ApiResponse);
 });
 

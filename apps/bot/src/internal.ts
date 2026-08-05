@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare, revokeDiscordShare } from './services/eventService.js';
 import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
@@ -144,6 +144,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await setupDiscordForShare(shareId).catch((err) =>
         console.error(`[bot:internal] setupDiscordForShare failed for ${shareId}:`, err),
+      );
+      return;
+    }
+
+    const shareRevokedMatch = req.url?.match(/^\/trigger\/share-revoked\/([^/]+)$/);
+    if (shareRevokedMatch) {
+      const shareId = shareRevokedMatch[1]!;
+      res.writeHead(202).end();
+      await revokeDiscordShare(shareId).catch((err) =>
+        console.error(`[bot:internal] revokeDiscordShare failed for ${shareId}:`, err),
       );
       return;
     }

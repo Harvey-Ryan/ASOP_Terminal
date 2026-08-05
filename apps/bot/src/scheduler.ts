@@ -74,6 +74,7 @@ export async function startScheduler() {
     await checkVcCreation().catch((e) => console.error('[bot] checkVcCreation error:', e));
     await checkVcActivity().catch((e) => console.error('[bot] checkVcActivity error:', e));
     await checkInactivityEnd().catch((e) => console.error('[bot] checkInactivityEnd error:', e));
+    await checkStuckActiveEvents().catch((e) => console.error('[bot] checkStuckActiveEvents error:', e));
     await checkEventEnd().catch((e) => console.error('[bot] checkEventEnd error:', e));
     await checkEndedEvents().catch((e) => console.error('[bot] checkEndedEvents error:', e));
     await checkAutoComplete().catch((e) => console.error('[bot] checkAutoComplete error:', e));
@@ -122,6 +123,8 @@ async function checkEventStart() {
 async function checkPendingDiscordSetup() {
   // Catch events not yet set up, plus active events where forum thread creation
   // previously failed (e.g. forum channel wasn't configured at the time).
+  // orderBy createdAt asc so oldest events are retried first — avoids a single
+  // stuck new event blocking a backlog of older ones.
   const pending = await prisma.event.findMany({
     where: {
       status: { in: ['PENDING', 'ACTIVE'] },
@@ -130,6 +133,7 @@ async function checkPendingDiscordSetup() {
         { threadId: null },
       ],
     },
+    orderBy: { createdAt: 'asc' },
     take: 5,
   });
   for (const event of pending) {
@@ -142,9 +146,11 @@ async function checkPendingDiscordSetup() {
 // ── Reminder dispatch ─────────────────────────────────────────────────────────
 
 async function checkReminders() {
+  // take: 20 prevents a reminder flood on restart when many past-due rows accumulate.
   const due = await prisma.eventReminder.findMany({
     where: { sent: false, sendAt: { lte: new Date() } },
     include: { event: { include: { rsvps: true } } },
+    take: 20,
   });
 
   for (const reminder of due) {
@@ -300,6 +306,26 @@ async function checkInactivityEnd() {
   }
 }
 
+// ── Safety net: end ACTIVE events with no VCs and no endTime running > 24h ───
+// These events have no automated exit path (VC inactivity requires VCs;
+// checkEventEnd requires endTime), so they would run forever without this.
+
+async function checkStuckActiveEvents() {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60_000);
+  const stuck = await prisma.event.updateMany({
+    where: {
+      status: 'ACTIVE',
+      startTime: { lte: cutoff },
+      endTime: null,
+      vcIds: '[]',
+    },
+    data: { status: 'ENDED' },
+  });
+  if (stuck.count > 0) {
+    console.log(`[bot] Transitioned ${stuck.count} stuck ACTIVE event(s) → ENDED (no VCs, no endTime, >24h)`);
+  }
+}
+
 // ── End events whose endTime has passed ──────────────────────────────────────
 
 async function checkEventEnd() {
@@ -316,12 +342,14 @@ async function checkEventEnd() {
 // ── Auto-complete ENDED events after 24h grace period ────────────────────────
 
 async function checkAutoComplete() {
+  // Use botEndedAt (not endTime) as the 24h grace-period timer — this covers events
+  // ended by VC inactivity or the stuck-event safety net that have no endTime set.
   const cutoff = new Date(Date.now() - 24 * 60 * 60_000);
   const events = await prisma.event.findMany({
     where: {
       status: 'ENDED',
       botCleanedUp: true,
-      endTime: { not: null, lte: cutoff },
+      botEndedAt: { not: null, lte: cutoff },
     },
     take: 10,
   });
@@ -335,6 +363,21 @@ async function checkAutoComplete() {
       });
     });
     console.log(`[bot] Auto-completed event ${event.id} (${event.name}) after 24h grace period`);
+
+    // Post a notice in the event thread so guild members know the event was finalised
+    if (event.threadId) {
+      try {
+        const thread = await client.channels.fetch(event.threadId).catch(() => null);
+        if (thread?.isThread()) {
+          if (thread.archived) await thread.setArchived(false).catch(() => null);
+          await thread.send('✅ This event has been automatically completed after the 24-hour review period.');
+          await thread.setArchived(true).catch(() => null);
+        }
+      } catch (err) {
+        console.error(`[bot] Failed to post auto-complete notice for event ${event.id}:`, err);
+      }
+    }
+
     await updatePostEventEmbed(event.id).catch((err) =>
       console.error(`[bot] updatePostEventEmbed failed for ${event.id}:`, err),
     );
