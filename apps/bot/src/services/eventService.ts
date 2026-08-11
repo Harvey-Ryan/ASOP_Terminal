@@ -1,6 +1,7 @@
 import {
   AttachmentBuilder,
   ChannelType,
+  DiscordAPIError,
   GuildScheduledEventEntityType,
   GuildScheduledEventPrivacyLevel,
   PermissionFlagsBits,
@@ -248,7 +249,26 @@ export async function syncDiscordEvent(eventId: string) {
     console.log(`[syncDiscordEvent] updating Discord scheduled event ${event.discordEventId}`);
     try {
       const guild = await client.guilds.fetch(event.guildId);
-      const scheduled = await guild.scheduledEvents.fetch(event.discordEventId).catch(() => null);
+      // Fetch with explicit error discrimination — we must NOT null out discordEventId
+      // on transient errors (429, network blip) because that breaks GuildScheduledEventUserAdd
+      // lookups for all subsequent "Interested" clicks. Only a genuine 404 (Unknown Guild
+      // Scheduled Event, code 10070) means the event was actually deleted externally.
+      let scheduled: Awaited<ReturnType<typeof guild.scheduledEvents.fetch>> | null = null;
+      let genuinelyDeleted = false;
+      try {
+        scheduled = await guild.scheduledEvents.fetch(event.discordEventId);
+      } catch (fetchErr) {
+        // Discord API error code 10070 = Unknown Guild Scheduled Event (genuine 404)
+        if (fetchErr instanceof DiscordAPIError && fetchErr.code === 10070) {
+          genuinelyDeleted = true;
+          console.warn(`[syncDiscordEvent] scheduled event ${event.discordEventId} confirmed deleted (10070) — clearing stored id for recreation`);
+        } else {
+          // Transient error (rate limit, network, permissions) — log and skip the update.
+          // Do NOT clear discordEventId; that would break GuildScheduledEventUserAdd lookups.
+          console.error(`[syncDiscordEvent] transient error fetching scheduled event ${event.discordEventId}:`, fetchErr);
+        }
+      }
+
       if (scheduled) {
         const scheduledEndTime = event.endTime ?? new Date(event.startTime.getTime() + 2 * 60 * 60_000);
         let imageField: { image: string | null } | Record<string, never> = {};
@@ -275,11 +295,8 @@ export async function syncDiscordEvent(eventId: string) {
           ...imageField,
         });
         console.log(`[syncDiscordEvent] Discord scheduled event updated`);
-      } else {
-        // Scheduled event was deleted externally (e.g. manually via Discord).
-        // Null out the stored ID — checkPendingDiscordSetup will recreate it on the
-        // next scheduler tick if the event is still PENDING or ACTIVE.
-        console.warn(`[syncDiscordEvent] scheduled event ${event.discordEventId} not found in guild — clearing stored id for recreation`);
+      } else if (genuinelyDeleted) {
+        // Confirmed deleted — null out so checkPendingDiscordSetup can recreate it.
         await prisma.event.update({ where: { id: event.id }, data: { discordEventId: null } });
       }
     } catch (err) {

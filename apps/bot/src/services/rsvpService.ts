@@ -73,6 +73,10 @@ export async function joinRoster(eventId: string, userId: string, username: stri
         const embed = new EmbedBuilder()
           .setColor(0x57f287)
           .setDescription(`👋 <@${userId}> has joined the roster.`);
+        // Unarchive the thread if Discord auto-archived it due to inactivity.
+        // Without this, thread.send() throws on archived threads.
+        // We don't re-archive afterwards — the event is still upcoming/active.
+        if (thread.archived) await thread.setArchived(false).catch(() => null);
         await thread.send({ embeds: [embed] });
       } else {
         console.warn(`[bot] joinRoster: channel ${event.threadId} is not a thread`);
