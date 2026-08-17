@@ -511,25 +511,22 @@ export async function postEventLive(eventId: string) {
     }
   }
 
-  // Also broadcast to alliance guild threads (without VC mentions — VCs are host-only)
+  // Also broadcast to alliance guild threads (without VC mentions — VCs are host-only).
+  // Sequential with 500 ms gap to avoid concurrent API bursts hitting the global rate limit.
   const allianceContent = vcMentions
     ? content.replace(`\nJoin a voice channel: ${vcMentions}`, '')
     : content;
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
-  const filteredLiveGuilds = allianceGuilds.filter((ag) => ag.threadId);
-  const liveResults = await Promise.allSettled(
-    filteredLiveGuilds.map(async (ag) => {
+  for (const ag of allianceGuilds.filter((ag) => ag.threadId)) {
+    await sleep(500);
+    try {
       const thread = await client.channels.fetch(ag.threadId!).catch(() => null);
-      if (!thread?.isThread()) return;
+      if (!thread?.isThread()) continue;
       const wasArchived = thread.archived ?? false;
       if (wasArchived) await thread.setArchived(false).catch(() => null);
       await thread.send(allianceContent).catch(() => null);
-    }),
-  );
-  for (let i = 0; i < liveResults.length; i++) {
-    const r = liveResults[i];
-    if (r?.status === 'rejected') {
-      console.error(`[postEventLive] alliance guild ${filteredLiveGuilds[i]?.discordGuildId} failed:`, r.reason);
+    } catch (err) {
+      console.error(`[postEventLive] alliance guild ${ag.discordGuildId} failed:`, err);
     }
   }
 }
@@ -656,17 +653,19 @@ export async function endEvent(eventId: string) {
     }
   }
 
-  // End event in all alliance guild threads
+  // End event in all alliance guild threads — sequential with 500 ms gap to avoid
+  // concurrent API bursts across guilds hitting the bot's global rate limit.
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
-  const endResults = await Promise.allSettled(
-    allianceGuilds.map(async (ag) => {
+  for (const ag of allianceGuilds) {
+    await sleep(500);
+    try {
       if (ag.discordEventId) {
         const memberGuild = await client.guilds.fetch(ag.discordGuildId).catch(() => null);
         await memberGuild?.scheduledEvents.delete(ag.discordEventId).catch(() => null);
       }
       if (ag.threadId) {
         const thread = await client.channels.fetch(ag.threadId).catch(() => null);
-        if (!thread?.isThread()) return;
+        if (!thread?.isThread()) continue;
         const rosterMsg = ag.rosterMessageId
           ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
@@ -677,12 +676,8 @@ export async function endEvent(eventId: string) {
         }
         await thread.send(`🏁 **${event.name}** has ended.`).catch(() => null);
       }
-    }),
-  );
-  for (let i = 0; i < endResults.length; i++) {
-    const r = endResults[i];
-    if (r?.status === 'rejected') {
-      console.error(`[endEvent] alliance guild ${allianceGuilds[i]?.discordGuildId} failed:`, r.reason);
+    } catch (err) {
+      console.error(`[endEvent] alliance guild ${ag.discordGuildId} failed:`, err);
     }
   }
 
@@ -892,7 +887,27 @@ export async function resolveVcCategoryId(discordGuildId: string): Promise<strin
   return guild?.settings?.voiceCategoryId ?? process.env['VC_CATEGORY_ID'] ?? null;
 }
 
+// ── Image buffer cache ─────────────────────────────────────────────────────────
+// Roster embeds are updated on every RSVP change. Without caching, each update
+// re-fetches the image from the API even when it hasn't changed. A 60 s TTL
+// eliminates redundant fetches during bursts (many RSVPs in a short window)
+// while ensuring edits to the event image propagate within a minute.
+
+interface ImageCacheEntry {
+  buffer: Buffer;
+  filename: string;
+  expiresAt: number;
+}
+const imageCache = new Map<string, ImageCacheEntry>();
+const IMAGE_CACHE_TTL_MS = 60_000;
+
 async function fetchImageAttachment(imageUrl: string): Promise<{ builder: AttachmentBuilder; filename: string } | null> {
+  const now = Date.now();
+  const cached = imageCache.get(imageUrl);
+  if (cached && cached.expiresAt > now) {
+    return { builder: new AttachmentBuilder(cached.buffer, { name: cached.filename }), filename: cached.filename };
+  }
+
   const apiBase = (process.env['API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
   const fullUrl = `${apiBase}${imageUrl}`;
   try {
@@ -903,6 +918,7 @@ async function fetchImageAttachment(imageUrl: string): Promise<{ builder: Attach
     }
     const buffer = Buffer.from(await res.arrayBuffer());
     const filename = imageUrl.split('/').pop() ?? 'image.jpg';
+    imageCache.set(imageUrl, { buffer, filename, expiresAt: now + IMAGE_CACHE_TTL_MS });
     return { builder: new AttachmentBuilder(buffer, { name: filename }), filename };
   } catch (err) {
     console.error(`[fetchImageAttachment] Failed to fetch ${fullUrl}:`, err);
@@ -965,6 +981,17 @@ export async function revokeDiscordShare(shareId: string): Promise<void> {
 }
 
 async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined> {
+  // Reuse the shared image buffer cache — the raw buffer is all we need for both
+  // attachment and data URI paths, so a cache hit avoids a second HTTP round-trip.
+  const now = Date.now();
+  const cached = imageCache.get(imageUrl);
+  if (cached && cached.expiresAt > now) {
+    const mime = imageUrl.match(/\.png$/i) ? 'image/png'
+                : imageUrl.match(/\.webp$/i) ? 'image/webp'
+                : 'image/jpeg';
+    return `data:${mime};base64,${cached.buffer.toString('base64')}`;
+  }
+
   const apiBase = (process.env['API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
   const fullUrl = `${apiBase}${imageUrl}`;
   try {
@@ -973,10 +1000,11 @@ async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined
       console.error(`[fetchImageAsDataUri] HTTP ${res.status} fetching ${fullUrl}`);
       return undefined;
     }
-    const buffer = await res.arrayBuffer();
+    const buffer = Buffer.from(await res.arrayBuffer());
     const mime = res.headers.get('content-type') ?? 'image/jpeg';
-    const b64 = Buffer.from(buffer).toString('base64');
-    return `data:${mime};base64,${b64}`;
+    const filename = imageUrl.split('/').pop() ?? 'image.jpg';
+    imageCache.set(imageUrl, { buffer, filename, expiresAt: now + IMAGE_CACHE_TTL_MS });
+    return `data:${mime};base64,${buffer.toString('base64')}`;
   } catch (err) {
     console.error(`[fetchImageAsDataUri] Failed to fetch ${fullUrl}:`, err);
     return undefined;

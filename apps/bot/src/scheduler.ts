@@ -297,14 +297,23 @@ async function checkReminders() {
         continue;
       }
 
-      const dmResults = await Promise.allSettled(
-        dmTargets.map(async (rsvp) => {
-          const user = await client.users.fetch(rsvp.userId);
-          await user.send(
-            `${event.name} starts in 15 minutes! Join a voice channel to participate.\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
-          );
-        }),
-      );
+      // Send DMs in chunks of 5 with a 1 s gap between chunks to avoid saturating
+      // the bot's global rate limit on a large-roster event (50+ members at once).
+      const DM_CHUNK = 5;
+      const dmResults: PromiseSettledResult<void>[] = [];
+      for (let i = 0; i < dmTargets.length; i += DM_CHUNK) {
+        if (i > 0) await sleep(1_000);
+        const chunk = dmTargets.slice(i, i + DM_CHUNK);
+        const chunkResults = await Promise.allSettled(
+          chunk.map(async (rsvp) => {
+            const user = await client.users.fetch(rsvp.userId);
+            await user.send(
+              `${event.name} starts in 15 minutes! Join a voice channel to participate.\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
+            );
+          }),
+        );
+        dmResults.push(...chunkResults);
+      }
 
       const anySucceeded = dmResults.some((r) => r.status === 'fulfilled');
       if (anySucceeded) {
@@ -435,7 +444,7 @@ async function checkAutoComplete() {
       botCleanedUp: true,
       botEndedAt: { not: null, lte: cutoff },
     },
-    take: 10,
+    take: 5,
   });
 
   for (const event of events) {
