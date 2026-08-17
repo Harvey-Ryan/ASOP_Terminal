@@ -468,12 +468,22 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     } catch {}
   }
 
+  // Check before upsert so we can tell the bot whether this is a brand-new join.
+  const existingRsvp = await prisma.eventRsvp.findUnique({
+    where: { eventId_userId: { eventId, userId: dbUser.discordId } },
+    select: { id: true },
+  });
+
   await prisma.eventRsvp.upsert({
     where: { eventId_userId: { eventId, userId: dbUser.discordId } },
     create: { eventId, userId: dbUser.discordId, username: displayName, role },
     update: { role, username: displayName },
   });
 
+  // New join → add to thread + post "👋 joined" embed
+  if (!existingRsvp) {
+    triggerBot(`/trigger/rsvp-join/${eventId}/${dbUser.discordId}`);
+  }
   triggerBot(`/trigger/rsvp/${eventId}`);
 
   // eventId is the unique PK — guildId check is not needed after we've already verified visibility

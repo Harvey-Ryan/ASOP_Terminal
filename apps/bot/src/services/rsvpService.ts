@@ -52,8 +52,35 @@ export async function leaveRoster(eventId: string, userId: string) {
 }
 
 /**
+ * Post a "👋 X has joined the roster" notification into a thread.
+ * Handles: members.add (sends them a Discord notification), thread unarchiving,
+ * and the embed message. Silently tolerates Discord API failures.
+ */
+async function _postJoinNotification(threadId: string, userId: string, username: string) {
+  try {
+    const thread = await client.channels.fetch(threadId);
+    if (thread?.isThread()) {
+      await thread.members.add(userId).catch(() => null);
+      // Unarchive the thread if Discord auto-archived it due to inactivity.
+      // Without this, thread.send() throws on archived threads.
+      // We don't re-archive afterwards — the event is still upcoming/active.
+      if (thread.archived) await thread.setArchived(false).catch(() => null);
+      const embed = new EmbedBuilder()
+        .setColor(0x57f287)
+        .setDescription(`👋 <@${userId}> has joined the roster.`);
+      await thread.send({ embeds: [embed] });
+    } else {
+      console.warn(`[bot] _postJoinNotification: channel ${threadId} is not a thread`);
+    }
+  } catch (err) {
+    console.error(`[bot] _postJoinNotification: failed to post to thread ${threadId}:`, err);
+  }
+}
+
+/**
  * Add a user to the roster as Unassigned if not already present.
- * Called when the user clicks Interested on a Discord Scheduled Event.
+ * Called when the user clicks Interested on a Discord Scheduled Event,
+ * or when a member joins the event VC during an active event.
  */
 export async function joinRoster(eventId: string, userId: string, username: string) {
   const existing = await prisma.eventRsvp.findUnique({
@@ -66,27 +93,29 @@ export async function joinRoster(eventId: string, userId: string, username: stri
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (event?.threadId) {
-    try {
-      const thread = await client.channels.fetch(event.threadId);
-      if (thread?.isThread()) {
-        await thread.members.add(userId).catch(() => null);
-        const embed = new EmbedBuilder()
-          .setColor(0x57f287)
-          .setDescription(`👋 <@${userId}> has joined the roster.`);
-        // Unarchive the thread if Discord auto-archived it due to inactivity.
-        // Without this, thread.send() throws on archived threads.
-        // We don't re-archive afterwards — the event is still upcoming/active.
-        if (thread.archived) await thread.setArchived(false).catch(() => null);
-        await thread.send({ embeds: [embed] });
-      } else {
-        console.warn(`[bot] joinRoster: channel ${event.threadId} is not a thread`);
-      }
-    } catch (err) {
-      console.error(`[bot] joinRoster: failed to post to thread ${event.threadId}:`, err);
-    }
+    await _postJoinNotification(event.threadId, userId, username);
   } else {
     console.warn(`[bot] joinRoster: event ${eventId} has no threadId yet`);
   }
+}
+
+/**
+ * Notify the event thread that a member has joined the roster.
+ * Called after a web-dashboard RSVP creates a new roster entry, so the member
+ * gets a Discord thread notification (members.add) and a "joined" embed is posted.
+ * The RSVP row is expected to already exist when this is called.
+ */
+export async function notifyThreadJoin(eventId: string, userId: string) {
+  const [event, rsvp] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId } }),
+    prisma.eventRsvp.findUnique({ where: { eventId_userId: { eventId, userId } } }),
+  ]);
+  if (!event?.threadId) {
+    console.warn(`[bot] notifyThreadJoin: event ${eventId} has no threadId`);
+    return;
+  }
+  const username = rsvp?.username ?? userId;
+  await _postJoinNotification(event.threadId, userId, username);
 }
 
 // ── Debounced roster update (for web-app admin changes) ───────────────────────

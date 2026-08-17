@@ -286,12 +286,9 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
       const username = newState.member?.displayName ?? newState.member?.user.username ?? userId;
 
-      // Upsert RSVP (add to roster if not already there)
-      await prisma.eventRsvp.upsert({
-        where: { eventId_userId: { eventId: event.id, userId } },
-        create: { eventId: event.id, userId, username },
-        update: { username }, // keep username current
-      });
+      // Add to roster (if not already there) and notify the event thread.
+      // joinRoster is idempotent — it no-ops when the user is already on the roster.
+      await joinRoster(event.id, userId, username);
 
       // Atomically append userId to confirmedAttendees if not already present.
       // A single SQL statement avoids the read-modify-write race when two members

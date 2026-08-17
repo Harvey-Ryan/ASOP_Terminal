@@ -3,7 +3,7 @@ import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent,
 import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
-import { queueRosterUpdate } from './services/rsvpService.js';
+import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -64,6 +64,18 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await queueRosterUpdate(eventId).catch((err) =>
         console.error(`[bot:internal] queueRosterUpdate failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    // Fired by the API when a web-dashboard RSVP creates a *new* roster entry.
+    // Adds the member to the event thread and posts a "👋 joined" notification.
+    const rsvpJoinMatch = req.url?.match(/^\/trigger\/rsvp-join\/([^/]+)\/([^/]+)$/);
+    if (rsvpJoinMatch) {
+      const [, eventId, userId] = rsvpJoinMatch as [string, string, string];
+      res.writeHead(202).end();
+      await notifyThreadJoin(eventId, userId).catch((err) =>
+        console.error(`[bot:internal] notifyThreadJoin failed for event ${eventId} user ${userId}:`, err),
       );
       return;
     }
