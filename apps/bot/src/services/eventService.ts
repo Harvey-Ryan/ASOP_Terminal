@@ -1,7 +1,11 @@
 import {
+  ActionRowBuilder,
   AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ChannelType,
   DiscordAPIError,
+  EmbedBuilder,
   GuildScheduledEventEntityType,
   GuildScheduledEventPrivacyLevel,
   PermissionFlagsBits,
@@ -602,7 +606,10 @@ export async function endEvent(eventId: string) {
     }
   }
 
-  // Update embed with VC attendance + remove buttons, then archive host thread
+  // Update embed with VC attendance + remove buttons, then post the loot/no-loot decision prompt.
+  // The thread is intentionally left open so the event creator can respond.
+  // Alliance guild threads receive a plain "has ended" notice — they are observers,
+  // not the decision-makers for loot.
   const endRoles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(endRoles);
   const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
@@ -618,10 +625,34 @@ export async function endEvent(eventId: string) {
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
-        await thread.send(`🏁 **${event.name}** has ended.`);
+
+        // Loot decision prompt — only posted in the host guild thread.
+        // The prompt auto-expires after 2 hours via checkLootPromptTimeout in the scheduler.
+        const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+        const lootUrl = `${webUrl}/dashboard/servers/${event.guildId}/events/${eventId}/loot`;
+        const promptEmbed = new EmbedBuilder()
+          .setTitle(`🏁 ${event.name} has ended`)
+          .setDescription(
+            '**Will this event have loot to distribute?**\n' +
+            `*Only the event creator or guild managers can respond. ` +
+            `This prompt expires in 2 hours — no response defaults to No Loot.*\n\n` +
+            `📋 [Loot dashboard](${lootUrl})`,
+          )
+          .setColor(0xfee75c);
+        const lootRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`event_loot_start:${eventId}`)
+            .setLabel('Start Loot')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`event_loot_none:${eventId}`)
+            .setLabel('No Loot')
+            .setStyle(ButtonStyle.Secondary),
+        );
+        await thread.send({ embeds: [promptEmbed], components: [lootRow] });
       }
     } catch (err) {
-      console.error('[bot] Failed to archive forum thread:', err);
+      console.error('[bot] Failed to post end-event loot prompt:', err);
     }
   }
 

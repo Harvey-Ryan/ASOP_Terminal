@@ -139,6 +139,7 @@ export async function startScheduler() {
       await timedCheck('checkStuckActiveEvents',   checkStuckActiveEvents);
       await timedCheck('checkEventEnd',            checkEventEnd);
       await timedCheck('checkEndedEvents',         checkEndedEvents);
+      await timedCheck('checkLootPromptTimeout',   checkLootPromptTimeout);
       await timedCheck('checkAutoComplete',        checkAutoComplete);
       await timedCheck('closeExpiredAuctions',     closeExpiredAuctions);
       await timedCheck('closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions);
@@ -540,6 +541,66 @@ async function checkEndedEvents() {
     // 5 minutes have elapsed with empty VCs — delete them
     await deleteEventVcs(event.id).catch((err) =>
       console.error(`[bot] deleteEventVcs failed for ${event.id}:`, err),
+    );
+  }
+}
+
+// ── Auto-resolve the loot/no-loot prompt after 2 hours of no response ────────
+// Protects against the prompt being permanently open when the event creator
+// is absent. Sets hadLoot=false and archives all threads.
+
+async function checkLootPromptTimeout() {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
+
+  const events = await prisma.event.findMany({
+    where: {
+      status: 'ENDED',
+      botEndedAt: { not: null, lte: twoHoursAgo },
+      hadLoot: null,   // prompt never answered
+    },
+    take: 5,
+  });
+
+  for (const event of events) {
+    // Atomic claim — guard against concurrent scheduler ticks or restarts
+    const claimed = await prisma.event.updateMany({
+      where: { id: event.id, hadLoot: null },
+      data: { hadLoot: false },
+    });
+    if (claimed.count === 0) continue; // another process already claimed it
+
+    console.log(`[bot] checkLootPromptTimeout: auto-resolving event ${event.id} (${event.name}) as no loot`);
+
+    // Archive host thread
+    if (event.threadId) {
+      try {
+        const thread = await client.channels.fetch(event.threadId).catch(() => null);
+        if (thread?.isThread()) {
+          if (thread.archived) await thread.setArchived(false).catch(() => null);
+          await thread.send('⏰ Loot prompt expired — event closed with no loot.').catch(() => null);
+          await thread.setArchived(true).catch(() => null);
+        }
+      } catch (err) {
+        console.error(`[bot] checkLootPromptTimeout: failed to archive host thread for event ${event.id}:`, err);
+      }
+    }
+
+    // Archive alliance guild threads
+    const allianceGuilds = await prisma.eventAllianceGuild.findMany({
+      where: { eventId: event.id, threadId: { not: null } },
+    });
+    await Promise.allSettled(
+      allianceGuilds.map(async (ag) => {
+        try {
+          const thread = await client.channels.fetch(ag.threadId!).catch(() => null);
+          if (!thread?.isThread()) return;
+          if (thread.archived) await thread.setArchived(false).catch(() => null);
+          await thread.send('⏰ Loot prompt expired — event closed with no loot.').catch(() => null);
+          await thread.setArchived(true).catch(() => null);
+        } catch (err) {
+          console.error(`[bot] checkLootPromptTimeout: failed to archive alliance thread for guild ${ag.discordGuildId}:`, err);
+        }
+      }),
     );
   }
 }

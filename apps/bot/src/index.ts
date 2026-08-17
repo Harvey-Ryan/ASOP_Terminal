@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Events, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import type { EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
@@ -217,6 +217,105 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch (err) {
         console.error('[bot] Leave roster button error:', err);
         await interaction.editReply({ content: '❌ Failed to leave roster.' });
+      }
+      return;
+    }
+
+    // ── Loot / No-Loot decision prompt ────────────────────────────────────────
+    if (prefix === 'event_loot_start' || prefix === 'event_loot_none') {
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const event = await prisma.event.findUnique({ where: { id: entityId } });
+        if (!event) {
+          await interaction.editReply({ content: '❌ Event not found.' });
+          return;
+        }
+        if (event.hadLoot !== null) {
+          await interaction.editReply({ content: 'ℹ️ The loot decision has already been made.' });
+          return;
+        }
+
+        // Permission: event creator OR OWNER / ADMIN / ORGANIZER in the host guild
+        const dbUser = await prisma.user.findUnique({ where: { discordId: interaction.user.id } });
+        const guild  = await prisma.guild.findUnique({ where: { guildId: event.guildId } });
+        const member = dbUser && guild
+          ? await prisma.guildMember.findUnique({
+              where: { userId_guildId: { userId: dbUser.id, guildId: guild.id } },
+            })
+          : null;
+
+        const isCreator = dbUser?.id === event.createdById;
+        const isManager = ['OWNER', 'ADMIN', 'ORGANIZER'].includes(member?.role ?? '');
+
+        if (!isCreator && !isManager) {
+          await interaction.editReply({
+            content: '❌ Only the event creator or guild managers can make the loot decision.',
+          });
+          return;
+        }
+
+        if (prefix === 'event_loot_start') {
+          await prisma.event.update({ where: { id: entityId }, data: { hadLoot: true } });
+
+          // Update the prompt embed to show who made the call
+          const confirmedEmbed = new EmbedBuilder()
+            .setTitle(`🏁 ${event.name} has ended`)
+            .setDescription(`✅ **Loot session** — decision by <@${interaction.user.id}>.\nOpen the dashboard to create and manage the loot session.`)
+            .setColor(0x57f287);
+          await interaction.message.edit({ embeds: [confirmedEmbed], components: [] }).catch(() => null);
+
+          const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+          const lootUrl = `${webUrl}/dashboard/servers/${event.guildId}/events/${entityId}/loot`;
+          const dashRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setLabel('Open Loot Dashboard')
+              .setStyle(ButtonStyle.Link)
+              .setURL(lootUrl),
+          );
+          await interaction.editReply({
+            content: '✅ Loot flagged. Create and manage the session from the dashboard.',
+            components: [dashRow],
+          });
+        } else {
+          // event_loot_none
+          await prisma.event.update({ where: { id: entityId }, data: { hadLoot: false } });
+
+          // Update the prompt embed to show who made the call
+          const confirmedEmbed = new EmbedBuilder()
+            .setTitle(`🏁 ${event.name} has ended`)
+            .setDescription(`⛔ **No loot** — closed by <@${interaction.user.id}>.`)
+            .setColor(0x747f8d);
+          await interaction.message.edit({ embeds: [confirmedEmbed], components: [] }).catch(() => null);
+
+          // Archive host thread
+          if (event.threadId) {
+            try {
+              const hostThread = await client.channels.fetch(event.threadId);
+              if (hostThread?.isThread()) {
+                await hostThread.setArchived(true).catch(() => null);
+              }
+            } catch (err) {
+              console.error('[bot] event_loot_none: failed to archive host thread:', err);
+            }
+          }
+
+          // Archive alliance guild threads
+          const allianceGuilds = await prisma.eventAllianceGuild.findMany({
+            where: { eventId: entityId, threadId: { not: null } },
+          });
+          await Promise.allSettled(
+            allianceGuilds.map(async (ag) => {
+              const agThread = await client.channels.fetch(ag.threadId!).catch(() => null);
+              if (!agThread?.isThread()) return;
+              await agThread.setArchived(true).catch(() => null);
+            }),
+          );
+
+          await interaction.editReply({ content: '✅ Event closed — no loot.' });
+        }
+      } catch (err) {
+        console.error('[bot] Loot prompt button error:', err);
+        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
       }
       return;
     }
