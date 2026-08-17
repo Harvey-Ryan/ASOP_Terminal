@@ -387,7 +387,11 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
       // Add to roster (if not already there) and notify the event thread.
       // joinRoster is idempotent — it no-ops when the user is already on the roster.
-      await joinRoster(event.id, userId, username);
+      // Isolated try/catch: a unique-constraint race (two simultaneous VC joins for the
+      // same user) should not prevent the confirmedAttendees append below from running.
+      await joinRoster(event.id, userId, username).catch((err) =>
+        console.error('[bot] VoiceStateUpdate joinRoster error:', err),
+      );
 
       // Atomically append userId to confirmedAttendees if not already present.
       // A single SQL statement avoids the read-modify-write race when two members

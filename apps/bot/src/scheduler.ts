@@ -562,6 +562,22 @@ async function checkLootPromptTimeout() {
   });
 
   for (const event of events) {
+    // If a loot session already exists the admin started loot via the dashboard but
+    // hadn't clicked the Discord button yet. Correct the flag and move on — never
+    // archive a thread while a live loot session is running.
+    const existingSession = await prisma.lootSession.findUnique({
+      where: { eventId: event.id },
+      select: { id: true },
+    });
+    if (existingSession) {
+      await prisma.event.updateMany({
+        where: { id: event.id, hadLoot: null },
+        data: { hadLoot: true },
+      });
+      console.log(`[bot] checkLootPromptTimeout: event ${event.id} has an active loot session — correcting hadLoot to true`);
+      continue;
+    }
+
     // Atomic claim — guard against concurrent scheduler ticks or restarts
     const claimed = await prisma.event.updateMany({
       where: { id: event.id, hadLoot: null },
