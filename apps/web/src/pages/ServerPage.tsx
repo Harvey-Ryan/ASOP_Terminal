@@ -1022,7 +1022,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               </Link>
             </Button>
           )}
-          {canManage && (ev.status === 'ENDED' || ev.status === 'COMPLETED') && (
+          {isManager && (ev.status === 'ENDED' || ev.status === 'COMPLETED') && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={onRepeat}>
