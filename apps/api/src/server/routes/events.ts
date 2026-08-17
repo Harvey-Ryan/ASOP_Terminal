@@ -243,6 +243,10 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
       endTime = body.endTime ? new Date(body.endTime) : undefined;
       if (endTime && isNaN(endTime.getTime())) throw new ValidationError('endTime is not a valid date');
       optEnum(body.recurType, 'recurType', RECUR_TYPES);
+      if (body.recurEndsAt !== undefined && body.recurEndsAt !== null) {
+        const recurEndsAt = new Date(body.recurEndsAt);
+        if (isNaN(recurEndsAt.getTime())) throw new ValidationError('recurEndsAt is not a valid date');
+      }
       if (body.vcNames !== undefined) optStrArr(body.vcNames, 'vcNames', 10, 100);
       if (body.roles !== undefined && !Array.isArray(body.roles))
         throw new ValidationError('roles must be an array');
@@ -276,6 +280,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         startTime,
         endTime,
         recurType: body.recurType ?? null,
+        recurEndsAt: body.recurEndsAt ? new Date(body.recurEndsAt) : null,
         roles: JSON.stringify(body.roles ?? []),
         vcNames: JSON.stringify(body.vcNames ?? []),
         briefingChannel: body.briefingChannel ?? false,
@@ -577,6 +582,14 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       return;
     }
     data['endTime'] = endTime;
+  }
+  if (body.recurEndsAt !== undefined) {
+    const recurEndsAt = body.recurEndsAt ? new Date(body.recurEndsAt) : null;
+    if (recurEndsAt && isNaN(recurEndsAt.getTime())) {
+      res.status(400).json({ success: false, error: 'recurEndsAt is not a valid date' } satisfies ApiResponse);
+      return;
+    }
+    data['recurEndsAt'] = recurEndsAt;
   }
 
   // If roles changed, move members whose role no longer exists to Unassigned
@@ -1002,6 +1015,7 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     startTime: event.startTime.toISOString(),
     endTime: event.endTime?.toISOString() ?? null,
     recurType: event.recurType,
+    recurEndsAt: event.recurEndsAt?.toISOString() ?? null,
     roles: JSON.parse(event.roles) as EventRole[],
     vcNames: JSON.parse(event.vcNames) as string[],
     vcIds: JSON.parse(event.vcIds) as string[],

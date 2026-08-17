@@ -164,6 +164,8 @@ export interface CreateEventBody {
   /** ISO 8601 UTC string, or null to explicitly clear an existing end time */
   endTime?: string | null;
   recurType?: 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
+  /** ISO 8601 UTC string — stop spawning new occurrences after this date. Null = no end. */
+  recurEndsAt?: string | null;
   roles?: EventRole[];
   /** Names of voice channels to create 30 min before start */
   vcNames?: string[];
@@ -211,6 +213,7 @@ export interface EventDto {
   startTime: string;
   endTime: string | null;
   recurType: string | null;
+  recurEndsAt: string | null;
   roles: EventRole[];
   vcNames: string[];
   briefingChannel: boolean;

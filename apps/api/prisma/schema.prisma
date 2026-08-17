@@ -179,6 +179,8 @@ model Event {
 
   /// DAILY | WEEKLY | BIWEEKLY | MONTHLY — null means one-off
   recurType       String?
+  /// Stop spawning new occurrences after this UTC datetime. Null = no end date.
+  recurEndsAt     DateTime?
   /// JSON: {name:string,count:number}[] — role slots defined by the organiser
   roles           String   @default("[]")
   /// JSON: string[] — VC names to create 30 min before start

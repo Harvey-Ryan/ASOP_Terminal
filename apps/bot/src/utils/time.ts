@@ -25,10 +25,23 @@ export function parseReminderString(input: string): number[] {
 /** Returns the next occurrence date for a given recurrence type. */
 export function nextOccurrence(date: Date, recurType: string): Date {
   const next = new Date(date);
-  if (recurType === 'DAILY') next.setUTCDate(next.getUTCDate() + 1);
-  else if (recurType === 'WEEKLY') next.setUTCDate(next.getUTCDate() + 7);
-  else if (recurType === 'BIWEEKLY') next.setUTCDate(next.getUTCDate() + 14);
-  else if (recurType === 'MONTHLY') next.setUTCMonth(next.getUTCMonth() + 1);
+  if (recurType === 'DAILY') {
+    next.setUTCDate(next.getUTCDate() + 1);
+  } else if (recurType === 'WEEKLY') {
+    next.setUTCDate(next.getUTCDate() + 7);
+  } else if (recurType === 'BIWEEKLY') {
+    next.setUTCDate(next.getUTCDate() + 14);
+  } else if (recurType === 'MONTHLY') {
+    // Anchor to 1st before advancing to avoid day-of-month overflow.
+    // e.g. Jan 31 → setUTCMonth(1) would produce Mar 3; this keeps it on Feb 28/29.
+    const dom = next.getUTCDate();
+    next.setUTCDate(1);
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    const daysInTargetMonth = new Date(
+      Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
+    ).getUTCDate();
+    next.setUTCDate(Math.min(dom, daysInTargetMonth));
+  }
   return next;
 }
 

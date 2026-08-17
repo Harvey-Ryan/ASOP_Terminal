@@ -7,6 +7,28 @@ import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { formatMinutes } from './utils/time.js';
 
+// Prevents a slow tick from overlapping the next one.
+// If a tick takes longer than 60 s (e.g. Discord rate-limiting), node-cron fires
+// again before the previous one completes. The guard drops the duplicate tick
+// instead of running two concurrent copies of the same checks.
+let tickRunning = false;
+
+// Runs a named scheduler check, logs its duration, and swallows errors so one
+// failing check never blocks the rest of the tick.
+async function timedCheck(name: string, fn: () => Promise<void>): Promise<void> {
+  const start = Date.now();
+  try {
+    await fn();
+  } catch (e) {
+    console.error(`[bot] ${name} error:`, e);
+  } finally {
+    const ms = Date.now() - start;
+    if (ms > 5_000) {
+      console.warn(`[bot] ${name} took ${ms}ms — possible Discord rate-limit or slow query`);
+    }
+  }
+}
+
 export async function startScheduler() {
   // Refresh the inactivity timer for every ACTIVE event that has VCs.
   // Without this, a stale lastVcActivityAt carried in from before a restart
@@ -67,19 +89,59 @@ export async function startScheduler() {
     console.error('[bot] Startup subscriber sync failed:', err);
   }
 
+  // Recover VCs for ACTIVE events that started within the last 2 hours but have
+  // no VCs yet. This handles the case where the bot restarted mid-event: the
+  // checkVcCreation cron only looks forward (startTime >= now), so it never fires
+  // for an event whose start time is already in the past.
+  // The 2-hour cap avoids creating VCs for old no-VC events (e.g. text-only events
+  // that checkStuckActiveEvents will eventually clean up).
+  try {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
+    const missingVcs = await prisma.event.findMany({
+      where: {
+        status: 'ACTIVE',
+        vcIds: '[]',
+        startTime: { gte: twoHoursAgo, lte: new Date() },
+      },
+    });
+    if (missingVcs.length > 0) {
+      console.log(`[bot] Startup VC recovery: found ${missingVcs.length} ACTIVE event(s) with no VCs — creating now`);
+      const vcResults = await Promise.allSettled(
+        missingVcs.map((event) =>
+          createVcsForEvent(event.id).catch((err) =>
+            console.error(`[bot] Startup VC recovery failed for event ${event.id}:`, err),
+          ),
+        ),
+      );
+      const created = vcResults.filter((r) => r.status === 'fulfilled').length;
+      console.log(`[bot] Startup VC recovery: created VCs for ${created}/${missingVcs.length} event(s)`);
+    }
+  } catch (err) {
+    console.error('[bot] Startup VC recovery failed:', err);
+  }
+
   cron.schedule('* * * * *', async () => {
-    await checkPendingDiscordSetup().catch((e) => console.error('[bot] checkPendingDiscordSetup error:', e));
-    await checkReminders().catch((e) => console.error('[bot] checkReminders error:', e));
-    await checkEventStart().catch((e) => console.error('[bot] checkEventStart error:', e));
-    await checkVcCreation().catch((e) => console.error('[bot] checkVcCreation error:', e));
-    await checkVcActivity().catch((e) => console.error('[bot] checkVcActivity error:', e));
-    await checkInactivityEnd().catch((e) => console.error('[bot] checkInactivityEnd error:', e));
-    await checkStuckActiveEvents().catch((e) => console.error('[bot] checkStuckActiveEvents error:', e));
-    await checkEventEnd().catch((e) => console.error('[bot] checkEventEnd error:', e));
-    await checkEndedEvents().catch((e) => console.error('[bot] checkEndedEvents error:', e));
-    await checkAutoComplete().catch((e) => console.error('[bot] checkAutoComplete error:', e));
-    await closeExpiredAuctions().catch((e) => console.error('[bot] closeExpiredAuctions error:', e));
-    await closeExpiredStandaloneAuctions().catch((e) => console.error('[bot] closeExpiredStandaloneAuctions error:', e));
+    if (tickRunning) {
+      console.warn('[bot] Cron tick skipped — previous tick still running (possible Discord rate-limit or slow query)');
+      return;
+    }
+    tickRunning = true;
+    try {
+      await timedCheck('checkPendingDiscordSetup', checkPendingDiscordSetup);
+      await timedCheck('checkReminders',           checkReminders);
+      await timedCheck('checkEventStart',          checkEventStart);
+      await timedCheck('checkVcCreation',          checkVcCreation);
+      await timedCheck('checkVcActivity',          checkVcActivity);
+      await timedCheck('checkInactivityEnd',       checkInactivityEnd);
+      await timedCheck('checkStuckActiveEvents',   checkStuckActiveEvents);
+      await timedCheck('checkEventEnd',            checkEventEnd);
+      await timedCheck('checkEndedEvents',         checkEndedEvents);
+      await timedCheck('checkAutoComplete',        checkAutoComplete);
+      await timedCheck('closeExpiredAuctions',     closeExpiredAuctions);
+      await timedCheck('closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions);
+    } finally {
+      tickRunning = false;
+    }
   });
   console.log('[bot] Scheduler started');
 }

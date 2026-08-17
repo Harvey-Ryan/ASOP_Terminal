@@ -157,7 +157,7 @@ async function _setupDiscordForEvent(eventId: string) {
           await prisma.event.update({ where: { id: event.id }, data: { threadId, rosterMessageId } });
 
           // Post poll below the embed if one was configured
-          const pollDataRaw = (event as unknown as { pollData?: string | null }).pollData;
+          const pollDataRaw = event.pollData;
           if (pollDataRaw) {
             try {
               const poll = JSON.parse(pollDataRaw) as EventPoll;
@@ -753,10 +753,13 @@ export async function spawnNextRecurrence(eventId: string) {
 
   const nextStart = nextOccurrence(event.startTime, event.recurType);
   const nextEnd = event.endTime ? nextOccurrence(event.endTime, event.recurType) : null;
-  const now = new Date();
 
-  // Cast to access pollData — it is a real column but not yet in the shared type
-  const pollDataRaw = (event as unknown as { pollData?: string | null }).pollData ?? null;
+  // Stop the chain if the next occurrence would fall after the configured end date.
+  if (event.recurEndsAt && nextStart > event.recurEndsAt) {
+    console.log(`[bot] spawnNextRecurrence: recurrence chain for ${event.id} ends — nextStart ${nextStart.toISOString()} is past recurEndsAt ${event.recurEndsAt.toISOString()}`);
+    return;
+  }
+  const now = new Date();
 
   const next = await prisma.event.create({
     data: {
@@ -771,15 +774,56 @@ export async function spawnNextRecurrence(eventId: string) {
       vcNames: event.vcNames,
       briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
-      pollData: pollDataRaw,
+      pollData: event.pollData ?? null,
+      allianceId: event.allianceId ?? null,
+      recurEndsAt: event.recurEndsAt ?? null,
       createdById: event.createdById,
       status: 'PENDING',
     },
   });
 
+  // Re-invite guilds that accepted the previous occurrence.
+  // Only ACCEPTED shares propagate — PENDING means they never responded to the
+  // last invite (don't auto-forward), DECLINED means they explicitly opted out.
+  // New invites are created as PENDING so each guild gets the standard accept/decline
+  // flow for each occurrence rather than being silently added.
+  const acceptedShares = await prisma.eventGuildShare.findMany({
+    where: { eventId, status: 'ACCEPTED' },
+    select: { guildId: true, sourceType: true, allianceId: true },
+  });
+  if (acceptedShares.length > 0) {
+    await prisma.eventGuildShare.createMany({
+      data: acceptedShares.map((s) => ({
+        eventId: next.id,
+        guildId: s.guildId,
+        sourceType: s.sourceType,
+        allianceId: s.allianceId,
+        status: 'PENDING' as const,
+      })),
+      skipDuplicates: true,
+    });
+    console.log(`[bot] spawnNextRecurrence: re-invited ${acceptedShares.length} guild(s) for event ${next.id}`);
+  }
+
+  // Build reminder schedule.
+  // If the event has a linked template with a custom reminderMinutes array, use that
+  // for FORUM reminders. Otherwise fall back to the hardcoded 60 min + 30 min defaults.
+  // The 15-min DM reminder is always added regardless — it's the most actionable one.
+  let forumReminderMinutes: number[] = [60, 30];
+  const template = await prisma.eventTemplate
+    .findUnique({ where: { sourceEventId: event.id }, select: { reminderMinutes: true } })
+    .catch(() => null);
+  if (template) {
+    const parsed = JSON.parse(template.reminderMinutes) as number[];
+    if (parsed.length > 0) forumReminderMinutes = parsed;
+  }
+
   const reminders = [
-    { eventId: next.id, sendAt: new Date(nextStart.getTime() - 60 * 60_000), type: 'FORUM' },
-    { eventId: next.id, sendAt: new Date(nextStart.getTime() - 30 * 60_000), type: 'FORUM' },
+    ...forumReminderMinutes.map((m) => ({
+      eventId: next.id,
+      sendAt: new Date(nextStart.getTime() - m * 60_000),
+      type: 'FORUM',
+    })),
     { eventId: next.id, sendAt: new Date(nextStart.getTime() - 15 * 60_000), type: 'DM' },
   ].filter((r) => r.sendAt > now);
   if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
