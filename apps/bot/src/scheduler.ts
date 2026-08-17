@@ -2,10 +2,12 @@ import cron from 'node-cron';
 import { ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
-import { setupDiscordForEvent, endEvent, deleteEventVcs, createVcsForEvent, postEventLive, updatePostEventEmbed } from './services/eventService.js';
+import { setupDiscordForEvent, setupDiscordForShare, endEvent, deleteEventVcs, createVcsForEvent, postEventLive, updatePostEventEmbed } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { formatMinutes } from './utils/time.js';
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 // Prevents a slow tick from overlapping the next one.
 // If a tick takes longer than 60 s (e.g. Discord rate-limiting), node-cron fires
@@ -128,6 +130,7 @@ export async function startScheduler() {
     tickRunning = true;
     try {
       await timedCheck('checkPendingDiscordSetup', checkPendingDiscordSetup);
+      await timedCheck('checkPendingShareSetup',   checkPendingShareSetup);
       await timedCheck('checkReminders',           checkReminders);
       await timedCheck('checkEventStart',          checkEventStart);
       await timedCheck('checkVcCreation',          checkVcCreation);
@@ -221,16 +224,34 @@ async function checkReminders() {
     const when = minsLeft > 0 ? `in ${formatMinutes(minsLeft)}` : 'now';
     const ts = Math.floor(event.startTime.getTime() / 1000);
 
-    if (reminder.type === 'FORUM' && event.threadId) {
-      try {
-        const thread = await client.channels.fetch(event.threadId);
-        if (thread?.isThread()) {
-          await thread.send(
-            `⏰ **Reminder:** **${event.name}** starts ${when}! (<t:${ts}:F>)`,
-          );
+    if (reminder.type === 'FORUM') {
+      // ── Host guild thread ───────────────────────────────────────────────────
+      if (event.threadId) {
+        try {
+          const thread = await client.channels.fetch(event.threadId);
+          if (thread?.isThread()) {
+            await thread.send(`⏰ **Reminder:** **${event.name}** starts ${when}! (<t:${ts}:F>)`);
+          }
+        } catch (err) {
+          console.error(`[bot] Forum reminder failed for event ${event.id}:`, err);
         }
-      } catch (err) {
-        console.error(`[bot] Forum reminder failed for event ${event.id}:`, err);
+      }
+
+      // ── Alliance guild threads (fan-out) ────────────────────────────────────
+      // Sequential with a 1 s gap to stay inside Discord's rate limits.
+      const agReminders = await prisma.eventAllianceGuild.findMany({
+        where: { eventId: event.id, threadId: { not: null } },
+      });
+      for (const ag of agReminders) {
+        await sleep(1000);
+        try {
+          const agThread = await client.channels.fetch(ag.threadId!);
+          if (agThread?.isThread()) {
+            await agThread.send(`⏰ **Reminder:** **${event.name}** starts ${when}! (<t:${ts}:F>)`);
+          }
+        } catch (err) {
+          console.error(`[bot] Forum reminder failed for alliance guild ${ag.discordGuildId} (event ${event.id}):`, err);
+        }
       }
     }
 
@@ -519,6 +540,35 @@ async function checkEndedEvents() {
     // 5 minutes have elapsed with empty VCs — delete them
     await deleteEventVcs(event.id).catch((err) =>
       console.error(`[bot] deleteEventVcs failed for ${event.id}:`, err),
+    );
+  }
+}
+
+// ── Retry Discord setup for accepted shares where the bot never ran ───────────
+// Covers the case where a guild accepted an event invite but the bot was down or
+// the trigger HTTP call timed out, leaving the share ACCEPTED but no
+// EventAllianceGuild record created (no forum thread / scheduled event posted).
+//
+// Detection: the EventAllianceGuild.shareId FK means a null `allianceGuild` relation
+// on an ACCEPTED share == no setup has ever been attempted via the new code path.
+// Legacy rows (created before shareId was added) get their shareId backfilled on the
+// first successful call to setupDiscordForShare, so they stop appearing here.
+
+async function checkPendingShareSetup() {
+  const orphaned = await prisma.eventGuildShare.findMany({
+    where: {
+      status: 'ACCEPTED',
+      allianceGuild: null,                          // no linked EventAllianceGuild yet
+      event: { status: { notIn: ['COMPLETED', 'ENDED'] } },
+    },
+    take: 5,                                        // cap per tick to avoid Discord rate-limits
+    orderBy: { invitedAt: 'asc' },                  // oldest first
+  });
+
+  for (const share of orphaned) {
+    console.log(`[bot] checkPendingShareSetup: retrying Discord setup for share ${share.id}`);
+    await setupDiscordForShare(share.id).catch((err) =>
+      console.error(`[bot] checkPendingShareSetup: setup failed for share ${share.id}:`, err),
     );
   }
 }

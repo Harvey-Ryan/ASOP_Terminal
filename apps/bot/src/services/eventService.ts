@@ -994,10 +994,28 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
 
   const existing = await prisma.eventAllianceGuild.findUnique({
     where: { eventId_discordGuildId: { eventId: event.id, discordGuildId: receivingDiscordGuildId } },
+    include: { share: { select: { status: true } } },
   });
   if (existing) {
-    console.log(`[setupDiscordForShare] already set up for guild ${receivingDiscordGuildId}, skipping`);
-    return;
+    // Detect stale orphan: the linked share was DECLINED (host revoked), but revokeDiscordShare
+    // crashed before it could delete this row. Treat it as replaceable — delete it and fall through
+    // so fresh Discord entities get created for the new acceptance.
+    if (existing.shareId && existing.share?.status === 'DECLINED') {
+      console.log(`[setupDiscordForShare] stale EventAllianceGuild found for guild ${receivingDiscordGuildId} (linked share DECLINED) — removing and re-creating`);
+      await prisma.eventAllianceGuild.delete({ where: { id: existing.id } }).catch(() => null);
+      // Fall through to the setup logic below
+    } else {
+      // Legitimately set up. Backfill shareId on legacy rows that predate the shareId field
+      // so they stop appearing as orphaned in the scheduler backstop (checkPendingShareSetup).
+      if (!existing.shareId) {
+        await prisma.eventAllianceGuild.update({
+          where: { id: existing.id },
+          data: { shareId },
+        }).catch(() => null); // concurrent update from another tick is fine — same value
+      }
+      console.log(`[setupDiscordForShare] already set up for guild ${receivingDiscordGuildId}, skipping`);
+      return;
+    }
   }
 
   const roles = JSON.parse(event.roles) as EventRole[];
@@ -1065,6 +1083,7 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
       threadId,
       rosterMessageId,
       discordEventId,
+      shareId, // links this record back to the EventGuildShare that triggered setup
     },
   });
 

@@ -826,8 +826,9 @@ model EventGuildShare {
   invitedAt   DateTime    @default(now())
   respondedAt DateTime?
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guild         Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  allianceGuild EventAllianceGuild?
 
   @@unique([eventId, guildId])
   @@index([eventId])
@@ -878,9 +879,16 @@ model EventAllianceGuild {
   threadId        String?
   rosterMessageId String?
   discordEventId  String?
+  /// The EventGuildShare that triggered this Discord setup. Nullable for rows created before
+  /// this field was introduced and for any legacy code paths that don't set it.
+  /// @unique: one share → at most one EventAllianceGuild row.
+  /// OnDelete: SetNull so deleting the share preserves the record for cleanup (thread + scheduled
+  /// event still need explicit archiving before the row can be safely removed).
+  shareId         String?  @unique
   createdAt       DateTime @default(now())
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  share EventGuildShare? @relation(fields: [shareId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, discordGuildId])
   @@index([eventId])

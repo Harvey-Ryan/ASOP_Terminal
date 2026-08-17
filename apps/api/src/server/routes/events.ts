@@ -262,11 +262,23 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
 
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
-    // Validate alliance if provided
+    // Validate alliance if provided — verify it exists AND the host guild is an ACCEPTED member.
+    // Without the membership check any guild that discovers an alliance ID can invite all its
+    // members to events, bypassing the access model entirely.
     if (body.allianceId) {
       const alliance = await prisma.alliance.findUnique({ where: { id: body.allianceId } });
       if (!alliance) {
         res.status(400).json({ success: false, error: 'Alliance not found' } satisfies ApiResponse);
+        return;
+      }
+      const hostGuildRecord = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+      const hostMembership = hostGuildRecord
+        ? await prisma.allianceMember.findUnique({
+            where: { allianceId_guildId: { allianceId: body.allianceId, guildId: hostGuildRecord.id } },
+          })
+        : null;
+      if (!hostMembership || hostMembership.status !== 'ACCEPTED') {
+        res.status(403).json({ success: false, error: 'Your guild is not a member of this alliance' } satisfies ApiResponse);
         return;
       }
     }
@@ -618,6 +630,26 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
   }
 
+  // Validate alliance membership before committing the update.
+  // Same check as POST: the host guild must be an ACCEPTED member of the target alliance.
+  if (body.allianceId && body.allianceId !== event.allianceId) {
+    const allianceForPatch = await prisma.alliance.findUnique({ where: { id: body.allianceId } });
+    if (!allianceForPatch) {
+      res.status(400).json({ success: false, error: 'Alliance not found' } satisfies ApiResponse);
+      return;
+    }
+    const hostGuildForPatch = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+    const patchMembership = hostGuildForPatch
+      ? await prisma.allianceMember.findUnique({
+          where: { allianceId_guildId: { allianceId: body.allianceId, guildId: hostGuildForPatch.id } },
+        })
+      : null;
+    if (!patchMembership || patchMembership.status !== 'ACCEPTED') {
+      res.status(403).json({ success: false, error: 'Your guild is not a member of this alliance' } satisfies ApiResponse);
+      return;
+    }
+  }
+
   const updated = await prisma.event.update({
     where: { id: eventId },
     data,
@@ -627,7 +659,24 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     },
   });
 
-  // If allianceId was added or changed, create PENDING shares for new alliance members
+  // If allianceId changed (including removed to null), delete unanswered invites from the old
+  // alliance so guilds don't see stale pending notifications after the event moves alliances.
+  //   • PENDING   → deleted   (no response yet — nothing to preserve; deleting lets the guild
+  //                            receive a fresh invite if it is also in the new alliance)
+  //   • DECLINED  → preserved (guild explicitly opted out — don't reinvite automatically)
+  //   • ACCEPTED  → preserved (guild is actively participating — revoke explicitly via DELETE)
+  const newAllianceId = body.allianceId !== undefined ? (body.allianceId || null) : undefined;
+  if (newAllianceId !== undefined && event.allianceId && newAllianceId !== event.allianceId) {
+    const deleted = await prisma.eventGuildShare.deleteMany({
+      where: { eventId, status: 'PENDING', sourceType: 'ALLIANCE', allianceId: event.allianceId },
+    });
+    if (deleted.count > 0) {
+      console.log(`[PATCH event] Removed ${deleted.count} unanswered invite(s) for old alliance ${event.allianceId} on event ${eventId}`);
+    }
+  }
+
+  // If allianceId was set to a new value, create PENDING shares for that alliance's members.
+  // skipDuplicates handles guilds that previously DECLINED (unique constraint preserves their row).
   if (body.allianceId && body.allianceId !== event.allianceId) {
     const hostGuild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
     if (hostGuild) {
@@ -1129,6 +1178,16 @@ eventsRouter.post('/:guildId/events/:eventId/shares/alliance', requireAuth, asyn
     return;
   }
 
+  // Verify the host guild is an ACCEPTED member of the alliance.
+  // Without this check any guild could invite all members of any alliance they discovered.
+  const hostAllianceMembership = await prisma.allianceMember.findUnique({
+    where: { allianceId_guildId: { allianceId, guildId: hostGuild.id } },
+  });
+  if (!hostAllianceMembership || hostAllianceMembership.status !== 'ACCEPTED') {
+    res.status(403).json({ success: false, error: 'Your guild is not a member of this alliance' } satisfies ApiResponse);
+    return;
+  }
+
   const allianceMembers = await prisma.allianceMember.findMany({
     where: { allianceId, status: 'ACCEPTED', NOT: { guildId: hostGuild.id } },
     select: { guildId: true },
@@ -1157,10 +1216,11 @@ eventsRouter.post('/:guildId/events/:eventId/shares/alliance', requireAuth, asyn
         status: 'PENDING' as const,
       })),
     });
-    // Also set event.allianceId so the UI knows which alliance was used
-    if (!event.allianceId) {
-      await prisma.event.update({ where: { id: eventId }, data: { allianceId } });
-    }
+    // Always update event.allianceId to reflect the most recently used alliance.
+    // The old `if (!event.allianceId)` guard caused stale data when an organiser called
+    // this route with Alliance A and then again with Alliance B — the allianceId would
+    // remain stuck on A even though B's invites were sent.
+    await prisma.event.update({ where: { id: eventId }, data: { allianceId } });
   }
 
   res.json({ success: true, data: { created: toCreate.length } } satisfies ApiResponse);
