@@ -720,8 +720,8 @@ async function checkMatchNoShow() {
     if (!thread?.isThread()) continue;
 
     // Determine no-show side(s)
-    const noShowA = !match.checkedInA && match.participantA;
-    const noShowB = !match.checkedInB && match.participantB;
+    const noShowA = !match.checkedInA ? match.participantA : null;
+    const noShowB = !match.checkedInB ? match.participantB : null;
     const noShowNames = [noShowA?.displayName, noShowB?.displayName].filter(Boolean).join(' and ');
 
     await thread.send(
