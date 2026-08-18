@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2 } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -163,6 +163,7 @@ export function DashboardLayout() {
   const blueprintsEnabled = myPerms?.blueprintsEnabled ?? true;
   const craftingEnabled   = myPerms?.craftingEnabled  ?? true;
   const activityEnabled   = myPerms?.activityEnabled  ?? true;
+  const tournamentsEnabled = myPerms?.tournamentsEnabled ?? true;
 
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [profileOpen,      setProfileOpen]      = useState(false);
@@ -491,6 +492,17 @@ export function DashboardLayout() {
                 <BarChart2 className="h-4 w-4 shrink-0" />
                 {!navCollapsed && 'Traffic'}
               </NavLink>
+
+              {tournamentsEnabled && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/tournaments`}
+                  title={navCollapsed ? 'Tournaments' : undefined}
+                  className={serverNavCls}
+                >
+                  <Swords className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Tournaments'}
+                </NavLink>
+              )}
 
               {(blueprintsEnabled || craftingEnabled) && (
                 <>

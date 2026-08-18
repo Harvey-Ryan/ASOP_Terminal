@@ -150,6 +150,8 @@ model GuildSettings {
   allianceManagerRoles  String   @default("[]")
   /// Whether regular members can see the Guild Activity and Event Planning heat maps
   activityHeatmapPublic Boolean  @default(true)
+  /// Whether the Tournaments module is enabled for this guild
+  tournamentsEnabled    Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1273,4 +1275,211 @@ model RequestLog {
   @@index([guildId, createdAt])
   @@index([module, createdAt])
   @@index([createdAt])
+}
+
+// ── Tournament Bracket Module ─────────────────────────────────────────────────
+
+model Tournament {
+  id                 String    @id @default(cuid())
+  guildId            String
+  name               String
+  description        String?
+  /// "SINGLE_ELIM" | "DOUBLE_ELIM"
+  format             String    @default("SINGLE_ELIM")
+  /// "INDIVIDUAL" | "TEAM"
+  participantMode    String    @default("INDIVIDUAL")
+  /// Must be a power of 2: 4 | 8 | 16 | 32
+  size               Int       @default(8)
+  /// "DRAFT" | "REGISTRATION" | "IN_PROGRESS" | "COMPLETED"
+  status             String    @default("DRAFT")
+  /// "RANDOM" | "DKP" | "ACTIVITY" | "MANUAL"
+  seedingMode        String    @default("RANDOM")
+  dkpPrize1st        Int       @default(0)
+  dkpPrize2nd        Int       @default(0)
+  dkpPrize3rd        Int       @default(0)
+  /// Discord forum channel snowflake for the tournament thread
+  channelId          String?
+  /// Discord forum thread snowflake
+  threadId           String?
+  /// Snowflake of the pinned bracket image message in the thread
+  bracketMessageId   String?
+  registrationEndsAt DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdById        String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  participants TournamentParticipant[]
+  matches      TournamentMatch[]
+  reminders    TournamentReminder[]
+  seasons      TournamentSeasonLink[]
+
+  @@index([guildId])
+  @@index([guildId, status])
+}
+
+model TournamentParticipant {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  displayName  String
+  /// null for team-mode participants (identified by displayName only)
+  discordId    String?
+  seed         Int?
+  /// "ACTIVE" | "ELIMINATED" | "WINNER" | "RUNNER_UP" | "THIRD"
+  status       String     @default("ACTIVE")
+  /// double elimination: true when dropped to losers bracket
+  inLosers     Boolean    @default(false)
+  placement    Int?
+  createdAt    DateTime   @default(now())
+
+  teamMembers TournamentTeamMember[]
+  matchesAsA  TournamentMatch[]      @relation("MatchParticipantA")
+  matchesAsB  TournamentMatch[]      @relation("MatchParticipantB")
+  matchesWon  TournamentMatch[]      @relation("MatchWinner")
+
+  @@unique([tournamentId, discordId])
+  @@index([tournamentId])
+}
+
+model TournamentTeamMember {
+  id            String                @id @default(cuid())
+  participantId String
+  participant   TournamentParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  discordId     String
+  displayName   String
+
+  @@unique([participantId, discordId])
+}
+
+model TournamentMatch {
+  id               String    @id @default(cuid())
+  tournamentId     String
+  tournament       Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  round            Int
+  position         Int
+  /// "WINNERS" | "LOSERS" | "GRAND_FINALS"
+  bracketSide      String    @default("WINNERS")
+  participantAId   String?
+  participantBId   String?
+  participantA     TournamentParticipant? @relation("MatchParticipantA", fields: [participantAId], references: [id])
+  participantB     TournamentParticipant? @relation("MatchParticipantB", fields: [participantBId], references: [id])
+  winnerId         String?
+  winner           TournamentParticipant? @relation("MatchWinner", fields: [winnerId], references: [id])
+  scoreA           Int?
+  scoreB           Int?
+  /// "PENDING" | "SCHEDULED" | "READY_CHECK" | "IN_PROGRESS" | "AWAITING_RESULT" | "COMPLETED" | "BYE" | "NO_SHOW"
+  status           String    @default("PENDING")
+  /// cuid of the TournamentMatch where winner advances
+  nextMatchId      String?
+  /// cuid of the TournamentMatch in losers bracket (double elim only)
+  nextLoserMatchId String?
+  scheduledAt      DateTime?
+  readyA           Boolean   @default(false)
+  readyB           Boolean   @default(false)
+  checkedInA       Boolean   @default(false)
+  checkedInB       Boolean   @default(false)
+  /// idempotency guard — prevents double Discord post
+  resultPostedAt   DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([tournamentId, round])
+  @@index([scheduledAt, status])
+  @@index([tournamentId, bracketSide])
+}
+
+model TournamentReminder {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matchId      String?
+  /// "MATCH_START" | "CHECK_IN" | "REGISTRATION_CLOSE" | "BRACKET_RELEASE"
+  type         String
+  scheduledAt  DateTime
+  sentAt       DateTime?
+
+  @@index([scheduledAt, sentAt])
+  @@index([tournamentId])
+}
+
+model TournamentSeason {
+  id        String    @id @default(cuid())
+  guildId   String
+  name      String
+  /// "ACTIVE" | "COMPLETED"
+  status    String    @default("ACTIVE")
+  startsAt  DateTime  @default(now())
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  links     TournamentSeasonLink[]
+  standings TournamentSeasonStanding[]
+
+  @@index([guildId])
+  @@index([guildId, status])
+}
+
+model TournamentSeasonLink {
+  seasonId     String
+  tournamentId String
+  season       TournamentSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  tournament   Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@id([seasonId, tournamentId])
+}
+
+/// All-time ELO per player per guild — never resets
+model TournamentPlayerRating {
+  id            String   @id @default(cuid())
+  guildId       String
+  discordId     String
+  displayName   String
+  rating        Int      @default(1200)
+  matchesPlayed Int      @default(0)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  peakRating    Int      @default(1200)
+  updatedAt     DateTime @updatedAt
+
+  history TournamentRatingHistory[]
+
+  @@unique([guildId, discordId])
+  @@index([guildId, rating])
+}
+
+/// Season ELO — starts at 1200 each new season
+model TournamentSeasonStanding {
+  id            String           @id @default(cuid())
+  seasonId      String
+  guildId       String
+  discordId     String
+  displayName   String
+  rating        Int              @default(1200)
+  matchesPlayed Int              @default(0)
+  wins          Int              @default(0)
+  losses        Int              @default(0)
+  season        TournamentSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, discordId])
+  @@index([seasonId, rating])
+}
+
+/// One row per player per match result — full ELO audit trail
+model TournamentRatingHistory {
+  id                   String                 @id @default(cuid())
+  ratingId             String
+  rating               TournamentPlayerRating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+  matchId              String
+  tournamentId         String
+  ratingBefore         Int
+  ratingAfter          Int
+  delta                Int
+  won                  Boolean
+  opponentName         String?
+  opponentRatingBefore Int?
+  createdAt            DateTime               @default(now())
+
+  @@index([ratingId, createdAt])
+  @@index([tournamentId])
 }

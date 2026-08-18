@@ -25,6 +25,7 @@ import { notificationsRouter } from './routes/notifications.js';
 import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
 import { trafficRouter } from './routes/traffic.js';
+import { tournamentRouter } from './routes/tournament.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 
@@ -221,6 +222,7 @@ export function createServer(): express.Express {
   app.use('/api', roleCallRouter);
   app.use('/api/guilds', heatmapRouter);
   app.use('/api/guilds', trafficRouter);
+  app.use('/api/guilds', tournamentRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

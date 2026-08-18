@@ -22,6 +22,7 @@ import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole, leaveRoster } from './services/rsvpService.js';
 import { endEvent } from './services/eventService.js';
+import { postMatchAnnouncement } from './services/tournamentService.js';
 
 interface Command {
   data: { toJSON(): unknown };
@@ -315,6 +316,130 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       } catch (err) {
         console.error('[bot] Loot prompt button error:', err);
+        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+      }
+      return;
+    }
+
+    // ── Tournament: Ready check ───────────────────────────────────────────────
+    if (prefix === 'bracket_ready') {
+      const matchId = entityId;
+      const side = value as 'A' | 'B';
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const match = await prisma.tournamentMatch.findUnique({
+          where: { id: matchId },
+          include: { participantA: true, participantB: true },
+        });
+        if (!match) {
+          await interaction.editReply({ content: '❌ Match not found.' });
+          return;
+        }
+        if (match.status === 'COMPLETED') {
+          await interaction.editReply({ content: 'ℹ️ This match is already complete.' });
+          return;
+        }
+
+        const participant = side === 'A' ? match.participantA : match.participantB;
+        if (!participant?.discordId || participant.discordId !== interaction.user.id) {
+          await interaction.editReply({ content: '❌ You are not a participant in this match.' });
+          return;
+        }
+
+        const update: Record<string, boolean> = side === 'A' ? { readyA: true } : { readyB: true };
+        const updated = await prisma.tournamentMatch.update({ where: { id: matchId }, data: update });
+
+        if (updated.readyA && updated.readyB) {
+          await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
+          await interaction.message.edit({ components: [] }).catch(() => null);
+          await interaction.editReply({ content: '✅ Both players ready — match is live!' });
+        } else {
+          await interaction.editReply({ content: '✅ You are marked as ready. Waiting for your opponent.' });
+        }
+      } catch (err) {
+        console.error('[bot] bracket_ready error:', err);
+        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+      }
+      return;
+    }
+
+    // ── Tournament: Check-in ──────────────────────────────────────────────────
+    if (prefix === 'bracket_checkin') {
+      const matchId = entityId;
+      const side = value as 'A' | 'B';
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const match = await prisma.tournamentMatch.findUnique({
+          where: { id: matchId },
+          include: { participantA: true, participantB: true },
+        });
+        if (!match) {
+          await interaction.editReply({ content: '❌ Match not found.' });
+          return;
+        }
+
+        const participant = side === 'A' ? match.participantA : match.participantB;
+        if (!participant?.discordId || participant.discordId !== interaction.user.id) {
+          await interaction.editReply({ content: '❌ You are not a participant in this match.' });
+          return;
+        }
+
+        const update: Record<string, boolean> = side === 'A' ? { checkedInA: true } : { checkedInB: true };
+        const updated = await prisma.tournamentMatch.update({ where: { id: matchId }, data: update });
+
+        if (updated.checkedInA && updated.checkedInB) {
+          await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
+          await interaction.editReply({ content: '✅ Both players checked in — match is live!' });
+        } else {
+          await interaction.editReply({ content: '✅ You are checked in. Waiting for your opponent.' });
+        }
+      } catch (err) {
+        console.error('[bot] bracket_checkin error:', err);
+        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+      }
+      return;
+    }
+
+    // ── Tournament: Self-register ─────────────────────────────────────────────
+    if (prefix === 'bracket_register') {
+      const tournamentId = entityId;
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+        if (!tournament) {
+          await interaction.editReply({ content: '❌ Tournament not found.' });
+          return;
+        }
+        if (tournament.status !== 'REGISTRATION') {
+          await interaction.editReply({ content: 'ℹ️ Registration is no longer open.' });
+          return;
+        }
+
+        const existing = await prisma.tournamentParticipant.findFirst({
+          where: { tournamentId, discordId: interaction.user.id },
+        });
+        if (existing) {
+          await interaction.editReply({ content: 'ℹ️ You are already registered.' });
+          return;
+        }
+
+        const count = await prisma.tournamentParticipant.count({ where: { tournamentId } });
+        if (count >= tournament.size) {
+          await interaction.editReply({ content: '❌ Tournament is full.' });
+          return;
+        }
+
+        const displayName = (interaction.member instanceof GuildMember)
+          ? interaction.member.displayName
+          : interaction.user.username;
+
+        await prisma.tournamentParticipant.create({
+          data: { tournamentId, discordId: interaction.user.id, displayName },
+        });
+
+        await interaction.editReply({ content: `✅ You are registered for **${tournament.name}**!` });
+      } catch (err) {
+        console.error('[bot] bracket_register error:', err);
         await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
       }
       return;
