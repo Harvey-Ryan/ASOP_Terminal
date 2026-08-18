@@ -36,6 +36,17 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
     ?? guildRecord?.settings?.forumChannelId
     ?? null;
 
+  // Announce registration closed in the existing thread before posting the bracket
+  if (tournament.threadId) {
+    const existing = await client.channels.fetch(tournament.threadId).catch(() => null);
+    if (existing?.isThread()) {
+      const participantCount = tournament.participants.length;
+      await existing.send(
+        `🔒 **Registration is now closed!** ${participantCount} participant${participantCount === 1 ? '' : 's'} locked in — generating bracket…`,
+      ).catch((err) => console.error(`[tournamentService] Failed to post registration-closed message:`, err));
+    }
+  }
+
   // Generate bracket image
   const bracketBuffer = buildBracketPng(tournament.matches as BracketMatchInfo[], tournament.participants as BracketParticipantInfo[], tournament.name);
   const bracketFile = new AttachmentBuilder(bracketBuffer, { name: 'bracket.png' });
