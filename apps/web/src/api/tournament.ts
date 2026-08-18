@@ -216,6 +216,21 @@ export const tournamentApi = {
 
   demo: (guildId: string) =>
     api
-      .post<ApiResponse<{ tournamentId: string }>>(`/guilds/${guildId}/tournaments/demo`, {})
+      .post<ApiResponse<{ tournamentId: string; name: string }>>(`/guilds/${guildId}/tournaments/demo`, {})
+      .then(requireData),
+
+  demoParticipants: (guildId: string, id: string) =>
+    api
+      .post<ApiResponse<{ count: number }>>(`/guilds/${guildId}/tournaments/${id}/demo/participants`, {})
+      .then(requireData),
+
+  demoBracket: (guildId: string, id: string) =>
+    api
+      .post<ApiResponse<{ matchCount: number }>>(`/guilds/${guildId}/tournaments/${id}/demo/bracket`, {})
+      .then(requireData),
+
+  demoResolve: (guildId: string, id: string) =>
+    api
+      .post<ApiResponse<{ winner: string; tournamentId: string }>>(`/guilds/${guildId}/tournaments/${id}/demo/resolve`, {})
       .then(requireData),
 };

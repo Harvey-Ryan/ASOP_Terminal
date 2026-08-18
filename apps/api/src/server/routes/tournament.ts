@@ -190,130 +190,198 @@ tournamentRouter.get('/:guildId/tournaments/players/:discordId/history', require
   }
 });
 
-// ── POST /:guildId/tournaments/demo ──────────────────────────────────────────
-// Creates a full 8-person tournament with fake participants, generates the
-// bracket, randomly resolves every match, and marks it COMPLETED — no Discord
-// side-effects since all participants have null discordIds.
+// ── Demo tournament — 4 sequential steps so the UI can report progress ────────
 
+const DEMO_FAKE_NAMES = [
+  'Aelindra Swiftblade', 'Borin Ironforge', 'Cassara Dusk', 'Drakon Vex',
+  'Elara Moonwhisper', 'Fyros the Bold', 'Griselda Storm', 'Harken Vale',
+];
+
+// Step 1: Create the tournament record (DRAFT, no participants yet)
 tournamentRouter.post('/:guildId/tournaments/demo', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const FAKE_NAMES = [
-    'Aelindra Swiftblade', 'Borin Ironforge', 'Cassara Dusk', 'Drakon Vex',
-    'Elara Moonwhisper', 'Fyros the Bold', 'Griselda Storm', 'Harken Vale',
-  ];
-
   try {
     const creatorId = req.session.userId!;
-    const now = new Date();
-    const label = now.toISOString().slice(0, 16).replace('T', ' ');
+    const label = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    const name = `Demo Tournament ${label}`;
 
-    const tournamentId = await prisma.$transaction(async (tx) => {
-      // Create tournament directly as IN_PROGRESS — no DRAFT/REGISTRATION cycle needed
-      const tournament = await tx.tournament.create({
-        data: {
-          guildId,
-          name: `Demo Tournament ${label}`,
-          format: 'SINGLE_ELIM',
-          participantMode: 'INDIVIDUAL',
-          size: 8,
-          status: 'IN_PROGRESS',
-          seedingMode: 'RANDOM',
-          startedAt: now,
-          createdById: creatorId,
-        },
-      });
+    const tournament = await prisma.tournament.create({
+      data: {
+        guildId,
+        name,
+        format: 'SINGLE_ELIM',
+        participantMode: 'INDIVIDUAL',
+        size: 8,
+        status: 'DRAFT',
+        seedingMode: 'RANDOM',
+        createdById: creatorId,
+      },
+    });
 
-      // Create 8 fake participants — null discordId means no ELO or DKP side-effects
-      await tx.tournamentParticipant.createMany({
-        data: FAKE_NAMES.map((displayName, i) => ({
-          tournamentId: tournament.id,
-          displayName,
-          discordId: null,
-          seed: i + 1,
-          status: 'ACTIVE',
-        })),
-      });
-      const participants = await tx.tournamentParticipant.findMany({
-        where: { tournamentId: tournament.id },
-        orderBy: { seed: 'asc' },
-      });
+    res.json({ success: true, data: { tournamentId: tournament.id, name: tournament.name } } satisfies ApiResponse);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[POST demo step 1]', err);
+    res.status(500).json({ success: false, error: msg } satisfies ApiResponse);
+  }
+});
 
-      // Generate bracket
-      const seededParticipants = participants.map((p) => ({ id: p.id, seed: p.seed ?? 999 }));
-      const slots = generateSingleElimBracket(tournament.id, seededParticipants);
-      const keyToId = new Map(slots.map((s) => [s.key, randomUUID()]));
-      const matchData = slots.map((slot) => ({
-        id: keyToId.get(slot.key)!,
-        tournamentId: tournament.id,
-        round: slot.round,
-        position: slot.position,
-        bracketSide: slot.bracketSide,
-        participantAId: slot.participantAId,
-        participantBId: slot.participantBId,
-        status: slot.status,
-        nextMatchId: slot.nextMatchKey ? (keyToId.get(slot.nextMatchKey) ?? null) : null,
-      }));
+// Step 2: Add 8 fake participants (null discordId → no ELO/DKP side-effects)
+tournamentRouter.post('/:guildId/tournaments/:id/demo/participants', requireAuth, async (req, res) => {
+  const { guildId, id } = req.params as { guildId: string; id: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
 
+  try {
+    const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
+    if (!tournament) return notFound(res);
+    if (tournament.status !== 'DRAFT') return badRequest(res, `Expected DRAFT, got ${tournament.status}`);
+
+    await prisma.tournamentParticipant.createMany({
+      data: DEMO_FAKE_NAMES.map((displayName, i) => ({
+        tournamentId: id,
+        displayName,
+        discordId: null,
+        seed: i + 1,
+        status: 'ACTIVE',
+      })),
+    });
+
+    res.json({ success: true, data: { count: DEMO_FAKE_NAMES.length } } satisfies ApiResponse);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[POST demo step 2]', err);
+    res.status(500).json({ success: false, error: msg } satisfies ApiResponse);
+  }
+});
+
+// Step 3: Generate single-elim bracket, transition to IN_PROGRESS
+tournamentRouter.post('/:guildId/tournaments/:id/demo/bracket', requireAuth, async (req, res) => {
+  const { guildId, id } = req.params as { guildId: string; id: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
+
+  try {
+    const tournament = await prisma.tournament.findFirst({
+      where: { id, guildId },
+      include: { participants: { orderBy: { seed: 'asc' } } },
+    });
+    if (!tournament) return notFound(res);
+    if (tournament.status !== 'DRAFT') return badRequest(res, `Expected DRAFT, got ${tournament.status}`);
+    if (tournament.participants.length < 2) return badRequest(res, `Need at least 2 participants, have ${tournament.participants.length}`);
+
+    const seededParticipants = tournament.participants.map((p) => ({ id: p.id, seed: p.seed ?? 999 }));
+    const slots = generateSingleElimBracket(id, seededParticipants);
+    const keyToId = new Map(slots.map((s) => [s.key, randomUUID()]));
+    const matchData = slots.map((slot) => ({
+      id: keyToId.get(slot.key)!,
+      tournamentId: id,
+      round: slot.round,
+      position: slot.position,
+      bracketSide: slot.bracketSide,
+      participantAId: slot.participantAId,
+      participantBId: slot.participantBId,
+      status: slot.status,
+      nextMatchId: slot.nextMatchKey ? (keyToId.get(slot.nextMatchKey) ?? null) : null,
+    }));
+
+    await prisma.$transaction(async (tx) => {
       await tx.tournamentMatch.createMany({ data: matchData });
 
-      // Walk rounds in order, randomly resolving each match and advancing winners
-      const maxRound = Math.max(...matchData.map((m) => m.round));
-      let finalWinnerId: string | null = null;
-      let finalLoserId: string | null = null;
-
-      for (let round = 1; round <= maxRound; round++) {
-        for (const match of matchData.filter((m) => m.round === round)) {
-          if (match.status === 'BYE') {
-            if (match.participantAId && match.nextMatchId) {
-              const next = matchData.find((m) => m.id === match.nextMatchId)!;
-              const field = next.participantAId ? 'participantBId' : 'participantAId';
-              next[field] = match.participantAId;
-              await tx.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: match.participantAId } });
-            }
-            continue;
-          }
-
-          if (!match.participantAId || !match.participantBId) continue;
-
-          const aWins = Math.random() < 0.5;
-          const winnerId = aWins ? match.participantAId : match.participantBId;
-          const loserId = aWins ? match.participantBId : match.participantAId;
-
-          await tx.tournamentMatch.update({
-            where: { id: match.id },
-            data: { winnerId, status: 'COMPLETED', resultPostedAt: now },
-          });
-          await tx.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED' } });
-
-          if (match.nextMatchId) {
-            const next = matchData.find((m) => m.id === match.nextMatchId)!;
-            const field = next.participantAId ? 'participantBId' : 'participantAId';
-            next[field] = winnerId;
-            await tx.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: winnerId } });
-          }
-
-          if (round === maxRound) { finalWinnerId = winnerId; finalLoserId = loserId; }
+      const byes = matchData.filter((m) => m.status === 'BYE');
+      for (const bye of byes) {
+        if (bye.participantAId && bye.nextMatchId) {
+          const next = matchData.find((m) => m.id === bye.nextMatchId)!;
+          const field = next.participantAId ? 'participantBId' : 'participantAId';
+          next[field] = bye.participantAId;
+          await tx.tournamentMatch.update({ where: { id: bye.nextMatchId }, data: { [field]: bye.participantAId } });
         }
       }
 
-      if (finalWinnerId) {
-        await tx.tournamentParticipant.update({ where: { id: finalWinnerId }, data: { status: 'WINNER', placement: 1 } });
-      }
-      if (finalLoserId) {
-        await tx.tournamentParticipant.update({ where: { id: finalLoserId }, data: { status: 'RUNNER_UP', placement: 2 } });
-      }
-      await tx.tournament.update({ where: { id: tournament.id }, data: { status: 'COMPLETED', completedAt: now } });
-
-      return tournament.id;
+      await tx.tournament.update({ where: { id }, data: { status: 'IN_PROGRESS', startedAt: new Date() } });
     });
 
-    res.json({ success: true, data: { tournamentId } } satisfies ApiResponse);
+    res.json({ success: true, data: { matchCount: matchData.length } } satisfies ApiResponse);
   } catch (err) {
-    console.error('[POST demo]', err);
-    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[POST demo step 3]', err);
+    res.status(500).json({ success: false, error: msg } satisfies ApiResponse);
+  }
+});
+
+// Step 4: Randomly resolve every match round-by-round, then mark COMPLETED
+tournamentRouter.post('/:guildId/tournaments/:id/demo/resolve', requireAuth, async (req, res) => {
+  const { guildId, id } = req.params as { guildId: string; id: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
+
+  try {
+    const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
+    if (!tournament) return notFound(res);
+    if (tournament.status !== 'IN_PROGRESS') return badRequest(res, `Expected IN_PROGRESS, got ${tournament.status}`);
+
+    const matches = await prisma.tournamentMatch.findMany({
+      where: { tournamentId: id },
+      orderBy: [{ round: 'asc' }, { position: 'asc' }],
+    });
+
+    const now = new Date();
+    // Mutable snapshot — winner advances are tracked here so later rounds see updated participants
+    const matchData = matches.map((m) => ({ ...m }));
+    let finalWinnerId: string | null = null;
+    let finalLoserId: string | null = null;
+    const maxRound = Math.max(...matchData.map((m) => m.round));
+
+    for (let round = 1; round <= maxRound; round++) {
+      for (const match of matchData.filter((m) => m.round === round)) {
+        if (match.status === 'BYE') {
+          if (match.participantAId && match.nextMatchId) {
+            const next = matchData.find((m) => m.id === match.nextMatchId)!;
+            const field = next.participantAId ? 'participantBId' : 'participantAId';
+            next[field] = match.participantAId;
+            await prisma.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: match.participantAId } });
+          }
+          continue;
+        }
+
+        if (!match.participantAId || !match.participantBId) continue;
+
+        const aWins = Math.random() < 0.5;
+        const winnerId = aWins ? match.participantAId : match.participantBId;
+        const loserId = aWins ? match.participantBId : match.participantAId;
+
+        await prisma.tournamentMatch.update({ where: { id: match.id }, data: { winnerId, status: 'COMPLETED', resultPostedAt: now } });
+        await prisma.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED' } });
+
+        if (match.nextMatchId) {
+          const next = matchData.find((m) => m.id === match.nextMatchId)!;
+          const field = next.participantAId ? 'participantBId' : 'participantAId';
+          next[field] = winnerId;
+          await prisma.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: winnerId } });
+        }
+
+        if (round === maxRound) { finalWinnerId = winnerId; finalLoserId = loserId; }
+      }
+    }
+
+    let winnerName = 'Unknown';
+    if (finalWinnerId) {
+      const w = await prisma.tournamentParticipant.update({ where: { id: finalWinnerId }, data: { status: 'WINNER', placement: 1 } });
+      winnerName = w.displayName;
+    }
+    if (finalLoserId) {
+      await prisma.tournamentParticipant.update({ where: { id: finalLoserId }, data: { status: 'RUNNER_UP', placement: 2 } });
+    }
+    await prisma.tournament.update({ where: { id }, data: { status: 'COMPLETED', completedAt: now } });
+
+    res.json({ success: true, data: { winner: winnerName, tournamentId: id } } satisfies ApiResponse);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[POST demo step 4]', err);
+    res.status(500).json({ success: false, error: msg } satisfies ApiResponse);
   }
 });
 
