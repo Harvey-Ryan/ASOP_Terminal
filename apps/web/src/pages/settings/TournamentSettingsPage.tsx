@@ -32,8 +32,7 @@ export function TournamentSettingsPage() {
 
   const loading = settingsLoading || channelsLoading;
   const channels = channelData?.channels ?? [];
-  // Forum (15) and text (0) channels are valid targets for tournament threads
-  const threadableChannels = channels.filter((c) => c.type === 15 || c.type === 0 || c.type === 5);
+  const forumChannels = channels.filter((c) => c.type === 15);
 
   // ── Enabled toggle ────────────────────────────────────────────────────────
 
@@ -168,16 +167,17 @@ export function TournamentSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Default channel where tournament threads are created. Each tournament can override this individually.
-            Forum channels (📋) are recommended — the bot creates a thread per tournament.
+            Forum channel where tournament threads are created. Must be a Discord forum channel (📋) —
+            the bot creates one thread per tournament for announcements and match cards.
+            Each tournament can override this individually.
           </p>
           {loading ? <Skeleton className="h-9 w-full" /> : (
             <ChannelSelect
               id="tournament-channel"
-              channels={threadableChannels}
+              channels={forumChannels}
               value={channelId}
               onChange={(v) => { setChannelId(v); setChannelDirty(true); }}
-              types={[0, 5, 15]}
+              types={[15]}
             />
           )}
           {channelDirty && (

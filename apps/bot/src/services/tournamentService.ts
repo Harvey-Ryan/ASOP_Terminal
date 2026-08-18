@@ -63,12 +63,16 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
 
   if (!threadId) {
     if (!channelId) {
-      console.warn(`[tournamentService] No channelId for tournament ${tournamentId} — skipping Discord setup`);
+      console.error(`[tournamentService] setupDiscordForTournament: no forum channel configured for guild ${tournament.guildId}`);
       return;
     }
     const ch = await client.channels.fetch(channelId).catch(() => null);
-    if (!ch || ch.type !== ChannelType.GuildForum) {
-      console.warn(`[tournamentService] Channel ${channelId} is not a forum — skipping`);
+    if (!ch) {
+      console.error(`[tournamentService] setupDiscordForTournament: channel ${channelId} not found`);
+      return;
+    }
+    if (ch.type !== ChannelType.GuildForum) {
+      console.error(`[tournamentService] setupDiscordForTournament: channel ${channelId} is type ${ch.type}, expected GuildForum (15)`);
       return;
     }
     const created = await (ch as ForumChannel).threads.create({
@@ -279,10 +283,20 @@ export async function postTournamentOpen(tournamentId: string): Promise<void> {
 
   const settings = await prisma.guildSettings.findUnique({ where: { guildId: tournament.guildId } });
   const channelId = tournament.channelId ?? settings?.tournamentChannelId ?? settings?.forumChannelId;
-  if (!channelId) return;
+  if (!channelId) {
+    console.error(`[tournamentService] postTournamentOpen: no forum channel configured for guild ${tournament.guildId} — set one in Module Settings › Tournaments`);
+    return;
+  }
 
   const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch || ch.type !== ChannelType.GuildForum) return;
+  if (!ch) {
+    console.error(`[tournamentService] postTournamentOpen: channel ${channelId} not found (deleted or bot lacks access)`);
+    return;
+  }
+  if (ch.type !== ChannelType.GuildForum) {
+    console.error(`[tournamentService] postTournamentOpen: channel ${channelId} is type ${ch.type}, expected GuildForum (15) — update the channel in Module Settings › Tournaments`);
+    return;
+  }
 
   const regDeadline = tournament.registrationEndsAt
     ? `\nRegistration closes: <t:${Math.floor(tournament.registrationEndsAt.getTime() / 1000)}:F>`
