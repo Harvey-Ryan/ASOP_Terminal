@@ -4,6 +4,7 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
+import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete } from './services/tournamentService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -244,6 +245,46 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await registerCommands().catch((err) =>
         console.error('[bot:internal] registerCommands failed:', err),
+      );
+      return;
+    }
+
+    const tournamentStartMatch = req.url?.match(/^\/trigger\/tournament-start\/([^/]+)$/);
+    if (tournamentStartMatch) {
+      const tournamentId = tournamentStartMatch[1]!;
+      res.writeHead(202).end();
+      await setupDiscordForTournament(tournamentId).catch((err) =>
+        console.error(`[bot:internal] setupDiscordForTournament failed for ${tournamentId}:`, err),
+      );
+      return;
+    }
+
+    const tournamentOpenMatch = req.url?.match(/^\/trigger\/tournament-open\/([^/]+)$/);
+    if (tournamentOpenMatch) {
+      const tournamentId = tournamentOpenMatch[1]!;
+      res.writeHead(202).end();
+      await postTournamentOpen(tournamentId).catch((err) =>
+        console.error(`[bot:internal] postTournamentOpen failed for ${tournamentId}:`, err),
+      );
+      return;
+    }
+
+    const tournamentMatchResultMatch = req.url?.match(/^\/trigger\/tournament-match-result\/([^/]+)$/);
+    if (tournamentMatchResultMatch) {
+      const matchId = tournamentMatchResultMatch[1]!;
+      res.writeHead(202).end();
+      await postMatchResult(matchId).catch((err) =>
+        console.error(`[bot:internal] postMatchResult failed for ${matchId}:`, err),
+      );
+      return;
+    }
+
+    const tournamentCompleteMatch = req.url?.match(/^\/trigger\/tournament-complete\/([^/]+)$/);
+    if (tournamentCompleteMatch) {
+      const tournamentId = tournamentCompleteMatch[1]!;
+      res.writeHead(202).end();
+      await postTournamentComplete(tournamentId).catch((err) =>
+        console.error(`[bot:internal] postTournamentComplete failed for ${tournamentId}:`, err),
       );
       return;
     }

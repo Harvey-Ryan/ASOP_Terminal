@@ -5,6 +5,7 @@ import { client } from './client.js';
 import { setupDiscordForEvent, setupDiscordForShare, endEvent, deleteEventVcs, createVcsForEvent, postEventLive, updatePostEventEmbed } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
+import { dispatchTournamentReminder } from './services/tournamentService.js';
 import { formatMinutes } from './utils/time.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -143,6 +144,9 @@ export async function startScheduler() {
       await timedCheck('checkAutoComplete',        checkAutoComplete);
       await timedCheck('closeExpiredAuctions',     closeExpiredAuctions);
       await timedCheck('closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions);
+      await timedCheck('checkTournamentReminders',  checkTournamentReminders);
+      await timedCheck('checkMatchCheckIn',         checkMatchCheckIn);
+      await timedCheck('checkMatchNoShow',          checkMatchNoShow);
     } finally {
       tickRunning = false;
     }
@@ -656,6 +660,79 @@ async function checkPendingShareSetup() {
     await setupDiscordForShare(share.id).catch((err) =>
       console.error(`[bot] checkPendingShareSetup: setup failed for share ${share.id}:`, err),
     );
+  }
+}
+
+// ── Tournament reminder dispatch ──────────────────────────────────────────────
+
+async function checkTournamentReminders() {
+  const due = await prisma.tournamentReminder.findMany({
+    where: { sentAt: null, scheduledAt: { lte: new Date() } },
+    take: 20,
+  });
+  for (const reminder of due) {
+    await dispatchTournamentReminder(reminder.id).catch((err) =>
+      console.error(`[bot] Tournament reminder dispatch failed for ${reminder.id}:`, err),
+    );
+  }
+}
+
+// ── Check-in prompt (15 min before scheduled match) ──────────────────────────
+
+async function checkMatchCheckIn() {
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60_000);
+  const matches = await prisma.tournamentMatch.findMany({
+    where: {
+      status: 'SCHEDULED',
+      scheduledAt: { lte: new Date(), gte: fifteenMinAgo },
+    },
+    take: 10,
+  });
+
+  for (const match of matches) {
+    if (!match.checkedInA || !match.checkedInB) {
+      // Transition to READY_CHECK and ensure the check-in reminder fired
+      await prisma.tournamentMatch.update({
+        where: { id: match.id },
+        data: { status: 'READY_CHECK' },
+      }).catch(() => null);
+    }
+  }
+}
+
+// ── No-show detection (30 min past scheduled time) ───────────────────────────
+
+async function checkMatchNoShow() {
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60_000);
+  const stuck = await prisma.tournamentMatch.findMany({
+    where: {
+      status: { in: ['SCHEDULED', 'READY_CHECK'] },
+      scheduledAt: { lte: thirtyMinAgo },
+      resultPostedAt: null,
+    },
+    include: { tournament: true, participantA: true, participantB: true },
+    take: 5,
+  });
+
+  for (const match of stuck) {
+    if (!match.tournament.threadId) continue;
+    const thread = await client.channels.fetch(match.tournament.threadId).catch(() => null);
+    if (!thread?.isThread()) continue;
+
+    // Determine no-show side(s)
+    const noShowA = !match.checkedInA && match.participantA;
+    const noShowB = !match.checkedInB && match.participantB;
+    const noShowNames = [noShowA?.displayName, noShowB?.displayName].filter(Boolean).join(' and ');
+
+    await thread.send(
+      `⚠️ **No-show alert** — Round ${match.round} Match ${match.position + 1}: ${noShowNames} has not checked in 30 minutes after the scheduled time. A manager must manually record the result or forfeit.`,
+    ).catch(() => null);
+
+    // Transition to AWAITING_RESULT so this doesn't re-fire
+    await prisma.tournamentMatch.update({
+      where: { id: match.id },
+      data: { status: 'AWAITING_RESULT' },
+    }).catch(() => null);
   }
 }
 

@@ -65,6 +65,7 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         craftingEnabled:    s?.craftingEnabled     ?? true,
         activityEnabled:    s?.activityEnabled     ?? true,
         activityHeatmapPublic: s?.activityHeatmapPublic ?? true,
+        tournamentsEnabled: s?.tournamentsEnabled  ?? true,
         rsiOrgRequired:     orgRequired,
         rsiVerified,
       },
