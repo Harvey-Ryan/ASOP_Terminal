@@ -15,7 +15,7 @@ import { Trophy, Plus, Users } from 'lucide-react';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TAB_STATUS: Record<string, string | undefined> = {
-  upcoming:    'REGISTRATION',
+  upcoming:    'DRAFT,REGISTRATION',
   active:      'IN_PROGRESS',
   completed:   'COMPLETED',
   rankings:    undefined,
@@ -74,22 +74,26 @@ export function TournamentPage() {
   const openMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.open(guildId!, id),
     onSuccess: invalidate,
+    onError: (e: Error) => alert(e.message),
   });
 
   const startMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.start(guildId!, id),
     onSuccess: invalidate,
+    onError: (e: Error) => alert(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.delete(guildId!, id),
     onSuccess: () => { setSelectedId(null); invalidate(); },
+    onError: (e: Error) => alert(e.message),
   });
 
   const resultMutation = useMutation({
     mutationFn: ({ matchId, winnerId, scoreA, scoreB }: { matchId: string; winnerId: string; scoreA?: number; scoreB?: number }) =>
       tournamentApi.submitResult(guildId!, detail!.id, matchId, { winnerId, scoreA, scoreB }),
     onSuccess: () => { setResultMatch(null); invalidate(); },
+    onError: (e: Error) => alert(e.message),
   });
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -528,14 +532,19 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            disabled={!name.trim() || createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            {createMutation.isPending ? 'Creating…' : 'Create Tournament'}
-          </Button>
+        <DialogFooter className="flex flex-col gap-2">
+          {createMutation.isError && (
+            <p className="text-sm text-red-500 w-full text-left">{(createMutation.error as Error).message}</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button
+              disabled={!name.trim() || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? 'Creating…' : 'Create Tournament'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
