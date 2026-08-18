@@ -534,7 +534,6 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
         where: {
           event: { guildId },
           userId: { in: discordIds },
-          status: { in: ['ATTENDING', 'ATTENDED'] },
         },
         _count: { _all: true },
         orderBy: { _count: { userId: 'desc' } },
@@ -732,16 +731,18 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
       if (match.tournament.participantMode === 'INDIVIDUAL' && match.participantA?.discordId && match.participantB?.discordId) {
         const pA = match.participantA;
         const pB = match.participantB;
+        const discordIdA = pA.discordId as string;
+        const discordIdB = pB.discordId as string;
 
         const [ratingA, ratingB] = await Promise.all([
           tx.tournamentPlayerRating.upsert({
-            where: { guildId_discordId: { guildId, discordId: pA.discordId } },
-            create: { guildId, discordId: pA.discordId, displayName: pA.displayName },
+            where: { guildId_discordId: { guildId, discordId: discordIdA } },
+            create: { guildId, discordId: discordIdA, displayName: pA.displayName },
             update: {},
           }),
           tx.tournamentPlayerRating.upsert({
-            where: { guildId_discordId: { guildId, discordId: pB.discordId } },
-            create: { guildId, discordId: pB.discordId, displayName: pB.displayName },
+            where: { guildId_discordId: { guildId, discordId: discordIdB } },
+            create: { guildId, discordId: discordIdB, displayName: pB.displayName },
             update: {},
           }),
         ]);
@@ -805,9 +806,9 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
 
           await Promise.all([
             tx.tournamentSeasonStanding.upsert({
-              where: { seasonId_discordId: { seasonId: link.seasonId, discordId: pA.discordId } },
+              where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdA } },
               create: {
-                seasonId: link.seasonId, guildId, discordId: pA.discordId, displayName: pA.displayName,
+                seasonId: link.seasonId, guildId, discordId: discordIdA, displayName: pA.displayName,
                 rating: 1200 + elo.deltaA, wins: aWon ? 1 : 0, losses: !aWon ? 1 : 0, matchesPlayed: 1,
               },
               update: {
@@ -818,9 +819,9 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
               },
             }),
             tx.tournamentSeasonStanding.upsert({
-              where: { seasonId_discordId: { seasonId: link.seasonId, discordId: pB.discordId } },
+              where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdB } },
               create: {
-                seasonId: link.seasonId, guildId, discordId: pB.discordId, displayName: pB.displayName,
+                seasonId: link.seasonId, guildId, discordId: discordIdB, displayName: pB.displayName,
                 rating: 1200 + elo.deltaB, wins: !aWon ? 1 : 0, losses: aWon ? 1 : 0, matchesPlayed: 1,
               },
               update: {
