@@ -28,17 +28,7 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
 
   // Get settings for the guild
   const settings = await prisma.guildSettings.findUnique({ where: { guildId: tournament.guildId } });
-  const channelId = tournament.channelId ?? settings?.forumChannelId ?? null;
-  if (!channelId) {
-    console.warn(`[tournamentService] No channelId for tournament ${tournamentId} — skipping Discord setup`);
-    return;
-  }
-
-  const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch || ch.type !== ChannelType.GuildForum) {
-    console.warn(`[tournamentService] Channel ${channelId} is not a forum — skipping`);
-    return;
-  }
+  const channelId = tournament.channelId ?? settings?.tournamentChannelId ?? settings?.forumChannelId ?? null;
 
   // Generate bracket image
   const bracketBuffer = buildBracketPng(tournament.matches as BracketMatchInfo[], tournament.participants as BracketParticipantInfo[], tournament.name);
@@ -54,19 +44,46 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
     .setImage('attachment://bracket.png')
     .setColor(0x5865f2);
 
-  const thread = await (ch as ForumChannel).threads.create({
-    name: tournament.name,
-    message: { embeds: [embed], files: [bracketFile] },
-  });
+  let threadId: string | null = tournament.threadId;
+  let bracketMessageId: string | null = null;
+
+  if (tournament.threadId) {
+    // Reuse the registration thread: rename it and post the bracket there
+    const existing = await client.channels.fetch(tournament.threadId).catch(() => null);
+    if (existing?.isThread()) {
+      await existing.setName(tournament.name).catch((err) =>
+        console.error(`[tournamentService] Failed to rename thread:`, err),
+      );
+      const msg = await existing.send({ embeds: [embed], files: [bracketFile] });
+      bracketMessageId = msg.id;
+    } else {
+      threadId = null; // thread was deleted — fall through to create a new one
+    }
+  }
+
+  if (!threadId) {
+    if (!channelId) {
+      console.warn(`[tournamentService] No channelId for tournament ${tournamentId} — skipping Discord setup`);
+      return;
+    }
+    const ch = await client.channels.fetch(channelId).catch(() => null);
+    if (!ch || ch.type !== ChannelType.GuildForum) {
+      console.warn(`[tournamentService] Channel ${channelId} is not a forum — skipping`);
+      return;
+    }
+    const created = await (ch as ForumChannel).threads.create({
+      name: tournament.name,
+      message: { embeds: [embed], files: [bracketFile] },
+    });
+    threadId = created.id;
+    const starterMsg = await created.fetchStarterMessage().catch(() => null);
+    bracketMessageId = starterMsg?.id ?? null;
+  }
 
   // Persist thread and bracket message IDs
-  const starterMsg = await thread.fetchStarterMessage().catch(() => null);
   await prisma.tournament.update({
     where: { id: tournamentId },
-    data: {
-      threadId: thread.id,
-      bracketMessageId: starterMsg?.id ?? null,
-    },
+    data: { threadId, bracketMessageId },
   });
 
   // Post round 1 match cards
@@ -74,7 +91,7 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
     (m) => m.round === 1 && m.status !== 'BYE',
   );
   for (const match of round1) {
-    await postMatchAnnouncement(match.id, thread.id).catch((err) =>
+    await postMatchAnnouncement(match.id, threadId!).catch((err) =>
       console.error(`[tournamentService] postMatchAnnouncement failed for match ${match.id}:`, err),
     );
     await new Promise<void>((r) => setTimeout(r, 500)); // rate-limit buffer
@@ -258,10 +275,10 @@ export async function postMatchResult(matchId: string): Promise<void> {
 
 export async function postTournamentOpen(tournamentId: string): Promise<void> {
   const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-  if (!tournament?.channelId) return;
+  if (!tournament) return;
 
   const settings = await prisma.guildSettings.findUnique({ where: { guildId: tournament.guildId } });
-  const channelId = tournament.channelId ?? settings?.forumChannelId;
+  const channelId = tournament.channelId ?? settings?.tournamentChannelId ?? settings?.forumChannelId;
   if (!channelId) return;
 
   const ch = await client.channels.fetch(channelId).catch(() => null);
@@ -299,10 +316,29 @@ export async function postTournamentOpen(tournamentId: string): Promise<void> {
       .setURL(`${webUrl}/dashboard/servers/${tournament.guildId}/tournaments`),
   );
 
-  await (ch as ForumChannel).threads.create({
+  const thread = await (ch as ForumChannel).threads.create({
     name: `${tournament.name} — Registration`,
     message: { embeds: [embed], components: [joinRow] },
-  }).catch((err) => console.error(`[tournamentService] failed to create registration thread:`, err));
+  }).catch((err) => {
+    console.error(`[tournamentService] failed to create registration thread:`, err);
+    return null;
+  });
+
+  if (!thread) return;
+
+  // Persist thread ID — bracket start will reuse this thread
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { threadId: thread.id },
+  }).catch((err) => console.error(`[tournamentService] failed to persist threadId:`, err));
+
+  // Add any participants already registered by managers before opening
+  const preRegistered = await prisma.tournamentParticipant.findMany({ where: { tournamentId } });
+  for (const p of preRegistered) {
+    if (p.discordId) {
+      await thread.members.add(p.discordId).catch(() => null);
+    }
+  }
 }
 
 // ── Tournament complete announcement ──────────────────────────────────────────
@@ -486,4 +522,21 @@ async function dmParticipants(
       }),
     );
   }
+}
+
+// ── Add a participant to the tournament thread ────────────────────────────────
+
+export async function addParticipantToThread(tournamentId: string, discordId: string): Promise<void> {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { threadId: true },
+  });
+  if (!tournament?.threadId) return;
+
+  const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
+  if (!thread?.isThread()) return;
+
+  await thread.members.add(discordId).catch((err) =>
+    console.error(`[tournamentService] Failed to add ${discordId} to thread ${tournament.threadId}:`, err),
+  );
 }

@@ -437,6 +437,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
           data: { tournamentId, discordId: interaction.user.id, displayName },
         });
 
+        // Add user to the registration/tournament thread
+        if (tournament.threadId) {
+          const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
+          if (thread?.isThread()) {
+            await thread.members.add(interaction.user.id).catch(() => null);
+          }
+        }
+
         await interaction.editReply({ content: `✅ You are registered for **${tournament.name}**!` });
       } catch (err) {
         console.error('[bot] bracket_register error:', err);
