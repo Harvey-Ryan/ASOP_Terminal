@@ -26,9 +26,15 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
   });
   if (!tournament) return;
 
-  // Get settings for the guild
-  const settings = await prisma.guildSettings.findUnique({ where: { guildId: tournament.guildId } });
-  const channelId = tournament.channelId ?? settings?.tournamentChannelId ?? settings?.forumChannelId ?? null;
+  // GuildSettings.guildId is a FK to Guild.id (CUID), so we must traverse via
+  // Guild.guildId (Discord snowflake) → include: settings.
+  const guildRecord = await prisma.guild
+    .findUnique({ where: { guildId: tournament.guildId }, include: { settings: true } })
+    .catch(() => null);
+  const channelId = tournament.channelId
+    ?? guildRecord?.settings?.tournamentChannelId
+    ?? guildRecord?.settings?.forumChannelId
+    ?? null;
 
   // Generate bracket image
   const bracketBuffer = buildBracketPng(tournament.matches as BracketMatchInfo[], tournament.participants as BracketParticipantInfo[], tournament.name);
@@ -354,11 +360,24 @@ function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {
 
 // ── Resolve the forum channel for a guild ─────────────────────────────────────
 
-async function resolveTournamentChannel(guildId: string, channelIdOverride: string | null) {
-  const channelId = channelIdOverride
-    ?? (await prisma.guildSettings.findUnique({ where: { guildId } }))?.tournamentChannelId
-    ?? (await prisma.guildSettings.findUnique({ where: { guildId } }))?.forumChannelId
+// GuildSettings.guildId is a FK to Guild.id (CUID), not the Discord snowflake.
+// To get settings, look up Guild by its Discord snowflake and follow the relation —
+// the same pattern used by resolveForumChannelId in eventService.ts.
+async function resolveTournamentChannel(discordGuildId: string, channelIdOverride: string | null): Promise<ForumChannel | null> {
+  // Per-tournament channel override takes priority
+  if (channelIdOverride) {
+    const ch = await client.channels.fetch(channelIdOverride).catch(() => null);
+    if (ch?.type === ChannelType.GuildForum) return ch as ForumChannel;
+  }
+
+  const guildRecord = await prisma.guild
+    .findUnique({ where: { guildId: discordGuildId }, include: { settings: true } })
+    .catch(() => null);
+
+  const channelId = guildRecord?.settings?.tournamentChannelId
+    ?? guildRecord?.settings?.forumChannelId
     ?? null;
+
   if (!channelId) return null;
   const ch = await client.channels.fetch(channelId).catch(() => null);
   if (!ch || ch.type !== ChannelType.GuildForum) return null;
