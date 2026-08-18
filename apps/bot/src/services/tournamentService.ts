@@ -284,12 +284,9 @@ export async function postMatchResult(matchId: string): Promise<void> {
     }
   }
 
-  // If tournament completed, post winner announcement
-  if (match.tournament.status === 'COMPLETED' || (await prisma.tournament.findUnique({ where: { id: match.tournament.id }, select: { status: true } }))?.status === 'COMPLETED') {
-    await postTournamentComplete(match.tournament.id).catch((err) =>
-      console.error(`[tournamentService] postTournamentComplete failed:`, err),
-    );
-  }
+  // Tournament-complete announcement is handled by the API firing
+  // /trigger/tournament-complete separately — do not call it here to
+  // avoid posting the champion embed twice.
 }
 
 // ── Shared embed/button helpers ───────────────────────────────────────────────

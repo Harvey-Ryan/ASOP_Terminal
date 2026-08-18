@@ -138,6 +138,10 @@ export function TournamentSettingsPage() {
     }
     idx++;
 
+    // 30s: wait for bot to create the draft thread and save threadId before
+    // postTournamentOpen runs — otherwise it sees null and creates a second thread
+    await pauseForDiscord();
+
     // ── Open registration ───────────────────────────────────────────────────
     patchStep(idx, { state: 'running' });
     try {

@@ -3,13 +3,18 @@ import { Resvg } from '@resvg/resvg-js';
 // ── resvg-js wrapper ──────────────────────────────────────────────────────────
 
 export function svgToPng(svg: string, widthPx = 1200): Buffer {
+  // On Alpine (production) fontconfig/musl may not discover fonts via
+  // loadSystemFonts alone — also point resvg at the directory directly.
+  // font-noto is installed via `apk add font-noto` in the Dockerfile and
+  // lands in /usr/share/fonts/noto/. fontDirs is recursive, so the parent
+  // dir covers all sub-packages. On Windows/macOS dev, the path won't
+  // exist and resvg falls back to loadSystemFonts (Arial, etc.).
   const resvg = new Resvg(svg, {
     background: '#1e1f22',
     fitTo: { mode: 'width', value: widthPx },
     font: {
       loadSystemFonts: true,
-      // Noto Sans is installed via `apk add font-noto` in the Dockerfile.
-      // On local dev, resvg falls back to whatever sans-serif is available.
+      fontDirs: ['/usr/share/fonts'],
       defaultFontFamily: 'Noto Sans',
       sansSerifFamily: 'Noto Sans',
     },
