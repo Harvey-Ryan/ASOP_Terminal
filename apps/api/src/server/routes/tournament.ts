@@ -190,6 +190,133 @@ tournamentRouter.get('/:guildId/tournaments/players/:discordId/history', require
   }
 });
 
+// ── POST /:guildId/tournaments/demo ──────────────────────────────────────────
+// Creates a full 8-person tournament with fake participants, generates the
+// bracket, randomly resolves every match, and marks it COMPLETED — no Discord
+// side-effects since all participants have null discordIds.
+
+tournamentRouter.post('/:guildId/tournaments/demo', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
+
+  const FAKE_NAMES = [
+    'Aelindra Swiftblade', 'Borin Ironforge', 'Cassara Dusk', 'Drakon Vex',
+    'Elara Moonwhisper', 'Fyros the Bold', 'Griselda Storm', 'Harken Vale',
+  ];
+
+  try {
+    const creatorId = req.session.userId!;
+    const now = new Date();
+    const label = now.toISOString().slice(0, 16).replace('T', ' ');
+
+    const tournamentId = await prisma.$transaction(async (tx) => {
+      // Create tournament directly as IN_PROGRESS — no DRAFT/REGISTRATION cycle needed
+      const tournament = await tx.tournament.create({
+        data: {
+          guildId,
+          name: `Demo Tournament ${label}`,
+          format: 'SINGLE_ELIM',
+          participantMode: 'INDIVIDUAL',
+          size: 8,
+          status: 'IN_PROGRESS',
+          seedingMode: 'RANDOM',
+          startedAt: now,
+          createdById: creatorId,
+        },
+      });
+
+      // Create 8 fake participants — null discordId means no ELO or DKP side-effects
+      await tx.tournamentParticipant.createMany({
+        data: FAKE_NAMES.map((displayName, i) => ({
+          tournamentId: tournament.id,
+          displayName,
+          discordId: null,
+          seed: i + 1,
+          status: 'ACTIVE',
+        })),
+      });
+      const participants = await tx.tournamentParticipant.findMany({
+        where: { tournamentId: tournament.id },
+        orderBy: { seed: 'asc' },
+      });
+
+      // Generate bracket
+      const seededParticipants = participants.map((p) => ({ id: p.id, seed: p.seed ?? 999 }));
+      const slots = generateSingleElimBracket(tournament.id, seededParticipants);
+      const keyToId = new Map(slots.map((s) => [s.key, randomUUID()]));
+      const matchData = slots.map((slot) => ({
+        id: keyToId.get(slot.key)!,
+        tournamentId: tournament.id,
+        round: slot.round,
+        position: slot.position,
+        bracketSide: slot.bracketSide,
+        participantAId: slot.participantAId,
+        participantBId: slot.participantBId,
+        status: slot.status,
+        nextMatchId: slot.nextMatchKey ? (keyToId.get(slot.nextMatchKey) ?? null) : null,
+      }));
+
+      await tx.tournamentMatch.createMany({ data: matchData });
+
+      // Walk rounds in order, randomly resolving each match and advancing winners
+      const maxRound = Math.max(...matchData.map((m) => m.round));
+      let finalWinnerId: string | null = null;
+      let finalLoserId: string | null = null;
+
+      for (let round = 1; round <= maxRound; round++) {
+        for (const match of matchData.filter((m) => m.round === round)) {
+          if (match.status === 'BYE') {
+            if (match.participantAId && match.nextMatchId) {
+              const next = matchData.find((m) => m.id === match.nextMatchId)!;
+              const field = next.participantAId ? 'participantBId' : 'participantAId';
+              next[field] = match.participantAId;
+              await tx.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: match.participantAId } });
+            }
+            continue;
+          }
+
+          if (!match.participantAId || !match.participantBId) continue;
+
+          const aWins = Math.random() < 0.5;
+          const winnerId = aWins ? match.participantAId : match.participantBId;
+          const loserId = aWins ? match.participantBId : match.participantAId;
+
+          await tx.tournamentMatch.update({
+            where: { id: match.id },
+            data: { winnerId, status: 'COMPLETED', resultPostedAt: now },
+          });
+          await tx.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED' } });
+
+          if (match.nextMatchId) {
+            const next = matchData.find((m) => m.id === match.nextMatchId)!;
+            const field = next.participantAId ? 'participantBId' : 'participantAId';
+            next[field] = winnerId;
+            await tx.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: winnerId } });
+          }
+
+          if (round === maxRound) { finalWinnerId = winnerId; finalLoserId = loserId; }
+        }
+      }
+
+      if (finalWinnerId) {
+        await tx.tournamentParticipant.update({ where: { id: finalWinnerId }, data: { status: 'WINNER', placement: 1 } });
+      }
+      if (finalLoserId) {
+        await tx.tournamentParticipant.update({ where: { id: finalLoserId }, data: { status: 'RUNNER_UP', placement: 2 } });
+      }
+      await tx.tournament.update({ where: { id: tournament.id }, data: { status: 'COMPLETED', completedAt: now } });
+
+      return tournament.id;
+    });
+
+    res.json({ success: true, data: { tournamentId } } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[POST demo]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
 // ── POST /:guildId/tournaments ────────────────────────────────────────────────
 
 tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => {

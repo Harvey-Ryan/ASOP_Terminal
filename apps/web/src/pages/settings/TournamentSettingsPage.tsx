@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
+import { tournamentApi } from '@/api/tournament';
 import { ChannelSelect, ToggleSwitch } from '@/components/settings/SettingsControls';
 import type { GuildSettingsData } from '@/api/settings';
 
 export function TournamentSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const { data: saved, isLoading: settingsLoading } = useQuery({
@@ -76,6 +78,14 @@ export function TournamentSettingsPage() {
     });
   }
 
+  const demo = useMutation({
+    mutationFn: () => tournamentApi.demo(guildId!),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
+      navigate(`/dashboard/servers/${guildId}/tournaments?demo=${data.tournamentId}`);
+    },
+  });
+
   return (
     <div className="space-y-6">
       {/* ── Enable/disable ─────────────────────────────────────────────────── */}
@@ -126,6 +136,35 @@ export function TournamentSettingsPage() {
           )}
           {save.isError && (
             <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Demo tournament ────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Demo Tournament</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Creates a completed 8-person tournament with fake participants and randomly resolved
+            matches. Useful for testing the bracket viewer and result flow without real participants.
+            No Discord announcements are sent.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => demo.mutate()}
+            disabled={demo.isPending}
+          >
+            {demo.isPending ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Running demo…</>
+            ) : (
+              'Run Demo Tournament'
+            )}
+          </Button>
+          {demo.isError && (
+            <p className="text-xs text-destructive">Failed — {(demo.error as Error).message}</p>
           )}
         </CardContent>
       </Card>

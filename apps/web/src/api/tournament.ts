@@ -213,4 +213,9 @@ export const tournamentApi = {
     api
       .get<ApiResponse<SeasonStanding[]>>(`/guilds/${guildId}/tournaments/seasons/${seasonId}/standings`)
       .then(requireData),
+
+  demo: (guildId: string) =>
+    api
+      .post<ApiResponse<{ tournamentId: string }>>(`/guilds/${guildId}/tournaments/demo`, {})
+      .then(requireData),
 };
