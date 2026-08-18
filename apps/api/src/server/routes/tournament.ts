@@ -539,27 +539,36 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (tournament.status !== 'REGISTRATION') return badRequest(res, 'Registration is not open');
+    // Managers can pre-register participants during DRAFT; everyone can register during REGISTRATION.
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Registration is not open');
 
     const existing = await prisma.tournamentParticipant.count({ where: { tournamentId: id } });
     if (existing >= tournament.size) return badRequest(res, 'Tournament is full');
 
     const isManager = await assertGuildManager(req, guildId);
+    // Non-managers can only register themselves, and only during REGISTRATION (not DRAFT)
+    if (!isManager && tournament.status === 'DRAFT') return forbidden(res);
 
     if (tournament.participantMode === 'INDIVIDUAL') {
-      // Self-register uses the session user's discordId unless manager is adding someone else
-      const targetDiscordId = (isManager && discordId) ? discordId : userId;
-      const targetName = displayName?.trim() || targetDiscordId;
+      // Managers can specify a discordId and/or displayName.
+      // If neither is provided, or a non-manager is registering, default to the session user.
+      const targetDiscordId: string | null = isManager
+        ? (discordId?.trim() || null)
+        : userId;
+      const targetName = displayName?.trim() || targetDiscordId || 'Unknown';
 
-      const dup = await prisma.tournamentParticipant.findFirst({
-        where: { tournamentId: id, discordId: targetDiscordId },
-      });
-      if (dup) return badRequest(res, 'Participant already registered');
+      // Duplicate check: only apply when a discordId is set (null discordIds are allowed to coexist)
+      if (targetDiscordId) {
+        const dup = await prisma.tournamentParticipant.findFirst({
+          where: { tournamentId: id, discordId: targetDiscordId },
+        });
+        if (dup) return badRequest(res, 'Participant already registered');
+      }
 
       const participant = await prisma.tournamentParticipant.create({
         data: { tournamentId: id, discordId: targetDiscordId, displayName: targetName },
       });
-      triggerBot(`/trigger/tournament-participant-joined/${id}/${targetDiscordId}`);
+      if (targetDiscordId) triggerBot(`/trigger/tournament-participant-joined/${id}/${targetDiscordId}`);
       triggerBot(`/trigger/tournament-roster/${id}`);
       res.json({ success: true, data: participant } satisfies ApiResponse);
     } else {
@@ -605,7 +614,7 @@ tournamentRouter.delete('/:guildId/tournaments/:id/participants/:pid', requireAu
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (tournament.status !== 'REGISTRATION') return badRequest(res, 'Can only remove participants during registration');
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Can only remove participants during draft or registration');
 
     await prisma.tournamentParticipant.deleteMany({ where: { id: pid, tournamentId: id } });
     triggerBot(`/trigger/tournament-roster/${id}`);

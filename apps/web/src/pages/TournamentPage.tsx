@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trophy, Plus, Users } from 'lucide-react';
+import { Trophy, Plus, Users, X } from 'lucide-react';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -101,6 +101,20 @@ export function TournamentPage() {
     onError: (e: Error) => alert(e.message),
   });
 
+  const addParticipantMutation = useMutation({
+    mutationFn: ({ id, discordId, displayName }: { id: string; discordId?: string; displayName?: string }) =>
+      tournamentApi.register(guildId!, id, { discordId, displayName }),
+    onSuccess: invalidate,
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const removeParticipantMutation = useMutation({
+    mutationFn: ({ id, pid }: { id: string; pid: string }) =>
+      tournamentApi.removeParticipant(guildId!, id, pid),
+    onSuccess: invalidate,
+    onError: (e: Error) => alert(e.message),
+  });
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -168,6 +182,14 @@ export function TournamentPage() {
               isManager={isManager}
               guildId={guildId!}
               onSubmitResult={setResultMatch}
+              onAddParticipant={(discordId, displayName) =>
+                addParticipantMutation.mutate({ id: detail.id, discordId, displayName })
+              }
+              onRemoveParticipant={(pid) =>
+                removeParticipantMutation.mutate({ id: detail.id, pid })
+              }
+              isAddingParticipant={addParticipantMutation.isPending}
+              isRemovingParticipant={removeParticipantMutation.isPending}
             />
           )}
           {selectedId && !detail && (
@@ -262,10 +284,26 @@ interface TournamentDetailProps {
   isManager: boolean;
   guildId: string;
   onSubmitResult: (match: TournamentMatch) => void;
+  onAddParticipant: (discordId?: string, displayName?: string) => void;
+  onRemoveParticipant: (pid: string) => void;
+  isAddingParticipant: boolean;
+  isRemovingParticipant: boolean;
 }
 
-function TournamentDetail({ detail, isManager, onSubmitResult }: TournamentDetailProps) {
+function TournamentDetail({ detail, isManager, onSubmitResult, onAddParticipant, onRemoveParticipant, isAddingParticipant, isRemovingParticipant }: TournamentDetailProps) {
   const [activeTab, setActiveTab] = useState<'bracket' | 'participants' | 'schedule'>('bracket');
+  const [addName, setAddName] = useState('');
+  const [addDiscordId, setAddDiscordId] = useState('');
+
+  const canEdit = isManager && (detail.status === 'DRAFT' || detail.status === 'REGISTRATION');
+  const isFull = detail.participants.length >= detail.size;
+
+  const handleAdd = () => {
+    if (!addName.trim() && !addDiscordId.trim()) return;
+    onAddParticipant(addDiscordId.trim() || undefined, addName.trim() || undefined);
+    setAddName('');
+    setAddDiscordId('');
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
@@ -308,32 +346,98 @@ function TournamentDetail({ detail, isManager, onSubmitResult }: TournamentDetai
       )}
 
       {activeTab === 'participants' && (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40">
-              <tr>
-                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Seed</th>
-                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Participant</th>
-                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail.participants
-                .slice()
-                .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999))
-                .map((p) => (
-                  <tr key={p.id} className="border-t border-border hover:bg-muted/20">
-                    <td className="px-3 py-2 text-muted-foreground">#{p.seed ?? '—'}</td>
-                    <td className="px-3 py-2 font-medium">{p.displayName}</td>
-                    <td className="px-3 py-2">
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[p.status] ?? 'bg-zinc-700 text-zinc-300'}`}>
-                        {p.status}
-                      </span>
+        <div className="flex flex-col gap-3">
+          {/* Add participant form — visible to managers during DRAFT or REGISTRATION */}
+          {canEdit && (
+            <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Add Participant ({detail.participants.length} / {detail.size})
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Display name (required)"
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                  className="h-8 text-sm flex-1"
+                />
+                <Input
+                  placeholder="Discord ID (optional)"
+                  value={addDiscordId}
+                  onChange={(e) => setAddDiscordId(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                  className="h-8 text-sm w-44 font-mono"
+                />
+                <Button
+                  size="sm"
+                  className="h-8"
+                  onClick={handleAdd}
+                  disabled={(!addName.trim() && !addDiscordId.trim()) || isAddingParticipant || isFull}
+                >
+                  {isAddingParticipant ? '…' : <><Plus className="h-3.5 w-3.5 mr-1" />Add</>}
+                </Button>
+              </div>
+              {isFull && <p className="text-xs text-amber-500">Bracket is full ({detail.size}/{detail.size})</p>}
+            </div>
+          )}
+
+          {/* Participant roster table */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="text-left px-3 py-2 text-muted-foreground font-medium">Seed</th>
+                  <th className="text-left px-3 py-2 text-muted-foreground font-medium">Participant</th>
+                  <th className="text-left px-3 py-2 text-muted-foreground font-medium">Status</th>
+                  {canEdit && <th className="w-8" />}
+                </tr>
+              </thead>
+              <tbody>
+                {detail.participants.length === 0 && (
+                  <tr>
+                    <td colSpan={canEdit ? 4 : 3} className="px-3 py-4 text-center text-muted-foreground text-sm">
+                      No participants yet.
                     </td>
                   </tr>
-                ))}
-            </tbody>
-          </table>
+                )}
+                {detail.participants
+                  .slice()
+                  .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999))
+                  .map((p) => (
+                    <tr key={p.id} className="border-t border-border hover:bg-muted/20">
+                      <td className="px-3 py-2 text-muted-foreground">#{p.seed ?? '—'}</td>
+                      <td className="px-3 py-2 font-medium">
+                        {p.displayName}
+                        {p.discordId && (
+                          <span className="ml-1.5 text-xs text-muted-foreground font-mono">({p.discordId})</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[p.status] ?? 'bg-zinc-700 text-zinc-300'}`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      {canEdit && (
+                        <td className="px-2 py-2 text-right">
+                          <button
+                            onClick={() => {
+                              if (confirm(`Remove "${p.displayName}" from the tournament?`)) {
+                                onRemoveParticipant(p.id);
+                              }
+                            }}
+                            disabled={isRemovingParticipant}
+                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                            title="Remove participant"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
