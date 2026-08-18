@@ -152,6 +152,8 @@ model GuildSettings {
   activityHeatmapPublic Boolean  @default(true)
   /// Whether the Tournaments module is enabled for this guild
   tournamentsEnabled    Boolean  @default(true)
+  /// Discord forum channel snowflake where tournament threads are created by default
+  tournamentChannelId   String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

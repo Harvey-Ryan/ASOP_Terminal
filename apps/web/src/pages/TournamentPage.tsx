@@ -85,7 +85,12 @@ export function TournamentPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.delete(guildId!, id),
-    onSuccess: () => { setSelectedId(null); invalidate(); },
+    onSuccess: (_, deletedId) => {
+      setSelectedId(null);
+      qc.setQueriesData<Tournament[]>({ queryKey: ['tournaments', guildId] }, (old) =>
+        old ? old.filter((t) => t.id !== deletedId) : []
+      );
+    },
     onError: (e: Error) => alert(e.message),
   });
 

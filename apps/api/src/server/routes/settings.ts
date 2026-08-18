@@ -250,6 +250,8 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         craftingEnabled:            s?.craftingEnabled            ?? true,
         activityEnabled:            s?.activityEnabled            ?? true,
         activityHeatmapPublic:      s?.activityHeatmapPublic      ?? true,
+        tournamentsEnabled:         s?.tournamentsEnabled          ?? true,
+        tournamentChannelId:        s?.tournamentChannelId         ?? null,
         dkpDefaultAuctionDuration:  s?.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  s?.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
@@ -292,6 +294,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     craftingEnabled?: boolean;
     activityEnabled?: boolean;
     activityHeatmapPublic?: boolean;
+    tournamentsEnabled?: boolean;
+    tournamentChannelId?: string | null;
     dkpDefaultAuctionDuration?: number;
     dkpMinBid?: number;
     lootDefaultMethod?: string;
@@ -324,6 +328,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       craftingEnabled:           raw.craftingEnabled !== undefined ? optBool(raw.craftingEnabled, 'craftingEnabled') : undefined,
       activityEnabled:           raw.activityEnabled !== undefined ? optBool(raw.activityEnabled, 'activityEnabled') : undefined,
       activityHeatmapPublic:     raw.activityHeatmapPublic !== undefined ? optBool(raw.activityHeatmapPublic, 'activityHeatmapPublic') : undefined,
+      tournamentsEnabled:        raw.tournamentsEnabled !== undefined ? optBool(raw.tournamentsEnabled, 'tournamentsEnabled') : undefined,
+      tournamentChannelId:       raw.tournamentChannelId !== undefined ? optStr(raw.tournamentChannelId, 'tournamentChannelId', 30) : undefined,
       dkpDefaultAuctionDuration: rawDur !== undefined ? Math.min(168, Math.max(1, rawDur)) : undefined,
       dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
       lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
@@ -353,7 +359,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     body.blueprintsEnabled !== undefined ||
     body.craftingEnabled !== undefined ||
     body.activityEnabled !== undefined ||
-    body.activityHeatmapPublic !== undefined;
+    body.activityHeatmapPublic !== undefined ||
+    body.tournamentsEnabled !== undefined;
   const allowed = needsAdmin
     ? await assertGuildManager(req, guildId)
     : await assertModuleEditor(req, guildId);
@@ -394,6 +401,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.craftingEnabled !== undefined           ? { craftingEnabled: body.craftingEnabled }                                 : {}),
         ...(body.activityEnabled !== undefined           ? { activityEnabled: body.activityEnabled }                                 : {}),
         ...(body.activityHeatmapPublic !== undefined     ? { activityHeatmapPublic: body.activityHeatmapPublic }                     : {}),
+        ...(body.tournamentsEnabled !== undefined         ? { tournamentsEnabled: body.tournamentsEnabled }                           : {}),
+        ...(body.tournamentChannelId !== undefined        ? { tournamentChannelId: body.tournamentChannelId }                         : {}),
         ...(body.dkpDefaultAuctionDuration !== undefined ? { dkpDefaultAuctionDuration: body.dkpDefaultAuctionDuration }             : {}),
         ...(body.dkpMinBid !== undefined                 ? { dkpMinBid: body.dkpMinBid }                                             : {}),
         ...(body.lootDefaultMethod !== undefined         ? { lootDefaultMethod: body.lootDefaultMethod }                             : {}),
@@ -423,6 +432,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         craftingEnabled:            body.craftingEnabled            ?? true,
         activityEnabled:            body.activityEnabled            ?? true,
         activityHeatmapPublic:      body.activityHeatmapPublic      ?? true,
+        tournamentsEnabled:         body.tournamentsEnabled          ?? true,
+        tournamentChannelId:        body.tournamentChannelId         ?? null,
         dkpDefaultAuctionDuration:  body.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  body.dkpMinBid                  ?? 0,
         lootDefaultMethod:          body.lootDefaultMethod          ?? 'RANDOM_ROLL',
@@ -456,6 +467,8 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         craftingEnabled:            s.craftingEnabled            ?? true,
         activityEnabled:            s.activityEnabled            ?? true,
         activityHeatmapPublic:      s.activityHeatmapPublic      ?? true,
+        tournamentsEnabled:         s.tournamentsEnabled          ?? true,
+        tournamentChannelId:        s.tournamentChannelId         ?? null,
         dkpDefaultAuctionDuration:  s.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  s.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s.lootDefaultMethod          ?? 'RANDOM_ROLL',

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Network, Trophy, ChevronRight } from 'lucide-react';
+import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Network, Trophy, Swords, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface ModuleTile {
@@ -63,6 +63,12 @@ const MODULES: ModuleTile[] = [
     description: 'RoleCallBot integration — inactivity tracking, leaderboard, and role change log.',
     icon: Trophy,
     slug: 'activity',
+  },
+  {
+    label: 'Tournaments',
+    description: 'Enable/disable the module and configure the default announcement channel for tournament threads.',
+    icon: Swords,
+    slug: 'tournaments',
   },
 ];
 
