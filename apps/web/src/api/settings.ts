@@ -55,6 +55,7 @@ export interface GuildMyPermissions {
   craftingEnabled: boolean;
   activityEnabled: boolean;
   activityHeatmapPublic: boolean;
+  tournamentsEnabled: boolean;
   rsiOrgRequired: boolean;
   rsiVerified: boolean;
 }
