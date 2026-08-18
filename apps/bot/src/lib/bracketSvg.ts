@@ -1,23 +1,32 @@
 import { Resvg } from '@resvg/resvg-js';
+import { existsSync } from 'node:fs';
+
+// ── Font config ───────────────────────────────────────────────────────────────
+// Use explicit fontFiles paths rather than relying on fontconfig (unreliable on
+// Alpine + musl libc). ttf-dejavu is installed via `apk add ttf-dejavu` in the
+// Dockerfile and always lands at these paths on Alpine. On Windows/macOS dev
+// the paths won't exist so we fall back to loadSystemFonts (Arial, etc.).
+
+const DEJAVU_REGULAR = '/usr/share/fonts/dejavu/DejaVuSans.ttf';
+const DEJAVU_BOLD    = '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf';
+
+const FONT_CONFIG: NonNullable<ConstructorParameters<typeof Resvg>[1]>['font'] =
+  existsSync(DEJAVU_REGULAR)
+    ? {
+        fontFiles: [DEJAVU_REGULAR, ...(existsSync(DEJAVU_BOLD) ? [DEJAVU_BOLD] : [])],
+        loadSystemFonts: false,
+        defaultFontFamily: 'DejaVu Sans',
+        sansSerifFamily:   'DejaVu Sans',
+      }
+    : { loadSystemFonts: true };  // local dev fallback (Windows/macOS)
 
 // ── resvg-js wrapper ──────────────────────────────────────────────────────────
 
 export function svgToPng(svg: string, widthPx = 1200): Buffer {
-  // On Alpine (production) fontconfig/musl may not discover fonts via
-  // loadSystemFonts alone — also point resvg at the directory directly.
-  // font-noto is installed via `apk add font-noto` in the Dockerfile and
-  // lands in /usr/share/fonts/noto/. fontDirs is recursive, so the parent
-  // dir covers all sub-packages. On Windows/macOS dev, the path won't
-  // exist and resvg falls back to loadSystemFonts (Arial, etc.).
   const resvg = new Resvg(svg, {
     background: '#1e1f22',
     fitTo: { mode: 'width', value: widthPx },
-    font: {
-      loadSystemFonts: true,
-      fontDirs: ['/usr/share/fonts'],
-      defaultFontFamily: 'Noto Sans',
-      sansSerifFamily: 'Noto Sans',
-    },
+    font: FONT_CONFIG,
   });
   return Buffer.from(resvg.render().asPng());
 }
@@ -89,7 +98,7 @@ export function buildBracketSvg(
 
   const lines: string[] = [];
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="background:${COLOR_BG}">`);
-  lines.push(`<style>text{font-family:'Noto Sans','Arial',sans-serif;}</style>`);
+  lines.push(`<style>text{font-family:'DejaVu Sans','Arial',sans-serif;}</style>`);
 
   // Title
   lines.push(svgText(PAD, 24, tournamentName, COLOR_TEXT, 14, 'bold'));
