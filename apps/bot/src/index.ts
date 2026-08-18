@@ -22,7 +22,7 @@ import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole, leaveRoster } from './services/rsvpService.js';
 import { endEvent } from './services/eventService.js';
-import { postMatchAnnouncement } from './services/tournamentService.js';
+import { postMatchAnnouncement, updateRegistrationEmbed } from './services/tournamentService.js';
 
 interface Command {
   data: { toJSON(): unknown };
@@ -444,6 +444,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
             await thread.members.add(interaction.user.id).catch(() => null);
           }
         }
+
+        // Refresh the live registration embed so the new participant appears immediately
+        await updateRegistrationEmbed(tournamentId).catch(() => null);
 
         await interaction.editReply({ content: `✅ You are registered for **${tournament.name}**!` });
       } catch (err) {

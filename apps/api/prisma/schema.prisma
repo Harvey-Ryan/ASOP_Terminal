@@ -1304,7 +1304,9 @@ model Tournament {
   /// Discord forum thread snowflake
   threadId           String?
   /// Snowflake of the pinned bracket image message in the thread
-  bracketMessageId   String?
+  bracketMessageId        String?
+  /// Snowflake of the live registration roster embed posted when registration opens
+  registrationMessageId   String?
   registrationEndsAt DateTime?
   startedAt          DateTime?
   completedAt        DateTime?

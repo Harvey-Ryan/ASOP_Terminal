@@ -4,7 +4,7 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
-import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread } from './services/tournamentService.js';
+import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread, setupDraftThread, updateRegistrationEmbed } from './services/tournamentService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -245,6 +245,26 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await registerCommands().catch((err) =>
         console.error('[bot:internal] registerCommands failed:', err),
+      );
+      return;
+    }
+
+    const tournamentCreatedMatch = req.url?.match(/^\/trigger\/tournament-created\/([^/]+)$/);
+    if (tournamentCreatedMatch) {
+      const tournamentId = tournamentCreatedMatch[1]!;
+      res.writeHead(202).end();
+      await setupDraftThread(tournamentId).catch((err) =>
+        console.error(`[bot:internal] setupDraftThread failed for ${tournamentId}:`, err),
+      );
+      return;
+    }
+
+    const tournamentRosterMatch = req.url?.match(/^\/trigger\/tournament-roster\/([^/]+)$/);
+    if (tournamentRosterMatch) {
+      const tournamentId = tournamentRosterMatch[1]!;
+      res.writeHead(202).end();
+      await updateRegistrationEmbed(tournamentId).catch((err) =>
+        console.error(`[bot:internal] updateRegistrationEmbed failed for ${tournamentId}:`, err),
       );
       return;
     }

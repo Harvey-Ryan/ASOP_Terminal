@@ -437,6 +437,10 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
       return t;
     });
 
+    // Fire-and-forget: bot creates the forum thread immediately so the thread
+    // exists throughout the tournament lifecycle (draft → registration → bracket).
+    triggerBot(`/trigger/tournament-created/${tournament.id}`);
+
     res.json({ success: true, data: tournament } satisfies ApiResponse);
   } catch (err) {
     console.error('[POST tournament]', err);
@@ -556,6 +560,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
         data: { tournamentId: id, discordId: targetDiscordId, displayName: targetName },
       });
       triggerBot(`/trigger/tournament-participant-joined/${id}/${targetDiscordId}`);
+      triggerBot(`/trigger/tournament-roster/${id}`);
       res.json({ success: true, data: participant } satisfies ApiResponse);
     } else {
       // Team mode — manager must add both a team name and member list
@@ -581,6 +586,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
       for (const m of teamMembers) {
         triggerBot(`/trigger/tournament-participant-joined/${id}/${m.discordId}`);
       }
+      triggerBot(`/trigger/tournament-roster/${id}`);
       res.json({ success: true, data: participant } satisfies ApiResponse);
     }
   } catch (err) {
@@ -602,6 +608,7 @@ tournamentRouter.delete('/:guildId/tournaments/:id/participants/:pid', requireAu
     if (tournament.status !== 'REGISTRATION') return badRequest(res, 'Can only remove participants during registration');
 
     await prisma.tournamentParticipant.deleteMany({ where: { id: pid, tournamentId: id } });
+    triggerBot(`/trigger/tournament-roster/${id}`);
     res.json({ success: true } satisfies ApiResponse);
   } catch (err) {
     console.error('[DELETE participant]', err);

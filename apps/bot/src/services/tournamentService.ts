@@ -275,84 +275,226 @@ export async function postMatchResult(matchId: string): Promise<void> {
   }
 }
 
-// ── Tournament open (registration opening announcement) ───────────────────────
+// ── Shared embed/button helpers ───────────────────────────────────────────────
 
-export async function postTournamentOpen(tournamentId: string): Promise<void> {
-  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-  if (!tournament) return;
+type TournamentMeta = {
+  id: string;
+  guildId: string;
+  name: string;
+  description: string | null;
+  format: string;
+  size: number;
+  seedingMode: string;
+  registrationEndsAt: Date | null;
+  dkpPrize1st: number;
+  dkpPrize2nd: number;
+  dkpPrize3rd: number;
+};
 
-  const settings = await prisma.guildSettings.findUnique({ where: { guildId: tournament.guildId } });
-  const channelId = tournament.channelId ?? settings?.tournamentChannelId ?? settings?.forumChannelId;
-  if (!channelId) {
-    console.error(`[tournamentService] postTournamentOpen: no forum channel configured for guild ${tournament.guildId} — set one in Module Settings › Tournaments`);
-    return;
+function buildTournamentDescription(t: TournamentMeta): string {
+  const lines: string[] = [];
+  if (t.description) { lines.push(t.description, ''); }
+  lines.push(`**Format:** ${t.format.replace('_', ' ')}`);
+  lines.push(`**Bracket Size:** ${t.size} participants`);
+  lines.push(`**Seeding:** ${t.seedingMode}`);
+  if (t.registrationEndsAt) {
+    lines.push(`**Registration Closes:** <t:${Math.floor(t.registrationEndsAt.getTime() / 1000)}:F>`);
   }
+  return lines.join('\n');
+}
 
-  const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch) {
-    console.error(`[tournamentService] postTournamentOpen: channel ${channelId} not found (deleted or bot lacks access)`);
-    return;
-  }
-  if (ch.type !== ChannelType.GuildForum) {
-    console.error(`[tournamentService] postTournamentOpen: channel ${channelId} is type ${ch.type}, expected GuildForum (15) — update the channel in Module Settings › Tournaments`);
-    return;
-  }
+function buildRegistrationEmbed(
+  t: TournamentMeta,
+  participants: Array<{ discordId: string | null; displayName: string }>,
+): EmbedBuilder {
+  const filled = participants.length;
+  const isFull = filled >= t.size;
 
-  const regDeadline = tournament.registrationEndsAt
-    ? `\nRegistration closes: <t:${Math.floor(tournament.registrationEndsAt.getTime() / 1000)}:F>`
-    : '';
+  const rosterLines = participants.length > 0
+    ? participants.map((p, i) => `${i + 1}. ${p.discordId ? `<@${p.discordId}>` : p.displayName}`)
+    : ['*No participants yet — be the first to sign up!*'];
+
+  // Embed field values are capped at 1024 chars; join the list and truncate safely
+  let rosterValue = rosterLines.join('\n');
+  if (rosterValue.length > 1024) {
+    rosterValue = rosterValue.slice(0, 1020) + '\n…';
+  }
 
   const embed = new EmbedBuilder()
-    .setTitle(`📋 ${tournament.name} — Registration Open!`)
-    .setDescription(
-      [
-        tournament.description ?? '',
-        `**Format:** ${tournament.format.replace('_', ' ')}`,
-        `**Bracket Size:** ${tournament.size} participants`,
-        `**Seeding:** ${tournament.seedingMode}`,
-        regDeadline,
-        '\nRegister via the dashboard or use the button below.',
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    )
-    .setColor(0x5865f2);
+    .setTitle(`📋 ${t.name} — Registration ${isFull ? 'Full' : 'Open'}`)
+    .setDescription(buildTournamentDescription(t))
+    .setColor(isFull ? 0xed4245 : 0x57f287)
+    .addFields({ name: `Participants (${filled} / ${t.size})`, value: rosterValue });
 
+  const prizes: string[] = [];
+  if (t.dkpPrize1st > 0) prizes.push(`🥇 1st — ${t.dkpPrize1st} DKP`);
+  if (t.dkpPrize2nd > 0) prizes.push(`🥈 2nd — ${t.dkpPrize2nd} DKP`);
+  if (t.dkpPrize3rd > 0) prizes.push(`🥉 3rd — ${t.dkpPrize3rd} DKP`);
+  if (prizes.length > 0) {
+    embed.addFields({ name: 'Prizes', value: prizes.join('\n'), inline: true });
+  }
+
+  return embed;
+}
+
+function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
-  const joinRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`bracket_register:${tournamentId}`)
       .setLabel('Join Tournament')
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled),
     new ButtonBuilder()
       .setLabel('Open Dashboard')
       .setStyle(ButtonStyle.Link)
-      .setURL(`${webUrl}/dashboard/servers/${tournament.guildId}/tournaments`),
+      .setURL(`${webUrl}/dashboard/servers/${guildId}/tournaments`),
   );
+}
 
-  const thread = await (ch as ForumChannel).threads.create({
-    name: `${tournament.name} — Registration`,
-    message: { embeds: [embed], components: [joinRow] },
+// ── Resolve the forum channel for a guild ─────────────────────────────────────
+
+async function resolveTournamentChannel(guildId: string, channelIdOverride: string | null) {
+  const channelId = channelIdOverride
+    ?? (await prisma.guildSettings.findUnique({ where: { guildId } }))?.tournamentChannelId
+    ?? (await prisma.guildSettings.findUnique({ where: { guildId } }))?.forumChannelId
+    ?? null;
+  if (!channelId) return null;
+  const ch = await client.channels.fetch(channelId).catch(() => null);
+  if (!ch || ch.type !== ChannelType.GuildForum) return null;
+  return ch as ForumChannel;
+}
+
+// ── Create draft forum thread when tournament is first created ────────────────
+
+export async function setupDraftThread(tournamentId: string): Promise<void> {
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament) return;
+  if (tournament.threadId) return; // thread already exists
+
+  const forumCh = await resolveTournamentChannel(tournament.guildId, tournament.channelId);
+  if (!forumCh) {
+    console.error(`[tournamentService] setupDraftThread: no forum channel configured for guild ${tournament.guildId} — set one in Module Settings › Tournaments`);
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`🏆 ${tournament.name}`)
+    .setDescription(buildTournamentDescription(tournament))
+    .setColor(0x5865f2)
+    .setFooter({ text: 'Status: Draft — Registration not yet open' });
+
+  const thread = await forumCh.threads.create({
+    name: tournament.name,
+    message: { embeds: [embed] },
   }).catch((err) => {
-    console.error(`[tournamentService] failed to create registration thread:`, err);
+    console.error(`[tournamentService] setupDraftThread: failed to create thread:`, err);
     return null;
   });
-
   if (!thread) return;
 
-  // Persist thread ID — bracket start will reuse this thread
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: { threadId: thread.id },
-  }).catch((err) => console.error(`[tournamentService] failed to persist threadId:`, err));
+  });
 
-  // Add any participants already registered by managers before opening
-  const preRegistered = await prisma.tournamentParticipant.findMany({ where: { tournamentId } });
-  for (const p of preRegistered) {
-    if (p.discordId) {
-      await thread.members.add(p.discordId).catch(() => null);
+  console.log(`[tournamentService] setupDraftThread: created thread ${thread.id} for tournament ${tournamentId}`);
+}
+
+// ── Post the live registration roster embed when registration opens ────────────
+
+export async function postTournamentOpen(tournamentId: string): Promise<void> {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: { participants: true },
+  });
+  if (!tournament) return;
+
+  let threadId = tournament.threadId;
+
+  // If setupDraftThread didn't run yet (no channel configured at creation time),
+  // fall back to creating the thread now.
+  if (!threadId) {
+    const forumCh = await resolveTournamentChannel(tournament.guildId, tournament.channelId);
+    if (!forumCh) {
+      console.error(`[tournamentService] postTournamentOpen: no forum channel configured for guild ${tournament.guildId}`);
+      return;
     }
+    const embed = buildRegistrationEmbed(tournament, tournament.participants);
+    const joinRow = buildJoinRow(tournamentId, tournament.guildId);
+    const thread = await forumCh.threads.create({
+      name: `${tournament.name} — Registration`,
+      message: { embeds: [embed], components: [joinRow] },
+    }).catch((err) => {
+      console.error(`[tournamentService] postTournamentOpen: failed to create fallback thread:`, err);
+      return null;
+    });
+    if (!thread) return;
+    const starter = await thread.fetchStarterMessage().catch(() => null);
+    await prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { threadId: thread.id, registrationMessageId: starter?.id ?? null },
+    });
+    threadId = thread.id;
+
+    // Add pre-registered participants to the thread
+    for (const p of tournament.participants) {
+      if (p.discordId) await thread.members.add(p.discordId).catch(() => null);
+    }
+    return;
   }
+
+  // Thread exists (normal path) — rename it and post the registration roster embed.
+  const thread = await client.channels.fetch(threadId).catch(() => null);
+  if (!thread?.isThread()) {
+    console.error(`[tournamentService] postTournamentOpen: thread ${threadId} not found or not a thread`);
+    return;
+  }
+
+  // Unarchive if Discord auto-archived the draft thread
+  if (thread.archived) await thread.setArchived(false).catch(() => null);
+  await thread.setName(`${tournament.name} — Registration`).catch((err) =>
+    console.error(`[tournamentService] postTournamentOpen: failed to rename thread:`, err),
+  );
+
+  const embed = buildRegistrationEmbed(tournament, tournament.participants);
+  const joinRow = buildJoinRow(tournamentId, tournament.guildId);
+  const msg = await thread.send({ embeds: [embed], components: [joinRow] });
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { registrationMessageId: msg.id },
+  });
+
+  // Add any pre-registered participants to the thread
+  for (const p of tournament.participants) {
+    if (p.discordId) await thread.members.add(p.discordId).catch(() => null);
+  }
+}
+
+// ── Update the live registration embed as participants join / leave ────────────
+
+export async function updateRegistrationEmbed(tournamentId: string): Promise<void> {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: { participants: true },
+  });
+  if (!tournament?.threadId || !tournament.registrationMessageId) return;
+  if (tournament.status !== 'REGISTRATION') return;
+
+  const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
+  if (!thread?.isThread()) return;
+
+  const msg = await thread.messages.fetch(tournament.registrationMessageId).catch(() => null);
+  if (!msg) return;
+
+  const isFull = tournament.participants.length >= tournament.size;
+  const embed = buildRegistrationEmbed(tournament, tournament.participants);
+  const joinRow = buildJoinRow(tournamentId, tournament.guildId, isFull);
+
+  await msg.edit({ embeds: [embed], components: [joinRow] }).catch((err) =>
+    console.error(`[tournamentService] updateRegistrationEmbed: failed to edit message:`, err),
+  );
 }
 
 // ── Tournament complete announcement ──────────────────────────────────────────
@@ -538,7 +680,7 @@ async function dmParticipants(
   }
 }
 
-// ── Add a participant to the tournament thread ────────────────────────────────
+// ── Add a participant to the tournament thread and refresh the embed ──────────
 
 export async function addParticipantToThread(tournamentId: string, discordId: string): Promise<void> {
   const tournament = await prisma.tournament.findUnique({
@@ -552,5 +694,10 @@ export async function addParticipantToThread(tournamentId: string, discordId: st
 
   await thread.members.add(discordId).catch((err) =>
     console.error(`[tournamentService] Failed to add ${discordId} to thread ${tournament.threadId}:`, err),
+  );
+
+  // Update the live registration roster embed so the new participant appears immediately
+  await updateRegistrationEmbed(tournamentId).catch((err) =>
+    console.error(`[tournamentService] addParticipantToThread: updateRegistrationEmbed failed:`, err),
   );
 }
