@@ -360,6 +360,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
       const participant = await prisma.tournamentParticipant.create({
         data: { tournamentId: id, discordId: targetDiscordId, displayName: targetName },
       });
+      triggerBot(`/trigger/tournament-participant-joined/${id}/${targetDiscordId}`);
       res.json({ success: true, data: participant } satisfies ApiResponse);
     } else {
       // Team mode — manager must add both a team name and member list
@@ -381,6 +382,10 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
         return p;
       });
 
+      // Add each team member to the thread
+      for (const m of teamMembers) {
+        triggerBot(`/trigger/tournament-participant-joined/${id}/${m.discordId}`);
+      }
       res.json({ success: true, data: participant } satisfies ApiResponse);
     }
   } catch (err) {

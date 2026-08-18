@@ -4,7 +4,7 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
-import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete } from './services/tournamentService.js';
+import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread } from './services/tournamentService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -285,6 +285,17 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await postTournamentComplete(tournamentId).catch((err) =>
         console.error(`[bot:internal] postTournamentComplete failed for ${tournamentId}:`, err),
+      );
+      return;
+    }
+
+    const tournamentParticipantMatch = req.url?.match(/^\/trigger\/tournament-participant-joined\/([^/]+)\/([^/]+)$/);
+    if (tournamentParticipantMatch) {
+      const tournamentId = tournamentParticipantMatch[1]!;
+      const discordId = tournamentParticipantMatch[2]!;
+      res.writeHead(202).end();
+      await addParticipantToThread(tournamentId, discordId).catch((err) =>
+        console.error(`[bot:internal] addParticipantToThread failed for ${tournamentId}/${discordId}:`, err),
       );
       return;
     }
