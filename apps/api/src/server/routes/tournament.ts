@@ -34,11 +34,14 @@ function badRequest(res: any, msg: string): void {
 tournamentRouter.get('/:guildId/tournaments', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const statusFilter = req.query['status'] as string | undefined;
+  const statuses = statusFilter ? statusFilter.split(',').map((s) => s.trim()).filter(Boolean) : [];
 
   try {
-    const where = statusFilter
-      ? { guildId, status: statusFilter }
-      : { guildId };
+    const where = statuses.length === 0
+      ? { guildId }
+      : statuses.length === 1
+        ? { guildId, status: statuses[0]! }
+        : { guildId, status: { in: statuses } };
 
     const tournaments = await prisma.tournament.findMany({
       where,
