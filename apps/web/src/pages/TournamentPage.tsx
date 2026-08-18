@@ -1,19 +1,16 @@
 import { useState, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { canManageGuild } from '@dem/shared';
 import { tournamentApi } from '../api/tournament';
 import type { Tournament, TournamentDetail, TournamentMatch, PlayerRating } from '../api/tournament';
 import { BracketView } from '../components/BracketView';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trophy, Plus, ChevronRight, Star, Users, Swords } from 'lucide-react';
+import { Trophy, Plus, Users } from 'lucide-react';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -500,39 +497,33 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="t-name">Tournament Name</Label>
+            <label htmlFor="t-name" className="text-sm font-medium">Tournament Name</label>
             <Input id="t-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring Invitational" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label>Bracket Size</Label>
-              <Select value={size} onValueChange={setSize}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[4, 8, 16, 32].map((s) => <SelectItem key={s} value={String(s)}>{s} participants</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Bracket Size</label>
+              <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                {[4, 8, 16, 32].map((s) => <option key={s} value={String(s)}>{s} participants</option>)}
+              </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Seeding</Label>
-              <Select value={seedingMode} onValueChange={setSeedingMode}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RANDOM">Random</SelectItem>
-                  <SelectItem value="DKP">DKP Points</SelectItem>
-                  <SelectItem value="ACTIVITY">Activity</SelectItem>
-                  <SelectItem value="MANUAL">Manual</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Seeding</label>
+              <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                <option value="RANDOM">Random</option>
+                <option value="DKP">DKP Points</option>
+                <option value="ACTIVITY">Activity</option>
+                <option value="MANUAL">Manual</option>
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="dkp1">1st Place DKP</Label>
+              <label htmlFor="dkp1" className="text-sm font-medium">1st Place DKP</label>
               <Input id="dkp1" type="number" min="0" value={dkp1st} onChange={(e) => setDkp1st(e.target.value)} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="dkp2">2nd Place DKP</Label>
+              <label htmlFor="dkp2" className="text-sm font-medium">2nd Place DKP</label>
               <Input id="dkp2" type="number" min="0" value={dkp2nd} onChange={(e) => setDkp2nd(e.target.value)} />
             </div>
           </div>
@@ -578,22 +569,19 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <Label>Winner</Label>
-            <Select value={winnerId} onValueChange={setWinnerId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {pA && <SelectItem value={pA.id}>{pA.displayName}</SelectItem>}
-                {pB && <SelectItem value={pB.id}>{pB.displayName}</SelectItem>}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium">Winner</label>
+            <select value={winnerId} onChange={(e) => setWinnerId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+              {pA && <option value={pA.id}>{pA.displayName}</option>}
+              {pB && <option value={pB.id}>{pB.displayName}</option>}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="scoreA">{pA?.displayName ?? 'Player A'} Score</Label>
+              <label htmlFor="scoreA" className="text-sm font-medium">{pA?.displayName ?? 'Player A'} Score</label>
               <Input id="scoreA" type="number" min="0" value={scoreA} onChange={(e) => setScoreA(e.target.value)} placeholder="Optional" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="scoreB">{pB?.displayName ?? 'Player B'} Score</Label>
+              <label htmlFor="scoreB" className="text-sm font-medium">{pB?.displayName ?? 'Player B'} Score</label>
               <Input id="scoreB" type="number" min="0" value={scoreB} onChange={(e) => setScoreB(e.target.value)} placeholder="Optional" />
             </div>
           </div>
