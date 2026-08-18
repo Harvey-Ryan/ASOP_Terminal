@@ -1258,3 +1258,19 @@ model UexSyncLog {
   @@index([status])
   @@index([startedAt])
 }
+
+model RequestLog {
+  id         String   @id @default(cuid())
+  method     String
+  path       String
+  module     String
+  guildId    String?
+  userId     String?
+  statusCode Int
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([guildId, createdAt])
+  @@index([module, createdAt])
+  @@index([createdAt])
+}

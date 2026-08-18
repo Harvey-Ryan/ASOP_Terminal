@@ -28,6 +28,7 @@ import { AllianceSettingsPage } from './pages/settings/AllianceSettingsPage';
 import { ActivitySettingsPage } from './pages/settings/ActivitySettingsPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
+import { TrafficPage } from './pages/TrafficPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
 import { LootSettingsPage } from './pages/settings/LootSettingsPage';
 import { ModuleSettingsHubPage } from './pages/settings/ModuleSettingsHubPage';
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="servers/:guildId/fleet" element={<FleetPage />} />
           <Route path="servers/:guildId/roster" element={<RosterPage />} />
           <Route path="servers/:guildId/activity" element={<RoleCallPage />} />
+          <Route path="servers/:guildId/traffic" element={<TrafficPage />} />
           <Route path="servers/:guildId/settings/modules/fleet" element={<FleetSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />
           <Route path="servers/:guildId/loot" element={<LootModulePage />} />

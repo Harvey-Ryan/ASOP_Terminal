@@ -24,6 +24,8 @@ import { allianceRouter } from './routes/alliance.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
+import { trafficRouter } from './routes/traffic.js';
+import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 
 const PgSession = ConnectPgSimple(session);
@@ -158,8 +160,23 @@ export function createServer(): express.Express {
 
   // ── Request logger ─────────────────────────────────────────────────────────
 
-  app.use((req, _res, next) => {
+  app.use((req, res, next) => {
     console.log(`[api] ${req.method} ${req.path}`);
+    if (!isTest) {
+      const start = Date.now();
+      res.on('finish', () => {
+        if (req.path === '/api/health' || req.path.startsWith('/test/')) return;
+        logRequest({
+          method:     req.method,
+          path:       normalizePath(req.path),
+          module:     deriveModule(req.path),
+          guildId:    extractGuildId(req.path),
+          userId:     req.session?.userId ?? null,
+          statusCode: res.statusCode,
+          durationMs: Date.now() - start,
+        });
+      });
+    }
     next();
   });
 
@@ -203,6 +220,7 @@ export function createServer(): express.Express {
   app.use('/api', notificationsRouter);
   app.use('/api', roleCallRouter);
   app.use('/api/guilds', heatmapRouter);
+  app.use('/api/guilds', trafficRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({
