@@ -35,6 +35,8 @@ export interface GuildSettingsData {
   craftingEnabled: boolean;
   activityEnabled: boolean;
   activityHeatmapPublic: boolean;
+  tournamentsEnabled: boolean;
+  tournamentChannelId: string | null;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
   lootDefaultMethod: string;
