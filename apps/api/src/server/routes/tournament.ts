@@ -314,7 +314,7 @@ tournamentRouter.delete('/:guildId/tournaments/:id', requireAuth, async (req, re
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (tournament.status !== 'DRAFT') return badRequest(res, 'Only DRAFT tournaments can be deleted');
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Only DRAFT or REGISTRATION tournaments can be deleted');
 
     await prisma.tournament.delete({ where: { id } });
     res.json({ success: true } satisfies ApiResponse);

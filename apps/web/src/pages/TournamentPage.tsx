@@ -236,11 +236,11 @@ function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen,
       {isManager && (
         <div className="mt-2 flex gap-1.5" onClick={(e) => e.stopPropagation()}>
           {t.status === 'DRAFT' && (
-            <>
               <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onOpen}>Open Reg</Button>
+            )}
+            {(t.status === 'DRAFT' || t.status === 'REGISTRATION') && (
               <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onDelete}>Delete</Button>
-            </>
-          )}
+            )}
           {t.status === 'REGISTRATION' && (
             <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onStart}>Start Bracket</Button>
           )}
