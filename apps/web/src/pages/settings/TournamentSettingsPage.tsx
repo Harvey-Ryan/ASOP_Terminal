@@ -85,7 +85,6 @@ export function TournamentSettingsPage() {
     { label: 'Create tournament', state: 'idle' },
     { label: 'Add 8 participants', state: 'idle' },
     { label: 'Generate bracket', state: 'idle' },
-    { label: 'Resolve matches', state: 'idle' },
   ];
 
   const [demoSteps, setDemoSteps] = useState<DemoStep[]>(INITIAL_STEPS);
@@ -128,19 +127,9 @@ export function TournamentSettingsPage() {
     try {
       const r = await tournamentApi.demoBracket(guildId!, tid!);
       setStep(2, { state: 'done', detail: `${r.matchCount} matches created` });
-    } catch (e) {
-      setStep(2, { state: 'error', detail: (e as Error).message });
-      setDemoRunning(false);
-      return;
-    }
-
-    setStep(3, { state: 'running' });
-    try {
-      const r = await tournamentApi.demoResolve(guildId!, tid!);
-      setStep(3, { state: 'done', detail: `Winner: ${r.winner}` });
       qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
     } catch (e) {
-      setStep(3, { state: 'error', detail: (e as Error).message });
+      setStep(2, { state: 'error', detail: (e as Error).message });
       setDemoRunning(false);
       return;
     }
@@ -209,8 +198,8 @@ export function TournamentSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Runs through all four tournament steps with fake participants so you can test the bracket
-            viewer without real players. No Discord announcements are sent.
+            Creates an 8-person bracket ready for manual completion. Use it to test match submission
+            and bracket advancement without real participants. No Discord announcements are sent.
           </p>
           <Button size="sm" variant="outline" onClick={runDemo} disabled={demoRunning}>
             {demoRunning
@@ -252,7 +241,7 @@ export function TournamentSettingsPage() {
                   className="text-xs text-primary underline underline-offset-2 hover:opacity-80 mt-1"
                   onClick={() => navigate(`/dashboard/servers/${guildId}/tournaments?demo=${demoTournamentId}`)}
                 >
-                  View completed tournament →
+                  Go to bracket to complete matches →
                 </button>
               )}
             </div>
