@@ -16,6 +16,9 @@ COPY apps/web/package.json apps/web/
 # generating the Prisma client that the bot shares.
 COPY apps/api/prisma/ apps/api/prisma/
 
+# Install fonts so resvg-js can render text in bracket/match-card images
+RUN apk add --no-cache font-noto fontconfig && fc-cache -f
+
 # Install all workspace deps
 RUN npm ci
 

@@ -6,6 +6,13 @@ export function svgToPng(svg: string, widthPx = 1200): Buffer {
   const resvg = new Resvg(svg, {
     background: '#1e1f22',
     fitTo: { mode: 'width', value: widthPx },
+    font: {
+      loadSystemFonts: true,
+      // Noto Sans is installed via `apk add font-noto` in the Dockerfile.
+      // On local dev, resvg falls back to whatever sans-serif is available.
+      defaultFontFamily: 'Noto Sans',
+      sansSerifFamily: 'Noto Sans',
+    },
   });
   return Buffer.from(resvg.render().asPng());
 }
@@ -77,7 +84,7 @@ export function buildBracketSvg(
 
   const lines: string[] = [];
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="background:${COLOR_BG}">`);
-  lines.push(`<style>text{font-family:'Arial','Helvetica',sans-serif;}</style>`);
+  lines.push(`<style>text{font-family:'Noto Sans','Arial',sans-serif;}</style>`);
 
   // Title
   lines.push(svgText(PAD, 24, tournamentName, COLOR_TEXT, 14, 'bold'));

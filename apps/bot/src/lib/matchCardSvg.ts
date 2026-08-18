@@ -213,7 +213,7 @@ function renderAvatarCircle(
 
 function svgText(x: number, y: number, text: string, fill: string, size: number, weight = 'normal', anchor = 'start'): string {
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}" font-family="Arial,Helvetica,sans-serif">${escaped}</text>`;
+  return `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}" font-family="'Noto Sans',Arial,sans-serif">${escaped}</text>`;
 }
 
 function truncate(s: string, max: number): string {
