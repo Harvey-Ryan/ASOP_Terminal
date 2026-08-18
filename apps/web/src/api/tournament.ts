@@ -119,11 +119,17 @@ export interface RatingHistoryEntry {
   createdAt: string;
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function requireData<T>(r: ApiResponse<T>): T {
+  if (!r.success) throw new Error((r as { error?: string }).error ?? 'Request failed');
   if (r.data === undefined) throw new Error('Missing data in API response');
   return r.data;
+}
+
+// For endpoints that return { success: true } with no data body
+function requireSuccess(r: ApiResponse<unknown>): void {
+  if (!r.success) throw new Error((r as { error?: string }).error ?? 'Request failed');
 }
 
 // ── API client ────────────────────────────────────────────────────────────────
@@ -151,17 +157,17 @@ export const tournamentApi = {
       .then(requireData),
 
   delete: (guildId: string, id: string) =>
-    api.delete<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}`).then(requireData),
+    api.delete<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}`).then(requireSuccess),
 
   // State transitions
   open: (guildId: string, id: string) =>
-    api.post<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/open`, {}).then(requireData),
+    api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/open`, {}).then(requireSuccess),
 
   start: (guildId: string, id: string) =>
-    api.post<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/start`, {}).then(requireData),
+    api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/start`, {}).then(requireSuccess),
 
   complete: (guildId: string, id: string) =>
-    api.post<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/complete`, {}).then(requireData),
+    api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/complete`, {}).then(requireSuccess),
 
   // Participants
   register: (guildId: string, id: string, body: { discordId?: string; displayName?: string; teamName?: string; teamMembers?: TournamentTeamMember[] }) =>
@@ -170,21 +176,21 @@ export const tournamentApi = {
       .then(requireData),
 
   removeParticipant: (guildId: string, id: string, pid: string) =>
-    api.delete<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/participants/${pid}`).then(requireData),
+    api.delete<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/participants/${pid}`).then(requireSuccess),
 
   reorder: (guildId: string, id: string, order: string[]) =>
-    api.patch<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/seed`, { order }).then(requireData),
+    api.patch<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/seed`, { order }).then(requireSuccess),
 
   // Matches
   scheduleMatch: (guildId: string, id: string, matchId: string, scheduledAt: string) =>
     api
-      .post<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/schedule`, { scheduledAt })
-      .then(requireData),
+      .post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/schedule`, { scheduledAt })
+      .then(requireSuccess),
 
   submitResult: (guildId: string, id: string, matchId: string, body: { winnerId: string; scoreA?: number; scoreB?: number }) =>
     api
-      .post<ApiResponse<void>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/result`, body)
-      .then(requireData),
+      .post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/result`, body)
+      .then(requireSuccess),
 
   // Rankings
   getRankings: (guildId: string, page = 1) =>
