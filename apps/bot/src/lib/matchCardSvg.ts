@@ -205,6 +205,7 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}">`);
   lines.push(`<style>text { font-family: 'DejaVu Sans', Arial, sans-serif; }</style>`);
   lines.push(`<defs>
+    ${GLOW_FILTER_DEF}
     <clipPath id="clipW"><circle cx="${AX}" cy="${AY_AVATAR}" r="${AVATAR_R}"/></clipPath>
     <clipPath id="clipL"><circle cx="${BX}" cy="${AY_AVATAR}" r="${AVATAR_R}"/></clipPath>
   </defs>`);
@@ -218,9 +219,9 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   lines.push(svgT(16, HEADER_H - 14, truncate(tournamentName.toUpperCase(), 28), COLOR_DIM, 11, 'bold'));
   lines.push(svgT(CARD_W - 16, HEADER_H - 14, `ROUND ${round}  ·  MATCH ${position + 1} RESULT`, COLOR_GREEN, 11, 'bold', 'end'));
 
-  // Avatars (upper half — same positions as match card)
-  renderAvatar(lines, AX, AY_AVATAR, winAvatar, winName, 'clipW', COLOR_GREEN);
-  if (loser) renderAvatar(lines, BX, AY_AVATAR, loseAvatar, loseName, 'clipL', '#404249');
+  // Winner gets an exaggerated green glow; loser gets a plain subtle ring
+  renderAvatar(lines, AX, AY_AVATAR, winAvatar, winName,  'clipW', COLOR_GREEN);
+  if (loser) renderAvatar(lines, BX, AY_AVATAR, loseAvatar, loseName, 'clipL', null);
 
   // Score / checkmark — centered below avatars where VS. lives on match card
   if (scoreA != null && scoreB != null) {
@@ -249,16 +250,32 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+// Pass glowColor to render an exaggerated blurred glow behind the avatar (winner effect).
+// The SVG that calls this must include GLOW_FILTER_DEF in its <defs>.
+const GLOW_FILTER_DEF = `<filter id="winner-glow" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="16"/>
+  </filter>`;
+
 function renderAvatar(
   out: string[],
   cx: number, cy: number,
   avatarDataUri: string | null,
   name: string,
   clipId: string,
-  borderColor = '#404249',
+  glowColor: string | null = null,
 ): void {
   const r = AVATAR_R;
-  out.push(`<circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${borderColor}" stroke-width="2.5"/>`);
+
+  if (glowColor) {
+    // Blurred circle behind avatar = glow effect; no hard border ring
+    out.push(`<circle cx="${cx}" cy="${cy}" r="${r + 10}" fill="${glowColor}" opacity="0.7" filter="url(#winner-glow)"/>`);
+    // Second tighter pass for a brighter core
+    out.push(`<circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="${glowColor}" opacity="0.25"/>`);
+  } else {
+    // Plain subtle ring for non-winners / match card avatars
+    out.push(`<circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="#404249" stroke-width="1.5"/>`);
+  }
+
   if (avatarDataUri) {
     out.push(`<image href="${avatarDataUri}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#${clipId})"/>`);
   } else {
