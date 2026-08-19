@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, Loader2, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,7 +13,19 @@ import type { GuildSettingsData } from '@/api/settings';
 type StepState = 'idle' | 'running' | 'done' | 'error';
 interface TestStep { label: string; state: StepState; detail?: string; }
 
-const LIFECYCLE_PARTICIPANTS = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
+// Fake Discord snowflake IDs used only for the lifecycle test so ELO ratings
+// are exercised. These IDs are below the valid Discord snowflake range and will
+// never collide with real users.
+const LIFECYCLE_PARTICIPANTS = [
+  { name: 'Alice',   discordId: '999000000000001' },
+  { name: 'Bob',     discordId: '999000000000002' },
+  { name: 'Charlie', discordId: '999000000000003' },
+  { name: 'Diana',   discordId: '999000000000004' },
+  { name: 'Eve',     discordId: '999000000000005' },
+  { name: 'Frank',   discordId: '999000000000006' },
+  { name: 'Grace',   discordId: '999000000000007' },
+  { name: 'Henry',   discordId: '999000000000008' },
+];
 const PAUSE_SECONDS = 30;
 
 export function TournamentSettingsPage() {
@@ -87,7 +99,7 @@ export function TournamentSettingsPage() {
     return [
       { label: 'Create tournament', state: 'idle' },
       { label: 'Open registration', state: 'idle' },
-      ...LIFECYCLE_PARTICIPANTS.map((n) => ({ label: `Register ${n}`, state: 'idle' as StepState })),
+      ...LIFECYCLE_PARTICIPANTS.map((p) => ({ label: `Register ${p.name}`, state: 'idle' as StepState })),
       { label: 'Start tournament', state: 'idle' },
     ];
   }
@@ -153,11 +165,11 @@ export function TournamentSettingsPage() {
     }
     idx++;
 
-    // ── Register participants ───────────────────────────────────────────────
-    for (const name of LIFECYCLE_PARTICIPANTS) {
+    // ── Register participants (with fake Discord IDs so ELO is exercised) ──
+    for (const p of LIFECYCLE_PARTICIPANTS) {
       patchStep(idx, { state: 'running' });
       try {
-        await tournamentApi.register(guildId!, tid, { displayName: name });
+        await tournamentApi.register(guildId!, tid, { displayName: p.name, discordId: p.discordId });
         patchStep(idx, { state: 'done' });
       } catch (e) {
         patchStep(idx, { state: 'error', detail: (e as Error).message });
@@ -360,6 +372,62 @@ export function TournamentSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Reset Rankings ─────────────────────────────────────────────────── */}
+      <ResetRankingsCard guildId={guildId!} />
     </div>
+  );
+}
+
+// ── Reset Rankings card ───────────────────────────────────────────────────────
+
+function ResetRankingsCard({ guildId }: { guildId: string }) {
+  const qc = useQueryClient();
+  const [flash, setFlash] = useState(false);
+
+  const reset = useMutation({
+    mutationFn: () => tournamentApi.resetRankings(guildId),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] });
+      setFlash(true);
+      setTimeout(() => setFlash(false), 3000);
+      return data;
+    },
+  });
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">ELO Rankings</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Permanently wipes all ELO ratings and match history for this server.
+          Use this to clean up after lifecycle tests or to start a fresh season.
+          This cannot be undone.
+        </p>
+        {reset.isError && (
+          <p className="text-xs text-destructive">{(reset.error as Error).message}</p>
+        )}
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={reset.isPending}
+          onClick={() => {
+            if (confirm('Reset all ELO rankings for this server? This cannot be undone.')) {
+              reset.mutate();
+            }
+          }}
+        >
+          {reset.isPending ? (
+            <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Resetting…</>
+          ) : flash ? (
+            <><Check className="h-4 w-4 mr-1" />{(reset.data as { deleted: number } | undefined)?.deleted ?? 0} records cleared</>
+          ) : (
+            <><RotateCcw className="h-4 w-4 mr-1" />Reset Rankings</>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

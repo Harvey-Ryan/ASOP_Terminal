@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trophy, Plus, Users, X } from 'lucide-react';
+import { Trophy, Plus, Users, X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import type { EloSummaryEntry } from '../api/tournament';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -290,10 +291,16 @@ interface TournamentDetailProps {
   isRemovingParticipant: boolean;
 }
 
-function TournamentDetail({ detail, isManager, onSubmitResult, onAddParticipant, onRemoveParticipant, isAddingParticipant, isRemovingParticipant }: TournamentDetailProps) {
+function TournamentDetail({ detail, isManager, guildId, onSubmitResult, onAddParticipant, onRemoveParticipant, isAddingParticipant, isRemovingParticipant }: TournamentDetailProps) {
   const [activeTab, setActiveTab] = useState<'bracket' | 'participants' | 'schedule'>('bracket');
   const [addName, setAddName] = useState('');
   const [addDiscordId, setAddDiscordId] = useState('');
+
+  const { data: eloSummary } = useQuery({
+    queryKey: ['elo-summary', detail.id],
+    queryFn: () => tournamentApi.getEloSummary(guildId, detail.id),
+    enabled: detail.status === 'COMPLETED',
+  });
 
   const canEdit = isManager && (detail.status === 'DRAFT' || detail.status === 'REGISTRATION');
   const isFull = detail.participants.length >= detail.size;
@@ -336,13 +343,18 @@ function TournamentDetail({ detail, isManager, onSubmitResult, onAddParticipant,
       </div>
 
       {activeTab === 'bracket' && (
-        <BracketView
-          matches={detail.matches}
-          participants={detail.participants}
-          tournamentName={detail.name}
-          onSubmitResult={isManager ? onSubmitResult : undefined}
-          isManager={isManager}
-        />
+        <div className="flex flex-col gap-4">
+          <BracketView
+            matches={detail.matches}
+            participants={detail.participants}
+            tournamentName={detail.name}
+            onSubmitResult={isManager ? onSubmitResult : undefined}
+            isManager={isManager}
+          />
+          {eloSummary && eloSummary.length > 0 && (
+            <EloSummaryTable entries={eloSummary} />
+          )}
+        </div>
       )}
 
       {activeTab === 'participants' && (
@@ -723,5 +735,53 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── ELO summary table ─────────────────────────────────────────────────────────
+
+function EloSummaryTable({ entries }: { entries: EloSummaryEntry[] }) {
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2 bg-muted/40 border-b border-border flex items-center gap-2">
+        <span className="text-sm font-medium">📊 ELO Changes</span>
+        <span className="text-xs text-muted-foreground">— this tournament</span>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="bg-muted/20">
+          <tr>
+            <th className="text-left px-3 py-1.5 text-muted-foreground font-medium text-xs">Player</th>
+            <th className="text-right px-3 py-1.5 text-muted-foreground font-medium text-xs">W / L</th>
+            <th className="text-right px-3 py-1.5 text-muted-foreground font-medium text-xs">Before</th>
+            <th className="text-right px-3 py-1.5 text-muted-foreground font-medium text-xs">Change</th>
+            <th className="text-right px-3 py-1.5 text-muted-foreground font-medium text-xs">After</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e) => {
+            const up = e.totalDelta > 0;
+            const down = e.totalDelta < 0;
+            return (
+              <tr key={e.discordId} className="border-t border-border hover:bg-muted/20">
+                <td className="px-3 py-2 font-medium">{e.displayName}</td>
+                <td className="px-3 py-2 text-right text-muted-foreground">
+                  <span className="text-green-400">{e.wins}</span>
+                  {' / '}
+                  <span className="text-red-400">{e.losses}</span>
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-muted-foreground">{e.ratingBefore}</td>
+                <td className="px-3 py-2 text-right font-mono font-semibold">
+                  <span className={`flex items-center justify-end gap-1 ${up ? 'text-green-400' : down ? 'text-red-400' : 'text-muted-foreground'}`}>
+                    {up ? <TrendingUp className="h-3.5 w-3.5" /> : down ? <TrendingDown className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+                    {e.totalDelta >= 0 ? `+${e.totalDelta}` : e.totalDelta}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-right font-mono">{e.ratingAfter}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

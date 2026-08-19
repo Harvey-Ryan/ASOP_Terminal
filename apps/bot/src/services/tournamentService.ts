@@ -680,12 +680,47 @@ export async function postTournamentComplete(tournamentId: string): Promise<void
     return `${medals[i]} ${nameTag} — ${p.displayName}`;
   }).join('\n');
 
-  const embed = new EmbedBuilder()
+  const championEmbed = new EmbedBuilder()
     .setTitle(`🏆 ${tournament.name} — Tournament Complete!`)
     .setDescription(podium || 'Results finalized.')
     .setColor(0xffd700);
 
-  await thread.send({ embeds: [embed] });
+  // ELO summary — aggregate all rating history rows for this tournament
+  const history = await prisma.tournamentRatingHistory.findMany({
+    where: { tournamentId },
+    include: { rating: { select: { discordId: true, displayName: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const playerMap = new Map<string, { displayName: string; delta: number; wins: number; losses: number }>();
+  for (const row of history) {
+    const key = row.rating.discordId;
+    const existing = playerMap.get(key) ?? { displayName: row.rating.displayName, delta: 0, wins: 0, losses: 0 };
+    existing.delta += row.delta;
+    if (row.won) existing.wins++;
+    else existing.losses++;
+    playerMap.set(key, existing);
+  }
+
+  const embeds = [championEmbed];
+
+  if (playerMap.size > 0) {
+    const entries = Array.from(playerMap.values()).sort((a, b) => b.delta - a.delta);
+    const lines = entries.map((e) => {
+      const sign = e.delta >= 0 ? `+${e.delta}` : `${e.delta}`;
+      const arrow = e.delta > 0 ? '🔺' : e.delta < 0 ? '🔻' : '▪️';
+      return `${arrow} \`${sign.padStart(4)}\` **${e.displayName}** — ${e.wins}W ${e.losses}L`;
+    });
+
+    const eloEmbed = new EmbedBuilder()
+      .setTitle('📊 ELO Changes')
+      .setDescription(lines.join('\n'))
+      .setColor(0x5865f2);
+
+    embeds.push(eloEmbed);
+  }
+
+  await thread.send({ embeds });
 }
 
 // ── Refresh pinned bracket image ──────────────────────────────────────────────

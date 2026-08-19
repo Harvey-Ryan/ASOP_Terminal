@@ -81,6 +81,23 @@ tournamentRouter.get('/:guildId/tournaments/rankings', requireAuth, async (req, 
   }
 });
 
+// ── DELETE /:guildId/tournaments/rankings ────────────────────────────────────
+
+tournamentRouter.delete('/:guildId/tournaments/rankings', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
+
+  try {
+    // TournamentRatingHistory cascades via FK — deleting ratings removes history automatically
+    const { count } = await prisma.tournamentPlayerRating.deleteMany({ where: { guildId } });
+    res.json({ success: true, data: { deleted: count } } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[DELETE rankings]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
 // ── GET /:guildId/tournaments/seasons ────────────────────────────────────────
 
 tournamentRouter.get('/:guildId/tournaments/seasons', requireAuth, async (req, res) => {
@@ -488,6 +505,64 @@ tournamentRouter.get('/:guildId/tournaments/:id', requireAuth, async (req, res) 
     res.json({ success: true, data: tournament } satisfies ApiResponse);
   } catch (err) {
     console.error('[GET tournament]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
+// ── GET /:guildId/tournaments/:id/elo-summary ─────────────────────────────────
+// Aggregates ELO changes across all matches in the tournament per player.
+// Only players who have a discordId (and thus a rating record) appear.
+
+tournamentRouter.get('/:guildId/tournaments/:id/elo-summary', requireAuth, async (req, res) => {
+  const { guildId, id } = req.params as { guildId: string; id: string };
+
+  try {
+    const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
+    if (!tournament) return notFound(res);
+
+    // Fetch history ordered chronologically so the last row per player = their final rating
+    const history = await prisma.tournamentRatingHistory.findMany({
+      where: { tournamentId: id },
+      include: { rating: { select: { discordId: true, displayName: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const playerMap = new Map<string, {
+      discordId: string;
+      displayName: string;
+      totalDelta: number;
+      ratingBefore: number;
+      ratingAfter: number;
+      wins: number;
+      losses: number;
+    }>();
+
+    for (const row of history) {
+      const key = row.rating.discordId;
+      const existing = playerMap.get(key);
+      if (!existing) {
+        playerMap.set(key, {
+          discordId: key,
+          displayName: row.rating.displayName,
+          totalDelta: row.delta,
+          ratingBefore: row.ratingBefore, // rating at tournament start
+          ratingAfter: row.ratingAfter,   // updated each row; last write = final
+          wins: row.won ? 1 : 0,
+          losses: row.won ? 0 : 1,
+        });
+      } else {
+        existing.totalDelta += row.delta;
+        existing.ratingAfter = row.ratingAfter;
+        if (row.won) existing.wins++;
+        else existing.losses++;
+      }
+    }
+
+    // Sort gainers first, then by magnitude
+    const summary = Array.from(playerMap.values()).sort((a, b) => b.totalDelta - a.totalDelta);
+    res.json({ success: true, data: summary } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[GET elo-summary]', err);
     res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
   }
 });

@@ -106,6 +106,16 @@ export interface SeasonStanding {
   losses: number;
 }
 
+export interface EloSummaryEntry {
+  discordId: string;
+  displayName: string;
+  totalDelta: number;
+  ratingBefore: number;
+  ratingAfter: number;
+  wins: number;
+  losses: number;
+}
+
 export interface RatingHistoryEntry {
   id: string;
   matchId: string;
@@ -196,6 +206,14 @@ export const tournamentApi = {
   getRankings: (guildId: string, page = 1) =>
     api
       .get<ApiResponse<{ players: PlayerRating[]; total: number; page: number; limit: number }>>(`/guilds/${guildId}/tournaments/rankings?page=${page}`)
+      .then(requireData),
+
+  resetRankings: (guildId: string) =>
+    api.delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/tournaments/rankings`).then(requireData),
+
+  getEloSummary: (guildId: string, id: string) =>
+    api
+      .get<ApiResponse<EloSummaryEntry[]>>(`/guilds/${guildId}/tournaments/${id}/elo-summary`)
       .then(requireData),
 
   getPlayerHistory: (guildId: string, discordId: string) =>
