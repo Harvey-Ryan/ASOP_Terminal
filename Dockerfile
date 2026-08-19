@@ -1,5 +1,12 @@
 FROM node:20-alpine
-RUN apk add --no-cache openssl
+# openssl: required by Prisma; ttf-dejavu: fonts for resvg-js bracket/match-card images.
+# Alpine puts ttf-dejavu in a version-dependent sub-path, so we use `find` to locate
+# the files and copy them to a fixed /fonts/ directory that bracketSvg.ts loads directly.
+RUN apk add --no-cache openssl ttf-dejavu \
+  && mkdir -p /fonts \
+  && find /usr/share/fonts -name "DejaVuSans.ttf"      2>/dev/null | head -1 | xargs -I{} cp {} /fonts/ \
+  && find /usr/share/fonts -name "DejaVuSans-Bold.ttf" 2>/dev/null | head -1 | xargs -I{} cp {} /fonts/ \
+  && echo "Fonts staged: $(ls /fonts/)"
 WORKDIR /app
 
 COPY package.json package-lock.json turbo.json tsconfig.base.json ./
