@@ -843,6 +843,16 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
     }
   }
 
+  if (reminder.type === 'REGISTRATION_DEADLINE' && tournament.threadId) {
+    const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
+    if (thread?.isThread()) {
+      const participantCount = await prisma.tournamentParticipant.count({ where: { tournamentId: tournament.id } });
+      await thread.send(
+        `🔒 **Registration for ${tournament.name} is now closed!** ${participantCount}/${tournament.size} spots filled. Managers can now start the tournament.`,
+      ).catch(() => null);
+    }
+  }
+
   await prisma.tournamentReminder.update({ where: { id: reminderId }, data: { sentAt: new Date() } });
 }
 

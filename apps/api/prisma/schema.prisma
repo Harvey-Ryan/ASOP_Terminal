@@ -1402,7 +1402,7 @@ model TournamentReminder {
   tournamentId String
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   matchId      String?
-  /// "MATCH_START" | "CHECK_IN" | "REGISTRATION_CLOSE" | "BRACKET_RELEASE"
+  /// "MATCH_START" | "CHECK_IN" | "REGISTRATION_CLOSE" | "REGISTRATION_DEADLINE" | "BRACKET_RELEASE"
   type         String
   scheduledAt  DateTime
   sentAt       DateTime?

@@ -644,6 +644,10 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
     const isManager = await assertGuildManager(req, guildId);
     // Non-managers can only register themselves, and only during REGISTRATION (not DRAFT)
     if (!isManager && tournament.status === 'DRAFT') return forbidden(res);
+    // Block non-managers once the registration deadline has passed
+    if (!isManager && tournament.registrationEndsAt && tournament.registrationEndsAt < new Date()) {
+      return badRequest(res, 'Registration has closed');
+    }
 
     if (tournament.participantMode === 'INDIVIDUAL') {
       // Managers can specify a discordId and/or displayName.
@@ -771,15 +775,17 @@ tournamentRouter.post('/:guildId/tournaments/:id/open', requireAuth, async (req,
 
     // Reminder for registration close if a deadline is set
     if (tournament.registrationEndsAt) {
+      const now = new Date();
       const closeReminderAt = new Date(tournament.registrationEndsAt.getTime() - 60 * 60_000);
-      if (closeReminderAt > new Date()) {
-        await prisma.tournamentReminder.create({
-          data: {
-            tournamentId: id,
-            type: 'REGISTRATION_CLOSE',
-            scheduledAt: closeReminderAt,
-          },
-        });
+      const remindersToCreate: { tournamentId: string; type: string; scheduledAt: Date }[] = [];
+      if (closeReminderAt > now) {
+        remindersToCreate.push({ tournamentId: id, type: 'REGISTRATION_CLOSE', scheduledAt: closeReminderAt });
+      }
+      if (tournament.registrationEndsAt > now) {
+        remindersToCreate.push({ tournamentId: id, type: 'REGISTRATION_DEADLINE', scheduledAt: tournament.registrationEndsAt });
+      }
+      if (remindersToCreate.length) {
+        await prisma.tournamentReminder.createMany({ data: remindersToCreate });
       }
     }
 
