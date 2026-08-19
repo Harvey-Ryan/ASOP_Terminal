@@ -1380,9 +1380,59 @@ tournamentRouter.post('/:guildId/tournaments/:id/complete', requireAuth, async (
     if (!tournament) return notFound(res);
     if (tournament.status !== 'IN_PROGRESS') return badRequest(res, 'Tournament must be IN_PROGRESS to complete');
 
-    await prisma.tournament.update({
-      where: { id },
-      data: { status: 'COMPLETED', completedAt: new Date() },
+    // Block if any matches are still pending — managers should submit results or record
+    // forfeits rather than skipping the bracket. Auto-complete handles the normal path;
+    // this endpoint is the fallback for when auto-complete silently failed.
+    const activeMatches = await prisma.tournamentMatch.count({
+      where: { tournamentId: id, status: { notIn: ['COMPLETED', 'BYE'] } },
+    });
+    if (activeMatches > 0) {
+      return badRequest(
+        res,
+        `${activeMatches} unresolved match${activeMatches === 1 ? '' : 'es'} remain. Submit all results before completing, or record forfeits.`,
+      );
+    }
+
+    // Mirror the DKP payout from the auto-complete path in the match-result route.
+    await prisma.$transaction(async (tx) => {
+      const prizeMap: Record<number, number> = {
+        1: tournament.dkpPrize1st,
+        2: tournament.dkpPrize2nd,
+        3: tournament.dkpPrize3rd,
+      };
+
+      const prizeWinners = await tx.tournamentParticipant.findMany({
+        where: { tournamentId: id, placement: { in: [1, 2, 3] } },
+        select: { id: true, placement: true, discordId: true, displayName: true },
+      });
+
+      for (const p of prizeWinners) {
+        const amount = prizeMap[p.placement!] ?? 0;
+        if (amount <= 0 || !p.discordId) continue;
+        const balance = await tx.dkpBalance.findUnique({
+          where: { guildId_userId: { guildId, userId: p.discordId } },
+        });
+        if (!balance) continue;
+        await tx.dkpTransaction.create({
+          data: {
+            balanceId: balance.id,
+            guildId,
+            userId: p.discordId,
+            username: p.displayName,
+            amount,
+            reason: `Tournament: ${id}`,
+          },
+        });
+        await tx.dkpBalance.update({
+          where: { id: balance.id },
+          data: { balance: { increment: amount } },
+        });
+      }
+
+      await tx.tournament.update({
+        where: { id },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      });
     });
 
     triggerBot(`/trigger/tournament-complete/${id}`);
