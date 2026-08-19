@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -96,6 +96,15 @@ export function TournamentPage() {
     onError: (e: Error) => alert(e.message),
   });
 
+  const completeMutation = useMutation({
+    mutationFn: (id: string) => tournamentApi.complete(guildId!, id),
+    onSuccess: () => {
+      setSelectedId(null);
+      qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
+    },
+    onError: (e: Error) => alert(e.message),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.cancel(guildId!, id),
     onSuccess: (_, cancelledId) => {
@@ -125,6 +134,12 @@ export function TournamentPage() {
   const removeParticipantMutation = useMutation({
     mutationFn: ({ id, pid }: { id: string; pid: string }) =>
       tournamentApi.removeParticipant(guildId!, id, pid),
+    onSuccess: invalidate,
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const unregisterMutation = useMutation({
+    mutationFn: (id: string) => tournamentApi.unregister(guildId!, id),
     onSuccess: invalidate,
     onError: (e: Error) => alert(e.message),
   });
@@ -165,7 +180,7 @@ export function TournamentPage() {
       {tab === 'rankings' && (
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0">
-            <RankingsView players={rankings?.players ?? []} isLoading={!rankings} />
+            <RankingsView players={rankings?.players ?? []} isLoading={!rankings} guildId={guildId!} />
           </div>
           {isManager && (
             <div className="w-72 shrink-0">
@@ -194,6 +209,7 @@ export function TournamentPage() {
                 onOpen={() => openMutation.mutate(t.id)}
                 onStart={() => startMutation.mutate(t.id)}
                 onDelete={() => { if (confirm(`Delete "${t.name}"?`)) deleteMutation.mutate(t.id); }}
+                onComplete={() => { if (confirm(`Mark "${t.name}" as completed? This will distribute DKP and lock the results.`)) completeMutation.mutate(t.id); }}
                 onCancel={() => { if (confirm(`Cancel "${t.name}"? This cannot be undone.`)) cancelMutation.mutate(t.id); }}
               />
             ))}
@@ -213,8 +229,14 @@ export function TournamentPage() {
               onRemoveParticipant={(pid) =>
                 removeParticipantMutation.mutate({ id: detail.id, pid })
               }
+              onUnregister={() => {
+                if (confirm('Leave this tournament? You will lose your spot.')) {
+                  unregisterMutation.mutate(detail.id);
+                }
+              }}
               isAddingParticipant={addParticipantMutation.isPending}
               isRemovingParticipant={removeParticipantMutation.isPending}
+              isUnregistering={unregisterMutation.isPending}
             />
           )}
           {selectedId && !detail && (
@@ -263,10 +285,11 @@ interface TournamentCardProps {
   onOpen: () => void;
   onStart: () => void;
   onDelete: () => void;
+  onComplete: () => void;
   onCancel: () => void;
 }
 
-function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen, onStart, onDelete, onCancel }: TournamentCardProps) {
+function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen, onStart, onDelete, onComplete, onCancel }: TournamentCardProps) {
   return (
     <button
       onClick={onClick}
@@ -298,7 +321,10 @@ function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen,
             <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onStart}>Start Bracket</Button>
           )}
           {t.status === 'IN_PROGRESS' && (
-            <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onCancel}>Cancel</Button>
+            <>
+              <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-green-400 border-green-500/40 hover:bg-green-500/10" onClick={onComplete}>Complete</Button>
+              <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onCancel}>Cancel</Button>
+            </>
           )}
         </div>
       )}
@@ -316,14 +342,57 @@ interface TournamentDetailProps {
   onSubmitResult: (match: TournamentMatch) => void;
   onAddParticipant: (discordId?: string, displayName?: string) => void;
   onRemoveParticipant: (pid: string) => void;
+  onUnregister: () => void;
   isAddingParticipant: boolean;
   isRemovingParticipant: boolean;
+  isUnregistering: boolean;
 }
 
-function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitResult, onAddParticipant, onRemoveParticipant, isAddingParticipant, isRemovingParticipant }: TournamentDetailProps) {
+function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitResult, onAddParticipant, onRemoveParticipant, onUnregister, isAddingParticipant, isRemovingParticipant, isUnregistering }: TournamentDetailProps) {
   const [activeTab, setActiveTab] = useState<'bracket' | 'participants' | 'schedule'>('bracket');
   const [addName, setAddName] = useState('');
   const [addDiscordId, setAddDiscordId] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+
+  // Manual seeding order — initialised from current seed, reset whenever participants change
+  const [seedOrder, setSeedOrder] = useState<string[]>(() =>
+    detail.participants
+      .slice()
+      .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999))
+      .map((p) => p.id),
+  );
+  const qcDetail = useQueryClient();
+
+  const reorderMutation = useMutation({
+    mutationFn: (order: string[]) => tournamentApi.reorder(guildId, detail.id, order),
+    onSuccess: () => qcDetail.invalidateQueries({ queryKey: ['tournament-detail', detail.id] }),
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const canManualSeed = isManager && ['DRAFT', 'REGISTRATION'].includes(detail.status) && detail.seedingMode === 'MANUAL';
+
+  // Keep seedOrder in sync when participants are added/removed (merge: preserve user-set
+  // positions for existing IDs, append new arrivals, drop removed ones).
+  useEffect(() => {
+    setSeedOrder((prev) => {
+      const currentIds = new Set(detail.participants.map((p) => p.id));
+      const kept = prev.filter((id) => currentIds.has(id));
+      const added = detail.participants
+        .filter((p) => !prev.includes(p.id))
+        .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999))
+        .map((p) => p.id);
+      return [...kept, ...added];
+    });
+  }, [detail.participants]);
+
+  function moveSeed(fromIdx: number, toIdx: number) {
+    setSeedOrder((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, item);
+      return next;
+    });
+  }
 
   const { data: eloSummary } = useQuery({
     queryKey: ['elo-summary', detail.id],
@@ -348,17 +417,38 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
     <div className="flex-1 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-lg">{detail.name}</h2>
-        {detail.threadId && (
-          <a
-            href={`https://discord.com/channels/${detail.guildId}/${detail.threadId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-indigo-400 hover:underline"
-          >
-            View Discord thread ↗
-          </a>
-        )}
+        <div className="flex items-center gap-3">
+          {isManager && detail.status !== 'COMPLETED' && detail.status !== 'CANCELLED' && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+          )}
+          {detail.threadId && (
+            <a
+              href={`https://discord.com/channels/${detail.guildId}/${detail.threadId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-indigo-400 hover:underline"
+            >
+              View Discord thread ↗
+            </a>
+          )}
+        </div>
       </div>
+
+      {editOpen && (
+        <EditTournamentDialog
+          guildId={guildId}
+          tournament={detail}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => setEditOpen(false)}
+        />
+      )}
+
+      {/* Linked seasons */}
+      {detail.seasons && detail.seasons.length > 0 && (
+        <SeasonStandingsSection guildId={guildId} seasons={detail.seasons} />
+      )}
 
       {/* Self-registration banner for non-managers during open registration */}
       {canSelfRegister && (
@@ -377,9 +467,20 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
         </div>
       )}
       {!isManager && alreadyRegistered && detail.status === 'REGISTRATION' && (
-        <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3">
-          <p className="text-sm font-medium text-green-400">✓ You're registered</p>
-          <p className="text-xs text-muted-foreground">{detail.participants.length}/{detail.size} spots filled</p>
+        <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-green-400">✓ You're registered</p>
+            <p className="text-xs text-muted-foreground">{detail.participants.length}/{detail.size} spots filled</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground hover:text-destructive"
+            onClick={onUnregister}
+            disabled={isUnregistering}
+          >
+            Leave
+          </Button>
         </div>
       )}
 
@@ -415,7 +516,7 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
       {activeTab === 'participants' && (
         <div className="flex flex-col gap-3">
           {/* Add participant form — visible to managers during DRAFT or REGISTRATION */}
-          {canEdit && (
+          {canEdit && detail.participantMode === 'INDIVIDUAL' && (
             <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
               <p className="text-sm font-medium text-muted-foreground">
                 Add Participant ({detail.participants.length} / {detail.size})
@@ -445,6 +546,63 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
                 </Button>
               </div>
               {isFull && <p className="text-xs text-amber-500">Bracket is full ({detail.size}/{detail.size})</p>}
+            </div>
+          )}
+
+          {/* Team registration form — managers only, TEAM mode */}
+          {canEdit && detail.participantMode === 'TEAM' && (
+            <AddTeamForm
+              guildId={guildId}
+              tournamentId={detail.id}
+              slotsFilled={detail.participants.length}
+              totalSlots={detail.size}
+            />
+          )}
+
+          {/* Manual seeding drag-order panel */}
+          {canManualSeed && detail.participants.length > 0 && (
+            <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Seed Order <span className="text-xs text-muted-foreground font-normal">(#1 is top seed)</span></p>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => reorderMutation.mutate(seedOrder)}
+                  disabled={reorderMutation.isPending}
+                >
+                  {reorderMutation.isPending ? 'Saving…' : 'Save Order'}
+                </Button>
+              </div>
+              <div className="flex flex-col gap-1">
+                {seedOrder.map((pid, idx) => {
+                  const p = detail.participants.find((x) => x.id === pid);
+                  if (!p) return null;
+                  return (
+                    <div key={pid} className="flex items-center gap-2 rounded bg-background/60 px-2 py-1.5 border border-border">
+                      <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">#{idx + 1}</span>
+                      <span className="flex-1 text-sm truncate">{p.displayName}</span>
+                      <div className="flex gap-0.5 shrink-0">
+                        <button
+                          disabled={idx === 0}
+                          onClick={() => moveSeed(idx, idx - 1)}
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                          title="Move up"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          disabled={idx === seedOrder.length - 1}
+                          onClick={() => moveSeed(idx, idx + 1)}
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                          title="Move down"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -511,6 +669,102 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
       {activeTab === 'schedule' && (
         <MatchScheduleView matches={detail.matches} participants={detail.participants} isManager={isManager} guildId={detail.guildId} tournamentId={detail.id} />
       )}
+    </div>
+  );
+}
+
+// ── Team registration form ────────────────────────────────────────────────────
+
+function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots }: {
+  guildId: string;
+  tournamentId: string;
+  slotsFilled: number;
+  totalSlots: number;
+}) {
+  const [teamName, setTeamName] = useState('');
+  const [members, setMembers] = useState<Array<{ discordId: string; displayName: string }>>([
+    { discordId: '', displayName: '' },
+  ]);
+  const qc = useQueryClient();
+  const isFull = slotsFilled >= totalSlots;
+
+  const addMutation = useMutation({
+    mutationFn: () => tournamentApi.register(guildId, tournamentId, {
+      teamName: teamName.trim(),
+      teamMembers: members.filter((m) => m.displayName.trim()),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tournament-detail', tournamentId] });
+      setTeamName('');
+      setMembers([{ discordId: '', displayName: '' }]);
+    },
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const updateMember = (i: number, field: 'discordId' | 'displayName', val: string) => {
+    setMembers((prev) => prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m));
+  };
+
+  const canSubmit = teamName.trim() && members.some((m) => m.displayName.trim());
+
+  return (
+    <div className="rounded-lg border border-border p-3 flex flex-col gap-3">
+      <p className="text-sm font-medium text-muted-foreground">
+        Add Team ({slotsFilled} / {totalSlots})
+      </p>
+      <div className="flex gap-2">
+        <Input
+          placeholder="Team name (required)"
+          value={teamName}
+          onChange={(e) => setTeamName(e.target.value)}
+          className="h-8 text-sm flex-1"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs text-muted-foreground">Team members</p>
+        {members.map((m, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <Input
+              placeholder="Display name"
+              value={m.displayName}
+              onChange={(e) => updateMember(i, 'displayName', e.target.value)}
+              className="h-7 text-xs flex-1"
+            />
+            <Input
+              placeholder="Discord ID"
+              value={m.discordId}
+              onChange={(e) => updateMember(i, 'discordId', e.target.value)}
+              className="h-7 text-xs w-40 font-mono"
+            />
+            {members.length > 1 && (
+              <button
+                onClick={() => setMembers((prev) => prev.filter((_, idx) => idx !== i))}
+                className="text-muted-foreground hover:text-destructive text-xs"
+                title="Remove member"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={() => setMembers((prev) => [...prev, { discordId: '', displayName: '' }])}
+          className="text-xs text-indigo-400 hover:text-indigo-300 self-start"
+        >
+          + Add member
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          className="h-8"
+          onClick={() => addMutation.mutate()}
+          disabled={!canSubmit || addMutation.isPending || isFull}
+        >
+          {addMutation.isPending ? '…' : <><Plus className="h-3.5 w-3.5 mr-1" />Add Team</>}
+        </Button>
+        {isFull && <p className="text-xs text-amber-500">Bracket is full</p>}
+      </div>
     </div>
   );
 }
@@ -582,7 +836,11 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setScheduling(null)}>✕</Button>
                 </div>
               ) : (
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setScheduling(m.id); setSchedDate(''); }}>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                  setScheduling(m.id);
+                  // Pre-populate with the existing scheduled time so the manager only needs to adjust
+                  setSchedDate(m.scheduledAt ? new Date(m.scheduledAt).toISOString().slice(0, 16) : '');
+                }}>
                   {m.scheduledAt ? 'Reschedule' : 'Schedule'}
                 </Button>
               )
@@ -792,13 +1050,52 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
   );
 }
 
-// ── Rankings view ─────────────────────────────────────────────────────────────
+// ── Season standings section ──────────────────────────────────────────────────
 
-function RankingsView({ players, isLoading }: { players: PlayerRating[]; isLoading: boolean }) {
+import type { SeasonStanding } from '../api/tournament';
+
+function SeasonStandingsSection({ guildId, seasons }: {
+  guildId: string;
+  seasons: Array<{ season: { id: string; name: string; status: string } }>;
+}) {
+  const [openSeasonId, setOpenSeasonId] = useState<string | null>(null);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        {seasons.map(({ season }) => (
+          <button
+            key={season.id}
+            onClick={() => setOpenSeasonId(openSeasonId === season.id ? null : season.id)}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              openSeasonId === season.id
+                ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300'
+                : 'border-border text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            🏆 {season.name}
+            {season.status !== 'ACTIVE' && (
+              <span className="ml-1 opacity-60">({season.status.toLowerCase()})</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {openSeasonId && (
+        <SeasonStandingsPanel guildId={guildId} seasonId={openSeasonId} />
+      )}
+    </div>
+  );
+}
+
+function SeasonStandingsPanel({ guildId, seasonId }: { guildId: string; seasonId: string }) {
+  const { data: standings, isLoading } = useQuery({
+    queryKey: ['season-standings', guildId, seasonId],
+    queryFn: () => tournamentApi.getSeasonStandings(guildId, seasonId),
+  });
   const medals = ['🥇', '🥈', '🥉'];
 
-  if (isLoading) return <p className="text-muted-foreground text-sm">Loading rankings…</p>;
-  if (players.length === 0) return <p className="text-muted-foreground text-sm">No ranked players yet.</p>;
+  if (isLoading) return <p className="text-xs text-muted-foreground">Loading standings…</p>;
+  if (!standings || standings.length === 0) return <p className="text-xs text-muted-foreground">No standings recorded for this season yet.</p>;
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -810,39 +1107,207 @@ function RankingsView({ players, isLoading }: { players: PlayerRating[]; isLoadi
             <th className="text-right px-3 py-2 text-muted-foreground font-medium">Rating</th>
             <th className="text-right px-3 py-2 text-muted-foreground font-medium">W / L</th>
             <th className="text-right px-3 py-2 text-muted-foreground font-medium">Matches</th>
-            <th className="text-right px-3 py-2 text-muted-foreground font-medium">Peak</th>
           </tr>
         </thead>
         <tbody>
-          {players.map((p, i) => {
-            const isProvisional = p.matchesPlayed < 10;
-            return (
-              <tr key={p.id} className="border-t border-border hover:bg-muted/20">
-                <td className="px-3 py-2 text-center">{medals[i] ?? i + 1}</td>
-                <td className="px-3 py-2 font-medium">{p.displayName}</td>
-                <td className="px-3 py-2 text-right font-mono">
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <span className={isProvisional ? 'text-muted-foreground' : ''}>
-                        {isProvisional ? '~' : ''}{p.rating}
-                      </span>
-                    </TooltipTrigger>
-                    {isProvisional && <TooltipContent>Provisional (fewer than 10 matches)</TooltipContent>}
-                  </Tooltip>
-                </td>
-                <td className="px-3 py-2 text-right text-muted-foreground">
-                  <span className="text-green-400">{p.wins}</span>
-                  {' / '}
-                  <span className="text-red-400">{p.losses}</span>
-                </td>
-                <td className="px-3 py-2 text-right text-muted-foreground">{p.matchesPlayed}</td>
-                <td className="px-3 py-2 text-right text-muted-foreground font-mono">{p.peakRating}</td>
-              </tr>
-            );
-          })}
+          {(standings as SeasonStanding[]).map((s, i) => (
+            <tr key={s.id} className="border-t border-border hover:bg-muted/20">
+              <td className="px-3 py-2 text-center">{medals[i] ?? i + 1}</td>
+              <td className="px-3 py-2 font-medium">{s.displayName}</td>
+              <td className="px-3 py-2 text-right font-mono">{s.rating}</td>
+              <td className="px-3 py-2 text-right text-muted-foreground">
+                <span className="text-green-400">{s.wins}</span> / <span className="text-red-400">{s.losses}</span>
+              </td>
+              <td className="px-3 py-2 text-right text-muted-foreground">{s.matchesPlayed}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ── Rankings view ─────────────────────────────────────────────────────────────
+
+function RankingsView({ players, isLoading, guildId }: { players: PlayerRating[]; isLoading: boolean; guildId: string }) {
+  const medals = ['🥇', '🥈', '🥉'];
+  const [selectedDiscordId, setSelectedDiscordId] = useState<string | null>(null);
+
+  if (isLoading) return <p className="text-muted-foreground text-sm">Loading rankings…</p>;
+  if (players.length === 0) return <p className="text-muted-foreground text-sm">No ranked players yet.</p>;
+
+  const selectedPlayer = players.find((p) => p.discordId === selectedDiscordId) ?? null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40">
+            <tr>
+              <th className="text-left px-3 py-2 text-muted-foreground font-medium w-10">#</th>
+              <th className="text-left px-3 py-2 text-muted-foreground font-medium">Player</th>
+              <th className="text-right px-3 py-2 text-muted-foreground font-medium">Rating</th>
+              <th className="text-right px-3 py-2 text-muted-foreground font-medium">W / L</th>
+              <th className="text-right px-3 py-2 text-muted-foreground font-medium">Matches</th>
+              <th className="text-right px-3 py-2 text-muted-foreground font-medium">Peak</th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((p, i) => {
+              const isProvisional = p.matchesPlayed < 10;
+              const isSelected = p.discordId === selectedDiscordId;
+              return (
+                <tr
+                  key={p.id}
+                  className={`border-t border-border cursor-pointer transition-colors ${isSelected ? 'bg-accent/60' : 'hover:bg-muted/20'}`}
+                  onClick={() => setSelectedDiscordId(isSelected ? null : p.discordId)}
+                >
+                  <td className="px-3 py-2 text-center">{medals[i] ?? i + 1}</td>
+                  <td className="px-3 py-2 font-medium">{p.displayName}</td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <span className={isProvisional ? 'text-muted-foreground' : ''}>
+                          {isProvisional ? '~' : ''}{p.rating}
+                        </span>
+                      </TooltipTrigger>
+                      {isProvisional && <TooltipContent>Provisional (fewer than 10 matches)</TooltipContent>}
+                    </Tooltip>
+                  </td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">
+                    <span className="text-green-400">{p.wins}</span>
+                    {' / '}
+                    <span className="text-red-400">{p.losses}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{p.matchesPlayed}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground font-mono">{p.peakRating}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedPlayer && (
+        <PlayerHistoryPanel guildId={guildId} player={selectedPlayer} onClose={() => setSelectedDiscordId(null)} />
+      )}
+    </div>
+  );
+}
+
+// ── Player history panel ──────────────────────────────────────────────────────
+
+import type { RatingHistoryEntry } from '../api/tournament';
+
+function PlayerHistoryPanel({ guildId, player, onClose }: { guildId: string; player: PlayerRating; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['player-history', guildId, player.discordId],
+    queryFn: () => tournamentApi.getPlayerHistory(guildId, player.discordId),
+  });
+
+  const history = data?.history ?? [];
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/10 p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="font-semibold">{player.displayName}</span>
+          <span className="ml-2 text-xs text-muted-foreground font-mono">{player.discordId}</span>
+        </div>
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClose}>✕</Button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 text-sm">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Rating</span>
+          <span className="font-mono font-semibold">{player.rating}</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Peak</span>
+          <span className="font-mono">{player.peakRating}</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">W / L</span>
+          <span><span className="text-green-400">{player.wins}</span> / <span className="text-red-400">{player.losses}</span></span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">Matches</span>
+          <span>{player.matchesPlayed}</span>
+        </div>
+      </div>
+
+      {isLoading && <p className="text-xs text-muted-foreground">Loading history…</p>}
+      {!isLoading && history.length === 0 && <p className="text-xs text-muted-foreground">No match history recorded yet.</p>}
+      {history.length > 0 && (
+        <>
+          <RatingSparkline history={history} />
+          <div className="rounded border border-border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="text-left px-2 py-1.5 text-muted-foreground">Date</th>
+                  <th className="text-left px-2 py-1.5 text-muted-foreground">Opponent</th>
+                  <th className="text-right px-2 py-1.5 text-muted-foreground">Result</th>
+                  <th className="text-right px-2 py-1.5 text-muted-foreground">Δ Rating</th>
+                  <th className="text-right px-2 py-1.5 text-muted-foreground">After</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice().reverse().map((h) => (
+                  <tr key={h.id} className="border-t border-border">
+                    <td className="px-2 py-1.5 text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</td>
+                    <td className="px-2 py-1.5">{h.opponentName ?? '—'}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      <span className={h.won ? 'text-green-400' : 'text-red-400'}>{h.won ? 'Win' : 'Loss'}</span>
+                    </td>
+                    <td className={`px-2 py-1.5 text-right font-mono ${h.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {h.delta >= 0 ? '+' : ''}{h.delta}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono">{h.ratingAfter}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function RatingSparkline({ history }: { history: RatingHistoryEntry[] }) {
+  if (history.length < 2) return null;
+
+  const ratings = history.map((h) => h.ratingAfter);
+  const min = Math.min(...ratings);
+  const max = Math.max(...ratings);
+  const range = max - min || 1;
+
+  const W = 300;
+  const H = 48;
+  const PAD_X = 4;
+  const PAD_Y = 4;
+  const innerW = W - PAD_X * 2;
+  const innerH = H - PAD_Y * 2;
+
+  const points = ratings.map((r, i) => {
+    const x = PAD_X + (i / (ratings.length - 1)) * innerW;
+    const y = PAD_Y + (1 - (r - min) / range) * innerH;
+    return `${x},${y}`;
+  });
+
+  const polyline = points.join(' ');
+  // Fill area under the line
+  const fillPoints = `${PAD_X},${H - PAD_Y} ${polyline} ${W - PAD_X},${H - PAD_Y}`;
+
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: W }}>
+      <polygon points={fillPoints} fill="rgba(88,101,242,0.15)" />
+      <polyline points={polyline} fill="none" stroke="#5865f2" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Start and end dots */}
+      <circle cx={points[0]!.split(',')[0]} cy={points[0]!.split(',')[1]} r={2.5} fill="#5865f2" />
+      <circle cx={points[points.length - 1]!.split(',')[0]} cy={points[points.length - 1]!.split(',')[1]} r={2.5} fill="#5865f2" />
+    </svg>
   );
 }
 
@@ -858,8 +1323,16 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
   const [name, setName] = useState('');
   const [size, setSize] = useState('8');
   const [seedingMode, setSeedingMode] = useState('RANDOM');
+  const [participantMode, setParticipantMode] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
   const [dkp1st, setDkp1st] = useState('0');
   const [dkp2nd, setDkp2nd] = useState('0');
+
+  // Season linkage
+  const { data: seasons } = useQuery({
+    queryKey: ['seasons', guildId],
+    queryFn: () => tournamentApi.getSeasons(guildId),
+  });
+  const [seasonId, setSeasonId] = useState('');
 
   const qc = useQueryClient();
   const createMutation = useMutation({
@@ -867,8 +1340,10 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
       name: name.trim(),
       size: Number(size),
       seedingMode,
+      participantMode,
       dkpPrize1st: Number(dkp1st),
       dkpPrize2nd: Number(dkp2nd),
+      ...(seasonId ? { seasonId } : {}),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tournaments', guildId] }); onCreated(); },
   });
@@ -886,11 +1361,20 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Bracket Size</label>
-              <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
-                {[4, 8, 16, 32].map((s) => <option key={s} value={String(s)}>{s} participants</option>)}
+              <label className="text-sm font-medium">Participant Mode</label>
+              <select value={participantMode} onChange={(e) => setParticipantMode(e.target.value as 'INDIVIDUAL' | 'TEAM')} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                <option value="INDIVIDUAL">Individual</option>
+                <option value="TEAM">Team</option>
               </select>
             </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Bracket Size</label>
+              <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} {participantMode === 'TEAM' ? 'teams' : 'participants'}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">Seeding</label>
               <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
@@ -901,6 +1385,15 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
                 <option value="MANUAL">Manual</option>
               </select>
             </div>
+            {seasons && seasons.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">Season (optional)</label>
+                <select value={seasonId} onChange={(e) => setSeasonId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                  <option value="">None</option>
+                  {seasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -924,6 +1417,133 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending ? 'Creating…' : 'Create Tournament'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Edit tournament dialog ────────────────────────────────────────────────────
+
+interface EditDialogProps {
+  guildId: string;
+  tournament: TournamentDetail;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDialogProps) {
+  const isDraft = tournament.status === 'DRAFT';
+
+  const [name, setName] = useState(tournament.name);
+  const [description, setDescription] = useState(tournament.description ?? '');
+  const [seedingMode, setSeedingMode] = useState(tournament.seedingMode);
+  const [size, setSize] = useState(String(tournament.size));
+  const [registrationEndsAt, setRegistrationEndsAt] = useState(
+    tournament.registrationEndsAt
+      ? new Date(tournament.registrationEndsAt).toISOString().slice(0, 16)
+      : '',
+  );
+  const [dkp1st, setDkp1st] = useState(String(tournament.dkpPrize1st ?? 0));
+  const [dkp2nd, setDkp2nd] = useState(String(tournament.dkpPrize2nd ?? 0));
+  const [dkp3rd, setDkp3rd] = useState(String(tournament.dkpPrize3rd ?? 0));
+
+  const qc = useQueryClient();
+  const updateMutation = useMutation({
+    mutationFn: () => tournamentApi.update(guildId, tournament.id, {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      registrationEndsAt: registrationEndsAt ? new Date(registrationEndsAt).toISOString() : undefined,
+      dkpPrize1st: Number(dkp1st),
+      dkpPrize2nd: Number(dkp2nd),
+      dkpPrize3rd: Number(dkp3rd),
+      ...(isDraft && { seedingMode, size: Number(size) }),
+    } as Parameters<typeof tournamentApi.update>[2]),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tournament-detail', tournament.id] });
+      qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
+      onSaved();
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Tournament</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Tournament Name</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring Invitational" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description…"
+              rows={2}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm resize-none"
+            />
+          </div>
+          {isDraft && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">Bracket Size</label>
+                <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                  {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} participants</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">Seeding</label>
+                <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                  <option value="RANDOM">Random</option>
+                  <option value="DKP">DKP Points</option>
+                  <option value="ACTIVITY">Activity</option>
+                  <option value="ELO_RANK">ELO Rating</option>
+                  <option value="MANUAL">Manual</option>
+                </select>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Registration Deadline</label>
+            <input
+              type="datetime-local"
+              value={registrationEndsAt}
+              onChange={(e) => setRegistrationEndsAt(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">1st DKP</label>
+              <Input type="number" min="0" value={dkp1st} onChange={(e) => setDkp1st(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">2nd DKP</label>
+              <Input type="number" min="0" value={dkp2nd} onChange={(e) => setDkp2nd(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">3rd DKP</label>
+              <Input type="number" min="0" value={dkp3rd} onChange={(e) => setDkp3rd(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="flex flex-col gap-2">
+          {updateMutation.isError && (
+            <p className="text-sm text-red-500 w-full text-left">{(updateMutation.error as Error).message}</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button
+              disabled={!name.trim() || updateMutation.isPending}
+              onClick={() => updateMutation.mutate()}
+            >
+              {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
           </div>
         </DialogFooter>

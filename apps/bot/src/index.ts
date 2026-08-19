@@ -22,7 +22,7 @@ import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole, leaveRoster } from './services/rsvpService.js';
 import { endEvent } from './services/eventService.js';
-import { postMatchAnnouncement, updateRegistrationEmbed } from './services/tournamentService.js';
+import { postMatchAnnouncement, updateRegistrationEmbed, recordMatchForfeit } from './services/tournamentService.js';
 
 interface Command {
   data: { toJSON(): unknown };
@@ -466,6 +466,89 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch (err) {
         console.error('[bot] bracket_register error:', err);
         await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+      }
+      return;
+    }
+
+    // ── Tournament: Self-unregister ───────────────────────────────────────────
+    if (prefix === 'bracket_leave') {
+      const tournamentId = entityId;
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+        if (!tournament) {
+          await interaction.editReply({ content: '❌ Tournament not found.' });
+          return;
+        }
+        if (tournament.status !== 'REGISTRATION') {
+          await interaction.editReply({ content: 'ℹ️ Registration is no longer open — you cannot leave at this stage.' });
+          return;
+        }
+
+        const participant = await prisma.tournamentParticipant.findFirst({
+          where: { tournamentId, discordId: interaction.user.id },
+        });
+        if (!participant) {
+          await interaction.editReply({ content: 'ℹ️ You are not registered for this tournament.' });
+          return;
+        }
+
+        await prisma.tournamentParticipant.delete({ where: { id: participant.id } });
+
+        // Refresh the registration embed so the spot shows as available
+        await updateRegistrationEmbed(tournamentId).catch(() => null);
+
+        await interaction.editReply({ content: `✅ You have left **${tournament.name}**. Your spot is now available again.` });
+      } catch (err) {
+        console.error('[bot] bracket_leave error:', err);
+        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+      }
+      return;
+    }
+
+    // ── Tournament: Auto-forfeit (manager-only, from no-show escalation) ──────
+    if (prefix === 'bracket_autoforfeit') {
+      const matchId  = entityId;
+      const winnerId = value;
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        // Only managers may click this button — check guild permissions
+        const member = interaction.member;
+        if (!(member instanceof GuildMember)) {
+          await interaction.editReply({ content: '❌ Unable to verify your permissions.' });
+          return;
+        }
+        const isManager =
+          member.permissions.has('ManageGuild') ||
+          member.permissions.has('Administrator');
+        if (!isManager) {
+          await interaction.editReply({ content: '❌ Only managers can record a forfeit.' });
+          return;
+        }
+
+        // Confirm the match still needs a result
+        const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
+        if (!match) {
+          await interaction.editReply({ content: '❌ Match not found.' });
+          return;
+        }
+        if (match.status === 'COMPLETED') {
+          await interaction.editReply({ content: 'ℹ️ This match has already been recorded.' });
+          return;
+        }
+
+        await recordMatchForfeit(matchId, winnerId);
+
+        // Disable the button on the original escalation message
+        await interaction.message.edit({ components: [] }).catch(() => null);
+
+        const winner = await prisma.tournamentParticipant.findUnique({ where: { id: winnerId } });
+        await interaction.editReply({
+          content: `✅ Forfeit recorded — **${winner?.displayName ?? 'winner'}** advances. The result card has been posted in the thread.`,
+        });
+      } catch (err) {
+        console.error('[bot] bracket_autoforfeit error:', err);
+        await interaction.editReply({ content: '❌ Something went wrong recording the forfeit.' }).catch(() => null);
       }
       return;
     }

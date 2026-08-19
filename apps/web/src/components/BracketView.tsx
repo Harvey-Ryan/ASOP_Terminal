@@ -21,6 +21,7 @@ const COLOR_DIM       = '#72767d';
 const COLOR_LINE      = '#404249';
 const COLOR_WIN       = '#57f287';
 const COLOR_ACTIVE    = '#5865f2';
+const COLOR_OVERDUE   = '#faa61a'; // amber — AWAITING_RESULT / overdue matches
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
       const pB = match.participantBId ? byId.get(match.participantBId) : null;
       const isComplete = match.status === 'COMPLETED' || match.status === 'BYE';
       const isCurrent = match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS' || match.status === 'READY_CHECK';
+      const isOverdue  = match.status === 'AWAITING_RESULT';
       const canSubmit = isManager && !isComplete && pA && pB;
 
       const matchTopY = PAD + TITLE_H + mi * cellH + (cellH - slotPairH) / 2;
@@ -105,6 +107,7 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
           isWinner={!!wonA}
           isComplete={isComplete}
           isCurrent={isCurrent}
+          isOverdue={isOverdue}
           score={match.scoreA}
         />,
       );
@@ -117,6 +120,7 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
           isWinner={!!wonB}
           isComplete={isComplete}
           isCurrent={isCurrent}
+          isOverdue={isOverdue}
           score={match.scoreB}
         />,
       );
@@ -233,7 +237,8 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
           const tpA = thirdPlace.participantAId ? byId.get(thirdPlace.participantAId) : null;
           const tpB = thirdPlace.participantBId ? byId.get(thirdPlace.participantBId) : null;
           const tpComplete = thirdPlace.status === 'COMPLETED';
-          const tpCurrent = thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
+          const tpCurrent  = thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
+          const tpOverdue  = thirdPlace.status === 'AWAITING_RESULT';
           const tpWonA = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantAId;
           const tpWonB = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantBId;
           const tpCanSubmit = isManager && !tpComplete && tpA && tpB;
@@ -246,8 +251,8 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
               <text x={tpX + SLOT_W / 2} y={tpSectionY + 13} fill={COLOR_DIM} fontSize={9} fontWeight="bold" textAnchor="middle">
                 3RD PLACE
               </text>
-              <MatchSlot x={tpX} y={tpYA} participant={tpA ?? null} isWinner={tpWonA} isComplete={tpComplete} isCurrent={tpCurrent} score={thirdPlace.scoreA} />
-              <MatchSlot x={tpX} y={tpYB} participant={tpB ?? null} isWinner={tpWonB} isComplete={tpComplete} isCurrent={tpCurrent} score={thirdPlace.scoreB} />
+              <MatchSlot x={tpX} y={tpYA} participant={tpA ?? null} isWinner={tpWonA} isComplete={tpComplete} isCurrent={tpCurrent} isOverdue={tpOverdue} score={thirdPlace.scoreA} />
+              <MatchSlot x={tpX} y={tpYB} participant={tpB ?? null} isWinner={tpWonB} isComplete={tpComplete} isCurrent={tpCurrent} isOverdue={tpOverdue} score={thirdPlace.scoreB} />
 
               {/* Manager result button */}
               {tpCanSubmit && (
@@ -294,14 +299,19 @@ interface MatchSlotProps {
   isWinner: boolean;
   isComplete: boolean;
   isCurrent: boolean;
+  isOverdue?: boolean;
   score: number | null | undefined;
 }
 
-function MatchSlot({ x, y, participant, isWinner, isComplete, isCurrent, score }: MatchSlotProps) {
-  const borderColor = isWinner ? COLOR_WIN : isCurrent ? COLOR_ACTIVE : COLOR_LINE;
+function MatchSlot({ x, y, participant, isWinner, isComplete, isCurrent, isOverdue, score }: MatchSlotProps) {
+  const borderColor = isWinner ? COLOR_WIN : isOverdue ? COLOR_OVERDUE : isCurrent ? COLOR_ACTIVE : COLOR_LINE;
   const fillColor = isWinner ? COLOR_SLOT_WIN : COLOR_SLOT;
   const textColor = !participant ? COLOR_DIM : isComplete && !isWinner ? COLOR_DIM : COLOR_TEXT;
   const label = participant ? truncate(participant.displayName, 18) : 'TBD';
+
+  // Show score if present; show seed only when there is no score (avoids overlap)
+  const showScore = score != null;
+  const showSeed  = participant?.seed != null && !showScore;
 
   return (
     <g>
@@ -314,13 +324,13 @@ function MatchSlot({ x, y, participant, isWinner, isComplete, isCurrent, score }
       <text x={x + 8} y={y + SLOT_H / 2 + 5} fill={textColor} fontSize={12}>
         {label}
       </text>
-      {participant?.seed != null && (
+      {showSeed && (
         <text x={x + SLOT_W - 28} y={y + SLOT_H / 2 + 5} fill={COLOR_DIM} fontSize={10}>
-          #{participant.seed}
+          #{participant!.seed}
         </text>
       )}
-      {score != null && (
-        <text x={x + SLOT_W - 48} y={y + SLOT_H / 2 + 5} fill={textColor} fontSize={11} fontWeight="bold">
+      {showScore && (
+        <text x={x + SLOT_W - 28} y={y + SLOT_H / 2 + 5} fill={textColor} fontSize={11} fontWeight="bold" textAnchor="middle">
           {score}
         </text>
       )}

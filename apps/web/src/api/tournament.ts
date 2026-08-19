@@ -189,6 +189,9 @@ export const tournamentApi = {
       .post<ApiResponse<TournamentParticipant>>(`/guilds/${guildId}/tournaments/${id}/register`, body)
       .then(requireData),
 
+  unregister: (guildId: string, id: string) =>
+    api.delete<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/register`).then(requireSuccess),
+
   removeParticipant: (guildId: string, id: string, pid: string) =>
     api.delete<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/participants/${pid}`).then(requireSuccess),
 

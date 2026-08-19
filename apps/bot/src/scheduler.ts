@@ -1,11 +1,11 @@
 import cron from 'node-cron';
-import { ChannelType } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
 import { setupDiscordForEvent, setupDiscordForShare, endEvent, deleteEventVcs, createVcsForEvent, postEventLive, updatePostEventEmbed } from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
-import { dispatchTournamentReminder } from './services/tournamentService.js';
+import { dispatchTournamentReminder, recordMatchForfeit } from './services/tournamentService.js';
 import { formatMinutes } from './utils/time.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -144,9 +144,10 @@ export async function startScheduler() {
       await timedCheck('checkAutoComplete',        checkAutoComplete);
       await timedCheck('closeExpiredAuctions',     closeExpiredAuctions);
       await timedCheck('closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions);
-      await timedCheck('checkTournamentReminders',  checkTournamentReminders);
-      await timedCheck('checkMatchCheckIn',         checkMatchCheckIn);
-      await timedCheck('checkMatchNoShow',          checkMatchNoShow);
+      await timedCheck('checkTournamentReminders',      checkTournamentReminders);
+      await timedCheck('checkMatchCheckIn',             checkMatchCheckIn);
+      await timedCheck('checkMatchNoShow',              checkMatchNoShow);
+      await timedCheck('checkMatchNoShowEscalation',    checkMatchNoShowEscalation);
     } finally {
       tickRunning = false;
     }
@@ -732,6 +733,72 @@ async function checkMatchNoShow() {
     await prisma.tournamentMatch.update({
       where: { id: match.id },
       data: { status: 'AWAITING_RESULT' },
+    }).catch(() => null);
+  }
+}
+
+// ── No-show escalation (2 hours past scheduled time) ─────────────────────────
+//
+// If one side checked in and the other didn't, the checked-in participant is
+// almost certainly the winner — post a manager-clickable "Record Forfeit" button.
+// If neither side checked in, post an urgent follow-up asking the manager to act.
+// The `noShowEscalatedAt` field on the match prevents this from firing repeatedly.
+
+async function checkMatchNoShowEscalation() {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
+  const stuck = await prisma.tournamentMatch.findMany({
+    where: {
+      status: 'AWAITING_RESULT',
+      scheduledAt: { lte: twoHoursAgo },
+      resultPostedAt: null,
+      noShowEscalatedAt: null,
+    },
+    include: { tournament: true, participantA: true, participantB: true },
+    take: 5,
+  });
+
+  for (const match of stuck) {
+    if (!match.tournament.threadId) continue;
+    const thread = await client.channels.fetch(match.tournament.threadId).catch(() => null);
+    if (!thread?.isThread()) continue;
+
+    const roundLabel = `Round ${match.round} Match ${match.position + 1}`;
+    const checkedInA = match.checkedInA ? match.participantA : null;
+    const checkedInB = match.checkedInB ? match.participantB : null;
+    const noShowA    = !match.checkedInA ? match.participantA : null;
+    const noShowB    = !match.checkedInB ? match.participantB : null;
+
+    // One side confirmed, one is a no-show — offer managers the auto-forfeit button
+    if ((checkedInA || checkedInB) && (noShowA || noShowB)) {
+      const winner   = (checkedInA ?? checkedInB)!;
+      const noShow   = (noShowA   ?? noShowB)!;
+
+      const forfeitRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`bracket_autoforfeit:${match.id}:${winner.id}`)
+          .setLabel(`⚖️ Record Forfeit — ${winner.displayName.slice(0, 24)} wins`)
+          .setStyle(ButtonStyle.Danger),
+      );
+
+      await thread.send({
+        content: `🔴 **Escalation — ${roundLabel}:** It has been 2 hours since the scheduled time.\n**${noShow.displayName}** has not checked in. **${winner.displayName}** was present and ready.\n\n_Managers: click below to record a forfeit win for ${winner.displayName}. If this is the final match, mark the tournament complete via the dashboard afterwards._`,
+        components: [forfeitRow],
+      }).catch(() => null);
+
+    } else {
+      // Neither side checked in — require manual manager action
+      const nameA = match.participantA?.displayName ?? '?';
+      const nameB = match.participantB?.displayName ?? '?';
+
+      await thread.send(
+        `🔴 **Escalation — ${roundLabel}:** It has been 2 hours since the scheduled time and **neither ${nameA} nor ${nameB} checked in**. A manager must manually record the result, record a forfeit via the dashboard, or contact both participants. If this was the final match, mark the tournament complete via the dashboard once resolved.`,
+      ).catch(() => null);
+    }
+
+    // Mark escalated so this match won't fire again
+    await prisma.tournamentMatch.update({
+      where: { id: match.id },
+      data: { noShowEscalatedAt: new Date() },
     }).catch(() => null);
   }
 }

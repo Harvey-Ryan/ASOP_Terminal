@@ -1292,7 +1292,7 @@ model Tournament {
   format             String    @default("SINGLE_ELIM")
   /// "INDIVIDUAL" | "TEAM"
   participantMode    String    @default("INDIVIDUAL")
-  /// Must be a power of 2: 4 | 8 | 16 | 32
+  /// Any integer 4–64; the bracket generator pads to the next power-of-2 with BYE slots
   size               Int       @default(8)
   /// "DRAFT" | "REGISTRATION" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
   status             String    @default("DRAFT")
@@ -1379,7 +1379,7 @@ model TournamentMatch {
   status           String    @default("PENDING")
   /// cuid of the TournamentMatch where winner advances
   nextMatchId      String?
-  /// cuid of the TournamentMatch in losers bracket (double elim only)
+  /// cuid of the match for the loser to advance to (3rd-place match in single-elim; losers bracket in double-elim)
   nextLoserMatchId String?
   scheduledAt      DateTime?
   readyA           Boolean   @default(false)
@@ -1392,6 +1392,8 @@ model TournamentMatch {
   resultPostedAt        DateTime?
   /// Discord message ID of the match-card announcement (for editing when schedule changes)
   announcementMessageId String?
+  /// Set when the 2-hour no-show escalation has fired — prevents repeated escalation messages
+  noShowEscalatedAt     DateTime?
   createdAt             DateTime  @default(now())
 
   @@index([tournamentId, round])

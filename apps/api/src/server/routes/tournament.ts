@@ -10,7 +10,9 @@ import type { ApiResponse } from '@dem/shared';
 
 export const tournamentRouter = Router();
 
-const VALID_SIZES = [4, 8, 16, 32];
+// Any bracket size 4–64 is valid; the generator pads to the next power-of-2 with BYEs.
+const VALID_SIZE_MIN = 4;
+const VALID_SIZE_MAX = 64;
 const VALID_FORMATS = ['SINGLE_ELIM'] as const; // DOUBLE_ELIM added in Phase 2
 const VALID_SEEDING = ['RANDOM', 'DKP', 'ACTIVITY', 'ELO_RANK', 'MANUAL'] as const;
 
@@ -442,7 +444,7 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
 
   if (!name?.trim()) return badRequest(res, 'Tournament name is required');
   if (!VALID_FORMATS.includes(format as typeof VALID_FORMATS[number])) return badRequest(res, `format must be one of: ${VALID_FORMATS.join(', ')}`);
-  if (!VALID_SIZES.includes(size)) return badRequest(res, `size must be one of: ${VALID_SIZES.join(', ')}`);
+  if (!Number.isInteger(size) || size < VALID_SIZE_MIN || size > VALID_SIZE_MAX) return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
   if (!VALID_SEEDING.includes(seedingMode as typeof VALID_SEEDING[number])) return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING.join(', ')}`);
 
   const userId = req.session.userId!;
@@ -574,8 +576,10 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const { name, description, channelId, registrationEndsAt, dkpPrize1st, dkpPrize2nd, dkpPrize3rd } =
+  const { name, description, channelId, registrationEndsAt, dkpPrize1st, dkpPrize2nd, dkpPrize3rd, seedingMode, size } =
     req.body as Record<string, unknown>;
+
+  const VALID_SEEDING_MODES = ['RANDOM', 'DKP', 'ACTIVITY', 'ELO_RANK', 'MANUAL'];
 
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
@@ -590,6 +594,22 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
     if (typeof dkpPrize1st === 'number') data['dkpPrize1st'] = dkpPrize1st;
     if (typeof dkpPrize2nd === 'number') data['dkpPrize2nd'] = dkpPrize2nd;
     if (typeof dkpPrize3rd === 'number') data['dkpPrize3rd'] = dkpPrize3rd;
+    // seedingMode and size can only be changed while still in DRAFT
+    if (seedingMode !== undefined) {
+      if (tournament.status !== 'DRAFT') return badRequest(res, 'seedingMode can only be changed while in DRAFT');
+      if (!VALID_SEEDING_MODES.includes(seedingMode as string)) return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING_MODES.join(', ')}`);
+      data['seedingMode'] = seedingMode;
+    }
+    if (size !== undefined) {
+      if (tournament.status !== 'DRAFT') return badRequest(res, 'size can only be changed while in DRAFT');
+      const sizeNum = Number(size);
+      if (!Number.isInteger(sizeNum) || sizeNum < VALID_SIZE_MIN || sizeNum > VALID_SIZE_MAX) {
+        return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
+      }
+      const currentCount = await prisma.tournamentParticipant.count({ where: { tournamentId: id } });
+      if (sizeNum < currentCount) return badRequest(res, `Cannot reduce size below current participant count (${currentCount})`);
+      data['size'] = sizeNum;
+    }
 
     const updated = await prisma.tournament.update({ where: { id }, data });
     res.json({ success: true, data: updated } satisfies ApiResponse);
@@ -704,6 +724,31 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
   }
 });
 
+// ── DELETE /:guildId/tournaments/:id/register (self-unregister) ──────────────
+
+tournamentRouter.delete('/:guildId/tournaments/:id/register', requireAuth, async (req, res) => {
+  const { guildId, id } = req.params as { guildId: string; id: string };
+  const userId = req.session.userId!;
+
+  try {
+    const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
+    if (!tournament) return notFound(res);
+    if (tournament.status !== 'REGISTRATION') return badRequest(res, 'You can only leave during registration');
+
+    const participant = await prisma.tournamentParticipant.findFirst({
+      where: { tournamentId: id, discordId: userId },
+    });
+    if (!participant) return badRequest(res, 'You are not registered for this tournament');
+
+    await prisma.tournamentParticipant.delete({ where: { id: participant.id } });
+    triggerBot(`/trigger/tournament-roster/${id}`);
+    res.json({ success: true } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[DELETE self-unregister]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
 // ── DELETE /:guildId/tournaments/:id/participants/:pid ────────────────────────
 
 tournamentRouter.delete('/:guildId/tournaments/:id/participants/:pid', requireAuth, async (req, res) => {
@@ -738,7 +783,7 @@ tournamentRouter.patch('/:guildId/tournaments/:id/seed', requireAuth, async (req
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (tournament.status !== 'REGISTRATION') return badRequest(res, 'Can only seed during registration');
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Can only seed during draft or registration');
 
     await prisma.$transaction(
       order.map((pid, i) =>
@@ -1271,10 +1316,12 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
         for (const p of prizeWinners) {
           const amount = prizeMap[p.placement!] ?? 0;
           if (amount <= 0 || !p.discordId) continue;
-          const balance = await tx.dkpBalance.findUnique({
+          // Upsert so winners who have never received DKP still get paid
+          const balance = await tx.dkpBalance.upsert({
             where: { guildId_userId: { guildId, userId: p.discordId } },
+            create: { guildId, userId: p.discordId, username: p.displayName, balance: 0 },
+            update: {},
           });
-          if (!balance) continue;
           await tx.dkpTransaction.create({
             data: {
               balanceId: balance.id,
@@ -1470,10 +1517,12 @@ tournamentRouter.post('/:guildId/tournaments/:id/complete', requireAuth, async (
       for (const p of prizeWinners) {
         const amount = prizeMap[p.placement!] ?? 0;
         if (amount <= 0 || !p.discordId) continue;
-        const balance = await tx.dkpBalance.findUnique({
+        // Upsert so winners who have never received DKP still get paid
+        const balance = await tx.dkpBalance.upsert({
           where: { guildId_userId: { guildId, userId: p.discordId } },
+          create: { guildId, userId: p.discordId, username: p.displayName, balance: 0 },
+          update: {},
         });
-        if (!balance) continue;
         await tx.dkpTransaction.create({
           data: {
             balanceId: balance.id,

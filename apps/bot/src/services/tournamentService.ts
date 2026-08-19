@@ -309,13 +309,16 @@ export async function postMatchResult(matchId: string): Promise<void> {
     }
   }
 
-  // Check if this was the last non-BYE match in its round — announce round complete
+  // Check if this was the last non-BYE match in its round (WINNERS bracket only).
+  // 3rd-place matches share the same round number as the Grand Final; including them
+  // would fire a spurious "Round N complete!" after the Grand Final.
   const roundMatches = match.tournament.matches.filter(
-    (m) => m.round === match.round && m.status !== 'BYE',
+    (m) => m.round === match.round && m.bracketSide === 'WINNERS' && m.status !== 'BYE',
   );
   const allDone = roundMatches.every((m) => m.id === matchId || m.status === 'COMPLETED');
   if (allDone && roundMatches.length > 0) {
-    const maxRound = Math.max(...match.tournament.matches.map((m) => m.round));
+    const winnersOnly = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
+    const maxRound = winnersOnly.length > 0 ? Math.max(...winnersOnly.map((m) => m.round)) : match.round;
     const isFinalRound = match.round === maxRound;
     if (!isFinalRound) {
       await thread.send(
@@ -432,6 +435,10 @@ function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {
       .setLabel('Join Tournament')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled),
+    new ButtonBuilder()
+      .setCustomId(`bracket_leave:${tournamentId}`)
+      .setLabel('Leave')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setLabel('Open Dashboard')
       .setStyle(ButtonStyle.Link)
@@ -1033,4 +1040,92 @@ export async function addParticipantToThread(tournamentId: string, discordId: st
   await updateRegistrationEmbed(tournamentId).catch((err) =>
     console.error(`[tournamentService] addParticipantToThread: updateRegistrationEmbed failed:`, err),
   );
+}
+
+// ── Auto-forfeit (called from scheduler escalation + button handler) ──────────
+
+/**
+ * Records a forfeit win for `winnerId` in the given match, advances the bracket,
+ * and posts the result card to the tournament thread.
+ *
+ * This mirrors the logic in the API's `/result` endpoint but runs inside the bot
+ * so the scheduler / button handler can trigger it without an HTTP round-trip.
+ * Note: tournament completion / DKP are NOT handled here — the manager must click
+ * "Complete Tournament" on the web dashboard once all matches are done.
+ */
+export async function recordMatchForfeit(matchId: string, winnerId: string): Promise<void> {
+  const match = await prisma.tournamentMatch.findUnique({
+    where: { id: matchId },
+    include: { participantA: true, participantB: true },
+  });
+
+  if (!match) throw new Error(`Match ${matchId} not found`);
+  if (match.status === 'COMPLETED') return; // already processed
+
+  const loserId = winnerId === match.participantAId ? match.participantBId : match.participantAId;
+
+  // ── Atomic bracket update ──────────────────────────────────────────────────
+  await prisma.$transaction(async (tx) => {
+    // Mark match complete — updateMany guards against a concurrent write
+    const updated = await tx.tournamentMatch.updateMany({
+      where: { id: matchId, status: { not: 'COMPLETED' } },
+      data: {
+        winnerId,
+        forfeit: true,
+        status: 'COMPLETED',
+        resultPostedAt: new Date(),
+      },
+    });
+    if (updated.count === 0) return; // race — another process beat us to it
+
+    // Advance winner into the next slot
+    if (match.nextMatchId) {
+      const nextMatch = await tx.tournamentMatch.findUnique({ where: { id: match.nextMatchId } });
+      if (nextMatch) {
+        const slot = nextMatch.participantAId ? 'participantBId' : 'participantAId';
+        await tx.tournamentMatch.update({
+          where: { id: match.nextMatchId },
+          data: { [slot]: winnerId },
+        });
+      }
+    }
+
+    if (loserId) {
+      // If a third-place match exists and this is a semi-final, route loser there
+      if (match.nextLoserMatchId && match.bracketSide !== 'THIRD_PLACE') {
+        const tpMatch = await tx.tournamentMatch.findUnique({ where: { id: match.nextLoserMatchId } });
+        if (tpMatch) {
+          const slot = tpMatch.participantAId ? 'participantBId' : 'participantAId';
+          await tx.tournamentMatch.update({
+            where: { id: match.nextLoserMatchId },
+            data: { [slot]: loserId },
+          });
+        }
+      } else {
+        await tx.tournamentParticipant.update({
+          where: { id: loserId },
+          data: { status: 'ELIMINATED' },
+        });
+      }
+    }
+
+    // Assign placements for bracket finals
+    const isGrandFinal = !match.nextMatchId && match.bracketSide === 'WINNERS';
+    const isThirdPlace = match.bracketSide === 'THIRD_PLACE';
+
+    if (isGrandFinal) {
+      await tx.tournamentParticipant.update({ where: { id: winnerId }, data: { status: 'WINNER', placement: 1 } });
+      if (loserId) {
+        await tx.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'RUNNER_UP', placement: 2 } });
+      }
+    } else if (isThirdPlace) {
+      await tx.tournamentParticipant.update({ where: { id: winnerId }, data: { placement: 3 } });
+      if (loserId) {
+        await tx.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED', placement: 4 } });
+      }
+    }
+  });
+
+  // Post the result card and embed to the tournament thread
+  await postMatchResult(matchId);
 }
