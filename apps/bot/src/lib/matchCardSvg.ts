@@ -12,8 +12,11 @@ const HEADER_H = 46;
 // AVATAR_R drives everything — bump it to use more vertical space.
 const AVATAR_R = 76;
 
-// Derived positions
-const AY_AVATAR = HEADER_H + AVATAR_R + 6;           // avatar center y
+// Derived positions — AY_AVATAR is chosen so that the gap above the avatar
+// circles (AY_AVATAR - AVATAR_R - HEADER_H) equals the gap below the last
+// text row (CARD_H - AY_STATS - 14), centering all content in the body.
+// With CARD_H=320, HEADER_H=46, AVATAR_R=76:  AY_AVATAR = 141
+const AY_AVATAR = 141;
 const AY_VS     = AY_AVATAR + AVATAR_R + 24;         // VS baseline (below avatar bottom)
 const AY_NAME   = AY_VS + 28;                        // name baseline
 const AY_STATS  = AY_NAME + 18;                      // seed/rating baseline
