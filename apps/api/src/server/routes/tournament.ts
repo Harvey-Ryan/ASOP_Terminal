@@ -1212,27 +1212,35 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
           const season = await tx.tournamentSeason.findUnique({ where: { id: link.seasonId } });
           if (season?.status !== 'ACTIVE') continue;
 
+          // Two-step approach: initialize at a clean 1200 baseline, then
+          // always apply the delta so the first match isn't double-counted.
           await Promise.all([
             tx.tournamentSeasonStanding.upsert({
               where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdA } },
-              create: {
-                seasonId: link.seasonId, guildId, discordId: discordIdA, displayName: pA.displayName,
-                rating: 1200 + elo.deltaA, wins: aWon ? 1 : 0, losses: !aWon ? 1 : 0, matchesPlayed: 1,
-              },
-              update: {
+              create: { seasonId: link.seasonId, guildId, discordId: discordIdA, displayName: pA.displayName, rating: 1200, wins: 0, losses: 0, matchesPlayed: 0 },
+              update: {},
+            }),
+            tx.tournamentSeasonStanding.upsert({
+              where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdB } },
+              create: { seasonId: link.seasonId, guildId, discordId: discordIdB, displayName: pB.displayName, rating: 1200, wins: 0, losses: 0, matchesPlayed: 0 },
+              update: {},
+            }),
+          ]);
+          await Promise.all([
+            tx.tournamentSeasonStanding.update({
+              where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdA } },
+              data: {
+                displayName: pA.displayName,
                 rating: { increment: elo.deltaA },
                 wins: aWon ? { increment: 1 } : undefined,
                 losses: !aWon ? { increment: 1 } : undefined,
                 matchesPlayed: { increment: 1 },
               },
             }),
-            tx.tournamentSeasonStanding.upsert({
+            tx.tournamentSeasonStanding.update({
               where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdB } },
-              create: {
-                seasonId: link.seasonId, guildId, discordId: discordIdB, displayName: pB.displayName,
-                rating: 1200 + elo.deltaB, wins: !aWon ? 1 : 0, losses: aWon ? 1 : 0, matchesPlayed: 1,
-              },
-              update: {
+              data: {
+                displayName: pB.displayName,
                 rating: { increment: elo.deltaB },
                 wins: !aWon ? { increment: 1 } : undefined,
                 losses: aWon ? { increment: 1 } : undefined,
