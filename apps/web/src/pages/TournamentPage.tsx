@@ -483,7 +483,9 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
         return (
           <div key={m.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
             <div className="flex-1 text-sm">
-              <span className="font-medium">Round {m.round} – Match {m.position + 1}</span>
+              <span className="font-medium">
+                {m.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place' : `Round ${m.round} – Match ${m.position + 1}`}
+              </span>
               <span className="text-muted-foreground ml-2">{pA?.displayName ?? '?'} vs {pB?.displayName ?? '?'}</span>
             </div>
             {m.scheduledAt && (
@@ -683,7 +685,9 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Round {match.round} — Match {match.position + 1} Result</DialogTitle>
+          <DialogTitle>
+          {match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Result' : `Round ${match.round} — Match ${match.position + 1} Result`}
+        </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">

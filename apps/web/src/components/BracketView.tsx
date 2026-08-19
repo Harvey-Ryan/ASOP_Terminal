@@ -45,6 +45,11 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
     [matches],
   );
 
+  const thirdPlace = useMemo(
+    () => matches.find((m) => m.bracketSide === 'THIRD_PLACE') ?? null,
+    [matches],
+  );
+
   const maxRound = useMemo(
     () => Math.max(0, ...winners.map((m) => m.round)),
     [winners],
@@ -61,8 +66,9 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
   const maxSlots = slotsPerRound[0] ?? 1;
   const slotPairH = SLOT_H * 2 + ROW_GAP;
   const bracketH = maxSlots * slotPairH + (maxSlots - 1) * ROW_GAP;
+  const THIRD_PLACE_SECTION_H = thirdPlace ? 20 + slotPairH + PAD : 0;
   const svgW = PAD * 2 + maxRound * SLOT_W + (maxRound - 1) * COL_GAP;
-  const svgH = PAD * 2 + bracketH + TITLE_H;
+  const svgH = PAD * 2 + bracketH + TITLE_H + THIRD_PLACE_SECTION_H;
 
   const connectors: React.ReactElement[] = [];
   const slots: React.ReactElement[] = [];
@@ -192,6 +198,65 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
         </text>
         {connectors}
         {slots}
+
+        {/* ── 3rd-place match ─────────────────────────────────────────── */}
+        {thirdPlace && (() => {
+          const tpX = PAD + (maxRound - 1) * (SLOT_W + COL_GAP);
+          const tpSectionY = PAD + TITLE_H + bracketH + PAD;
+          const tpYA = tpSectionY + 18;
+          const tpYB = tpYA + SLOT_H + ROW_GAP;
+
+          const tpA = thirdPlace.participantAId ? byId.get(thirdPlace.participantAId) : null;
+          const tpB = thirdPlace.participantBId ? byId.get(thirdPlace.participantBId) : null;
+          const tpComplete = thirdPlace.status === 'COMPLETED';
+          const tpCurrent = thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
+          const tpWonA = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantAId;
+          const tpWonB = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantBId;
+          const tpCanSubmit = isManager && !tpComplete && tpA && tpB;
+
+          return (
+            <g key="third-place">
+              {/* Divider */}
+              <line x1={0} y1={tpSectionY - 1} x2={svgW} y2={tpSectionY - 1} stroke={COLOR_LINE} strokeWidth={1} />
+              {/* Label */}
+              <text x={tpX + SLOT_W / 2} y={tpSectionY + 13} fill={COLOR_DIM} fontSize={9} fontWeight="bold" textAnchor="middle">
+                3RD PLACE
+              </text>
+              <MatchSlot x={tpX} y={tpYA} participant={tpA ?? null} isWinner={tpWonA} isComplete={tpComplete} isCurrent={tpCurrent} score={thirdPlace.scoreA} />
+              <MatchSlot x={tpX} y={tpYB} participant={tpB ?? null} isWinner={tpWonB} isComplete={tpComplete} isCurrent={tpCurrent} score={thirdPlace.scoreB} />
+
+              {/* Manager result button */}
+              {tpCanSubmit && (
+                <foreignObject x={tpX + SLOT_W - 60} y={tpYA + slotPairH / 2 - 12} width={56} height={24}>
+                  <button
+                    // @ts-expect-error xmlns required for SVG foreignObject
+                    xmlns="http://www.w3.org/1999/xhtml"
+                    onClick={() => onSubmitResult?.(thirdPlace)}
+                    className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded"
+                  >
+                    Result
+                  </button>
+                </foreignObject>
+              )}
+
+              {/* Winner tooltip */}
+              {tpComplete && thirdPlace.winnerId && (() => {
+                const winner = byId.get(thirdPlace.winnerId);
+                const scoreText = thirdPlace.scoreA != null ? ` (${thirdPlace.scoreA}–${thirdPlace.scoreB})` : '';
+                return (
+                  <Tooltip key="tp-tip">
+                    <TooltipTrigger asChild>
+                      <rect x={tpX} y={tpYA} width={SLOT_W} height={slotPairH} fill="transparent" className="cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <span>🥉 3rd Place: {winner?.displayName ?? '?'}{scoreText}</span>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })()}
+            </g>
+          );
+        })()}
       </svg>
     </div>
   );
