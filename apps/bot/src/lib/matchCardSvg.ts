@@ -4,8 +4,19 @@ import { svgToPng } from './bracketSvg.js';
 // Card is rendered at CARD_W px then Discord scales it to ~400px wide in embeds.
 // Keep the canvas tight so text stays legible after scaling.
 
-const CARD_W = 700;
-const CARD_H = 300;
+const CARD_W   = 700;
+const CARD_H   = 320;
+const HEADER_H = 46;
+
+// Avatars live in the upper half; VS. + names drop into the lower half.
+// AVATAR_R drives everything — bump it to use more vertical space.
+const AVATAR_R = 76;
+
+// Derived positions
+const AY_AVATAR = HEADER_H + AVATAR_R + 6;           // avatar center y
+const AY_VS     = AY_AVATAR + AVATAR_R + 24;         // VS baseline (below avatar bottom)
+const AY_NAME   = AY_VS + 28;                        // name baseline
+const AY_STATS  = AY_NAME + 18;                      // seed/rating baseline
 
 const COLOR_BG        = '#1e1f22';
 const COLOR_HEADER    = '#111214';
@@ -15,7 +26,6 @@ const COLOR_DIM       = '#72767d';
 const COLOR_GREEN     = '#57f287';
 const COLOR_BLURPLE   = '#5865f2';
 const COLOR_GOLD      = '#faa61a';
-const AVATAR_R        = 58; // circle radius — larger for better presence
 
 // 60-second in-memory cache for Discord CDN avatar fetches
 interface AvatarEntry { dataUri: string; expiresAt: number }
@@ -87,21 +97,17 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
   const nameA = (participantA?.displayName ?? 'TBD').toUpperCase();
   const nameB = (participantB?.displayName ?? 'TBD').toUpperCase();
 
-  const HEADER_H = 46;
   const cx = CARD_W / 2;
-
-  // Avatar centers — keep avatars away from edges; VS. sits exactly at center
-  const AX = Math.round(CARD_W * 0.175);   // ~122 for 700px
-  const BX = CARD_W - AX;                  // symmetric
-  const AY = HEADER_H + AVATAR_R + 14;     // snug below header
+  // Avatars: symmetric around center, inset enough that the circles don't clip edges
+  const AX = Math.round(CARD_W * 0.18);   // left  avatar center x
+  const BX = CARD_W - AX;                 // right avatar center x (symmetric)
 
   const lines: string[] = [];
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}">`);
   lines.push(`<style>text { font-family: 'DejaVu Sans', Arial, sans-serif; }</style>`);
-  // clipPaths must be in <defs> before the elements that reference them
   lines.push(`<defs>
-    <clipPath id="clipA"><circle cx="${AX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
-    <clipPath id="clipB"><circle cx="${BX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipA"><circle cx="${AX}" cy="${AY_AVATAR}" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipB"><circle cx="${BX}" cy="${AY_AVATAR}" r="${AVATAR_R}"/></clipPath>
   </defs>`);
 
   // Background
@@ -114,17 +120,23 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
   const matchLabel = `ROUND ${round}  ·  MATCH ${position + 1}`;
   lines.push(svgT(CARD_W - 16, HEADER_H - 14, matchLabel, COLOR_BLURPLE, 11, 'bold', 'end'));
 
-  // ── Avatars ───────────────────────────────────────────────────────────────
-  renderAvatar(lines, AX, AY, avatarA, nameA, 'clipA');
-  renderAvatar(lines, BX, AY, avatarB, nameB, 'clipB');
+  // ── Avatars (upper half) ──────────────────────────────────────────────────
+  renderAvatar(lines, AX, AY_AVATAR, avatarA, nameA, 'clipA');
+  renderAvatar(lines, BX, AY_AVATAR, avatarB, nameB, 'clipB');
 
-  // ── Names — large, bold, uppercase ───────────────────────────────────────
-  const nameY = AY + AVATAR_R + 24;
-  lines.push(svgT(AX, nameY, truncate(nameA, 10), COLOR_TEXT, 22, 'bold', 'middle'));
-  lines.push(svgT(BX, nameY, truncate(nameB, 10), COLOR_TEXT, 22, 'bold', 'middle'));
+  // ── VS. — centered below avatars ──────────────────────────────────────────
+  // Short horizontal rules flanking VS.
+  const ruleGap = 28;
+  const ruleStartX = AX + AVATAR_R + 8;
+  lines.push(`<line x1="${ruleStartX}" y1="${AY_VS - 10}" x2="${cx - ruleGap}" y2="${AY_VS - 10}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
+  lines.push(`<line x1="${cx + ruleGap}" y1="${AY_VS - 10}" x2="${CARD_W - ruleStartX}" y2="${AY_VS - 10}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
+  lines.push(svgT(cx, AY_VS, 'VS.', COLOR_BLURPLE, 38, 'bold', 'middle'));
 
-  // Seed + rating on a single line below the name
-  const statsY = nameY + 20;
+  // ── Names — large bold uppercase, below VS. ───────────────────────────────
+  lines.push(svgT(AX, AY_NAME, truncate(nameA, 10), COLOR_TEXT, 22, 'bold', 'middle'));
+  lines.push(svgT(BX, AY_NAME, truncate(nameB, 10), COLOR_TEXT, 22, 'bold', 'middle'));
+
+  // ── Seed + rating ─────────────────────────────────────────────────────────
   const statA = [
     participantA?.seed != null ? `SEED #${participantA.seed}` : null,
     formatRating(participantA?.rating ?? 1200, participantA?.matchesPlayed ?? 0) + ' ELO',
@@ -133,17 +145,8 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
     participantB?.seed != null ? `SEED #${participantB.seed}` : null,
     formatRating(participantB?.rating ?? 1200, participantB?.matchesPlayed ?? 0) + ' ELO',
   ].filter(Boolean).join('  ·  ');
-  lines.push(svgT(AX, statsY, statA, COLOR_DIM, 10, 'normal', 'middle'));
-  lines.push(svgT(BX, statsY, statB, COLOR_DIM, 10, 'normal', 'middle'));
-
-  // ── VS. — perfectly centered ──────────────────────────────────────────────
-  // Short horizontal rules on either side
-  const vsY = AY;           // vertically aligned with avatar centers
-  const ruleGap = 30;       // gap between rule end and VS text
-  const ruleLen = AX + AVATAR_R + 10; // from avatar right edge inward toward center
-  lines.push(`<line x1="${ruleLen}" y1="${vsY}" x2="${cx - ruleGap}" y2="${vsY}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
-  lines.push(`<line x1="${cx + ruleGap}" y1="${vsY}" x2="${CARD_W - ruleLen}" y2="${vsY}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
-  lines.push(svgT(cx, vsY + 14, 'VS.', COLOR_BLURPLE, 38, 'bold', 'middle'));
+  lines.push(svgT(AX, AY_STATS, statA, COLOR_DIM, 10, 'normal', 'middle'));
+  lines.push(svgT(BX, AY_STATS, statB, COLOR_DIM, 10, 'normal', 'middle'));
 
   // ── Scheduled time badge ──────────────────────────────────────────────────
   if (scheduledAt) {
@@ -151,10 +154,10 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
       weekday: 'short', month: 'short', day: 'numeric',
       hour: 'numeric', minute: '2-digit', timeZone: 'UTC',
     }) + ' UTC';
-    const badgeY = CARD_H - 16;
+    const badgeY = CARD_H - 8;
     const badgeW = 260;
-    lines.push(`<rect x="${cx - badgeW / 2}" y="${badgeY - 16}" width="${badgeW}" height="22" rx="4" fill="${COLOR_SLOT}"/>`);
-    lines.push(svgT(cx, badgeY, `🕐  ${timeStr}`, COLOR_DIM, 11, 'normal', 'middle'));
+    lines.push(`<rect x="${cx - badgeW / 2}" y="${badgeY - 18}" width="${badgeW}" height="22" rx="4" fill="${COLOR_SLOT}"/>`);
+    lines.push(svgT(cx, badgeY - 2, `🕐  ${timeStr}`, COLOR_DIM, 11, 'normal', 'middle'));
   }
 
   lines.push('</svg>');
@@ -191,18 +194,16 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   const winName  = winner.displayName.toUpperCase();
   const loseName = loser?.displayName.toUpperCase() ?? '';
 
-  const HEADER_H = 46;
   const cx = CARD_W / 2;
-  const AX = Math.round(CARD_W * 0.175);
+  const AX = Math.round(CARD_W * 0.18);
   const BX = CARD_W - AX;
-  const AY = HEADER_H + AVATAR_R + 14;
 
   const lines: string[] = [];
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}">`);
   lines.push(`<style>text { font-family: 'DejaVu Sans', Arial, sans-serif; }</style>`);
   lines.push(`<defs>
-    <clipPath id="clipW"><circle cx="${AX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
-    <clipPath id="clipL"><circle cx="${BX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipW"><circle cx="${AX}" cy="${AY_AVATAR}" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipL"><circle cx="${BX}" cy="${AY_AVATAR}" r="${AVATAR_R}"/></clipPath>
   </defs>`);
 
   // Background
@@ -211,35 +212,32 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   // Header bar
   lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${HEADER_H}" fill="${COLOR_HEADER}"/>`);
   lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${COLOR_GREEN}" stroke-width="2"/>`);
-  lines.push(svgT(20, 32, truncate(tournamentName.toUpperCase(), 36), COLOR_DIM, 12, 'bold'));
-  lines.push(svgT(CARD_W - 20, 32, `ROUND ${round}  ·  MATCH ${position + 1} RESULT`, COLOR_GREEN, 12, 'bold', 'end'));
+  lines.push(svgT(16, HEADER_H - 14, truncate(tournamentName.toUpperCase(), 28), COLOR_DIM, 11, 'bold'));
+  lines.push(svgT(CARD_W - 16, HEADER_H - 14, `ROUND ${round}  ·  MATCH ${position + 1} RESULT`, COLOR_GREEN, 11, 'bold', 'end'));
 
-  // Avatars
-  renderAvatar(lines, AX, AY, winAvatar, winName, 'clipW', COLOR_GREEN);
-  if (loser) renderAvatar(lines, BX, AY, loseAvatar, loseName, 'clipL', '#404249');
+  // Avatars (upper half — same positions as match card)
+  renderAvatar(lines, AX, AY_AVATAR, winAvatar, winName, 'clipW', COLOR_GREEN);
+  if (loser) renderAvatar(lines, BX, AY_AVATAR, loseAvatar, loseName, 'clipL', '#404249');
 
-  // Score or checkmark center
-  const scoreY = AY - 8;
+  // Score / checkmark — centered below avatars where VS. lives on match card
   if (scoreA != null && scoreB != null) {
-    lines.push(svgT(cx, scoreY + 2, `${scoreA}  –  ${scoreB}`, COLOR_TEXT, 26, 'bold', 'middle'));
+    lines.push(svgT(cx, AY_VS, `${scoreA}  –  ${scoreB}`, COLOR_TEXT, 28, 'bold', 'middle'));
   } else {
-    lines.push(svgT(cx, scoreY + 2, '✓', COLOR_GREEN, 32, 'bold', 'middle'));
+    lines.push(svgT(cx, AY_VS, '✓', COLOR_GREEN, 34, 'bold', 'middle'));
   }
-  lines.push(svgT(cx, scoreY + 24, 'FINAL', COLOR_DIM, 9, 'bold', 'middle'));
+  lines.push(svgT(cx, AY_VS + 18, 'FINAL', COLOR_DIM, 9, 'bold', 'middle'));
 
-  // Names
-  const nameY = AY + AVATAR_R + 24;
-  lines.push(svgT(AX, nameY, truncate(winName, 10), COLOR_GREEN, 22, 'bold', 'middle'));
-  if (loser) lines.push(svgT(BX, nameY, truncate(loseName, 10), COLOR_DIM, 20, 'normal', 'middle'));
+  // Names — below score (same y as match card names)
+  lines.push(svgT(AX, AY_NAME, truncate(winName, 10), COLOR_GREEN, 22, 'bold', 'middle'));
+  if (loser) lines.push(svgT(BX, AY_NAME, truncate(loseName, 10), COLOR_DIM, 20, 'normal', 'middle'));
 
-  // ELO deltas
+  // ELO deltas — same y as stats row
   const deltaStr = (d: number) => (d >= 0 ? `+${d}` : String(d));
-  const eloY = nameY + 20;
-  lines.push(svgT(AX, eloY,      `${deltaStr(eloChangeWinner)} ELO`, COLOR_GREEN, 11, 'bold', 'middle'));
-  lines.push(svgT(AX, eloY + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
+  lines.push(svgT(AX, AY_STATS,      `${deltaStr(eloChangeWinner)} ELO`, COLOR_GREEN, 11, 'bold', 'middle'));
+  lines.push(svgT(AX, AY_STATS + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
   if (loser) {
-    lines.push(svgT(BX, eloY,      `${deltaStr(eloChangeLoser)} ELO`, COLOR_DIM, 11, 'normal', 'middle'));
-    lines.push(svgT(BX, eloY + 14, 'ELIMINATED', COLOR_DIM, 9, 'bold', 'middle'));
+    lines.push(svgT(BX, AY_STATS,      `${deltaStr(eloChangeLoser)} ELO`, COLOR_DIM, 11, 'normal', 'middle'));
+    lines.push(svgT(BX, AY_STATS + 14, 'ELIMINATED', COLOR_DIM, 9, 'bold', 'middle'));
   }
 
   lines.push('</svg>');

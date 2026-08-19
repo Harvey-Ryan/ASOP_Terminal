@@ -142,8 +142,9 @@ export function buildBracketSvg(
       const yA = matchTopY;
       const yB = matchTopY + SLOT_H + ROW_GAP;
 
-      const wonA = match.winnerId === match.participantAId;
-      const wonB = match.winnerId === match.participantBId;
+      // null === null is true in JS — guard so TBD slots are never highlighted
+      const wonA = match.winnerId != null && match.winnerId === match.participantAId;
+      const wonB = match.winnerId != null && match.winnerId === match.participantBId;
 
       renderParticipantSlot(slots, x, yA, pA, wonA, isComplete, isCurrent, match.scoreA);
       renderParticipantSlot(slots, x, yB, pB, wonB, isComplete, isCurrent, match.scoreB);
