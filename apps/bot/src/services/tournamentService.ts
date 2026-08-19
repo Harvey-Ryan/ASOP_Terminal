@@ -241,7 +241,7 @@ export async function postMatchResult(matchId: string): Promise<void> {
     });
 
     const resultAttachment = new AttachmentBuilder(resultBuffer, { name: 'result.png' });
-    const deltaStr = (d: number) => (d >= 0 ? `+${d} 📈` : `${d} 📉`);
+    const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
 
     const descLines: string[] = [`**${winner.displayName}** wins!`];
     if (winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
@@ -894,7 +894,7 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
   });
 
   const attachment = new AttachmentBuilder(resultBuffer, { name: 'h2h-result.png' });
-  const deltaStr = (d: number) => (d >= 0 ? `+${d} 📈` : `${d} 📉`);
+  const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
   const embed = new EmbedBuilder()
     .setTitle('⚔️ Head to Head Result')
     .setDescription(
