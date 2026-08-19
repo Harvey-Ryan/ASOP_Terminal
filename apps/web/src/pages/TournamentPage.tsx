@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trophy, Plus, Users, X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Trophy, Plus, Users, X, TrendingUp, TrendingDown, Minus, Swords } from 'lucide-react';
 import type { EloSummaryEntry } from '../api/tournament';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -150,7 +150,16 @@ export function TournamentPage() {
 
       {/* Rankings Tab */}
       {tab === 'rankings' && (
-        <RankingsView players={rankings?.players ?? []} isLoading={!rankings} />
+        <div className="flex gap-6 items-start">
+          <div className="flex-1 min-w-0">
+            <RankingsView players={rankings?.players ?? []} isLoading={!rankings} />
+          </div>
+          {isManager && (
+            <div className="w-72 shrink-0">
+              <H2HCard guildId={guildId!} players={rankings?.players ?? []} />
+            </div>
+          )}
+        </div>
       )}
 
       {/* Tournament list + detail */}
@@ -531,6 +540,125 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── H2H card ──────────────────────────────────────────────────────────────────
+
+function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[] }) {
+  const qc = useQueryClient();
+  const [playerAId, setPlayerAId] = useState('');
+  const [playerBId, setPlayerBId] = useState('');
+  const [winnerId, setWinnerId]   = useState('');
+  const [announce, setAnnounce]   = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+
+  // Keep winner in sync: if it no longer refers to one of the two selected players, clear it
+  const validWinnerIds = [playerAId, playerBId].filter(Boolean);
+  const effectiveWinnerId = validWinnerIds.includes(winnerId) ? winnerId : '';
+
+  const mutation = useMutation({
+    mutationFn: () => tournamentApi.submitH2H(guildId, {
+      playerADiscordId: playerAId,
+      playerBDiscordId: playerBId,
+      winnerDiscordId: effectiveWinnerId,
+      announce,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] });
+      setPlayerAId('');
+      setPlayerBId('');
+      setWinnerId('');
+      setAnnounce(false);
+      setError(null);
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const playerA = players.find((p) => p.discordId === playerAId);
+  const playerB = players.find((p) => p.discordId === playerBId);
+  const canSubmit = playerAId && playerBId && effectiveWinnerId && !mutation.isPending;
+
+  const selectCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
+
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="px-4 py-3 bg-muted/40 border-b border-border flex items-center gap-2">
+        <Swords className="h-4 w-4 text-indigo-400" />
+        <span className="text-sm font-medium">Head to Head</span>
+      </div>
+      <div className="p-4 flex flex-col gap-3">
+        {/* Player A */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Player A</label>
+          <select
+            value={playerAId}
+            onChange={(e) => { setPlayerAId(e.target.value); setError(null); }}
+            className={selectCls}
+          >
+            <option value="">Select player…</option>
+            {players
+              .filter((p) => p.discordId !== playerBId)
+              .map((p) => (
+                <option key={p.discordId} value={p.discordId}>{p.displayName} ({p.rating})</option>
+              ))}
+          </select>
+        </div>
+
+        {/* Player B */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Player B</label>
+          <select
+            value={playerBId}
+            onChange={(e) => { setPlayerBId(e.target.value); setError(null); }}
+            className={selectCls}
+          >
+            <option value="">Select player…</option>
+            {players
+              .filter((p) => p.discordId !== playerAId)
+              .map((p) => (
+                <option key={p.discordId} value={p.discordId}>{p.displayName} ({p.rating})</option>
+              ))}
+          </select>
+        </div>
+
+        {/* Winner — only active once both players are chosen */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Winner</label>
+          <select
+            value={effectiveWinnerId}
+            onChange={(e) => { setWinnerId(e.target.value); setError(null); }}
+            disabled={!playerAId || !playerBId}
+            className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <option value="">Select winner…</option>
+            {playerA && <option value={playerA.discordId}>{playerA.displayName}</option>}
+            {playerB && <option value={playerB.discordId}>{playerB.displayName}</option>}
+          </select>
+        </div>
+
+        {/* Announce toggle */}
+        <label className="flex items-center gap-2.5 cursor-pointer select-none mt-1">
+          <input
+            type="checkbox"
+            checked={announce}
+            onChange={(e) => setAnnounce(e.target.checked)}
+            className="h-4 w-4 rounded border-input accent-indigo-500"
+          />
+          <span className="text-sm text-muted-foreground">Announce to Discord</span>
+        </label>
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <Button
+          className="w-full mt-1"
+          disabled={!canSubmit}
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? 'Submitting…' : 'Submit Result'}
+        </Button>
+      </div>
     </div>
   );
 }

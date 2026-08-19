@@ -1251,6 +1251,112 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
   }
 });
 
+// ── POST /:guildId/tournaments/h2h ───────────────────────────────────────────
+// Record a manual 1v1 result between two ranked players outside any tournament.
+// Updates both players' ELO ratings and writes TournamentRatingHistory rows
+// with isH2H=true so the audit trail stays complete.
+// If announce=true, triggers the bot to post a result card to the tournament channel.
+
+tournamentRouter.post('/:guildId/tournaments/h2h', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
+
+  const { playerADiscordId, playerBDiscordId, winnerDiscordId, announce } = req.body as {
+    playerADiscordId?: string;
+    playerBDiscordId?: string;
+    winnerDiscordId?: string;
+    announce?: boolean;
+  };
+
+  if (!playerADiscordId || !playerBDiscordId || !winnerDiscordId) {
+    return badRequest(res, 'playerADiscordId, playerBDiscordId, and winnerDiscordId are required');
+  }
+  if (playerADiscordId === playerBDiscordId) {
+    return badRequest(res, 'Players must be different');
+  }
+  if (winnerDiscordId !== playerADiscordId && winnerDiscordId !== playerBDiscordId) {
+    return badRequest(res, 'winnerDiscordId must be one of the two players');
+  }
+
+  try {
+    const [ratingA, ratingB] = await Promise.all([
+      prisma.tournamentPlayerRating.findUnique({
+        where: { guildId_discordId: { guildId, discordId: playerADiscordId } },
+      }),
+      prisma.tournamentPlayerRating.findUnique({
+        where: { guildId_discordId: { guildId, discordId: playerBDiscordId } },
+      }),
+    ]);
+
+    if (!ratingA) return badRequest(res, `No ranking record found for player ${playerADiscordId}`);
+    if (!ratingB) return badRequest(res, `No ranking record found for player ${playerBDiscordId}`);
+
+    const aWon = winnerDiscordId === playerADiscordId;
+    const elo = calcElo(ratingA.rating, ratingA.matchesPlayed, ratingB.rating, ratingB.matchesPlayed, aWon);
+
+    const [histA, histB] = await prisma.$transaction(async (tx) => {
+      await Promise.all([
+        tx.tournamentPlayerRating.update({
+          where: { id: ratingA.id },
+          data: {
+            rating: elo.newA,
+            matchesPlayed: { increment: 1 },
+            wins:   aWon  ? { increment: 1 } : undefined,
+            losses: !aWon ? { increment: 1 } : undefined,
+            peakRating: elo.newA > ratingA.peakRating ? elo.newA : undefined,
+          },
+        }),
+        tx.tournamentPlayerRating.update({
+          where: { id: ratingB.id },
+          data: {
+            rating: elo.newB,
+            matchesPlayed: { increment: 1 },
+            wins:   !aWon ? { increment: 1 } : undefined,
+            losses:  aWon ? { increment: 1 } : undefined,
+            peakRating: elo.newB > ratingB.peakRating ? elo.newB : undefined,
+          },
+        }),
+      ]);
+
+      const histA = await tx.tournamentRatingHistory.create({
+        data: {
+          ratingId: ratingA.id,
+          isH2H: true,
+          ratingBefore: ratingA.rating,
+          ratingAfter: elo.newA,
+          delta: elo.deltaA,
+          won: aWon,
+          opponentName: ratingB.displayName,
+          opponentRatingBefore: ratingB.rating,
+        },
+      });
+      const histB = await tx.tournamentRatingHistory.create({
+        data: {
+          ratingId: ratingB.id,
+          isH2H: true,
+          ratingBefore: ratingB.rating,
+          ratingAfter: elo.newB,
+          delta: elo.deltaB,
+          won: !aWon,
+          opponentName: ratingA.displayName,
+          opponentRatingBefore: ratingA.rating,
+        },
+      });
+      return [histA, histB] as const;
+    });
+
+    if (announce) {
+      triggerBot(`/trigger/tournament-h2h/${histA.id}/${histB.id}`);
+    }
+
+    res.json({ success: true } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[POST h2h]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
 // ── POST /:guildId/tournaments/:id/complete ───────────────────────────────────
 
 tournamentRouter.post('/:guildId/tournaments/:id/complete', requireAuth, async (req, res) => {

@@ -1471,13 +1471,15 @@ model TournamentSeasonStanding {
   @@index([seasonId, rating])
 }
 
-/// One row per player per match result — full ELO audit trail
+/// One row per player per match result — full ELO audit trail.
+/// matchId and tournamentId are null for out-of-tournament H2H results (isH2H = true).
 model TournamentRatingHistory {
   id                   String                 @id @default(cuid())
   ratingId             String
   rating               TournamentPlayerRating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
-  matchId              String
-  tournamentId         String
+  matchId              String?
+  tournamentId         String?
+  isH2H                Boolean                @default(false)
   ratingBefore         Int
   ratingAfter          Int
   delta                Int

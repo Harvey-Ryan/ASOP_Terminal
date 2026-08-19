@@ -4,7 +4,7 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
-import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled } from './services/tournamentService.js';
+import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -295,6 +295,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await postMatchResult(matchId).catch((err) =>
         console.error(`[bot:internal] postMatchResult failed for ${matchId}:`, err),
+      );
+      return;
+    }
+
+    const h2hMatch = req.url?.match(/^\/trigger\/tournament-h2h\/([^/]+)\/([^/]+)$/);
+    if (h2hMatch) {
+      const [, histIdA, histIdB] = h2hMatch as [string, string, string];
+      res.writeHead(202).end();
+      await announceH2hResult(histIdA, histIdB).catch((err) =>
+        console.error(`[bot:internal] announceH2hResult failed for ${histIdA}/${histIdB}:`, err),
       );
       return;
     }

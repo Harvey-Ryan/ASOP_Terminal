@@ -824,6 +824,89 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
   await prisma.tournamentReminder.update({ where: { id: reminderId }, data: { sentAt: new Date() } });
 }
 
+// ── Announce H2H result ───────────────────────────────────────────────────────
+// Called after POST /tournaments/h2h when announce=true.
+// Posts a result card image to the guild's tournament channel.
+
+export async function announceH2hResult(histIdA: string, histIdB: string): Promise<void> {
+  const [histA, histB] = await Promise.all([
+    prisma.tournamentRatingHistory.findUnique({ where: { id: histIdA }, include: { rating: true } }),
+    prisma.tournamentRatingHistory.findUnique({ where: { id: histIdB }, include: { rating: true } }),
+  ]);
+  if (!histA || !histB) {
+    console.warn(`[announceH2hResult] history rows not found: ${histIdA}, ${histIdB}`);
+    return;
+  }
+
+  const guildId = histA.rating.guildId;
+  const guildRecord = await prisma.guild
+    .findUnique({ where: { guildId }, include: { settings: true } })
+    .catch(() => null);
+  const channelId = guildRecord?.settings?.tournamentChannelId
+    ?? guildRecord?.settings?.forumChannelId
+    ?? null;
+  if (!channelId) {
+    console.warn(`[announceH2hResult] no tournament channel configured for guild ${guildId}`);
+    return;
+  }
+
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (!channel?.isTextBased() || !('send' in channel)) return;
+
+  const winnerHist = histA.won ? histA : histB;
+  const loserHist  = histA.won ? histB : histA;
+
+  // Fetch Discord avatars for the card
+  const [winAvatar, loseAvatar] = await Promise.all([
+    client.users.fetch(winnerHist.rating.discordId).catch(() => null),
+    client.users.fetch(loserHist.rating.discordId).catch(() => null),
+  ]);
+
+  const winnerCard: MatchCardParticipant = {
+    discordId: winnerHist.rating.discordId,
+    avatarHash: winAvatar?.avatar ?? null,
+    displayName: winnerHist.rating.displayName,
+    seed: null,
+    rating: winnerHist.ratingBefore,
+    matchesPlayed: winnerHist.ratingBefore > 0 ? 1 : 0, // approximate — only affects K display
+  };
+  const loserCard: MatchCardParticipant = {
+    discordId: loserHist.rating.discordId,
+    avatarHash: loseAvatar?.avatar ?? null,
+    displayName: loserHist.rating.displayName,
+    seed: null,
+    rating: loserHist.ratingBefore,
+    matchesPlayed: loserHist.ratingBefore > 0 ? 1 : 0,
+  };
+
+  const resultBuffer = await buildResultCardPng({
+    tournamentName: 'Head to Head',
+    round: 0,
+    position: 0,
+    roundLabel: 'H2H RESULT',
+    winner: winnerCard,
+    loser: loserCard,
+    scoreA: null,
+    scoreB: null,
+    eloChangeWinner: winnerHist.delta,
+    eloChangeLoser:  loserHist.delta,
+  });
+
+  const attachment = new AttachmentBuilder(resultBuffer, { name: 'h2h-result.png' });
+  const deltaStr = (d: number) => (d >= 0 ? `+${d} 🔺` : `${d} 🔻`);
+  const embed = new EmbedBuilder()
+    .setTitle('⚔️ Head to Head Result')
+    .setDescription(
+      `**${winnerHist.rating.displayName}** defeats **${loserHist.rating.displayName}**\n` +
+      `${winnerHist.rating.displayName}: ${deltaStr(winnerHist.delta)} ELO\n` +
+      `${loserHist.rating.displayName}: ${deltaStr(loserHist.delta)} ELO`,
+    )
+    .setImage('attachment://h2h-result.png')
+    .setColor(0x5865f2);
+
+  await (channel as import('discord.js').TextChannel).send({ embeds: [embed], files: [attachment] });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildBracketPng(

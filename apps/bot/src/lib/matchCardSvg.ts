@@ -184,6 +184,8 @@ export interface ResultCardData {
   tournamentName: string;
   round: number;
   position: number;
+  /** Overrides the auto-generated "ROUND X · MATCH Y RESULT" header label. */
+  roundLabel?: string;
   winner: MatchCardParticipant;
   loser: MatchCardParticipant | null;
   scoreA: number | null;
@@ -198,7 +200,7 @@ export async function buildResultCardPng(data: ResultCardData): Promise<Buffer> 
 }
 
 export async function buildResultCardSvg(data: ResultCardData): Promise<string> {
-  const { tournamentName, round, position, winner, loser, scoreA, scoreB, eloChangeWinner, eloChangeLoser } = data;
+  const { tournamentName, round, position, roundLabel, winner, loser, scoreA, scoreB, eloChangeWinner, eloChangeLoser } = data;
 
   const [winAvatar, loseAvatar] = await Promise.all([
     winner.discordId ? fetchAvatarDataUri(winner.discordId, winner.avatarHash) : Promise.resolve(null),
@@ -228,7 +230,8 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${HEADER_H}" fill="${COLOR_HEADER}"/>`);
   lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${COLOR_GREEN}" stroke-width="2"/>`);
   lines.push(svgT(16, HEADER_H - 14, truncate(tournamentName.toUpperCase(), 28), COLOR_DIM, 11, 'bold'));
-  lines.push(svgT(CARD_W - 16, HEADER_H - 14, `ROUND ${round}  ·  MATCH ${position + 1} RESULT`, COLOR_GREEN, 11, 'bold', 'end'));
+  const headerLabel = roundLabel ?? `ROUND ${round}  ·  MATCH ${position + 1} RESULT`;
+  lines.push(svgT(CARD_W - 16, HEADER_H - 14, headerLabel, COLOR_GREEN, 11, 'bold', 'end'));
 
   // Winner gets an exaggerated green glow; loser gets a plain subtle ring
   renderAvatar(lines, AX, AY_AVATAR, winAvatar, winName,  'clipW', COLOR_GREEN);
