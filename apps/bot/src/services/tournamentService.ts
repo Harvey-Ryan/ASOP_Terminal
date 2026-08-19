@@ -13,6 +13,7 @@ import { buildBracketSvg, svgToPng } from '../lib/bracketSvg.js';
 import { buildMatchCardPng, buildResultCardPng } from '../lib/matchCardSvg.js';
 import type { BracketMatchInfo, BracketParticipantInfo } from '../lib/bracketSvg.js';
 import type { MatchCardParticipant } from '../lib/matchCardSvg.js';
+import { getRoundLabel } from '@dem/shared';
 
 // ── Tournament start (called after bracket is generated) ──────────────────────
 
@@ -131,7 +132,7 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   const match = await prisma.tournamentMatch.findUnique({
     where: { id: matchId },
     include: {
-      tournament: true,
+      tournament: { include: { matches: true } },
       participantA: true,
       participantB: true,
     },
@@ -144,6 +145,12 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   const thread = await client.channels.fetch(threadId).catch(() => null);
   if (!thread?.isThread()) return;
 
+  const winnersMatches = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
+  const maxRound = winnersMatches.length > 0
+    ? Math.max(...winnersMatches.map((m) => m.round))
+    : match.round;
+  const roundLabel = getRoundLabel(match.round, maxRound, match.bracketSide, match.position);
+
   const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId);
   const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId);
 
@@ -151,6 +158,7 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
     tournamentName: match.tournament.name,
     round: match.round,
     position: match.position,
+    roundLabel,
     scheduledAt: match.scheduledAt,
     participantA: pA,
     participantB: pB,
@@ -159,7 +167,7 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   const attachment = new AttachmentBuilder(cardBuffer, { name: 'match-card.png' });
   const matchTitle = match.bracketSide === 'THIRD_PLACE'
     ? '🥉 3rd Place Match'
-    : `⚔️ Round ${match.round} — Match ${match.position + 1}`;
+    : `⚔️ ${roundLabel}`;
   const embed = new EmbedBuilder()
     .setTitle(matchTitle)
     .setDescription(`**${match.participantA.displayName}** vs **${match.participantB.displayName}**`)
@@ -228,10 +236,17 @@ export async function postMatchResult(matchId: string): Promise<void> {
     const winnerScore = winnerIsA ? match.scoreA : match.scoreB;
     const loserScore  = winnerIsA ? match.scoreB : match.scoreA;
 
+    const resultWinnersMatches = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
+    const resultMaxRound = resultWinnersMatches.length > 0
+      ? Math.max(...resultWinnersMatches.map((m) => m.round))
+      : match.round;
+    const resultRoundLabel = getRoundLabel(match.round, resultMaxRound, match.bracketSide, match.position);
+
     const resultBuffer = await buildResultCardPng({
       tournamentName: match.tournament.name,
       round: match.round,
       position: match.position,
+      roundLabel: resultRoundLabel,
       winner: winnerCard,
       loser: loserCard,
       scoreA: match.scoreA,
@@ -250,7 +265,7 @@ export async function postMatchResult(matchId: string): Promise<void> {
 
     const resultTitle = match.bracketSide === 'THIRD_PLACE'
       ? '🥉 3rd Place Result'
-      : `✅ Round ${match.round} — Match ${match.position + 1} Result`;
+      : `✅ ${resultRoundLabel} Result`;
     const resultEmbed = new EmbedBuilder()
       .setTitle(resultTitle)
       .setDescription(descLines.join('\n'))
@@ -584,7 +599,7 @@ export async function updateRegistrationEmbed(tournamentId: string): Promise<voi
 export async function postMatchScheduled(matchId: string): Promise<void> {
   const match = await prisma.tournamentMatch.findUnique({
     where: { id: matchId },
-    include: { tournament: true, participantA: true, participantB: true },
+    include: { tournament: { include: { matches: true } }, participantA: true, participantB: true },
   });
   if (!match?.scheduledAt || !match.tournament.threadId) return;
   if (!match.participantA || !match.participantB) return;
@@ -594,6 +609,12 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
 
   const ts = Math.floor(match.scheduledAt.getTime() / 1000);
 
+  const scheduledWinnersMatches = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
+  const scheduledMaxRound = scheduledWinnersMatches.length > 0
+    ? Math.max(...scheduledWinnersMatches.map((m) => m.round))
+    : match.round;
+  const scheduledRoundLabel = getRoundLabel(match.round, scheduledMaxRound, match.bracketSide, match.position);
+
   // Re-generate the match card PNG with the new scheduledAt displayed
   const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId);
   const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId);
@@ -601,6 +622,7 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
     tournamentName: match.tournament.name,
     round: match.round,
     position: match.position,
+    roundLabel: scheduledRoundLabel,
     scheduledAt: match.scheduledAt,
     participantA: pA,
     participantB: pB,
@@ -608,7 +630,7 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
   const attachment = new AttachmentBuilder(cardBuffer, { name: 'match-card.png' });
 
   const updatedEmbed = new EmbedBuilder()
-    .setTitle(`⚔️ Round ${match.round} — Match ${match.position + 1}`)
+    .setTitle(match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Match' : `⚔️ ${scheduledRoundLabel}`)
     .setDescription(
       `**${match.participantA.displayName}** vs **${match.participantB.displayName}**\n` +
       `📅 <t:${ts}:F>`,

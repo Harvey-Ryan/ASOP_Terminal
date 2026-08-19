@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { TournamentMatch, TournamentParticipant } from '../api/tournament';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { getRoundColumnLabel } from '@dem/shared';
 
 // ── Layout constants (match bracketSvg.ts for visual consistency) ─────────────
 
@@ -10,7 +11,7 @@ const SLOT_R = 6;
 const COL_GAP = 80;
 const ROW_GAP = 16;
 const PAD = 32;
-const TITLE_H = 40;
+const TITLE_H = 56;
 
 const COLOR_BG        = '#1e1f22';
 const COLOR_SLOT      = '#2b2d31';
@@ -196,6 +197,29 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
         <text x={PAD} y={PAD + 20} fill={COLOR_TEXT} fontSize={14} fontWeight="bold">
           {tournamentName}
         </text>
+
+        {/* ── Round column headers ─────────────────────────────────────── */}
+        <line x1={0} y1={PAD + TITLE_H - 2} x2={svgW} y2={PAD + TITLE_H - 2} stroke={COLOR_LINE} strokeWidth={1} />
+        {Array.from({ length: maxRound }, (_, ri) => {
+          const r = ri + 1;
+          const colX = PAD + ri * (SLOT_W + COL_GAP) + SLOT_W / 2;
+          const label = getRoundColumnLabel(r, maxRound).toUpperCase();
+          return (
+            <text
+              key={`col-header-${r}`}
+              x={colX}
+              y={PAD + TITLE_H - 8}
+              fill={COLOR_DIM}
+              fontSize={9}
+              fontWeight="bold"
+              textAnchor="middle"
+              letterSpacing={0.8}
+            >
+              {label}
+            </text>
+          );
+        })}
+
         {connectors}
         {slots}
 

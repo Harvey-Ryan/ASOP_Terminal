@@ -999,3 +999,36 @@ export interface AddAllianceMemberBody {
   /** Discord snowflake of the guild sending the invitation */
   invitingGuildId?: string;
 }
+
+
+// ── Tournament bracket labeling ───────────────────────────────────────────────
+
+/**
+ * Human-readable label for a single bracket match.
+ * e.g. "Grand Final", "Semifinal 1", "Quarterfinal 3", "Round 1 — Match 4"
+ */
+export function getRoundLabel(
+  round: number,
+  maxRound: number,
+  bracketSide: string,
+  position: number,
+): string {
+  if (bracketSide === 'THIRD_PLACE') return '3rd Place Match';
+  const fromFinal = maxRound - round;
+  if (fromFinal === 0) return 'Grand Final';
+  if (fromFinal === 1) return `Semifinal ${position + 1}`;
+  if (fromFinal === 2) return `Quarterfinal ${position + 1}`;
+  return `Round ${round} — Match ${position + 1}`;
+}
+
+/**
+ * Column header label for a bracket round (no per-match position).
+ * e.g. "Final", "Semifinals", "Quarterfinals", "Round 1"
+ */
+export function getRoundColumnLabel(round: number, maxRound: number): string {
+  const fromFinal = maxRound - round;
+  if (fromFinal === 0) return 'Final';
+  if (fromFinal === 1) return 'Semifinals';
+  if (fromFinal === 2) return 'Quarterfinals';
+  return `Round ${round}`;
+}

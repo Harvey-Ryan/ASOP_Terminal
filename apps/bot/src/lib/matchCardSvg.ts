@@ -89,6 +89,8 @@ export interface MatchCardData {
   tournamentName: string;
   round: number;
   position: number;
+  /** Overrides the auto-generated "ROUND X · MATCH Y" header label. */
+  roundLabel?: string;
   scheduledAt: Date | null;
   participantA: MatchCardParticipant | null;
   participantB: MatchCardParticipant | null;
@@ -100,7 +102,7 @@ export async function buildMatchCardPng(data: MatchCardData): Promise<Buffer> {
 }
 
 export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
-  const { tournamentName, round, position, scheduledAt, participantA, participantB } = data;
+  const { tournamentName, round, position, roundLabel, scheduledAt, participantA, participantB } = data;
 
   const [avatarA, avatarB] = await Promise.all([
     participantA?.discordId ? fetchAvatarDataUri(participantA.discordId, participantA.avatarHash) : Promise.resolve(null),
@@ -130,7 +132,7 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
   lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${HEADER_H}" fill="${COLOR_HEADER}"/>`);
   lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${COLOR_BLURPLE}" stroke-width="2"/>`);
   lines.push(svgT(16, HEADER_H - 14, truncate(tournamentName.toUpperCase(), 28), COLOR_DIM, 11, 'bold'));
-  const matchLabel = `ROUND ${round}  ·  MATCH ${position + 1}`;
+  const matchLabel = roundLabel ?? `ROUND ${round}  ·  MATCH ${position + 1}`;
   lines.push(svgT(CARD_W - 16, HEADER_H - 14, matchLabel, COLOR_BLURPLE, 11, 'bold', 'end'));
 
   // ── Avatars (upper half) ──────────────────────────────────────────────────

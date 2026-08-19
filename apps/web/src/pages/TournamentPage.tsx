@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { canManageGuild } from '@dem/shared';
+import { canManageGuild, getRoundLabel } from '@dem/shared';
 import { tournamentApi } from '../api/tournament';
 import type { Tournament, TournamentDetail, TournamentMatch, PlayerRating } from '../api/tournament';
 import { BracketView } from '../components/BracketView';
@@ -479,6 +479,10 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
   tournamentId: string;
 }) {
   const byId = useMemo(() => new Map(participants.map((p) => [p.id, p])), [participants]);
+  const maxRound = useMemo(() => {
+    const w = matches.filter((m) => m.bracketSide === 'WINNERS');
+    return w.length > 0 ? Math.max(...w.map((m) => m.round)) : 1;
+  }, [matches]);
   const qc = useQueryClient();
 
   const scheduleMutation = useMutation({
@@ -505,7 +509,7 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
           <div key={m.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
             <div className="flex-1 text-sm">
               <span className="font-medium">
-                {m.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place' : `Round ${m.round} – Match ${m.position + 1}`}
+                {m.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place' : getRoundLabel(m.round, maxRound, m.bracketSide, m.position)}
               </span>
               <span className="text-muted-foreground ml-2">{pA?.displayName ?? '?'} vs {pB?.displayName ?? '?'}</span>
             </div>
@@ -893,6 +897,10 @@ interface SubmitResultDialogProps {
 
 function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: SubmitResultDialogProps) {
   const byId = useMemo(() => new Map(detail.participants.map((p) => [p.id, p])), [detail.participants]);
+  const dialogMaxRound = useMemo(() => {
+    const w = detail.matches.filter((m) => m.bracketSide === 'WINNERS');
+    return w.length > 0 ? Math.max(...w.map((m) => m.round)) : 1;
+  }, [detail.matches]);
   const pA = match.participantAId ? byId.get(match.participantAId) : null;
   const pB = match.participantBId ? byId.get(match.participantBId) : null;
 
@@ -905,7 +913,7 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
-          {match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Result' : `Round ${match.round} — Match ${match.position + 1} Result`}
+          {match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Result' : `${getRoundLabel(match.round, dialogMaxRound, match.bracketSide, match.position)} Result`}
         </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
