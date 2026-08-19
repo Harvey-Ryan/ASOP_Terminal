@@ -311,12 +311,12 @@ function TournamentDetail({ detail, isManager, onSubmitResult, onAddParticipant,
         <h2 className="font-semibold text-lg">{detail.name}</h2>
         {detail.threadId && (
           <a
-            href={`https://discord.com/channels/@me/${detail.threadId}`}
+            href={`https://discord.com/channels/${detail.guildId}/${detail.threadId}`}
             target="_blank"
             rel="noreferrer"
             className="text-xs text-indigo-400 hover:underline"
           >
-            View Discord thread
+            View Discord thread ↗
           </a>
         )}
       </div>
@@ -510,7 +510,7 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
                 </div>
               ) : (
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setScheduling(m.id); setSchedDate(''); }}>
-                  Schedule
+                  {m.scheduledAt ? 'Reschedule' : 'Schedule'}
                 </Button>
               )
             )}

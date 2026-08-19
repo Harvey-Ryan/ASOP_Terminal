@@ -220,6 +220,11 @@ export async function postMatchResult(matchId: string): Promise<void> {
     : null;
 
   if (winnerCard && winner) {
+    // Determine which raw score belongs to which player
+    const winnerIsA = match.winnerId === match.participantAId;
+    const winnerScore = winnerIsA ? match.scoreA : match.scoreB;
+    const loserScore  = winnerIsA ? match.scoreB : match.scoreA;
+
     const resultBuffer = await buildResultCardPng({
       tournamentName: match.tournament.name,
       round: match.round,
@@ -235,17 +240,14 @@ export async function postMatchResult(matchId: string): Promise<void> {
     const resultAttachment = new AttachmentBuilder(resultBuffer, { name: 'result.png' });
     const deltaStr = (d: number) => (d >= 0 ? `+${d} 🔺` : `${d} 🔻`);
 
+    const descLines: string[] = [`**${winner.displayName}** wins!`];
+    if (winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
+    if (loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
+    if (winnerScore != null) descLines.push(`Score: ${winnerScore} – ${loserScore}`);
+
     const resultEmbed = new EmbedBuilder()
       .setTitle(`✅ Round ${match.round} — Match ${match.position + 1} Result`)
-      .setDescription(
-        [
-          `**${winner.displayName}** wins!`,
-          winnerHistory ? `${deltaStr(winnerHistory.delta)} ELO` : '',
-          match.scoreA != null ? `Score: ${match.scoreA} – ${match.scoreB}` : '',
-        ]
-          .filter(Boolean)
-          .join('\n'),
-      )
+      .setDescription(descLines.join('\n'))
       .setImage('attachment://result.png')
       .setColor(0x57f287);
 
@@ -267,6 +269,21 @@ export async function postMatchResult(matchId: string): Promise<void> {
       await postMatchAnnouncement(match.nextMatchId).catch((err) =>
         console.error(`[tournamentService] postMatchAnnouncement for next match failed:`, err),
       );
+    }
+  }
+
+  // Check if this was the last non-BYE match in its round — announce round complete
+  const roundMatches = match.tournament.matches.filter(
+    (m) => m.round === match.round && m.status !== 'BYE',
+  );
+  const allDone = roundMatches.every((m) => m.id === matchId || m.status === 'COMPLETED');
+  if (allDone && roundMatches.length > 0) {
+    const maxRound = Math.max(...match.tournament.matches.map((m) => m.round));
+    const isFinalRound = match.round === maxRound;
+    if (!isFinalRound) {
+      await thread.send(
+        `🏁 **Round ${match.round} complete!** Advancing to Round ${match.round + 1}…`,
+      ).catch(() => null);
     }
   }
 
@@ -624,7 +641,12 @@ export async function postTournamentComplete(tournamentId: string): Promise<void
 
   const top3 = tournament.participants.slice(0, 3);
   const medals = ['🥇', '🥈', '🥉'];
-  const podium = top3.map((p, i) => `${medals[i]} <@${p.discordId ?? p.displayName}> — ${p.displayName}`).join('\n');
+  // Use a real mention only when we have a discordId; otherwise fall back to bold displayName
+  // so we never render a broken `<@Alice>` mention for display-name-only participants.
+  const podium = top3.map((p, i) => {
+    const nameTag = p.discordId ? `<@${p.discordId}>` : `**${p.displayName}**`;
+    return `${medals[i]} ${nameTag} — ${p.displayName}`;
+  }).join('\n');
 
   const embed = new EmbedBuilder()
     .setTitle(`🏆 ${tournament.name} — Tournament Complete!`)
@@ -656,7 +678,7 @@ export async function refreshBracketImage(tournamentId: string): Promise<void> {
   );
   const attachment = new AttachmentBuilder(bracketBuffer, { name: 'bracket.png' });
 
-  await msg.edit({ files: [attachment] }).catch((err) =>
+  await msg.edit({ files: [attachment], attachments: [] }).catch((err) =>
     console.error(`[tournamentService] Failed to edit bracket message:`, err),
   );
 }

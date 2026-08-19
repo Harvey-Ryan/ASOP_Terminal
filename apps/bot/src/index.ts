@@ -352,6 +352,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (updated.readyA && updated.readyB) {
           await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
           await interaction.message.edit({ components: [] }).catch(() => null);
+          // Public ping so everyone watching the thread sees the match is live
+          const pAName = match.participantA?.discordId ? `<@${match.participantA.discordId}>` : `**${match.participantA?.displayName ?? '?'}**`;
+          const pBName = match.participantB?.discordId ? `<@${match.participantB.discordId}>` : `**${match.participantB?.displayName ?? '?'}**`;
+          await interaction.channel?.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
           await interaction.editReply({ content: '✅ Both players ready — match is live!' });
         } else {
           await interaction.editReply({ content: '✅ You are marked as ready. Waiting for your opponent.' });
@@ -389,6 +393,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         if (updated.checkedInA && updated.checkedInB) {
           await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
+          // Clear the check-in buttons so they can't be clicked again after the match goes live
+          await interaction.message.edit({ components: [] }).catch(() => null);
+          // Public ping so everyone watching the thread sees the match is live
+          const pAName = match.participantA?.discordId ? `<@${match.participantA.discordId}>` : `**${match.participantA?.displayName ?? '?'}**`;
+          const pBName = match.participantB?.discordId ? `<@${match.participantB.discordId}>` : `**${match.participantB?.displayName ?? '?'}**`;
+          await interaction.channel?.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
           await interaction.editReply({ content: '✅ Both players checked in — match is live!' });
         } else {
           await interaction.editReply({ content: '✅ You are checked in. Waiting for your opponent.' });
