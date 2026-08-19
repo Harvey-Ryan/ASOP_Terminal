@@ -1386,6 +1386,8 @@ model TournamentMatch {
   readyB           Boolean   @default(false)
   checkedInA       Boolean   @default(false)
   checkedInB       Boolean   @default(false)
+  /// true when the result was recorded as a forfeit — skips ELO update and win/loss tallies
+  forfeit               Boolean   @default(false)
   /// idempotency guard — prevents double Discord post
   resultPostedAt        DateTime?
   /// Discord message ID of the match-card announcement (for editing when schedule changes)

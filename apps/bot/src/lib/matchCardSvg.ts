@@ -193,8 +193,12 @@ export interface ResultCardData {
   loser: MatchCardParticipant | null;
   scoreA: number | null;
   scoreB: null | number;
-  eloChangeWinner: number;
-  eloChangeLoser: number;
+  /** null = skip ELO display entirely (e.g. forfeit) */
+  eloChangeWinner: number | null;
+  /** null = skip ELO display entirely (e.g. forfeit) */
+  eloChangeLoser: number | null;
+  /** When true, show a FORFEIT badge instead of score/ELO lines */
+  forfeit?: boolean;
 }
 
 export async function buildResultCardPng(data: ResultCardData): Promise<Buffer> {
@@ -203,7 +207,7 @@ export async function buildResultCardPng(data: ResultCardData): Promise<Buffer> 
 }
 
 export async function buildResultCardSvg(data: ResultCardData): Promise<string> {
-  const { tournamentName, round, position, roundLabel, winner, loser, scoreA, scoreB, eloChangeWinner, eloChangeLoser } = data;
+  const { tournamentName, round, position, roundLabel, winner, loser, scoreA, scoreB, eloChangeWinner, eloChangeLoser, forfeit } = data;
 
   const [winAvatar, loseAvatar] = await Promise.all([
     winner.discordId ? fetchAvatarDataUri(winner.discordId, winner.avatarHash) : Promise.resolve(null),
@@ -230,37 +234,51 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${COLOR_BG}"/>`);
 
   // Header bar
+  const headerAccent = forfeit ? COLOR_RED : COLOR_GREEN;
   lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${HEADER_H}" fill="${COLOR_HEADER}"/>`);
-  lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${COLOR_GREEN}" stroke-width="2"/>`);
+  lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${headerAccent}" stroke-width="2"/>`);
   lines.push(svgT(16, HEADER_H - 14, truncate(tournamentName.toUpperCase(), 28), COLOR_DIM, 11, 'bold'));
   const headerLabel = roundLabel ?? `ROUND ${round}  ·  MATCH ${position + 1} RESULT`;
-  lines.push(svgT(CARD_W - 16, HEADER_H - 14, headerLabel, COLOR_GREEN, 11, 'bold', 'end'));
+  lines.push(svgT(CARD_W - 16, HEADER_H - 14, headerLabel, headerAccent, 11, 'bold', 'end'));
 
   // Winner gets an exaggerated green glow; loser gets a plain subtle ring
   renderAvatar(lines, AX, AY_AVATAR, winAvatar, winName,  'clipW', COLOR_GREEN);
   if (loser) renderAvatar(lines, BX, AY_AVATAR, loseAvatar, loseName, 'clipL', null);
 
-  // Score / checkmark — centered below avatars where VS. lives on match card
-  if (scoreA != null && scoreB != null) {
+  // Center — score / forfeit badge / checkmark
+  if (forfeit) {
+    lines.push(svgT(cx, AY_VS - 6, 'FORFEIT', COLOR_RED, 20, 'bold', 'middle'));
+    lines.push(svgT(cx, AY_VS + 16, 'WIN', COLOR_DIM, 9, 'bold', 'middle'));
+  } else if (scoreA != null && scoreB != null) {
     lines.push(svgT(cx, AY_VS, `${scoreA}  –  ${scoreB}`, COLOR_TEXT, 28, 'bold', 'middle'));
+    lines.push(svgT(cx, AY_VS + 18, 'FINAL', COLOR_DIM, 9, 'bold', 'middle'));
   } else {
     lines.push(svgT(cx, AY_VS, '✓', COLOR_GREEN, 34, 'bold', 'middle'));
+    lines.push(svgT(cx, AY_VS + 18, 'FINAL', COLOR_DIM, 9, 'bold', 'middle'));
   }
-  lines.push(svgT(cx, AY_VS + 18, 'FINAL', COLOR_DIM, 9, 'bold', 'middle'));
 
   // Names — below score (same y as match card names)
   lines.push(svgT(AX, AY_NAME, truncate(winName, 10), COLOR_GREEN, 22, 'bold', 'middle'));
   if (loser) lines.push(svgT(BX, AY_NAME, truncate(loseName, 10), COLOR_DIM, 20, 'normal', 'middle'));
 
-  // ELO deltas — stock-ticker style: ▲/▼ symbol + absolute value
-  const eloSymbol = (d: number) => d >= 0 ? '▲' : '▼';
-  const eloAbs    = (d: number) => Math.abs(d);
-  lines.push(svgT(AX, AY_STATS,      `${eloSymbol(eloChangeWinner)} ${eloAbs(eloChangeWinner)} ELO`, COLOR_GREEN, 11, 'bold', 'middle'));
-  lines.push(svgT(AX, AY_STATS + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
-  if (loser) {
-    const loserColor = eloChangeLoser < 0 ? COLOR_RED : COLOR_GREEN;
-    lines.push(svgT(BX, AY_STATS,      `${eloSymbol(eloChangeLoser)} ${eloAbs(eloChangeLoser)} ELO`, loserColor, 11, 'normal', 'middle'));
-    lines.push(svgT(BX, AY_STATS + 14, 'ELIMINATED', COLOR_DIM, 9, 'bold', 'middle'));
+  // ELO deltas — omitted for forfeits; shown as ▲/▼ symbol + absolute value otherwise
+  if (!forfeit) {
+    const eloSymbol = (d: number) => d >= 0 ? '▲' : '▼';
+    const eloAbs    = (d: number) => Math.abs(d);
+    if (eloChangeWinner != null) {
+      lines.push(svgT(AX, AY_STATS,      `${eloSymbol(eloChangeWinner)} ${eloAbs(eloChangeWinner)} ELO`, COLOR_GREEN, 11, 'bold', 'middle'));
+    }
+    lines.push(svgT(AX, AY_STATS + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
+    if (loser) {
+      if (eloChangeLoser != null) {
+        const loserColor = eloChangeLoser < 0 ? COLOR_RED : COLOR_GREEN;
+        lines.push(svgT(BX, AY_STATS,      `${eloSymbol(eloChangeLoser)} ${eloAbs(eloChangeLoser)} ELO`, loserColor, 11, 'normal', 'middle'));
+      }
+      lines.push(svgT(BX, AY_STATS + 14, 'ELIMINATED', COLOR_DIM, 9, 'bold', 'middle'));
+    }
+  } else {
+    lines.push(svgT(AX, AY_STATS + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
+    if (loser) lines.push(svgT(BX, AY_STATS + 14, 'FORFEIT', COLOR_RED, 9, 'bold', 'middle'));
   }
 
   lines.push('</svg>');

@@ -109,8 +109,8 @@ export function TournamentPage() {
   });
 
   const resultMutation = useMutation({
-    mutationFn: ({ matchId, winnerId, scoreA, scoreB }: { matchId: string; winnerId: string; scoreA?: number; scoreB?: number }) =>
-      tournamentApi.submitResult(guildId!, detail!.id, matchId, { winnerId, scoreA, scoreB }),
+    mutationFn: ({ matchId, winnerId, scoreA, scoreB, forfeit }: { matchId: string; winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean }) =>
+      tournamentApi.submitResult(guildId!, detail!.id, matchId, { winnerId, scoreA, scoreB, forfeit }),
     onSuccess: () => { setResultMatch(null); invalidate(); },
     onError: (e: Error) => alert(e.message),
   });
@@ -244,8 +244,8 @@ export function TournamentPage() {
           detail={detail}
           isPending={resultMutation.isPending}
           onClose={() => setResultMatch(null)}
-          onSubmit={({ winnerId, scoreA, scoreB }) =>
-            resultMutation.mutate({ matchId: resultMatch.id, winnerId, scoreA, scoreB })
+          onSubmit={({ winnerId, scoreA, scoreB, forfeit }) =>
+            resultMutation.mutate({ matchId: resultMatch.id, winnerId, scoreA, scoreB, forfeit })
           }
         />
       )}
@@ -939,7 +939,7 @@ interface SubmitResultDialogProps {
   detail: TournamentDetail;
   isPending: boolean;
   onClose: () => void;
-  onSubmit: (result: { winnerId: string; scoreA?: number; scoreB?: number }) => void;
+  onSubmit: (result: { winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean }) => void;
 }
 
 function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: SubmitResultDialogProps) {
@@ -954,6 +954,7 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
   const [winnerId, setWinnerId] = useState(match.participantAId ?? match.participantBId ?? '');
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
+  const [forfeit, setForfeit] = useState(false);
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -971,16 +972,32 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
               {pB && <option value={pB.id}>{pB.displayName}</option>}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="scoreA" className="text-sm font-medium">{pA?.displayName ?? 'Player A'} Score</label>
-              <Input id="scoreA" type="number" min="0" value={scoreA} onChange={(e) => setScoreA(e.target.value)} placeholder="Optional" />
+          {!forfeit && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="scoreA" className="text-sm font-medium">{pA?.displayName ?? 'Player A'} Score</label>
+                <Input id="scoreA" type="number" min="0" value={scoreA} onChange={(e) => setScoreA(e.target.value)} placeholder="Optional" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="scoreB" className="text-sm font-medium">{pB?.displayName ?? 'Player B'} Score</label>
+                <Input id="scoreB" type="number" min="0" value={scoreB} onChange={(e) => setScoreB(e.target.value)} placeholder="Optional" />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="scoreB" className="text-sm font-medium">{pB?.displayName ?? 'Player B'} Score</label>
-              <Input id="scoreB" type="number" min="0" value={scoreB} onChange={(e) => setScoreB(e.target.value)} placeholder="Optional" />
-            </div>
-          </div>
+          )}
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              checked={forfeit}
+              onChange={(e) => setForfeit(e.target.checked)}
+              className="rounded"
+            />
+            <span>Forfeit <span className="text-muted-foreground">(no ELO change)</span></span>
+          </label>
+          {forfeit && (
+            <p className="text-xs text-amber-500 -mt-2">
+              Scores will not be recorded and ELO ratings will remain unchanged.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -988,11 +1005,12 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
             disabled={!winnerId || isPending}
             onClick={() => onSubmit({
               winnerId,
-              scoreA: scoreA !== '' ? Number(scoreA) : undefined,
-              scoreB: scoreB !== '' ? Number(scoreB) : undefined,
+              scoreA: !forfeit && scoreA !== '' ? Number(scoreA) : undefined,
+              scoreB: !forfeit && scoreB !== '' ? Number(scoreB) : undefined,
+              forfeit: forfeit || undefined,
             })}
           >
-            {isPending ? 'Saving…' : 'Submit Result'}
+            {isPending ? 'Saving…' : forfeit ? 'Record Forfeit' : 'Submit Result'}
           </Button>
         </DialogFooter>
       </DialogContent>

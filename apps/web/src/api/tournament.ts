@@ -58,6 +58,7 @@ export interface TournamentMatch {
   winnerId: string | null;
   scoreA: number | null;
   scoreB: number | null;
+  forfeit: boolean;
   status: string;
   nextMatchId: string | null;
   scheduledAt: string | null;
@@ -200,7 +201,7 @@ export const tournamentApi = {
       .post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/schedule`, { scheduledAt })
       .then(requireSuccess),
 
-  submitResult: (guildId: string, id: string, matchId: string, body: { winnerId: string; scoreA?: number; scoreB?: number }) =>
+  submitResult: (guildId: string, id: string, matchId: string, body: { winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean }) =>
     api
       .post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/result`, body)
       .then(requireSuccess),

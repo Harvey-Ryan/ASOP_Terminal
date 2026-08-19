@@ -1032,8 +1032,8 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const { winnerId, scoreA, scoreB } = req.body as {
-    winnerId?: string; scoreA?: number; scoreB?: number;
+  const { winnerId, scoreA, scoreB, forfeit } = req.body as {
+    winnerId?: string; scoreA?: number; scoreB?: number; forfeit?: boolean;
   };
   if (!winnerId) return badRequest(res, 'winnerId is required');
 
@@ -1061,8 +1061,9 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
         where: { id: matchId, resultPostedAt: null },
         data: {
           winnerId,
-          scoreA: scoreA ?? null,
-          scoreB: scoreB ?? null,
+          scoreA: forfeit ? null : (scoreA ?? null),
+          scoreB: forfeit ? null : (scoreB ?? null),
+          forfeit: forfeit === true,
           status: 'COMPLETED',
           resultPostedAt: new Date(),
         },
@@ -1134,8 +1135,8 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
         }
       }
 
-      // ── ELO update (individual mode only) ──────────────────────────────────
-      if (match.tournament.participantMode === 'INDIVIDUAL' && match.participantA?.discordId && match.participantB?.discordId) {
+      // ── ELO update (individual mode only; skipped for forfeits) ───────────
+      if (!forfeit && match.tournament.participantMode === 'INDIVIDUAL' && match.participantA?.discordId && match.participantB?.discordId) {
         const pA = match.participantA;
         const pB = match.participantB;
         const discordIdA = pA.discordId as string;

@@ -242,6 +242,8 @@ export async function postMatchResult(matchId: string): Promise<void> {
       : match.round;
     const resultRoundLabel = getRoundLabel(match.round, resultMaxRound, match.bracketSide, match.position);
 
+    const isForfeit = match.forfeit;
+
     const resultBuffer = await buildResultCardPng({
       tournamentName: match.tournament.name,
       round: match.round,
@@ -249,19 +251,20 @@ export async function postMatchResult(matchId: string): Promise<void> {
       roundLabel: resultRoundLabel,
       winner: winnerCard,
       loser: loserCard,
-      scoreA: match.scoreA,
-      scoreB: match.scoreB,
-      eloChangeWinner: winnerHistory?.delta ?? 0,
-      eloChangeLoser: loserHistory?.delta ?? 0,
+      scoreA: isForfeit ? null : match.scoreA,
+      scoreB: isForfeit ? null : match.scoreB,
+      eloChangeWinner: isForfeit ? null : (winnerHistory?.delta ?? 0),
+      eloChangeLoser: isForfeit ? null : (loserHistory?.delta ?? 0),
+      forfeit: isForfeit,
     });
 
     const resultAttachment = new AttachmentBuilder(resultBuffer, { name: 'result.png' });
     const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
 
-    const descLines: string[] = [`**${winner.displayName}** wins!`];
-    if (winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
-    if (loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
-    if (winnerScore != null) descLines.push(`Score: ${winnerScore} – ${loserScore}`);
+    const descLines: string[] = [isForfeit ? `**${winner.displayName}** wins by forfeit!` : `**${winner.displayName}** wins!`];
+    if (!isForfeit && winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
+    if (!isForfeit && loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
+    if (!isForfeit && winnerScore != null) descLines.push(`Score: ${winnerScore} – ${loserScore}`);
 
     const resultTitle = match.bracketSide === 'THIRD_PLACE'
       ? '🥉 3rd Place Result'
