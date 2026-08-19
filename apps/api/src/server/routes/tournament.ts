@@ -797,6 +797,33 @@ tournamentRouter.post('/:guildId/tournaments/:id/open', requireAuth, async (req,
   }
 });
 
+// ── POST /:guildId/tournaments/:id/cancel ────────────────────────────────────
+
+tournamentRouter.post('/:guildId/tournaments/:id/cancel', requireAuth, async (req, res) => {
+  const { guildId, id } = req.params as { guildId: string; id: string };
+  const isManager = await assertGuildManager(req, guildId);
+  if (!isManager) return forbidden(res);
+
+  try {
+    const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
+    if (!tournament) return notFound(res);
+    if (tournament.status !== 'IN_PROGRESS') {
+      return badRequest(res, 'Only IN_PROGRESS tournaments can be cancelled. Use delete for DRAFT/REGISTRATION.');
+    }
+
+    await prisma.tournament.update({
+      where: { id },
+      data: { status: 'CANCELLED', completedAt: new Date() },
+    });
+
+    triggerBot(`/trigger/tournament-cancel/${id}`);
+    res.json({ success: true } satisfies ApiResponse);
+  } catch (err) {
+    console.error('[POST cancel]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
 // ── POST /:guildId/tournaments/:id/start ──────────────────────────────────────
 
 tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req, res) => {

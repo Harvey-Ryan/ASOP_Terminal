@@ -745,6 +745,20 @@ export async function postTournamentComplete(tournamentId: string): Promise<void
   await thread.send({ embeds });
 }
 
+// ── Tournament cancelled announcement ─────────────────────────────────────────
+
+export async function postTournamentCancelled(tournamentId: string): Promise<void> {
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament?.threadId) return;
+
+  const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
+  if (!thread?.isThread()) return;
+
+  await thread.send(
+    `🚫 **${tournament.name} has been cancelled.** The tournament has been abandoned by an organizer. No further matches will be played and no prizes will be awarded.`,
+  ).catch((err) => console.error(`[tournamentService] postTournamentCancelled: failed to post notice:`, err));
+}
+
 // ── Refresh pinned bracket image ──────────────────────────────────────────────
 
 export async function refreshBracketImage(tournamentId: string): Promise<void> {

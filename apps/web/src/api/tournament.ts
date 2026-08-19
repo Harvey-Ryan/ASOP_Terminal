@@ -179,6 +179,9 @@ export const tournamentApi = {
   complete: (guildId: string, id: string) =>
     api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/complete`, {}).then(requireSuccess),
 
+  cancel: (guildId: string, id: string) =>
+    api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/cancel`, {}).then(requireSuccess),
+
   // Participants
   register: (guildId: string, id: string, body: { discordId?: string; displayName?: string; teamName?: string; teamMembers?: TournamentTeamMember[] }) =>
     api

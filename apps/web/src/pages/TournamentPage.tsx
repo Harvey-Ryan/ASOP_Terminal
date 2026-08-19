@@ -18,7 +18,7 @@ import type { EloSummaryEntry } from '../api/tournament';
 const TAB_STATUS: Record<string, string | undefined> = {
   upcoming:    'DRAFT,REGISTRATION',
   active:      'IN_PROGRESS',
-  completed:   'COMPLETED',
+  completed:   'COMPLETED,CANCELLED',
   rankings:    undefined,
 };
 
@@ -27,6 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
   REGISTRATION:'bg-blue-700/30 text-blue-300',
   IN_PROGRESS: 'bg-yellow-700/30 text-yellow-300',
   COMPLETED:   'bg-green-700/30 text-green-300',
+  CANCELLED:   'bg-red-700/30 text-red-300',
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -90,6 +91,18 @@ export function TournamentPage() {
       setSelectedId(null);
       qc.setQueriesData<Tournament[]>({ queryKey: ['tournaments', guildId] }, (old) =>
         old ? old.filter((t) => t.id !== deletedId) : []
+      );
+    },
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => tournamentApi.cancel(guildId!, id),
+    onSuccess: (_, cancelledId) => {
+      setSelectedId(null);
+      qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
+      qc.setQueriesData<Tournament[]>({ queryKey: ['tournaments', guildId] }, (old) =>
+        old ? old.filter((t) => t.id !== cancelledId) : []
       );
     },
     onError: (e: Error) => alert(e.message),
@@ -181,6 +194,7 @@ export function TournamentPage() {
                 onOpen={() => openMutation.mutate(t.id)}
                 onStart={() => startMutation.mutate(t.id)}
                 onDelete={() => { if (confirm(`Delete "${t.name}"?`)) deleteMutation.mutate(t.id); }}
+                onCancel={() => { if (confirm(`Cancel "${t.name}"? This cannot be undone.`)) cancelMutation.mutate(t.id); }}
               />
             ))}
           </div>
@@ -248,9 +262,10 @@ interface TournamentCardProps {
   onOpen: () => void;
   onStart: () => void;
   onDelete: () => void;
+  onCancel: () => void;
 }
 
-function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen, onStart, onDelete }: TournamentCardProps) {
+function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen, onStart, onDelete, onCancel }: TournamentCardProps) {
   return (
     <button
       onClick={onClick}
@@ -280,6 +295,9 @@ function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen,
             )}
           {t.status === 'REGISTRATION' && (
             <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onStart}>Start Bracket</Button>
+          )}
+          {t.status === 'IN_PROGRESS' && (
+            <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onCancel}>Cancel</Button>
           )}
         </div>
       )}
