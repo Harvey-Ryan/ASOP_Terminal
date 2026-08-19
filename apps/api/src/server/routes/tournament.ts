@@ -12,7 +12,7 @@ export const tournamentRouter = Router();
 
 const VALID_SIZES = [4, 8, 16, 32];
 const VALID_FORMATS = ['SINGLE_ELIM'] as const; // DOUBLE_ELIM added in Phase 2
-const VALID_SEEDING = ['RANDOM', 'DKP', 'ACTIVITY', 'MANUAL'] as const;
+const VALID_SEEDING = ['RANDOM', 'DKP', 'ACTIVITY', 'ELO_RANK', 'MANUAL'] as const;
 
 // ── helper ────────────────────────────────────────────────────────────────────
 
@@ -854,6 +854,25 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
         orderBy: { _count: { userId: 'desc' } },
       });
       const rankMap = new Map(rsvpCounts.map((r, i) => [r.userId, i + 1]));
+      await prisma.$transaction(
+        participants.map((p) =>
+          prisma.tournamentParticipant.update({
+            where: { id: p.id },
+            data: { seed: p.discordId ? (rankMap.get(p.discordId) ?? 999) : 999 },
+          }),
+        ),
+      );
+      participants = participants.map((p) => ({
+        ...p,
+        seed: p.discordId ? (rankMap.get(p.discordId) ?? 999) : 999,
+      }));
+    } else if (tournament.seedingMode === 'ELO_RANK') {
+      const discordIds = participants.map((p) => p.discordId).filter(Boolean) as string[];
+      const ratings = await prisma.tournamentPlayerRating.findMany({
+        where: { guildId, discordId: { in: discordIds } },
+        orderBy: { rating: 'desc' },
+      });
+      const rankMap = new Map(ratings.map((r, i) => [r.discordId, i + 1]));
       await prisma.$transaction(
         participants.map((p) =>
           prisma.tournamentParticipant.update({

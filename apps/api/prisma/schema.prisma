@@ -1296,7 +1296,7 @@ model Tournament {
   size               Int       @default(8)
   /// "DRAFT" | "REGISTRATION" | "IN_PROGRESS" | "COMPLETED"
   status             String    @default("DRAFT")
-  /// "RANDOM" | "DKP" | "ACTIVITY" | "MANUAL"
+  /// "RANDOM" | "DKP" | "ACTIVITY" | "ELO_RANK" | "MANUAL"
   seedingMode        String    @default("RANDOM")
   dkpPrize1st        Int       @default(0)
   dkpPrize2nd        Int       @default(0)

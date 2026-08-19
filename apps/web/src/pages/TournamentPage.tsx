@@ -851,6 +851,7 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
                 <option value="RANDOM">Random</option>
                 <option value="DKP">DKP Points</option>
                 <option value="ACTIVITY">Activity</option>
+                <option value="ELO_RANK">ELO Rating</option>
                 <option value="MANUAL">Manual</option>
               </select>
             </div>
