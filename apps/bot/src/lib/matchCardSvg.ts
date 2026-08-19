@@ -2,15 +2,18 @@ import { svgToPng } from './bracketSvg.js';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 
-const CARD_W = 800;
-const CARD_H = 280;
-const COLOR_BG      = '#1e1f22';
-const COLOR_SLOT    = '#2b2d31';
-const COLOR_TEXT    = '#dbdee1';
-const COLOR_DIM     = '#72767d';
-const COLOR_GREEN   = '#57f287';
-const COLOR_BLURPLE = '#5865f2';
-const AVATAR_R      = 36; // circle radius
+const CARD_W = 900;
+const CARD_H = 320;
+
+const COLOR_BG        = '#1e1f22';
+const COLOR_HEADER    = '#111214';
+const COLOR_SLOT      = '#2b2d31';
+const COLOR_TEXT      = '#f2f3f5';
+const COLOR_DIM       = '#72767d';
+const COLOR_GREEN     = '#57f287';
+const COLOR_BLURPLE   = '#5865f2';
+const COLOR_GOLD      = '#faa61a';
+const AVATAR_R        = 42; // circle radius
 
 // 60-second in-memory cache for Discord CDN avatar fetches
 interface AvatarEntry { dataUri: string; expiresAt: number }
@@ -43,7 +46,7 @@ function nameColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0;
   const hue = Math.abs(h) % 360;
-  return `hsl(${hue},60%,45%)`;
+  return `hsl(${hue},60%,40%)`;
 }
 
 // ── Match card SVG ────────────────────────────────────────────────────────────
@@ -79,41 +82,79 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
     participantB?.discordId ? fetchAvatarDataUri(participantB.discordId, participantB.avatarHash) : Promise.resolve(null),
   ]);
 
+  const nameA = (participantA?.displayName ?? 'TBD').toUpperCase();
+  const nameB = (participantB?.displayName ?? 'TBD').toUpperCase();
+
+  const HEADER_H = 52;
+  const cx = CARD_W / 2;
+
   const lines: string[] = [];
-  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" style="background:${COLOR_BG}">`);
-  lines.push(`<defs>
-    <clipPath id="clipA"><circle cx="96" cy="140" r="${AVATAR_R}"/></clipPath>
-    <clipPath id="clipB"><circle cx="${CARD_W - 96}" cy="140" r="${AVATAR_R}"/></clipPath>
-  </defs>`);
+  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}">`);
+  lines.push(`<style>text { font-family: 'DejaVu Sans', Arial, sans-serif; }</style>`);
+
+  // Background
+  lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${COLOR_BG}"/>`);
 
   // Header bar
-  lines.push(`<rect x="0" y="0" width="${CARD_W}" height="48" fill="${COLOR_SLOT}"/>`);
-  const header = `${tournamentName}  ·  Round ${round}  ·  Match ${position + 1}`;
-  lines.push(svgText(20, 30, header, COLOR_DIM, 13));
+  lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${HEADER_H}" fill="${COLOR_HEADER}"/>`);
+  lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${COLOR_BLURPLE}" stroke-width="2"/>`);
+  // Tournament name (left) and match label (right) in header
+  lines.push(svgT(20, 32, truncate(tournamentName.toUpperCase(), 36), COLOR_DIM, 12, 'bold'));
+  const matchLabel = `ROUND ${round}  ·  MATCH ${position + 1}`;
+  lines.push(svgT(CARD_W - 20, 32, matchLabel, COLOR_BLURPLE, 12, 'bold', 'end'));
 
-  // "⚔️ VS" center
-  lines.push(svgText(CARD_W / 2, 150, 'VS', COLOR_BLURPLE, 28, 'bold', 'middle'));
+  // ── Avatar positions ──────────────────────────────────────────────────────
+  const AX = 110;           // participant A center x
+  const BX = CARD_W - 110;  // participant B center x
+  const AY = HEADER_H + 76; // avatar center y
 
-  // ── Participant A (left) ──────────────────────────────────────────────────
-  renderAvatarCircle(lines, 96, 140, avatarA, participantA?.displayName ?? 'TBD', 'clipA');
-  lines.push(svgText(96, 200, truncate(participantA?.displayName ?? 'TBD', 14), COLOR_TEXT, 14, 'bold', 'middle'));
-  if (participantA?.seed != null) lines.push(svgText(96, 220, `#${participantA.seed} seed`, COLOR_DIM, 11, 'normal', 'middle'));
-  const ratingA = formatRating(participantA?.rating ?? 1200, participantA?.matchesPlayed ?? 0);
-  lines.push(svgText(96, 238, ratingA, COLOR_DIM, 11, 'normal', 'middle'));
+  renderAvatar(lines, AX, AY, avatarA, nameA, 'clipA');
+  renderAvatar(lines, BX, AY, avatarB, nameB, 'clipB');
 
-  // ── Participant B (right) ─────────────────────────────────────────────────
-  const bx = CARD_W - 96;
-  renderAvatarCircle(lines, bx, 140, avatarB, participantB?.displayName ?? 'TBD', 'clipB');
-  lines.push(svgText(bx, 200, truncate(participantB?.displayName ?? 'TBD', 14), COLOR_TEXT, 14, 'bold', 'middle'));
-  if (participantB?.seed != null) lines.push(svgText(bx, 220, `#${participantB.seed} seed`, COLOR_DIM, 11, 'normal', 'middle'));
-  const ratingB = formatRating(participantB?.rating ?? 1200, participantB?.matchesPlayed ?? 0);
-  lines.push(svgText(bx, 238, ratingB, COLOR_DIM, 11, 'normal', 'middle'));
+  // ── Names ─────────────────────────────────────────────────────────────────
+  // Name area: below avatars
+  const nameY = AY + AVATAR_R + 22;
+  lines.push(svgT(AX, nameY, truncate(nameA, 12), COLOR_TEXT, 18, 'bold', 'middle'));
+  lines.push(svgT(BX, nameY, truncate(nameB, 12), COLOR_TEXT, 18, 'bold', 'middle'));
 
-  // Scheduled time
-  if (scheduledAt) {
-    const timeStr = scheduledAt.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
-    lines.push(svgText(CARD_W / 2, 268, `🕐 ${timeStr}`, COLOR_DIM, 11, 'normal', 'middle'));
+  // Seed + rating below names
+  const statsY = nameY + 22;
+  if (participantA?.seed != null) {
+    lines.push(svgT(AX, statsY, `SEED #${participantA.seed}`, COLOR_DIM, 10, 'bold', 'middle'));
   }
+  const ratingA = formatRating(participantA?.rating ?? 1200, participantA?.matchesPlayed ?? 0);
+  lines.push(svgT(AX, statsY + (participantA?.seed != null ? 14 : 0), ratingA + ' ELO', COLOR_DIM, 10, 'normal', 'middle'));
+
+  if (participantB?.seed != null) {
+    lines.push(svgT(BX, statsY, `SEED #${participantB.seed}`, COLOR_DIM, 10, 'bold', 'middle'));
+  }
+  const ratingB = formatRating(participantB?.rating ?? 1200, participantB?.matchesPlayed ?? 0);
+  lines.push(svgT(BX, statsY + (participantB?.seed != null ? 14 : 0), ratingB + ' ELO', COLOR_DIM, 10, 'normal', 'middle'));
+
+  // ── VS. center ────────────────────────────────────────────────────────────
+  // Divider lines left and right of VS
+  const vsY = AY;
+  const divW = 90;
+  lines.push(`<line x1="${cx - divW}" y1="${vsY}" x2="${cx - 28}" y2="${vsY}" stroke="${COLOR_SLOT}" stroke-width="1.5"/>`);
+  lines.push(`<line x1="${cx + 28}" y1="${vsY}" x2="${cx + divW}" y2="${vsY}" stroke="${COLOR_SLOT}" stroke-width="1.5"/>`);
+  lines.push(svgT(cx, vsY + 12, 'VS.', COLOR_BLURPLE, 30, 'bold', 'middle'));
+
+  // Scheduled time badge (if set)
+  if (scheduledAt) {
+    const timeStr = scheduledAt.toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZone: 'UTC',
+    }) + ' UTC';
+    const badgeY = CARD_H - 20;
+    lines.push(`<rect x="${cx - 140}" y="${badgeY - 16}" width="280" height="22" rx="4" fill="${COLOR_SLOT}"/>`);
+    lines.push(svgT(cx, badgeY, `🕐  ${timeStr}`, COLOR_DIM, 11, 'normal', 'middle'));
+  }
+
+  // clipPath defs (must come before elements that reference them)
+  lines.splice(2, 0, `<defs>
+    <clipPath id="clipA"><circle cx="${AX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipB"><circle cx="${BX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
+  </defs>`);
 
   lines.push('</svg>');
   return lines.join('\n');
@@ -146,44 +187,61 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
     loser?.discordId ? fetchAvatarDataUri(loser.discordId, loser.avatarHash) : Promise.resolve(null),
   ]);
 
+  const winName  = winner.displayName.toUpperCase();
+  const loseName = loser?.displayName.toUpperCase() ?? '';
+
+  const HEADER_H = 52;
+  const cx = CARD_W / 2;
+  const AX = 110;
+  const BX = CARD_W - 110;
+  const AY = HEADER_H + 76;
+
   const lines: string[] = [];
-  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" style="background:${COLOR_BG}">`);
+  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}">`);
+  lines.push(`<style>text { font-family: 'DejaVu Sans', Arial, sans-serif; }</style>`);
   lines.push(`<defs>
-    <clipPath id="clipW"><circle cx="96" cy="140" r="${AVATAR_R}"/></clipPath>
-    <clipPath id="clipL"><circle cx="${CARD_W - 96}" cy="140" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipW"><circle cx="${AX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
+    <clipPath id="clipL"><circle cx="${BX}" cy="${AY}" r="${AVATAR_R}"/></clipPath>
   </defs>`);
 
-  // Header
-  lines.push(`<rect x="0" y="0" width="${CARD_W}" height="48" fill="${COLOR_SLOT}"/>`);
-  lines.push(svgText(20, 30, `${tournamentName}  ·  Round ${round} Result`, COLOR_DIM, 13));
+  // Background
+  lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${CARD_H}" fill="${COLOR_BG}"/>`);
 
-  // Score banner
+  // Header bar
+  lines.push(`<rect x="0" y="0" width="${CARD_W}" height="${HEADER_H}" fill="${COLOR_HEADER}"/>`);
+  lines.push(`<line x1="0" y1="${HEADER_H}" x2="${CARD_W}" y2="${HEADER_H}" stroke="${COLOR_GREEN}" stroke-width="2"/>`);
+  lines.push(svgT(20, 32, truncate(tournamentName.toUpperCase(), 36), COLOR_DIM, 12, 'bold'));
+  lines.push(svgT(CARD_W - 20, 32, `ROUND ${round}  ·  MATCH ${position + 1} RESULT`, COLOR_GREEN, 12, 'bold', 'end'));
+
+  // Avatars
+  renderAvatar(lines, AX, AY, winAvatar, winName, 'clipW', COLOR_GREEN);
+  if (loser) renderAvatar(lines, BX, AY, loseAvatar, loseName, 'clipL', '#404249');
+
+  // Score or checkmark center
+  const scoreY = AY - 8;
   if (scoreA != null && scoreB != null) {
-    const scoreStr = `${scoreA} – ${scoreB}`;
-    lines.push(svgText(CARD_W / 2, 152, scoreStr, COLOR_TEXT, 22, 'bold', 'middle'));
+    lines.push(svgT(cx, scoreY + 2, `${scoreA}  –  ${scoreB}`, COLOR_TEXT, 26, 'bold', 'middle'));
   } else {
-    lines.push(svgText(CARD_W / 2, 152, '✓', COLOR_GREEN, 28, 'bold', 'middle'));
+    lines.push(svgT(cx, scoreY + 2, '✓', COLOR_GREEN, 32, 'bold', 'middle'));
   }
+  lines.push(svgT(cx, scoreY + 24, 'FINAL', COLOR_DIM, 9, 'bold', 'middle'));
 
-  // Unused match position for context
-  lines.push(svgText(CARD_W / 2, 175, `Match ${position + 1}`, COLOR_DIM, 11, 'normal', 'middle'));
+  // Names
+  const nameY = AY + AVATAR_R + 22;
+  lines.push(svgT(AX, nameY, truncate(winName, 12), COLOR_GREEN, 18, 'bold', 'middle'));
+  if (loser) lines.push(svgT(BX, nameY, truncate(loseName, 12), COLOR_DIM, 16, 'normal', 'middle'));
 
-  // Winner side (highlighted green)
-  renderAvatarCircle(lines, 96, 140, winAvatar, winner.displayName, 'clipW', COLOR_GREEN);
-  lines.push(svgText(96, 200, truncate(winner.displayName, 14), COLOR_GREEN, 14, 'bold', 'middle'));
-  const winDelta = eloChangeWinner >= 0 ? `+${eloChangeWinner} 🔺` : `${eloChangeWinner} 🔻`;
-  lines.push(svgText(96, 220, winDelta, COLOR_GREEN, 12, 'bold', 'middle'));
-  lines.push(svgText(96, 238, '🏆 Winner', COLOR_GREEN, 11, 'normal', 'middle'));
-
-  // Loser side (dimmed)
-  const lx = CARD_W - 96;
+  // ELO deltas
+  const deltaStr = (d: number, plus = true) => (d >= 0 && plus ? `+${d}` : String(d));
+  const eloY = nameY + 22;
+  lines.push(svgT(AX, eloY, `${deltaStr(eloChangeWinner)} ELO  🏆`, COLOR_GREEN, 11, 'bold', 'middle'));
   if (loser) {
-    renderAvatarCircle(lines, lx, 140, loseAvatar, loser.displayName, 'clipL');
-    lines.push(svgText(lx, 200, truncate(loser.displayName, 14), COLOR_DIM, 14, 'normal', 'middle'));
-    const loseDelta = eloChangeLoser >= 0 ? `+${eloChangeLoser}` : String(eloChangeLoser);
-    lines.push(svgText(lx, 220, `${loseDelta} 🔻`, COLOR_DIM, 12, 'normal', 'middle'));
-    lines.push(svgText(lx, 238, 'Eliminated', COLOR_DIM, 11, 'normal', 'middle'));
+    lines.push(svgT(BX, eloY, `${deltaStr(eloChangeLoser)} ELO`, COLOR_DIM, 11, 'normal', 'middle'));
+    lines.push(svgT(BX, eloY + 14, 'ELIMINATED', COLOR_DIM, 9, 'bold', 'middle'));
   }
+
+  // Trophy badge below winner
+  lines.push(svgT(AX, eloY + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
 
   lines.push('</svg>');
   return lines.join('\n');
@@ -191,7 +249,7 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function renderAvatarCircle(
+function renderAvatar(
   out: string[],
   cx: number, cy: number,
   avatarDataUri: string | null,
@@ -200,18 +258,17 @@ function renderAvatarCircle(
   borderColor = '#404249',
 ): void {
   const r = AVATAR_R;
+  out.push(`<circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${borderColor}" stroke-width="2.5"/>`);
   if (avatarDataUri) {
-    out.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${borderColor}" stroke-width="2"/>`);
     out.push(`<image href="${avatarDataUri}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#${clipId})"/>`);
   } else {
-    // Fallback: colored circle with initial
-    out.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${nameColor(name)}" stroke="${borderColor}" stroke-width="2"/>`);
+    out.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${nameColor(name)}"/>`);
     const initial = name[0]?.toUpperCase() ?? '?';
-    out.push(svgText(cx, cy + 6, initial, '#fff', 20, 'bold', 'middle'));
+    out.push(svgT(cx, cy + 9, initial, '#fff', 24, 'bold', 'middle'));
   }
 }
 
-function svgText(x: number, y: number, text: string, fill: string, size: number, weight = 'normal', anchor = 'start'): string {
+function svgT(x: number, y: number, text: string, fill: string, size: number, weight = 'normal', anchor = 'start'): string {
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}" font-family="'DejaVu Sans',Arial,sans-serif">${escaped}</text>`;
 }
