@@ -36,6 +36,7 @@ const COLOR_SLOT      = '#2b2d31';
 const COLOR_TEXT      = '#f2f3f5';
 const COLOR_DIM       = '#72767d';
 const COLOR_GREEN     = '#57f287';
+const COLOR_RED       = '#ed4245';
 const COLOR_BLURPLE   = '#5865f2';
 const COLOR_GOLD      = '#faa61a';
 
@@ -249,12 +250,14 @@ export async function buildResultCardSvg(data: ResultCardData): Promise<string> 
   lines.push(svgT(AX, AY_NAME, truncate(winName, 10), COLOR_GREEN, 22, 'bold', 'middle'));
   if (loser) lines.push(svgT(BX, AY_NAME, truncate(loseName, 10), COLOR_DIM, 20, 'normal', 'middle'));
 
-  // ELO deltas — same y as stats row
-  const deltaStr = (d: number) => (d >= 0 ? `+${d}` : String(d));
-  lines.push(svgT(AX, AY_STATS,      `${deltaStr(eloChangeWinner)} ELO`, COLOR_GREEN, 11, 'bold', 'middle'));
+  // ELO deltas — stock-ticker style: ▲/▼ symbol + absolute value
+  const eloSymbol = (d: number) => d >= 0 ? '▲' : '▼';
+  const eloAbs    = (d: number) => Math.abs(d);
+  lines.push(svgT(AX, AY_STATS,      `${eloSymbol(eloChangeWinner)} ${eloAbs(eloChangeWinner)} ELO`, COLOR_GREEN, 11, 'bold', 'middle'));
   lines.push(svgT(AX, AY_STATS + 14, 'WINNER', COLOR_GOLD, 9, 'bold', 'middle'));
   if (loser) {
-    lines.push(svgT(BX, AY_STATS,      `${deltaStr(eloChangeLoser)} ELO`, COLOR_DIM, 11, 'normal', 'middle'));
+    const loserColor = eloChangeLoser < 0 ? COLOR_RED : COLOR_GREEN;
+    lines.push(svgT(BX, AY_STATS,      `${eloSymbol(eloChangeLoser)} ${eloAbs(eloChangeLoser)} ELO`, loserColor, 11, 'normal', 'middle'));
     lines.push(svgT(BX, AY_STATS + 14, 'ELIMINATED', COLOR_DIM, 9, 'bold', 'middle'));
   }
 
