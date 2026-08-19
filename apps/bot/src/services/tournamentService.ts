@@ -524,6 +524,32 @@ export async function updateRegistrationEmbed(tournamentId: string): Promise<voi
   );
 }
 
+// ── Match schedule notification ───────────────────────────────────────────────
+
+export async function postMatchScheduled(matchId: string): Promise<void> {
+  const match = await prisma.tournamentMatch.findUnique({
+    where: { id: matchId },
+    include: { tournament: true, participantA: true, participantB: true },
+  });
+  if (!match?.scheduledAt || !match.tournament.threadId) return;
+  if (!match.participantA || !match.participantB) return;
+
+  const thread = await client.channels.fetch(match.tournament.threadId).catch(() => null);
+  if (!thread?.isThread()) return;
+
+  const ts = Math.floor(match.scheduledAt.getTime() / 1000);
+  await thread.send(
+    `📅 **Round ${match.round} · Match ${match.position + 1}** — ` +
+    `${match.participantA.displayName} vs ${match.participantB.displayName} — ` +
+    `scheduled for <t:${ts}:F> (<t:${ts}:R>)`,
+  ).catch((err) => console.error(`[tournamentService] postMatchScheduled: failed to send:`, err));
+
+  // Refresh the pinned bracket image so it reflects SCHEDULED status
+  await refreshBracketImage(match.tournament.id).catch((err) =>
+    console.error(`[tournamentService] postMatchScheduled: refreshBracketImage failed:`, err),
+  );
+}
+
 // ── Tournament complete announcement ──────────────────────────────────────────
 
 export async function postTournamentComplete(tournamentId: string): Promise<void> {

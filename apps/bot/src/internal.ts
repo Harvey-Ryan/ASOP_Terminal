@@ -4,7 +4,7 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
-import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread, setupDraftThread, updateRegistrationEmbed } from './services/tournamentService.js';
+import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled } from './services/tournamentService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -305,6 +305,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await postTournamentComplete(tournamentId).catch((err) =>
         console.error(`[bot:internal] postTournamentComplete failed for ${tournamentId}:`, err),
+      );
+      return;
+    }
+
+    const tournamentMatchScheduledMatch = req.url?.match(/^\/trigger\/tournament-match-scheduled\/([^/]+)$/);
+    if (tournamentMatchScheduledMatch) {
+      const matchId = tournamentMatchScheduledMatch[1]!;
+      res.writeHead(202).end();
+      await postMatchScheduled(matchId).catch((err) =>
+        console.error(`[bot:internal] postMatchScheduled failed for ${matchId}:`, err),
       );
       return;
     }

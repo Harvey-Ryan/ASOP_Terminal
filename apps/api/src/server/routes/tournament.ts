@@ -868,6 +868,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/schedule', req
       if (reminders.length) await tx.tournamentReminder.createMany({ data: reminders });
     });
 
+    triggerBot(`/trigger/tournament-match-scheduled/${matchId}`);
     res.json({ success: true } satisfies ApiResponse);
   } catch (err) {
     console.error('[POST schedule]', err);
