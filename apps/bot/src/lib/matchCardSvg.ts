@@ -7,19 +7,28 @@ import { svgToPng } from './bracketSvg.js';
 const CARD_W   = 700;
 const CARD_H   = 320;
 const HEADER_H = 46;
-
-// Avatars live in the upper half; VS. + names drop into the lower half.
-// AVATAR_R drives everything — bump it to use more vertical space.
 const AVATAR_R = 76;
 
-// Derived positions — AY_AVATAR is chosen so that the gap above the avatar
-// circles (AY_AVATAR - AVATAR_R - HEADER_H) equals the gap below the last
-// text row (CARD_H - AY_STATS - 14), centering all content in the body.
-// With CARD_H=320, HEADER_H=46, AVATAR_R=76:  AY_AVATAR = 141
-const AY_AVATAR = 141;
-const AY_VS     = AY_AVATAR + AVATAR_R + 24;         // VS baseline (below avatar bottom)
-const AY_NAME   = AY_VS + 28;                        // name baseline
-const AY_STATS  = AY_NAME + 18;                      // seed/rating baseline
+// Vertical layout — everything is derived from equal top/bottom padding.
+//
+// Content column (top to bottom):
+//   avatar circle diameter  = AVATAR_R * 2        = 152 px
+//   gap to name             =                       22 px
+//   name text               =                       22 px  (font-size)
+//   gap to stats            =                       18 px
+//   stats + label           =                       14 px
+//   ──────────────────────────────────────────────────────
+//   total content height    =                      206 px  (2*76 + 22 + 18 + 14)
+//
+// Body height = CARD_H - HEADER_H = 274 px
+// Padding each side = (274 - 206) / 2 = 34 px
+//
+// AY_AVATAR = HEADER_H + padding + AVATAR_R = 46 + 34 + 76 = 156
+// VS / score sits at the same y as the avatar centers (body midpoint).
+const AY_AVATAR = 156;                               // avatar + VS center y
+const AY_VS     = AY_AVATAR;                         // VS alongside avatars, not below
+const AY_NAME   = AY_AVATAR + AVATAR_R + 22;         // names below avatar circles
+const AY_STATS  = AY_NAME + 18;                      // seed/rating below names
 
 const COLOR_BG        = '#1e1f22';
 const COLOR_HEADER    = '#111214';
@@ -127,12 +136,14 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
   renderAvatar(lines, AX, AY_AVATAR, avatarA, nameA, 'clipA');
   renderAvatar(lines, BX, AY_AVATAR, avatarB, nameB, 'clipB');
 
-  // ── VS. — centered below avatars ──────────────────────────────────────────
-  // Short horizontal rules flanking VS.
-  const ruleGap = 28;
-  const ruleStartX = AX + AVATAR_R + 8;
-  lines.push(`<line x1="${ruleStartX}" y1="${AY_VS - 10}" x2="${cx - ruleGap}" y2="${AY_VS - 10}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
-  lines.push(`<line x1="${cx + ruleGap}" y1="${AY_VS - 10}" x2="${CARD_W - ruleStartX}" y2="${AY_VS - 10}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
+  // ── VS. — at avatar center y, flanked by horizontal rules ────────────────
+  const ruleGap = 32;
+  const ruleStartX = AX + AVATAR_R + 10;   // from right edge of left avatar
+  const ruleEndX   = CARD_W - ruleStartX;  // to left edge of right avatar (symmetric)
+  // rules sit a few px above the VS baseline for visual alignment
+  const ruleY = AY_VS - 10;
+  lines.push(`<line x1="${ruleStartX}" y1="${ruleY}" x2="${cx - ruleGap}" y2="${ruleY}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
+  lines.push(`<line x1="${cx + ruleGap}" y1="${ruleY}" x2="${ruleEndX}" y2="${ruleY}" stroke="${COLOR_SLOT}" stroke-width="1"/>`);
   lines.push(svgT(cx, AY_VS, 'VS.', COLOR_BLURPLE, 38, 'bold', 'middle'));
 
   // ── Names — large bold uppercase, below VS. ───────────────────────────────
