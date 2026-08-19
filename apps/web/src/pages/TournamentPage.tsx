@@ -36,7 +36,7 @@ export function TournamentPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') ?? 'upcoming';
-  const { guilds } = useAuth();
+  const { guilds, user } = useAuth();
   const guild = guilds.find((g) => g.id === guildId);
   const isManager = !!guild && canManageGuild(guild);
   const qc = useQueryClient();
@@ -205,6 +205,7 @@ export function TournamentPage() {
               detail={detail}
               isManager={isManager}
               guildId={guildId!}
+              currentUserId={user?.id ?? null}
               onSubmitResult={setResultMatch}
               onAddParticipant={(discordId, displayName) =>
                 addParticipantMutation.mutate({ id: detail.id, discordId, displayName })
@@ -311,6 +312,7 @@ interface TournamentDetailProps {
   detail: TournamentDetail;
   isManager: boolean;
   guildId: string;
+  currentUserId: string | null;
   onSubmitResult: (match: TournamentMatch) => void;
   onAddParticipant: (discordId?: string, displayName?: string) => void;
   onRemoveParticipant: (pid: string) => void;
@@ -318,7 +320,7 @@ interface TournamentDetailProps {
   isRemovingParticipant: boolean;
 }
 
-function TournamentDetail({ detail, isManager, guildId, onSubmitResult, onAddParticipant, onRemoveParticipant, isAddingParticipant, isRemovingParticipant }: TournamentDetailProps) {
+function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitResult, onAddParticipant, onRemoveParticipant, isAddingParticipant, isRemovingParticipant }: TournamentDetailProps) {
   const [activeTab, setActiveTab] = useState<'bracket' | 'participants' | 'schedule'>('bracket');
   const [addName, setAddName] = useState('');
   const [addDiscordId, setAddDiscordId] = useState('');
@@ -331,6 +333,9 @@ function TournamentDetail({ detail, isManager, guildId, onSubmitResult, onAddPar
 
   const canEdit = isManager && (detail.status === 'DRAFT' || detail.status === 'REGISTRATION');
   const isFull = detail.participants.length >= detail.size;
+  const alreadyRegistered = !!currentUserId && detail.participants.some((p) => p.discordId === currentUserId);
+  const deadlinePassed = !!detail.registrationEndsAt && new Date(detail.registrationEndsAt) < new Date();
+  const canSelfRegister = !isManager && detail.status === 'REGISTRATION' && !alreadyRegistered && !isFull && !deadlinePassed;
 
   const handleAdd = () => {
     if (!addName.trim() && !addDiscordId.trim()) return;
@@ -354,6 +359,29 @@ function TournamentDetail({ detail, isManager, guildId, onSubmitResult, onAddPar
           </a>
         )}
       </div>
+
+      {/* Self-registration banner for non-managers during open registration */}
+      {canSelfRegister && (
+        <div className="rounded-lg border border-indigo-500/40 bg-indigo-500/10 p-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Registration is open</p>
+            <p className="text-xs text-muted-foreground">{detail.participants.length}/{detail.size} spots filled{detail.registrationEndsAt ? ` · Closes ${new Date(detail.registrationEndsAt).toLocaleString()}` : ''}</p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => onAddParticipant()}
+            disabled={isAddingParticipant}
+          >
+            {isAddingParticipant ? '…' : 'Join Tournament'}
+          </Button>
+        </div>
+      )}
+      {!isManager && alreadyRegistered && detail.status === 'REGISTRATION' && (
+        <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3">
+          <p className="text-sm font-medium text-green-400">✓ You're registered</p>
+          <p className="text-xs text-muted-foreground">{detail.participants.length}/{detail.size} spots filled</p>
+        </div>
+      )}
 
       <div className="flex gap-1 text-sm">
         {(['bracket', 'participants', 'schedule'] as const).map((t) => (
