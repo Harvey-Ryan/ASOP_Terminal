@@ -2,25 +2,21 @@ import { Resvg } from '@resvg/resvg-js';
 import { existsSync } from 'node:fs';
 
 // ── Font config ───────────────────────────────────────────────────────────────
-// Scan multiple candidate paths because ttf-dejavu lands in different places
-// depending on Alpine version. loadSystemFonts is always true so whatever the
-// container has available is used as a fallback even when we find explicit files.
+// The Dockerfile copies DejaVu fonts to /fonts/ during the build so we have a
+// single unconditional path regardless of Alpine version. On Windows/macOS dev
+// that path won't exist, so we fall back to loadSystemFonts (Arial etc.).
 
-const FONT_CANDIDATES = [
-  '/usr/share/fonts/dejavu/DejaVuSans.ttf',
-  '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf',
-  '/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-];
-const foundFonts = FONT_CANDIDATES.filter(existsSync);
+const FONTS_DIR = '/fonts';
+const FONT_REGULAR = `${FONTS_DIR}/DejaVuSans.ttf`;
+const FONT_BOLD    = `${FONTS_DIR}/DejaVuSans-Bold.ttf`;
+
+const containerFonts = [FONT_REGULAR, FONT_BOLD].filter(existsSync);
 
 const FONT_CONFIG: NonNullable<ConstructorParameters<typeof Resvg>[1]>['font'] =
-  foundFonts.length > 0
+  containerFonts.length > 0
     ? {
-        fontFiles: foundFonts,
-        loadSystemFonts: true,           // belt-and-suspenders
+        fontFiles: containerFonts,
+        loadSystemFonts: false,
         defaultFontFamily: 'DejaVu Sans',
         sansSerifFamily:   'DejaVu Sans',
       }

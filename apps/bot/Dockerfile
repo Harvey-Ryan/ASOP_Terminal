@@ -16,12 +16,15 @@ COPY apps/web/package.json apps/web/
 # generating the Prisma client that the bot shares.
 COPY apps/api/prisma/ apps/api/prisma/
 
-# Install fonts so resvg-js can render text in bracket/match-card images.
-# ttf-dejavu install path varies by Alpine version; bracketSvg.ts probes
-# multiple candidate paths. We also install font-noto as a secondary fallback
-# and run fc-cache so loadSystemFonts:true can pick up whatever is found.
-RUN apk add --no-cache ttf-dejavu font-noto fontconfig \
-  && fc-cache -f 2>/dev/null || true
+# Install DejaVu fonts for resvg-js text rendering.
+# Alpine's ttf-dejavu installs to an unpredictable sub-path depending on version,
+# so we copy the files to a fixed /fonts/ directory that bracketSvg.ts can
+# reference unconditionally — no runtime path discovery needed.
+RUN apk add --no-cache ttf-dejavu \
+  && mkdir -p /fonts \
+  && find /usr/share/fonts -name "DejaVuSans.ttf"      2>/dev/null | head -1 | xargs -I{} cp {} /fonts/ \
+  && find /usr/share/fonts -name "DejaVuSans-Bold.ttf" 2>/dev/null | head -1 | xargs -I{} cp {} /fonts/ \
+  && echo "Fonts copied: $(ls /fonts/)"
 
 # Install all workspace deps
 RUN npm ci
