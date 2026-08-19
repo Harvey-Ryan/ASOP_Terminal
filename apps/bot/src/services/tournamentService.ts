@@ -842,11 +842,12 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
   const guildRecord = await prisma.guild
     .findUnique({ where: { guildId }, include: { settings: true } })
     .catch(() => null);
-  const channelId = guildRecord?.settings?.tournamentChannelId
+  const channelId = guildRecord?.settings?.h2hChannelId
+    ?? guildRecord?.settings?.tournamentChannelId
     ?? guildRecord?.settings?.forumChannelId
     ?? null;
   if (!channelId) {
-    console.warn(`[announceH2hResult] no tournament channel configured for guild ${guildId}`);
+    console.warn(`[announceH2hResult] no H2H announcement channel configured for guild ${guildId}`);
     return;
   }
 

@@ -154,6 +154,8 @@ model GuildSettings {
   tournamentsEnabled    Boolean  @default(true)
   /// Discord forum channel snowflake where tournament threads are created by default
   tournamentChannelId   String?
+  /// Discord text/announcement channel snowflake where H2H results are posted
+  h2hChannelId          String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -37,6 +37,7 @@ export interface GuildSettingsData {
   activityHeatmapPublic: boolean;
   tournamentsEnabled: boolean;
   tournamentChannelId: string | null;
+  h2hChannelId: string | null;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
   lootDefaultMethod: string;

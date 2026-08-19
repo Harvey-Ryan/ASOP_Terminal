@@ -48,6 +48,7 @@ export function TournamentSettingsPage() {
   const loading = settingsLoading || channelsLoading;
   const channels = channelData?.channels ?? [];
   const forumChannels = channels.filter((c) => c.type === 15);
+  const textChannels = channels.filter((c) => c.type === 0 || c.type === 4 || c.type === 5);
 
   // ── Enabled toggle ────────────────────────────────────────────────────────
 
@@ -55,11 +56,17 @@ export function TournamentSettingsPage() {
   const [enabledDirty, setEnabledDirty] = useState(false);
   const [enabledFlash, setEnabledFlash] = useState(false);
 
-  // ── Channel ───────────────────────────────────────────────────────────────
+  // ── Tournament forum channel ───────────────────────────────────────────────
 
   const [channelId, setChannelId] = useState<string | null>(null);
   const [channelDirty, setChannelDirty] = useState(false);
   const [channelFlash, setChannelFlash] = useState(false);
+
+  // ── H2H announcement channel ──────────────────────────────────────────────
+
+  const [h2hChannelId, setH2hChannelId] = useState<string | null>(null);
+  const [h2hChannelDirty, setH2hChannelDirty] = useState(false);
+  const [h2hChannelFlash, setH2hChannelFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
@@ -67,6 +74,8 @@ export function TournamentSettingsPage() {
       setEnabledDirty(false);
       setChannelId(saved.tournamentChannelId ?? null);
       setChannelDirty(false);
+      setH2hChannelId(saved.h2hChannelId ?? null);
+      setH2hChannelDirty(false);
     }
   }, [saved]);
 
@@ -92,6 +101,12 @@ export function TournamentSettingsPage() {
   function saveChannel() {
     save.mutate({ tournamentChannelId: channelId }, {
       onSuccess: () => { setChannelDirty(false); flash(setChannelFlash); },
+    });
+  }
+
+  function saveH2hChannel() {
+    save.mutate({ h2hChannelId: h2hChannelId }, {
+      onSuccess: () => { setH2hChannelDirty(false); flash(setH2hChannelFlash); },
     });
   }
 
@@ -297,6 +312,37 @@ export function TournamentSettingsPage() {
           {channelDirty && (
             <Button size="sm" onClick={saveChannel} disabled={save.isPending}>
               {channelFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+            </Button>
+          )}
+          {save.isError && (
+            <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── H2H announcement channel ──────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">H2H Announcement Channel</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Text channel where manual Head-to-Head results are posted when the announce option is checked.
+            Use a standard text or announcement channel — not a forum. Falls back to the tournament
+            forum channel if left unset.
+          </p>
+          {loading ? <Skeleton className="h-9 w-full" /> : (
+            <ChannelSelect
+              id="h2h-channel"
+              channels={textChannels}
+              value={h2hChannelId}
+              onChange={(v) => { setH2hChannelId(v); setH2hChannelDirty(true); }}
+              types={[0, 5]}
+            />
+          )}
+          {h2hChannelDirty && (
+            <Button size="sm" onClick={saveH2hChannel} disabled={save.isPending}>
+              {h2hChannelFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
             </Button>
           )}
           {save.isError && (
