@@ -546,39 +546,125 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
 
 // ── H2H card ──────────────────────────────────────────────────────────────────
 
+// ── H2H player slot ───────────────────────────────────────────────────────────
+// Each slot can be in "ranked" mode (dropdown) or "unranked" mode (Discord ID + name inputs).
+
+interface H2HPlayerSlotProps {
+  label: string;
+  players: PlayerRating[];
+  excludeDiscordId: string;
+  discordId: string;
+  displayName: string;
+  unranked: boolean;
+  onDiscordId: (v: string) => void;
+  onDisplayName: (v: string) => void;
+  onUnrankedToggle: (v: boolean) => void;
+  onChange: () => void; // clear errors
+}
+
+function H2HPlayerSlot({
+  label, players, excludeDiscordId, discordId, displayName, unranked,
+  onDiscordId, onDisplayName, onUnrankedToggle, onChange,
+}: H2HPlayerSlotProps) {
+  const selectCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
+  const inputCls  = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</label>
+        <button
+          type="button"
+          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+          onClick={() => { onUnrankedToggle(!unranked); onDiscordId(''); onDisplayName(''); onChange(); }}
+        >
+          {unranked ? 'Pick ranked player' : 'Enter Discord ID'}
+        </button>
+      </div>
+
+      {unranked ? (
+        <div className="flex flex-col gap-1.5">
+          <input
+            type="text"
+            placeholder="Discord ID (snowflake)"
+            value={discordId}
+            onChange={(e) => { onDiscordId(e.target.value.trim()); onChange(); }}
+            className={inputCls + ' font-mono'}
+          />
+          <input
+            type="text"
+            placeholder="Display name (required)"
+            value={displayName}
+            onChange={(e) => { onDisplayName(e.target.value); onChange(); }}
+            className={inputCls}
+          />
+        </div>
+      ) : (
+        <select
+          value={discordId}
+          onChange={(e) => { onDiscordId(e.target.value); onChange(); }}
+          className={selectCls}
+        >
+          <option value="">Select player…</option>
+          {players
+            .filter((p) => p.discordId !== excludeDiscordId)
+            .map((p) => (
+              <option key={p.discordId} value={p.discordId}>{p.displayName} ({p.rating})</option>
+            ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
 function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[] }) {
   const qc = useQueryClient();
-  const [playerAId, setPlayerAId] = useState('');
-  const [playerBId, setPlayerBId] = useState('');
-  const [winnerId, setWinnerId]   = useState('');
-  const [announce, setAnnounce]   = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+
+  const [playerAId, setPlayerAId]           = useState('');
+  const [playerAName, setPlayerAName]       = useState('');
+  const [playerAUnranked, setPlayerAUnranked] = useState(false);
+
+  const [playerBId, setPlayerBId]           = useState('');
+  const [playerBName, setPlayerBName]       = useState('');
+  const [playerBUnranked, setPlayerBUnranked] = useState(false);
+
+  const [winnerId, setWinnerId] = useState('');
+  const [announce, setAnnounce] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+
+  // Derive display names: for ranked players, look up from the players array
+  const rankedA = players.find((p) => p.discordId === playerAId);
+  const rankedB = players.find((p) => p.discordId === playerBId);
+  const nameA   = playerAUnranked ? playerAName : (rankedA?.displayName ?? '');
+  const nameB   = playerBUnranked ? playerBName : (rankedB?.displayName ?? '');
 
   // Keep winner in sync: if it no longer refers to one of the two selected players, clear it
   const validWinnerIds = [playerAId, playerBId].filter(Boolean);
   const effectiveWinnerId = validWinnerIds.includes(winnerId) ? winnerId : '';
 
+  function reset() {
+    setPlayerAId(''); setPlayerAName(''); setPlayerAUnranked(false);
+    setPlayerBId(''); setPlayerBName(''); setPlayerBUnranked(false);
+    setWinnerId(''); setAnnounce(false); setError(null);
+  }
+
   const mutation = useMutation({
     mutationFn: () => tournamentApi.submitH2H(guildId, {
-      playerADiscordId: playerAId,
-      playerBDiscordId: playerBId,
-      winnerDiscordId: effectiveWinnerId,
+      playerADiscordId:  playerAId,
+      playerBDiscordId:  playerBId,
+      winnerDiscordId:   effectiveWinnerId,
       announce,
+      ...(playerAUnranked ? { playerADisplayName: playerAName.trim() } : {}),
+      ...(playerBUnranked ? { playerBDisplayName: playerBName.trim() } : {}),
     }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] });
-      setPlayerAId('');
-      setPlayerBId('');
-      setWinnerId('');
-      setAnnounce(false);
-      setError(null);
-    },
-    onError: (e: Error) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] }); reset(); },
+    onError:   (e: Error) => setError(e.message),
   });
 
-  const playerA = players.find((p) => p.discordId === playerAId);
-  const playerB = players.find((p) => p.discordId === playerBId);
-  const canSubmit = playerAId && playerBId && effectiveWinnerId && !mutation.isPending;
+  const canSubmit =
+    playerAId && playerBId && effectiveWinnerId && !mutation.isPending &&
+    (!playerAUnranked || playerAName.trim()) &&   // unranked A needs a name
+    (!playerBUnranked || playerBName.trim());      // unranked B needs a name
 
   const selectCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
 
@@ -589,39 +675,32 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
         <span className="text-sm font-medium">Head to Head</span>
       </div>
       <div className="p-4 flex flex-col gap-3">
-        {/* Player A */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Player A</label>
-          <select
-            value={playerAId}
-            onChange={(e) => { setPlayerAId(e.target.value); setError(null); }}
-            className={selectCls}
-          >
-            <option value="">Select player…</option>
-            {players
-              .filter((p) => p.discordId !== playerBId)
-              .map((p) => (
-                <option key={p.discordId} value={p.discordId}>{p.displayName} ({p.rating})</option>
-              ))}
-          </select>
-        </div>
 
-        {/* Player B */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Player B</label>
-          <select
-            value={playerBId}
-            onChange={(e) => { setPlayerBId(e.target.value); setError(null); }}
-            className={selectCls}
-          >
-            <option value="">Select player…</option>
-            {players
-              .filter((p) => p.discordId !== playerAId)
-              .map((p) => (
-                <option key={p.discordId} value={p.discordId}>{p.displayName} ({p.rating})</option>
-              ))}
-          </select>
-        </div>
+        <H2HPlayerSlot
+          label="Player A"
+          players={players}
+          excludeDiscordId={playerBId}
+          discordId={playerAId}
+          displayName={playerAName}
+          unranked={playerAUnranked}
+          onDiscordId={setPlayerAId}
+          onDisplayName={setPlayerAName}
+          onUnrankedToggle={setPlayerAUnranked}
+          onChange={() => setError(null)}
+        />
+
+        <H2HPlayerSlot
+          label="Player B"
+          players={players}
+          excludeDiscordId={playerAId}
+          discordId={playerBId}
+          displayName={playerBName}
+          unranked={playerBUnranked}
+          onDiscordId={setPlayerBId}
+          onDisplayName={setPlayerBName}
+          onUnrankedToggle={setPlayerBUnranked}
+          onChange={() => setError(null)}
+        />
 
         {/* Winner — only active once both players are chosen */}
         <div className="flex flex-col gap-1.5">
@@ -633,8 +712,8 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
             className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <option value="">Select winner…</option>
-            {playerA && <option value={playerA.discordId}>{playerA.displayName}</option>}
-            {playerB && <option value={playerB.discordId}>{playerB.displayName}</option>}
+            {playerAId && <option value={playerAId}>{nameA || playerAId}</option>}
+            {playerBId && <option value={playerBId}>{nameB || playerBId}</option>}
           </select>
         </div>
 

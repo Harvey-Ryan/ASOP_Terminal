@@ -203,7 +203,10 @@ export const tournamentApi = {
       .then(requireSuccess),
 
   // H2H
-  submitH2H: (guildId: string, body: { playerADiscordId: string; playerBDiscordId: string; winnerDiscordId: string; announce: boolean }) =>
+  submitH2H: (guildId: string, body: {
+    playerADiscordId: string; playerBDiscordId: string; winnerDiscordId: string; announce: boolean;
+    playerADisplayName?: string; playerBDisplayName?: string;
+  }) =>
     api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/h2h`, body).then(requireSuccess),
 
   // Rankings

@@ -1262,11 +1262,18 @@ tournamentRouter.post('/:guildId/tournaments/h2h', requireAuth, async (req, res)
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const { playerADiscordId, playerBDiscordId, winnerDiscordId, announce } = req.body as {
+  const {
+    playerADiscordId, playerBDiscordId, winnerDiscordId, announce,
+    playerADisplayName, playerBDisplayName,
+  } = req.body as {
     playerADiscordId?: string;
     playerBDiscordId?: string;
     winnerDiscordId?: string;
     announce?: boolean;
+    /** Display name for player A — required only if they have no existing rating record */
+    playerADisplayName?: string;
+    /** Display name for player B — required only if they have no existing rating record */
+    playerBDisplayName?: string;
   };
 
   if (!playerADiscordId || !playerBDiscordId || !winnerDiscordId) {
@@ -1280,17 +1287,21 @@ tournamentRouter.post('/:guildId/tournaments/h2h', requireAuth, async (req, res)
   }
 
   try {
+    // Upsert both ratings — creates a fresh 1200-ELO record if the player has never
+    // played a ranked match before. displayName is only written on creation; existing
+    // records keep their current name (set by tournament participation).
     const [ratingA, ratingB] = await Promise.all([
-      prisma.tournamentPlayerRating.findUnique({
+      prisma.tournamentPlayerRating.upsert({
         where: { guildId_discordId: { guildId, discordId: playerADiscordId } },
+        create: { guildId, discordId: playerADiscordId, displayName: playerADisplayName?.trim() || playerADiscordId },
+        update: {},
       }),
-      prisma.tournamentPlayerRating.findUnique({
+      prisma.tournamentPlayerRating.upsert({
         where: { guildId_discordId: { guildId, discordId: playerBDiscordId } },
+        create: { guildId, discordId: playerBDiscordId, displayName: playerBDisplayName?.trim() || playerBDiscordId },
+        update: {},
       }),
     ]);
-
-    if (!ratingA) return badRequest(res, `No ranking record found for player ${playerADiscordId}`);
-    if (!ratingB) return badRequest(res, `No ranking record found for player ${playerBDiscordId}`);
 
     const aWon = winnerDiscordId === playerADiscordId;
     const elo = calcElo(ratingA.rating, ratingA.matchesPlayed, ratingB.rating, ratingB.matchesPlayed, aWon);
