@@ -13,7 +13,7 @@ import type { GuildSettingsData } from '@/api/settings';
 type StepState = 'idle' | 'running' | 'done' | 'error';
 interface TestStep { label: string; state: StepState; detail?: string; }
 
-const LIFECYCLE_PARTICIPANTS = ['Alice', 'Bob', 'Charlie', 'Diana'];
+const LIFECYCLE_PARTICIPANTS = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
 const PAUSE_SECONDS = 30;
 
 export function TournamentSettingsPage() {

@@ -180,13 +180,14 @@ function renderParticipantSlot(
   participant: BracketParticipantInfo | null | undefined,
   isWinner: boolean,
   isComplete: boolean,
-  isCurrent: boolean,
+  _isCurrent: boolean,   // kept for signature compat; no blurple highlight — winners only
   score: number | null | undefined,
 ): void {
-  const borderColor = isWinner ? COLOR_WIN_BORDER : isCurrent ? COLOR_ACTIVE : COLOR_LINE;
-  const fillColor = isWinner ? COLOR_SLOT_WIN : COLOR_SLOT;
-  const textColor = !participant ? COLOR_DIMMED : (isComplete && !isWinner) ? COLOR_DIMMED : COLOR_TEXT;
-  const weight = isWinner ? 'bold' : 'normal';
+  // Only winners get a special treatment; everything else is plain grey
+  const borderColor = isWinner ? COLOR_WIN_BORDER : COLOR_LINE;
+  const fillColor   = isWinner ? COLOR_SLOT_WIN   : COLOR_SLOT;
+  const textColor   = isWinner ? COLOR_TEXT : (isComplete ? COLOR_DIMMED : COLOR_TEXT);
+  const weight      = isWinner ? 'bold' : 'normal';
 
   out.push(svgRect(x, y, SLOT_W, SLOT_H, SLOT_R, fillColor, borderColor));
 
@@ -198,7 +199,7 @@ function renderParticipantSlot(
   }
 
   if (score != null) {
-    out.push(svgText(x + SLOT_W - 22, y + SLOT_H / 2 + 5, String(score), textColor, 12, 'bold', 'middle'));
+    out.push(svgText(x + SLOT_W - 22, y + SLOT_H / 2 + 5, String(score), isWinner ? COLOR_WIN_BORDER : COLOR_DIMMED, 12, 'bold', 'middle'));
   }
 }
 
