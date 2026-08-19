@@ -286,6 +286,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/demo/bracket', requireAuth, asy
       participantBId: slot.participantBId,
       status: slot.status,
       nextMatchId: slot.nextMatchKey ? (keyToId.get(slot.nextMatchKey) ?? null) : null,
+      nextLoserMatchId: slot.nextLoserMatchKey ? (keyToId.get(slot.nextLoserMatchKey) ?? null) : null,
     }));
 
     await prisma.$transaction(async (tx) => {
@@ -329,14 +330,15 @@ tournamentRouter.post('/:guildId/tournaments/:id/demo/resolve', requireAuth, asy
     });
 
     const now = new Date();
-    // Mutable snapshot — winner advances are tracked here so later rounds see updated participants
+    // Mutable snapshot — advances are tracked here so later rounds see updated participants
     const matchData = matches.map((m) => ({ ...m }));
-    let finalWinnerId: string | null = null;
-    let finalLoserId: string | null = null;
     const maxRound = Math.max(...matchData.map((m) => m.round));
+    let winnerName = 'Unknown';
 
+    // Process WINNERS bracket round-by-round, then handle THIRD_PLACE at the end
     for (let round = 1; round <= maxRound; round++) {
-      for (const match of matchData.filter((m) => m.round === round)) {
+      const roundMatches = matchData.filter((m) => m.round === round && m.bracketSide !== 'THIRD_PLACE');
+      for (const match of roundMatches) {
         if (match.status === 'BYE') {
           if (match.participantAId && match.nextMatchId) {
             const next = matchData.find((m) => m.id === match.nextMatchId)!;
@@ -352,10 +354,11 @@ tournamentRouter.post('/:guildId/tournaments/:id/demo/resolve', requireAuth, asy
         const aWins = Math.random() < 0.5;
         const winnerId = aWins ? match.participantAId : match.participantBId;
         const loserId = aWins ? match.participantBId : match.participantAId;
+        const isGrandFinal = !match.nextMatchId && match.bracketSide === 'WINNERS';
 
         await prisma.tournamentMatch.update({ where: { id: match.id }, data: { winnerId, status: 'COMPLETED', resultPostedAt: now } });
-        await prisma.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED' } });
 
+        // Advance winner
         if (match.nextMatchId) {
           const next = matchData.find((m) => m.id === match.nextMatchId)!;
           const field = next.participantAId ? 'participantBId' : 'participantAId';
@@ -363,18 +366,36 @@ tournamentRouter.post('/:guildId/tournaments/:id/demo/resolve', requireAuth, asy
           await prisma.tournamentMatch.update({ where: { id: match.nextMatchId }, data: { [field]: winnerId } });
         }
 
-        if (round === maxRound) { finalWinnerId = winnerId; finalLoserId = loserId; }
+        // Advance loser to 3rd-place match if applicable, else eliminate
+        if (match.nextLoserMatchId) {
+          const tpMatch = matchData.find((m) => m.id === match.nextLoserMatchId)!;
+          const field = tpMatch.participantAId ? 'participantBId' : 'participantAId';
+          tpMatch[field] = loserId;
+          await prisma.tournamentMatch.update({ where: { id: match.nextLoserMatchId }, data: { [field]: loserId } });
+        } else {
+          await prisma.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED' } });
+        }
+
+        // Assign placements
+        if (isGrandFinal) {
+          const w = await prisma.tournamentParticipant.update({ where: { id: winnerId }, data: { status: 'WINNER', placement: 1 } });
+          winnerName = w.displayName;
+          await prisma.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'RUNNER_UP', placement: 2 } });
+        }
       }
     }
 
-    let winnerName = 'Unknown';
-    if (finalWinnerId) {
-      const w = await prisma.tournamentParticipant.update({ where: { id: finalWinnerId }, data: { status: 'WINNER', placement: 1 } });
-      winnerName = w.displayName;
+    // Resolve 3rd-place match
+    const tpMatch = matchData.find((m) => m.bracketSide === 'THIRD_PLACE');
+    if (tpMatch?.participantAId && tpMatch.participantBId) {
+      const aWins = Math.random() < 0.5;
+      const winnerId = aWins ? tpMatch.participantAId : tpMatch.participantBId;
+      const loserId = aWins ? tpMatch.participantBId : tpMatch.participantAId;
+      await prisma.tournamentMatch.update({ where: { id: tpMatch.id }, data: { winnerId, status: 'COMPLETED', resultPostedAt: now } });
+      await prisma.tournamentParticipant.update({ where: { id: winnerId }, data: { placement: 3 } });
+      await prisma.tournamentParticipant.update({ where: { id: loserId }, data: { status: 'ELIMINATED', placement: 4 } });
     }
-    if (finalLoserId) {
-      await prisma.tournamentParticipant.update({ where: { id: finalLoserId }, data: { status: 'RUNNER_UP', placement: 2 } });
-    }
+
     await prisma.tournament.update({ where: { id }, data: { status: 'COMPLETED', completedAt: now } });
 
     res.json({ success: true, data: { winner: winnerName, tournamentId: id } } satisfies ApiResponse);
@@ -793,6 +814,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
       participantBId: slot.participantBId,
       status: slot.status,
       nextMatchId: slot.nextMatchKey ? (keyToId.get(slot.nextMatchKey) ?? null) : null,
+      nextLoserMatchId: slot.nextLoserMatchKey ? (keyToId.get(slot.nextLoserMatchKey) ?? null) : null,
     }));
 
     await prisma.$transaction(async (tx) => {
@@ -920,13 +942,9 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
       });
       if (updated.count === 0) return; // already processed
 
-      // Mark loser as ELIMINATED
-      if (loserId) {
-        await tx.tournamentParticipant.update({
-          where: { id: loserId },
-          data: { status: 'ELIMINATED' },
-        });
-      }
+      // Determine match type for placement logic
+      const isThirdPlace = match.bracketSide === 'THIRD_PLACE';
+      const isGrandFinal = !match.nextMatchId && match.bracketSide === 'WINNERS';
 
       // Advance winner to next match
       if (match.nextMatchId) {
@@ -935,14 +953,56 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
         });
         if (nextMatch) {
           const field = nextMatch.participantAId ? 'participantBId' : 'participantAId';
-          const bothFilled = nextMatch.participantAId && nextMatch.participantBId;
           await tx.tournamentMatch.update({
             where: { id: match.nextMatchId },
-            data: {
-              [field]: winnerId,
-              // If advancing this winner completes the pair, mark match READY
-              ...(bothFilled ? {} : {}),
-            },
+            data: { [field]: winnerId },
+          });
+        }
+      }
+
+      // Handle loser: advance to 3rd-place match if this is a semifinal, otherwise eliminate
+      if (loserId) {
+        if (match.nextLoserMatchId && !isThirdPlace) {
+          // Semifinal loser → 3rd place match (not eliminated yet)
+          const thirdPlaceMatch = await tx.tournamentMatch.findUnique({
+            where: { id: match.nextLoserMatchId },
+          });
+          if (thirdPlaceMatch) {
+            const field = thirdPlaceMatch.participantAId ? 'participantBId' : 'participantAId';
+            await tx.tournamentMatch.update({
+              where: { id: match.nextLoserMatchId },
+              data: { [field]: loserId },
+            });
+          }
+        } else {
+          await tx.tournamentParticipant.update({
+            where: { id: loserId },
+            data: { status: 'ELIMINATED' },
+          });
+        }
+      }
+
+      // Assign placements immediately at match completion
+      if (isGrandFinal) {
+        await tx.tournamentParticipant.update({
+          where: { id: winnerId },
+          data: { status: 'WINNER', placement: 1 },
+        });
+        if (loserId) {
+          await tx.tournamentParticipant.update({
+            where: { id: loserId },
+            data: { status: 'RUNNER_UP', placement: 2 },
+          });
+        }
+      } else if (isThirdPlace) {
+        await tx.tournamentParticipant.update({
+          where: { id: winnerId },
+          data: { placement: 3 },
+        });
+        if (loserId) {
+          await tx.tournamentParticipant.update({
+            where: { id: loserId },
+            data: { status: 'ELIMINATED', placement: 4 },
           });
         }
       }
@@ -1060,44 +1120,38 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
         where: { tournamentId: id, status: { notIn: ['COMPLETED', 'BYE'] } },
       });
       if (remaining === 0) {
-        // Mark champion and runner-up
-        await tx.tournamentParticipant.update({
-          where: { id: winnerId },
-          data: { status: 'WINNER', placement: 1 },
+        // Placements were already assigned per-match above; just handle DKP and mark complete.
+        // Look up prize recipients by placement so this works regardless of which match fired last.
+        const prizeMap: Record<number, number> = {
+          1: match.tournament.dkpPrize1st,
+          2: match.tournament.dkpPrize2nd,
+          3: match.tournament.dkpPrize3rd,
+        };
+        const prizeWinners = await tx.tournamentParticipant.findMany({
+          where: { tournamentId: id, placement: { in: [1, 2, 3] } },
+          select: { id: true, placement: true, discordId: true, displayName: true },
         });
-        if (loserId) {
-          await tx.tournamentParticipant.update({
-            where: { id: loserId },
-            data: { status: 'RUNNER_UP', placement: 2 },
-          });
-        }
 
-        // DKP prizes
-        const prizes = [
-          { participantId: winnerId, amount: match.tournament.dkpPrize1st },
-          ...(loserId ? [{ participantId: loserId, amount: match.tournament.dkpPrize2nd }] : []),
-        ].filter((p) => p.amount > 0);
-
-        for (const prize of prizes) {
-          const participant = await tx.tournamentParticipant.findUnique({ where: { id: prize.participantId } });
-          if (!participant?.discordId) continue;
+        for (const p of prizeWinners) {
+          const amount = prizeMap[p.placement!] ?? 0;
+          if (amount <= 0 || !p.discordId) continue;
           const balance = await tx.dkpBalance.findUnique({
-            where: { guildId_userId: { guildId, userId: participant.discordId } },
+            where: { guildId_userId: { guildId, userId: p.discordId } },
           });
           if (!balance) continue;
           await tx.dkpTransaction.create({
             data: {
               balanceId: balance.id,
               guildId,
-              userId: participant.discordId,
-              username: participant.displayName,
-              amount: prize.amount,
+              userId: p.discordId,
+              username: p.displayName,
+              amount,
               reason: `Tournament: ${id}`,
             },
           });
           await tx.dkpBalance.update({
             where: { id: balance.id },
-            data: { balance: { increment: prize.amount } },
+            data: { balance: { increment: amount } },
           });
         }
 

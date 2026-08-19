@@ -83,6 +83,7 @@ export function buildBracketSvg(
   const byId = new Map(participants.map((p) => [p.id, p]));
 
   const winners = matches.filter((m) => m.bracketSide === 'WINNERS');
+  const thirdPlace = matches.find((m) => m.bracketSide === 'THIRD_PLACE') ?? null;
   const maxRound = Math.max(0, ...winners.map((m) => m.round));
 
   // How many slots per round (for vertical spacing)
@@ -97,8 +98,10 @@ export function buildBracketSvg(
   const maxSlots = slotsPerRound[0] ?? 1;
   const slotPairH = SLOT_H * 2 + ROW_GAP; // height of one match (two participant slots)
   const bracketH = maxSlots * slotPairH + (maxSlots - 1) * ROW_GAP;
+  // Extra height for 3rd-place section: label + two participant slots + gaps
+  const THIRD_PLACE_H = thirdPlace ? 20 + slotPairH + PAD : 0;
   const svgW = PAD * 2 + totalCols * SLOT_W + (totalCols - 1) * COL_GAP;
-  const svgH = TITLE_H + PAD + bracketH + PAD;
+  const svgH = TITLE_H + PAD + bracketH + PAD + THIRD_PLACE_H;
 
   const lines: string[] = [];
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">`);
@@ -169,6 +172,34 @@ export function buildBracketSvg(
   }
 
   lines.push(...connectors, ...slots);
+
+  // ── 3rd-place match ───────────────────────────────────────────────────────
+  if (thirdPlace) {
+    // Position at the Grand Final column, below the main bracket
+    const tpX = PAD + (maxRound - 1) * (SLOT_W + COL_GAP);
+    const tpSectionY = TITLE_H + PAD + bracketH + PAD;
+    const tpLabelY = tpSectionY + 12;
+    const tpYA = tpSectionY + 18;
+    const tpYB = tpYA + SLOT_H + ROW_GAP;
+
+    // Separator line across full width
+    lines.push(svgLine(0, tpSectionY - 1, svgW, tpSectionY - 1, COLOR_LINE));
+
+    // "3RD PLACE" column header
+    lines.push(svgText(tpX + SLOT_W / 2, tpLabelY, '3RD PLACE', COLOR_DIMMED, 9, 'bold', 'middle'));
+
+    const tpA = thirdPlace.participantAId ? byId.get(thirdPlace.participantAId) : null;
+    const tpB = thirdPlace.participantBId ? byId.get(thirdPlace.participantBId) : null;
+    const tpComplete = thirdPlace.status === 'COMPLETED';
+    const tpCurrent = thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
+
+    const tpWonA = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantAId;
+    const tpWonB = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantBId;
+
+    renderParticipantSlot(lines, tpX, tpYA, tpA, tpWonA, tpComplete, tpCurrent, thirdPlace.scoreA);
+    renderParticipantSlot(lines, tpX, tpYB, tpB, tpWonB, tpComplete, tpCurrent, thirdPlace.scoreB);
+  }
+
   lines.push('</svg>');
   return lines.join('\n');
 }

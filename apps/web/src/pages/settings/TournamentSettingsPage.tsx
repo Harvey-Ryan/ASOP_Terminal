@@ -192,11 +192,14 @@ export function TournamentSettingsPage() {
     for (let r = 1; r <= maxRound; r++) {
       const roundMs = detail.matches.filter((m) => m.round === r && m.status !== 'BYE');
       for (const m of roundMs) {
-        const isGrandFinal = r === maxRound && roundMs.length === 1;
-        matchSteps.push({
-          label: isGrandFinal ? 'Final — submit result' : `Round ${r} · Match ${m.position + 1}`,
-          state: 'idle',
-        });
+        const isThirdPlace = m.bracketSide === 'THIRD_PLACE';
+        const winnersBracketAtRound = roundMs.filter((x) => x.bracketSide === 'WINNERS');
+        const isGrandFinal = m.bracketSide === 'WINNERS' && winnersBracketAtRound.length === 1 && r === maxRound;
+        let label: string;
+        if (isThirdPlace) label = '3rd Place — submit result';
+        else if (isGrandFinal) label = 'Final — submit result';
+        else label = `Round ${r} · Match ${m.position + 1}`;
+        matchSteps.push({ label, state: 'idle' });
       }
     }
     setTestSteps((prev) => [...prev, ...matchSteps]);

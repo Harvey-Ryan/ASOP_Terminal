@@ -22,12 +22,14 @@ export interface MatchSlot {
   tournamentId: string;
   round: number;
   position: number;
-  bracketSide: 'WINNERS' | 'LOSERS' | 'GRAND_FINALS';
+  bracketSide: 'WINNERS' | 'LOSERS' | 'GRAND_FINALS' | 'THIRD_PLACE';
   participantAId: string | null;
   participantBId: string | null;
   status: string;
   /** key of the match where the winner of this match advances */
   nextMatchKey: string | null;
+  /** key of the match where the loser of this match advances (3rd place) */
+  nextLoserMatchKey: string | null;
 }
 
 export function generateSingleElimBracket(
@@ -84,7 +86,34 @@ export function generateSingleElimBracket(
         participantBId: bId,
         status,
         nextMatchKey: nextKey,
+        nextLoserMatchKey: null, // filled in below for semifinal round
       });
+    }
+  }
+
+  // Generate 3rd-place match when there are at least 2 rounds (i.e. 4+ participants).
+  // The semifinal round is (rounds - 1); both losers advance to the 3rd-place match.
+  if (rounds >= 2) {
+    const THIRD_KEY = 'tp_p0';
+    matches.push({
+      key: THIRD_KEY,
+      tournamentId,
+      round: rounds,         // same round as the Grand Final
+      position: 0,
+      bracketSide: 'THIRD_PLACE',
+      participantAId: null,  // filled when semifinal losers are known
+      participantBId: null,
+      status: 'PENDING',
+      nextMatchKey: null,
+      nextLoserMatchKey: null,
+    });
+
+    // Wire every semifinal match (round = rounds - 1) to feed losers here
+    const semiFinalRound = rounds - 1;
+    for (const m of matches) {
+      if (m.round === semiFinalRound && m.bracketSide === 'WINNERS') {
+        m.nextLoserMatchKey = THIRD_KEY;
+      }
     }
   }
 
@@ -103,10 +132,11 @@ export function generateSingleElimBracket(
 export function resolveNextMatchIds(
   slots: MatchSlot[],
   dbIds: Map<string, string>,
-): Array<{ id: string; nextMatchId: string | null }> {
+): Array<{ id: string; nextMatchId: string | null; nextLoserMatchId: string | null }> {
   return slots.map((slot) => ({
     id: dbIds.get(slot.key)!,
     nextMatchId: slot.nextMatchKey ? (dbIds.get(slot.nextMatchKey) ?? null) : null,
+    nextLoserMatchId: slot.nextLoserMatchKey ? (dbIds.get(slot.nextLoserMatchKey) ?? null) : null,
   }));
 }
 

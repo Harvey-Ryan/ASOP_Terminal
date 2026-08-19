@@ -157,11 +157,14 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   });
 
   const attachment = new AttachmentBuilder(cardBuffer, { name: 'match-card.png' });
+  const matchTitle = match.bracketSide === 'THIRD_PLACE'
+    ? '🥉 3rd Place Match'
+    : `⚔️ Round ${match.round} — Match ${match.position + 1}`;
   const embed = new EmbedBuilder()
-    .setTitle(`⚔️ Round ${match.round} — Match ${match.position + 1}`)
+    .setTitle(matchTitle)
     .setDescription(`**${match.participantA.displayName}** vs **${match.participantB.displayName}**`)
     .setImage('attachment://match-card.png')
-    .setColor(0x5865f2);
+    .setColor(match.bracketSide === 'THIRD_PLACE' ? 0xcd7f32 : 0x5865f2); // bronze for 3rd place
 
   const readyRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -245,8 +248,11 @@ export async function postMatchResult(matchId: string): Promise<void> {
     if (loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
     if (winnerScore != null) descLines.push(`Score: ${winnerScore} – ${loserScore}`);
 
+    const resultTitle = match.bracketSide === 'THIRD_PLACE'
+      ? '🥉 3rd Place Result'
+      : `✅ Round ${match.round} — Match ${match.position + 1} Result`;
     const resultEmbed = new EmbedBuilder()
-      .setTitle(`✅ Round ${match.round} — Match ${match.position + 1} Result`)
+      .setTitle(resultTitle)
       .setDescription(descLines.join('\n'))
       .setImage('attachment://result.png')
       .setColor(0x57f287);
@@ -259,7 +265,7 @@ export async function postMatchResult(matchId: string): Promise<void> {
     console.error(`[tournamentService] refreshBracketImage failed:`, err),
   );
 
-  // Check if next match now has both participants — post its announcement
+  // Check if next winners match now has both participants — post its announcement
   if (match.nextMatchId) {
     const nextMatch = await prisma.tournamentMatch.findUnique({
       where: { id: match.nextMatchId },
@@ -268,6 +274,19 @@ export async function postMatchResult(matchId: string): Promise<void> {
     if (nextMatch?.participantA && nextMatch.participantB && nextMatch.status !== 'COMPLETED') {
       await postMatchAnnouncement(match.nextMatchId).catch((err) =>
         console.error(`[tournamentService] postMatchAnnouncement for next match failed:`, err),
+      );
+    }
+  }
+
+  // Check if the 3rd-place match now has both participants — post its announcement
+  if (match.nextLoserMatchId) {
+    const tpMatch = await prisma.tournamentMatch.findUnique({
+      where: { id: match.nextLoserMatchId },
+      include: { participantA: true, participantB: true },
+    });
+    if (tpMatch?.participantA && tpMatch.participantB && tpMatch.status !== 'COMPLETED') {
+      await postMatchAnnouncement(match.nextLoserMatchId).catch((err) =>
+        console.error(`[tournamentService] postMatchAnnouncement for 3rd place match failed:`, err),
       );
     }
   }
@@ -287,14 +306,24 @@ export async function postMatchResult(matchId: string): Promise<void> {
     }
   }
 
+  const isThirdPlaceMatch = match.bracketSide === 'THIRD_PLACE';
+  const isGrandFinal = !match.nextMatchId && match.bracketSide === 'WINNERS';
+
   // DM the winner
   if (winner?.discordId) {
     const discordUser = await client.users.fetch(winner.discordId).catch(() => null);
     if (discordUser) {
-      const nextMatch = match.nextMatchId
-        ? await prisma.tournamentMatch.findUnique({ where: { id: match.nextMatchId } })
-        : null;
-      const nextInfo = nextMatch ? `Your next match is in Round ${nextMatch.round}.` : '🏆 You are the champion!';
+      let nextInfo: string;
+      if (isThirdPlaceMatch) {
+        nextInfo = '🥉 You finished 3rd place!';
+      } else if (isGrandFinal) {
+        nextInfo = '🏆 You are the champion!';
+      } else {
+        const nextMatch = match.nextMatchId
+          ? await prisma.tournamentMatch.findUnique({ where: { id: match.nextMatchId } })
+          : null;
+        nextInfo = nextMatch ? `Your next match is in Round ${nextMatch.round}.` : '🏆 You are the champion!';
+      }
       await discordUser.send(`✅ You won your Round ${match.round} match in **${match.tournament.name}**! ${nextInfo}`).catch(() => null);
     }
   }
@@ -303,7 +332,10 @@ export async function postMatchResult(matchId: string): Promise<void> {
   if (loser?.discordId) {
     const discordUser = await client.users.fetch(loser.discordId).catch(() => null);
     if (discordUser) {
-      await discordUser.send(`The match results for **${match.tournament.name}** (Round ${match.round}) have been posted. Better luck next time!`).catch(() => null);
+      const loserMsg = match.nextLoserMatchId
+        ? `You've been eliminated from the main bracket in **${match.tournament.name}**, but you're competing for 3rd place! Check the tournament thread.`
+        : `The match results for **${match.tournament.name}** have been posted. Better luck next time!`;
+      await discordUser.send(loserMsg).catch(() => null);
     }
   }
 
