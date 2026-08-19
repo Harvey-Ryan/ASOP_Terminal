@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { inventoryApi, marketplaceApi } from '@/api/marketplace';
 import { uexApi } from '@/api/uex';
 import { useAuth } from '@/hooks/useAuth';
+import { AUTH_QUERY_KEY } from '@/hooks/useAuth';
+import { ApiError } from '@/api/client';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type {
@@ -209,7 +211,14 @@ function BrowseTab({ guildId }: { guildId: string }) {
       setListings(rows);
       setHasMore(rows.length === PAGE_SIZE);
       setLoading(false);
-    }).catch(() => { if (!cancelled) setLoading(false); });
+    }).catch((err: unknown) => {
+      if (cancelled) return;
+      setLoading(false);
+      // 401 means session expired — clear auth cache so ProtectedRoute redirects to login
+      if (err instanceof ApiError && err.status === 401) {
+        qc.setQueryData(AUTH_QUERY_KEY, null);
+      }
+    });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQ, typeFilter, guildOnly, fixedPriceOnly, sort]);
@@ -222,7 +231,12 @@ function BrowseTab({ guildId }: { guildId: string }) {
       setOffset(nextOffset);
       setHasMore(rows.length === PAGE_SIZE);
       setLoadingMore(false);
-    }).catch(() => setLoadingMore(false));
+    }).catch((err: unknown) => {
+      setLoadingMore(false);
+      if (err instanceof ApiError && err.status === 401) {
+        qc.setQueryData(AUTH_QUERY_KEY, null);
+      }
+    });
   }
 
   const requestMut = useMutation({
