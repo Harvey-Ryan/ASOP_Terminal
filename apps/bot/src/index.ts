@@ -355,7 +355,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           // Public ping so everyone watching the thread sees the match is live
           const pAName = match.participantA?.discordId ? `<@${match.participantA.discordId}>` : `**${match.participantA?.displayName ?? '?'}**`;
           const pBName = match.participantB?.discordId ? `<@${match.participantB.discordId}>` : `**${match.participantB?.displayName ?? '?'}**`;
-          await interaction.channel?.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
+          if (interaction.channel?.isThread()) {
+            await interaction.channel.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
+          }
           await interaction.editReply({ content: '✅ Both players ready — match is live!' });
         } else {
           await interaction.editReply({ content: '✅ You are marked as ready. Waiting for your opponent.' });
@@ -398,7 +400,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           // Public ping so everyone watching the thread sees the match is live
           const pAName = match.participantA?.discordId ? `<@${match.participantA.discordId}>` : `**${match.participantA?.displayName ?? '?'}**`;
           const pBName = match.participantB?.discordId ? `<@${match.participantB.discordId}>` : `**${match.participantB?.displayName ?? '?'}**`;
-          await interaction.channel?.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
+          if (interaction.channel?.isThread()) {
+            await interaction.channel.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
+          }
           await interaction.editReply({ content: '✅ Both players checked in — match is live!' });
         } else {
           await interaction.editReply({ content: '✅ You are checked in. Waiting for your opponent.' });
