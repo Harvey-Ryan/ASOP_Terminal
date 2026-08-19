@@ -174,7 +174,13 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
       .setStyle(ButtonStyle.Success),
   );
 
-  await thread.send({ embeds: [embed], files: [attachment], components: [readyRow] });
+  const msg = await thread.send({ embeds: [embed], files: [attachment], components: [readyRow] });
+
+  // Persist the message ID so postMatchScheduled can edit this card later
+  await prisma.tournamentMatch.update({
+    where: { id: matchId },
+    data: { announcementMessageId: msg.id },
+  }).catch((err) => console.error(`[tournamentService] postMatchAnnouncement: failed to save announcementMessageId:`, err));
 }
 
 // ── Post match result ─────────────────────────────────────────────────────────
@@ -538,13 +544,65 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
   if (!thread?.isThread()) return;
 
   const ts = Math.floor(match.scheduledAt.getTime() / 1000);
-  await thread.send(
-    `📅 **Round ${match.round} · Match ${match.position + 1}** — ` +
-    `${match.participantA.displayName} vs ${match.participantB.displayName} — ` +
-    `scheduled for <t:${ts}:F> (<t:${ts}:R>)`,
-  ).catch((err) => console.error(`[tournamentService] postMatchScheduled: failed to send:`, err));
 
-  // Refresh the pinned bracket image so it reflects SCHEDULED status
+  // Re-generate the match card PNG with the new scheduledAt displayed
+  const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId);
+  const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId);
+  const cardBuffer = await buildMatchCardPng({
+    tournamentName: match.tournament.name,
+    round: match.round,
+    position: match.position,
+    scheduledAt: match.scheduledAt,
+    participantA: pA,
+    participantB: pB,
+  });
+  const attachment = new AttachmentBuilder(cardBuffer, { name: 'match-card.png' });
+
+  const updatedEmbed = new EmbedBuilder()
+    .setTitle(`⚔️ Round ${match.round} — Match ${match.position + 1}`)
+    .setDescription(
+      `**${match.participantA.displayName}** vs **${match.participantB.displayName}**\n` +
+      `📅 <t:${ts}:F>`,
+    )
+    .setImage('attachment://match-card.png')
+    .setColor(0x5865f2);
+
+  if (match.announcementMessageId) {
+    // Edit the original match-card message in place
+    const existing = await thread.messages.fetch(match.announcementMessageId).catch(() => null);
+    if (existing) {
+      await existing.edit({
+        embeds: [updatedEmbed],
+        files: [attachment],
+        attachments: [],   // clear old image; new file replaces it
+      }).catch((err) => console.error(`[tournamentService] postMatchScheduled: failed to edit message:`, err));
+    } else {
+      // Message was deleted — fall through to posting fresh
+      await thread.send({ embeds: [updatedEmbed], files: [attachment] }).catch(() => null);
+    }
+  } else {
+    // No announcement yet (match announced before migration) — post fresh card
+    const readyRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`bracket_ready:${matchId}:A`)
+        .setLabel(`✅ ${match.participantA.displayName.slice(0, 20)} — Ready`)
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`bracket_ready:${matchId}:B`)
+        .setLabel(`✅ ${match.participantB.displayName.slice(0, 20)} — Ready`)
+        .setStyle(ButtonStyle.Success),
+    );
+    const msg = await thread.send({ embeds: [updatedEmbed], files: [attachment], components: [readyRow] })
+      .catch(() => null);
+    if (msg) {
+      await prisma.tournamentMatch.update({
+        where: { id: matchId },
+        data: { announcementMessageId: msg.id },
+      }).catch(() => null);
+    }
+  }
+
+  // Refresh the pinned bracket image — scheduled matches render with blurple border
   await refreshBracketImage(match.tournament.id).catch((err) =>
     console.error(`[tournamentService] postMatchScheduled: refreshBracketImage failed:`, err),
   );

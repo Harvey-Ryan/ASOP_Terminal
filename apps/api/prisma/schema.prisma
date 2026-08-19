@@ -1385,8 +1385,10 @@ model TournamentMatch {
   checkedInA       Boolean   @default(false)
   checkedInB       Boolean   @default(false)
   /// idempotency guard — prevents double Discord post
-  resultPostedAt   DateTime?
-  createdAt        DateTime  @default(now())
+  resultPostedAt        DateTime?
+  /// Discord message ID of the match-card announcement (for editing when schedule changes)
+  announcementMessageId String?
+  createdAt             DateTime  @default(now())
 
   @@index([tournamentId, round])
   @@index([scheduledAt, status])
