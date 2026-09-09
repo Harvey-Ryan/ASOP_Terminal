@@ -22,17 +22,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       lootEnabled: true,
       exchangeEnabled: true,
       fleetEnabled: true,
+      tournamentsEnabled: true,
       eventCreatorRoles: true,
       lootDraftCreatorRoles: true,
     },
   });
 
-  const dkpLabel       = settings?.dkpLabel       ?? 'DKP';
-  const eventBotEnabled = settings?.eventBotEnabled ?? true;
-  const dkpEnabled      = settings?.dkpEnabled      ?? true;
-  const lootEnabled     = settings?.lootEnabled     ?? true;
-  const exchangeEnabled = settings?.exchangeEnabled  ?? true;
-  const fleetEnabled    = settings?.fleetEnabled    ?? true;
+  const dkpLabel          = settings?.dkpLabel          ?? 'DKP';
+  const eventBotEnabled   = settings?.eventBotEnabled   ?? true;
+  const dkpEnabled        = settings?.dkpEnabled        ?? true;
+  const lootEnabled       = settings?.lootEnabled       ?? true;
+  const exchangeEnabled   = settings?.exchangeEnabled   ?? true;
+  const fleetEnabled      = settings?.fleetEnabled      ?? true;
+  const tournamentsEnabled = settings?.tournamentsEnabled ?? false;
 
   const eventCreatorRoles: string[]     = (() => { try { return JSON.parse(settings?.eventCreatorRoles    ?? '[]') as string[]; } catch { return []; } })();
   const lootDraftCreatorRoles: string[] = (() => { try { return JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[]; } catch { return []; } })();
@@ -117,6 +119,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
   }
 
+  // ── Tournaments ───────────────────────────────────────────────────────────────
+  if (tournamentsEnabled) {
+    fields.push({
+      name: '🏆 Tournaments',
+      value: [
+        'Register for open tournaments using the **Register** button in the bot\'s announcement embed',
+        'View the bracket and match results on the web dashboard',
+        '`/login` — Get a dashboard link to view standings and your match history',
+      ].join('\n'),
+    });
+  }
+
   // ── Star Citizen Data (always available) ──────────────────────────────────────
   fields.push({
     name: '🎮 Star Citizen Data',
@@ -124,8 +138,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       '`/uex item <name>` — Look up a Star Citizen item by name',
       '`/uex commodity <name>` — Look up a commodity and trade routes',
       '`/blueprint search <name>` — Search crafting blueprints by output item',
-      '`/blueprint recipe <name>` — Show the full crafting recipe for a blueprint',
+      '`/blueprint recipe <name>` — Show the full recipe and material costs for a blueprint',
       '`/blueprint dismantle <name>` — Show the dismantle return for a blueprint',
+      '`/blueprint contracts <name>` — Show which mission contracts can reward a blueprint',
+      '`/recipe <name>` — Quick recipe lookup with autocomplete',
       '`/material usedby <name>` — Find all blueprints that require a given material',
     ].join('\n'),
   });

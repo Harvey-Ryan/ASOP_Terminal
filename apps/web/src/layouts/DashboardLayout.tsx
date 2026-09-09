@@ -642,6 +642,7 @@ export function DashboardLayout() {
               exchangeEnabled={exchangeEnabled}
               fleetEnabled={fleetEnabled}
               rsiOrgRequired={myPerms?.rsiOrgRequired ?? false}
+              tournamentsEnabled={tournamentsEnabled}
             />
           )}
           <NavLink

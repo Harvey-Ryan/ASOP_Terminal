@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   HelpCircle, CalendarDays, Coins, Gavel, Gift, Store,
-  Ship, Users, Settings, ChevronDown, ChevronRight, Shield, Network,
+  Ship, Users, Settings, ChevronDown, ChevronRight, Shield, Network, Trophy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -340,6 +340,54 @@ function allianceAdminContent() {
   );
 }
 
+function tournamentsContent() {
+  return (
+    <>
+      <H>Viewing Tournaments</H>
+      <P>The <B>Tournaments</B> page lists all upcoming, active, and completed tournaments for your server. Tabs divide them by status. Each card shows the format, bracket size, registration deadline, and current participant count.</P>
+      <Divider />
+      <H>Registering</H>
+      <P>While registration is open, click <B>Register</B> on any tournament card. You can also register directly from the bot's Discord announcement using the Register button in the embed — no need to visit the dashboard. Click <B>Leave</B> to withdraw your registration before the tournament starts.</P>
+      <Divider />
+      <H>Bracket &amp; Matches</H>
+      <P>Once a tournament starts, the bracket is posted as an image in the Discord forum thread and visible on the tournament detail page. Match results appear in real time as they're submitted. Click any match card to see scores and progression.</P>
+      <Divider />
+      <H>ELO Rankings</H>
+      <P>The <B>Rankings</B> tab shows player ratings across all tournaments on this server. Your rating updates after every match result. Click your name on the rankings table to see your full match history, per-match ELO changes, and peak rating.</P>
+      <Divider />
+      <H>Head-to-Head (H2H)</H>
+      <P>H2H matches are informal 1v1 results recorded outside of any bracket. Admins submit them from the H2H tab. Results count toward ELO ratings and are announced in the configured H2H channel. Use them to track scrimmages, side bets, or ranked practice matches between events.</P>
+    </>
+  );
+}
+
+function tournamentsAdminContent() {
+  return (
+    <>
+      <H>Creating a Tournament</H>
+      <P>Click <B>+ New Tournament</B> and configure: name, format (Single Elimination or Double Elimination), participant mode (Solo or Team), bracket size, seeding mode (Manual, Random, or ELO), and an optional registration deadline. Enable <B>Open Roster</B> to remove the registration cap — the bracket size is derived from registrants when you start.</P>
+      <Divider />
+      <H>Managing Registration</H>
+      <P>Open any tournament card and use the <B>Participants</B> panel. Add members manually by searching the roster, or let members self-register from the Discord embed or dashboard. Drag participant rows to adjust seed order, or click a seed number to set it directly. Remove anyone who can no longer attend before the tournament starts.</P>
+      <Divider />
+      <H>Starting &amp; Running the Bracket</H>
+      <P>Click <B>Start Tournament</B> when registration is closed. The bracket is generated, posted as an image to the configured Discord forum channel, and a thread is created for announcements. Submit match results using the <B>Report Result</B> button on any match card — set scores, declare the winner, or record a forfeit. The bracket image and standings update automatically after each result.</P>
+      <Divider />
+      <H>Completing a Tournament</H>
+      <P>Once all matches in the final round are resolved, click <B>Complete</B> to close the tournament. ELO ratings are updated for every participant and a final results message is posted in the Discord thread.</P>
+      <Divider />
+      <H>Seasons</H>
+      <P>Group tournaments into named <B>Seasons</B> to track standings over time. Create a season from the Seasons tab, then link a tournament to it when creating or editing it. Season standings are available in the Rankings tab and show cumulative wins, losses, and rating movement within that season.</P>
+      <Divider />
+      <H>H2H Matches</H>
+      <P>Submit a head-to-head result from the <B>H2H</B> tab. Enter both players' names (or Discord accounts), pick the winner, and optionally toggle the Discord announcement. The result is recorded, ELO updated, and a summary posted to the H2H announcement channel if configured.</P>
+      <Divider />
+      <H>Settings</H>
+      <P>Configure the module in <B>Module Settings → Tournaments</B>: set the <B>Announcement Channel</B> (forum channel where bracket threads are auto-created), the <B>H2H Channel</B> (text channel for H2H result posts), and the <B>Hide ELO Ratings</B> toggle (hides the Rankings tab and ELO numbers from all members while still calculating ratings internally).</P>
+    </>
+  );
+}
+
 function marketplaceAdminContent() {
   return (
     <>
@@ -359,12 +407,12 @@ function settingsContent(dkpLabel: string) {
       <P>The <B>Org Settings</B> panel controls who can edit module settings. Assign Discord roles to <B>Module Settings Editors</B> to allow non-admin members to configure channels and module options. <B>Viewer Roles</B> grant members access to view events and loot without being a server admin.</P>
       <Divider />
       <H>Module Settings &amp; Setting Tooltips</H>
-      <P>Each module (Event Bot, DKP, Loot, Marketplace, Fleet, Blueprints, Crafting Calculator, Alliance) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link for all members. Disabled modules are completely hidden.</P>
+      <P>Each module (Event Bot, DKP, Loot, Marketplace, Fleet, Blueprints, Crafting Calculator, Alliance, Tournaments) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link for all members. Disabled modules are completely hidden.</P>
       <P>Every setting input has a <B>?</B> icon next to its label. Hovering it shows a detailed explanation of what that setting controls and how it affects the bot and dashboard.</P>
       <P>The DKP module settings page also lets you set the <B>currency label</B> (e.g. renaming "DKP" to "Credits"), the default auction duration, and the minimum valid bid.</P>
       <Divider />
       <H>Bot Channel Configuration</H>
-      <P>In <B>Event Bot</B> module settings, configure the forum channel for event threads, the scheduled events channel, and the voice category for auto-created VCs. In <B>DKP</B> settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings, set the channel for loot result posts.</P>
+      <P>In <B>Event Bot</B> module settings, configure the forum channel for event threads, the scheduled events channel, and the voice category for auto-created VCs. In <B>DKP</B> settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings, set the channel for loot result posts. In <B>Tournaments</B> settings, configure the bracket announcement forum channel, the H2H results channel, and the ELO visibility toggle.</P>
       <Divider />
       <H>RSI Org Tag</H>
       <P>Set your org's RSI tag in <B>Org Settings</B> to enable the RSI Roster and bio verification requirement. Once set, all members must verify their RSI handle before accessing the dashboard.</P>
@@ -386,8 +434,9 @@ function buildSections(opts: {
   exchangeEnabled: boolean;
   fleetEnabled: boolean;
   rsiOrgRequired: boolean;
+  tournamentsEnabled: boolean;
 }): GuideSection[] {
-  const { isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired } = opts;
+  const { isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired, tournamentsEnabled } = opts;
 
   const member: GuideSection[] = [
     eventBotEnabled && {
@@ -446,6 +495,13 @@ function buildSections(opts: {
       subtitle: 'Cross-guild events, per-guild role slots, and org tags.',
       content: allianceContent(),
     },
+    tournamentsEnabled && {
+      id: 'tournaments',
+      icon: <Trophy className="h-4 w-4" />,
+      title: 'Tournaments',
+      subtitle: 'Register, follow brackets, ELO rankings, and head-to-head results.',
+      content: tournamentsContent(),
+    },
   ].filter(Boolean) as GuideSection[];
 
   if (!isManager) return member;
@@ -483,6 +539,14 @@ function buildSections(opts: {
       adminOnly: true,
       content: allianceAdminContent(),
     },
+    tournamentsEnabled && {
+      id: 'tournaments-admin',
+      icon: <Trophy className="h-4 w-4" />,
+      title: 'Tournament Administration',
+      subtitle: 'Creating brackets, managing registration, results, seasons, and H2H.',
+      adminOnly: true,
+      content: tournamentsAdminContent(),
+    },
     exchangeEnabled && {
       id: 'marketplace-admin',
       icon: <Store className="h-4 w-4" />,
@@ -515,6 +579,7 @@ export function HelpPanel({
   exchangeEnabled = true,
   fleetEnabled = true,
   rsiOrgRequired = false,
+  tournamentsEnabled = false,
 }: {
   isManager: boolean;
   dkpLabel: string;
@@ -524,10 +589,11 @@ export function HelpPanel({
   exchangeEnabled?: boolean;
   fleetEnabled?: boolean;
   rsiOrgRequired?: boolean;
+  tournamentsEnabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
-  const sections = buildSections({ isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired });
+  const sections = buildSections({ isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired, tournamentsEnabled });
   const memberSections = sections.filter((s) => !s.adminOnly);
   const adminSections = sections.filter((s) => s.adminOnly);
 
