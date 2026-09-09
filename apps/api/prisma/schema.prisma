@@ -152,6 +152,8 @@ model GuildSettings {
   activityHeatmapPublic Boolean  @default(true)
   /// Whether the Tournaments module is enabled for this guild
   tournamentsEnabled    Boolean  @default(true)
+  /// When true, ELO ratings and change deltas are hidden from the tournament UI
+  tournamentHideElo     Boolean  @default(false)
   /// Discord forum channel snowflake where tournament threads are created by default
   tournamentChannelId   String?
   /// Discord text/announcement channel snowflake where H2H results are posted
@@ -1301,9 +1303,6 @@ model Tournament {
   status             String    @default("DRAFT")
   /// "RANDOM" | "DKP" | "ACTIVITY" | "ELO_RANK" | "MANUAL"
   seedingMode        String    @default("RANDOM")
-  dkpPrize1st        Int       @default(0)
-  dkpPrize2nd        Int       @default(0)
-  dkpPrize3rd        Int       @default(0)
   /// Discord forum channel snowflake for the tournament thread
   channelId          String?
   /// Discord forum thread snowflake

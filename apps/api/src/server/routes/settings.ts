@@ -251,6 +251,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         activityEnabled:            s?.activityEnabled            ?? true,
         activityHeatmapPublic:      s?.activityHeatmapPublic      ?? true,
         tournamentsEnabled:         s?.tournamentsEnabled          ?? true,
+        tournamentHideElo:          s?.tournamentHideElo           ?? false,
         tournamentChannelId:        s?.tournamentChannelId         ?? null,
         h2hChannelId:               s?.h2hChannelId                ?? null,
         dkpDefaultAuctionDuration:  s?.dkpDefaultAuctionDuration  ?? 24,
@@ -296,6 +297,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     activityEnabled?: boolean;
     activityHeatmapPublic?: boolean;
     tournamentsEnabled?: boolean;
+    tournamentHideElo?: boolean;
     tournamentChannelId?: string | null;
     h2hChannelId?: string | null;
     dkpDefaultAuctionDuration?: number;
@@ -331,6 +333,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       activityEnabled:           raw.activityEnabled !== undefined ? optBool(raw.activityEnabled, 'activityEnabled') : undefined,
       activityHeatmapPublic:     raw.activityHeatmapPublic !== undefined ? optBool(raw.activityHeatmapPublic, 'activityHeatmapPublic') : undefined,
       tournamentsEnabled:        raw.tournamentsEnabled !== undefined ? optBool(raw.tournamentsEnabled, 'tournamentsEnabled') : undefined,
+      tournamentHideElo:         raw.tournamentHideElo !== undefined ? optBool(raw.tournamentHideElo, 'tournamentHideElo') : undefined,
       tournamentChannelId:       raw.tournamentChannelId !== undefined ? optStr(raw.tournamentChannelId, 'tournamentChannelId', 30) : undefined,
       h2hChannelId:              raw.h2hChannelId !== undefined ? optStr(raw.h2hChannelId, 'h2hChannelId', 30) : undefined,
       dkpDefaultAuctionDuration: rawDur !== undefined ? Math.min(168, Math.max(1, rawDur)) : undefined,
@@ -405,6 +408,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.activityEnabled !== undefined           ? { activityEnabled: body.activityEnabled }                                 : {}),
         ...(body.activityHeatmapPublic !== undefined     ? { activityHeatmapPublic: body.activityHeatmapPublic }                     : {}),
         ...(body.tournamentsEnabled !== undefined         ? { tournamentsEnabled: body.tournamentsEnabled }                           : {}),
+        ...(body.tournamentHideElo !== undefined          ? { tournamentHideElo: body.tournamentHideElo }                               : {}),
         ...(body.tournamentChannelId !== undefined        ? { tournamentChannelId: body.tournamentChannelId }                         : {}),
         ...(body.h2hChannelId !== undefined               ? { h2hChannelId: body.h2hChannelId }                                       : {}),
         ...(body.dkpDefaultAuctionDuration !== undefined ? { dkpDefaultAuctionDuration: body.dkpDefaultAuctionDuration }             : {}),
@@ -437,6 +441,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         activityEnabled:            body.activityEnabled            ?? true,
         activityHeatmapPublic:      body.activityHeatmapPublic      ?? true,
         tournamentsEnabled:         body.tournamentsEnabled          ?? true,
+        tournamentHideElo:          body.tournamentHideElo           ?? false,
         tournamentChannelId:        body.tournamentChannelId         ?? null,
         h2hChannelId:               body.h2hChannelId                ?? null,
         dkpDefaultAuctionDuration:  body.dkpDefaultAuctionDuration  ?? 24,
@@ -473,6 +478,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         activityEnabled:            s.activityEnabled            ?? true,
         activityHeatmapPublic:      s.activityHeatmapPublic      ?? true,
         tournamentsEnabled:         s.tournamentsEnabled          ?? true,
+        tournamentHideElo:          s.tournamentHideElo           ?? false,
         tournamentChannelId:        s.tournamentChannelId         ?? null,
         h2hChannelId:               s.h2hChannelId                ?? null,
         dkpDefaultAuctionDuration:  s.dkpDefaultAuctionDuration  ?? 24,

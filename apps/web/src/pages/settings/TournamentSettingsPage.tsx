@@ -68,6 +68,12 @@ export function TournamentSettingsPage() {
   const [h2hChannelDirty, setH2hChannelDirty] = useState(false);
   const [h2hChannelFlash, setH2hChannelFlash] = useState(false);
 
+  // ── ELO visibility toggle ──────────────────────────────────────────────────
+
+  const [hideElo, setHideElo] = useState(false);
+  const [hideEloDirty, setHideEloDirty] = useState(false);
+  const [hideEloFlash, setHideEloFlash] = useState(false);
+
   useEffect(() => {
     if (saved) {
       setEnabled(saved.tournamentsEnabled ?? true);
@@ -76,6 +82,8 @@ export function TournamentSettingsPage() {
       setChannelDirty(false);
       setH2hChannelId(saved.h2hChannelId ?? null);
       setH2hChannelDirty(false);
+      setHideElo(saved.tournamentHideElo ?? false);
+      setHideEloDirty(false);
     }
   }, [saved]);
 
@@ -107,6 +115,12 @@ export function TournamentSettingsPage() {
   function saveH2hChannel() {
     save.mutate({ h2hChannelId: h2hChannelId }, {
       onSuccess: () => { setH2hChannelDirty(false); flash(setH2hChannelFlash); },
+    });
+  }
+
+  function saveHideElo() {
+    save.mutate({ tournamentHideElo: hideElo }, {
+      onSuccess: () => { setHideEloDirty(false); flash(setHideEloFlash); },
     });
   }
 
@@ -343,6 +357,35 @@ export function TournamentSettingsPage() {
           {h2hChannelDirty && (
             <Button size="sm" onClick={saveH2hChannel} disabled={save.isPending}>
               {h2hChannelFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+            </Button>
+          )}
+          {save.isError && (
+            <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── ELO ratings visibility ────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">ELO Ratings Visibility</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            When enabled, ELO ratings and the Rankings tab are hidden from the Tournaments
+            page. Ratings are still calculated internally — this only affects what members see.
+          </p>
+          {loading ? <Skeleton className="h-8 w-full" /> : (
+            <ToggleSwitch
+              label="Hide ELO Ratings"
+              description="Hides the Rankings tab, ELO change summaries, and rating numbers from all members."
+              checked={hideElo}
+              onChange={(v) => { setHideElo(v); setHideEloDirty(true); }}
+            />
+          )}
+          {hideEloDirty && (
+            <Button size="sm" onClick={saveHideElo} disabled={save.isPending}>
+              {hideEloFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
             </Button>
           )}
           {save.isError && (

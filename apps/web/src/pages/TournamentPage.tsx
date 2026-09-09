@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageGuild, getRoundLabel } from '@dem/shared';
 import { tournamentApi } from '../api/tournament';
+import { settingsApi } from '../api/settings';
 import type { Tournament, TournamentDetail, TournamentMatch, PlayerRating } from '../api/tournament';
 import { BracketView } from '../components/BracketView';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,13 @@ export function TournamentPage() {
     queryFn: () => tournamentApi.getRankings(guildId!),
     enabled: !!guildId && tab === 'rankings',
   });
+
+  const { data: guildSettings } = useQuery({
+    queryKey: ['guild-settings', guildId],
+    queryFn: () => settingsApi.getSettings(guildId!),
+    enabled: !!guildId,
+  });
+  const hideElo = guildSettings?.tournamentHideElo ?? false;
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -163,7 +171,7 @@ export function TournamentPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
-        {(['upcoming', 'active', 'completed', 'rankings'] as const).map((t) => (
+        {(['upcoming', 'active', 'completed', ...(!hideElo ? ['rankings'] : [])] as const).map((t) => (
           <button
             key={t}
             onClick={() => { setParams({ tab: t }); setSelectedId(null); }}
@@ -177,7 +185,7 @@ export function TournamentPage() {
       </div>
 
       {/* Rankings Tab */}
-      {tab === 'rankings' && (
+      {tab === 'rankings' && !hideElo && (
         <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0">
             <RankingsView players={rankings?.players ?? []} isLoading={!rankings} guildId={guildId!} />
@@ -209,7 +217,7 @@ export function TournamentPage() {
                 onOpen={() => openMutation.mutate(t.id)}
                 onStart={() => startMutation.mutate(t.id)}
                 onDelete={() => { if (confirm(`Delete "${t.name}"?`)) deleteMutation.mutate(t.id); }}
-                onComplete={() => { if (confirm(`Mark "${t.name}" as completed? This will distribute DKP and lock the results.`)) completeMutation.mutate(t.id); }}
+                onComplete={() => { if (confirm(`Mark "${t.name}" as completed? This will lock the results.`)) completeMutation.mutate(t.id); }}
                 onCancel={() => { if (confirm(`Cancel "${t.name}"? This cannot be undone.`)) cancelMutation.mutate(t.id); }}
               />
             ))}
@@ -222,6 +230,7 @@ export function TournamentPage() {
               isManager={isManager}
               guildId={guildId!}
               currentUserId={user?.id ?? null}
+              hideElo={hideElo}
               onSubmitResult={setResultMatch}
               onAddParticipant={(discordId, displayName) =>
                 addParticipantMutation.mutate({ id: detail.id, discordId, displayName })
@@ -342,6 +351,7 @@ interface TournamentDetailProps {
   isManager: boolean;
   guildId: string;
   currentUserId: string | null;
+  hideElo?: boolean;
   onSubmitResult: (match: TournamentMatch) => void;
   onAddParticipant: (discordId?: string, displayName?: string) => void;
   onRemoveParticipant: (pid: string) => void;
@@ -351,7 +361,7 @@ interface TournamentDetailProps {
   isUnregistering: boolean;
 }
 
-function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitResult, onAddParticipant, onRemoveParticipant, onUnregister, isAddingParticipant, isRemovingParticipant, isUnregistering }: TournamentDetailProps) {
+function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo = false, onSubmitResult, onAddParticipant, onRemoveParticipant, onUnregister, isAddingParticipant, isRemovingParticipant, isUnregistering }: TournamentDetailProps) {
   const [activeTab, setActiveTab] = useState<'bracket' | 'participants' | 'schedule'>('bracket');
   const [addName, setAddName] = useState('');
   const [addDiscordId, setAddDiscordId] = useState('');
@@ -520,7 +530,7 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
             onSubmitResult={isManager ? onSubmitResult : undefined}
             isManager={isManager}
           />
-          {eloSummary && eloSummary.length > 0 && (
+          {!hideElo && eloSummary && eloSummary.length > 0 && (
             <EloSummaryTable entries={eloSummary} />
           )}
         </div>
@@ -1345,8 +1355,6 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
   const [openRoster, setOpenRoster] = useState(false);
   const [seedingMode, setSeedingMode] = useState('RANDOM');
   const [participantMode, setParticipantMode] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
-  const [dkp1st, setDkp1st] = useState('0');
-  const [dkp2nd, setDkp2nd] = useState('0');
 
   // Season linkage
   const { data: seasons } = useQuery({
@@ -1364,8 +1372,6 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
       size: openRoster ? 0 : Number(size),
       seedingMode,
       participantMode,
-      dkpPrize1st: Number(dkp1st),
-      dkpPrize2nd: Number(dkp2nd),
       ...(seasonId ? { seasonId } : {}),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tournaments', guildId] }); onCreated(); },
@@ -1419,7 +1425,6 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
               <label className="text-sm font-medium">Seeding</label>
               <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
                 <option value="RANDOM">Random</option>
-                <option value="DKP">DKP Points</option>
                 <option value="ACTIVITY">Activity</option>
                 <option value="ELO_RANK">ELO Rating</option>
                 <option value="MANUAL">Manual</option>
@@ -1434,16 +1439,6 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
                 </select>
               </div>
             )}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="dkp1" className="text-sm font-medium">1st Place DKP</label>
-              <Input id="dkp1" type="number" min="0" value={dkp1st} onChange={(e) => setDkp1st(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="dkp2" className="text-sm font-medium">2nd Place DKP</label>
-              <Input id="dkp2" type="number" min="0" value={dkp2nd} onChange={(e) => setDkp2nd(e.target.value)} />
-            </div>
           </div>
         </div>
         <DialogFooter className="flex flex-col gap-2">
@@ -1490,9 +1485,6 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
       ? new Date(tournament.registrationEndsAt).toISOString().slice(0, 16)
       : '',
   );
-  const [dkp1st, setDkp1st] = useState(String(tournament.dkpPrize1st ?? 0));
-  const [dkp2nd, setDkp2nd] = useState(String(tournament.dkpPrize2nd ?? 0));
-  const [dkp3rd, setDkp3rd] = useState(String(tournament.dkpPrize3rd ?? 0));
 
   const qc = useQueryClient();
   const updateMutation = useMutation({
@@ -1500,9 +1492,6 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
       name: name.trim(),
       description: description.trim() || undefined,
       registrationEndsAt: registrationEndsAt ? new Date(registrationEndsAt).toISOString() : undefined,
-      dkpPrize1st: Number(dkp1st),
-      dkpPrize2nd: Number(dkp2nd),
-      dkpPrize3rd: Number(dkp3rd),
       ...(isDraft && {
         seedingMode,
         openRoster,
@@ -1568,7 +1557,6 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
                   <label className="text-sm font-medium">Seeding</label>
                   <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
                     <option value="RANDOM">Random</option>
-                    <option value="DKP">DKP Points</option>
                     <option value="ACTIVITY">Activity</option>
                     <option value="ELO_RANK">ELO Rating</option>
                     <option value="MANUAL">Manual</option>
@@ -1585,20 +1573,6 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
               onChange={(e) => setRegistrationEndsAt(e.target.value)}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
             />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">1st DKP</label>
-              <Input type="number" min="0" value={dkp1st} onChange={(e) => setDkp1st(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">2nd DKP</label>
-              <Input type="number" min="0" value={dkp2nd} onChange={(e) => setDkp2nd(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">3rd DKP</label>
-              <Input type="number" min="0" value={dkp3rd} onChange={(e) => setDkp3rd(e.target.value)} />
-            </div>
           </div>
         </div>
         <DialogFooter className="flex flex-col gap-2">

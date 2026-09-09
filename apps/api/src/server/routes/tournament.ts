@@ -14,7 +14,7 @@ export const tournamentRouter = Router();
 const VALID_SIZE_MIN = 4;
 const VALID_SIZE_MAX = 64;
 const VALID_FORMATS = ['SINGLE_ELIM'] as const; // DOUBLE_ELIM added in Phase 2
-const VALID_SEEDING = ['RANDOM', 'DKP', 'ACTIVITY', 'ELO_RANK', 'MANUAL'] as const;
+const VALID_SEEDING = ['RANDOM', 'ACTIVITY', 'ELO_RANK', 'MANUAL'] as const;
 
 // ── helper ────────────────────────────────────────────────────────────────────
 
@@ -435,13 +435,11 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
   const {
     name, description, format = 'SINGLE_ELIM', participantMode = 'INDIVIDUAL',
     size = 8, openRoster = false, seedingMode = 'RANDOM',
-    dkpPrize1st = 0, dkpPrize2nd = 0, dkpPrize3rd = 0,
     channelId, registrationEndsAt, seasonId,
   } = req.body as {
     name?: string; description?: string; format?: string; participantMode?: string;
     size?: number; openRoster?: boolean; seedingMode?: string;
-    dkpPrize1st?: number; dkpPrize2nd?: number;
-    dkpPrize3rd?: number; channelId?: string; registrationEndsAt?: string; seasonId?: string;
+    channelId?: string; registrationEndsAt?: string; seasonId?: string;
   };
 
   if (!name?.trim()) return badRequest(res, 'Tournament name is required');
@@ -468,9 +466,6 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
           size: openRoster ? 0 : size,
           openRoster,
           seedingMode,
-          dkpPrize1st,
-          dkpPrize2nd,
-          dkpPrize3rd,
           channelId: channelId ?? null,
           registrationEndsAt: registrationEndsAt ? new Date(registrationEndsAt) : null,
           createdById: userId,
@@ -584,10 +579,10 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const { name, description, channelId, registrationEndsAt, dkpPrize1st, dkpPrize2nd, dkpPrize3rd, seedingMode, size, openRoster } =
+  const { name, description, channelId, registrationEndsAt, seedingMode, size, openRoster } =
     req.body as Record<string, unknown>;
 
-  const VALID_SEEDING_MODES = ['RANDOM', 'DKP', 'ACTIVITY', 'ELO_RANK', 'MANUAL'];
+  const VALID_SEEDING_MODES = ['RANDOM', 'ACTIVITY', 'ELO_RANK', 'MANUAL'];
 
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
@@ -599,10 +594,6 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
     if (description !== undefined) data['description'] = typeof description === 'string' ? description.trim() : null;
     if (channelId !== undefined) data['channelId'] = channelId ?? null;
     if (registrationEndsAt !== undefined) data['registrationEndsAt'] = registrationEndsAt ? new Date(registrationEndsAt as string) : null;
-    if (typeof dkpPrize1st === 'number') data['dkpPrize1st'] = dkpPrize1st;
-    if (typeof dkpPrize2nd === 'number') data['dkpPrize2nd'] = dkpPrize2nd;
-    if (typeof dkpPrize3rd === 'number') data['dkpPrize3rd'] = dkpPrize3rd;
-
     // openRoster, seedingMode, and size can only be changed while still in DRAFT
     if (openRoster !== undefined) {
       if (tournament.status !== 'DRAFT') return badRequest(res, 'openRoster can only be changed while in DRAFT');
@@ -926,25 +917,6 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
         ),
       );
       participants = participants.map((p, i) => ({ ...p, seed: i + 1 }));
-    } else if (tournament.seedingMode === 'DKP') {
-      const discordIds = participants.map((p) => p.discordId).filter(Boolean) as string[];
-      const balances = await prisma.dkpBalance.findMany({
-        where: { guildId, userId: { in: discordIds } },
-        orderBy: { balance: 'desc' },
-      });
-      const rankMap = new Map(balances.map((b, i) => [b.userId, i + 1]));
-      await prisma.$transaction(
-        participants.map((p) =>
-          prisma.tournamentParticipant.update({
-            where: { id: p.id },
-            data: { seed: p.discordId ? (rankMap.get(p.discordId) ?? 999) : 999 },
-          }),
-        ),
-      );
-      participants = participants.map((p) => ({
-        ...p,
-        seed: p.discordId ? (rankMap.get(p.discordId) ?? 999) : 999,
-      }));
     } else if (tournament.seedingMode === 'ACTIVITY') {
       const discordIds = participants.map((p) => p.discordId).filter(Boolean) as string[];
       // Activity score = number of events attended in this guild
@@ -1122,7 +1094,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
       include: {
         participantA: true,
         participantB: true,
-        tournament: { select: { dkpPrize1st: true, dkpPrize2nd: true, dkpPrize3rd: true, participantMode: true } },
+        tournament: { select: { participantMode: true } },
       },
     });
     if (!match) return notFound(res);
@@ -1335,43 +1307,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
         where: { tournamentId: id, status: { notIn: ['COMPLETED', 'BYE'] } },
       });
       if (remaining === 0) {
-        // Placements were already assigned per-match above; just handle DKP and mark complete.
-        // Look up prize recipients by placement so this works regardless of which match fired last.
-        const prizeMap: Record<number, number> = {
-          1: match.tournament.dkpPrize1st,
-          2: match.tournament.dkpPrize2nd,
-          3: match.tournament.dkpPrize3rd,
-        };
-        const prizeWinners = await tx.tournamentParticipant.findMany({
-          where: { tournamentId: id, placement: { in: [1, 2, 3] } },
-          select: { id: true, placement: true, discordId: true, displayName: true },
-        });
-
-        for (const p of prizeWinners) {
-          const amount = prizeMap[p.placement!] ?? 0;
-          if (amount <= 0 || !p.discordId) continue;
-          // Upsert so winners who have never received DKP still get paid
-          const balance = await tx.dkpBalance.upsert({
-            where: { guildId_userId: { guildId, userId: p.discordId } },
-            create: { guildId, userId: p.discordId, username: p.displayName, balance: 0 },
-            update: {},
-          });
-          await tx.dkpTransaction.create({
-            data: {
-              balanceId: balance.id,
-              guildId,
-              userId: p.discordId,
-              username: p.displayName,
-              amount,
-              reason: `Tournament: ${id}`,
-            },
-          });
-          await tx.dkpBalance.update({
-            where: { id: balance.id },
-            data: { balance: { increment: amount } },
-          });
-        }
-
+        // Placements were already assigned per-match above; mark tournament complete.
         await tx.tournament.update({
           where: { id },
           data: { status: 'COMPLETED', completedAt: new Date() },
@@ -1535,48 +1471,9 @@ tournamentRouter.post('/:guildId/tournaments/:id/complete', requireAuth, async (
       );
     }
 
-    // Mirror the DKP payout from the auto-complete path in the match-result route.
-    await prisma.$transaction(async (tx) => {
-      const prizeMap: Record<number, number> = {
-        1: tournament.dkpPrize1st,
-        2: tournament.dkpPrize2nd,
-        3: tournament.dkpPrize3rd,
-      };
-
-      const prizeWinners = await tx.tournamentParticipant.findMany({
-        where: { tournamentId: id, placement: { in: [1, 2, 3] } },
-        select: { id: true, placement: true, discordId: true, displayName: true },
-      });
-
-      for (const p of prizeWinners) {
-        const amount = prizeMap[p.placement!] ?? 0;
-        if (amount <= 0 || !p.discordId) continue;
-        // Upsert so winners who have never received DKP still get paid
-        const balance = await tx.dkpBalance.upsert({
-          where: { guildId_userId: { guildId, userId: p.discordId } },
-          create: { guildId, userId: p.discordId, username: p.displayName, balance: 0 },
-          update: {},
-        });
-        await tx.dkpTransaction.create({
-          data: {
-            balanceId: balance.id,
-            guildId,
-            userId: p.discordId,
-            username: p.displayName,
-            amount,
-            reason: `Tournament: ${id}`,
-          },
-        });
-        await tx.dkpBalance.update({
-          where: { id: balance.id },
-          data: { balance: { increment: amount } },
-        });
-      }
-
-      await tx.tournament.update({
-        where: { id },
-        data: { status: 'COMPLETED', completedAt: new Date() },
-      });
+    await prisma.tournament.update({
+      where: { id },
+      data: { status: 'COMPLETED', completedAt: new Date() },
     });
 
     triggerBot(`/trigger/tournament-complete/${id}`);

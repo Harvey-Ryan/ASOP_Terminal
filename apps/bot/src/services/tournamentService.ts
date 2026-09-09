@@ -374,18 +374,16 @@ type TournamentMeta = {
   description: string | null;
   format: string;
   size: number;
+  openRoster: boolean;
   seedingMode: string;
   registrationEndsAt: Date | null;
-  dkpPrize1st: number;
-  dkpPrize2nd: number;
-  dkpPrize3rd: number;
 };
 
 function buildTournamentDescription(t: TournamentMeta): string {
   const lines: string[] = [];
   if (t.description) { lines.push(t.description, ''); }
   lines.push(`**Format:** ${t.format.replace('_', ' ')}`);
-  lines.push(`**Bracket Size:** ${t.size} participants`);
+  lines.push(`**Bracket Size:** ${t.openRoster ? 'Open (set at start)' : `${t.size} participants`}`);
   lines.push(`**Seeding:** ${t.seedingMode}`);
   if (t.registrationEndsAt) {
     lines.push(`**Registration Closes:** <t:${Math.floor(t.registrationEndsAt.getTime() / 1000)}:F>`);
@@ -398,7 +396,7 @@ function buildRegistrationEmbed(
   participants: Array<{ discordId: string | null; displayName: string }>,
 ): EmbedBuilder {
   const filled = participants.length;
-  const isFull = filled >= t.size;
+  const isFull = t.openRoster ? false : filled >= t.size;
 
   const rosterLines = participants.length > 0
     ? participants.map((p, i) => `${i + 1}. ${p.discordId ? `<@${p.discordId}>` : p.displayName}`)
@@ -410,21 +408,15 @@ function buildRegistrationEmbed(
     rosterValue = rosterValue.slice(0, 1020) + '\n…';
   }
 
-  const embed = new EmbedBuilder()
+  const participantsLabel = t.openRoster
+    ? `Participants (${filled} registered · Open)`
+    : `Participants (${filled} / ${t.size})`;
+
+  return new EmbedBuilder()
     .setTitle(`📋 ${t.name} — Registration ${isFull ? 'Full' : 'Open'}`)
     .setDescription(buildTournamentDescription(t))
     .setColor(isFull ? 0xed4245 : 0x57f287)
-    .addFields({ name: `Participants (${filled} / ${t.size})`, value: rosterValue });
-
-  const prizes: string[] = [];
-  if (t.dkpPrize1st > 0) prizes.push(`🥇 1st — ${t.dkpPrize1st} DKP`);
-  if (t.dkpPrize2nd > 0) prizes.push(`🥈 2nd — ${t.dkpPrize2nd} DKP`);
-  if (t.dkpPrize3rd > 0) prizes.push(`🥉 3rd — ${t.dkpPrize3rd} DKP`);
-  if (prizes.length > 0) {
-    embed.addFields({ name: 'Prizes', value: prizes.join('\n'), inline: true });
-  }
-
-  return embed;
+    .addFields({ name: participantsLabel, value: rosterValue });
 }
 
 function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {

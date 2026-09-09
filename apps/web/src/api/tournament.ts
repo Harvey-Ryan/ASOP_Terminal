@@ -16,9 +16,6 @@ export interface Tournament {
   openRoster: boolean;
   status: string;
   seedingMode: string;
-  dkpPrize1st: number;
-  dkpPrize2nd: number;
-  dkpPrize3rd: number;
   channelId: string | null;
   threadId: string | null;
   registrationEndsAt: string | null;
