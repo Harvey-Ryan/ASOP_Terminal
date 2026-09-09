@@ -47,7 +47,9 @@ export function TournamentSettingsPage() {
 
   const loading = settingsLoading || channelsLoading;
   const channels = channelData?.channels ?? [];
-  const forumChannels = channels.filter((c) => c.type === 15);
+  // forumChannels is unused — ChannelSelect receives the full list and filters via `types`
+  // so that parent categories are available for grouping.
+  // const forumChannels = channels.filter((c) => c.type === 15);
   const textChannels = channels.filter((c) => c.type === 0 || c.type === 4 || c.type === 5);
 
   // ── Enabled toggle ────────────────────────────────────────────────────────
@@ -317,7 +319,7 @@ export function TournamentSettingsPage() {
           {loading ? <Skeleton className="h-9 w-full" /> : (
             <ChannelSelect
               id="tournament-channel"
-              channels={forumChannels}
+              channels={channels}
               value={channelId}
               onChange={(v) => { setChannelId(v); setChannelDirty(true); }}
               types={[15]}
