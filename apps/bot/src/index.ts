@@ -438,7 +438,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
 
         const count = await prisma.tournamentParticipant.count({ where: { tournamentId } });
-        if (count >= tournament.size) {
+        // Open-roster tournaments have no cap (size=0); only enforce the limit for fixed-size ones.
+        if (!tournament.openRoster && count >= tournament.size) {
           await interaction.editReply({ content: '❌ Tournament is full.' });
           return;
         }
@@ -605,12 +606,21 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   // VC deletion is handled by the scheduler (checkEndedEvents) with a 5-minute
   // empty-VC timer so members have time to wind down after the event ends.
 
-  // ── Auto-assign: RSVP + confirmed attendee when joining an ACTIVE event VC ──
+  // ── Auto-assign: RSVP + confirmed attendee when joining an event VC ─────────
+  // Covers PENDING events too: VCs are created 30 min before startTime, so users
+  // who join before the scheduler flips the event to ACTIVE must still be counted.
   if (joinedChannelId && joinedChannelId !== leftChannelId) {
     try {
-      const event = await prisma.event.findFirst({
-        where: { status: 'ACTIVE', vcIds: { contains: joinedChannelId } },
-      });
+      // Use a JSON-array containment check so a channel ID that happens to be a
+      // numeric substring of another stored ID never causes a false match.
+      const channelIdJson = JSON.stringify([joinedChannelId]);
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Event"
+        WHERE status IN ('PENDING', 'ACTIVE')
+          AND "vcIds"::jsonb @> ${channelIdJson}::jsonb
+        LIMIT 1
+      `;
+      const event = rows[0] ? await prisma.event.findUnique({ where: { id: rows[0].id } }) : null;
       if (!event) return;
 
       const userId = newState.member?.id ?? newState.id;
