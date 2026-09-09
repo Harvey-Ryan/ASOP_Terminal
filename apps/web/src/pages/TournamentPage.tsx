@@ -305,7 +305,10 @@ function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen,
       </div>
       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <Users className="h-3 w-3" /> {t._count?.participants ?? 0}/{t.size}
+          <Users className="h-3 w-3" />
+          {t.openRoster && t.status !== 'IN_PROGRESS' && t.status !== 'COMPLETED'
+            ? `${t._count?.participants ?? 0} · Open`
+            : `${t._count?.participants ?? 0}/${t.size}`}
         </span>
         <span>{t.format.replace('_', ' ')}</span>
       </div>
@@ -401,7 +404,8 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
   });
 
   const canEdit = isManager && (detail.status === 'DRAFT' || detail.status === 'REGISTRATION');
-  const isFull = detail.participants.length >= detail.size;
+  // Open-roster tournaments never show as full; the server enforces no cap.
+  const isFull = detail.openRoster ? false : detail.participants.length >= detail.size;
   const alreadyRegistered = !!currentUserId && detail.participants.some((p) => p.discordId === currentUserId);
   const deadlinePassed = !!detail.registrationEndsAt && new Date(detail.registrationEndsAt) < new Date();
   const canSelfRegister = !isManager && detail.status === 'REGISTRATION' && !alreadyRegistered && !isFull && !deadlinePassed;
@@ -455,7 +459,12 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
         <div className="rounded-lg border border-indigo-500/40 bg-indigo-500/10 p-3 flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium">Registration is open</p>
-            <p className="text-xs text-muted-foreground">{detail.participants.length}/{detail.size} spots filled{detail.registrationEndsAt ? ` · Closes ${new Date(detail.registrationEndsAt).toLocaleString()}` : ''}</p>
+            <p className="text-xs text-muted-foreground">
+              {detail.openRoster
+                ? `${detail.participants.length} registered · Open`
+                : `${detail.participants.length}/${detail.size} spots filled`}
+              {detail.registrationEndsAt ? ` · Closes ${new Date(detail.registrationEndsAt).toLocaleString()}` : ''}
+            </p>
           </div>
           <Button
             size="sm"
@@ -470,7 +479,11 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
         <div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-green-400">✓ You're registered</p>
-            <p className="text-xs text-muted-foreground">{detail.participants.length}/{detail.size} spots filled</p>
+            <p className="text-xs text-muted-foreground">
+              {detail.openRoster
+                ? `${detail.participants.length} registered · Open`
+                : `${detail.participants.length}/${detail.size} spots filled`}
+            </p>
           </div>
           <Button
             variant="ghost"
@@ -519,7 +532,9 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
           {canEdit && detail.participantMode === 'INDIVIDUAL' && (
             <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
               <p className="text-sm font-medium text-muted-foreground">
-                Add Participant ({detail.participants.length} / {detail.size})
+                {detail.openRoster
+                  ? `Add Participant (${detail.participants.length} registered · Open)`
+                  : `Add Participant (${detail.participants.length} / ${detail.size})`}
               </p>
               <div className="flex gap-2">
                 <Input
@@ -556,6 +571,7 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
               tournamentId={detail.id}
               slotsFilled={detail.participants.length}
               totalSlots={detail.size}
+              openRoster={detail.openRoster}
             />
           )}
 
@@ -675,18 +691,20 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, onSubmitR
 
 // ── Team registration form ────────────────────────────────────────────────────
 
-function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots }: {
+function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoster = false }: {
   guildId: string;
   tournamentId: string;
   slotsFilled: number;
   totalSlots: number;
+  openRoster?: boolean;
 }) {
   const [teamName, setTeamName] = useState('');
   const [members, setMembers] = useState<Array<{ discordId: string; displayName: string }>>([
     { discordId: '', displayName: '' },
   ]);
   const qc = useQueryClient();
-  const isFull = slotsFilled >= totalSlots;
+  // Open-roster tournaments have no cap; server enforces this too.
+  const isFull = openRoster ? false : slotsFilled >= totalSlots;
 
   const addMutation = useMutation({
     mutationFn: () => tournamentApi.register(guildId, tournamentId, {
@@ -710,7 +728,9 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots }: {
   return (
     <div className="rounded-lg border border-border p-3 flex flex-col gap-3">
       <p className="text-sm font-medium text-muted-foreground">
-        Add Team ({slotsFilled} / {totalSlots})
+        {openRoster
+          ? `Add Team (${slotsFilled} registered · Open)`
+          : `Add Team (${slotsFilled} / ${totalSlots})`}
       </p>
       <div className="flex gap-2">
         <Input
@@ -1322,6 +1342,7 @@ interface CreateDialogProps {
 function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogProps) {
   const [name, setName] = useState('');
   const [size, setSize] = useState('8');
+  const [openRoster, setOpenRoster] = useState(false);
   const [seedingMode, setSeedingMode] = useState('RANDOM');
   const [participantMode, setParticipantMode] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
   const [dkp1st, setDkp1st] = useState('0');
@@ -1338,7 +1359,9 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
   const createMutation = useMutation({
     mutationFn: () => tournamentApi.create(guildId, {
       name: name.trim(),
-      size: Number(size),
+      openRoster,
+      // Size is ignored (stored as 0) for open-roster tournaments; the server derives it at start.
+      size: openRoster ? 0 : Number(size),
       seedingMode,
       participantMode,
       dkpPrize1st: Number(dkp1st),
@@ -1369,11 +1392,28 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">Bracket Size</label>
-              <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
-                {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} {participantMode === 'TEAM' ? 'teams' : 'participants'}</option>)}
-              </select>
+              {openRoster ? (
+                <div className="flex h-9 items-center px-3 rounded-md border border-input bg-muted/40 text-sm text-muted-foreground">
+                  Auto (set at start)
+                </div>
+              ) : (
+                <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                  {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} {participantMode === 'TEAM' ? 'teams' : 'participants'}</option>)}
+                </select>
+              )}
             </div>
           </div>
+          {/* Open roster toggle */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={openRoster}
+              onChange={(e) => setOpenRoster(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-indigo-500"
+            />
+            <span className="text-sm font-medium">Open Roster</span>
+            <span className="text-xs text-muted-foreground">— no participant cap; bracket size derived at start</span>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">Seeding</label>
@@ -1440,7 +1480,11 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
   const [name, setName] = useState(tournament.name);
   const [description, setDescription] = useState(tournament.description ?? '');
   const [seedingMode, setSeedingMode] = useState(tournament.seedingMode);
-  const [size, setSize] = useState(String(tournament.size));
+  const [openRoster, setOpenRoster] = useState(tournament.openRoster);
+  // When toggling open roster off, default the size picker to 8 (or the stored size if valid)
+  const [size, setSize] = useState(
+    tournament.openRoster || tournament.size < 4 ? '8' : String(tournament.size),
+  );
   const [registrationEndsAt, setRegistrationEndsAt] = useState(
     tournament.registrationEndsAt
       ? new Date(tournament.registrationEndsAt).toISOString().slice(0, 16)
@@ -1459,7 +1503,12 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
       dkpPrize1st: Number(dkp1st),
       dkpPrize2nd: Number(dkp2nd),
       dkpPrize3rd: Number(dkp3rd),
-      ...(isDraft && { seedingMode, size: Number(size) }),
+      ...(isDraft && {
+        seedingMode,
+        openRoster,
+        // Only send size when closed-roster; server ignores it (and blocks it) for open-roster.
+        ...(!openRoster && { size: Number(size) }),
+      }),
     } as Parameters<typeof tournamentApi.update>[2]),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tournament-detail', tournament.id] });
@@ -1490,24 +1539,43 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
             />
           </div>
           {isDraft && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">Bracket Size</label>
-                <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
-                  {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} participants</option>)}
-                </select>
+            <>
+              {/* Open roster toggle */}
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={openRoster}
+                  onChange={(e) => setOpenRoster(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-indigo-500"
+                />
+                <span className="text-sm font-medium">Open Roster</span>
+                <span className="text-xs text-muted-foreground">— no cap; bracket size derived at start</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium">Bracket Size</label>
+                  {openRoster ? (
+                    <div className="flex h-9 items-center px-3 rounded-md border border-input bg-muted/40 text-sm text-muted-foreground">
+                      Auto (set at start)
+                    </div>
+                  ) : (
+                    <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                      {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} participants</option>)}
+                    </select>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium">Seeding</label>
+                  <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                    <option value="RANDOM">Random</option>
+                    <option value="DKP">DKP Points</option>
+                    <option value="ACTIVITY">Activity</option>
+                    <option value="ELO_RANK">ELO Rating</option>
+                    <option value="MANUAL">Manual</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">Seeding</label>
-                <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
-                  <option value="RANDOM">Random</option>
-                  <option value="DKP">DKP Points</option>
-                  <option value="ACTIVITY">Activity</option>
-                  <option value="ELO_RANK">ELO Rating</option>
-                  <option value="MANUAL">Manual</option>
-                </select>
-              </div>
-            </div>
+            </>
           )}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">Registration Deadline</label>

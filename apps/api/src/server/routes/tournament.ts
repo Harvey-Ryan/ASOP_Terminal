@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
-import { generateSingleElimBracket } from '../../lib/bracketGenerator.js';
+import { generateSingleElimBracket, nextPow2 } from '../../lib/bracketGenerator.js';
 import { calcElo } from '../../lib/eloCalculator.js';
 import type { ApiResponse } from '@dem/shared';
 
@@ -434,17 +434,23 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
 
   const {
     name, description, format = 'SINGLE_ELIM', participantMode = 'INDIVIDUAL',
-    size = 8, seedingMode = 'RANDOM', dkpPrize1st = 0, dkpPrize2nd = 0, dkpPrize3rd = 0,
+    size = 8, openRoster = false, seedingMode = 'RANDOM',
+    dkpPrize1st = 0, dkpPrize2nd = 0, dkpPrize3rd = 0,
     channelId, registrationEndsAt, seasonId,
   } = req.body as {
     name?: string; description?: string; format?: string; participantMode?: string;
-    size?: number; seedingMode?: string; dkpPrize1st?: number; dkpPrize2nd?: number;
+    size?: number; openRoster?: boolean; seedingMode?: string;
+    dkpPrize1st?: number; dkpPrize2nd?: number;
     dkpPrize3rd?: number; channelId?: string; registrationEndsAt?: string; seasonId?: string;
   };
 
   if (!name?.trim()) return badRequest(res, 'Tournament name is required');
   if (!VALID_FORMATS.includes(format as typeof VALID_FORMATS[number])) return badRequest(res, `format must be one of: ${VALID_FORMATS.join(', ')}`);
-  if (!Number.isInteger(size) || size < VALID_SIZE_MIN || size > VALID_SIZE_MAX) return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
+  // Size validation only applies to closed-roster tournaments (openRoster=false).
+  // Open-roster tournaments derive their bracket size from actual participants at start time.
+  if (!openRoster && (!Number.isInteger(size) || size < VALID_SIZE_MIN || size > VALID_SIZE_MAX)) {
+    return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
+  }
   if (!VALID_SEEDING.includes(seedingMode as typeof VALID_SEEDING[number])) return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING.join(', ')}`);
 
   const userId = req.session.userId!;
@@ -458,7 +464,9 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
           description: description?.trim() ?? null,
           format,
           participantMode,
-          size,
+          // Open-roster: store 0 as a sentinel; overwritten with nextPow2(participants) at start.
+          size: openRoster ? 0 : size,
+          openRoster,
           seedingMode,
           dkpPrize1st,
           dkpPrize2nd,
@@ -576,7 +584,7 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const { name, description, channelId, registrationEndsAt, dkpPrize1st, dkpPrize2nd, dkpPrize3rd, seedingMode, size } =
+  const { name, description, channelId, registrationEndsAt, dkpPrize1st, dkpPrize2nd, dkpPrize3rd, seedingMode, size, openRoster } =
     req.body as Record<string, unknown>;
 
   const VALID_SEEDING_MODES = ['RANDOM', 'DKP', 'ACTIVITY', 'ELO_RANK', 'MANUAL'];
@@ -594,7 +602,21 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
     if (typeof dkpPrize1st === 'number') data['dkpPrize1st'] = dkpPrize1st;
     if (typeof dkpPrize2nd === 'number') data['dkpPrize2nd'] = dkpPrize2nd;
     if (typeof dkpPrize3rd === 'number') data['dkpPrize3rd'] = dkpPrize3rd;
-    // seedingMode and size can only be changed while still in DRAFT
+
+    // openRoster, seedingMode, and size can only be changed while still in DRAFT
+    if (openRoster !== undefined) {
+      if (tournament.status !== 'DRAFT') return badRequest(res, 'openRoster can only be changed while in DRAFT');
+      if (typeof openRoster !== 'boolean') return badRequest(res, 'openRoster must be a boolean');
+      data['openRoster'] = openRoster;
+      // Turning open roster ON: clear size to 0 (derived at start time).
+      // Turning open roster OFF: size must be provided in the same request.
+      if (openRoster) {
+        data['size'] = 0;
+      } else if (size === undefined) {
+        // Default to 8 when toggling back to closed without an explicit size
+        data['size'] = 8;
+      }
+    }
     if (seedingMode !== undefined) {
       if (tournament.status !== 'DRAFT') return badRequest(res, 'seedingMode can only be changed while in DRAFT');
       if (!VALID_SEEDING_MODES.includes(seedingMode as string)) return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING_MODES.join(', ')}`);
@@ -602,6 +624,9 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
     }
     if (size !== undefined) {
       if (tournament.status !== 'DRAFT') return badRequest(res, 'size can only be changed while in DRAFT');
+      // Size is only meaningful for closed-roster tournaments.
+      const effectivelyOpen = openRoster === true || (openRoster === undefined && tournament.openRoster);
+      if (effectivelyOpen) return badRequest(res, 'size cannot be set while openRoster is true');
       const sizeNum = Number(size);
       if (!Number.isInteger(sizeNum) || sizeNum < VALID_SIZE_MIN || sizeNum > VALID_SIZE_MAX) {
         return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
@@ -659,7 +684,8 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
     if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Registration is not open');
 
     const existing = await prisma.tournamentParticipant.count({ where: { tournamentId: id } });
-    if (existing >= tournament.size) return badRequest(res, 'Tournament is full');
+    // Open-roster tournaments have no cap; closed-roster tournaments enforce tournament.size.
+    if (!tournament.openRoster && existing >= tournament.size) return badRequest(res, 'Tournament is full');
 
     const isManager = await assertGuildManager(req, guildId);
     // Non-managers can only register themselves, and only during REGISTRATION (not DRAFT)
@@ -1012,7 +1038,15 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
 
       await tx.tournament.update({
         where: { id },
-        data: { status: 'IN_PROGRESS', startedAt: new Date() },
+        data: {
+          status: 'IN_PROGRESS',
+          startedAt: new Date(),
+          // Open-roster: stamp the real bracket size now that participants are locked.
+          // For closed-roster this is a no-op (size was already set at create time).
+          ...(tournament.openRoster
+            ? { size: nextPow2(participants.length) }
+            : {}),
+        },
       });
     });
 

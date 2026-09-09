@@ -1292,8 +1292,11 @@ model Tournament {
   format             String    @default("SINGLE_ELIM")
   /// "INDIVIDUAL" | "TEAM"
   participantMode    String    @default("INDIVIDUAL")
-  /// Any integer 4–64; the bracket generator pads to the next power-of-2 with BYE slots
+  /// Any integer 4–64; the bracket generator pads to the next power-of-2 with BYE slots.
+  /// 0 when openRoster=true — overwritten with nextPow2(participants) at tournament start.
   size               Int       @default(8)
+  /// When true, registration has no participant cap; bracket size is derived at start time.
+  openRoster         Boolean   @default(false)
   /// "DRAFT" | "REGISTRATION" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
   status             String    @default("DRAFT")
   /// "RANDOM" | "DKP" | "ACTIVITY" | "ELO_RANK" | "MANUAL"

@@ -142,7 +142,8 @@ export function resolveNextMatchIds(
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function nextPow2(n: number): number {
+/** Returns the smallest power of 2 ≥ n. Exported for use in the start route. */
+export function nextPow2(n: number): number {
   if (n <= 1) return 1;
   let p = 1;
   while (p < n) p <<= 1;

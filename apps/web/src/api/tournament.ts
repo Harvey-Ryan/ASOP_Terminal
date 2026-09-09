@@ -10,7 +10,10 @@ export interface Tournament {
   description: string | null;
   format: string;
   participantMode: string;
+  /** Participant cap. 0 when openRoster=true (derived at start time). */
   size: number;
+  /** When true, registration has no cap; bracket size is derived from registrants at start. */
+  openRoster: boolean;
   status: string;
   seedingMode: string;
   dkpPrize1st: number;
