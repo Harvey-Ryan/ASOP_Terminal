@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, RotateCcw, X } from 'lucide-react';
+import { Check, Loader2, RotateCcw, X, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,8 @@ const LIFECYCLE_PARTICIPANTS = [
   { name: 'Henry',   discordId: '999000000000008' },
 ];
 const PAUSE_SECONDS = 30;
+// How long real users have to self-register from Discord before the bracket starts.
+const REGISTRATION_WINDOW_SECONDS = 90;
 
 export function TournamentSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -128,9 +130,10 @@ export function TournamentSettingsPage() {
 
   function buildInitialSteps(): TestStep[] {
     return [
-      { label: 'Create tournament', state: 'idle' },
+      { label: 'Create open-roster tournament', state: 'idle' },
       { label: 'Open registration', state: 'idle' },
       ...LIFECYCLE_PARTICIPANTS.map((p) => ({ label: `Register ${p.name}`, state: 'idle' as StepState })),
+      { label: 'Registration window — join from Discord', state: 'idle' },
       { label: 'Start tournament', state: 'idle' },
     ];
   }
@@ -138,6 +141,7 @@ export function TournamentSettingsPage() {
   const [testSteps, setTestSteps] = useState<TestStep[]>(buildInitialSteps);
   const [testRunning, setTestRunning] = useState(false);
   const [testCountdown, setTestCountdown] = useState<number | null>(null);
+  const [isRegistrationWindow, setIsRegistrationWindow] = useState(false);
   const [testDoneId, setTestDoneId] = useState<string | null>(null);
 
   function patchStep(i: number, patch: Partial<TestStep>) {
@@ -156,21 +160,38 @@ export function TournamentSettingsPage() {
     setTestCountdown(null);
   }
 
+  // Registration window — real users can join via the Discord embed during this pause.
+  // Updates the current step's detail with a live countdown so they know how long they have.
+  async function pauseForRegistration(windowIdx: number) {
+    setIsRegistrationWindow(true);
+    for (let i = REGISTRATION_WINDOW_SECONDS; i > 0; i--) {
+      setTestCountdown(i);
+      patchStep(windowIdx, {
+        state: 'running',
+        detail: `${Math.floor(i / 60)}:${String(i % 60).padStart(2, '0')} remaining`,
+      });
+      await sleep(1000);
+    }
+    setTestCountdown(null);
+    setIsRegistrationWindow(false);
+  }
+
   async function runTest() {
     setTestRunning(true);
     setTestDoneId(null);
+    setIsRegistrationWindow(false);
     setTestSteps(buildInitialSteps());
     let idx = 0;
     let tid = '';
 
-    // ── Create tournament ───────────────────────────────────────────────────
+    // ── Create open-roster tournament ───────────────────────────────────────
     patchStep(idx, { state: 'running' });
     try {
       const r = await tournamentApi.create(guildId!, {
         name: `Lifecycle Test ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-        description: 'Smoke test — please ignore.',
+        description: 'Open-roster smoke test — please ignore.',
         format: 'SINGLE_ELIM',
-        size: LIFECYCLE_PARTICIPANTS.length,
+        openRoster: true,
         seedingMode: 'RANDOM',
       });
       tid = r.id;
@@ -196,7 +217,7 @@ export function TournamentSettingsPage() {
     }
     idx++;
 
-    // ── Register participants (with fake Discord IDs so ELO is exercised) ──
+    // ── Register 8 fake participants (with fake Discord IDs so ELO is exercised) ──
     for (const p of LIFECYCLE_PARTICIPANTS) {
       patchStep(idx, { state: 'running' });
       try {
@@ -210,8 +231,25 @@ export function TournamentSettingsPage() {
       idx++;
     }
 
-    // 30s: watch registration embed update in Discord
-    await pauseForDiscord();
+    // ── Registration window — real users can join from the Discord embed ────
+    // idx now points to the "Registration window" step
+    patchStep(idx, { state: 'running', detail: `${REGISTRATION_WINDOW_SECONDS}s remaining` });
+    await pauseForRegistration(idx);
+
+    // Fetch final participant count (8 fakes + any real users who joined)
+    let finalCount = LIFECYCLE_PARTICIPANTS.length;
+    try {
+      const snap = await tournamentApi.get(guildId!, tid);
+      finalCount = snap.participants.length;
+    } catch { /* non-fatal — count is just for the step detail */ }
+    const realCount = finalCount - LIFECYCLE_PARTICIPANTS.length;
+    patchStep(idx, {
+      state: 'done',
+      detail: realCount > 0
+        ? `${finalCount} participants (${realCount} real user${realCount > 1 ? 's' : ''} joined!)`
+        : `${finalCount} participants — no real users joined`,
+    });
+    idx++;
 
     // ── Start tournament ────────────────────────────────────────────────────
     patchStep(idx, { state: 'running' });
@@ -403,9 +441,10 @@ export function TournamentSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Walks through the full tournament lifecycle end-to-end — draft thread, registration embed,
-            bracket generation, match cards, result cards, and champion announcement — pausing
-            {' '}{PAUSE_SECONDS}s between Discord-triggering stages so you can observe each post.
+            Walks through the full tournament lifecycle end-to-end using an <strong>open-roster</strong> tournament.
+            Registers 8 fake participants, then opens a {REGISTRATION_WINDOW_SECONDS}-second window so real users
+            can join from the Discord announcement before the bracket locks. The bracket sizes automatically
+            from whoever registered. Pauses {PAUSE_SECONDS}s between Discord-triggering stages so you can observe each post.
           </p>
           <Button size="sm" variant="outline" onClick={runTest} disabled={testRunning}>
             {testRunning
@@ -443,8 +482,24 @@ export function TournamentSettingsPage() {
                 </div>
               ))}
 
-              {/* Countdown shown between Discord-triggering stages */}
-              {testCountdown !== null && (
+              {/* Registration window — prominent banner for real-user join phase */}
+              {isRegistrationWindow && testCountdown !== null && (
+                <div className="mt-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-4 py-3 space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-blue-400">
+                    <UserPlus className="h-4 w-4 shrink-0" />
+                    Registration is live in Discord
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Open the bot's tournament announcement and hit <strong>Register</strong> to add yourself before the bracket locks.
+                  </p>
+                  <p className="text-xs font-mono font-medium text-blue-300">
+                    Closing in {Math.floor(testCountdown / 60)}:{String(testCountdown % 60).padStart(2, '0')}
+                  </p>
+                </div>
+              )}
+
+              {/* Standard Discord-observation countdown between other stages */}
+              {!isRegistrationWindow && testCountdown !== null && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5 pl-6">
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
                   <span>Watching Discord… next stage in {testCountdown}s</span>
