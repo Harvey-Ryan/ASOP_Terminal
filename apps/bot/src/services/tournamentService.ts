@@ -587,7 +587,7 @@ export async function updateRegistrationEmbed(tournamentId: string): Promise<voi
   const msg = await thread.messages.fetch(tournament.registrationMessageId).catch(() => null);
   if (!msg) return;
 
-  const isFull = tournament.participants.length >= tournament.size;
+  const isFull = tournament.openRoster ? false : tournament.participants.length >= tournament.size;
   const embed = buildRegistrationEmbed(tournament, tournament.participants);
   const joinRow = buildJoinRow(tournamentId, tournament.guildId, isFull);
 
