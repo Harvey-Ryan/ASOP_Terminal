@@ -4,13 +4,14 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
-import { generateSingleElimBracket, nextPow2 } from '../../lib/bracketGenerator.js';
+import { generateSingleElimBracket, nextPow2, countByeRounds, nextSatisfactoryCount, prevPow2 } from '../../lib/bracketGenerator.js';
 import { calcElo } from '../../lib/eloCalculator.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const tournamentRouter = Router();
 
-// Any bracket size 4–64 is valid; the generator pads to the next power-of-2 with BYEs.
+// Any bracket size 2–64 is valid; the generator uses a rolling-BYE structure (at most
+// 1 BYE per round).  A roster is rejected at start time if countByeRounds(N) > 2.
 const VALID_SIZE_MIN = 4;
 const VALID_SIZE_MAX = 64;
 const VALID_FORMATS = ['SINGLE_ELIM'] as const; // DOUBLE_ELIM added in Phase 2
@@ -291,6 +292,19 @@ tournamentRouter.post('/:guildId/tournaments/:id/demo/bracket', requireAuth, asy
     if (!tournament) return notFound(res);
     if (tournament.status !== 'DRAFT') return badRequest(res, `Expected DRAFT, got ${tournament.status}`);
     if (tournament.participants.length < 2) return badRequest(res, `Need at least 2 participants, have ${tournament.participants.length}`);
+
+    // BYE-round pre-flight: reject if the roster would spread BYEs across more than 2 rounds.
+    const demoByes = countByeRounds(tournament.participants.length);
+    if (demoByes > 2) {
+      const demoMin = nextSatisfactoryCount(tournament.participants.length);
+      const demoPrev = prevPow2(tournament.participants.length);
+      return badRequest(
+        res,
+        `${tournament.participants.length} participants would spread BYEs across ${demoByes} rounds. ` +
+        `Add at least ${demoMin - tournament.participants.length} more (minimum ${demoMin}), ` +
+        `or reduce to ${demoPrev} for a clean bracket.`,
+      );
+    }
 
     const seededParticipants = tournament.participants.map((p) => ({ id: p.id, seed: p.seed ?? 999 }));
     const slots = generateSingleElimBracket(id, seededParticipants);
@@ -902,6 +916,25 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
     if (tournament.status !== 'REGISTRATION') return badRequest(res, 'Tournament must be in REGISTRATION to start');
     if (tournament.participants.length < 2) return badRequest(res, 'Need at least 2 participants to start');
 
+    // BYE-round pre-flight: each odd-sized round contributes 1 BYE.  More than
+    // 2 BYE rounds creates an unfair advantage for the participant who cascades
+    // through multiple free passes.  The admin must either add more players or
+    // remove some to reach a satisfactory roster size.
+    {
+      const N = tournament.participants.length;
+      const byeRounds = countByeRounds(N);
+      if (byeRounds > 2) {
+        const minCount = nextSatisfactoryCount(N);
+        const cleanCount = prevPow2(N);
+        return badRequest(
+          res,
+          `${N} participants would spread BYEs across ${byeRounds} rounds. ` +
+          `Add at least ${minCount - N} more participant(s) (minimum ${minCount}), ` +
+          `or reduce to ${cleanCount} for a clean no-BYE bracket.`,
+        );
+      }
+    }
+
     // ── Auto-seeding ──────────────────────────────────────────────────────────
     let participants = [...tournament.participants];
 
@@ -1013,10 +1046,12 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
         data: {
           status: 'IN_PROGRESS',
           startedAt: new Date(),
-          // Open-roster: stamp the real bracket size now that participants are locked.
-          // For closed-roster this is a no-op (size was already set at create time).
+          // Open-roster: stamp the actual participant count now that the roster is
+          // locked.  For closed-roster this is a no-op (size was already set at
+          // create time).  We store the real count, not the padded power-of-2,
+          // since the rolling-BYE bracket no longer pads.
           ...(tournament.openRoster
-            ? { size: nextPow2(participants.length) }
+            ? { size: participants.length }
             : {}),
         },
       });
@@ -1125,17 +1160,35 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
       const isThirdPlace = match.bracketSide === 'THIRD_PLACE';
       const isGrandFinal = !match.nextMatchId && match.bracketSide === 'WINNERS';
 
-      // Advance winner to next match
+      // Advance winner to next match, following any chain of structural BYE slots.
+      // A structural BYE in round r+1 (status='BYE', participantBId always null)
+      // is filled when its single feeder match resolves; once filled it must
+      // immediately cascade the participant forward to round r+2, and so on.
       if (match.nextMatchId) {
-        const nextMatch = await tx.tournamentMatch.findUnique({
-          where: { id: match.nextMatchId },
-        });
-        if (nextMatch) {
-          const field = nextMatch.participantAId ? 'participantBId' : 'participantAId';
-          await tx.tournamentMatch.update({
-            where: { id: match.nextMatchId },
-            data: { [field]: winnerId },
+        let chainMatchId: string = match.nextMatchId;
+        let chainWinnerId: string = winnerId;
+
+        while (true) {
+          const chainMatch = await tx.tournamentMatch.findUnique({
+            where: { id: chainMatchId },
+            select: { participantAId: true, status: true, nextMatchId: true },
           });
+          if (!chainMatch) break;
+
+          const field = chainMatch.participantAId ? 'participantBId' : 'participantAId';
+          await tx.tournamentMatch.update({
+            where: { id: chainMatchId },
+            data: { [field]: chainWinnerId },
+          });
+
+          // If this slot is a structural BYE, the placed participant auto-advances
+          // to the next match in the chain without waiting for an opponent.
+          if (chainMatch.status === 'BYE' && chainMatch.nextMatchId) {
+            chainMatchId = chainMatch.nextMatchId;
+            // chainWinnerId stays the same — the same participant keeps advancing
+          } else {
+            break;
+          }
         }
       }
 
