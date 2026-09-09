@@ -13,7 +13,7 @@ import { buildBracketSvg, svgToPng } from '../lib/bracketSvg.js';
 import { buildMatchCardPng, buildResultCardPng } from '../lib/matchCardSvg.js';
 import type { BracketMatchInfo, BracketParticipantInfo } from '../lib/bracketSvg.js';
 import type { MatchCardParticipant } from '../lib/matchCardSvg.js';
-import { getRoundLabel } from '@dem/shared';
+import { getRoundLabel, countByeRounds, nextSatisfactoryCount, prevPow2 } from '@dem/shared';
 
 // ── Tournament start (called after bracket is generated) ──────────────────────
 
@@ -412,11 +412,33 @@ function buildRegistrationEmbed(
     ? `Participants (${filled} registered · Open)`
     : `Participants (${filled} / ${t.size})`;
 
-  return new EmbedBuilder()
+  // BYE-round warning: check if the current count would require too many BYE
+  // rounds to start.  Only meaningful once there are at least 2 signups.
+  const byeRounds = filled >= 2 ? countByeRounds(filled) : 0;
+  const needsMore = byeRounds > 2;
+  const needed = needsMore ? nextSatisfactoryCount(filled) - filled : 0;
+  const cleanSize = needsMore ? prevPow2(filled) : 0;
+
+  // Color: red = full, amber = too-many-BYEs warning, green = good to go
+  const color = isFull ? 0xed4245 : needsMore ? 0xfea832 : 0x57f287;
+
+  const embed = new EmbedBuilder()
     .setTitle(`📋 ${t.name} — Registration ${isFull ? 'Full' : 'Open'}`)
     .setDescription(buildTournamentDescription(t))
-    .setColor(isFull ? 0xed4245 : 0x57f287)
+    .setColor(color)
     .addFields({ name: participantsLabel, value: rosterValue });
+
+  if (needsMore) {
+    const s = needed === 1 ? '' : 's';
+    embed.setFooter({
+      text:
+        `⚠️ Need ${needed} more signup${s} to start ` +
+        `(${filled + needed} minimum — ${byeRounds} BYE rounds at current count). ` +
+        `Alternatively reduce to ${cleanSize} for a clean bracket.`,
+    });
+  }
+
+  return embed;
 }
 
 function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {

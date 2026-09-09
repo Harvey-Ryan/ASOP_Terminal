@@ -1001,6 +1001,42 @@ export interface AddAllianceMemberBody {
 }
 
 
+// ── Tournament BYE-round helpers ──────────────────────────────────────────────
+
+/**
+ * Counts how many rounds in a single-elimination bracket of size N would
+ * contain a structural BYE (at most 1 per round, awarded to the last
+ * position when the participant count is odd).
+ *
+ * Examples: 8→0, 9→3, 10→2, 11→2, 12→1, 16→0.
+ */
+export function countByeRounds(n: number): number {
+  let count = 0;
+  while (n > 2) {
+    if (n % 2 !== 0) count++;
+    n = Math.ceil(n / 2);
+  }
+  return count;
+}
+
+/**
+ * Returns the smallest M ≥ n whose countByeRounds(M) ≤ 2.
+ * If n itself is already satisfactory, returns n unchanged.
+ */
+export function nextSatisfactoryCount(n: number): number {
+  let m = n;
+  while (countByeRounds(m) > 2) m++;
+  return m;
+}
+
+/** Returns the largest power of 2 ≤ n. */
+export function prevPow2(n: number): number {
+  if (n <= 1) return 1;
+  let p = 1;
+  while (p * 2 <= n) p <<= 1;
+  return p;
+}
+
 // ── Tournament bracket labeling ───────────────────────────────────────────────
 
 /**
