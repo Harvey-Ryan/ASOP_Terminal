@@ -14,7 +14,7 @@ import { lootApi } from '@/api/loot';
 import { auctionsApi } from '@/api/auctions';
 import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
-import type { AllianceDto, EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
+import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { RecentLootEvent } from '@/api/loot';
@@ -88,7 +88,6 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   const [vcNames, setVcNames] = useState<string[]>(event.vcNames ?? []);
   const [briefingChannel, setBriefingChannel] = useState(event.briefingChannel ?? false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(event.imageUrl ?? null);
-  const [selectedAllianceId, setSelectedAllianceId] = useState<string>(event.allianceId ?? '');
   const [formError, setFormError] = useState<string | null>(null);
   const [draggingUserId, setDraggingUserId] = useState<string | null>(null);
   const [dragOverBucket, setDragOverBucket] = useState<string | null>(null);
@@ -103,11 +102,6 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   const { data: imageLibrary = [] } = useQuery({
     queryKey: ['images', guildId],
     queryFn: () => imagesApi.list(guildId),
-  });
-
-  const { data: alliances = [] } = useQuery({
-    queryKey: ['alliances', guildId],
-    queryFn: () => allianceApi.list(guildId ?? undefined),
   });
 
   const uploadMutation = useMutation({
@@ -176,7 +170,6 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       vcNames: vcNames.filter(Boolean),
       briefingChannel,
       imageUrl: selectedImageUrl ?? undefined,
-      allianceId: selectedAllianceId || null,
     });
   }
 
@@ -247,18 +240,10 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
         <span className={labelCls}>Roles</span>
         <div className="flex-1 space-y-2">
           {(() => {
-            const selectedAlliance = alliances.find((a) => a.id === selectedAllianceId);
-            const allianceOptions: { guildId: string; label: string }[] = selectedAlliance
-              ? selectedAlliance.members
-                  .filter((m) => m.status === 'ACCEPTED')
-                  .map((m) => ({ guildId: m.guildId, label: m.guildId === guildId ? `${m.name} (You)` : m.name }))
-              : [];
             const shareOptions: { guildId: string; label: string }[] = (ev.shares ?? [])
               .filter((s) => s.status === 'ACCEPTED')
               .map((s) => ({ guildId: s.guildDiscordId, label: s.guildName }));
-            const seenIds = new Set(allianceOptions.map((o) => o.guildId));
-            const merged = [...allianceOptions, ...shareOptions.filter((o) => !seenIds.has(o.guildId))];
-            const guildOptions = merged.length > 0 ? merged : undefined;
+            const guildOptions = shareOptions.length > 0 ? shareOptions : undefined;
             return roles.map((role, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <input
@@ -342,33 +327,6 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
               <span className="block text-[11px] text-primary-foreground/50">PTT-only VC created alongside regular channels</span>
             </span>
           </label>
-        </div>
-      </div>
-
-      <div className={rowCls}>
-        <span className={labelCls}>Alliance Share</span>
-        <div className="flex-1 space-y-2">
-          <select className={inputCls} value={selectedAllianceId} onChange={(e) => setSelectedAllianceId(e.target.value)}>
-            <option value="">None</option>
-            {alliances.map((a) => {
-              const acceptedCount = a.members.filter((m) => m.status === 'ACCEPTED').length;
-              return <option key={a.id} value={a.id}>{a.name} ({acceptedCount} guild{acceptedCount !== 1 ? 's' : ''})</option>;
-            })}
-          </select>
-          {selectedAllianceId && (() => {
-            const alliance = alliances.find((a) => a.id === selectedAllianceId);
-            const accepted = alliance?.members.filter((m) => m.status === 'ACCEPTED') ?? [];
-            if (accepted.length === 0) return null;
-            return (
-              <div className="flex flex-wrap gap-1.5">
-                {accepted.map((m) => (
-                  <span key={m.id} className="inline-flex items-center gap-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
-                    {m.name}
-                  </span>
-                ))}
-              </div>
-            );
-          })()}
         </div>
       </div>
 
@@ -551,13 +509,6 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     enabled: isManager,
   });
 
-  const { data: alliances = [] } = useQuery({
-    queryKey: ['alliances', guildId],
-    queryFn: () => allianceApi.list(guildId ?? undefined),
-    staleTime: 5 * 60_000,
-    enabled: isManager,
-  });
-
   function invalidateShares() {
     queryClient.invalidateQueries({ queryKey: ['events', guildId, event.id] });
     queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
@@ -569,10 +520,6 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     onSuccess: () => { invalidateShares(); setSharePickerOpen(false); setSelectedGuildId(''); },
   });
 
-  const inviteAllianceMutation = useMutation({
-    mutationFn: (allianceId: string) => eventsApi.inviteAlliance(guildId, event.id, allianceId),
-    onSuccess: invalidateShares,
-  });
 
   const cancelShareMutation = useMutation({
     mutationFn: (shareId: string) => eventsApi.cancelShare(guildId, event.id, shareId),
@@ -592,7 +539,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const endTimeStr = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null;
   const canEnd = ev.status !== 'ENDED' && ev.status !== 'COMPLETED';
   const canRsvp = ev.status === 'PENDING' || ev.status === 'ACTIVE';
-  // Alliance events are read-only for non-host guilds; only the host guild can manage.
+  // Shared events are read-only for non-host guilds; only the host guild can manage.
   const isHostGuild = ev.guildId === guildId;
   const canManage = isManager && isHostGuild;
   const userRsvp = userId ? ev.rsvps.find((r) => r.userId === userId) : undefined;
@@ -634,7 +581,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             </span>
           )}
           {!isHostGuild && (
-            <span className="rounded-full px-2 py-0.5 text-sm font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400">Alliance</span>
+            <span className="rounded-full px-2 py-0.5 text-sm font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400">Shared</span>
           )}
           {ev.recurType && (
             <span className="text-base opacity-60">{RECUR_LABELS[ev.recurType] ?? ev.recurType}</span>
@@ -876,7 +823,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                     {s.status}
                   </span>
                   <span className="text-[11px] opacity-50 uppercase tracking-wide">
-                    {s.sourceType === 'ALLIANCE' ? 'via Alliance' : 'Direct'}
+                    Direct
                   </span>
                   {ev.status !== 'COMPLETED' && (
                     <div className="flex gap-1 ml-auto">
@@ -947,20 +894,6 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                     + Invite Guild
                   </button>
                 )}
-                {alliances.length > 0 && alliances.map((a) => {
-                  const alreadyInvited = ev.shares.some((s) => s.allianceId === a.id);
-                  return (
-                    <button
-                      key={a.id}
-                      disabled={alreadyInvited || inviteAllianceMutation.isPending}
-                      onClick={() => inviteAllianceMutation.mutate(a.id)}
-                      className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors disabled:opacity-40"
-                      title={alreadyInvited ? 'Alliance already invited' : `Invite all of ${a.name}`}
-                    >
-                      {alreadyInvited ? `✓ ${a.name}` : `+ ${a.name}`}
-                    </button>
-                  );
-                })}
               </div>
             )}
           </div>
@@ -1079,7 +1012,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
 
 // ── Event row (Fleet Manager style) ──────────────────────────────────────────
 
-function EventCard({ event, userId, alliances, onClick }: { event: EventDto; guildId: string; userId?: string; alliances: import('@dem/shared').AllianceDto[]; onClick: () => void }) {
+function EventCard({ event, userId, onClick }: { event: EventDto; guildId: string; userId?: string; onClick: () => void }) {
   const start = new Date(event.startTime);
   const month = start.toLocaleDateString('en', { month: 'short' });
   const day = start.getDate();
@@ -1089,10 +1022,6 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
   const userRoleName = userRsvp?.role
     ? (event.roles.find((r) => (r.id ?? r.name) === userRsvp.role)?.name ?? userRsvp.role)
     : null;
-  const allianceForEvent = event.allianceId ? alliances.find((a) => a.id === event.allianceId) : null;
-  const orgTags = allianceForEvent
-    ? allianceForEvent.members.filter((m) => m.status === 'ACCEPTED' && m.allianceTag).map((m) => m.allianceTag as string)
-    : [];
 
   return (
     <button
@@ -1119,13 +1048,6 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
       {/* Event */}
       <div className="flex-1 px-4 py-3 min-w-0">
         <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
-        {orgTags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-0.5">
-            {orgTags.map((tag) => (
-              <span key={tag} className="font-mono text-sm font-bold text-sky-400 shrink-0">[{tag}]</span>
-            ))}
-          </div>
-        )}
         {/* Time + status visible only on mobile */}
         <div className="sm:hidden flex items-center gap-3 mt-0.5 opacity-80">
           <span className="text-[15px] font-medium">{time}</span>
@@ -1171,13 +1093,11 @@ function EventCard({ event, userId, alliances, onClick }: { event: EventDto; gui
 function PendingShareCard({
   event,
   guildId,
-  alliances,
   allGuilds,
   onRespond,
 }: {
   event: EventDto;
   guildId: string;
-  alliances: AllianceDto[];
   allGuilds: { id: string; guildId: string; name: string }[];
   onRespond: () => void;
 }) {
@@ -1188,10 +1108,7 @@ function PendingShareCard({
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   const hostGuild = allGuilds.find((g) => g.guildId === event.guildId);
-  const myShare = event.shares.find((s) => s.status === 'PENDING');
-  const sourceLabel = myShare?.sourceType === 'ALLIANCE'
-    ? `via ${alliances.find((a) => a.id === myShare.allianceId)?.name ?? 'Alliance'}`
-    : 'Direct Invite';
+  const sourceLabel = 'Direct Invite';
 
   const acceptMutation = useMutation({
     mutationFn: () => eventsApi.respondToShare(guildId, event.id, 'accept'),
@@ -1400,13 +1317,6 @@ export function ServerPage() {
   const pendingShareCount = pendingSharesQuery.data?.length ?? 0;
 
   const active = tab === 'upcoming' ? upcomingQuery : tab === 'completed' ? completedQuery : pendingSharesQuery;
-
-  const { data: alliances = [] } = useQuery({
-    queryKey: ['alliances', guildId],
-    queryFn: () => allianceApi.list(guildId ?? undefined),
-    staleTime: 5 * 60_000,
-    enabled: !!guildId,
-  });
 
   const { data: allGuilds = [] } = useQuery({
     queryKey: ['alliances', 'guilds'],
@@ -1629,13 +1539,12 @@ export function ServerPage() {
                           key={e.id}
                           event={e}
                           guildId={guildId!}
-                          alliances={alliances}
                           allGuilds={allGuilds}
                           onRespond={() => {}}
                         />
                       ))
                     : active.data.map((e) => (
-                        <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} alliances={alliances} onClick={() => openDetail(e)} />
+                        <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} onClick={() => openDetail(e)} />
                       ))
                   }
                 </div>

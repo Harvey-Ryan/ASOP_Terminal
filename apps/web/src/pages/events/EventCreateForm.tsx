@@ -4,7 +4,7 @@ import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown, BarChart2, Ne
 import { Button } from '@/components/ui/button';
 import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
-import { allianceApi } from '@/api/alliance';
+import { allianceApi } from '@/api/alliance'; // listGuilds() used for direct invite guild picker
 import type { CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
@@ -186,8 +186,6 @@ export function EventCreateForm({
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [pollMultiselect, setPollMultiselect] = useState(false);
   const [pollDuration, setPollDuration] = useState(24);
-  const [allianceEnabled, setAllianceEnabled] = useState(false);
-  const [selectedAllianceId, setSelectedAllianceId] = useState('');
   const [directInviteEnabled, setDirectInviteEnabled] = useState(false);
   const [directGuildIds, setDirectGuildIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -199,11 +197,6 @@ export function EventCreateForm({
   const { data: imageLibrary = [] } = useQuery({
     queryKey: ['images', guildId],
     queryFn: () => imagesApi.list(guildId),
-  });
-
-  const { data: alliances = [] } = useQuery({
-    queryKey: ['alliances', guildId],
-    queryFn: () => allianceApi.list(guildId),
   });
 
   const { data: allGuilds = [] } = useQuery({
@@ -288,14 +281,13 @@ export function EventCreateForm({
       recurType: (recurType as 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') || undefined,
       roles: validRoles.map((r) => ({
         ...r,
-        guildId: (allianceEnabled || directInviteEnabled) ? (r.guildId ?? null) : null,
+        guildId: directInviteEnabled ? (r.guildId ?? null) : null,
       })),
       vcNames: vcNames.filter(Boolean),
       briefingChannel,
       imageUrl: selectedImageUrl ?? undefined,
       repeatFromTemplateId: fromTemplateId,
       poll,
-      allianceId: allianceEnabled && selectedAllianceId ? selectedAllianceId : undefined,
       directGuildIds: directInviteEnabled && directGuildIds.length > 0 ? directGuildIds : undefined,
     });
   }
@@ -324,23 +316,6 @@ export function EventCreateForm({
           </Button>
           <Button type="button" variant="outline" size="sm"
             className={`gap-1.5 bg-primary border-2 transition-colors ${
-              allianceEnabled
-                ? 'border-primary-foreground text-primary-foreground'
-                : 'border-primary-foreground/30 text-primary-foreground/50 hover:border-primary-foreground hover:text-primary-foreground'
-            }`}
-            onClick={() => {
-              const next = !allianceEnabled;
-              setAllianceEnabled(next);
-              if (!next) {
-                setSelectedAllianceId('');
-                setRoles((prev) => prev.map((r) => ({ ...r, guildId: null })));
-              }
-            }}>
-            <Network className="h-3.5 w-3.5" />
-            Alliance Share
-          </Button>
-          <Button type="button" variant="outline" size="sm"
-            className={`gap-1.5 bg-primary border-2 transition-colors ${
               directInviteEnabled
                 ? 'border-primary-foreground text-primary-foreground'
                 : 'border-primary-foreground/30 text-primary-foreground/50 hover:border-primary-foreground hover:text-primary-foreground'
@@ -357,52 +332,6 @@ export function EventCreateForm({
             <span className="text-xs text-primary-foreground/60">
               Repeating: <span className="font-semibold">{repeatSource.name}</span>
             </span>
-          )}
-        </div>
-      )}
-
-      {/* Alliance picker — shown immediately below toolbar on toggle */}
-      {allianceEnabled && (
-        <div className="bg-primary px-5 py-3 border-b border-background/40">
-          {alliances.length === 0 ? (
-            <p className="text-sm text-primary-foreground/60 italic">
-              No alliances configured. Create one under Admin → Module Settings → Alliance.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <select
-                className={inputCls}
-                value={selectedAllianceId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  setSelectedAllianceId(e.target.value);
-                  if (!e.target.value) setRoles((prev) => prev.map((r) => ({ ...r, guildId: null })));
-                }}
-              >
-                <option value="">Select an alliance…</option>
-                {alliances.map((a) => {
-                  const acceptedCount = a.members.filter((m) => m.status === 'ACCEPTED').length;
-                  return (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({acceptedCount} guild{acceptedCount !== 1 ? 's' : ''})
-                    </option>
-                  );
-                })}
-              </select>
-              {selectedAllianceId && (() => {
-                const alliance = alliances.find((a) => a.id === selectedAllianceId);
-                const accepted = alliance?.members.filter((m) => m.status === 'ACCEPTED') ?? [];
-                if (accepted.length === 0) return null;
-                return (
-                  <div className="flex flex-wrap gap-1.5">
-                    {accepted.map((m) => (
-                      <span key={m.id} className="inline-flex items-center gap-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
-                        {m.name}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
           )}
         </div>
       )}
@@ -538,20 +467,12 @@ export function EventCreateForm({
         <span className={labelCls}>Roles *</span>
         <div className="flex-1 space-y-2">
           {(() => {
-            const selectedAlliance = alliances.find((a) => a.id === selectedAllianceId);
-            const allianceOptions: { guildId: string; label: string }[] = (allianceEnabled && selectedAlliance)
-              ? selectedAlliance.members
-                  .filter((m) => m.status === 'ACCEPTED')
-                  .map((m) => ({ guildId: m.guildId, label: m.guildId === guildId ? `${m.name} (You)` : m.name }))
-              : [];
             const directOptions: { guildId: string; label: string }[] = (directInviteEnabled && directGuildIds.length > 0)
               ? allGuilds
                   .filter((g) => g.guildId === guildId || directGuildIds.includes(g.guildId))
                   .map((g) => ({ guildId: g.guildId, label: g.guildId === guildId ? `${g.name} (You)` : g.name }))
               : [];
-            const seenIds = new Set(allianceOptions.map((o) => o.guildId));
-            const merged = [...allianceOptions, ...directOptions.filter((o) => !seenIds.has(o.guildId))];
-            const guildOptions = merged.length > 0 ? merged : undefined;
+            const guildOptions = directOptions.length > 0 ? directOptions : undefined;
             return roles.map((role, i) => (
               <RoleRow key={i} role={role}
                 inputRef={(el) => { roleInputRefs.current[i] = el; }}

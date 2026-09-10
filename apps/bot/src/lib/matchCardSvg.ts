@@ -81,7 +81,8 @@ export interface MatchCardParticipant {
   avatarHash: string | null;
   displayName: string;
   seed: number | null;
-  rating: number;
+  /** null = ELO is hidden for this tournament; omits the rating stat from the card */
+  rating: number | null;
   matchesPlayed: number;
 }
 
@@ -154,13 +155,18 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
   lines.push(svgT(BX, AY_NAME, truncate(nameB, 10), COLOR_TEXT, 22, 'bold', 'middle'));
 
   // ── Seed + rating ─────────────────────────────────────────────────────────
+  // rating is null when ELO is hidden for the tournament — omit the ELO token entirely.
   const statA = [
     participantA?.seed != null ? `SEED #${participantA.seed}` : null,
-    formatRating(participantA?.rating ?? 1200, participantA?.matchesPlayed ?? 0) + ' ELO',
+    participantA?.rating != null
+      ? formatRating(participantA.rating, participantA.matchesPlayed ?? 0) + ' ELO'
+      : null,
   ].filter(Boolean).join('  ·  ');
   const statB = [
     participantB?.seed != null ? `SEED #${participantB.seed}` : null,
-    formatRating(participantB?.rating ?? 1200, participantB?.matchesPlayed ?? 0) + ' ELO',
+    participantB?.rating != null
+      ? formatRating(participantB.rating, participantB.matchesPlayed ?? 0) + ' ELO'
+      : null,
   ].filter(Boolean).join('  ·  ');
   lines.push(svgT(AX, AY_STATS, statA, COLOR_DIM, 10, 'normal', 'middle'));
   lines.push(svgT(BX, AY_STATS, statB, COLOR_DIM, 10, 'normal', 'middle'));

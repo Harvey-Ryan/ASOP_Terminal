@@ -126,28 +126,27 @@ async function handleList(interaction: ChatInputCommandInteraction) {
 
   const guildId = interaction.guildId!;
 
-  // Include events shared via accepted alliance memberships
-  const memberships = await prisma.allianceMember.findMany({
+  // Include events directly shared with this guild and accepted
+  const acceptedShares = await prisma.eventGuildShare.findMany({
     where: { guild: { guildId }, status: 'ACCEPTED' },
-    select: { allianceId: true },
+    select: { eventId: true },
   });
-  const allianceIds = memberships.map((m) => m.allianceId);
-
-  const guildFilter = allianceIds.length > 0
-    ? { OR: [{ guildId }, { allianceId: { in: allianceIds } }] }
-    : { guildId };
+  const sharedEventIds = acceptedShares.map((s) => s.eventId);
 
   const events = await prisma.event.findMany({
     where: {
-      ...guildFilter,
       status: { not: 'COMPLETED' },
       startTime: { gte: new Date() },
+      OR: [
+        { guildId },
+        ...(sharedEventIds.length > 0 ? [{ id: { in: sharedEventIds } }] : []),
+      ],
     },
     orderBy: { startTime: 'asc' },
     take: 15,
     include: {
       rsvps: true,
-      // Pull only this guild's alliance entry so we can link its local thread
+      // Pull this guild's per-guild Discord entry so we can link its local thread for shared events
       allianceGuilds: { where: { discordGuildId: guildId } },
     },
   });
@@ -164,13 +163,13 @@ async function handleList(interaction: ChatInputCommandInteraction) {
       events.map((e) => {
         const roles = JSON.parse(e.roles) as EventRole[];
         const ts = Math.floor(e.startTime.getTime() / 1000);
-        const isAlliance = e.guildId !== guildId;
-        // For alliance events link to this guild's copy of the thread; otherwise host thread
-        const localThreadId = isAlliance ? (e.allianceGuilds[0]?.threadId ?? null) : e.threadId;
+        const isShared = e.guildId !== guildId;
+        // For shared events link to this guild's copy of the thread; otherwise use the host thread
+        const localThreadId = isShared ? (e.allianceGuilds[0]?.threadId ?? null) : e.threadId;
         const thread = localThreadId ? ` • <#${localThreadId}>` : '';
         const roleList = roles.length > 0 ? ` • ${roles.map((r) => `${r.name}×${r.count}`).join(', ')}` : '';
         return {
-          name: isAlliance ? `${e.name} *(Alliance)*` : e.name,
+          name: e.name,
           value: `<t:${ts}:F> • 👥 ${e.rsvps.length}${roleList}${thread}`,
           inline: false,
         };

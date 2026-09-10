@@ -150,9 +150,10 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
     ? Math.max(...winnersMatches.map((m) => m.round))
     : match.round;
   const roundLabel = getRoundLabel(match.round, maxRound, match.bracketSide, match.position);
+  const hideElo = await fetchHideElo(match.tournament.guildId);
 
-  const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId);
-  const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId);
+  const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId, hideElo);
+  const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId, hideElo);
 
   const cardBuffer = await buildMatchCardPng({
     tournamentName: match.tournament.name,
@@ -223,11 +224,12 @@ export async function postMatchResult(matchId: string): Promise<void> {
   const winnerHistory = historyRows.find((h) => h.won);
   const loserHistory = historyRows.find((h) => !h.won);
 
+  const hideEloResult = await fetchHideElo(match.tournament.guildId);
   const winnerCard = winner
-    ? await resolveMatchCardParticipant(winner, match.tournament.guildId)
+    ? await resolveMatchCardParticipant(winner, match.tournament.guildId, hideEloResult)
     : null;
   const loserCard = loser
-    ? await resolveMatchCardParticipant(loser, match.tournament.guildId)
+    ? await resolveMatchCardParticipant(loser, match.tournament.guildId, hideEloResult)
     : null;
 
   if (winnerCard && winner) {
@@ -253,8 +255,8 @@ export async function postMatchResult(matchId: string): Promise<void> {
       loser: loserCard,
       scoreA: isForfeit ? null : match.scoreA,
       scoreB: isForfeit ? null : match.scoreB,
-      eloChangeWinner: isForfeit ? null : (winnerHistory?.delta ?? 0),
-      eloChangeLoser: isForfeit ? null : (loserHistory?.delta ?? 0),
+      eloChangeWinner: isForfeit || hideEloResult ? null : (winnerHistory?.delta ?? 0),
+      eloChangeLoser: isForfeit || hideEloResult ? null : (loserHistory?.delta ?? 0),
       forfeit: isForfeit,
     });
 
@@ -262,8 +264,8 @@ export async function postMatchResult(matchId: string): Promise<void> {
     const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
 
     const descLines: string[] = [isForfeit ? `**${winner.displayName}** wins by forfeit!` : `**${winner.displayName}** wins!`];
-    if (!isForfeit && winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
-    if (!isForfeit && loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
+    if (!isForfeit && !hideEloResult && winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
+    if (!isForfeit && !hideEloResult && loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
     if (!isForfeit && winnerScore != null) descLines.push(`Score: ${winnerScore} – ${loserScore}`);
 
     const resultTitle = match.bracketSide === 'THIRD_PLACE'
@@ -640,8 +642,9 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
   const scheduledRoundLabel = getRoundLabel(match.round, scheduledMaxRound, match.bracketSide, match.position);
 
   // Re-generate the match card PNG with the new scheduledAt displayed
-  const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId);
-  const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId);
+  const hideEloSched = await fetchHideElo(match.tournament.guildId);
+  const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId, hideEloSched);
+  const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId, hideEloSched);
   const cardBuffer = await buildMatchCardPng({
     tournamentName: match.tournament.name,
     round: match.round,
@@ -748,9 +751,10 @@ export async function postTournamentComplete(tournamentId: string): Promise<void
     playerMap.set(key, existing);
   }
 
+  const hideEloComplete = await fetchHideElo(tournament.guildId);
   const embeds = [championEmbed];
 
-  if (playerMap.size > 0) {
+  if (!hideEloComplete && playerMap.size > 0) {
     const entries = Array.from(playerMap.values()).sort((a, b) => b.delta - a.delta);
     const lines = entries.map((e) => {
       const sign = e.delta >= 0 ? `+${e.delta}` : `${e.delta}`;
@@ -921,6 +925,8 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
     return;
   }
 
+  const hideEloH2h = guildRecord?.settings?.tournamentHideElo ?? false;
+
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel?.isTextBased() || !('send' in channel)) return;
 
@@ -938,7 +944,7 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
     avatarHash: winAvatar?.avatar ?? null,
     displayName: winnerHist.rating.displayName,
     seed: null,
-    rating: winnerHist.ratingBefore,
+    rating: hideEloH2h ? null : winnerHist.ratingBefore,
     matchesPlayed: winnerHist.ratingBefore > 0 ? 1 : 0, // approximate — only affects K display
   };
   const loserCard: MatchCardParticipant = {
@@ -946,7 +952,7 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
     avatarHash: loseAvatar?.avatar ?? null,
     displayName: loserHist.rating.displayName,
     seed: null,
-    rating: loserHist.ratingBefore,
+    rating: hideEloH2h ? null : loserHist.ratingBefore,
     matchesPlayed: loserHist.ratingBefore > 0 ? 1 : 0,
   };
 
@@ -959,19 +965,24 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
     loser: loserCard,
     scoreA: null,
     scoreB: null,
-    eloChangeWinner: winnerHist.delta,
-    eloChangeLoser:  loserHist.delta,
+    eloChangeWinner: hideEloH2h ? null : winnerHist.delta,
+    eloChangeLoser:  hideEloH2h ? null : loserHist.delta,
   });
 
   const attachment = new AttachmentBuilder(resultBuffer, { name: 'h2h-result.png' });
   const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
+  const descLines = [
+    `**${winnerHist.rating.displayName}** defeats **${loserHist.rating.displayName}**`,
+  ];
+  if (!hideEloH2h) {
+    descLines.push(
+      `${winnerHist.rating.displayName}: ${deltaStr(winnerHist.delta)} ELO`,
+      `${loserHist.rating.displayName}: ${deltaStr(loserHist.delta)} ELO`,
+    );
+  }
   const embed = new EmbedBuilder()
     .setTitle('⚔️ Head to Head Result')
-    .setDescription(
-      `**${winnerHist.rating.displayName}** defeats **${loserHist.rating.displayName}**\n` +
-      `${winnerHist.rating.displayName}: ${deltaStr(winnerHist.delta)} ELO\n` +
-      `${loserHist.rating.displayName}: ${deltaStr(loserHist.delta)} ELO`,
-    )
+    .setDescription(descLines.join('\n'))
     .setImage('attachment://h2h-result.png')
     .setColor(0x5865f2);
 
@@ -991,6 +1002,7 @@ function buildBracketPng(
 async function resolveMatchCardParticipant(
   participant: { id: string; discordId: string | null; displayName: string; seed: number | null },
   guildId: string,
+  hideElo = false,
 ): Promise<MatchCardParticipant> {
   let avatarHash: string | null = null;
 
@@ -999,7 +1011,7 @@ async function resolveMatchCardParticipant(
     avatarHash = discordUser?.avatar ?? null;
   }
 
-  const rating = participant.discordId
+  const ratingRow = !hideElo && participant.discordId
     ? await prisma.tournamentPlayerRating.findUnique({
         where: { guildId_discordId: { guildId, discordId: participant.discordId! } },
         select: { rating: true, matchesPlayed: true },
@@ -1011,9 +1023,17 @@ async function resolveMatchCardParticipant(
     avatarHash,
     displayName: participant.displayName,
     seed: participant.seed,
-    rating: rating?.rating ?? 1200,
-    matchesPlayed: rating?.matchesPlayed ?? 0,
+    rating: hideElo ? null : (ratingRow?.rating ?? 1200),
+    matchesPlayed: hideElo ? 0 : (ratingRow?.matchesPlayed ?? 0),
   };
+}
+
+/** Reads the guild's tournamentHideElo setting. Returns false on any error. */
+async function fetchHideElo(guildId: string): Promise<boolean> {
+  const rec = await prisma.guild
+    .findUnique({ where: { guildId }, include: { settings: true } })
+    .catch(() => null);
+  return rec?.settings?.tournamentHideElo ?? false;
 }
 
 async function dmParticipants(

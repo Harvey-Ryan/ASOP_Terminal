@@ -14,7 +14,6 @@ import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { HelpPanel } from '@/components/HelpPanel';
 import { RsiVerifyGate } from '@/components/RsiVerifyGate';
 import { settingsApi } from '@/api/settings';
-import { allianceApi } from '@/api/alliance';
 import { marketplaceApi } from '@/api/marketplace';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
@@ -133,13 +132,6 @@ export function DashboardLayout() {
     enabled: !!activeGuildId,
     staleTime: 5 * 60_000,
   });
-  const { data: pendingInvitations = [] } = useQuery({
-    queryKey: ['alliance-invitations', activeGuildId],
-    queryFn: () => allianceApi.getInvitations(activeGuild!.id),
-    enabled: !!activeGuild,
-    staleTime: 30_000,
-  });
-
   const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
