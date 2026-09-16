@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult } from '@dem/shared';
+import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult, MunicipalitySearchResult } from '@dem/shared';
 
 export const memberPinsApi = {
   list: (guildId: string) =>
@@ -26,4 +26,11 @@ export const memberPinsApi = {
         `/guilds/${guildId}/member-pins/geocode?lat=${lat}&lng=${lng}`,
       )
       .then((r) => r.data!),
+
+  search: (guildId: string, q: string) =>
+    api
+      .get<ApiResponse<MunicipalitySearchResult[]>>(
+        `/guilds/${guildId}/member-pins/search?q=${encodeURIComponent(q)}`,
+      )
+      .then((r) => r.data ?? []),
 };

@@ -1095,3 +1095,11 @@ export interface GeocodeResult {
   lng: number;
   municipality: string;
 }
+
+/** One result from the municipality search endpoint */
+export interface MunicipalitySearchResult {
+  displayName: string;
+  municipality: string;
+  lat: number;
+  lng: number;
+}

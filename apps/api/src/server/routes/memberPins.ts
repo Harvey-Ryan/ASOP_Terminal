@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { ValidationError } from '../../lib/validate.js';
-import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult } from '@dem/shared';
+import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult, MunicipalitySearchResult } from '@dem/shared';
 
 export const memberPinsRouter = Router();
 
@@ -131,6 +131,63 @@ memberPinsRouter.delete('/:guildId/member-pins', requireAuth, async (req, res) =
   } catch (err) {
     console.error('[DELETE member-pins]', err);
     res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
+  }
+});
+
+// ── GET /api/guilds/:guildId/member-pins/search?q=NAME ───────────────────────
+// Forward geocoding by place name — proxied through the API to avoid CSP issues.
+
+memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (!q) {
+    res.json({ success: true, data: [] } satisfies ApiResponse<MunicipalitySearchResult[]>);
+    return;
+  }
+
+  try {
+    const url =
+      `https://nominatim.openstreetmap.org/search` +
+      `?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`;
+
+    const nominatimRes = await fetch(url, {
+      headers: { 'User-Agent': 'ASOP-Terminal/1.0 (member-map)', 'Accept-Language': 'en' },
+    });
+
+    if (!nominatimRes.ok) {
+      res.status(502).json({ success: false, error: 'Geocoding service unavailable' } satisfies ApiResponse);
+      return;
+    }
+
+    const raw = await nominatimRes.json() as Array<{
+      display_name: string;
+      lat: string;
+      lon: string;
+      name: string;
+      address?: Record<string, string>;
+    }>;
+
+    const seen = new Set<string>();
+    const data: MunicipalitySearchResult[] = [];
+
+    for (const r of raw) {
+      const addr = r.address ?? {};
+      const municipality =
+        addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? addr['state'] ?? r.name;
+      const key = municipality.toLowerCase();
+      if (!municipality || seen.has(key)) continue;
+      seen.add(key);
+      data.push({
+        displayName: r.display_name,
+        municipality,
+        lat: parseFloat(r.lat),
+        lng: parseFloat(r.lon),
+      });
+    }
+
+    res.json({ success: true, data } satisfies ApiResponse<MunicipalitySearchResult[]>);
+  } catch (err) {
+    console.error('[GET member-pins/search]', err);
+    res.status(500).json({ success: false, error: 'Search failed' } satisfies ApiResponse);
   }
 });
 
