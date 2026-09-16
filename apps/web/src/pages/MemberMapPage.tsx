@@ -408,9 +408,13 @@ const GlobeWrapper: FC<GlobeWrapperProps> = ({
 
 // ── Search box ────────────────────────────────────────────────────────────────
 
-interface SearchBoxProps { guildId: string; onFlyTo: (lat: number, lng: number) => void; }
+interface SearchBoxProps {
+  guildId:    string;
+  onFlyTo:    (lat: number, lng: number) => void;
+  onPinHere:  (result: MunicipalitySearchResult) => void;
+}
 
-const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo }) => {
+const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo, onPinHere }) => {
   const [query,   setQuery]   = useState('');
   const [results, setResults] = useState<MunicipalitySearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -441,8 +445,12 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo }) => {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  function pick(r: MunicipalitySearchResult) {
+  function fly(r: MunicipalitySearchResult) {
     onFlyTo(r.lat, r.lng); setQuery(r.municipality); setOpen(false);
+  }
+  function pin(e: React.MouseEvent, r: MunicipalitySearchResult) {
+    e.stopPropagation();
+    onPinHere(r); setQuery(r.municipality); setOpen(false);
   }
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') { setOpen(false); setQuery(''); }
@@ -465,7 +473,7 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo }) => {
           onKeyDown={onKey}
           placeholder="Search location…"
           className="flex-1 bg-transparent text-sm outline-none"
-          style={{ color: 'rgba(255,200,150,.9)', '::placeholder': { color: 'rgba(249,115,22,.25)' } } as React.CSSProperties}
+          style={{ color: 'rgba(255,200,150,.9)' } as React.CSSProperties}
         />
         {query && (
           <button onClick={() => { setQuery(''); setResults([]); setOpen(false); }}
@@ -475,17 +483,46 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo }) => {
           </button>
         )}
       </div>
+
       {open && (
         <div className="absolute top-full mt-1 left-0 right-0 rounded-lg border overflow-hidden shadow-2xl z-50"
           style={{ background: 'rgba(10,5,0,.97)', borderColor: panelBorder }}>
           {results.map((r, i) => (
-            <button key={i} onClick={() => pick(r)}
-              className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-orange-950/60 border-b last:border-b-0"
+            <div key={i}
+              className="flex items-stretch border-b last:border-b-0"
               style={{ borderColor: 'rgba(249,115,22,.1)' }}>
-              <div className="font-semibold leading-tight" style={{ color: '#fb923c' }}>{r.municipality}</div>
-              <div className="text-xs mt-0.5 truncate" style={{ color: 'rgba(249,115,22,.38)' }}>{r.displayName}</div>
-            </button>
+
+              {/* Click to fly the globe there */}
+              <button
+                onClick={() => fly(r)}
+                className="flex-1 min-w-0 text-left px-3 py-2.5 transition-colors hover:bg-orange-950/50">
+                <div className="text-sm font-semibold leading-tight" style={{ color: '#fb923c' }}>
+                  {r.municipality}
+                </div>
+                <div className="text-xs mt-0.5 truncate" style={{ color: 'rgba(249,115,22,.35)' }}>
+                  {r.displayName}
+                </div>
+              </button>
+
+              {/* Pin button — place pin directly at this location */}
+              <button
+                onClick={(e) => pin(e, r)}
+                title="Place my pin here"
+                className="flex items-center gap-1 px-3 py-2 shrink-0 text-xs font-medium transition-colors hover:bg-orange-500/15"
+                style={{
+                  color: orange,
+                  borderLeft: '1px solid rgba(249,115,22,.15)',
+                }}>
+                <MapPin className="h-3.5 w-3.5" />
+                <span>Pin</span>
+              </button>
+            </div>
           ))}
+
+          <div className="px-3 py-1.5 text-center text-xs"
+            style={{ color: 'rgba(249,115,22,.2)', borderTop: '1px solid rgba(249,115,22,.08)' }}>
+            Click a result to fly there · Pin to place your marker
+          </div>
         </div>
       )}
     </div>
@@ -597,6 +634,15 @@ export function MemberMapPage() {
 
   function flyTo(lat: number, lng: number) {
     globeInstanceRef.current?.pointOfView({ lat, lng, altitude: 0.6 }, 1200);
+  }
+
+  /** Called when the user clicks "Pin" on a search result.
+   *  Bypasses the globe-click flow and goes straight to the confirmation dialog. */
+  function handlePinHere(result: MunicipalitySearchResult) {
+    setGeocodeResult({ lat: result.lat, lng: result.lng, municipality: result.municipality });
+    setPlacingMode(false);   // dismiss any active "click the globe" banner
+    setFormError(null);
+    flyTo(result.lat, result.lng);
   }
 
   function startPlacing()    { setPlacingMode(true);  setGeocodeResult(null); setFormError(null); }
@@ -763,7 +809,7 @@ export function MemberMapPage() {
         {/* Search */}
         {guildId && (
           <div className="pointer-events-auto">
-            <SearchBox guildId={guildId} onFlyTo={flyTo} />
+            <SearchBox guildId={guildId} onFlyTo={flyTo} onPinHere={handlePinHere} />
           </div>
         )}
 

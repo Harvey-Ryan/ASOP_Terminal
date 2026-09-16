@@ -170,11 +170,16 @@ memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, async (req, re
     const data: MunicipalitySearchResult[] = [];
 
     for (const r of raw) {
-      const addr = r.address ?? {};
-      const municipality =
-        addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? addr['state'] ?? r.name;
+      const addr  = r.address ?? {};
+      const city  = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? r.name;
+      if (!city) continue;
+      // Include state + country so results are unambiguous ("Joplin, Missouri, United States"
+      // rather than just "Joplin") and match the format the geocode endpoint returns.
+      const state   = addr['state']   ?? '';
+      const country = addr['country'] ?? '';
+      const municipality = [city, state, country].filter(Boolean).join(', ');
       const key = municipality.toLowerCase();
-      if (!municipality || seen.has(key)) continue;
+      if (seen.has(key)) continue;
       seen.add(key);
       data.push({
         displayName: r.display_name,
@@ -243,9 +248,11 @@ memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, async (req, r
 
     const municipalityName = [city, state, country].filter(Boolean).join(', ');
 
-    // Step 2: forward geocode city to get canonical center coordinates
-    // This ensures all members in the same city share identical coordinates
-    const forwardUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ', ' + country)}&format=json&limit=1&addressdetails=0`;
+    // Step 2: forward geocode to get canonical center coordinates.
+    // Include state so "Jasper County, Missouri, United States" doesn't
+    // resolve to the first matching county in any other state.
+    const forwardQuery = [city, state, country].filter(Boolean).join(', ');
+    const forwardUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(forwardQuery)}&format=json&limit=1&addressdetails=0`;
     const forwardRes = await fetch(forwardUrl, {
       headers: {
         'User-Agent': 'ASOP-Terminal/1.0 (member-map)',
