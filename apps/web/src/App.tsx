@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Suspense, lazy } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
+// Lazy-load the map page so Three.js (~1MB) only downloads when visited
+const MemberMapPage = lazy(() => import('./pages/MemberMapPage').then((m) => ({ default: m.MemberMapPage })));
 import { DashboardPage } from './pages/DashboardPage';
 import { ServerPage } from './pages/ServerPage';
 import { EventCreatePage } from './pages/events/EventCreatePage';
@@ -89,6 +91,11 @@ export default function App() {
 
           <Route path="servers/:guildId/settings/modules/activity" element={<ActivitySettingsPage />} />
           <Route path="servers/:guildId/settings/modules/tournaments" element={<TournamentSettingsPage />} />
+          <Route path="servers/:guildId/map" element={
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground text-sm">Loading map…</div>}>
+              <MemberMapPage />
+            </Suspense>
+          } />
           <Route path="kanban" element={<KanbanPage />} />
           <Route path="settings/notifications" element={<NotificationSettingsPage />} />
         </Route>

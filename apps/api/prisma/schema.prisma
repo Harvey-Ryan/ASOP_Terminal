@@ -30,6 +30,7 @@ model User {
   templates          EventTemplate[]
   fleetyardsLink     FleetyardsLink?
   notificationPrefs  UserNotificationPrefs?
+  memberPins         MemberPin[]
 }
 
 /// OAuth tokens for a user/provider pair.
@@ -70,6 +71,7 @@ model Guild {
   templates       EventTemplate[]
   allianceMembers AllianceMember[]
   eventShares     EventGuildShare[]
+  memberPins      MemberPin[]
 }
 
 /// The role a User holds within a Guild.
@@ -1498,4 +1500,27 @@ model TournamentRatingHistory {
 
   @@index([ratingId, createdAt])
   @@index([tournamentId])
+}
+
+// ── Member Map ────────────────────────────────────────────────────────────────
+
+/// A guild member's self-reported location pin on the Member Map.
+/// userId is stored only for ownership (update/delete) and name opt-in.
+/// It is never returned in list API responses, preserving anonymity.
+model MemberPin {
+  id           String   @id @default(cuid())
+  guildId      String   // FK to Guild.id (internal)
+  userId       String   // FK to User.id — ownership only, never exposed publicly
+  lat          Float    // municipality-level latitude (snapped to city center)
+  lng          Float    // municipality-level longitude (snapped to city center)
+  municipality String   // "Austin, Texas, United States"
+  displayName  String?  // null = anonymous; populated = opted-in Discord display name
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@index([guildId])
 }

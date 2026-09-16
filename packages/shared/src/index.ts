@@ -1068,3 +1068,30 @@ export function getRoundColumnLabel(round: number, maxRound: number): string {
   if (fromFinal === 2) return 'Quarterfinals';
   return `Round ${round}`;
 }
+
+// ── Member Map ────────────────────────────────────────────────────────────────
+
+/** A member location pin, safe to return to any guild member. userId is never included. */
+export interface MemberPinDto {
+  id: string;
+  lat: number;
+  lng: number;
+  municipality: string;
+  /** null = anonymous; string = user opted to display their Discord name */
+  displayName: string | null;
+}
+
+export interface UpsertMemberPinBody {
+  lat: number;
+  lng: number;
+  municipality: string;
+  /** When true, stores the user's Discord display name on the pin */
+  showName: boolean;
+}
+
+/** Returned by the server-side geocode endpoint */
+export interface GeocodeResult {
+  lat: number;
+  lng: number;
+  municipality: string;
+}

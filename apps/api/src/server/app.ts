@@ -26,6 +26,7 @@ import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
 import { trafficRouter } from './routes/traffic.js';
 import { tournamentRouter } from './routes/tournament.js';
+import { memberPinsRouter } from './routes/memberPins.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 
@@ -56,7 +57,7 @@ export function createServer(): express.Express {
           fontSrc: ["'self'", 'https:', 'data:'],
           formAction: ["'self'"],
           frameAncestors: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', 'https://media.fleetyards.net'],
+          imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', 'https://media.fleetyards.net', 'https://unpkg.com'],
           objectSrc: ["'none'"],
           scriptSrc: ["'self'"],
           scriptSrcAttr: ["'none'"],
@@ -223,6 +224,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', heatmapRouter);
   app.use('/api/guilds', trafficRouter);
   app.use('/api/guilds', tournamentRouter);
+  app.use('/api/guilds', memberPinsRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({

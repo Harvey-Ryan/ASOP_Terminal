@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -495,6 +495,15 @@ export function DashboardLayout() {
                   {!navCollapsed && 'Tournaments'}
                 </NavLink>
               )}
+
+              <NavLink
+                to={`/dashboard/servers/${activeGuild.id}/map`}
+                title={navCollapsed ? 'Member Map' : undefined}
+                className={serverNavCls}
+              >
+                <Globe2 className="h-4 w-4 shrink-0" />
+                {!navCollapsed && 'Member Map'}
+              </NavLink>
 
               {(blueprintsEnabled || craftingEnabled) && (
                 <>
