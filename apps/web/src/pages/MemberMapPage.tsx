@@ -84,6 +84,13 @@ function clusterPins(pins: MemberPinDto[]): Array<{ lat: number; lng: number; mu
   return Array.from(map.values());
 }
 
+// ── Module-level pin-tooltip state ───────────────────────────────────────────
+// Tracks the currently click-pinned tooltip so clicking the globe or any other
+// pin dismisses it. Uses a single document listener (added once on first pin).
+
+let activeDismiss: (() => void) | null = null;
+let docListenerAdded = false;
+
 // ── Style injection ───────────────────────────────────────────────────────────
 
 function injectStyles() {
@@ -104,7 +111,8 @@ function injectStyles() {
 // regardless of whether globe.gl centers or top-left-positions the element.
 
 function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): HTMLElement {
-  const named  = point.pins.filter((p) => p.displayName);
+  const namedPins = point.pins.filter((p) => p.displayName);
+  const anonCount = point.pins.filter((p) => !p.displayName).length;
   const count  = point.pins.length;
   const isMine = point.isMine;
   const headPx = isCluster && count > 1 ? 26 : 18;
@@ -113,6 +121,14 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
   const border = isMine ? '#ea580c' : '#f97316';
   const glow   = isMine ? '#f9731660' : '#fb923c40';
   const delay  = Math.min(idx * 18, 260);
+
+  // Register a single document click handler the first time any pin is created.
+  // Clicking outside a pin (anywhere on the globe canvas or page) dismisses the
+  // currently click-pinned tooltip.
+  if (!docListenerAdded) {
+    docListenerAdded = true;
+    document.addEventListener('click', () => { activeDismiss?.(); });
+  }
 
   const anchor  = document.createElement('div');
   anchor.style.cssText = 'position:relative;width:0;height:0;overflow:visible;';
@@ -146,74 +162,183 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
   wrapper.appendChild(stem);
 
   // ── Tooltip ──────────────────────────────────────────────────────────────
-  let tip: HTMLDivElement | null = null;
+  // Appears on hover; click pins it open until dismissed.
 
-  function show() {
+  let tip: HTMLDivElement | null = null;
+  let pinned = false;
+
+  /** Parse "City, State, Country" into a two-part display. */
+  function parseMunicipality(m: string): { city: string; region: string } {
+    const parts = m.split(', ');
+    return { city: parts[0] ?? m, region: parts.slice(1).join(', ') };
+  }
+
+  function buildTip(): HTMLDivElement {
     const el = document.createElement('div');
     el.style.cssText = `
-      position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
-      background:rgba(8,4,0,.96);border:1px solid ${border}55;border-radius:8px;
-      padding:8px 12px;white-space:nowrap;z-index:100;pointer-events:none;
-      font-family:system-ui,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.8);
-      min-width:140px;
+      position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
+      background:rgba(6,3,0,.97);border:1px solid ${border}44;border-radius:10px;
+      padding:10px 13px;z-index:100;pointer-events:none;
+      font-family:system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.85);
+      min-width:155px;max-width:240px;
     `;
 
-    // Location
-    const loc = document.createElement('div');
-    loc.textContent = point.pins[0]?.municipality ?? '';
-    loc.style.cssText = `
-      font-size:11px;font-weight:700;color:${accent};
-      text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;
-    `;
-    el.appendChild(loc);
+    // ── Location: City on its own line, region (state, country) smaller below
+    const refMunicipality = point.pins[0]?.municipality ?? '';
+    const { city, region } = parseMunicipality(refMunicipality);
 
-    // Local time
-    const refLng   = point.pins[0]?.lng ?? point.lng;
-    const timeRow  = document.createElement('div');
-    timeRow.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:3px;';
-    const clockIcon = document.createElement('span');
-    clockIcon.textContent = '🕐';
-    clockIcon.style.cssText = 'font-size:10px;line-height:1;';
-    const timeText = document.createElement('span');
-    timeText.textContent = getLocalTime(refLng);
-    timeText.style.cssText = 'font-size:10px;color:rgba(249,115,22,.55);';
-    timeRow.appendChild(clockIcon);
-    timeRow.appendChild(timeText);
+    const cityEl = document.createElement('div');
+    cityEl.textContent = city;
+    cityEl.style.cssText = `
+      font-size:13px;font-weight:800;color:${accent};
+      letter-spacing:.02em;white-space:nowrap;
+    `;
+    el.appendChild(cityEl);
+
+    if (region) {
+      const regionEl = document.createElement('div');
+      regionEl.textContent = region;
+      regionEl.style.cssText = `
+        font-size:11px;color:rgba(255,200,150,.4);
+        margin-top:1px;margin-bottom:5px;white-space:nowrap;
+      `;
+      el.appendChild(regionEl);
+    }
+
+    // ── Divider
+    const div1 = document.createElement('div');
+    div1.style.cssText = 'height:1px;background:rgba(249,115,22,.12);margin:5px 0;';
+    el.appendChild(div1);
+
+    // ── Local time
+    const refLng  = point.pins[0]?.lng ?? point.lng;
+    const timeRow = document.createElement('div');
+    timeRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:5px;';
+    const clockSpan = document.createElement('span');
+    clockSpan.textContent = '🕐';
+    clockSpan.style.cssText = 'font-size:10px;line-height:1;';
+    const timeSpan = document.createElement('span');
+    timeSpan.textContent = getLocalTime(refLng);
+    timeSpan.style.cssText = 'font-size:11px;color:rgba(249,115,22,.5);';
+    timeRow.appendChild(clockSpan);
+    timeRow.appendChild(timeSpan);
     el.appendChild(timeRow);
 
-    if (count > 1) {
-      const cnt = document.createElement('div');
-      cnt.textContent = `${count} member${count !== 1 ? 's' : ''}`;
-      cnt.style.cssText = 'font-size:11px;color:rgba(251,146,60,.45);margin-top:3px;';
-      el.appendChild(cnt);
+    // ── Divider
+    const div2 = document.createElement('div');
+    div2.style.cssText = 'height:1px;background:rgba(249,115,22,.12);margin:5px 0;';
+    el.appendChild(div2);
+
+    if (count === 1) {
+      // ── Single pin: show who placed it
+      const pin = point.pins[0];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+      const lbl = document.createElement('span');
+      lbl.textContent = 'Placed by';
+      lbl.style.cssText = 'font-size:10px;color:rgba(249,115,22,.35);letter-spacing:.03em;';
+      row.appendChild(lbl);
+
+      const nameEl = document.createElement('span');
+      if (pin?.displayName) {
+        nameEl.textContent = pin.displayName;
+        nameEl.style.cssText = 'font-size:11px;color:rgba(255,200,150,.9);font-weight:600;';
+      } else {
+        nameEl.textContent = 'Anonymous';
+        nameEl.style.cssText = 'font-size:11px;color:rgba(249,115,22,.28);font-style:italic;';
+      }
+      row.appendChild(nameEl);
+      el.appendChild(row);
+    } else {
+      // ── Cluster: member count + named list + anonymous count
+      const cntEl = document.createElement('div');
+      cntEl.textContent = `${count} members`;
+      cntEl.style.cssText = 'font-size:11px;color:rgba(251,146,60,.45);margin-bottom:4px;';
+      el.appendChild(cntEl);
+
+      if (namedPins.length > 0 || anonCount > 0) {
+        const div3 = document.createElement('div');
+        div3.style.cssText = 'height:1px;background:rgba(249,115,22,.12);margin:5px 0;';
+        el.appendChild(div3);
+
+        namedPins.forEach((p) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:2px;';
+          const icon = document.createElement('span');
+          icon.textContent = '👤';
+          icon.style.cssText = 'font-size:10px;line-height:1;';
+          const nm = document.createElement('span');
+          nm.textContent = p.displayName!;
+          nm.style.cssText = 'font-size:11px;color:rgba(255,200,150,.85);';
+          row.appendChild(icon);
+          row.appendChild(nm);
+          el.appendChild(row);
+        });
+
+        if (anonCount > 0) {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:5px;';
+          const icon = document.createElement('span');
+          icon.textContent = '👤';
+          icon.style.cssText = 'font-size:10px;line-height:1;';
+          const nm = document.createElement('span');
+          nm.textContent = `${anonCount} anonymous`;
+          nm.style.cssText = 'font-size:11px;color:rgba(249,115,22,.28);font-style:italic;';
+          row.appendChild(icon);
+          row.appendChild(nm);
+          el.appendChild(row);
+        }
+      }
     }
 
-    if (named.length > 0) {
-      const divider = document.createElement('div');
-      divider.style.cssText = 'height:1px;background:rgba(249,115,22,.15);margin:5px 0;';
-      el.appendChild(divider);
-      named.forEach((p) => {
-        const nm = document.createElement('div');
-        nm.textContent = `• ${p.displayName}`;
-        nm.style.cssText = 'font-size:11px;color:rgba(255,200,150,.85);';
-        el.appendChild(nm);
-      });
-    }
+    // ── Subtle "click to pin / close" affordance at the bottom
+    const hint = document.createElement('div');
+    hint.style.cssText = `
+      font-size:9px;color:rgba(249,115,22,.2);margin-top:7px;
+      text-align:center;letter-spacing:.04em;
+    `;
+    hint.textContent = pinned ? 'click pin to close' : 'click to keep open';
+    el.appendChild(hint);
 
-    tip = el;
-    wrapper.appendChild(el);
+    return el;
+  }
+
+  function show() {
+    if (tip) return;
+    tip = buildTip();
+    wrapper.appendChild(tip);
     head.style.transform = 'scale(1.2)';
     head.style.boxShadow = `0 0 18px ${glow},0 2px 8px rgba(0,0,0,.8)`;
   }
 
-  function hide() {
+  function dismiss() {
+    pinned = false;
     tip?.remove(); tip = null;
     head.style.transform = '';
     head.style.boxShadow = `0 0 10px ${glow},0 2px 6px rgba(0,0,0,.7)`;
+    if (activeDismiss === dismiss) activeDismiss = null;
   }
 
-  wrapper.addEventListener('mouseenter', show);
-  wrapper.addEventListener('mouseleave', hide);
+  wrapper.addEventListener('mouseenter', () => { if (!pinned) show(); });
+  wrapper.addEventListener('mouseleave', () => { if (!pinned) dismiss(); });
+  wrapper.addEventListener('click', (e) => {
+    e.stopPropagation(); // prevent document listener from immediately dismissing
+    if (pinned) {
+      dismiss();
+    } else {
+      // Dismiss any previously pinned tooltip first, then pin this one
+      activeDismiss?.();
+      show();
+      pinned = true;
+      activeDismiss = dismiss;
+      // Rebuild tip so the hint text reflects the pinned state
+      tip?.remove(); tip = null;
+      tip = buildTip();
+      wrapper.appendChild(tip);
+    }
+  });
+
   anchor.appendChild(wrapper);
   return anchor;
 }
