@@ -103,8 +103,8 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
   let tip: HTMLDivElement | null = null;
 
   function show() {
-    tip = document.createElement('div');
-    tip.style.cssText = `
+    const el = document.createElement('div');
+    el.style.cssText = `
       position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
       background:rgba(8,12,26,.96); border:1px solid ${border}55; border-radius:8px;
       padding:8px 12px; white-space:nowrap; z-index:100; pointer-events:none;
@@ -115,28 +115,29 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
     const loc = document.createElement('div');
     loc.textContent = point.pins[0]?.municipality ?? '';
     loc.style.cssText = `font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:.05em; margin-bottom:${named.length > 0 || count > 1 ? '5px' : '0'};`;
-    tip.appendChild(loc);
+    el.appendChild(loc);
 
     if (count > 1) {
       const cnt = document.createElement('div');
       cnt.textContent = `${count} member${count !== 1 ? 's' : ''}`;
       cnt.style.cssText = 'font-size:11px; color:rgba(255,255,255,.45); margin-bottom:4px;';
-      tip.appendChild(cnt);
+      el.appendChild(cnt);
     }
 
     if (named.length > 0) {
       const divider = document.createElement('div');
       divider.style.cssText = 'height:1px; background:rgba(255,255,255,.1); margin:4px 0;';
-      tip.appendChild(divider);
+      el.appendChild(divider);
       named.forEach((p) => {
         const nm = document.createElement('div');
         nm.textContent = `• ${p.displayName}`;
         nm.style.cssText = 'font-size:11px; color:rgba(255,255,255,.85);';
-        tip.appendChild(nm);
+        el.appendChild(nm);
       });
     }
 
-    wrapper.appendChild(tip);
+    tip = el;
+    wrapper.appendChild(el);
     head.style.transform = 'scale(1.2)';
     head.style.boxShadow = `0 0 16px ${glow}, 0 2px 8px rgba(0,0,0,.7)`;
   }

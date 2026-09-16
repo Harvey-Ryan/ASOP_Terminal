@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, Suspense, lazy } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { LoginPage } from './pages/LoginPage';
 // Lazy-load the map page so Three.js (~1MB) only downloads when visited
 const MemberMapPage = lazy(() => import('./pages/MemberMapPage').then((m) => ({ default: m.MemberMapPage })));
