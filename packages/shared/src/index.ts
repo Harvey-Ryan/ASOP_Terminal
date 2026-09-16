@@ -1079,6 +1079,8 @@ export interface MemberPinDto {
   municipality: string;
   /** null = anonymous; string = user opted to display their Discord name */
   displayName: string | null;
+  /** IANA timezone string e.g. "America/Chicago"; null for pins placed before timezone lookup was added */
+  timezone: string | null;
 }
 
 export interface UpsertMemberPinBody {

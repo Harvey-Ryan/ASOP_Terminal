@@ -19,7 +19,7 @@ memberPinsRouter.get('/:guildId/member-pins', requireAuth, async (req, res) => {
     }
     const pins = await prisma.memberPin.findMany({
       where: { guildId: guild.id },
-      select: { id: true, lat: true, lng: true, municipality: true, displayName: true },
+      select: { id: true, lat: true, lng: true, municipality: true, displayName: true, timezone: true },
       orderBy: { createdAt: 'asc' },
     });
     res.json({ success: true, data: pins } satisfies ApiResponse<MemberPinDto[]>);
@@ -42,7 +42,7 @@ memberPinsRouter.get('/:guildId/member-pins/mine', requireAuth, async (req, res)
     }
     const pin = await prisma.memberPin.findUnique({
       where: { guildId_userId: { guildId: guild.id, userId: req.session.userId! } },
-      select: { id: true, lat: true, lng: true, municipality: true, displayName: true },
+      select: { id: true, lat: true, lng: true, municipality: true, displayName: true, timezone: true },
     });
     res.json({ success: true, data: pin ?? null } satisfies ApiResponse<MemberPinDto | null>);
   } catch (err) {
@@ -82,6 +82,28 @@ memberPinsRouter.put('/:guildId/member-pins', requireAuth, async (req, res) => {
       displayName = user?.globalName ?? user?.username ?? null;
     }
 
+    // Look up the IANA timezone for these coordinates so the client can show
+    // accurate DST-aware local time. Best-effort: if the external API is
+    // unavailable we save null and the client falls back to a longitude estimate.
+    let timezone: string | null = null;
+    try {
+      const tzRes = await fetch(
+        `https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lng}`,
+        {
+          headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal/1.0' },
+          signal: AbortSignal.timeout(4000),
+        },
+      );
+      if (tzRes.ok) {
+        const tzJson = await tzRes.json() as { timeZone?: string };
+        if (typeof tzJson.timeZone === 'string' && tzJson.timeZone) {
+          timezone = tzJson.timeZone; // e.g. "America/Chicago"
+        }
+      }
+    } catch {
+      // ignore — timezone stays null, client will use longitude estimate
+    }
+
     const pin = await prisma.memberPin.upsert({
       where: { guildId_userId: { guildId: guild.id, userId: req.session.userId! } },
       create: {
@@ -91,15 +113,17 @@ memberPinsRouter.put('/:guildId/member-pins', requireAuth, async (req, res) => {
         lng,
         municipality: body.municipality.trim().slice(0, 200),
         displayName,
+        timezone,
       },
       update: {
         lat,
         lng,
         municipality: body.municipality.trim().slice(0, 200),
         displayName,
+        timezone,
         updatedAt: new Date(),
       },
-      select: { id: true, lat: true, lng: true, municipality: true, displayName: true },
+      select: { id: true, lat: true, lng: true, municipality: true, displayName: true, timezone: true },
     });
 
     res.json({ success: true, data: pin } satisfies ApiResponse<MemberPinDto>);

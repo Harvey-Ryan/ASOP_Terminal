@@ -41,18 +41,40 @@ function sunDirectionVector(lat: number, lng: number): [number, number, number] 
 }
 
 /**
- * Approximate local solar time at a given longitude.
- * Returns "HH:MM (≈UTC±N)" — longitude/15 is not a real timezone but close
- * enough for a "where in the world" indicator.
+ * Returns local time at a geographic location.
+ *
+ * When an IANA timezone string is supplied (e.g. "America/Chicago") the
+ * browser's Intl API is used for a fully DST-aware result like "13:05 (CDT)".
+ * Falls back to a longitude-based solar estimate ("HH:MM (≈UTC±N)") for pins
+ * placed before the timezone field was added, or if Intl throws.
  */
-function getLocalTime(lng: number): string {
-  const offsetH  = lng / 15;
-  const localMs  = Date.now() + offsetH * 3_600_000;
-  const d        = new Date(localMs);
-  const h        = d.getUTCHours().toString().padStart(2, '0');
-  const m        = d.getUTCMinutes().toString().padStart(2, '0');
-  const sign     = offsetH >= 0 ? '+' : '';
-  const rounded  = Math.round(offsetH);
+function getLocalTime(lng: number, timezone?: string | null): string {
+  if (timezone) {
+    try {
+      const now   = new Date();
+      const parts = new Intl.DateTimeFormat('en-US', {
+        hour:         '2-digit',
+        minute:       '2-digit',
+        hour12:       false,
+        timeZone:     timezone,
+        timeZoneName: 'short',          // "CDT", "EST", "GMT+2", etc.
+      }).formatToParts(now);
+      const h    = parts.find((p) => p.type === 'hour')?.value   ?? '??';
+      const m    = parts.find((p) => p.type === 'minute')?.value ?? '??';
+      const abbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
+      return `${h}:${m}${abbr ? ` (${abbr})` : ''}`;
+    } catch {
+      /* fall through */
+    }
+  }
+  // Longitude-based solar estimate — no DST awareness
+  const offsetH = lng / 15;
+  const localMs = Date.now() + offsetH * 3_600_000;
+  const d       = new Date(localMs);
+  const h       = d.getUTCHours().toString().padStart(2, '0');
+  const m       = d.getUTCMinutes().toString().padStart(2, '0');
+  const sign    = offsetH >= 0 ? '+' : '';
+  const rounded = Math.round(offsetH);
   return `${h}:${m} (≈UTC${sign}${rounded})`;
 }
 
@@ -183,10 +205,11 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
     // pin head up into the tooltip card, which would otherwise hide it instantly.
     el.style.cssText = `
       position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
-      background:rgba(6,3,0,.97);border:1px solid ${border}44;border-radius:10px;
-      padding:10px 13px;z-index:100;pointer-events:auto;
-      font-family:system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.85);
-      min-width:155px;max-width:240px;
+      background:rgba(12,5,0,.97);border:1px solid ${border}88;border-radius:10px;
+      padding:11px 14px;z-index:100;pointer-events:auto;
+      font-family:system-ui,sans-serif;
+      box-shadow:0 8px 28px rgba(0,0,0,.9),0 0 0 1px rgba(249,115,22,.06);
+      min-width:160px;max-width:250px;
     `;
 
     // ── Location: City on its own line, region (state, country) smaller below
@@ -196,8 +219,8 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
     const cityEl = document.createElement('div');
     cityEl.textContent = city;
     cityEl.style.cssText = `
-      font-size:13px;font-weight:800;color:${accent};
-      letter-spacing:.02em;white-space:nowrap;
+      font-size:14px;font-weight:800;color:${accent};
+      letter-spacing:.01em;white-space:nowrap;
     `;
     el.appendChild(cityEl);
 
@@ -205,34 +228,35 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
       const regionEl = document.createElement('div');
       regionEl.textContent = region;
       regionEl.style.cssText = `
-        font-size:11px;color:rgba(255,200,150,.4);
-        margin-top:1px;margin-bottom:5px;white-space:nowrap;
+        font-size:12px;color:rgba(255,215,170,.68);
+        margin-top:2px;margin-bottom:6px;white-space:nowrap;
       `;
       el.appendChild(regionEl);
     }
 
     // ── Divider
     const div1 = document.createElement('div');
-    div1.style.cssText = 'height:1px;background:rgba(249,115,22,.12);margin:5px 0;';
+    div1.style.cssText = 'height:1px;background:rgba(249,115,22,.22);margin:6px 0;';
     el.appendChild(div1);
 
-    // ── Local time
-    const refLng  = point.pins[0]?.lng ?? point.lng;
+    // ── Local time (IANA-accurate when timezone is stored, fallback to solar estimate)
+    const refPin  = point.pins[0];
+    const refLng  = refPin?.lng ?? point.lng;
     const timeRow = document.createElement('div');
-    timeRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:5px;';
+    timeRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;';
     const clockSpan = document.createElement('span');
     clockSpan.textContent = '🕐';
-    clockSpan.style.cssText = 'font-size:10px;line-height:1;';
+    clockSpan.style.cssText = 'font-size:12px;line-height:1;';
     const timeSpan = document.createElement('span');
-    timeSpan.textContent = getLocalTime(refLng);
-    timeSpan.style.cssText = 'font-size:11px;color:rgba(249,115,22,.5);';
+    timeSpan.textContent = getLocalTime(refLng, refPin?.timezone);
+    timeSpan.style.cssText = 'font-size:12px;color:rgba(249,115,22,.9);font-weight:500;';
     timeRow.appendChild(clockSpan);
     timeRow.appendChild(timeSpan);
     el.appendChild(timeRow);
 
     // ── Divider
     const div2 = document.createElement('div');
-    div2.style.cssText = 'height:1px;background:rgba(249,115,22,.12);margin:5px 0;';
+    div2.style.cssText = 'height:1px;background:rgba(249,115,22,.22);margin:6px 0;';
     el.appendChild(div2);
 
     if (count === 1) {
@@ -243,16 +267,16 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
 
       const lbl = document.createElement('span');
       lbl.textContent = 'Placed by';
-      lbl.style.cssText = 'font-size:10px;color:rgba(249,115,22,.35);letter-spacing:.03em;';
+      lbl.style.cssText = 'font-size:11px;color:rgba(255,200,150,.55);letter-spacing:.03em;';
       row.appendChild(lbl);
 
       const nameEl = document.createElement('span');
       if (pin?.displayName) {
         nameEl.textContent = pin.displayName;
-        nameEl.style.cssText = 'font-size:11px;color:rgba(255,200,150,.9);font-weight:600;';
+        nameEl.style.cssText = 'font-size:12px;color:rgba(255,220,180,1);font-weight:700;';
       } else {
         nameEl.textContent = 'Anonymous';
-        nameEl.style.cssText = 'font-size:11px;color:rgba(249,115,22,.28);font-style:italic;';
+        nameEl.style.cssText = 'font-size:12px;color:rgba(249,115,22,.42);font-style:italic;';
       }
       row.appendChild(nameEl);
       el.appendChild(row);
@@ -260,23 +284,23 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
       // ── Cluster: member count + named list + anonymous count
       const cntEl = document.createElement('div');
       cntEl.textContent = `${count} members`;
-      cntEl.style.cssText = 'font-size:11px;color:rgba(251,146,60,.45);margin-bottom:4px;';
+      cntEl.style.cssText = 'font-size:12px;color:rgba(251,146,60,.7);margin-bottom:4px;font-weight:600;';
       el.appendChild(cntEl);
 
       if (namedPins.length > 0 || anonCount > 0) {
         const div3 = document.createElement('div');
-        div3.style.cssText = 'height:1px;background:rgba(249,115,22,.12);margin:5px 0;';
+        div3.style.cssText = 'height:1px;background:rgba(249,115,22,.22);margin:6px 0;';
         el.appendChild(div3);
 
         namedPins.forEach((p) => {
           const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:2px;';
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:3px;';
           const icon = document.createElement('span');
           icon.textContent = '👤';
-          icon.style.cssText = 'font-size:10px;line-height:1;';
+          icon.style.cssText = 'font-size:11px;line-height:1;';
           const nm = document.createElement('span');
           nm.textContent = p.displayName!;
-          nm.style.cssText = 'font-size:11px;color:rgba(255,200,150,.85);';
+          nm.style.cssText = 'font-size:12px;color:rgba(255,220,180,1);font-weight:600;';
           row.appendChild(icon);
           row.appendChild(nm);
           el.appendChild(row);
@@ -284,13 +308,13 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
 
         if (anonCount > 0) {
           const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:5px;';
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;';
           const icon = document.createElement('span');
           icon.textContent = '👤';
-          icon.style.cssText = 'font-size:10px;line-height:1;';
+          icon.style.cssText = 'font-size:11px;line-height:1;';
           const nm = document.createElement('span');
           nm.textContent = `${anonCount} anonymous`;
-          nm.style.cssText = 'font-size:11px;color:rgba(249,115,22,.28);font-style:italic;';
+          nm.style.cssText = 'font-size:12px;color:rgba(249,115,22,.45);font-style:italic;';
           row.appendChild(icon);
           row.appendChild(nm);
           el.appendChild(row);
@@ -301,7 +325,7 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
     // ── Subtle "click to pin / close" affordance at the bottom
     const hint = document.createElement('div');
     hint.style.cssText = `
-      font-size:9px;color:rgba(249,115,22,.2);margin-top:7px;
+      font-size:10px;color:rgba(249,115,22,.32);margin-top:8px;
       text-align:center;letter-spacing:.04em;
     `;
     hint.textContent = pinned ? 'click pin to close' : 'click to keep open';
@@ -805,7 +829,7 @@ export function MemberMapPage() {
   const totalMembers = allPins.length;
   const namedCount   = allPins.filter((p) => p.displayName).length;
   const hasMyPin     = !!myPin;
-  const myPinLocalTime = myPin ? getLocalTime(myPin.lng) : null;
+  const myPinLocalTime = myPin ? getLocalTime(myPin.lng, myPin.timezone) : null;
 
   // ── Palette tokens (inline — avoids Tailwind CSS-variable collisions) ────
   const panelBg     = 'rgba(10,5,0,0.90)';
