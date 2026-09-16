@@ -403,6 +403,202 @@ const FRAG = /* glsl */ `
   }
 `;
 
+// ── StarField ─────────────────────────────────────────────────────────────────
+// 2D canvas behind the globe: twinkling stars + occasional shooting stars.
+// Placed before the globe div in DOM order so it naturally sits behind the
+// transparent WebGL canvas without needing an explicit z-index war.
+
+interface StarParticle {
+  x: number; y: number;
+  r: number;
+  baseA: number;           // base alpha (brightness)
+  phase: number;           // current twinkling phase
+  twinkleSpeed: number;    // radians per second
+  /** 0 = white, 1 = cool blue, 2 = warm gold */
+  hue: 0 | 1 | 2;
+}
+
+interface ShootingParticle {
+  x: number; y: number;
+  nx: number; ny: number;  // normalized direction
+  vel: number;             // px / s
+  tail: number;            // tail length px
+  totalDist: number;       // total travel distance px
+  gone: number;            // distance already traveled
+}
+
+const StarField: FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const STAR_COUNT = 340;
+    let stars: StarParticle[] = [];
+    let shooting: ShootingParticle[] = [];
+    let nextShootAt = 0;
+    let rafId = 0;
+    let lastT = 0;
+
+    // Star colour variants
+    const STAR_COLORS = [
+      '255,255,255',    // white
+      '190,210,255',    // cool blue
+      '255,240,190',    // warm gold
+    ] as const;
+
+    function init() {
+      const w = canvas!.offsetWidth  || canvas!.clientWidth  || 800;
+      const h = canvas!.offsetHeight || canvas!.clientHeight || 600;
+      canvas!.width  = w;
+      canvas!.height = h;
+
+      // Distribute hues: ~70% white, ~20% blue, ~10% gold
+      stars = Array.from({ length: STAR_COUNT }, () => {
+        const rnd = Math.random();
+        const hue: 0 | 1 | 2 = rnd < 0.70 ? 0 : rnd < 0.90 ? 1 : 2;
+        // Size buckets: small majority, a few medium, rare large
+        const sizeBucket = Math.random();
+        const r = sizeBucket < 0.82
+          ? Math.random() * 0.65 + 0.15   // 0.15–0.80 (small)
+          : sizeBucket < 0.96
+            ? Math.random() * 0.70 + 0.80 // 0.80–1.50 (medium)
+            : Math.random() * 0.80 + 1.50; // 1.50–2.30 (bright)
+        return {
+          x:           Math.random() * w,
+          y:           Math.random() * h,
+          r,
+          baseA:       Math.random() * 0.50 + 0.28,
+          phase:       Math.random() * Math.PI * 2,
+          twinkleSpeed: Math.random() * 1.0 + 0.25,
+          hue,
+        };
+      });
+    }
+
+    function spawnShooting() {
+      const w = canvas!.width;
+      // Angle 28–62° below horizontal; randomly left-to-right or right-to-left
+      const angleDeg = 28 + Math.random() * 34;
+      const rad = angleDeg * Math.PI / 180;
+      const goRight = Math.random() > 0.4; // slightly prefer left→right
+      const nx = goRight ?  Math.cos(rad) : -Math.cos(rad);
+      const ny = Math.sin(rad);
+      // Spawn off-screen top; X biased toward the incoming side
+      const spawnX = goRight
+        ? -120 + Math.random() * w * 0.55
+        :  w * 0.45 + Math.random() * w * 0.55 + 120;
+      const spawnY = -60 - Math.random() * 140;
+      shooting.push({
+        x: spawnX, y: spawnY,
+        nx, ny,
+        vel:       480 + Math.random() * 420,
+        tail:      80  + Math.random() * 140,
+        totalDist: 280 + Math.random() * 380,
+        gone: 0,
+      });
+    }
+
+    function frame(now: number) {
+      if (lastT === 0) lastT = now;
+      const dt = Math.min((now - lastT) / 1000, 0.05);
+      lastT = now;
+
+      const w = canvas!.width;
+      const h = canvas!.height;
+      ctx!.clearRect(0, 0, w, h);
+
+      // ── Twinkling stars ───────────────────────────────────────────────────
+      for (const s of stars) {
+        s.phase += s.twinkleSpeed * dt;
+        // Two-frequency shimmer so stars feel organic, not mechanical
+        const shimmer = 0.62 + 0.25 * Math.sin(s.phase) + 0.13 * Math.sin(s.phase * 1.7 + 1.2);
+        const a = s.baseA * shimmer;
+        ctx!.beginPath();
+        ctx!.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(${STAR_COLORS[s.hue]},${a.toFixed(3)})`;
+        ctx!.fill();
+      }
+
+      // ── Spawn shooting star ───────────────────────────────────────────────
+      if (now >= nextShootAt) {
+        spawnShooting();
+        // 10% chance of a quick second burst shortly after
+        if (Math.random() < 0.10) {
+          setTimeout(() => { if (canvas) spawnShooting(); }, 400 + Math.random() * 600);
+        }
+        nextShootAt = now + 3200 + Math.random() * 5500;
+      }
+
+      // ── Shooting stars ────────────────────────────────────────────────────
+      shooting = shooting.filter((s) => s.gone < s.totalDist);
+      for (const s of shooting) {
+        s.gone += s.vel * dt;
+        s.x    += s.nx  * s.vel * dt;
+        s.y    += s.ny  * s.vel * dt;
+
+        const progress = Math.min(s.gone / s.totalDist, 1);
+        // Bell curve: smooth fade-in and fade-out
+        const alpha = Math.sin(Math.PI * progress);
+
+        // Tail gradient: bright head → transparent tail
+        const tx = s.x - s.nx * s.tail;
+        const ty = s.y - s.ny * s.tail;
+        const grad = ctx!.createLinearGradient(s.x, s.y, tx, ty);
+        grad.addColorStop(0,    `rgba(255,255,248,${(alpha * 0.92).toFixed(3)})`);
+        grad.addColorStop(0.20, `rgba(255,245,220,${(alpha * 0.55).toFixed(3)})`);
+        grad.addColorStop(0.55, `rgba(200,220,255,${(alpha * 0.22).toFixed(3)})`);
+        grad.addColorStop(1,    `rgba(180,210,255,0)`);
+
+        ctx!.beginPath();
+        ctx!.moveTo(s.x, s.y);
+        ctx!.lineTo(tx, ty);
+        ctx!.strokeStyle = grad;
+        ctx!.lineWidth   = 1.5;
+        ctx!.stroke();
+
+        // Bright head: soft glow + sharp core
+        const glowR = 3.5;
+        const glow  = ctx!.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
+        glow.addColorStop(0,   `rgba(255,255,255,${(alpha * 0.90).toFixed(3)})`);
+        glow.addColorStop(0.4, `rgba(255,250,230,${(alpha * 0.45).toFixed(3)})`);
+        glow.addColorStop(1,   `rgba(200,220,255,0)`);
+        ctx!.beginPath();
+        ctx!.arc(s.x, s.y, glowR, 0, Math.PI * 2);
+        ctx!.fillStyle = glow;
+        ctx!.fill();
+      }
+
+      rafId = requestAnimationFrame(frame);
+    }
+
+    init();
+    // First shooting star appears 1–3 s after load so the page doesn't feel
+    // static for too long.
+    nextShootAt = performance.now() + 1000 + Math.random() * 2000;
+    rafId = requestAnimationFrame(frame);
+
+    const ro = new ResizeObserver(init);
+    ro.observe(canvas);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      aria-hidden="true"
+    />
+  );
+};
+
 // ── GlobeWrapper ──────────────────────────────────────────────────────────────
 
 interface GlobeWrapperProps {
@@ -854,6 +1050,9 @@ export function MemberMapPage() {
   return (
     // No overflow-hidden here: it would flatten globe.gl's CSS3D transforms
     <div className="h-full -m-6 relative" style={{ background: '#080400' }}>
+
+      {/* ── Star field — must come before globe so it sits behind the transparent WebGL canvas */}
+      <StarField />
 
       {/* ── Globe ─────────────────────────────────────────────────────── */}
       <div className="absolute inset-0">
