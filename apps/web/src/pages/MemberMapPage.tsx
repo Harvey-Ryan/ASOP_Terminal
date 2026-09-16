@@ -130,15 +130,18 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
     document.addEventListener('click', () => { activeDismiss?.(); });
   }
 
+  // pointer-events:auto on anchor is critical: globe.gl's CSS3D renderer sets
+  // pointer-events:none on its container div, and children inherit it unless
+  // they explicitly override. Without this, mouseenter/click never fire.
   const anchor  = document.createElement('div');
-  anchor.style.cssText = 'position:relative;width:0;height:0;overflow:visible;';
+  anchor.style.cssText = 'position:relative;width:0;height:0;overflow:visible;pointer-events:auto;';
 
   const wrapper = document.createElement('div');
   wrapper.style.cssText = `
     position:absolute;bottom:0;left:${-(headPx / 2)}px;width:${headPx}px;
     display:flex;flex-direction:column;align-items:center;cursor:pointer;
     animation:pinRise 0.35s cubic-bezier(0.34,1.4,0.64,1) ${delay}ms both;
-    transform-origin:bottom center;
+    transform-origin:bottom center;pointer-events:auto;
   `;
 
   const head = document.createElement('div');
@@ -175,10 +178,13 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
 
   function buildTip(): HTMLDivElement {
     const el = document.createElement('div');
+    // pointer-events:auto (not none): letting the tooltip itself receive events
+    // prevents mouseleave from firing on wrapper when the cursor moves from the
+    // pin head up into the tooltip card, which would otherwise hide it instantly.
     el.style.cssText = `
       position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
       background:rgba(6,3,0,.97);border:1px solid ${border}44;border-radius:10px;
-      padding:10px 13px;z-index:100;pointer-events:none;
+      padding:10px 13px;z-index:100;pointer-events:auto;
       font-family:system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.85);
       min-width:155px;max-width:240px;
     `;
