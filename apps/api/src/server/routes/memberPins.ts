@@ -6,6 +6,38 @@ import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult, Mun
 
 export const memberPinsRouter = Router();
 
+// ── Timezone backfill helper ──────────────────────────────────────────────────
+// Pins placed before the timezone column was added have timezone = null.
+// This helper looks up the IANA timezone for each such pin from timeapi.io,
+// writes it to the DB, and mutates the in-memory object so the caller's response
+// already contains the correct value without a second round-trip.
+
+type PinWithTimezone = { id: string; lat: number; lng: number; timezone: string | null };
+
+async function backfillTimezones(pins: PinWithTimezone[]): Promise<void> {
+  const missing = pins.filter((p) => !p.timezone);
+  if (missing.length === 0) return;
+  await Promise.allSettled(
+    missing.map(async (pin) => {
+      try {
+        const tzRes = await fetch(
+          `https://timeapi.io/api/TimeZone/coordinate?latitude=${pin.lat}&longitude=${pin.lng}`,
+          {
+            headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal/1.0' },
+            signal: AbortSignal.timeout(4000),
+          },
+        );
+        if (!tzRes.ok) return;
+        const tzJson = await tzRes.json() as { timeZone?: string };
+        if (typeof tzJson.timeZone === 'string' && tzJson.timeZone) {
+          await prisma.memberPin.update({ where: { id: pin.id }, data: { timezone: tzJson.timeZone } });
+          pin.timezone = tzJson.timeZone; // mutate so the current response carries the real timezone
+        }
+      } catch { /* ignore — pin.timezone stays null; client falls back to longitude estimate */ }
+    }),
+  );
+}
+
 // ── GET /api/guilds/:guildId/member-pins ──────────────────────────────────────
 // Returns all pins for the guild. userId is never included in the response.
 
@@ -22,6 +54,9 @@ memberPinsRouter.get('/:guildId/member-pins', requireAuth, async (req, res) => {
       select: { id: true, lat: true, lng: true, municipality: true, displayName: true, timezone: true },
       orderBy: { createdAt: 'asc' },
     });
+    // Lazily fill in any timezones missing from pins placed before the column existed.
+    // Awaited so this response already returns accurate timezone data.
+    await backfillTimezones(pins);
     res.json({ success: true, data: pins } satisfies ApiResponse<MemberPinDto[]>);
   } catch (err) {
     console.error('[GET member-pins]', err);
@@ -44,6 +79,7 @@ memberPinsRouter.get('/:guildId/member-pins/mine', requireAuth, async (req, res)
       where: { guildId_userId: { guildId: guild.id, userId: req.session.userId! } },
       select: { id: true, lat: true, lng: true, municipality: true, displayName: true, timezone: true },
     });
+    if (pin) await backfillTimezones([pin]);
     res.json({ success: true, data: pin ?? null } satisfies ApiResponse<MemberPinDto | null>);
   } catch (err) {
     console.error('[GET member-pins/mine]', err);
