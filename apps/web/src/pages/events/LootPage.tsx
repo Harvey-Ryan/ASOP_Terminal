@@ -1551,8 +1551,8 @@ export function LootPage() {
         </>
         </div>{/* end main content column */}
 
-        {/* Queue card — snake draft only */}
-        {isSnakeDraft && (
+        {/* Queue card — snake draft participants only (API 403s anyone not in the draft order without a viewer role) */}
+        {isSnakeDraft && !!user?.id && session.draftOrder.includes(user.id) && (
           <div className="md:sticky md:top-4 self-start">
             <QueueCard
               session={session}
