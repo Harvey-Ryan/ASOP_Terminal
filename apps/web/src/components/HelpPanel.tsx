@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   HelpCircle, CalendarDays, Coins, Gavel, Gift, Store,
-  Ship, Users, Settings, ChevronDown, ChevronRight, Shield, Network, Trophy,
+  Ship, Users, Settings, ChevronDown, ChevronRight, Shield, Network, Trophy, BarChart3, Terminal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -119,7 +119,9 @@ function eventsAdminContent() {
       <Divider />
       <H>Event Templates &amp; Recurring Events</H>
       <P>Every time you click <B>Repeat</B> on a completed event, a template is saved or updated with that event's configuration. Templates appear in the Create Event form so you can pre-fill all fields instantly.</P>
-      <P>Set a <B>Recurrence</B> type (Daily, Weekly, Biweekly, Monthly) to mark an event as repeating. Use Repeat to schedule the next occurrence on any cadence you choose.</P>
+      <P>Pick a <B>Repeat</B> option in the Create Event form to make an event recurring. The options are worded from the start date you chose, for example <B>Weekly on Tuesday</B>, <B>Monthly on the 14th</B>, <B>Monthly on the 2nd Tuesday</B> or <B>Monthly on the last Friday</B>. The form shows the next three dates so you can check them before saving.</P>
+      <P>When an occurrence ends, the bot schedules the next one automatically. Times stay the same in your local time across daylight saving changes. A monthly event on the 29th–31st falls on the last day of shorter months and returns to its usual date afterwards.</P>
+      <P>To end a series, click <B>Stop Repeating</B> on the event. If the next occurrence hasn't started yet, it is cancelled too, and its Discord event and thread are taken down. If it's already under way, it finishes as normal. Either way, no more occurrences are scheduled.</P>
       <Divider />
       <H>Attendance Audit</H>
       <P>After an event ends, open the <B>Audit</B> page to confirm attendance. Members who were active in event VCs are pre-marked as present. Manually confirm or remove attendees — only confirmed attendees receive DKP awards and qualify for loot rolls.</P>
@@ -195,8 +197,8 @@ function lootContent(dkpLabel: string) {
       </UL>
       <Divider />
       <H>Snake Draft — Pick Queue</H>
-      <P>When you're in an active snake draft, open the loot page and find the <B>Queue</B> panel. Add items in the order you'd prefer to receive them. When it's your turn, the system checks your queue and picks the first still-available item automatically.</P>
-      <P>Drag the grip handle (⠿) to reorder your queue. Items already assigned to someone else are struck through and skipped. You'll receive a Discord DM when it's your turn regardless of whether you have a queue set.</P>
+      <P>If you're in a snake draft's pick order, every unassigned item on the loot page has a <B>+</B> button. Click it to add the item to your queue; the button changes to a check mark, and clicking it again removes the item. When it's your turn, the system picks the first item in your queue that's still available.</P>
+      <P>Your <B>Queue</B> panel lists only the items you've queued. Drag the grip handle (⠿) to change their order. Items someone else has already received are struck through and skipped. The panel and the + buttons appear only for members in the draft order. You'll get a Discord DM when it's your turn whether or not you have a queue.</P>
       <Divider />
       <H>Loot History</H>
       <P>The <B>Loot History</B> tab on the Loot module page shows all past sessions. Expand any session row to see the full item list. For commodity sessions, all distribution assignments are shown grouped by recipient. Admins and session owners can mark individual items as <B>Delivered</B>.</P>
@@ -208,6 +210,7 @@ function lootAdminContent(dkpLabel: string) {
   return (
     <>
       <H>Creating a Session</H>
+      <P>Session controls (creating sessions, adding items, the draft order, assigning and completing) are shown only to members with the <B>Manage Server</B> permission in Discord. Everyone else sees the session read-only, plus their own queue.</P>
       <P>From an event's loot tab or the standalone Loot page, click <B>New Session</B>. Choose a distribution method, optionally set a {dkpLabel} award for attendance, then add items. Sessions can be created before, during, or after an event ends.</P>
       <Divider />
       <H>Adding Items</H>
@@ -417,8 +420,59 @@ function settingsContent(dkpLabel: string) {
       <H>RSI Org Tag</H>
       <P>Set your org's RSI tag in <B>Org Settings</B> to enable the RSI Roster and bio verification requirement. Once set, all members must verify their RSI handle before accessing the dashboard.</P>
       <Divider />
+      <H>Status Channel</H>
+      <P>Choose a <B>Status Channel</B> in <B>Org Settings</B> and the bot keeps one live status message there. It shows the ASOP version and when it was deployed, plus the Star Citizen game data build, when the Star Citizen Wiki published it and when ASOP last checked for and installed an update. The message is edited in place, and only when something changes (a new version, a game data update, a failed update or a warning), so it never floods the channel.</P>
+      <P>Game data is checked for updates once a day. If an update fails, the previous data stays in use and the status message shows the error until the next successful check. The <B>SC Database</B> page shows the same status.</P>
+      <Divider />
       <H>Registering Bot Commands</H>
-      <P>Use the <B>Register Commands</B> button in the Org Settings panel if slash commands stop appearing in Discord. This re-registers all guild-specific commands without affecting the bot's other functions.</P>
+      <P>The bot registers its slash commands every time it starts, so new commands appear and removed ones disappear after an update with nothing to do on your side. If commands ever stop appearing in Discord, use <B>Re-register Commands</B> in <B>Org Settings</B>. It doesn't affect anything else the bot does.</P>
+    </>
+  );
+}
+
+function activityContent() {
+  return (
+    <>
+      <H>The Leaderboard</H>
+      <P>The <B>Activity</B> page ranks members by their activity score, built from messages and time in voice channels. Admins set how much each counts.</P>
+      <Divider />
+      <H>Inactive Members</H>
+      <P>Members who haven't been active for the server's inactivity threshold are marked inactive and <B>hidden from the leaderboard</B> by default. A line under the leaderboard says how many are hidden; click <B>Show inactive</B> to list them, greyed out, and <B>Hide inactive</B> to hide them again. A member who becomes active again is back on the leaderboard straight away.</P>
+      <Divider />
+      <H>Members Who Left</H>
+      <P>Members who have left the Discord server are never listed. Their history is kept rather than deleted, so if they rejoin they reappear with their previous score.</P>
+    </>
+  );
+}
+
+function C({ children }: { children: React.ReactNode }) {
+  return <code className="font-mono text-xs bg-muted px-1 rounded">{children}</code>;
+}
+
+function commandsContent(opts: { dkpLabel: string; eventBotEnabled: boolean; dkpEnabled: boolean; lootEnabled: boolean; exchangeEnabled: boolean; fleetEnabled: boolean }) {
+  const { dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled } = opts;
+  return (
+    <>
+      <P>Type <C>/</C> in Discord to see the bot's commands. <C>/help</C> lists the ones available to you in that server.</P>
+      <Divider />
+      <H>Star Citizen Data</H>
+      <UL>
+        <LI><C>/blueprint &lt;name&gt;</C> — everything about a crafting blueprint in one answer: the materials and craft time, how quality changes the stats, what dismantling returns, and how many missions can reward it. Click <B>Show missions</B> for the list of those missions (only you see it). If you type a name without picking a suggestion, you get the blueprints that match.</LI>
+        <LI><C>/material &lt;name&gt;</C> — every blueprint that uses a crafting material. Slots that accept several materials count for each of them.</LI>
+        <LI><C>/item &lt;name&gt;</C> — details for an item, or average prices for a commodity.</LI>
+      </UL>
+      <P>Blueprint and material answers come from the latest game files and update automatically when a new game build is published. The footer of each answer names the build.</P>
+      <P>These replace the older <C>/recipe</C>, <C>/blueprint search</C>, <C>/blueprint recipe</C>, <C>/blueprint dismantle</C>, <C>/blueprint contracts</C>, <C>/material usedby</C> and <C>/uex</C> commands.</P>
+      {(eventBotEnabled || dkpEnabled || lootEnabled || exchangeEnabled || fleetEnabled) && <Divider />}
+      {(eventBotEnabled || dkpEnabled || lootEnabled || exchangeEnabled || fleetEnabled) && <H>Server Features</H>}
+      <UL>
+        {eventBotEnabled && <LI><C>/event list</C>, <C>/event create</C>, <C>/event end</C> — for event organisers: list upcoming events, open the create form, or end an event.</LI>}
+        {dkpEnabled && <LI><C>/wallet</C> — your {dkpLabel} balance and recent transactions; add a member to check theirs. <C>/bid &lt;amount&gt;</C> bids in a live {dkpLabel} auction.</LI>}
+        {lootEnabled && <LI><C>/loot status</C> — the current loot session; <C>/loot open</C> links to the loot page.</LI>}
+        {exchangeEnabled && <LI><C>/whohas &lt;item&gt;</C> — members of this server who have an item. <C>/marketplace search</C> and <C>/marketplace list</C> — listings across all servers, and your own.</LI>}
+        {fleetEnabled && <LI><C>/fleet search &lt;ship&gt;</C> — members who own a ship; <C>/fleet link</C> opens your Fleet Registry.</LI>}
+        <LI><C>/login</C> — a link to sign in to this website.</LI>
+      </UL>
     </>
   );
 }
@@ -435,8 +489,9 @@ function buildSections(opts: {
   fleetEnabled: boolean;
   rsiOrgRequired: boolean;
   tournamentsEnabled: boolean;
+  activityEnabled: boolean;
 }): GuideSection[] {
-  const { isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired, tournamentsEnabled } = opts;
+  const { isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired, tournamentsEnabled, activityEnabled } = opts;
 
   const member: GuideSection[] = [
     eventBotEnabled && {
@@ -502,6 +557,20 @@ function buildSections(opts: {
       subtitle: 'Register, follow brackets, ELO rankings, and head-to-head results.',
       content: tournamentsContent(),
     },
+    activityEnabled && {
+      id: 'activity',
+      icon: <BarChart3 className="h-4 w-4" />,
+      title: 'Activity Leaderboard',
+      subtitle: 'How members are ranked, and how inactive and departed members are shown.',
+      content: activityContent(),
+    },
+    {
+      id: 'commands',
+      icon: <Terminal className="h-4 w-4" />,
+      title: 'Discord Commands',
+      subtitle: '/blueprint, /material, /item and the rest of the bot\'s slash commands.',
+      content: commandsContent({ dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled }),
+    },
   ].filter(Boolean) as GuideSection[];
 
   if (!isManager) return member;
@@ -559,7 +628,7 @@ function buildSections(opts: {
       id: 'settings-admin',
       icon: <Settings className="h-4 w-4" />,
       title: 'Permissions & Settings',
-      subtitle: 'Module settings, bot channels, roles, RSI org tag.',
+      subtitle: 'Module settings, bot channels, the status channel, roles, RSI org tag.',
       adminOnly: true,
       content: settingsContent(dkpLabel),
     },
@@ -580,6 +649,7 @@ export function HelpPanel({
   fleetEnabled = true,
   rsiOrgRequired = false,
   tournamentsEnabled = false,
+  activityEnabled = false,
 }: {
   isManager: boolean;
   dkpLabel: string;
@@ -590,10 +660,11 @@ export function HelpPanel({
   fleetEnabled?: boolean;
   rsiOrgRequired?: boolean;
   tournamentsEnabled?: boolean;
+  activityEnabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
-  const sections = buildSections({ isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired, tournamentsEnabled });
+  const sections = buildSections({ isManager, dkpLabel, eventBotEnabled, dkpEnabled, lootEnabled, exchangeEnabled, fleetEnabled, rsiOrgRequired, tournamentsEnabled, activityEnabled });
   const memberSections = sections.filter((s) => !s.adminOnly);
   const adminSections = sections.filter((s) => s.adminOnly);
 
