@@ -65,3 +65,19 @@ Patch Notes — November 10
 5. After the notes have been announced, and only when told to, tag the last
    included commit: `git tag patch-notes/YYYY-MM-DD <sha>` (and push the tag
    if asked).
+
+## Star Citizen game data (`apps/sc-data`)
+
+- Our copy of StarCitizenWiki/scunpacked-data lives in Postgres schemas
+  `scdata` (clean tables; use these in the app) and `scdata_raw` (every
+  upstream file + sync history). Details: `apps/sc-data/README.md`.
+- These schemas are owned by the sc-data worker's own migrations, not Prisma.
+  The API starts with `prisma db push --accept-data-loss`, which drops anything
+  Prisma manages but doesn't see in `schema.prisma`. So:
+  - read them with `prisma.$queryRaw` (or a small typed helper), or
+  - if they're ever added to Prisma (`multiSchema`), list only `scdata`, model
+    every table exactly as it exists, and never add `scdata_raw`.
+- Filter `items.is_placeholder = false` for anything players see.
+- The older `Sc*` Prisma tables (`apps/api/src/lib/scSync.ts`) and the
+  frozen `packages/shared/src/Filtered Data/` JSON still exist; features are
+  being moved over to `scdata` one at a time.

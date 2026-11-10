@@ -1,0 +1,16 @@
+# Railway config for the sc-data worker service.
+# In the service's Settings, set "Config-as-code" / Railway Config File to:
+#   apps/sc-data/railway.toml
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/sc-data/Dockerfile"
+# Only rebuild this service when its own code changes.
+watchPatterns = ["apps/sc-data/**", "package-lock.json"]
+
+[deploy]
+# Hourly. A run where upstream hasn't moved costs one small request and exits
+# in well under a second; a new game build takes a few minutes.
+cronSchedule = "17 * * * *"
+# Cron jobs exit when done; don't treat that as a crash.
+restartPolicyType = "NEVER"

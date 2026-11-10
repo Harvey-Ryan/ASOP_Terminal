@@ -106,6 +106,30 @@ Replace `<bot-service-name>` with the slug shown in the bot service's Railway da
 
 ---
 
+## 4.5 sc-data worker (Star Citizen game data)
+
+Keeps our copy of the wiki's game-data extract in the shared Postgres (schemas
+`scdata_raw` and `scdata`). It's a cron job: it starts, syncs if upstream has a
+new build, and exits. See `apps/sc-data/README.md`.
+
+1. **+ New** → **GitHub Repo** → this repository. Name it e.g. `sc-data`.
+2. **Settings → Config-as-code**: Railway config file → `apps/sc-data/railway.toml`.
+   That sets the Dockerfile (`apps/sc-data/Dockerfile`), the hourly cron
+   schedule, and no restarts. Leave the build context as the repo root.
+3. **Variables**:
+
+| Variable | Value / notes |
+|----------|--------------|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `GITHUB_TOKEN` | Optional. Any read-only token; only used to read the build name of a new upstream commit |
+
+No domain, no port. The first run loads everything (≈ 2 minutes, ≈ 500 MB
+memory, ≈ 790 MB added to the database); after that, a run with no new build
+finishes in under a second. To run it immediately instead of waiting for the
+schedule, use **Deploy** (or "Run now") on the service.
+
+---
+
 ## 5. First-time deploy
 
 1. **Trigger a deploy** on both services (push to main or click **Deploy** in the Railway UI).
