@@ -2,32 +2,17 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
+import { parseCatalogRef } from '@dem/shared';
 import type { ApiResponse, InventoryEntryDto, InventorySearchGroup, UpsertInventoryEntryBody, InventoryItemType } from '@dem/shared';
+import type { InventoryEntry } from '@prisma/client';
+import { getCatalog, resolveUexItem, sameItemWhere } from '../../lib/catalog.js';
 
 
 export const exchangeRouter = Router();
 
 // ── DTO helper ────────────────────────────────────────────────────────────────
 
-function toDto(row: {
-  id: string;
-  guildId: string;
-  userId: string;
-  username: string;
-  itemType: string;
-  externalItemId: number;
-  itemName: string;
-  quantity: number;
-  qualityLevel: number | null;
-  location: string | null;
-  forSale: boolean;
-  quantityListed: number | null;
-  askingPrice: number | null;
-  priceNote: string | null;
-  listedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): InventoryEntryDto {
+function toDto(row: InventoryEntry): InventoryEntryDto {
   return {
     id: row.id,
     guildId: row.guildId,
@@ -35,6 +20,7 @@ function toDto(row: {
     username: row.username,
     itemType: row.itemType as InventoryItemType,
     externalItemId: row.externalItemId,
+    itemUuid: row.itemUuid,
     itemName: row.itemName,
     quantity: row.quantity,
     qualityLevel: row.qualityLevel,
@@ -90,10 +76,27 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
   if (!body.itemType || !['ITEM', 'COMMODITY'].includes(body.itemType)) {
     res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse); return;
   }
-  if (typeof body.externalItemId !== 'number' || body.externalItemId <= 0) {
-    res.status(400).json({ success: false, error: 'externalItemId must be a positive number' } satisfies ApiResponse); return;
+  // Which item: a game catalog ref (current pickers) or a UEX id (older pickers).
+  let itemUuid: string | null = null;
+  let externalItemId: number | null = null;
+  let itemName = body.itemName?.trim() ?? '';
+  const ref = body.itemRef ? parseCatalogRef(body.itemRef) : null;
+  if (body.itemRef && !ref) {
+    res.status(400).json({ success: false, error: 'itemRef is not a valid game item' } satisfies ApiResponse); return;
   }
-  if (!body.itemName?.trim()) {
+  if (ref) {
+    const entry = (await getCatalog()).get(body.itemRef!);
+    if (!entry || entry.kind !== body.itemType) {
+      res.status(400).json({ success: false, error: 'That item is not in the game data' } satisfies ApiResponse); return;
+    }
+    itemUuid = entry.uuid;
+    itemName = entry.name;
+  } else if (typeof body.externalItemId === 'number' && body.externalItemId > 0) {
+    externalItemId = body.externalItemId;
+  } else if (!body.id) {
+    res.status(400).json({ success: false, error: 'Pick an item from the list' } satisfies ApiResponse); return;
+  }
+  if (!itemName) {
     res.status(400).json({ success: false, error: 'itemName is required' } satisfies ApiResponse); return;
   }
   if (typeof body.quantity !== 'number' || body.quantity < 0) {
@@ -122,10 +125,9 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
         id: { not: body.id },
         guildId,
         userId,
-        itemType: entry.itemType,
-        externalItemId: entry.externalItemId,
         location,
         qualityLevel,
+        ...sameItemWhere(entry.itemType as InventoryItemType, entry.itemUuid, entry.externalItemId, entry.itemUuid ? null : entry.itemName),
       },
     });
     if (conflict) {
@@ -161,26 +163,33 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
 
     const row = await prisma.inventoryEntry.update({
       where: { id: body.id },
-      data: { username, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel, location, ...listingData },
+      data: { username, itemName: entry.itemUuid ? entry.itemName : itemName, quantity: body.quantity, qualityLevel, location, ...listingData },
     });
     res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
     return;
   }
 
   // ── Composite-key upsert (Add Item form) ──────────────────────────────────
-  // Matches on the full (guildId, userId, itemType, externalItemId, location, qualityLevel)
-  // tuple so that different QL values at the same location are stored as separate rows.
+  // Matches on (guildId, userId, item, location, qualityLevel) so that different
+  // QL values at the same location are stored as separate rows. "Item" is the
+  // game item, so an entry added from the UEX picker and one added from the game
+  // catalog for the same thing are the same row.
+  if (!itemUuid) itemUuid = await resolveUexItem(body.itemType, externalItemId, itemName);
   const existing = await prisma.inventoryEntry.findFirst({
-    where: { guildId, userId, itemType: body.itemType, externalItemId: body.externalItemId, location, qualityLevel },
+    where: { guildId, userId, location, qualityLevel, ...sameItemWhere(body.itemType, itemUuid, externalItemId, null) },
   });
 
   const row = existing
     ? await prisma.inventoryEntry.update({
         where: { id: existing.id },
-        data: { username, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel, location },
+        data: {
+          username, quantity: body.quantity, qualityLevel, location,
+          ...(itemUuid ? { itemUuid } : {}), ...(existing.externalItemId ? {} : externalItemId ? { externalItemId } : {}),
+          ...(existing.itemUuid && !ref ? {} : { itemName }),
+        },
       })
     : await prisma.inventoryEntry.create({
-        data: { guildId, userId, username, itemType: body.itemType, externalItemId: body.externalItemId, itemName: body.itemName.trim(), quantity: body.quantity, qualityLevel, location },
+        data: { guildId, userId, username, itemType: body.itemType, externalItemId, itemUuid, itemName, quantity: body.quantity, qualityLevel, location },
       });
 
   res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
@@ -238,20 +247,24 @@ exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) =>
   if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
     res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
   }
-  const itemType = req.query.itemType as string | undefined;
-  const externalItemId = parseInt(String(req.query.externalItemId ?? ''), 10);
+  // Either itemRef (game catalog) or itemType + externalItemId (UEX).
+  const ref = parseCatalogRef(typeof req.query.itemRef === 'string' ? req.query.itemRef : null);
+  const itemType = (ref?.kind ?? req.query.itemType) as InventoryItemType | undefined;
+  const externalItemId = ref ? null : parseInt(String(req.query.externalItemId ?? ''), 10);
 
   if (!itemType || !['ITEM', 'COMMODITY'].includes(itemType)) {
-    res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse);
+    res.status(400).json({ success: false, error: 'itemRef, or itemType ITEM or COMMODITY, is required' } satisfies ApiResponse);
     return;
   }
-  if (isNaN(externalItemId) || externalItemId <= 0) {
+  if (!ref && (externalItemId === null || isNaN(externalItemId) || externalItemId <= 0)) {
     res.status(400).json({ success: false, error: 'externalItemId must be a positive number' } satisfies ApiResponse);
     return;
   }
 
+  const catalogEntry = ref ? (await getCatalog()).get(req.query.itemRef as string) : undefined;
+  const itemUuid = ref ? ref.uuid : await resolveUexItem(itemType, externalItemId, null);
   const rows = await prisma.inventoryEntry.findMany({
-    where: { guildId, itemType, externalItemId, memberActive: true },
+    where: { guildId, memberActive: true, ...sameItemWhere(itemType, itemUuid, externalItemId, catalogEntry?.name ?? null) },
     orderBy: [{ qualityLevel: 'desc' }, { username: 'asc' }],
   });
 
@@ -284,6 +297,7 @@ exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) =>
         itemName: row.itemName,
         itemType: row.itemType as InventoryItemType,
         externalItemId: row.externalItemId,
+        itemUuid: row.itemUuid,
         qualityLevel: row.qualityLevel,
         entries: [],
       });

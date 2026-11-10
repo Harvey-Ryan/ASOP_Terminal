@@ -27,6 +27,7 @@ import { heatmapRouter } from './routes/heatmap.js';
 import { trafficRouter } from './routes/traffic.js';
 import { tournamentRouter } from './routes/tournament.js';
 import { gameDataRouter } from './routes/gameData.js';
+import { catalogRouter } from './routes/catalog.js';
 import { APP_VERSION, APP_COMMIT } from '../lib/appVersion.js';
 import { memberPinsRouter } from './routes/memberPins.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
@@ -215,6 +216,7 @@ export function createServer(): express.Express {
   app.use('/api', uexRouter);
   app.use('/api', scRouter);
   app.use('/api', gameDataRouter);
+  app.use('/api', catalogRouter);
   app.use('/api/guilds', exchangeRouter);
   app.use('/api', marketplaceRouter);
   app.use('/api/guilds', fleetRouter);

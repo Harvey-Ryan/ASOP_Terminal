@@ -530,7 +530,10 @@ export interface InventoryEntryDto {
   userId: string;
   username: string;
   itemType: InventoryItemType;
-  externalItemId: number;
+  /** UEX id; null for entries added from the game item catalog. */
+  externalItemId: number | null;
+  /** Game UUID (scdata); null if an older entry couldn't be linked. */
+  itemUuid: string | null;
   itemName: string;
   quantity: number;
   qualityLevel: number | null;
@@ -549,7 +552,10 @@ export interface UpsertInventoryEntryBody {
   /** If provided, update this specific entry by id rather than matching on composite key */
   id?: string;
   itemType: InventoryItemType;
-  externalItemId: number;
+  /** Catalog ref ("ITEM:<uuid>" / "COMMODITY:<uuid>") of the picked item. Preferred. */
+  itemRef?: string | null;
+  /** UEX id, from the older UEX pickers. Used when itemRef is absent. */
+  externalItemId?: number | null;
   itemName: string;
   quantity: number;
   qualityLevel?: number | null;
@@ -564,7 +570,8 @@ export interface UpsertInventoryEntryBody {
 export interface InventorySearchGroup {
   itemName: string;
   itemType: InventoryItemType;
-  externalItemId: number;
+  externalItemId: number | null;
+  itemUuid: string | null;
   /** null means "no QL specified" */
   qualityLevel: number | null;
   entries: InventoryEntryDto[];
@@ -580,7 +587,8 @@ export interface MarketplaceListingDto {
   userId: string;
   username: string;
   itemType: InventoryItemType;
-  externalItemId: number;
+  externalItemId: number | null;
+  itemUuid: string | null;
   itemName: string;
   quantity: number;
   quantityListed: number | null;
@@ -1118,3 +1126,4 @@ export * from './gameData.js';
 
 // Recurring event scheduling
 export * from './recurrence.js';
+export * from './catalog.js';

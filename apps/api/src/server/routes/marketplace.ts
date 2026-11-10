@@ -77,7 +77,7 @@ const LISTING_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 function toListingDto(
   row: {
     id: string; guildId: string; userId: string; username: string;
-    itemType: string; externalItemId: number; itemName: string;
+    itemType: string; externalItemId: number | null; itemUuid: string | null; itemName: string;
     quantity: number; quantityListed: number | null; qualityLevel: number | null;
     location: string | null; askingPrice: number | null; priceNote: string | null;
     listedAt: Date | null; updatedAt: Date;
@@ -92,6 +92,7 @@ function toListingDto(
     username: row.username,
     itemType: row.itemType as InventoryItemType,
     externalItemId: row.externalItemId,
+    itemUuid: row.itemUuid,
     itemName: row.itemName,
     quantity: row.quantity,
     quantityListed: row.quantityListed,
