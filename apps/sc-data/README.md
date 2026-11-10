@@ -6,7 +6,8 @@ build on all of it.
 
 ## What a run does
 
-Railway runs it every 5 minutes (its minimum). Upstream is a repo we don't
+Railway runs it every 5 minutes (its minimum; set in the service's dashboard
+settings, see RAILWAY.md §4.5). Upstream is a repo we don't
 own, so it can't send us a webhook; asking for its head commit is one tiny
 request, so polling this often is effectively listening.
 

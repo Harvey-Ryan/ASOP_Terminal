@@ -34,5 +34,8 @@ ENV BOT_INTERNAL_URL=http://localhost:3002
 
 EXPOSE 3001
 
-# Start bot in background, then run API (with migration) in foreground
-CMD ["sh", "-c", "node apps/bot/dist/index.js & cd apps/api && npx prisma db push --accept-data-loss && node dist/index.js"]
+# Start bot in background, then run API (with migration) in foreground.
+# Guard: refuse to start (and never touch the database) without the app's own
+# secrets. A Railway service pointed at this Dockerfile by mistake has none,
+# and `prisma db push --accept-data-loss` must not run from it.
+CMD ["sh", "-c", "if [ -z \"$DISCORD_TOKEN\" ] || [ -z \"$SESSION_SECRET\" ]; then echo '[startup] DISCORD_TOKEN or SESSION_SECRET is not set: refusing to start and leaving the database untouched. Is this service using the wrong Dockerfile?' >&2; exit 1; fi; node apps/bot/dist/index.js & cd apps/api && npx prisma db push --accept-data-loss && node dist/index.js"]

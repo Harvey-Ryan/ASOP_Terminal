@@ -37,6 +37,10 @@ Both services share the same PostgreSQL database add-on.
    - **Dockerfile path** → `apps/api/Dockerfile`
    - **Docker build context** → `.` (repo root)
 
+Since there is no `railway.toml`, check **Settings → Build**: Builder
+**Dockerfile** (auto-detected from the root `Dockerfile`), and **Settings →
+Deploy**: Restart Policy **On Failure**.
+
 ### 3b. Set environment variables
 
 | Variable | Value / notes |
@@ -110,23 +114,36 @@ Replace `<bot-service-name>` with the slug shown in the bot service's Railway da
 
 Keeps our copy of the wiki's game-data extract in the shared Postgres (schemas
 `scdata_raw` and `scdata`). It's a cron job: it starts, syncs if upstream has a
-new build, and exits. See `apps/sc-data/README.md`.
+new build or someone pressed **Sync now**, and exits. See `apps/sc-data/README.md`.
 
-1. **+ New** → **GitHub Repo** → this repository. Name it e.g. `sc-data`.
-2. **Settings → Config-as-code**: Railway config file → `apps/sc-data/railway.toml`.
-   That sets the Dockerfile (`apps/sc-data/Dockerfile`), the hourly cron
-   schedule, and no restarts. Leave the build context as the repo root.
+Railway no longer reads `railway.toml` / config-as-code for new services (and
+stops reading it for all services on 2026-12-01), so everything is set in the
+dashboard. **The repo must not contain a root `railway.toml`**: Railway applies
+it to every service from this repo and it overrides the settings below.
+
+1. **+ New → Empty Service**, name it `sc-data`.
+2. **Settings → Source**: repo `Harvey-Ryan/ASOP_Terminal`, branch `master`,
+   Root Directory blank.
 3. **Variables**:
 
 | Variable | Value / notes |
 |----------|--------------|
+| `RAILWAY_DOCKERFILE_PATH` | `apps/sc-data/Dockerfile` (Settings → Build then shows "Set via RAILWAY_DOCKERFILE_PATH") |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `GITHUB_TOKEN` | Optional. Any read-only token; only used to read the build name of a new upstream commit |
+| `GITHUB_TOKEN` | Optional. Only used to read the build name of a new upstream commit |
 
-No domain, no port. The first run loads everything (≈ 2 minutes, ≈ 500 MB
-memory, ≈ 790 MB added to the database); after that, a run with no new build
-finishes in under a second. To run it immediately instead of waiting for the
-schedule, use **Deploy** (or "Run now") on the service.
+4. **Settings → Build → Watch Paths**: `/apps/sc-data/**`
+5. **Deploy the latest commit** (Ctrl+K → Deploy Latest Commit; Restart and
+   Redeploy reuse the old image). Build logs must show
+   `npm ci --workspace @dem/sc-data`; deploy logs only `[sc-data] …` lines,
+   ending in `Done`. The first run takes ≈ 2 minutes, ≈ 500 MB memory and adds
+   ≈ 790 MB to the database (have ≈ 2 GB free).
+6. **Settings → Deploy**: Cron Schedule `*/5 * * * *`, Restart Policy **Never**.
+
+If a deployment of `sc-data` ever shows `[bot]`, `[gamedata]` or
+`Prisma schema loaded`, it's building the main app's Dockerfile: remove the
+deployment. The main Dockerfile refuses to start without `DISCORD_TOKEN` and
+`SESSION_SECRET`, so it won't touch the database, but it shouldn't run there.
 
 ---
 
