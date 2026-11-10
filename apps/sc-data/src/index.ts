@@ -15,6 +15,7 @@
 //   SC_DATA_BRANCH            default master
 //   GITHUB_TOKEN              optional, raises the GitHub API limit for commit details
 //   SC_DATA_FORCE=1           re-check every file even if the head commit is unchanged
+//                             (a "Sync now" request from the web app does the same)
 //   SC_DATA_ALLOW_MASS_DELETE=1  allow removing >25% of files in one run
 //   SC_DATA_TARBALL_FILE      testing: read this local .tar.gz instead of downloading
 //   SC_DATA_COMMIT            testing: use this commit id instead of asking GitHub
@@ -49,6 +50,14 @@ async function migrate(client: pg.PoolClient): Promise<void> {
   }
 }
 
+// Every 5-minute check that finds nothing new leaves a 'no_change' row; keep a
+// week of those (enough to see the worker is alive) and all real syncs forever.
+async function prune(client: pg.PoolClient): Promise<void> {
+  await client.query(
+    `DELETE FROM scdata_raw.sync_run WHERE status = 'no_change' AND started_at < now() - interval '7 days'`,
+  );
+}
+
 async function main(): Promise<number> {
   const databaseUrl = process.env['DATABASE_URL'];
   if (!databaseUrl) throw new Error('DATABASE_URL is required');
@@ -71,15 +80,26 @@ async function main(): Promise<number> {
     }
 
     await migrate(client);
+    await prune(client);
+
+    // A "Sync now" request from the web app forces a full re-check.
+    const request = (
+      await client.query<{ id: string; requested_by: string | null }>(
+        'SELECT id, requested_by FROM scdata_raw.sync_request WHERE handled_at IS NULL ORDER BY id LIMIT 1',
+      )
+    ).rows[0];
+    if (request) log(`Sync requested${request.requested_by ? ` by ${request.requested_by}` : ''}; forcing a full re-check`);
+    const forced = force || !!request;
+    const runTrigger = request ? 'manual' : trigger;
 
     const head = process.env['SC_DATA_COMMIT'] ?? (await getHeadCommit(cfg));
     const state = (await client.query<{ commit: string | null }>('SELECT commit FROM scdata_raw.state')).rows[0];
     log(`Upstream ${cfg.repo}@${cfg.branch} is at ${head.slice(0, 12)}; we hold ${state?.commit?.slice(0, 12) ?? 'nothing'}`);
 
-    if (state?.commit === head && !force) {
+    if (state?.commit === head && !forced) {
       await client.query(
         `INSERT INTO scdata_raw.sync_run (trigger, status, upstream_commit, finished_at) VALUES ($1, 'no_change', $2, now())`,
-        [trigger, head],
+        [runTrigger, head],
       );
       log('No upstream change; nothing to do.');
       return 0;
@@ -91,9 +111,16 @@ async function main(): Promise<number> {
     const runId = (
       await client.query<{ id: string }>(
         `INSERT INTO scdata_raw.sync_run (trigger, status, upstream_commit, build) VALUES ($1, 'running', $2, $3) RETURNING id`,
-        [trigger, head, info.build],
+        [runTrigger, head, info.build],
       )
     ).rows[0]!.id;
+    // Mark every waiting request as handled by this run (several clicks = one sync).
+    if (request) {
+      await client.query(
+        'UPDATE scdata_raw.sync_request SET handled_at = now(), run_id = $1 WHERE handled_at IS NULL',
+        [runId],
+      );
+    }
 
     const started = Date.now();
     try {

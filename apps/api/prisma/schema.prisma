@@ -160,6 +160,14 @@ model GuildSettings {
   tournamentChannelId   String?
   /// Discord text/announcement channel snowflake where H2H results are posted
   h2hChannelId          String?
+  /// Discord text channel snowflake for the live ASOP status embed (version, game data)
+  statusChannelId        String?
+  /// Message id of the status embed the bot keeps editing (bot-managed)
+  statusMessageId        String?
+  /// Channel that message lives in, so a moved setting can clean up the old one (bot-managed)
+  statusMessageChannelId String?
+  /// Hash of the last embed content posted, to skip edits when nothing changed (bot-managed)
+  statusEmbedHash        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1524,4 +1532,17 @@ model MemberPin {
 
   @@unique([guildId, userId])
   @@index([guildId])
+}
+
+// ── Deployments ───────────────────────────────────────────────────────────────
+
+/// One row per ASOP version + commit that has run in production. The bot
+/// records it on startup; the status embed shows when the current one went live.
+model AppDeployment {
+  id          String   @id @default(cuid())
+  version     String
+  commitSha   String   @default("")
+  firstSeenAt DateTime @default(now())
+
+  @@unique([version, commitSha])
 }

@@ -1105,3 +1105,6 @@ export interface MunicipalitySearchResult {
   lat: number;
   lng: number;
 }
+
+// Game data pipeline status (apps/sc-data)
+export * from './gameData.js';

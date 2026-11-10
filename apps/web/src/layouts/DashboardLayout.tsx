@@ -15,6 +15,7 @@ import { HelpPanel } from '@/components/HelpPanel';
 import { RsiVerifyGate } from '@/components/RsiVerifyGate';
 import { settingsApi } from '@/api/settings';
 import { marketplaceApi } from '@/api/marketplace';
+import { healthApi } from '@/api/gameData';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
@@ -116,6 +117,8 @@ function GuildIcon({ guild }: { guild: ManagedGuild }) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export function DashboardLayout() {
+  const { data: health } = useQuery({ queryKey: ['health'], queryFn: healthApi.get, staleTime: 10 * 60_000 });
+  const appVersion = health?.version && health.version !== '0.0.0' ? health.version : null;
   const { user, guilds, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -695,6 +698,7 @@ export function DashboardLayout() {
           🍺 Buy Me a Beer
         </a>
         <p className="text-[11px] leading-tight text-muted-foreground text-center opacity-40">
+          {appVersion && <span className="font-mono mr-2">ASOP v{appVersion}</span>}
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
         </p>
         <img

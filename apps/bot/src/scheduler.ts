@@ -7,6 +7,7 @@ import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { dispatchTournamentReminder, recordMatchForfeit } from './services/tournamentService.js';
 import { formatMinutes } from './utils/time.js';
+import { recordDeployment, refreshStatusEmbeds } from './services/statusService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -33,6 +34,8 @@ async function timedCheck(name: string, fn: () => Promise<void>): Promise<void> 
 }
 
 export async function startScheduler() {
+  await recordDeployment();
+
   // Refresh the inactivity timer for every ACTIVE event that has VCs.
   // Without this, a stale lastVcActivityAt carried in from before a restart
   // (or from a data migration) would cause checkInactivityEnd() to fire
@@ -148,6 +151,7 @@ export async function startScheduler() {
       await timedCheck('checkMatchCheckIn',             checkMatchCheckIn);
       await timedCheck('checkMatchNoShow',              checkMatchNoShow);
       await timedCheck('checkMatchNoShowEscalation',    checkMatchNoShowEscalation);
+      await timedCheck('refreshStatusEmbeds',           refreshStatusEmbeds);
     } finally {
       tickRunning = false;
     }

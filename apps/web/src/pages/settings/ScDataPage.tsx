@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { scApi } from '@/api/sc';
+import { GameDataPipelineCard } from '@/components/GameDataPipelineCard';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { ScSyncLogDto } from '@dem/shared';
 
@@ -284,6 +285,8 @@ function SyncPanel() {
           <span className="font-medium text-foreground">scunpacked-data</span>. Synced automatically every Tuesday.
         </p>
       </div>
+
+      <GameDataPipelineCard />
 
       {statusQuery.isLoading ? (
         <div className="space-y-3">

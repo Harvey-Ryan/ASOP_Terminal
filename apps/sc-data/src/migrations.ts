@@ -299,4 +299,19 @@ CREATE TABLE scdata.labels (
 );
 `,
   },
+  {
+    id: '003_sync_request',
+    sql: `
+-- "Sync now" requests from the web app. The worker picks up the oldest
+-- unhandled one on its next run and does a full forced re-check.
+CREATE TABLE scdata_raw.sync_request (
+  id           bigserial PRIMARY KEY,
+  requested_at timestamptz NOT NULL DEFAULT now(),
+  requested_by text,
+  handled_at   timestamptz,
+  run_id       bigint
+);
+CREATE INDEX sync_request_pending_idx ON scdata_raw.sync_request (id) WHERE handled_at IS NULL;
+`,
+  },
 ];
