@@ -1,6 +1,7 @@
 import { canManageGuild } from '@dem/shared';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { HoverPopover } from '@/components/HoverPopover';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered, Info, ListCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -371,24 +372,21 @@ function ItemInfoPopover({ name }: { name: string }) {
   });
 
   return (
-    <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <button
-        type="button"
-        tabIndex={-1}
-        className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-      >
-        <Info className="h-3.5 w-3.5" />
-      </button>
-      {show && (
-        <div className="absolute left-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-card p-3 shadow-xl text-xs pointer-events-none">
-          {infoQuery.isLoading && <p className="text-muted-foreground">Looking up "{name}"…</p>}
-          {!infoQuery.isLoading && infoQuery.data === null && (
-            <p className="text-muted-foreground">No UEX record found for "{name}".</p>
-          )}
-          {infoQuery.data && <UexInfoCard data={infoQuery.data} />}
-        </div>
+    <HoverPopover
+      className="w-72"
+      onOpenChange={setShow}
+      trigger={
+        <button type="button" tabIndex={-1} className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      }
+    >
+      {infoQuery.isLoading && <p className="text-muted-foreground">Looking up "{name}"…</p>}
+      {!infoQuery.isLoading && infoQuery.data === null && (
+        <p className="text-muted-foreground">No UEX record found for "{name}".</p>
       )}
-    </div>
+      {infoQuery.data && <UexInfoCard data={infoQuery.data} />}
+    </HoverPopover>
   );
 }
 
