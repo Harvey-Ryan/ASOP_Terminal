@@ -554,7 +554,7 @@ export interface UpsertInventoryEntryBody {
   itemType: InventoryItemType;
   /** Catalog ref ("ITEM:<uuid>" / "COMMODITY:<uuid>") of the picked item. Preferred. */
   itemRef?: string | null;
-  /** UEX id, from the older UEX pickers. Used when itemRef is absent. */
+  /** UEX id stored on entries from before the game catalog; ignored on save. */
   externalItemId?: number | null;
   itemName: string;
   quantity: number;
@@ -765,33 +765,6 @@ export interface KanbanColumnDto {
 
 // ── UEX Corp Game Data ────────────────────────────────────────────────────────
 
-export interface UexAttributeDto {
-  name: string;
-  value: string;
-  unit: string;
-}
-
-export interface UexCategoryDto {
-  id: number;
-  type: string;
-  section: string;
-  name: string;
-}
-
-export interface UexItemDto {
-  id: number;
-  name: string;
-  slug: string;
-  categoryId: number;
-  categoryName: string;
-  section: string | null;
-  size: string | null;
-  isCommodity: boolean;
-  isHarvestable: boolean;
-  gameVersion: string | null;
-  attributes: UexAttributeDto[];
-}
-
 export interface UexCommodityDto {
   id: number;
   name: string;
@@ -827,8 +800,6 @@ export interface UexSyncStatusDto {
   isRunning: boolean;
   lastSync: UexSyncLogDto | null;
   counts: {
-    categories: number;
-    items: number;
     commodities: number;
   };
 }

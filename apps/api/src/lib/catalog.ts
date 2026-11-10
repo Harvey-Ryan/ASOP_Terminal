@@ -66,30 +66,9 @@ export async function linkInventoryOnStartup(): Promise<void> {
 // ── Identifying an inventory item ────────────────────────────────────────────
 
 /**
- * Game UUID for an item picked from the older UEX pickers: the game UUID UEX
- * stores for items, else an exact name match. Null when neither is in the catalog.
- */
-export async function resolveUexItem(
-  itemType: 'ITEM' | 'COMMODITY',
-  externalItemId: number | null,
-  itemName: string | null,
-): Promise<string | null> {
-  const catalog = await getCatalog();
-  if (itemType === 'ITEM' && externalItemId) {
-    const uex = await prisma.uexItem.findUnique({ where: { id: externalItemId }, select: { uuid: true, name: true } });
-    const byUuid = uex?.uuid ? catalog.get(`ITEM:${uex.uuid}`) : undefined;
-    if (byUuid) return byUuid.uuid;
-    itemName ??= uex?.name ?? null;
-  }
-  if (itemType === 'COMMODITY' && externalItemId && !itemName) {
-    itemName = (await prisma.uexCommodity.findUnique({ where: { id: externalItemId }, select: { name: true } }))?.name ?? null;
-  }
-  return itemName ? catalog.findByName(itemName, itemType)?.uuid ?? null : null;
-}
-
-/**
  * Prisma filter for "entries of this item": linked entries by game UUID, plus
- * older entries by UEX id, plus unlinked entries with exactly the same name.
+ * older entries by UEX id (still stored on entries from before the catalog),
+ * plus unlinked entries with exactly the same name.
  */
 export function sameItemWhere(
   itemType: 'ITEM' | 'COMMODITY',

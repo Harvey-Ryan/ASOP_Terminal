@@ -113,11 +113,9 @@ async function syncCommodities(raw: UexRawCommodity[]): Promise<Pick<SyncCounts,
 // ── Core sync pipeline ────────────────────────────────────────────────────────
 
 async function doSync(): Promise<SyncCounts> {
-  // Only commodities: item names and details now come from the game files
-  // (sc-data, see packages/shared/src/catalog.ts). UEX is kept for average
-  // commodity prices, which aren't in the game files. The UexItem and
-  // UexCategory rows from earlier syncs stay as they are; inventory linking
-  // still reads UexItem.uuid until those tables are retired.
+  // Only commodities: item names and details come from the game files (sc-data,
+  // see packages/shared/src/catalog.ts). UEX is kept for average commodity
+  // prices, which aren't in the game files.
   console.log('[uex] Fetching commodities…');
   const rawComs = await uexFetch<UexRawCommodity>('/commodities');
   const comCounts = await syncCommodities(rawComs);
