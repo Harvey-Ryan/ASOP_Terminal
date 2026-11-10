@@ -321,6 +321,10 @@ function allianceAdminContent() {
       <H>Answering a Request</H>
       <P>Requests for your org appear at the top of the page. <B>Accept</B> makes you allies. <B>Reject</B> declines; that org can ask again after 7 days. <B>Reject and block</B> stops that org from sending requests until you unblock it under <B>Blocked</B>. The other org isn't told it was blocked.</P>
       <Divider />
+      <H>Ally Notices in Discord</H>
+      <P>Choose an <B>Ally notices channel</B> under <B>Ally settings</B> and the bot posts each new request there, with the org's name, tag and message, and <B>Accept</B>, <B>Reject</B> and <B>Reject and block</B> buttons. Anyone who can manage allies can use the buttons; others are told privately they can't. Once a request is answered, from Discord or this page, the post updates to show who answered it, and its buttons go away.</P>
+      <P>The same channel tells you when another org accepts or declines your request, or ends an alliance with you. Pick a channel only officers can see, and make sure the bot can view it, send messages and embed links there. With no channel set, everything still works from the Allies page.</P>
+      <Divider />
       <H>Your Listing and Ally Code</H>
       <P>Turn on <B>Listed in the ally directory</B> to let other orgs find you by name or tag. Whether or not you're listed, your <B>ally code</B> lets an org send you a request. Copy it to share with another org's officers; <B>New code</B> replaces it and stops the old one working.</P>
       <Divider />
@@ -330,8 +334,8 @@ function allianceAdminContent() {
       <H>Sharing Events</H>
       <P>When creating or editing an event, click <B>Direct Invite</B> and pick the servers to share it with. Each server's officers accept or decline the share; once accepted, the bot posts the event, a forum thread and a Discord scheduled event in their server, and loot results are announced in every participating thread. In an upcoming update, sharing will use your ally list.</P>
       <Divider />
-      <H>Org Tag &amp; Ally Managers</H>
-      <P>Set your <B>Org Tag</B> (up to 4 letters or numbers) under <B>Ally settings</B> on the Allies page. Server managers can also choose there which Discord roles may manage allies.</P>
+      <H>Org Tag, Notices &amp; Ally Managers</H>
+      <P>Set your <B>Org Tag</B> (up to 4 letters or numbers) and <B>Ally notices channel</B> under <B>Ally settings</B> on the Allies page. Server managers can also choose there which Discord roles may manage allies.</P>
     </>
   );
 }
@@ -597,7 +601,7 @@ function buildSections(opts: {
       id: 'alliance-admin',
       icon: <Network className="h-4 w-4" />,
       title: 'Allies Administration',
-      subtitle: 'Ally requests, the directory and ally codes, blocking, sharing events, org tags.',
+      subtitle: 'Ally requests, Discord ally notices, the directory and ally codes, blocking, sharing events, org tags.',
       adminOnly: true,
       content: allianceAdminContent(),
     },

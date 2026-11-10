@@ -157,6 +157,9 @@ model GuildSettings {
   /// Private ally code (8 chars, no 0/O/1/I) another org can paste to send a
   /// request even when this org isn't listed. Generated on first use.
   allyCode              String?  @unique
+  /// Discord channel for ally notices: requests (with Accept / Reject buttons),
+  /// answers, and allies leaving. Null = no notices (the Allies page badge only).
+  allyNoticeChannelId   String?
   /// Whether regular members can see the Guild Activity and Event Planning heat maps
   activityHeatmapPublic Boolean  @default(true)
   /// Whether the Tournaments module is enabled for this guild

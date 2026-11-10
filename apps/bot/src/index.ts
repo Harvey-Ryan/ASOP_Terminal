@@ -6,6 +6,7 @@ import { client } from './client.js';
 import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
 import { loadGameData } from './gamedata.js';
+import { handleAllyButton } from './services/allyNoticeService.js';
 import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
@@ -172,6 +173,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ── /blueprint "Show missions" button ────────────────────────────────────
     if (interaction.customId.startsWith(`${blueprintCommand.MISSIONS_BUTTON}:`)) {
       await blueprintCommand.handleMissionsButton(interaction).catch((err) => console.error('[bot] Missions button error:', err));
+      return;
+    }
+
+    // ── Ally request buttons (Accept / Reject / Reject and block) ────────────
+    if (interaction.customId.startsWith('ally:')) {
+      await handleAllyButton(interaction).catch(async (err) => {
+        console.error('[bot] Ally button error:', err);
+        if (interaction.deferred) await interaction.editReply({ content: 'Something went wrong. Try again, or answer on the Allies page.' }).catch(() => {});
+      });
       return;
     }
 

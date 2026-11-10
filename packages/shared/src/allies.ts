@@ -144,6 +144,24 @@ export function decideUnblock(link: AllyLink, actorId: string): Decision<object>
   return { ok: true };
 }
 
+export type AllyResponse = 'accept' | 'reject' | 'block';
+
+/**
+ * The columns an answer to a pending request changes. Used by the API (the
+ * Allies page) and the bot (the Discord buttons), so both record an answer
+ * the same way.
+ */
+export function responseChanges(action: AllyResponse, responderGuildId: string, responderUserId: string | null, now: Date) {
+  switch (action) {
+    case 'accept':
+      return { status: 'ACCEPTED' as const, respondedAt: now, acceptedAt: now, respondedBy: responderUserId, retryAfter: null };
+    case 'reject':
+      return { status: 'REJECTED' as const, respondedAt: now, respondedBy: responderUserId, retryAfter: retryAfterFrom(now) };
+    case 'block':
+      return { status: 'BLOCKED' as const, respondedAt: now, respondedBy: responderUserId, blockedByGuildId: responderGuildId, retryAfter: null };
+  }
+}
+
 /** When a rejected requester may ask again. */
 export function retryAfterFrom(rejectedAt: Date): Date {
   return new Date(rejectedAt.getTime() + ALLY_RETRY_DAYS * 24 * 60 * 60 * 1000);
@@ -162,6 +180,55 @@ export function allyRefusalMessage(refusal: AllyRefusal, retryAfter?: Date): str
     case 'not-yours': return "That isn't yours to change.";
     case 'not-allies': return 'You are not allies with this org.';
   }
+}
+
+// ── Discord notices (API → bot) ──────────────────────────────────────────────
+
+/** What happened, for the bot's ally notices. */
+export type AllyNoticeEvent = 'requested' | 'accepted' | 'rejected' | 'blocked' | 'cancelled' | 'removed';
+
+/**
+ * Sent by the API to the bot after an ally change. Guild ids are internal
+ * Guild.id values. The notice ids are included because a cancelled or removed
+ * link is deleted before the bot sees it.
+ *
+ * - requested: actor asked other → request message with buttons in other's channel
+ * - accepted / rejected / blocked: actor answered other's request → the request
+ *   message is edited; accepted and rejected are also posted to other (a block isn't)
+ * - cancelled: actor withdrew its request → the request message is edited
+ * - removed: actor ended the alliance → posted to other
+ */
+export interface AllyNoticePayload {
+  event: AllyNoticeEvent;
+  linkId: string;
+  actorGuildId: string;
+  otherGuildId: string;
+  /** Discord user id of whoever clicked. */
+  actorUserId: string | null;
+  noticeChannelId: string | null;
+  noticeMessageId: string | null;
+}
+
+export const ALLY_NOTICE_EVENTS: readonly AllyNoticeEvent[] = ['requested', 'accepted', 'rejected', 'blocked', 'cancelled', 'removed'];
+
+export function isAllyNoticePayload(x: unknown): x is AllyNoticePayload {
+  const p = x as Partial<AllyNoticePayload> | null;
+  return !!p && typeof p === 'object'
+    && ALLY_NOTICE_EVENTS.includes(p.event as AllyNoticeEvent)
+    && typeof p.linkId === 'string' && typeof p.actorGuildId === 'string' && typeof p.otherGuildId === 'string'
+    && (p.actorUserId === null || typeof p.actorUserId === 'string')
+    && (p.noticeChannelId === null || typeof p.noticeChannelId === 'string')
+    && (p.noticeMessageId === null || typeof p.noticeMessageId === 'string');
+}
+
+/** customId of an ally request button: `ally:<accept|reject|block>:<linkId>`. */
+export function allyButtonId(action: AllyResponse, linkId: string): string {
+  return `ally:${action}:${linkId}`;
+}
+
+export function parseAllyButtonId(customId: string): { action: AllyResponse; linkId: string } | null {
+  const m = /^ally:(accept|reject|block):([A-Za-z0-9_-]{1,60})$/.exec(customId);
+  return m ? { action: m[1] as AllyResponse, linkId: m[2]! } : null;
 }
 
 // ── Ally codes ───────────────────────────────────────────────────────────────

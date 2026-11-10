@@ -103,7 +103,7 @@ for (const action of ['accept', 'reject', 'block'] as const) {
 alliesRouter.delete('/:guildId/allies/requests/:id', requireAuth, handle(async (req, res) => {
   const guild = await managedGuild(req, res);
   if (!guild) return;
-  await cancelAllyRequest(guild, param(req, 'id'));
+  await cancelAllyRequest(guild, param(req, 'id'), { userId: await discordUserId(req) });
   ok(res);
 }));
 
@@ -145,6 +145,6 @@ alliesRouter.patch('/:guildId/allies/:id', requireAuth, handle(async (req, res) 
 alliesRouter.delete('/:guildId/allies/:id', requireAuth, handle(async (req, res) => {
   const guild = await managedGuild(req, res);
   if (!guild) return;
-  await removeAlly(guild, param(req, 'id'));
+  await removeAlly(guild, param(req, 'id'), { userId: await discordUserId(req) });
   ok(res);
 }));

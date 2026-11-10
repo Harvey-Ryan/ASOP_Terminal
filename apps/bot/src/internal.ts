@@ -4,6 +4,8 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
+import { isAllyNoticePayload } from '@dem/shared';
+import { handleAllyNotice } from './services/allyNoticeService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
@@ -17,6 +19,23 @@ export function startInternalServer() {
     if (INTERNAL_SECRET) {
       const auth = req.headers['authorization'];
       if (auth !== `Bearer ${INTERNAL_SECRET}`) { res.writeHead(401).end(); return; }
+    }
+
+    // Ally notices (v1.10.0): the payload comes as JSON in the body.
+    if (req.url === '/trigger/ally') {
+      let raw = '';
+      for await (const chunk of req) {
+        raw += chunk;
+        if (raw.length > 10_000) { res.writeHead(413).end(); return; }
+      }
+      let payload: unknown;
+      try { payload = JSON.parse(raw); } catch { payload = null; }
+      if (!isAllyNoticePayload(payload)) { res.writeHead(400).end(); return; }
+      res.writeHead(202).end();
+      await handleAllyNotice(payload).catch((err) =>
+        console.error(`[bot:internal] handleAllyNotice failed for ${payload.event} ${payload.linkId}:`, err),
+      );
+      return;
     }
 
     const setupMatch = req.url?.match(/^\/trigger\/event\/([^/]+)$/);

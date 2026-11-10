@@ -6,7 +6,7 @@ import {
   decideRequest, decideResponse, decideCancel, decideAllyChange, decideUnblock,
   retryAfterFrom, allyRefusalMessage, ALLY_RETRY_DAYS,
   allyCodeFromBytes, normalizeAllyCode, formatAllyCode, ALLY_CODE_ALPHABET,
-  pairsFromAlliances,
+  pairsFromAlliances, responseChanges, isAllyNoticePayload, allyButtonId, parseAllyButtonId,
 } from '../dist/allies.js';
 
 const NOW = new Date('2026-11-10T12:00:00Z');
@@ -166,4 +166,32 @@ test('migration: duplicate member rows do not make a pair with itself', () => {
   const { pairs } = pairsFromAlliances([{ id: '1', name: 'dup', isDirect: false, members: [
     { guildId: A, status: 'ACCEPTED' }, { guildId: A, status: 'ACCEPTED' }, { guildId: B, status: 'ACCEPTED' }] }]);
   assert.equal(pairs.length, 1);
+});
+
+test('answers change the same columns everywhere', () => {
+  const now = new Date('2026-11-10T12:00:00Z');
+  assert.deepEqual(responseChanges('accept', B, 'u1', now), { status: 'ACCEPTED', respondedAt: now, acceptedAt: now, respondedBy: 'u1', retryAfter: null });
+  const rej = responseChanges('reject', B, 'u1', now);
+  assert.equal(rej.status, 'REJECTED');
+  assert.equal(rej.retryAfter.toISOString(), '2026-11-17T12:00:00.000Z');
+  assert.deepEqual(responseChanges('block', B, null, now), { status: 'BLOCKED', respondedAt: now, respondedBy: null, blockedByGuildId: B, retryAfter: null });
+});
+
+test('notice payloads are validated before the bot acts on them', () => {
+  const ok = { event: 'requested', linkId: 'l1', actorGuildId: A, otherGuildId: B, actorUserId: '123', noticeChannelId: null, noticeMessageId: null };
+  assert.equal(isAllyNoticePayload(ok), true);
+  assert.equal(isAllyNoticePayload({ ...ok, event: 'exploded' }), false);
+  assert.equal(isAllyNoticePayload({ ...ok, linkId: 5 }), false);
+  assert.equal(isAllyNoticePayload({ ...ok, actorUserId: undefined }), false);
+  assert.equal(isAllyNoticePayload(null), false);
+  assert.equal(isAllyNoticePayload('requested'), false);
+});
+
+test('button ids round-trip and reject anything else', () => {
+  assert.equal(allyButtonId('block', 'cmabc123'), 'ally:block:cmabc123');
+  assert.deepEqual(parseAllyButtonId('ally:accept:cmabc123'), { action: 'accept', linkId: 'cmabc123' });
+  assert.equal(parseAllyButtonId('ally:delete:cmabc123'), null);
+  assert.equal(parseAllyButtonId('ally:accept:'), null);
+  assert.equal(parseAllyButtonId('ally:accept:a:b'), null);
+  assert.equal(parseAllyButtonId('loot:accept:x'), null);
 });
