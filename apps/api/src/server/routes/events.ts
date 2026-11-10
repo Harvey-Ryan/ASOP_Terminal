@@ -8,6 +8,7 @@ import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
+import { RECUR_TYPES, isValidTimeZone, describeRecurrence } from '@dem/shared';
 
 export const eventsRouter = Router();
 
@@ -21,7 +22,19 @@ type EventWithRsvpsAndShares = Prisma.EventGetPayload<{
 // kept for routes that don't need shares (e.g. RSVP updates)
 type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true } }>;
 
-const RECUR_TYPES = ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'] as const;
+// Repeat types and their scheduling rules live in packages/shared/src/recurrence.ts.
+// An event is finished (no RSVPs, edits, starts) once it's ended, completed or cancelled.
+const CLOSED_STATUSES = ['COMPLETED', 'CANCELLED'] as const;
+
+/** The guild's configured time zone (Settings), used when the organiser's isn't known. */
+async function guildTimezone(discordGuildId: string): Promise<string> {
+  const g = await prisma.guild.findUnique({
+    where: { guildId: discordGuildId },
+    select: { settings: { select: { timezone: true } } },
+  });
+  const tz = g?.settings?.timezone;
+  return tz && isValidTimeZone(tz) ? tz : 'UTC';
+}
 
 // ── GET /api/guilds/:guildId/events ───────────────────────────────────────────
 
@@ -48,7 +61,9 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
     });
     const allianceIds = memberships.map((m) => m.allianceId);
 
-    const statusFilter = completed ? { status: 'COMPLETED' } : { status: { not: 'COMPLETED' } };
+    const statusFilter = completed
+      ? { status: { in: [...CLOSED_STATUSES] } }
+      : { status: { notIn: [...CLOSED_STATUSES] } };
 
     const events = await prisma.event.findMany({
       where: {
@@ -100,7 +115,7 @@ eventsRouter.get('/:guildId/events/pending-shares', requireAuth, async (req, res
 
   const events = await prisma.event.findMany({
     where: {
-      status: { not: 'COMPLETED' },
+      status: { notIn: [...CLOSED_STATUSES] },
       guildShares: { some: { guildId: guild.id, status: 'PENDING' } },
     },
     orderBy: { startTime: 'asc' },
@@ -243,6 +258,8 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
       endTime = body.endTime ? new Date(body.endTime) : undefined;
       if (endTime && isNaN(endTime.getTime())) throw new ValidationError('endTime is not a valid date');
       optEnum(body.recurType, 'recurType', RECUR_TYPES);
+      if (body.recurTimezone !== undefined && !isValidTimeZone(body.recurTimezone))
+        throw new ValidationError('recurTimezone is not a valid time zone');
       if (body.recurEndsAt !== undefined && body.recurEndsAt !== null) {
         const recurEndsAt = new Date(body.recurEndsAt);
         if (isNaN(recurEndsAt.getTime())) throw new ValidationError('recurEndsAt is not a valid date');
@@ -293,6 +310,9 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         endTime,
         recurType: body.recurType ?? null,
         recurEndsAt: body.recurEndsAt ? new Date(body.recurEndsAt) : null,
+        // The series is anchored to its first occurrence, in the organiser's time zone.
+        recurAnchor: body.recurType ? startTime : null,
+        recurTimezone: body.recurType ? (body.recurTimezone ?? (await guildTimezone(guildId))) : null,
         roles: JSON.stringify(body.roles ?? []),
         vcNames: JSON.stringify(body.vcNames ?? []),
         briefingChannel: body.briefingChannel ?? false,
@@ -435,8 +455,8 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
     return;
   }
-  if (event.status === 'COMPLETED' || event.status === 'ENDED') {
-    res.status(409).json({ success: false, error: 'Cannot RSVP to a completed or ended event' } satisfies ApiResponse);
+  if (event.status === 'COMPLETED' || event.status === 'ENDED' || event.status === 'CANCELLED') {
+    res.status(409).json({ success: false, error: 'Cannot RSVP to a completed, ended or cancelled event' } satisfies ApiResponse);
     return;
   }
 
@@ -556,8 +576,8 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
     return;
   }
-  if (event.status === 'COMPLETED') {
-    res.status(409).json({ success: false, error: 'Completed events cannot be edited' } satisfies ApiResponse);
+  if (event.status === 'COMPLETED' || event.status === 'CANCELLED') {
+    res.status(409).json({ success: false, error: `${event.status === 'CANCELLED' ? 'Cancelled' : 'Completed'} events cannot be edited` } satisfies ApiResponse);
     return;
   }
 
@@ -612,6 +632,18 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       return;
     }
     data['recurEndsAt'] = recurEndsAt;
+  }
+  if (body.recurTimezone !== undefined && !isValidTimeZone(body.recurTimezone)) {
+    res.status(400).json({ success: false, error: 'recurTimezone is not a valid time zone' } satisfies ApiResponse);
+    return;
+  }
+  // Moving a repeating event re-anchors the series to the new date and time, in
+  // the time zone of whoever moved it (that's also how an organiser fixes a series
+  // that drifted). Edits that keep the same start leave the series alone.
+  const moved = data['startTime'] instanceof Date && data['startTime'].getTime() !== event.startTime.getTime();
+  if (event.recurType && moved) {
+    data['recurAnchor'] = data['startTime'];
+    if (body.recurTimezone !== undefined) data['recurTimezone'] = body.recurTimezone;
   }
 
   // If roles changed, move members whose role no longer exists to Unassigned
@@ -746,6 +778,53 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
+// ── POST /api/guilds/:guildId/events/:eventId/stop-recurrence ─────────────────
+// Stops a repeating event. The series is carried by its upcoming occurrence
+// (the bot creates the next one when the current one ends), so:
+//   - upcoming (PENDING): cancelled too, and its Discord thread / scheduled
+//     event / reminders / alliance copies are cleaned up by the bot
+//   - running or ended: it finishes normally; no further occurrence is created
+
+eventsRouter.post('/:guildId/events/:eventId/stop-recurrence', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+  if (!event.recurType) {
+    res.status(409).json({ success: false, error: 'This event is not repeating' } satisfies ApiResponse);
+    return;
+  }
+
+  const cancel = event.status === 'PENDING';
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({
+      where: { id: eventId },
+      data: { recurType: null, ...(cancel ? { status: 'CANCELLED' } : {}) },
+    });
+    if (cancel) {
+      await tx.eventReminder.deleteMany({ where: { eventId, sent: false } });
+      await tx.eventGuildShare.updateMany({
+        where: { eventId, status: 'PENDING' },
+        data: { status: 'DECLINED', respondedAt: new Date() },
+      });
+    }
+  });
+  if (cancel) triggerBot(`/trigger/cancel/${eventId}`);
+
+  const updated = await prisma.event.findUniqueOrThrow({
+    where: { id: eventId },
+    include: { rsvps: true, guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } } },
+  });
+  res.json({ success: true, data: { ...toDto(updated), cancelled: cancel } } satisfies ApiResponse<EventDto & { cancelled: boolean }>);
+});
+
 // ── POST /api/guilds/:guildId/events/:eventId/end ─────────────────────────────
 
 eventsRouter.post('/:guildId/events/:eventId/end', requireAuth, async (req, res) => {
@@ -811,7 +890,7 @@ eventsRouter.post('/:guildId/events/:eventId/vcs', requireAuth, async (req, res)
   if (!(await assertGuildManager(req, event.guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
-  if (event.status === 'COMPLETED' || event.status === 'ENDED') {
+  if (event.status === 'COMPLETED' || event.status === 'ENDED' || event.status === 'CANCELLED') {
     res.status(409).json({ success: false, error: 'Event is already over' } satisfies ApiResponse); return;
   }
 
@@ -1075,6 +1154,11 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     endTime: event.endTime?.toISOString() ?? null,
     recurType: event.recurType,
     recurEndsAt: event.recurEndsAt?.toISOString() ?? null,
+    recurTimezone: event.recurTimezone,
+    recurAnchor: event.recurAnchor?.toISOString() ?? null,
+    recurLabel: event.recurType
+      ? describeRecurrence(event.recurType, event.recurAnchor ?? event.startTime, event.recurTimezone)
+      : null,
     roles: JSON.parse(event.roles) as EventRole[],
     vcNames: JSON.parse(event.vcNames) as string[],
     vcIds: JSON.parse(event.vcIds) as string[],

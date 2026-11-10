@@ -39,7 +39,7 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
     where: {
       guildId: interaction.guildId!,
       name: { contains: focused },
-      status: { not: 'COMPLETED' },
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
     },
     orderBy: { startTime: 'asc' },
     take: 25,
@@ -135,7 +135,7 @@ async function handleList(interaction: ChatInputCommandInteraction) {
 
   const events = await prisma.event.findMany({
     where: {
-      status: { not: 'COMPLETED' },
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
       startTime: { gte: new Date() },
       OR: [
         { guildId },

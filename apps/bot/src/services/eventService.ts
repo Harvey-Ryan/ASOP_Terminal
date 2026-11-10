@@ -14,9 +14,9 @@ import type { ForumChannel, Message } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
-import { nextOccurrence } from '../utils/time.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
+import { nextOccurrence, isRecurType, isValidTimeZone } from '@dem/shared';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -249,7 +249,7 @@ export async function syncDiscordEvent(eventId: string) {
   console.log(`[syncDiscordEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} discordEventId=${event.discordEventId ?? 'null'} threadId=${event.threadId ?? 'null'} status=${event.status}`);
 
   // ── Update Discord Scheduled Event ───────────────────────────────────────
-  if (event.discordEventId && event.status !== 'COMPLETED') {
+  if (event.discordEventId && event.status !== 'COMPLETED' && event.status !== 'CANCELLED') {
     console.log(`[syncDiscordEvent] updating Discord scheduled event ${event.discordEventId}`);
     try {
       const guild = await client.guilds.fetch(event.guildId);
@@ -379,7 +379,7 @@ export async function syncDiscordEvent(eventId: string) {
     await sleep(1000);
     try {
       // Update scheduled event
-      if (ag.discordEventId && event.status !== 'COMPLETED') {
+      if (ag.discordEventId && event.status !== 'COMPLETED' && event.status !== 'CANCELLED') {
         const memberGuild = await client.guilds.fetch(ag.discordGuildId).catch(() => null);
         const scheduled = await memberGuild?.scheduledEvents.fetch(ag.discordEventId).catch(() => null);
         if (scheduled) {
@@ -697,6 +697,63 @@ export async function endEvent(eventId: string) {
   }
 }
 
+// ── Cancel an occurrence (e.g. its series was stopped) ───────────────────────
+// The API has already set status CANCELLED, removed unsent reminders and
+// declined pending shares. This takes the event down in Discord: scheduled
+// events (host + alliance guilds), roster buttons, a notice in each thread,
+// threads archived, and any voice channels already created.
+
+export async function cancelEvent(eventId: string): Promise<void> {
+  // Claim it once, like endEvent (scheduler retries / repeated triggers exit here).
+  const claim = await prisma.event.updateMany({
+    where: { id: eventId, status: 'CANCELLED', botEndedAt: null },
+    data: { botEndedAt: new Date() },
+  });
+  if (claim.count === 0) return;
+
+  const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
+  const notice = `❌ **${event.name}** has been cancelled and will not repeat.`;
+
+  async function takeDownThread(threadId: string | null, rosterMessageId: string | null) {
+    if (!threadId) return;
+    const thread = await client.channels.fetch(threadId).catch(() => null);
+    if (!thread?.isThread()) return;
+    if (thread.archived) await thread.setArchived(false).catch(() => null);
+    const roster = rosterMessageId
+      ? await thread.messages.fetch(rosterMessageId).catch(() => null)
+      : await thread.fetchStarterMessage().catch(() => null);
+    await roster?.edit({ components: [] }).catch(() => null); // no more RSVP buttons
+    await thread.send(notice).catch(() => null);
+    await thread.setArchived(true).catch(() => null);
+  }
+
+  if (event.discordEventId) {
+    const guild = await client.guilds.fetch(event.guildId).catch(() => null);
+    await guild?.scheduledEvents.delete(event.discordEventId).catch(() => null);
+  }
+  await takeDownThread(event.threadId, event.rosterMessageId).catch((err) =>
+    console.error(`[cancelEvent] host thread for ${eventId}:`, err),
+  );
+
+  const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
+  for (const ag of allianceGuilds) {
+    await sleep(500);
+    try {
+      if (ag.discordEventId) {
+        const memberGuild = await client.guilds.fetch(ag.discordGuildId).catch(() => null);
+        await memberGuild?.scheduledEvents.delete(ag.discordEventId).catch(() => null);
+      }
+      await takeDownThread(ag.threadId, ag.rosterMessageId);
+    } catch (err) {
+      console.error(`[cancelEvent] alliance guild ${ag.discordGuildId} for ${eventId}:`, err);
+    }
+  }
+
+  // Voice channels only exist if it was cancelled within 30 minutes of the start.
+  await deleteEventVcs(eventId).catch((err) => console.error(`[cancelEvent] VCs for ${eventId}:`, err));
+  console.log(`[bot] Cancelled event ${eventId} (${event.name})`);
+}
+
 // ── Post-event embed (confirmed attendees + loot) ────────────────────────────
 
 export async function updatePostEventEmbed(eventId: string) {
@@ -773,12 +830,33 @@ export async function updatePostEventEmbed(eventId: string) {
 
 // ── Recurring event spawning ──────────────────────────────────────────────────
 
+async function guildTimezone(discordGuildId: string): Promise<string> {
+  const g = await prisma.guild.findUnique({
+    where: { guildId: discordGuildId },
+    select: { settings: { select: { timezone: true } } },
+  });
+  const tz = g?.settings?.timezone;
+  return tz && isValidTimeZone(tz) ? tz : 'UTC';
+}
+
 export async function spawnNextRecurrence(eventId: string) {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   if (!event.recurType) return;
+  if (!isRecurType(event.recurType)) {
+    console.error(`[bot] spawnNextRecurrence: unknown recurType "${event.recurType}" on ${event.id}; series not continued`);
+    return;
+  }
 
-  const nextStart = nextOccurrence(event.startTime, event.recurType);
-  const nextEnd = event.endTime ? nextOccurrence(event.endTime, event.recurType) : null;
+  // Rules: packages/shared/src/recurrence.ts. The series keeps its first
+  // occurrence's local date/time pattern in the organiser's time zone; series
+  // from before this existed use this occurrence and the guild's time zone.
+  const anchor = event.recurAnchor ?? event.startTime;
+  const timeZone = event.recurTimezone && isValidTimeZone(event.recurTimezone)
+    ? event.recurTimezone
+    : await guildTimezone(event.guildId);
+  const nextStart = nextOccurrence(event.startTime, { type: event.recurType, anchor, timeZone });
+  // Same length as this occurrence (stays right across daylight saving changes).
+  const nextEnd = event.endTime ? new Date(nextStart.getTime() + (event.endTime.getTime() - event.startTime.getTime())) : null;
 
   // Stop the chain if the next occurrence would fall after the configured end date.
   if (event.recurEndsAt && nextStart > event.recurEndsAt) {
@@ -803,6 +881,8 @@ export async function spawnNextRecurrence(eventId: string) {
       pollData: event.pollData ?? null,
       allianceId: event.allianceId ?? null,
       recurEndsAt: event.recurEndsAt ?? null,
+      recurAnchor: anchor,
+      recurTimezone: timeZone,
       createdById: event.createdById,
       status: 'PENDING',
     },

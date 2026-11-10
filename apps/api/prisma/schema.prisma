@@ -195,10 +195,17 @@ model Event {
   /// JSON: string[] — Discord VC channel snowflakes created for this event
   vcIds           String   @default("[]")
 
-  /// DAILY | WEEKLY | BIWEEKLY | MONTHLY — null means one-off
+  /// DAILY | WEEKLY | BIWEEKLY | MONTHLY | MONTHLY_WEEKDAY | MONTHLY_LAST_WEEKDAY — null means
+  /// one-off (or a series that was stopped). Rules: packages/shared/src/recurrence.ts
   recurType       String?
   /// Stop spawning new occurrences after this UTC datetime. Null = no end date.
   recurEndsAt     DateTime?
+  /// IANA time zone the series is scheduled in (the organiser's), e.g. "America/Chicago".
+  /// Null on series created before this existed: the guild's timezone setting is used.
+  recurTimezone   String?
+  /// Start of the series' first occurrence: its local date/time defines the pattern
+  /// (weekday, day of month, time of day). Null = use this occurrence's start.
+  recurAnchor     DateTime?
   /// JSON: {name:string,count:number}[] — role slots defined by the organiser
   roles           String   @default("[]")
   /// JSON: string[] — VC names to create 30 min before start
@@ -208,7 +215,8 @@ model Event {
   /// URL path to cover image stored in the server image library
   imageUrl        String?
 
-  /// PENDING | ACTIVE | ENDED | COMPLETED
+  /// PENDING | ACTIVE | ENDED | COMPLETED | CANCELLED (an upcoming occurrence called off,
+  /// e.g. by stopping its series; treated as finished everywhere)
   status          String   @default("PENDING")
   /// Last time at least one event VC had a member present (for inactivity detection)
   lastVcActivityAt DateTime?

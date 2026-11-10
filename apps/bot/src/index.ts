@@ -174,7 +174,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ ephemeral: true });
       try {
         const event = await prisma.event.findFirst({
-          where: { id: entityId, status: { not: 'COMPLETED' } },
+          where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
         });
         if (!event) {
           await interaction.editReply({ content: 'This event has already ended.' });
@@ -205,7 +205,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ ephemeral: true });
       try {
         const event = await prisma.event.findFirst({
-          where: { id: entityId, status: { not: 'COMPLETED' } },
+          where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
         });
         if (!event) {
           await interaction.editReply({ content: 'This event has already ended.' });
