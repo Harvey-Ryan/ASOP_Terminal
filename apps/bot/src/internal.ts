@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare, revokeDiscordShare } from './services/eventService.js';
+import { setupDiscordForEvent, endEvent, cancelEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare, revokeDiscordShare } from './services/eventService.js';
 import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
@@ -35,6 +35,16 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await endEvent(eventId).catch((err) =>
         console.error(`[bot:internal] endEvent failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
+    const cancelMatch = req.url?.match(/^\/trigger\/cancel\/([^/]+)$/);
+    if (cancelMatch) {
+      const eventId = cancelMatch[1]!;
+      res.writeHead(202).end();
+      await cancelEvent(eventId).catch((err) =>
+        console.error(`[bot:internal] cancelEvent failed for ${eventId}:`, err),
       );
       return;
     }

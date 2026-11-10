@@ -15,7 +15,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "tsc --noEmit",
-    "clean": "rimraf dist *.tsbuildinfo"
+    "clean": "rimraf dist *.tsbuildinfo",
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "rimraf": "^6.0.1",

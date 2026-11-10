@@ -5,6 +5,7 @@ import {
   ButtonStyle,
 } from 'discord.js';
 import type { EventRole } from '@dem/shared';
+import { describeRecurrence } from '@dem/shared';
 
 interface RsvpEntry {
   userId: string;
@@ -19,17 +20,13 @@ interface EventForRoster {
   startTime: Date;
   endTime: Date | null;
   recurType: string | null;
+  recurAnchor?: Date | null;
+  recurTimezone?: string | null;
   imageUrl: string | null;
   roles: string; // JSON
   rsvps: RsvpEntry[];
 }
 
-const RECUR_LABELS: Record<string, string> = {
-  DAILY: 'Daily',
-  WEEKLY: 'Weekly',
-  BIWEEKLY: 'Every 2 weeks',
-  MONTHLY: 'Monthly',
-};
 
 function formatMember(userId: string, activeUserIds?: Set<string>): string {
   if (!activeUserIds) return `<@${userId}>`;
@@ -43,7 +40,7 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
 
   const whenParts = [`<t:${startTs}:F>`];
   if (endTs) whenParts.push(`→ <t:${endTs}:t>`);
-  if (event.recurType) whenParts.push(`· ${RECUR_LABELS[event.recurType] ?? event.recurType}`);
+  if (event.recurType) whenParts.push(`· ${describeRecurrence(event.recurType, event.recurAnchor ?? event.startTime, event.recurTimezone)}`);
 
   const ended = activeUserIds !== undefined;
 

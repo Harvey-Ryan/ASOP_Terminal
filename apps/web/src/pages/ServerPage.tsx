@@ -44,6 +44,7 @@ const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'bg-black text-green-400',
   ENDED: 'bg-red-500/15 text-red-500',
   COMPLETED: 'bg-muted text-muted-foreground',
+  CANCELLED: 'bg-muted text-muted-foreground line-through',
 };
 
 type Tab = 'upcoming' | 'completed' | 'pending';
@@ -165,6 +166,8 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       description: description || undefined,
       musterPoint: musterPoint || undefined,
       startTime: startIso.toISOString(),
+      // Times are entered in the editor's time zone; a repeating series follows it from here on.
+      ...(event.recurType ? { recurTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } : {}),
       endTime: endIso ? endIso.toISOString() : null,
       roles: roles.filter((r) => r.name.trim()),
       vcNames: vcNames.filter(Boolean),
@@ -476,6 +479,15 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     },
   });
 
+  const stopRepeatMutation = useMutation({
+    mutationFn: () => eventsApi.stopRecurrence(guildId, event.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, event.id] });
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
+      queryClient.invalidateQueries({ queryKey: ['events', guildId, 'completed'] });
+    },
+  });
+
   const reopenMutation = useMutation({
     mutationFn: () => eventsApi.reopen(guildId, event.id),
     onSuccess: () => {
@@ -537,7 +549,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const dateStr = start.toLocaleDateString('en', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const endTimeStr = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : null;
-  const canEnd = ev.status !== 'ENDED' && ev.status !== 'COMPLETED';
+  const canEnd = ev.status !== 'ENDED' && ev.status !== 'COMPLETED' && ev.status !== 'CANCELLED';
   const canRsvp = ev.status === 'PENDING' || ev.status === 'ACTIVE';
   // Shared events are read-only for non-host guilds; only the host guild can manage.
   const isHostGuild = ev.guildId === guildId;
@@ -584,7 +596,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             <span className="rounded-full px-2 py-0.5 text-sm font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400">Shared</span>
           )}
           {ev.recurType && (
-            <span className="text-base opacity-60">{RECUR_LABELS[ev.recurType] ?? ev.recurType}</span>
+            <span className="text-base opacity-60">{ev.recurLabel ?? RECUR_LABELS[ev.recurType] ?? ev.recurType}</span>
           )}
         </div>
       </div>
@@ -975,7 +987,21 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               {reopenMutation.isPending ? 'Re-opening…' : 'Re-open'}
             </Button>
           )}
-          {canManage && ev.status !== 'COMPLETED' && (
+          {canManage && ev.recurType && ev.status !== 'COMPLETED' && ev.status !== 'CANCELLED' && (
+            <Button size="sm" variant="outline"
+              className="gap-1"
+              onClick={() => {
+                const msg = ev.status === 'PENDING'
+                  ? `Stop repeating "${ev.name}"?\n\nThis upcoming occurrence will be cancelled (its Discord event and thread are taken down) and no more will be scheduled.`
+                  : `Stop repeating "${ev.name}"?\n\nThis occurrence finishes as normal, but no more will be scheduled.`;
+                if (confirm(msg)) stopRepeatMutation.mutate();
+              }}
+              disabled={stopRepeatMutation.isPending}>
+              <StopCircle className="h-3.5 w-3.5" />
+              {stopRepeatMutation.isPending ? 'Stopping…' : 'Stop Repeating'}
+            </Button>
+          )}
+          {canManage && ev.status !== 'COMPLETED' && ev.status !== 'CANCELLED' && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={onEdit}>
@@ -1054,7 +1080,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
           {userRsvp && <span className="text-[13px] opacity-70">Rostered</span>}
         </div>
         {event.recurType && (
-          <p className="text-[15px] opacity-60 line-clamp-2">{RECUR_LABELS[event.recurType] ?? event.recurType}</p>
+          <p className="text-[15px] opacity-60 line-clamp-2">{event.recurLabel ?? RECUR_LABELS[event.recurType] ?? event.recurType}</p>
         )}
       </div>
 
@@ -1066,7 +1092,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
       {/* Status */}
       <div className="hidden sm:flex w-28 shrink-0 px-4 py-3 flex-col items-center justify-center gap-1">
         <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
-        {(event.status === 'ENDED' || event.status === 'ACTIVE') && (
+        {(event.status === 'ENDED' || event.status === 'ACTIVE' || event.status === 'CANCELLED') && (
           <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${STATUS_BADGE[event.status]}`}>
             {event.status}
           </span>
