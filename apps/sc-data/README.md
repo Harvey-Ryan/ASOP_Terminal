@@ -6,10 +6,12 @@ build on all of it.
 
 ## What a run does
 
-Railway runs it every 5 minutes (its minimum; set in the service's dashboard
-settings, see RAILWAY.md §4.5). Upstream is a repo we don't
-own, so it can't send us a webhook; asking for its head commit is one tiny
-request, so polling this often is effectively listening.
+Railway runs it on the cron schedule set in the service's dashboard settings
+(RAILWAY.md §4.5; currently daily, minimum every 5 minutes). Upstream is a repo
+we don't own, so it can't send us a webhook; a run where nothing changed is one
+tiny request. The web status card and the Discord status embed work out the
+schedule from the gaps between recent runs, so changing it needs no code change.
+A "Sync now" request is picked up by the next scheduled run.
 
 1. Applies its own schema migrations (`src/migrations.ts`).
 2. Picks up any "Sync now" request from the web app (`scdata_raw.sync_request`);

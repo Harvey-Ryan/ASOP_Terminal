@@ -105,9 +105,10 @@ async function main(): Promise<number> {
     ).rows[0];
     if (request) log(`Sync requested${request.requested_by ? ` by ${request.requested_by}` : ''}; forcing a full re-check`);
 
-    // The last finished run failed and nothing has succeeded since: retry it,
-    // at most every RETRY_AFTER_MIN so a persistent failure doesn't download
-    // the whole tarball every 5 minutes.
+    // The last finished run failed and nothing has succeeded since: retry it on
+    // this run, but not sooner than RETRY_AFTER_MIN after the failure, so a
+    // persistent failure on a frequent schedule doesn't download the whole
+    // tarball on every run.
     const lastFinished = (
       await client.query<{ status: string; finished_at: Date | null }>(
         `SELECT status, finished_at FROM scdata_raw.sync_run WHERE status IN ('success', 'failed') ORDER BY id DESC LIMIT 1`,

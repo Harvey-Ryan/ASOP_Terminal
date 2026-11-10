@@ -138,7 +138,9 @@ it to every service from this repo and it overrides the settings below.
    `npm ci --workspace @dem/sc-data`; deploy logs only `[sc-data] …` lines,
    ending in `Done`. The first run takes ≈ 2 minutes, ≈ 500 MB memory and adds
    ≈ 790 MB to the database (have ≈ 2 GB free).
-6. **Settings → Deploy**: Cron Schedule `*/5 * * * *`, Restart Policy **Never**.
+6. **Settings → Deploy**: Cron Schedule (e.g. daily `0 9 * * *`; anything from
+   every 5 minutes up works, and a run with nothing new costs one request),
+   Restart Policy **Never**. "Sync now" waits for the next scheduled run.
 
 If a deployment of `sc-data` ever shows `[bot]`, `[gamedata]` or
 `Prisma schema loaded`, it's building the main app's Dockerfile: remove the
