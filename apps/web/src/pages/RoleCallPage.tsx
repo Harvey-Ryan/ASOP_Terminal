@@ -130,9 +130,10 @@ export function RoleCallPage() {
     retry: false,
   });
 
+  const [showInactive, setShowInactive] = useState(false);
   const { data: lb, isLoading: lbLoading, isError: lbError } = useQuery({
-    queryKey: ['rolecall-leaderboard', guildId, page],
-    queryFn: () => roleCallApi.getLeaderboard(guildId!, page),
+    queryKey: ['rolecall-leaderboard', guildId, page, showInactive],
+    queryFn: () => roleCallApi.getLeaderboard(guildId!, page, showInactive),
     enabled: !!guildId && !selectedUserId,
     retry: false,
   });
@@ -335,6 +336,25 @@ export function RoleCallPage() {
                 clickable={isPrivileged || row.user_id === user?.id}
               />
             ))}
+
+            {/* Inactive members are hidden by RoleCallBot unless asked for */}
+            {lb && (lb.inactiveCount ?? 0) > 0 && (
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-border text-xs text-muted-foreground">
+                <span>
+                  {showInactive
+                    ? `Showing ${lb.inactiveCount} inactive member${lb.inactiveCount === 1 ? '' : 's'} (greyed out).`
+                    : `${lb.inactiveCount} inactive member${lb.inactiveCount === 1 ? '' : 's'} hidden.`}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => { setShowInactive((v) => !v); setPage(1); }}
+                >
+                  {showInactive ? 'Hide inactive' : 'Show inactive'}
+                </Button>
+              </div>
+            )}
 
             {/* Pagination */}
             {lb && lb.totalPages > 1 && (
