@@ -163,9 +163,12 @@ export interface CreateEventBody {
   startTime: string;
   /** ISO 8601 UTC string, or null to explicitly clear an existing end time */
   endTime?: string | null;
-  recurType?: 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
+  /** See RECUR_TYPES in recurrence.ts */
+  recurType?: 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'MONTHLY_WEEKDAY' | 'MONTHLY_LAST_WEEKDAY';
   /** ISO 8601 UTC string — stop spawning new occurrences after this date. Null = no end. */
   recurEndsAt?: string | null;
+  /** IANA time zone the organiser picked the time in (the browser's); keeps repeats at the same local time */
+  recurTimezone?: string;
   roles?: EventRole[];
   /** Names of voice channels to create 30 min before start */
   vcNames?: string[];
@@ -214,6 +217,10 @@ export interface EventDto {
   endTime: string | null;
   recurType: string | null;
   recurEndsAt: string | null;
+  recurTimezone: string | null;
+  recurAnchor: string | null;
+  /** Human label for the repeat pattern, e.g. "Monthly on the 2nd Tuesday" (null when not repeating) */
+  recurLabel: string | null;
   roles: EventRole[];
   vcNames: string[];
   briefingChannel: boolean;
@@ -1108,3 +1115,6 @@ export interface MunicipalitySearchResult {
 
 // Game data pipeline status (apps/sc-data)
 export * from './gameData.js';
+
+// Recurring event scheduling
+export * from './recurrence.js';

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown, BarChart2, Network } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
 import { allianceApi } from '@/api/alliance'; // listGuilds() used for direct invite guild picker
 import type { CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
+import { RECUR_TYPES, isRecurType, recurrenceOptions, describeRecurrence, upcomingOccurrences } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -181,6 +182,25 @@ export function EventCreateForm({
   // Selecting from the Templates list overwrites it with the chosen template's ID.
   const [fromTemplateId, setFromTemplateId] = useState<string | undefined>(fromTemplateIdProp);
   const [recurType, setRecurType] = useState<string>(repeatSource?.recurType ?? '');
+  // Repeat options are labelled from the chosen start ("Monthly on the 2nd Tuesday")
+  // and scheduled in the organiser's own time zone, so they keep the same local time.
+  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const startPreview = (() => {
+    if (!startDate || !startTime) return null;
+    const d = new Date(`${startDate}T${startTime}:00`);
+    return isNaN(d.getTime()) ? null : d;
+  })();
+  const recurOptions = startPreview
+    ? recurrenceOptions(startPreview, browserTimeZone)
+    : RECUR_TYPES.filter((t) => t !== 'MONTHLY_LAST_WEEKDAY').map((type) => ({ type, label: describeRecurrence(type) }));
+  const recurPreview = startPreview && isRecurType(recurType) && recurOptions.some((o) => o.type === recurType)
+    ? upcomingOccurrences(startPreview, { type: recurType, anchor: startPreview, timeZone: browserTimeZone }, 3)
+    : [];
+  // A changed date can rule out the chosen option (e.g. "last Friday"): fall back to plain monthly.
+  const recurAvailable = !isRecurType(recurType) || recurOptions.some((o) => o.type === recurType);
+  useEffect(() => {
+    if (!recurAvailable) setRecurType('MONTHLY');
+  }, [recurAvailable]);
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
@@ -278,7 +298,8 @@ export function EventCreateForm({
       musterPoint: musterPoint.trim(),
       startTime: startIso.toISOString(),
       endTime: endIso?.toISOString(),
-      recurType: (recurType as 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY') || undefined,
+      recurType: isRecurType(recurType) ? recurType : undefined,
+      recurTimezone: isRecurType(recurType) ? browserTimeZone : undefined,
       roles: validRoles.map((r) => ({
         ...r,
         guildId: directInviteEnabled ? (r.guildId ?? null) : null,
@@ -451,14 +472,21 @@ export function EventCreateForm({
           Recurrence
           <span className="block text-[10px] opacity-50 normal-case tracking-normal mt-0.5">auto-schedules next</span>
         </span>
-        <div className="flex-1">
+        <div className="flex-1 space-y-1.5">
           <select className={inputCls} value={recurType} onChange={(e) => setRecurType(e.target.value)}>
             <option value="">One-time event</option>
-            <option value="DAILY">Daily</option>
-            <option value="WEEKLY">Weekly</option>
-            <option value="BIWEEKLY">Every 2 weeks</option>
-            <option value="MONTHLY">Monthly</option>
+            {recurOptions.map((o) => (
+              <option key={o.type} value={o.type}>{o.label}</option>
+            ))}
           </select>
+          {recurPreview.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Next: {recurPreview.map((d) => d.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })).join(' · ')}
+            </p>
+          )}
+          {isRecurType(recurType) && !startPreview && (
+            <p className="text-xs text-muted-foreground">Pick a start date and time to see the next dates.</p>
+          )}
         </div>
       </div>
 

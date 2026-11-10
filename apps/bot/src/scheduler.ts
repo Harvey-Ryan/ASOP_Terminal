@@ -654,7 +654,7 @@ async function checkPendingShareSetup() {
     where: {
       status: 'ACCEPTED',
       allianceGuild: null,                          // no linked EventAllianceGuild yet
-      event: { status: { notIn: ['COMPLETED', 'ENDED'] } },
+      event: { status: { notIn: ['COMPLETED', 'ENDED', 'CANCELLED'] } },
     },
     take: 5,                                        // cap per tick to avoid Discord rate-limits
     orderBy: { invitedAt: 'asc' },                  // oldest first

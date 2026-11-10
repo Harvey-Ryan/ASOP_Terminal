@@ -51,6 +51,10 @@ export const eventsApi = {
   reopen: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/reopen`).then((r) => r),
 
+  /** Stops a repeating event; an upcoming occurrence is cancelled as well. */
+  stopRecurrence: (guildId: string, eventId: string) =>
+    api.post<ApiResponse<EventDto & { cancelled: boolean }>>(`/guilds/${guildId}/events/${eventId}/stop-recurrence`).then((r) => r.data!),
+
   // ── Share API ──────────────────────────────────────────────────────────────
 
   listPendingShares: (guildId: string) =>
