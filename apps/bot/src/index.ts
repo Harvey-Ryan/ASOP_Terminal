@@ -11,11 +11,10 @@ import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
 import * as bidCommand from './commands/bid.js';
 import * as walletCommand from './commands/wallet.js';
-import * as uexCommand from './commands/uex.js';
+import * as itemCommand from './commands/item.js';
 import * as whohasCommand from './commands/whohas.js';
 import * as blueprintCommand from './commands/blueprint.js';
 import * as materialCommand from './commands/material.js';
-import * as recipeCommand from './commands/recipe.js';
 import * as lootCommand from './commands/loot.js';
 import * as fleetCommand from './commands/fleet.js';
 import * as helpCommand from './commands/help.js';
@@ -37,11 +36,10 @@ const commands = new Map<string, Command>([
   ['loot', lootCommand],
   ['bid', bidCommand],
   ['wallet', walletCommand],
-  ['uex', uexCommand],
+  ['item', itemCommand],
   ['whohas', whohasCommand],
   ['blueprint', blueprintCommand],
   ['material', materialCommand],
-  ['recipe', recipeCommand],
   ['fleet', fleetCommand],
   ['help', helpCommand],
   ['marketplace', marketplaceCommand],
@@ -64,7 +62,7 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   await registerCommands(c.user.id);
   await syncAllGuilds();
-  // Blueprints, materials and mission rewards for /blueprint, /recipe and
+  // Blueprints, materials and mission rewards for /blueprint and
   // /material. Re-checked every 10 minutes; it only reloads when sc-data has
   // synced a new commit.
   await loadGameData();
@@ -171,6 +169,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.isButton()) {
+    // ── /blueprint "Show missions" button ────────────────────────────────────
+    if (interaction.customId.startsWith(`${blueprintCommand.MISSIONS_BUTTON}:`)) {
+      await blueprintCommand.handleMissionsButton(interaction).catch((err) => console.error('[bot] Missions button error:', err));
+      return;
+    }
+
     const parts = interaction.customId.split(':');
     const [prefix, entityId, value] = parts as [string, string, string];
 

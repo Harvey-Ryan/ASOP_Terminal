@@ -1,78 +1,45 @@
 import {
   SlashCommandBuilder,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+  type ButtonInteraction,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
 import {
   getBlueprints,
   getBlueprintByUuid,
-  blueprintHasContracts,
   getContractsForBlueprint,
   gameDataFooter,
+  type LocalBlueprint,
 } from '../gamedata.js';
 import { formatSeconds, estimateAuec, fmtAuec, buildRecipeEmbed } from '../utils/scUtils.js';
 
+// One command for everything about a blueprint: the recipe, what dismantling
+// returns, and (behind a button) the missions that can reward it.
+
 export const data = new SlashCommandBuilder()
   .setName('blueprint')
-  .setDescription('Look up Star Citizen crafting blueprints')
-  .addSubcommand((sub) =>
-    sub
-      .setName('search')
-      .setDescription('Search blueprints by output item name')
-      .addStringOption((opt) =>
-        opt.setName('name').setDescription('Item name to search for').setRequired(true),
-      ),
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('recipe')
-      .setDescription('Show the full crafting recipe for a blueprint')
-      .addStringOption((opt) =>
-        opt
-          .setName('name')
-          .setDescription('Blueprint name (start typing for suggestions)')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('dismantle')
-      .setDescription('Show the dismantle return for a blueprint')
-      .addStringOption((opt) =>
-        opt
-          .setName('name')
-          .setDescription('Blueprint name (start typing for suggestions)')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('contracts')
-      .setDescription('Show which mission contracts can reward a blueprint')
-      .addStringOption((opt) =>
-        opt
-          .setName('name')
-          .setDescription('Blueprint name (start typing for suggestions)')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
+  .setDescription('Show a crafting blueprint: recipe, dismantle return and missions that reward it')
+  .addStringOption((opt) =>
+    opt
+      .setName('name')
+      .setDescription('Item name (start typing for suggestions)')
+      .setRequired(true)
+      .setAutocomplete(true),
   );
+
+/** customId prefix of the "Missions" button (followed by ":<blueprint uuid>"). */
+export const MISSIONS_BUTTON = 'bp_missions';
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused().toLowerCase();
-  const sub     = interaction.options.getSubcommand(false);
-
-  let matches = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(focused));
-
-  if (sub === 'contracts') {
-    matches = matches.filter((b) => blueprintHasContracts(b.uuid));
-  }
-
+  const matches = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(focused));
   await interaction.respond(
     matches.slice(0, 25).map((b) => ({
       name:  b.outputType ? `${b.outputName} (${b.outputType})` : b.outputName,
@@ -81,116 +48,93 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
   );
 }
 
-// ── Execute ───────────────────────────────────────────────────────────────────
+// ── /blueprint <name> ─────────────────────────────────────────────────────────
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  const sub = interaction.options.getSubcommand();
-  if (sub === 'search')    return handleSearch(interaction);
-  if (sub === 'recipe')    return handleRecipe(interaction);
-  if (sub === 'dismantle') return handleDismantle(interaction);
-  if (sub === 'contracts') return handleContracts(interaction);
-}
-
-// ── /blueprint search ─────────────────────────────────────────────────────────
-
-async function handleSearch(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const query  = interaction.options.getString('name', true).trim().toLowerCase();
-  const rows   = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(query)).slice(0, 15);
+  const rawValue = interaction.options.getString('name', true).trim();
+  const bp = resolve(rawValue);
 
-  if (rows.length === 0) {
-    await interaction.editReply({ content: `No blueprints found matching **${query}**.` });
+  if (!bp) {
+    // Typed text without picking a suggestion: list what it matches.
+    const q = rawValue.toLowerCase();
+    const similar = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(q));
+    if (similar.length === 0) {
+      await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });
+      return;
+    }
+    const shown = similar.slice(0, 15).map((b) => {
+      const grade = b.outputGrade ? ` · Grade ${b.outputGrade}` : '';
+      return `• **${b.outputName}** — \`${b.outputType}\`${grade}`;
+    });
+    const embed = new EmbedBuilder()
+      .setTitle(`Blueprints matching "${rawValue}"`)
+      .setColor(0x00b0f4)
+      .setDescription(`${shown.join('\n')}\n\nPick one from the suggestions to see its recipe.`)
+      .setFooter({ text: `${similar.length} result${similar.length === 1 ? '' : 's'}${similar.length > 15 ? ', showing 15' : ''} · ${gameDataFooter()}` });
+    await interaction.editReply({ embeds: [embed] });
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle(`Blueprint Search — "${query}"`)
-    .setColor(0x00b0f4)
-    .setFooter({ text: `${rows.length} result${rows.length === 1 ? '' : 's'} · ${gameDataFooter()}` });
+  const embed = buildRecipeEmbed(bp);
 
-  const lines = rows.map((b) => {
-    const grade = b.outputGrade ? ` · Grade ${b.outputGrade}` : '';
-    return `**${b.outputName}** — \`${b.outputType}\`${grade}`;
+  const dismantle: string[] = [];
+  if (bp.dismantleTimeSecs   != null) dismantle.push(`⏱ ${formatSeconds(bp.dismantleTimeSecs)}`);
+  if (bp.dismantleEfficiency != null) dismantle.push(`${(bp.dismantleEfficiency * 100).toFixed(0)}% of materials back`);
+  if (dismantle.length) embed.addFields({ name: '🔧 Dismantle', value: dismantle.join(' · '), inline: false });
+
+  const missions = getContractsForBlueprint(bp.uuid).length;
+  embed.addFields({
+    name:   '🎯 Missions',
+    value:  missions > 0
+      ? `Can be rewarded by **${missions}** mission${missions === 1 ? '' : 's'}.`
+      : 'Not rewarded by any known mission.',
+    inline: false,
   });
 
-  embed.setDescription(lines.join('\n'));
-  await interaction.editReply({ embeds: [embed] });
+  const components = missions > 0
+    ? [new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${MISSIONS_BUTTON}:${bp.uuid}`)
+          .setLabel(`Show missions (${missions})`)
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('🎯'),
+      )]
+    : [];
+
+  await interaction.editReply({ embeds: [embed], components });
 }
 
-// ── /blueprint recipe ─────────────────────────────────────────────────────────
+// ── Missions button ───────────────────────────────────────────────────────────
 
-async function handleRecipe(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const rawValue = interaction.options.getString('name', true);
-  const bp = resolve(rawValue);
-
+/** Replies (only to the person who clicked) with the missions that reward the blueprint. */
+export async function handleMissionsButton(interaction: ButtonInteraction): Promise<void> {
+  const uuid = interaction.customId.slice(MISSIONS_BUTTON.length + 1);
+  const bp = getBlueprintByUuid(uuid);
   if (!bp) {
-    await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });
+    await interaction.reply({ content: 'This blueprint is no longer in the game data. Run /blueprint again.', flags: MessageFlags.Ephemeral });
     return;
   }
-
-  await interaction.editReply({ embeds: [buildRecipeEmbed(bp)] });
+  const embed = buildMissionsEmbed(bp);
+  await interaction.reply(
+    embed
+      ? { embeds: [embed], flags: MessageFlags.Ephemeral }
+      : { content: `No missions currently reward **${bp.outputName}**.`, flags: MessageFlags.Ephemeral },
+  );
 }
 
-// ── /blueprint dismantle ──────────────────────────────────────────────────────
-
-async function handleDismantle(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const rawValue = interaction.options.getString('name', true);
-  const bp = resolve(rawValue);
-
-  if (!bp) {
-    await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });
-    return;
-  }
-
-  if (bp.dismantleTimeSecs == null && bp.dismantleEfficiency == null) {
-    await interaction.editReply({ content: `**${bp.outputName}** has no dismantle data recorded.` });
-    return;
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle(`🔧 Dismantle — ${bp.outputName}`)
-    .setColor(0xf59e0b)
-    .setFooter({ text: gameDataFooter() });
-
-  const fields: { name: string; value: string; inline: boolean }[] = [];
-  if (bp.dismantleTimeSecs   != null) fields.push({ name: 'Time',     value: formatSeconds(bp.dismantleTimeSecs),                   inline: true });
-  if (bp.dismantleEfficiency != null) fields.push({ name: 'Recovery', value: `${(bp.dismantleEfficiency * 100).toFixed(0)}%`, inline: true });
-
-  embed.addFields(fields);
-  await interaction.editReply({ embeds: [embed] });
-}
-
-// ── /blueprint contracts ──────────────────────────────────────────────────────
-
-async function handleContracts(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const rawValue = interaction.options.getString('name', true);
-  const bp = resolve(rawValue);
-
-  if (!bp) {
-    await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });
-    return;
-  }
-
+function buildMissionsEmbed(bp: LocalBlueprint): EmbedBuilder | null {
   const contracts = getContractsForBlueprint(bp.uuid);
-
-  if (contracts.length === 0) {
-    await interaction.editReply({
-      content: `No mission contracts found for **${bp.outputName}**. This blueprint may not be obtainable through contract missions.`,
-    });
-    return;
-  }
+  if (contracts.length === 0) return null;
 
   const total  = contracts.length;
   const toShow = contracts.slice(0, 10);
 
   const embed = new EmbedBuilder()
-    .setTitle(`Contracts Rewarding "${bp.outputName}"`)
+    .setTitle(`🎯 Missions rewarding ${bp.outputName}`)
     .setColor(0x6366f1)
     .setFooter({
-      text: `${total} contract${total !== 1 ? 's' : ''}${
+      text: `${total} mission${total !== 1 ? 's' : ''}${
         total > toShow.length ? ` · showing ${toShow.length} of ${total}` : ''
       } · ${gameDataFooter()}`,
     });
@@ -255,7 +199,7 @@ async function handleContracts(interaction: ChatInputCommandInteraction): Promis
     });
   }
 
-  await interaction.editReply({ embeds: [embed] });
+  return embed;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

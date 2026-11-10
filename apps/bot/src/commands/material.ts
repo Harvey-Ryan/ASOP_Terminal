@@ -8,18 +8,13 @@ import { getMaterialNames, getBlueprintsForMaterial, gameDataFooter } from '../g
 
 export const data = new SlashCommandBuilder()
   .setName('material')
-  .setDescription('Look up Star Citizen crafting materials')
-  .addSubcommand((sub) =>
-    sub
-      .setName('usedby')
-      .setDescription('Find all blueprints that require a given material')
-      .addStringOption((opt) =>
-        opt
-          .setName('name')
-          .setDescription('Material name (start typing for suggestions)')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
+  .setDescription('Find every blueprint that uses a crafting material')
+  .addStringOption((opt) =>
+    opt
+      .setName('name')
+      .setDescription('Material name (start typing for suggestions)')
+      .setRequired(true)
+      .setAutocomplete(true),
   );
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
@@ -36,14 +31,9 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 
 // ── Execute ───────────────────────────────────────────────────────────────────
 
+// ── /material <name> ──────────────────────────────────────────────────────────
+
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  const sub = interaction.options.getSubcommand();
-  if (sub === 'usedby') return handleUsedBy(interaction);
-}
-
-// ── /material usedby ──────────────────────────────────────────────────────────
-
-async function handleUsedBy(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   const materialName = interaction.options.getString('name', true).trim();
 

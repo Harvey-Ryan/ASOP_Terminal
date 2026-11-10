@@ -135,14 +135,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   fields.push({
     name: '🎮 Star Citizen Data',
     value: [
-      '`/uex item <name>` — Look up a Star Citizen item by name',
-      '`/uex commodity <name>` — Look up a commodity and trade routes',
-      '`/blueprint search <name>` — Search crafting blueprints by output item',
-      '`/blueprint recipe <name>` — Show the full recipe and material costs for a blueprint',
-      '`/blueprint dismantle <name>` — Show the dismantle return for a blueprint',
-      '`/blueprint contracts <name>` — Show which mission contracts can reward a blueprint',
-      '`/recipe <name>` — Quick recipe lookup with autocomplete',
-      '`/material usedby <name>` — Find all blueprints that require a given material',
+      '`/blueprint <name>` — Recipe, dismantle return and the missions that reward it',
+      '`/material <name>` — Every blueprint that uses a crafting material',
+      '`/item <name>` — Item details, or average prices for a commodity',
     ].join('\n'),
   });
 

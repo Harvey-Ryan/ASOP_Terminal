@@ -1,4 +1,4 @@
-// Game data for the /blueprint, /recipe and /material commands.
+// Game data for the /blueprint and /material commands.
 //
 // Two sources, same shapes:
 //   - "scdata": our own copy of the Star Citizen Wiki data in Postgres, kept
