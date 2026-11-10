@@ -4,7 +4,7 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
-import { MATERIAL_NAMES, getBlueprintsForMaterial } from '../gamedata.js';
+import { getMaterialNames, getBlueprintsForMaterial, gameDataFooter } from '../gamedata.js';
 
 export const data = new SlashCommandBuilder()
   .setName('material')
@@ -27,7 +27,7 @@ export const data = new SlashCommandBuilder()
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused().toLowerCase();
 
-  const matches = MATERIAL_NAMES
+  const matches = getMaterialNames()
     .filter((n) => n.includes(focused))
     .slice(0, 25);
 
@@ -49,7 +49,7 @@ async function handleUsedBy(interaction: ChatInputCommandInteraction): Promise<v
 
   // Find all blueprints using any material name containing the search term
   const search  = materialName.toLowerCase();
-  const matches = MATERIAL_NAMES.filter((n) => n.includes(search));
+  const matches = getMaterialNames().filter((n) => n.includes(search));
 
   if (matches.length === 0) {
     await interaction.editReply({ content: `No blueprints found that use **${materialName}**.` });
@@ -80,7 +80,7 @@ async function handleUsedBy(interaction: ChatInputCommandInteraction): Promise<v
     .setTitle(`🔩 Blueprints using "${exactMatch}"${qty ? ` (${qty})` : ''}`)
     .setColor(0x10b981)
     .setFooter({
-      text: `Star Citizen · ${total} blueprint${total === 1 ? '' : 's'} total${showing.length < total ? `, showing ${showing.length}` : ''}`,
+      text: `${total} blueprint${total === 1 ? '' : 's'} total${showing.length < total ? `, showing ${showing.length}` : ''} · ${gameDataFooter()}`,
     });
 
   const lines = showing.map((b) => {

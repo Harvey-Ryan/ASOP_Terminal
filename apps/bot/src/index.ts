@@ -5,6 +5,7 @@ import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'disco
 import { client } from './client.js';
 import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
+import { loadGameData } from './gamedata.js';
 import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
@@ -63,6 +64,11 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   await registerCommands(c.user.id);
   await syncAllGuilds();
+  // Blueprints, materials and mission rewards for /blueprint, /recipe and
+  // /material. Re-checked every 10 minutes; it only reloads when sc-data has
+  // synced a new commit.
+  await loadGameData();
+  setInterval(() => { loadGameData().catch((err) => console.error('[gamedata] reload failed:', err)); }, 10 * 60_000).unref();
   await startScheduler();
 });
 

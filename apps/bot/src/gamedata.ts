@@ -1,3 +1,14 @@
+// Game data for the /blueprint, /recipe and /material commands.
+//
+// Two sources, same shapes:
+//   - "scdata": our own copy of the Star Citizen Wiki data in Postgres, kept
+//     current by the sc-data worker (apps/sc-data). Adapted to the raw shapes
+//     below in gamedataScdata.ts, so everything after that is shared.
+//   - "legacy": the frozen JSON in packages/shared/src/Filtered Data.
+// loadGameData() picks scdata (falling back to legacy if it's empty or
+// unreachable; GAME_DATA_SOURCE=legacy forces legacy) and reloads when a new
+// game build lands. Commands read through the getters at the bottom.
+
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
@@ -18,19 +29,19 @@ function loadJson<T>(file: string): T {
 
 // ── Mission contract raw JSON shapes ─────────────────────────────────────────
 
-interface RawBpItem {
+export interface RawBpItem {
   Name: string;
   ItemUUID: string;
   BlueprintUUID: string;
 }
 
-interface RawBpPool {
+export interface RawBpPool {
   Chance: number;
   PoolUUID: string;
   Items: RawBpItem | RawBpItem[];
 }
 
-interface RawDifficulty {
+export interface RawDifficulty {
   MechanicalSkill?: string;
   MentalLoad?: string;
   RiskOfLoss?: string;
@@ -38,18 +49,18 @@ interface RawDifficulty {
   Profile?: string;
 }
 
-interface RawStanding {
+export interface RawStanding {
   Name?: string;
   MinReputation?: number;
 }
 
-interface RawReputation {
+export interface RawReputation {
   Faction?: string;
   XP?: number;
   Scope?: string;
 }
 
-interface RawMission {
+export interface RawMission {
   Title?: string;
   Description?: string;
   MissionType?: string;
@@ -125,9 +136,8 @@ function cleanStr(s: string | undefined | null): string | null {
 
 // ── Main build function ───────────────────────────────────────────────────────
 
-function buildContracts(): MissionContract[] {
+function buildContracts(raw: RawMission[]): MissionContract[] {
   console.log('[gamedata] Loading Missions.json…');
-  const raw = loadJson<RawMission[]>('Missions.json');
 
   // Keep only missions that have at least one blueprint pool with items
   const relevant = raw.filter(
@@ -233,36 +243,8 @@ function buildContracts(): MissionContract[] {
   }
 
   result.sort((a, b) => a.title.localeCompare(b.title));
-  console.log(`[gamedata] ${result.length} mission contracts loaded`);
   return result;
 }
-
-// ── Exported data ─────────────────────────────────────────────────────────────
-
-export const MISSION_CONTRACTS: MissionContract[] = buildContracts();
-
-// Blueprint UUID → Set<MissionContract> (Set gives O(1) dedup by reference)
-const _byBlueprint = new Map<string, Set<MissionContract>>();
-for (const contract of MISSION_CONTRACTS) {
-  for (const pool of contract.pools) {
-    for (const bp of pool.blueprints) {
-      const set = _byBlueprint.get(bp.blueprintUuid) ?? new Set<MissionContract>();
-      set.add(contract);
-      _byBlueprint.set(bp.blueprintUuid, set);
-    }
-  }
-}
-
-/** Returns all mission contracts that can reward the given blueprint UUID. */
-export function getContractsForBlueprint(blueprintUuid: string): MissionContract[] {
-  const set = _byBlueprint.get(blueprintUuid);
-  return set ? [...set] : [];
-}
-
-/** Set of blueprint UUIDs that appear in at least one known mission contract. */
-export const BLUEPRINT_UUIDS_WITH_CONTRACTS: ReadonlySet<string> = new Set(
-  _byBlueprint.keys(),
-);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Blueprint + Resource data (Blueprints.json / Resources.json)
@@ -270,9 +252,9 @@ export const BLUEPRINT_UUIDS_WITH_CONTRACTS: ReadonlySet<string> = new Set(
 
 // ── Raw JSON shapes ───────────────────────────────────────────────────────────
 
-interface RawResource { UUID: string; Name: string }
+export interface RawResource { UUID: string; Name: string }
 
-interface RawStat {
+export interface RawStat {
   Key:             string;
   Label:           string;
   QualityMin:      number;
@@ -282,7 +264,7 @@ interface RawStat {
   UnitFormat:      string | null;
 }
 
-interface RawMaterial {
+export interface RawMaterial {
   UUID:        string | null;
   Name:        string | null;
   Kind:        string;
@@ -291,18 +273,18 @@ interface RawMaterial {
   MinQuality:  number | null;
 }
 
-interface RawComponent {
+export interface RawComponent {
   Slot:     string;
   Material: RawMaterial;
   Stats:    RawStat[];
 }
 
-interface RawDismantle {
+export interface RawDismantle {
   TimeSeconds: number | null;
   Efficiency:  number | null;
 }
 
-interface RawLocalBlueprint {
+export interface RawLocalBlueprint {
   UUID:             string;
   Key:              string;
   Name:             string;
@@ -369,13 +351,8 @@ function parseUnitFormat(fmt: string | null): string {
 
 // ── Build function ────────────────────────────────────────────────────────────
 
-function buildBlueprints(): LocalBlueprint[] {
-  console.log('[gamedata] Loading Resources.json…');
-  const resources = loadJson<RawResource[]>('Resources.json');
+function buildBlueprints(raw: RawLocalBlueprint[], resources: RawResource[]): LocalBlueprint[] {
   const resMap = new Map<string, string>(resources.map((r) => [r.UUID, r.Name]));
-
-  console.log('[gamedata] Loading Blueprints.json…');
-  const raw = loadJson<RawLocalBlueprint[]>('Blueprints.json');
 
   const result: LocalBlueprint[] = [];
 
@@ -430,35 +407,147 @@ function buildBlueprints(): LocalBlueprint[] {
   }
 
   result.sort((a, b) => a.outputName.localeCompare(b.outputName));
-  console.log(`[gamedata] ${result.length} blueprints loaded`);
   return result;
 }
 
-// ── Exported blueprint data ───────────────────────────────────────────────────
+// ── Store ─────────────────────────────────────────────────────────────────────
 
-export const BLUEPRINTS: LocalBlueprint[] = buildBlueprints();
-
-export const BLUEPRINT_BY_UUID: ReadonlyMap<string, LocalBlueprint> = new Map(
-  BLUEPRINTS.map((b) => [b.uuid, b]),
-);
-
-/** material name (lower-cased) → blueprints that use it */
-const _byMaterial = new Map<string, Set<LocalBlueprint>>();
-for (const bp of BLUEPRINTS) {
-  for (const m of bp.materials) {
-    const key = m.name.toLowerCase();
-    const set = _byMaterial.get(key) ?? new Set<LocalBlueprint>();
-    set.add(bp);
-    _byMaterial.set(key, set);
-  }
+export interface GameDataSource {
+  kind: 'scdata' | 'legacy';
+  /** Game build, e.g. "4.10.2-LIVE.12881860" (scdata only) */
+  build: string | null;
+  /** Upstream commit the data came from (scdata only) */
+  commit: string | null;
+  loadedAt: Date;
 }
 
-/** Distinct material names sorted alphabetically (for autocomplete). */
-export const MATERIAL_NAMES: readonly string[] = [..._byMaterial.keys()]
-  .sort((a, b) => a.localeCompare(b));
+interface Store {
+  source: GameDataSource;
+  blueprints: LocalBlueprint[];
+  byUuid: Map<string, LocalBlueprint>;
+  contractsByBlueprint: Map<string, MissionContract[]>;
+  byMaterial: Map<string, LocalBlueprint[]>;
+  materialNames: string[];
+}
 
-/** Returns blueprints that use the given material (case-insensitive exact match). */
+export interface RawGameData {
+  blueprints: RawLocalBlueprint[];
+  resources: RawResource[];
+  missions: RawMission[];
+}
+
+/** Builds the indexed store from raw data (either source). Exported for tests. */
+export function buildStore(raw: RawGameData, source: GameDataSource): Store {
+  const blueprints = buildBlueprints(raw.blueprints, raw.resources);
+  const contracts = buildContracts(raw.missions);
+
+  const contractsByBlueprint = new Map<string, MissionContract[]>();
+  for (const contract of contracts) {
+    for (const pool of contract.pools) {
+      for (const bp of pool.blueprints) {
+        const list = contractsByBlueprint.get(bp.blueprintUuid) ?? [];
+        if (!list.includes(contract)) list.push(contract);
+        contractsByBlueprint.set(bp.blueprintUuid, list);
+      }
+    }
+  }
+
+  const byMaterial = new Map<string, LocalBlueprint[]>();
+  for (const bp of blueprints) {
+    for (const m of bp.materials) {
+      // A slot that takes any of several materials is shown as "A or B"; list
+      // the blueprint under each of them.
+      for (const name of m.name.split(' or ')) {
+        const key = name.trim().toLowerCase();
+        if (!key) continue;
+        const list = byMaterial.get(key) ?? [];
+        if (!list.includes(bp)) list.push(bp);
+        byMaterial.set(key, list);
+      }
+    }
+  }
+
+  return {
+    source,
+    blueprints,
+    byUuid: new Map(blueprints.map((b) => [b.uuid, b])),
+    contractsByBlueprint,
+    byMaterial,
+    materialNames: [...byMaterial.keys()].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+export function loadLegacyRaw(): RawGameData {
+  return {
+    blueprints: loadJson<RawLocalBlueprint[]>('Blueprints.json'),
+    resources: loadJson<RawResource[]>('Resources.json'),
+    missions: loadJson<RawMission[]>('Missions.json'),
+  };
+}
+
+let store: Store | null = null;
+
+function current(): Store {
+  if (!store) {
+    // Commands only run after loadGameData() at startup; this is a safety net.
+    store = buildStore(loadLegacyRaw(), { kind: 'legacy', build: null, commit: null, loadedAt: new Date() });
+  }
+  return store;
+}
+
+/**
+ * Loads game data from scdata (or legacy if forced, empty or unreachable).
+ * Safe to call repeatedly: with scdata it only reloads when the build changed.
+ */
+export async function loadGameData(): Promise<GameDataSource> {
+  const wantLegacy = (process.env['GAME_DATA_SOURCE'] ?? 'scdata').toLowerCase() === 'legacy';
+  if (!wantLegacy) {
+    try {
+      const { scdataCommit, loadScdataRaw } = await import('./gamedataScdata.js');
+      const commit = await scdataCommit();
+      if (commit && store?.source.kind === 'scdata' && store.source.commit === commit) return store.source;
+      if (commit) {
+        const { raw, build } = await loadScdataRaw();
+        const next = buildStore(raw, { kind: 'scdata', build, commit, loadedAt: new Date() });
+        if (next.blueprints.length > 0) {
+          store = next;
+          console.log(`[gamedata] Loaded game build ${build ?? commit.slice(0, 12)} from scdata: ${next.blueprints.length} blueprints, ${new Set([...next.contractsByBlueprint.values()].flat()).size} mission contracts`);
+          return store.source;
+        }
+        console.warn('[gamedata] scdata has no blueprints; using legacy data');
+      } else {
+        console.warn('[gamedata] scdata not set up yet; using legacy data');
+      }
+    } catch (err) {
+      console.error('[gamedata] Could not load scdata; using legacy data:', err instanceof Error ? err.message : err);
+    }
+  }
+  if (store?.source.kind === 'legacy') return store.source;
+  store = buildStore(loadLegacyRaw(), { kind: 'legacy', build: null, commit: null, loadedAt: new Date() });
+  console.log(`[gamedata] Loaded legacy data: ${store.blueprints.length} blueprints`);
+  return store.source;
+}
+
+// ── Getters used by commands ─────────────────────────────────────────────────
+
+export const getGameDataSource = (): GameDataSource => current().source;
+export const getBlueprints = (): readonly LocalBlueprint[] => current().blueprints;
+export const getBlueprintByUuid = (uuid: string): LocalBlueprint | undefined => current().byUuid.get(uuid);
+/** All mission contracts that can reward the given blueprint UUID. */
+export const getContractsForBlueprint = (uuid: string): MissionContract[] => current().contractsByBlueprint.get(uuid) ?? [];
+export const blueprintHasContracts = (uuid: string): boolean => current().contractsByBlueprint.has(uuid);
+/** Distinct material names sorted alphabetically (for autocomplete). */
+export const getMaterialNames = (): readonly string[] => current().materialNames;
+/** Blueprints that use the given material (case-insensitive exact match). */
 export function getBlueprintsForMaterial(materialName: string): LocalBlueprint[] {
-  const set = _byMaterial.get(materialName.toLowerCase());
-  return set ? [...set].sort((a, b) => a.outputName.localeCompare(b.outputName)) : [];
+  const list = current().byMaterial.get(materialName.toLowerCase());
+  return list ? [...list].sort((a, b) => a.outputName.localeCompare(b.outputName)) : [];
+}
+
+/** Footer text naming the data the answer came from. */
+export function gameDataFooter(): string {
+  const s = current().source;
+  return s.kind === 'scdata'
+    ? `Game data: ${s.build ?? s.commit?.slice(0, 12) ?? 'current'} (Star Citizen Wiki)`
+    : 'Game data: legacy snapshot (June 2026)';
 }

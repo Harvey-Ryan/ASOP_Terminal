@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import type { LocalBlueprint } from '../gamedata.js';
+import { gameDataFooter } from '../gamedata.js';
 
 export type { LocalBlueprint };
 
@@ -44,7 +45,7 @@ export function buildRecipeEmbed(bp: LocalBlueprint): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle(`📋 ${bp.outputName}`)
     .setColor(0x00b0f4)
-    .setFooter({ text: 'Star Citizen Blueprint Database' });
+    .setFooter({ text: gameDataFooter() });
 
   // Header fields: Type / Subtype / Grade
   const headerFields: { name: string; value: string; inline: boolean }[] = [
