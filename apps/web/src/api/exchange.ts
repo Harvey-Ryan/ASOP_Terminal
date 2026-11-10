@@ -18,10 +18,11 @@ export const exchangeApi = {
   wipeInventories: (guildId: string) =>
     api.delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/exchange/inventory/all`).then((r) => r.data!),
 
-  search: (guildId: string, itemType: string, externalItemId: number) =>
+  /** Members of this server who have the item. `itemRef` is a game catalog ref. */
+  search: (guildId: string, itemRef: string) =>
     api
       .get<ApiResponse<InventorySearchGroup[]>>(
-        `/guilds/${guildId}/exchange/search?itemType=${itemType}&externalItemId=${externalItemId}`,
+        `/guilds/${guildId}/exchange/search?itemRef=${encodeURIComponent(itemRef)}`,
       )
       .then((r) => r.data ?? []),
 };

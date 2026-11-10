@@ -1,7 +1,8 @@
 import { canManageGuild } from '@dem/shared';
+import { itemSuggestions } from '@/api/catalog';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { HoverPopover } from '@/components/HoverPopover';
+import { ItemInfoPopover } from '@/components/ItemInfoPopover';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Save, SkipForward,
@@ -11,13 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lootApi } from '@/api/loot';
-import { uexApi } from '@/api/uex';
-import { scApi } from '@/api/sc';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
-import type { LootSessionDto, LootItemDto, LootMethod, LootQueueItemDto, UexItemDto, UexCommodityDto, LootParticipant } from '@dem/shared';
+import type { LootSessionDto, LootItemDto, LootMethod, LootQueueItemDto, LootParticipant } from '@dem/shared';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -40,85 +39,6 @@ function snakePick(position: number, order: string[]): string | null {
 
 // ── UEX info popover ──────────────────────────────────────────────────────────
 
-function UexInfoCard({ data }: { data: UexItemDto | UexCommodityDto }) {
-  const isItem = 'categoryName' in data;
-  if (isItem) {
-    const item = data as UexItemDto;
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="font-semibold text-foreground leading-tight">{item.name}</p>
-          <span className="shrink-0 rounded-full bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">Item</span>
-        </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
-          {item.categoryName && <span><span className="text-foreground/60">Category:</span> {item.categoryName}</span>}
-          {item.section      && <span><span className="text-foreground/60">Section:</span> {item.section}</span>}
-          {item.gameVersion  && <span><span className="text-foreground/60">Version:</span> {item.gameVersion}</span>}
-          {item.size         && <span><span className="text-foreground/60">Size:</span> {item.size}</span>}
-        </div>
-        {item.attributes.length > 0 && (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground border-t border-border/50 pt-2 mt-1">
-            {item.attributes.map((attr) => (
-              <span key={attr.name}>
-                <span className="text-foreground/60">{attr.name}:</span> {attr.value}{attr.unit ? ` ${attr.unit}` : ''}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-  const com = data as UexCommodityDto;
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold text-foreground leading-tight">{com.name}</p>
-        <span className="shrink-0 rounded-full bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">Commodity</span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
-        {com.code && <span><span className="text-foreground/60">Code:</span> {com.code}</span>}
-        {com.priceAvgBuy != null && <span><span className="text-foreground/60">Buy avg:</span> {com.priceAvgBuy.toLocaleString()} aUEC</span>}
-        {com.priceAvgSell != null && <span><span className="text-foreground/60">Sell avg:</span> {com.priceAvgSell.toLocaleString()} aUEC</span>}
-      </div>
-    </div>
-  );
-}
-
-function ItemInfoPopover({ name }: { name: string }) {
-  const [show, setShow] = useState(false);
-  const infoQuery = useQuery({
-    queryKey: ['uex-item-info', name],
-    queryFn: async () => {
-      const [items, commodities] = await Promise.all([
-        uexApi.getItems({ q: name, limit: 10 }),
-        uexApi.getCommodities({ q: name, limit: 5 }),
-      ]);
-      const lc = name.toLowerCase();
-      return (
-        items.find((i) => i.name.toLowerCase() === lc) ??
-        commodities.find((c) => c.name.toLowerCase() === lc) ??
-        items[0] ?? commodities[0] ?? null
-      );
-    },
-    enabled: show,
-    staleTime: 10 * 60 * 1000,
-  });
-  return (
-    <HoverPopover
-      className="w-72"
-      onOpenChange={setShow}
-      trigger={
-        <button type="button" tabIndex={-1} className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-          <Info className="h-3.5 w-3.5" />
-        </button>
-      }
-    >
-      {infoQuery.isLoading && <p className="text-muted-foreground">Looking up "{name}"…</p>}
-      {!infoQuery.isLoading && infoQuery.data === null && <p className="text-muted-foreground">No UEX record found for "{name}".</p>}
-      {infoQuery.data && <UexInfoCard data={infoQuery.data} />}
-    </HoverPopover>
-  );
-}
 
 // ── Item row ──────────────────────────────────────────────────────────────────
 
@@ -728,37 +648,8 @@ export function StandaloneLootSessionPage() {
 
   const suggestQuery = useQuery({
     queryKey: ['loot-suggest-standalone', debouncedNewItem, isCommodityDraftEarly],
-    queryFn: async () => {
-      const seen = new Set<string>();
-      const results: { id: string; name: string; detail: string; type: 'item' | 'commodity' | 'sc-item' }[] = [];
-      if (isCommodityDraftEarly) {
-        const commodities = await uexApi.getCommodities({ q: debouncedNewItem, limit: 12 });
-        for (const c of commodities) {
-          const lc = c.name.toLowerCase();
-          if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(c.id), name: c.name, detail: c.code || '', type: 'commodity' }); }
-        }
-      } else {
-        const [items, commodities, scItems] = await Promise.all([
-          uexApi.getItems({ q: debouncedNewItem, limit: 6 }),
-          uexApi.getCommodities({ q: debouncedNewItem, limit: 3 }),
-          scApi.getShipItems(debouncedNewItem, 8),
-        ]);
-        for (const s of scItems) {
-          const display = s.name ?? s.type;
-          const lc = display.toLowerCase();
-          if (!seen.has(lc)) { seen.add(lc); results.push({ id: s.uuid, name: display, detail: s.classification || s.type || '', type: 'sc-item' }); }
-        }
-        for (const i of items) {
-          const lc = i.name.toLowerCase();
-          if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(i.id), name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
-        }
-        for (const c of commodities) {
-          const lc = c.name.toLowerCase();
-          if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(c.id), name: c.name, detail: c.code || '', type: 'commodity' }); }
-        }
-      }
-      return results;
-    },
+    // Commodity drafts only take commodities.
+    queryFn: () => itemSuggestions(debouncedNewItem, 12, isCommodityDraftEarly ? 'COMMODITY' : undefined),
     enabled: debouncedNewItem.length >= 2,
     staleTime: 2 * 60 * 1000,
   });
@@ -1152,8 +1043,8 @@ export function StandaloneLootSessionPage() {
                         >
                           <span className="flex-1 truncate">{s.name}</span>
                           {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
-                          <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'sc-item' ? 'bg-sky-500/10 text-sky-400' : s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
-                            {s.type === 'sc-item' ? 'SC' : s.type}
+                          <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                            {s.type}
                           </span>
                         </button>
                       ))}

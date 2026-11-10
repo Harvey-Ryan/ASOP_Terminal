@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, CheckCircle2, XCircle, Loader2, Database, Clock, AlertTriangle, Search, Tag, Layers, Package } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, Loader2, Database, Clock, AlertTriangle, Search, Tag, Layers, Package, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { uexApi } from '@/api/uex';
 import { useDebounce } from '@/hooks/useDebounce';
-import type { UexSyncLogDto, UexItemDto, UexCommodityDto } from '@dem/shared';
+import type { UexSyncLogDto, CatalogKind } from '@dem/shared';
+import { catalogApi } from '@/api/catalog';
+import { CatalogInfoCard } from '@/components/ItemInfoPopover';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -108,102 +110,47 @@ function LogRow({ log }: { log: UexSyncLogDto }) {
 
 // ── Search result cards ───────────────────────────────────────────────────────
 
-function ItemCard({ item }: { item: UexItemDto }) {
+function ResultRow({ entry }: { entry: { ref: string; name: string; detail: string; kind: CatalogKind } }) {
+  const [open, setOpen] = useState(false);
+  const detail = useQuery({
+    queryKey: ['catalog-item', entry.ref],
+    queryFn: () => catalogApi.item(entry.ref),
+    enabled: open,
+    staleTime: 10 * 60_000,
+  });
   return (
-    <div className="rounded-md border border-border bg-card px-3 py-2.5 space-y-1.5 text-xs">
-      <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-sm text-foreground leading-tight">{item.name}</p>
-        <span className="shrink-0 rounded-full bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">Item</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-muted-foreground">
-        <span><span className="text-foreground/60">ID:</span> {item.id}</span>
-        <span><span className="text-foreground/60">Category:</span> {item.categoryName || '—'}</span>
-        {item.slug && <span><span className="text-foreground/60">Slug:</span> {item.slug}</span>}
-        {item.section && <span><span className="text-foreground/60">Section:</span> {item.section}</span>}
-        {item.gameVersion && <span><span className="text-foreground/60">Version:</span> {item.gameVersion}</span>}
-      </div>
-
-      <div className="flex flex-wrap gap-1 pt-0.5">
-        {item.isCommodity   && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">commodity</span>}
-        {item.isHarvestable && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">harvestable</span>}
-      </div>
-
-      {item.attributes.length > 0 && (
-        <div className="border-t border-border pt-1.5 space-y-0.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Attributes</p>
-          {item.attributes.map((a, i) => (
-            <div key={i} className="flex gap-1.5">
-              {a.name && <span className="text-foreground/60 shrink-0">{a.name}:</span>}
-              <span className="text-foreground">{a.value}{a.unit ? ` ${a.unit}` : ''}</span>
-            </div>
-          ))}
+    <div className="rounded-md border border-border bg-background">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent/40">
+        {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+        <span className="truncate font-medium">{entry.name}</span>
+        <span className="ml-auto truncate text-xs text-muted-foreground max-w-[50%]">{entry.detail}</span>
+      </button>
+      {open && (
+        <div className="border-t border-border px-3 py-2.5 text-xs">
+          {detail.isLoading && <p className="text-muted-foreground">Loading…</p>}
+          {detail.data && <CatalogInfoCard data={detail.data} />}
+          {!detail.isLoading && !detail.data && <p className="text-muted-foreground">Not in the game data.</p>}
         </div>
       )}
     </div>
   );
 }
-
-function CommodityCard({ com }: { com: UexCommodityDto }) {
-  const flags = [
-    com.isMineral    && 'mineral',
-    com.isRaw        && 'raw',
-    com.isRefined    && 'refined',
-    com.isHarvestable && 'harvestable',
-    com.isFuel       && 'fuel',
-    com.isIllegal    && 'illegal',
-  ].filter(Boolean) as string[];
-
-  return (
-    <div className="rounded-md border border-border bg-card px-3 py-2.5 space-y-1.5 text-xs">
-      <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-sm text-foreground leading-tight">{com.name}</p>
-        <span className="shrink-0 rounded-full bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">Commodity</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-muted-foreground">
-        <span><span className="text-foreground/60">ID:</span> {com.id}</span>
-        <span><span className="text-foreground/60">Code:</span> {com.code || '—'}</span>
-        {com.slug && <span><span className="text-foreground/60">Slug:</span> {com.slug}</span>}
-        {com.weightScu   != null && <span><span className="text-foreground/60">Weight:</span> {com.weightScu} SCU</span>}
-        {com.priceAvgBuy  != null && <span><span className="text-foreground/60">Buy avg:</span> {com.priceAvgBuy.toLocaleString()} aUEC</span>}
-        {com.priceAvgSell != null && <span><span className="text-foreground/60">Sell avg:</span> {com.priceAvgSell.toLocaleString()} aUEC</span>}
-      </div>
-
-      {flags.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {flags.map((f) => (
-            <span key={f} className={`rounded-sm px-1.5 py-0.5 text-[10px] ${f === 'illegal' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>{f}</span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Search panel ──────────────────────────────────────────────────────────────
 
 type SearchMode = 'items' | 'commodities';
 
 function SearchPanel() {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('items');
-  const debouncedQuery = useDebounce(query, 300);
+  const debouncedQuery = useDebounce(query, 250);
 
-  const itemsQuery = useQuery({
-    queryKey: ['uex-search-items', debouncedQuery],
-    queryFn: () => uexApi.getItems({ q: debouncedQuery, limit: 50 }),
-    enabled: mode === 'items',
+  const search = useQuery({
+    queryKey: ['catalog-browse', mode, debouncedQuery],
+    queryFn: () => catalogApi.search(debouncedQuery, { kind: mode === 'items' ? 'ITEM' : 'COMMODITY', limit: 50 }),
+    enabled: debouncedQuery.trim().length >= 2,
+    staleTime: 5 * 60_000,
   });
-
-  const commoditiesQuery = useQuery({
-    queryKey: ['uex-search-commodities', debouncedQuery],
-    queryFn: () => uexApi.getCommodities({ q: debouncedQuery, limit: 50 }),
-    enabled: mode === 'commodities',
-  });
-
-  const isLoading = mode === 'items' ? itemsQuery.isFetching : commoditiesQuery.isFetching;
-  const results   = mode === 'items' ? (itemsQuery.data ?? []) : (commoditiesQuery.data ?? []);
+  const results = debouncedQuery.trim().length >= 2 ? (search.data ?? []) : [];
+  const isLoading = search.isFetching;
 
   return (
     <div className="flex flex-col h-full rounded-lg border border-border bg-card overflow-hidden">
@@ -211,7 +158,7 @@ function SearchPanel() {
       <div className="px-4 pt-4 pb-3 border-b border-border space-y-3 shrink-0">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Search className="h-3.5 w-3.5" />
-          Database Search
+          Item Search
         </p>
 
         {/* Mode toggle */}
@@ -248,15 +195,15 @@ function SearchPanel() {
 
         <p className="text-xs text-muted-foreground">
           {results.length > 0
-            ? `${results.length} result${results.length !== 1 ? 's' : ''}${results.length === 50 ? ' (showing first 50)' : ''}`
-            : debouncedQuery
+            ? `${results.length} result${results.length !== 1 ? 's' : ''}${results.length === 50 ? ' (showing the best 50)' : ''} · click one for details`
+            : debouncedQuery.trim().length >= 2
             ? 'No results'
-            : 'Type to search'}
+            : 'Type at least 2 letters to search'}
         </p>
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
         {results.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center h-32 text-center">
             <Tag className="h-6 w-6 text-muted-foreground opacity-40 mb-2" />
@@ -265,14 +212,7 @@ function SearchPanel() {
             </p>
           </div>
         )}
-
-        {mode === 'items' && (itemsQuery.data ?? []).map((item) => (
-          <ItemCard key={item.id} item={item} />
-        ))}
-
-        {mode === 'commodities' && (commoditiesQuery.data ?? []).map((com) => (
-          <CommodityCard key={com.id} com={com} />
-        ))}
+        {results.map((e) => <ResultRow key={e.ref} entry={e} />)}
       </div>
     </div>
   );
@@ -314,8 +254,9 @@ export function GameDataPage() {
             Game Data
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Local cache of Star Citizen items, commodities, and categories sourced from{' '}
-            <span className="font-medium text-foreground">UEX Corp</span>. Updated automatically every Monday.
+            Items and commodities come from the Star Citizen game files (see{' '}
+            <span className="font-medium text-foreground">SC Database</span>), updated when a new game build is published.
+            Average commodity prices come from <span className="font-medium text-foreground">UEX Corp</span>, refreshed every Monday.
           </p>
         </div>
 
@@ -332,17 +273,15 @@ export function GameDataPage() {
           <>
             {/* Cache stats */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cached Records</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commodity Prices (UEX)</p>
               <div className="grid grid-cols-3 gap-3">
-                <StatTile label="Categories"  value={counts?.categories  ?? 0} />
-                <StatTile label="Items"        value={counts?.items        ?? 0} />
-                <StatTile label="Commodities"  value={counts?.commodities  ?? 0} />
+                <StatTile label="Commodities priced" value={counts?.commodities ?? 0} />
               </div>
             </div>
 
             {/* Sync control */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sync</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price Refresh</p>
               <div className="rounded-lg border border-border bg-card p-4 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -363,14 +302,14 @@ export function GameDataPage() {
                     className="shrink-0 gap-1.5"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${(isRunning || syncMutation.isPending) ? 'animate-spin' : ''}`} />
-                    {isRunning ? 'Running…' : syncMutation.isPending ? 'Starting…' : 'Force Sync'}
+                    {isRunning ? 'Running…' : syncMutation.isPending ? 'Starting…' : 'Refresh Prices'}
                   </Button>
                 </div>
 
                 {isRunning && (
                   <div className="rounded-md bg-amber-500/5 border border-amber-500/20 px-3 py-2 text-xs text-amber-500 flex items-center gap-2">
                     <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                    Fetching categories, items, and attributes from UEX Corp API. This may take 1–2 minutes due to rate limiting.
+                    Fetching commodity prices from UEX Corp…
                   </div>
                 )}
 
@@ -381,7 +320,7 @@ export function GameDataPage() {
                 )}
 
                 <p className="text-xs text-muted-foreground border-t border-border pt-3">
-                  Automatic sync runs every <span className="font-medium text-foreground">Monday at 03:00 UTC</span>. Use Force Sync to pull the latest data immediately.
+                  Prices refresh every <span className="font-medium text-foreground">Monday at 03:00 UTC</span>. Use Refresh Prices to pull the latest now.
                 </p>
               </div>
             </div>
@@ -397,19 +336,7 @@ export function GameDataPage() {
                 </div>
 
                 {lastSync && lastSync.status === 'SUCCESS' && (
-                  <div className="rounded-md bg-muted/30 border border-border px-3 py-2 text-xs text-muted-foreground grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <span className="font-medium text-foreground">{lastSync.categoriesAdded + lastSync.categoriesUpdated > 0
-                        ? `+${lastSync.categoriesAdded} / ~${lastSync.categoriesUpdated}`
-                        : 'No change'}</span>
-                      <p className="mt-0.5">Categories</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-foreground">{lastSync.itemsAdded + lastSync.itemsUpdated > 0
-                        ? `+${lastSync.itemsAdded} / ~${lastSync.itemsUpdated}`
-                        : 'No change'}</span>
-                      <p className="mt-0.5">Items</p>
-                    </div>
+                  <div className="rounded-md bg-muted/30 border border-border px-3 py-2 text-xs text-muted-foreground text-center">
                     <div>
                       <span className="font-medium text-foreground">{lastSync.commoditiesAdded + lastSync.commoditiesUpdated > 0
                         ? `+${lastSync.commoditiesAdded} / ~${lastSync.commoditiesUpdated}`
@@ -424,9 +351,9 @@ export function GameDataPage() {
             {recentLogs.length === 0 && !isRunning && (
               <div className="rounded-lg border border-dashed border-border p-8 text-center">
                 <Database className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-sm text-muted-foreground">No sync has been run yet.</p>
+                <p className="text-sm text-muted-foreground">Prices haven't been loaded yet.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Click <span className="font-medium text-foreground">Force Sync</span> above to populate the game data cache.
+                  Click <span className="font-medium text-foreground">Refresh Prices</span> above to load commodity prices.
                 </p>
               </div>
             )}

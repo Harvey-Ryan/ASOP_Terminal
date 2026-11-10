@@ -6,133 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { exchangeApi } from '@/api/exchange';
-import { uexApi } from '@/api/uex';
+import { ItemCombobox, type PickedItem } from '@/components/ItemCombobox';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
-import type { InventoryEntryDto, InventorySearchGroup, UexItemDto, UexCommodityDto, InventoryItemType } from '@dem/shared';
+import type { InventoryEntryDto, InventorySearchGroup, InventoryItemType } from '@dem/shared';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type UexResult =
-  | { type: 'ITEM'; item: UexItemDto }
-  | { type: 'COMMODITY'; item: UexCommodityDto };
 
 // ── UEX autocomplete ──────────────────────────────────────────────────────────
 
-function UexCombobox({
-  placeholder,
-  onSelect,
-  value,
-  onClear,
-}: {
-  placeholder: string;
-  onSelect: (result: UexResult) => void;
-  value: string;
-  onClear: () => void;
-}) {
-  const [query, setQuery] = useState(value);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const debouncedQuery = useDebounce(query, 250);
-
-  useEffect(() => { setQuery(value); }, [value]);
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const { data: items = [] } = useQuery({
-    queryKey: ['uex-items', debouncedQuery],
-    queryFn: () => uexApi.getItems({ q: debouncedQuery, limit: 50 }),
-    enabled: debouncedQuery.length >= 2 && open,
-    staleTime: 60_000,
-  });
-
-  const { data: commodities = [] } = useQuery({
-    queryKey: ['uex-commodities', debouncedQuery],
-    queryFn: () => uexApi.getCommodities({ q: debouncedQuery, limit: 50 }),
-    enabled: debouncedQuery.length >= 2 && open,
-    staleTime: 60_000,
-  });
-
-  const needle = debouncedQuery.toLowerCase();
-  const rank = (name: string) => (name.toLowerCase().startsWith(needle) ? 0 : 1);
-  const results: UexResult[] = [
-    ...items.map((i): UexResult => ({ type: 'ITEM', item: i })),
-    ...commodities.map((c): UexResult => ({ type: 'COMMODITY', item: c })),
-  ].sort((a, b) => rank(a.item.name) - rank(b.item.name) || a.item.name.localeCompare(b.item.name)).slice(0, 25);
-
-  function select(r: UexResult) {
-    setQuery(r.item.name);
-    setOpen(false);
-    onSelect(r);
-  }
-
-  function clear() {
-    setQuery('');
-    onClear();
-  }
-
-  return (
-    <div className="relative" ref={ref}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <input
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => { if (query.length >= 2) setOpen(true); }}
-          placeholder={placeholder}
-          className="w-full rounded-md border border-input bg-background pl-9 pr-9 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-        />
-        {query && (
-          <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-      {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
-          {results.map((r) => (
-            <button
-              key={`${r.type}-${r.item.id}`}
-              onMouseDown={(e) => { e.preventDefault(); select(r); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-            >
-              <span className="text-xs rounded px-1.5 py-0.5 font-mono bg-muted text-muted-foreground shrink-0">
-                {r.type === 'COMMODITY' ? 'COM' : 'ITEM'}
-              </span>
-              <span className="truncate">{r.item.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Tab 1 — Search ────────────────────────────────────────────────────────────
 
 function SearchTab({ guildId }: { guildId: string }) {
-  const [selected, setSelected] = useState<UexResult | null>(null);
+  const [selected, setSelected] = useState<PickedItem | null>(null);
   const [labelValue, setLabelValue] = useState('');
 
   const { data: groups = [], isFetching } = useQuery({
-    queryKey: ['exchange-search', guildId, selected?.type, selected?.item.id],
+    queryKey: ['exchange-search', guildId, selected?.ref],
     queryFn: () =>
       selected
-        ? exchangeApi.search(guildId, selected.type, selected.item.id)
+        ? exchangeApi.search(guildId, selected.ref)
         : Promise.resolve<InventorySearchGroup[]>([]),
     enabled: !!selected,
   });
 
-  function handleSelect(r: UexResult) {
+  function handleSelect(r: PickedItem) {
     setSelected(r);
-    setLabelValue(r.item.name);
+    setLabelValue(r.name);
   }
 
   function handleClear() {
@@ -142,7 +45,7 @@ function SearchTab({ guildId }: { guildId: string }) {
 
   return (
     <div className="space-y-4">
-      <UexCombobox
+      <ItemCombobox
         placeholder="Search for an item or commodity…"
         onSelect={handleSelect}
         value={labelValue}
@@ -157,7 +60,7 @@ function SearchTab({ guildId }: { guildId: string }) {
 
       {selected && !isFetching && groups.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
-          No members currently have <span className="font-medium text-foreground">{selected.item.name}</span> in their inventory.
+          No members currently have <span className="font-medium text-foreground">{selected.name}</span> in their inventory.
         </p>
       )}
 
@@ -329,7 +232,7 @@ function InventoryTab({ guildId }: { guildId: string }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [selected, setSelected] = useState<UexResult | null>(null);
+  const [selected, setSelected] = useState<PickedItem | null>(null);
   const [labelValue, setLabelValue] = useState('');
   const [qty, setQty] = useState('1');
   const [ql, setQl] = useState('');
@@ -353,8 +256,8 @@ function InventoryTab({ guildId }: { guildId: string }) {
       }
       return exchangeApi.upsertEntry(guildId, {
         itemType: selected.type,
-        externalItemId: selected.item.id,
-        itemName: selected.item.name,
+        itemRef: selected.ref,
+        itemName: selected.name,
         quantity,
         qualityLevel,
         location: loc.trim() || null,
@@ -384,9 +287,9 @@ function InventoryTab({ guildId }: { guildId: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <UexCombobox
+          <ItemCombobox
             placeholder="Search for an item or commodity to add…"
-            onSelect={(r) => { setSelected(r); setLabelValue(r.item.name); setQl(''); }}
+            onSelect={(r) => { setSelected(r); setLabelValue(r.name); setQl(''); }}
             value={labelValue}
             onClear={() => { setSelected(null); setLabelValue(''); }}
           />

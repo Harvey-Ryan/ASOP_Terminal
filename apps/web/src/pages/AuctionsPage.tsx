@@ -1,4 +1,5 @@
 import { canManageGuild } from '@dem/shared';
+import { itemSuggestions } from '@/api/catalog';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { auctionsApi } from '@/api/auctions';
 import { lootApi } from '@/api/loot';
 import { eventsApi } from '@/api/events';
-import { uexApi } from '@/api/uex';
 import { useAuth } from '@/hooks/useAuth';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -261,23 +261,7 @@ export function AuctionsPage() {
 
   const suggestQuery = useQuery({
     queryKey: ['uex-suggest-auction', debouncedTitle],
-    queryFn: async () => {
-      const [items, commodities] = await Promise.all([
-        uexApi.getItems({ q: debouncedTitle, limit: 8 }),
-        uexApi.getCommodities({ q: debouncedTitle, limit: 4 }),
-      ]);
-      const seen = new Set<string>();
-      const results: { id: number; name: string; detail: string; type: 'item' | 'commodity' }[] = [];
-      for (const i of items) {
-        const lc = i.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: i.id, name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
-      }
-      for (const c of commodities) {
-        const lc = c.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: c.id, name: c.name, detail: c.code || '', type: 'commodity' }); }
-      }
-      return results;
-    },
+    queryFn: () => itemSuggestions(debouncedTitle, 12),
     enabled: debouncedTitle.length >= 3,
     staleTime: 2 * 60 * 1000,
   });
