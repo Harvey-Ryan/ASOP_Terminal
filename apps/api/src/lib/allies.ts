@@ -17,9 +17,12 @@ import {
   decideResponse,
   decideUnblock,
   normalizeAllyCode,
+  otherGuild,
   pairsFromAlliances,
-  retryAfterFrom,
+  responseChanges,
   sortPair,
+  type AllyNoticeEvent,
+  type AllyNoticePayload,
   type AllyBlockDto,
   type AllyDirectoryEntryDto,
   type AllyDto,
@@ -31,6 +34,7 @@ import {
   type SendAllyRequestResult,
 } from '@dem/shared';
 import { prisma } from './prisma.js';
+import { triggerBot } from './triggerBot.js';
 
 type GuildWithSettings = Guild & { settings: GuildSettings | null };
 
@@ -86,6 +90,15 @@ async function updateIf(link: GuildAlly, data: Prisma.GuildAllyUpdateManyMutatio
 async function deleteIf(link: GuildAlly): Promise<void> {
   const r = await prisma.guildAlly.deleteMany({ where: { id: link.id, status: link.status } });
   if (r.count === 0) throw new AllyError(409, 'This changed while you were looking at it. Refresh and try again.');
+}
+
+/** Tells the bot to post or update the Discord ally notices (v1.10.0). */
+function notify(event: AllyNoticeEvent, link: Pick<GuildAlly, 'id' | 'noticeChannelId' | 'noticeMessageId'>, actorGuildId: string, otherGuildId: string, actor: Actor | null): void {
+  const payload: AllyNoticePayload = {
+    event, linkId: link.id, actorGuildId, otherGuildId, actorUserId: actor?.userId ?? null,
+    noticeChannelId: link.noticeChannelId, noticeMessageId: link.noticeMessageId,
+  };
+  triggerBot('/trigger/ally', payload);
 }
 
 // ── Ally code ────────────────────────────────────────────────────────────────
@@ -244,7 +257,8 @@ export async function sendAllyRequest(
 
     if (d.action === 'accept') {
       // They had already asked: this accepts their request.
-      await updateIf(link!, { status: 'ACCEPTED', respondedAt: now, acceptedAt: now, respondedBy: actor.userId, retryAfter: null });
+      await updateIf(link!, responseChanges('accept', guild.id, actor.userId, now));
+      notify('accepted', link!, guild.id, to.id, actor);
       return { outcome: 'accepted', guild: toGuildDto(to) };
     }
 
@@ -260,11 +274,13 @@ export async function sendAllyRequest(
     };
     if (d.action === 'reopen') {
       await updateIf(link!, fields);
+      notify('requested', { id: link!.id, noticeChannelId: null, noticeMessageId: null }, guild.id, to.id, actor);
       return { outcome: 'requested', guild: toGuildDto(to) };
     }
     const [guildAId, guildBId] = sortPair(guild.id, to.id);
     try {
-      await prisma.guildAlly.create({ data: { guildAId, guildBId, ...fields } });
+      const created = await prisma.guildAlly.create({ data: { guildAId, guildBId, ...fields } });
+      notify('requested', created, guild.id, to.id, actor);
       return { outcome: 'requested', guild: toGuildDto(to) };
     } catch (err) {
       // The other org asked at the same moment: decide again with their row in place.
@@ -284,34 +300,31 @@ export async function respondToAllyRequest(
   const link = await loadOwnLink(guild, linkId);
   const d = decideResponse(link, guild.id);
   if (!d.ok) refuse(d.refusal);
-  const now = new Date();
-  if (action === 'accept') {
-    await updateIf(link, { status: 'ACCEPTED', respondedAt: now, acceptedAt: now, respondedBy: actor.userId });
-  } else if (action === 'reject') {
-    await updateIf(link, { status: 'REJECTED', respondedAt: now, respondedBy: actor.userId, retryAfter: retryAfterFrom(now) });
-  } else {
-    await updateIf(link, { status: 'BLOCKED', respondedAt: now, respondedBy: actor.userId, blockedByGuildId: guild.id, retryAfter: null });
-  }
+  await updateIf(link, responseChanges(action, guild.id, actor.userId, new Date()));
+  const event = ({ accept: 'accepted', reject: 'rejected', block: 'blocked' } as const)[action];
+  notify(event, link, guild.id, otherGuild(link, guild.id), actor);
 }
 
-export async function cancelAllyRequest(guild: Guild, linkId: string): Promise<void> {
+export async function cancelAllyRequest(guild: Guild, linkId: string, actor: Actor): Promise<void> {
   const link = await loadOwnLink(guild, linkId);
   const d = decideCancel(link, guild.id);
   if (!d.ok) refuse(d.refusal);
   await deleteIf(link);
+  notify('cancelled', link, guild.id, otherGuild(link, guild.id), actor);
 }
 
 // ── Allies ───────────────────────────────────────────────────────────────────
 
 /** Ends an alliance. Either side may; it isn't a rejection, so either can ask again right away. */
-export async function removeAlly(guild: Guild, linkId: string): Promise<void> {
+export async function removeAlly(guild: Guild, linkId: string, actor: Actor): Promise<void> {
   const link = await loadOwnLink(guild, linkId);
   const d = decideAllyChange(link, guild.id);
   if (!d.ok) refuse(d.refusal);
   await deleteIf(link);
+  notify('removed', link, guild.id, otherGuild(link, guild.id), actor);
 }
 
-/** Your own setting for one ally: post their shared events without asking (used from v2.0.0). */
+/** Your own setting for one ally: post their shared events without asking (used from v1.11.0). */
 export async function setAllyAutoAccept(guild: Guild, linkId: string, value: boolean): Promise<void> {
   const link = await loadOwnLink(guild, linkId);
   const d = decideAllyChange(link, guild.id);
@@ -342,7 +355,7 @@ export async function setDirectoryListing(guild: Guild, listed: boolean): Promis
  * Copies accepted alliance memberships and 1-to-1 ally links into GuildAlly as
  * accepted pairs (approve-each for events, as alliance shares behave today).
  * Only inserts pairs that don't exist yet, so it is safe on every start-up.
- * Remove once the Alliance tables are retired (v2.0.1).
+ * Remove once the Alliance tables are retired (v1.11.1).
  */
 export async function migrateLegacyAlliances(): Promise<{ created: number; existing: number; droppedPending: string[] }> {
   const alliances = await prisma.alliance.findMany({

@@ -9,7 +9,7 @@ import { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RolePicker, ToggleSwitch } from '@/components/settings/SettingsControls';
+import { ChannelSelect, RolePicker, ToggleSwitch } from '@/components/settings/SettingsControls';
 import { settingsApi } from '@/api/settings';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageGuild } from '@dem/shared';
@@ -17,7 +17,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 
 // Settings → Allies: the org's ally list. One org asks another to be allies;
-// the other accepts or rejects. Event sharing moves onto this list in v2.0.0.
+// the other accepts or rejects. Event sharing moves onto this list in v1.11.0.
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const errorText = (err: unknown) => (err instanceof ApiError || err instanceof Error ? err.message : 'Something went wrong. Try again.');
@@ -174,7 +174,7 @@ function AddAlly({ guildId, onDone }: { guildId: string; onDone: (msg: string) =
   );
 }
 
-// ── Ally settings (org tag, who manages allies) ──────────────────────────────
+// ── Ally settings (org tag, notices channel, who manages allies) ──────────────────────────────
 
 function AllySettings({ guildId, isGuildManager, onSaved, onError }: {
   guildId: string; isGuildManager: boolean; onSaved: (msg: string) => void; onError: (msg: string) => void;
@@ -182,6 +182,7 @@ function AllySettings({ guildId, isGuildManager, onSaved, onError }: {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['settings', guildId], queryFn: () => settingsApi.getSettings(guildId), retry: false });
   const roles = useQuery({ queryKey: ['roles', guildId], queryFn: () => settingsApi.getRoles(guildId), enabled: isGuildManager, retry: false });
+  const channels = useQuery({ queryKey: ['channels', guildId], queryFn: () => settingsApi.getChannels(guildId), enabled: settings.isSuccess, retry: false });
   const [tag, setTag] = useState<string | null>(null);
 
   const save = useMutation({
@@ -189,7 +190,7 @@ function AllySettings({ guildId, isGuildManager, onSaved, onError }: {
     onSuccess: (_r, data) => {
       void queryClient.invalidateQueries({ queryKey: ['settings', guildId] });
       void queryClient.invalidateQueries({ queryKey: ['allies', guildId] });
-      onSaved('allianceTag' in data ? 'Org tag saved.' : 'Ally managers saved.');
+      onSaved('allianceTag' in data ? 'Org tag saved.' : 'allyNoticeChannelId' in data ? 'Ally notices channel saved.' : 'Ally managers saved.');
       setTag(null);
     },
     onError: (err) => onError(errorText(err)),
@@ -223,6 +224,23 @@ function AllySettings({ guildId, isGuildManager, onSaved, onError }: {
           <p className={cn('text-xs', validTag ? 'text-muted-foreground' : 'text-destructive')}>
             {validTag ? 'Up to 4 letters or numbers. Shown next to your name in the ally directory and on shared events, and other orgs can search for it.' : 'Use up to 4 letters or numbers.'}
           </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="ally-notice-channel" className="text-sm font-medium">Ally notices channel</label>
+          <p className="text-xs text-muted-foreground">
+            The bot posts new ally requests here with Accept, Reject and Block buttons, and tells you when another org answers yours or ends an alliance.
+            Pick an officers-only channel: anyone who can manage allies can use the buttons. Leave unset to use this page only.
+          </p>
+          {channels.data
+            ? <ChannelSelect id="ally-notice-channel" channels={channels.data.channels} types={[0, 5]}
+                value={settings.data.allyNoticeChannelId} onChange={(v) => save.mutate({ allyNoticeChannelId: v })} />
+            : channels.isError
+              ? <p className="text-xs text-destructive">Couldn't load your channels. Reload the page to try again.</p>
+              : <Skeleton className="h-9 rounded-md" />}
+          {settings.data.allyNoticeChannelId && (
+            <p className="text-xs text-muted-foreground">The bot needs View Channel, Send Messages and Embed Links there.</p>
+          )}
         </div>
 
         {isGuildManager && (

@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import { createServer } from '../server/app.js';
@@ -386,5 +388,125 @@ describe('migrating the old alliances', () => {
 
   it('does nothing when there are no old alliances', async () => {
     expect(await migrateLegacyAlliances()).toEqual({ created: 0, existing: 0, droppedPending: [] });
+  });
+});
+
+describe('Discord notices sent to the bot', () => {
+  let server: http.Server;
+  let received: { path: string; auth: string | undefined; body: Record<string, unknown> }[] = [];
+  const prevUrl = process.env['BOT_INTERNAL_URL'];
+  const prevSecret = process.env['BOT_INTERNAL_SECRET'];
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      let data = '';
+      req.on('data', (c) => (data += c));
+      req.on('end', () => {
+        received.push({ path: req.url ?? '', auth: req.headers['authorization'], body: data ? JSON.parse(data) : {} });
+        res.writeHead(202).end();
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    process.env['BOT_INTERNAL_URL'] = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    process.env['BOT_INTERNAL_SECRET'] = 'shh';
+  });
+  afterAll(async () => {
+    process.env['BOT_INTERNAL_URL'] = prevUrl;
+    process.env['BOT_INTERNAL_SECRET'] = prevSecret;
+    await new Promise((r) => server.close(r));
+  });
+  beforeEach(() => { received = []; });
+
+  /** Waits for the fire-and-forget POSTs to land. */
+  const notices = async (n: number) => {
+    for (let i = 0; i < 50 && received.length < n; i++) await new Promise((r) => setTimeout(r, 20));
+    return received;
+  };
+  /** The notice for `event` (on `linkId`, if given), waiting for it to land. Earlier notices may still be arriving. */
+  const noticeFor = async (event: string, linkId?: string) => {
+    const find = () => [...received].reverse().find((r) => r.body['event'] === event && (!linkId || r.body['linkId'] === linkId));
+    for (let i = 0; i < 50 && !find(); i++) await new Promise((r) => setTimeout(r, 20));
+    const hit = find();
+    if (!hit) throw new Error(`no '${event}' notice; got ${received.map((r) => r.body['event']).join(', ')}`);
+    return hit.body;
+  };
+
+  it('a request, then its answer, each tell the bot who acted and on whom', async () => {
+    const a = await org('Alpha');
+    const b = await org('Bravo', listed);
+    await ask(a, b).expect(201);
+    const [req] = await notices(1);
+    const link = (await linkBetween(a, b))!;
+    expect(req).toEqual({ path: '/trigger/ally', auth: 'Bearer shh', body: {
+      event: 'requested', linkId: link.id, actorGuildId: a.guild.id, otherGuildId: b.guild.id,
+      actorUserId: a.user.discordId, noticeChannelId: null, noticeMessageId: null } });
+
+    // the bot recorded where it posted the request
+    await prisma.guildAlly.update({ where: { id: link.id }, data: { noticeChannelId: 'chan-b', noticeMessageId: 'msg-1' } });
+    received = [];
+    await b.agent.post(`${b.base}/requests/${link.id}/accept`).expect(200);
+    const [acc] = await notices(1);
+    expect(acc!.body).toEqual({ event: 'accepted', linkId: link.id, actorGuildId: b.guild.id, otherGuildId: a.guild.id,
+      actorUserId: b.user.discordId, noticeChannelId: 'chan-b', noticeMessageId: 'msg-1' });
+  });
+
+  it('reject, block, cancel and remove each send their event; cancel still carries the deleted message ids', async () => {
+    const a = await org('Alpha');
+    const b = await org('Bravo', listed);
+    const answer = async (action: 'reject' | 'block') => {
+      await ask(a, b).expect(201);
+      const id = (await linkBetween(a, b))!.id;
+      await prisma.guildAlly.update({ where: { id }, data: { noticeChannelId: 'c', noticeMessageId: 'm' } });
+      await b.agent.post(`${b.base}/requests/${id}/${action}`).expect(200);
+      return noticeFor(action === 'reject' ? 'rejected' : 'blocked', id);
+    };
+    expect(await answer('reject')).toMatchObject({ event: 'rejected', actorGuildId: b.guild.id, noticeMessageId: 'm' });
+    await prisma.guildAlly.deleteMany();
+    expect(await answer('block')).toMatchObject({ event: 'blocked', actorGuildId: b.guild.id, noticeMessageId: 'm' });
+    await prisma.guildAlly.deleteMany();
+
+    await ask(a, b).expect(201);
+    const id = (await linkBetween(a, b))!.id;
+    await prisma.guildAlly.update({ where: { id }, data: { noticeChannelId: 'c2', noticeMessageId: 'm2' } });
+    received = [];
+    await a.agent.delete(`${a.base}/requests/${id}`).expect(200);
+    expect(await noticeFor('cancelled', id)).toMatchObject({ event: 'cancelled', linkId: id, actorGuildId: a.guild.id, otherGuildId: b.guild.id, noticeChannelId: 'c2', noticeMessageId: 'm2' });
+
+    await ask(a, b).expect(201);
+    const id2 = (await linkBetween(a, b))!.id;
+    await b.agent.post(`${b.base}/requests/${id2}/accept`).expect(200);
+    received = [];
+    await b.agent.delete(`${b.base}/${id2}`).expect(200);
+    expect(await noticeFor('removed', id2)).toMatchObject({ event: 'removed', actorGuildId: b.guild.id, otherGuildId: a.guild.id });
+  });
+
+  it('a crossing request is reported as accepted; a re-sent request starts with no old message ids', async () => {
+    const a = await org('Alpha', listed);
+    const b = await org('Bravo', listed);
+    await ask(a, b).expect(201);
+    received = [];
+    await ask(b, a).expect(201);
+    expect(await noticeFor('accepted')).toMatchObject({ event: 'accepted', actorGuildId: b.guild.id, otherGuildId: a.guild.id });
+
+    const c = await org('Charlie', listed);
+    await ask(a, c).expect(201);
+    const id = (await linkBetween(a, c))!.id;
+    await c.agent.post(`${c.base}/requests/${id}/reject`).expect(200);
+    await prisma.guildAlly.update({ where: { id }, data: { retryAfter: new Date(Date.now() - 1000), noticeChannelId: 'old', noticeMessageId: 'old' } });
+    received = [];
+    await ask(a, c).expect(201);
+    expect(await noticeFor('requested', id)).toMatchObject({ event: 'requested', linkId: id, noticeChannelId: null, noticeMessageId: null });
+    expect((await linkBetween(a, c))!.noticeMessageId).toBeNull();
+  });
+
+  it('nothing is sent when a request is refused', async () => {
+    const a = await org('Alpha');
+    const b = await org('Bravo', listed);
+    await ask(a, b).expect(201);
+    await notices(1);
+    received = [];
+    await ask(a, b).expect(409);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(received).toEqual([]);
   });
 });
