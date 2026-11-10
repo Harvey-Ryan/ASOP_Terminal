@@ -324,7 +324,7 @@ export async function removeAlly(guild: Guild, linkId: string, actor: Actor): Pr
   notify('removed', link, guild.id, otherGuild(link, guild.id), actor);
 }
 
-/** Your own setting for one ally: post their shared events without asking (used from v2.0.0). */
+/** Your own setting for one ally: post their shared events without asking (used from v1.11.0). */
 export async function setAllyAutoAccept(guild: Guild, linkId: string, value: boolean): Promise<void> {
   const link = await loadOwnLink(guild, linkId);
   const d = decideAllyChange(link, guild.id);
@@ -355,7 +355,7 @@ export async function setDirectoryListing(guild: Guild, listed: boolean): Promis
  * Copies accepted alliance memberships and 1-to-1 ally links into GuildAlly as
  * accepted pairs (approve-each for events, as alliance shares behave today).
  * Only inserts pairs that don't exist yet, so it is safe on every start-up.
- * Remove once the Alliance tables are retired (v2.0.1).
+ * Remove once the Alliance tables are retired (v1.11.1).
  */
 export async function migrateLegacyAlliances(): Promise<{ created: number; existing: number; droppedPending: string[] }> {
   const alliances = await prisma.alliance.findMany({

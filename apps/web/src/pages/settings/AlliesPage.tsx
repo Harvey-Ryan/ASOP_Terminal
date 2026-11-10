@@ -17,7 +17,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 
 // Settings → Allies: the org's ally list. One org asks another to be allies;
-// the other accepts or rejects. Event sharing moves onto this list in v2.0.0.
+// the other accepts or rejects. Event sharing moves onto this list in v1.11.0.
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const errorText = (err: unknown) => (err instanceof ApiError || err instanceof Error ? err.message : 'Something went wrong. Try again.');

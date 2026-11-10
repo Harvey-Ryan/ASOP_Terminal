@@ -18,7 +18,7 @@ export const allianceRouter = Router();
 // old alliances are copied into it at start-up. Changes here would no longer
 // reach the ally list, and these routes never checked that the caller's org
 // was in the alliance it changed, so they are closed. The read-only lookups
-// stay until v2.0.0 (the event form's server picker uses GET /alliances/guilds).
+// stay until v1.11.0 (the event form's server picker uses GET /alliances/guilds).
 allianceRouter.use('/alliances', (req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD') return next();
   res.status(410).json({
