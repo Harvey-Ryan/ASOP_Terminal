@@ -1,7 +1,8 @@
+import { canManageGuild } from '@dem/shared';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered, Info, ListCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -411,6 +412,8 @@ function ItemRow({
   currentUserId,
   myEffectiveBalance,
   isManager,
+  queued,
+  onToggleQueue,
 }: {
   item: LootItemDto;
   session: LootSessionDto;
@@ -429,6 +432,10 @@ function ItemRow({
   currentUserId?: string;
   myEffectiveBalance: number;
   isManager: boolean;
+  /** Whether this item is in the current user's snake-draft queue */
+  queued?: boolean;
+  /** Present only when the user can queue this item (draft participant, item unassigned) */
+  onToggleQueue?: () => void;
 }) {
   const [rollResult, setRollResult] = useState<{ rolls: { userId: string; username: string; rollValue: number }[]; winner: { userId: string; username: string; rollValue: number } } | null>(null);
   const [showRolls, setShowRolls] = useState(false);
@@ -527,6 +534,19 @@ function ItemRow({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {onToggleQueue && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onToggleQueue}
+              title={queued ? 'Remove from my draft queue' : 'Add to my draft queue'}
+              aria-label={queued ? 'Remove from my draft queue' : 'Add to my draft queue'}
+              aria-pressed={!!queued}
+              className={queued ? 'text-primary hover:text-destructive' : 'text-muted-foreground hover:text-primary'}
+            >
+              {queued ? <ListCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </Button>
+          )}
           {isManager && (
             <>
               {isAssigned && (
@@ -664,18 +684,6 @@ function QueueCard({
   });
 
   const byItemId = new Map<string, LootQueueItemDto>((queueQuery.data ?? []).map((q) => [q.itemId, q]));
-  const inQueueIds = new Set(localIds);
-
-  // Items that can still be added (unassigned, not yet queued)
-  const addable = session.items.filter(
-    (i) => i.assignments.length === 0 && !inQueueIds.has(i.id),
-  );
-
-  function addItem(itemId: string) {
-    const next = [...localIds, itemId];
-    setLocalIds(next);
-    saveMutation.mutate(next);
-  }
 
   function removeItem(itemId: string) {
     const next = localIds.filter((id) => id !== itemId);
@@ -727,7 +735,9 @@ function QueueCard({
       </CardHeader>
       <CardContent className="space-y-1 pb-3">
         {localIds.length === 0 && (
-          <p className="text-xs text-muted-foreground italic py-1">No items queued yet.</p>
+          <p className="text-xs text-muted-foreground italic py-1">
+            No items queued yet.{!isCompleted && ' Use the + on an item to add it.'}
+          </p>
         )}
 
         {localIds.map((itemId, index) => {
@@ -769,25 +779,6 @@ function QueueCard({
           );
         })}
 
-        {/* Add items */}
-        {!isCompleted && addable.length > 0 && (
-          <div className="pt-1">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Add to queue</p>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {addable.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => addItem(item.id)}
-                  className="w-full flex items-center gap-2 rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground transition-colors text-left"
-                >
-                  <Plus className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -858,6 +849,8 @@ export function LootPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, guilds } = useAuth();
+  const activeGuild = guilds.find((g) => g.id === guildId);
+  const isManager = !!activeGuild && canManageGuild(activeGuild);
 
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
@@ -894,10 +887,38 @@ export function LootPage() {
     refetchInterval: sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN' ? 2000 : false,
   });
 
+  // Current user's snake-draft queue. Same query key as QueueCard, so both
+  // share one cache entry and stay in sync.
+  const sessionForQueue = sessionQuery.data;
+  const inDraft = !!user?.id && sessionForQueue?.method === 'SNAKE_DRAFT' && sessionForQueue.draftOrder.includes(user.id);
+  const queueKey = ['loot-queue', guildId, eventId] as const;
+  const myQueueQuery = useQuery({
+    queryKey: queueKey,
+    queryFn: () => lootApi.getQueue(guildId!, eventId!),
+    enabled: !!guildId && !!eventId && inDraft,
+    refetchInterval: 4000,
+  });
+  const queuedIds = new Set((myQueueQuery.data ?? []).map((q) => q.itemId));
+  const queueToggleMutation = useMutation({
+    mutationFn: (ids: string[]) => lootApi.setQueue(guildId!, eventId!, ids),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queueKey }),
+  });
+  function toggleQueued(itemId: string) {
+    const current = myQueueQuery.data ?? [];
+    const isQueued = current.some((q) => q.itemId === itemId);
+    const item = sessionForQueue?.items.find((i) => i.id === itemId);
+    const next: LootQueueItemDto[] = isQueued
+      ? current.filter((q) => q.itemId !== itemId)
+      : [...current, { itemId, itemName: item?.name ?? itemId, priority: current.length, assigned: false }];
+    queryClient.setQueryData(queueKey, next); // optimistic
+    queueToggleMutation.mutate(next.map((q) => q.itemId));
+  }
+
   const playersQuery = useQuery({
     queryKey: ['players', guildId, eventId],
     queryFn: () => lootApi.getPlayers(guildId!, eventId!),
-    enabled: !!guildId && !!eventId && sessionQuery.data?.method === 'SNAKE_DRAFT',
+    // Manager-only data (draft-order picker); the API 403s everyone else.
+    enabled: !!guildId && !!eventId && isManager && sessionQuery.data?.method === 'SNAKE_DRAFT',
   });
 
   const session = sessionQuery.data;
@@ -1051,7 +1072,6 @@ export function LootPage() {
     ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? allRsvpMap.get(nextPickerId) ?? nextPickerId, user?.id)
     : null;
 
-  const isManager = guilds.some((g) => g.id === guildId);
   const isCurrentPicker = session?.method === 'SNAKE_DRAFT' && session.status === 'OPEN' && nextPickerId === user?.id;
 
   // Effective DKP balance for the current user: raw minus DKP committed to items already won this session
@@ -1471,6 +1491,8 @@ export function LootPage() {
                 currentUserId={user?.id}
                 myEffectiveBalance={myEffectiveBalance}
                 isManager={isManager}
+                queued={queuedIds.has(item.id)}
+                onToggleQueue={inDraft && session.status === 'OPEN' && item.assignments.length === 0 ? () => toggleQueued(item.id) : undefined}
               />
             ))}
 
@@ -1549,8 +1571,8 @@ export function LootPage() {
         </>
         </div>{/* end main content column */}
 
-        {/* Queue card — snake draft only */}
-        {isSnakeDraft && (
+        {/* Queue card — snake draft participants only (API 403s anyone not in the draft order without a viewer role) */}
+        {isSnakeDraft && !!user?.id && session.draftOrder.includes(user.id) && (
           <div className="md:sticky md:top-4 self-start">
             <QueueCard
               session={session}
