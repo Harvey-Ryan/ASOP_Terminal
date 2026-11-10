@@ -38,6 +38,7 @@ export interface GuildSettingsData {
   tournamentsEnabled: boolean;
   tournamentChannelId: string | null;
   h2hChannelId: string | null;
+  statusChannelId: string | null;
   tournamentHideElo: boolean;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;

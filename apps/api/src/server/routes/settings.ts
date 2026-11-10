@@ -254,6 +254,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         tournamentHideElo:          s?.tournamentHideElo           ?? false,
         tournamentChannelId:        s?.tournamentChannelId         ?? null,
         h2hChannelId:               s?.h2hChannelId                ?? null,
+        statusChannelId:            s?.statusChannelId             ?? null,
         dkpDefaultAuctionDuration:  s?.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  s?.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
@@ -300,6 +301,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     tournamentHideElo?: boolean;
     tournamentChannelId?: string | null;
     h2hChannelId?: string | null;
+    statusChannelId?: string | null;
     dkpDefaultAuctionDuration?: number;
     dkpMinBid?: number;
     lootDefaultMethod?: string;
@@ -336,6 +338,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
       tournamentHideElo:         raw.tournamentHideElo !== undefined ? optBool(raw.tournamentHideElo, 'tournamentHideElo') : undefined,
       tournamentChannelId:       raw.tournamentChannelId !== undefined ? optStr(raw.tournamentChannelId, 'tournamentChannelId', 30) : undefined,
       h2hChannelId:              raw.h2hChannelId !== undefined ? optStr(raw.h2hChannelId, 'h2hChannelId', 30) : undefined,
+      statusChannelId:           raw.statusChannelId !== undefined ? optStr(raw.statusChannelId, 'statusChannelId', 30) : undefined,
       dkpDefaultAuctionDuration: rawDur !== undefined ? Math.min(168, Math.max(1, rawDur)) : undefined,
       dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
       lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
@@ -411,6 +414,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         ...(body.tournamentHideElo !== undefined          ? { tournamentHideElo: body.tournamentHideElo }                               : {}),
         ...(body.tournamentChannelId !== undefined        ? { tournamentChannelId: body.tournamentChannelId }                         : {}),
         ...(body.h2hChannelId !== undefined               ? { h2hChannelId: body.h2hChannelId }                                       : {}),
+        ...(body.statusChannelId !== undefined            ? { statusChannelId: body.statusChannelId }                                 : {}),
         ...(body.dkpDefaultAuctionDuration !== undefined ? { dkpDefaultAuctionDuration: body.dkpDefaultAuctionDuration }             : {}),
         ...(body.dkpMinBid !== undefined                 ? { dkpMinBid: body.dkpMinBid }                                             : {}),
         ...(body.lootDefaultMethod !== undefined         ? { lootDefaultMethod: body.lootDefaultMethod }                             : {}),
@@ -444,6 +448,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         tournamentHideElo:          body.tournamentHideElo           ?? false,
         tournamentChannelId:        body.tournamentChannelId         ?? null,
         h2hChannelId:               body.h2hChannelId                ?? null,
+        statusChannelId:            body.statusChannelId             ?? null,
         dkpDefaultAuctionDuration:  body.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  body.dkpMinBid                  ?? 0,
         lootDefaultMethod:          body.lootDefaultMethod          ?? 'RANDOM_ROLL',
@@ -481,6 +486,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
         tournamentHideElo:          s.tournamentHideElo           ?? false,
         tournamentChannelId:        s.tournamentChannelId         ?? null,
         h2hChannelId:               s.h2hChannelId                ?? null,
+        statusChannelId:            s.statusChannelId             ?? null,
         dkpDefaultAuctionDuration:  s.dkpDefaultAuctionDuration  ?? 24,
         dkpMinBid:                  s.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s.lootDefaultMethod          ?? 'RANDOM_ROLL',

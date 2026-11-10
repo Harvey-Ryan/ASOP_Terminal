@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
 import { imagesApi } from '@/api/images';
+import { ChannelSelect } from '@/components/settings/SettingsControls';
 import type { DiscordRoleDto, ServerImageDto } from '@dem/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
@@ -235,6 +236,7 @@ export function BotSettingsPage() {
   const [moduleEditorRoles, setModuleEditorRoles] = useState<string[]>([]);
   const [viewerRoles, setViewerRoles] = useState<string[]>([]);
   const [rsiOrgTag, setRsiOrgTag] = useState<string | null>(null);
+  const [statusChannelId, setStatusChannelId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -243,9 +245,17 @@ export function BotSettingsPage() {
       setModuleEditorRoles(saved.moduleEditorRoles ?? []);
       setViewerRoles(saved.viewerRoles ?? []);
       setRsiOrgTag(saved.rsiOrgTag ?? null);
+      setStatusChannelId(saved.statusChannelId ?? null);
       setDirty(false);
     }
   }, [saved]);
+
+  const { data: channelData } = useQuery({
+    queryKey: ['channels', guildId],
+    queryFn: () => settingsApi.getChannels(guildId!),
+    enabled: !!guildId,
+  });
+  const channels = channelData?.channels ?? [];
 
   const registerMutation = useMutation({
     mutationFn: () => settingsApi.registerCommands(guildId!),
@@ -267,7 +277,7 @@ export function BotSettingsPage() {
 
   const mutation = useMutation({
     mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag } as Partial<GuildSettingsData>),
+      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId } as Partial<GuildSettingsData>),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
@@ -340,6 +350,31 @@ export function BotSettingsPage() {
               placeholder="e.g. ASOP"
               className="w-48 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring"
             />
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Status channel */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Status Channel</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                The bot keeps one live status message here: ASOP version, when it was deployed, the game data
+                build, when the Star Citizen Wiki published it and when we synced it. The message is edited in
+                place, so it never spams the channel.
+              </p>
+            </div>
+            <ChannelSelect
+              id="status-channel"
+              channels={channels}
+              value={statusChannelId}
+              onChange={(v) => { setStatusChannelId(v); setDirty(true); setSavedFlash(false); }}
+              types={[0, 5]}
+            />
+            <p className="text-xs text-muted-foreground">
+              The bot needs <span className="font-medium">View Channel</span>, <span className="font-medium">Send Messages</span> and{' '}
+              <span className="font-medium">Embed Links</span> there. A read-only channel for members works best.
+            </p>
           </div>
 
           <div className="border-t border-border" />

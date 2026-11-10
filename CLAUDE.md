@@ -1,5 +1,24 @@
 # ASOP Terminal — notes for Claude
 
+## Versioning
+
+ASOP uses semantic versioning, `MAJOR.MINOR.PATCH`, with one version for the
+whole app (web, API, bot, workers).
+
+- **Source of truth:** `"version"` in the root `package.json`. The API serves
+  it at `/api/health`, the web footer shows it, and the bot's status embed
+  shows it with the commit and when it was first deployed.
+- **A release is a merge to `master`** (Railway deploys it). Bump the version
+  in the same PR, based on everything in it since the last release:
+  - `PATCH` (1.1.0 → 1.1.1): only fixes to existing behaviour.
+  - `MINOR` (1.1.1 → 1.2.0): any new feature, command, setting or page.
+  - `MAJOR` (1.2.0 → 2.0.0): big overhauls, or anything that needs server
+    admins to do something (re-invite the bot, reconfigure channels…).
+  - Internal-only PRs (`Patch notes: none` throughout) don't bump.
+- **Tag** the merge commit `vX.Y.Z` after it deploys, and push the tag.
+- History: v1.0.0 = PR #15 (loot fixes, draft queue), the first versioned
+  release. Everything before it is unversioned.
+
 ## Patch notes in every commit
 
 Every commit carries the patch notes for its change in the commit message, so
@@ -38,9 +57,8 @@ Rules:
 
 When asked for patch notes:
 
-1. Range: from the most recent `patch-notes/*` tag to `HEAD` on the branch
-   that's deployed (`master`), unless told otherwise. With no tag yet, ask
-   where to start.
+1. Range: from the previous `vX.Y.Z` tag to the release being announced
+   (usually the newest tag on `master`), unless told otherwise.
 2. Collect the blocks:
    `git log --reverse --format='%H%n%B%n==END==' <range>`
    and take everything between `Patch notes:` and the trailers.
@@ -49,10 +67,10 @@ When asked for patch notes:
 3. Merge sections with the same title, drop duplicate or superseded bullets
    (a fix to something added in the same batch isn't a separate bug fix),
    and put `Bug Fixes` last.
-4. Output in this format, titled with the date of the newest commit:
+4. Output in this format, titled with the version and the release date:
 
 ```
-Patch Notes — November 10
+Patch Notes — v1.1.0 — November 10
  Loot Draft Queue
 
 * …
@@ -62,6 +80,21 @@ Patch Notes — November 10
 * …
 ```
 
-5. After the notes have been announced, and only when told to, tag the last
-   included commit: `git tag patch-notes/YYYY-MM-DD <sha>` (and push the tag
-   if asked).
+5. Versions are tagged when released (see Versioning), so no extra tag is
+   needed for announcements.
+
+## Star Citizen game data (`apps/sc-data`)
+
+- Our copy of StarCitizenWiki/scunpacked-data lives in Postgres schemas
+  `scdata` (clean tables; use these in the app) and `scdata_raw` (every
+  upstream file + sync history). Details: `apps/sc-data/README.md`.
+- These schemas are owned by the sc-data worker's own migrations, not Prisma.
+  The API starts with `prisma db push --accept-data-loss`, which drops anything
+  Prisma manages but doesn't see in `schema.prisma`. So:
+  - read them with `prisma.$queryRaw` (or a small typed helper), or
+  - if they're ever added to Prisma (`multiSchema`), list only `scdata`, model
+    every table exactly as it exists, and never add `scdata_raw`.
+- Filter `items.is_placeholder = false` for anything players see.
+- The older `Sc*` Prisma tables (`apps/api/src/lib/scSync.ts`) and the
+  frozen `packages/shared/src/Filtered Data/` JSON still exist; features are
+  being moved over to `scdata` one at a time.

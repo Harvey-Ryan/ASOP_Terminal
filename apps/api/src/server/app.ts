@@ -26,6 +26,8 @@ import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
 import { trafficRouter } from './routes/traffic.js';
 import { tournamentRouter } from './routes/tournament.js';
+import { gameDataRouter } from './routes/gameData.js';
+import { APP_VERSION, APP_COMMIT } from '../lib/appVersion.js';
 import { memberPinsRouter } from './routes/memberPins.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
@@ -212,6 +214,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', standaloneAuctionRouter);
   app.use('/api', uexRouter);
   app.use('/api', scRouter);
+  app.use('/api', gameDataRouter);
   app.use('/api/guilds', exchangeRouter);
   app.use('/api', marketplaceRouter);
   app.use('/api/guilds', fleetRouter);
@@ -229,9 +232,9 @@ export function createServer(): express.Express {
   app.get('/api/health', (_req, res) => {
     res.json({
       success: true,
-      data: { timestamp: new Date().toISOString() },
+      data: { timestamp: new Date().toISOString(), version: APP_VERSION, commit: APP_COMMIT },
       message: 'Discord Event Manager API is running',
-    } satisfies ApiResponse<{ timestamp: string }>);
+    } satisfies ApiResponse<{ timestamp: string; version: string; commit: string }>);
   });
 
   // ── API 404 (must come before SPA catch-all) ──────────────────────────────
