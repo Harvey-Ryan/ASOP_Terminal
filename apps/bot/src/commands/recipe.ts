@@ -3,7 +3,7 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
-import { BLUEPRINTS, BLUEPRINT_BY_UUID } from '../gamedata.js';
+import { getBlueprints, getBlueprintByUuid } from '../gamedata.js';
 import { buildRecipeEmbed } from '../utils/scUtils.js';
 
 export const data = new SlashCommandBuilder()
@@ -22,7 +22,7 @@ export const data = new SlashCommandBuilder()
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused().toLowerCase();
 
-  const matches = BLUEPRINTS
+  const matches = getBlueprints()
     .filter((b) => b.outputName.toLowerCase().includes(focused))
     .slice(0, 25);
 
@@ -41,8 +41,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const rawValue = interaction.options.getString('name', true);
 
   const bp =
-    BLUEPRINT_BY_UUID.get(rawValue) ??
-    BLUEPRINTS.find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase());
+    getBlueprintByUuid(rawValue) ??
+    getBlueprints().find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase());
 
   if (!bp) {
     await interaction.editReply({ content: `No blueprint found for **${rawValue}**.` });

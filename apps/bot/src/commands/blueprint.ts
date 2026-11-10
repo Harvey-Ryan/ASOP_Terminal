@@ -5,10 +5,11 @@ import {
   type AutocompleteInteraction,
 } from 'discord.js';
 import {
-  BLUEPRINTS,
-  BLUEPRINT_BY_UUID,
-  BLUEPRINT_UUIDS_WITH_CONTRACTS,
+  getBlueprints,
+  getBlueprintByUuid,
+  blueprintHasContracts,
   getContractsForBlueprint,
+  gameDataFooter,
 } from '../gamedata.js';
 import { formatSeconds, estimateAuec, fmtAuec, buildRecipeEmbed } from '../utils/scUtils.js';
 
@@ -66,10 +67,10 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
   const focused = interaction.options.getFocused().toLowerCase();
   const sub     = interaction.options.getSubcommand(false);
 
-  let matches = BLUEPRINTS.filter((b) => b.outputName.toLowerCase().includes(focused));
+  let matches = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(focused));
 
   if (sub === 'contracts') {
-    matches = matches.filter((b) => BLUEPRINT_UUIDS_WITH_CONTRACTS.has(b.uuid));
+    matches = matches.filter((b) => blueprintHasContracts(b.uuid));
   }
 
   await interaction.respond(
@@ -95,7 +96,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 async function handleSearch(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
   const query  = interaction.options.getString('name', true).trim().toLowerCase();
-  const rows   = BLUEPRINTS.filter((b) => b.outputName.toLowerCase().includes(query)).slice(0, 15);
+  const rows   = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(query)).slice(0, 15);
 
   if (rows.length === 0) {
     await interaction.editReply({ content: `No blueprints found matching **${query}**.` });
@@ -105,7 +106,7 @@ async function handleSearch(interaction: ChatInputCommandInteraction): Promise<v
   const embed = new EmbedBuilder()
     .setTitle(`Blueprint Search — "${query}"`)
     .setColor(0x00b0f4)
-    .setFooter({ text: `Star Citizen · ${rows.length} result${rows.length === 1 ? '' : 's'}` });
+    .setFooter({ text: `${rows.length} result${rows.length === 1 ? '' : 's'} · ${gameDataFooter()}` });
 
   const lines = rows.map((b) => {
     const grade = b.outputGrade ? ` · Grade ${b.outputGrade}` : '';
@@ -151,7 +152,7 @@ async function handleDismantle(interaction: ChatInputCommandInteraction): Promis
   const embed = new EmbedBuilder()
     .setTitle(`🔧 Dismantle — ${bp.outputName}`)
     .setColor(0xf59e0b)
-    .setFooter({ text: 'Star Citizen Blueprint Database' });
+    .setFooter({ text: gameDataFooter() });
 
   const fields: { name: string; value: string; inline: boolean }[] = [];
   if (bp.dismantleTimeSecs   != null) fields.push({ name: 'Time',     value: formatSeconds(bp.dismantleTimeSecs),                   inline: true });
@@ -189,9 +190,9 @@ async function handleContracts(interaction: ChatInputCommandInteraction): Promis
     .setTitle(`Contracts Rewarding "${bp.outputName}"`)
     .setColor(0x6366f1)
     .setFooter({
-      text: `Star Citizen · ${total} contract${total !== 1 ? 's' : ''}${
+      text: `${total} contract${total !== 1 ? 's' : ''}${
         total > toShow.length ? ` · showing ${toShow.length} of ${total}` : ''
-      }`,
+      } · ${gameDataFooter()}`,
     });
 
   for (const contract of toShow) {
@@ -261,8 +262,8 @@ async function handleContracts(interaction: ChatInputCommandInteraction): Promis
 
 function resolve(rawValue: string) {
   return (
-    BLUEPRINT_BY_UUID.get(rawValue) ??
-    BLUEPRINTS.find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase())
+    getBlueprintByUuid(rawValue) ??
+    getBlueprints().find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase())
   );
 }
 
