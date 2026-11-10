@@ -3,7 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { gameDataApi } from '@/api/gameData';
 import { ApiError } from '@/api/client';
-import { GAME_DATA_CHECK_INTERVAL_MIN, type GameDataHealth } from '@dem/shared';
+import { describeCheckInterval, type GameDataHealth } from '@dem/shared';
 
 const HEALTH: Record<GameDataHealth, { label: string; className: string }> = {
   ok:         { label: 'Up to date',       className: 'border-green-500/40 bg-green-500/10 text-green-500' },
@@ -47,7 +47,7 @@ export function GameDataPipelineCard() {
             <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${h.className}`}>{h.label}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Full copy of every scunpacked-data file, checked every {GAME_DATA_CHECK_INTERVAL_MIN} minutes.
+            Full copy of every scunpacked-data file, checked {describeCheckInterval(s.checkIntervalMin)}.
           </p>
         </div>
         {s.canRequestSync && (
@@ -91,7 +91,7 @@ export function GameDataPipelineCard() {
 
       {s.pendingRequest && (
         <p className="text-xs text-muted-foreground">
-          Full re-sync requested{ s.pendingRequest.requestedBy ? ` by ${s.pendingRequest.requestedBy}` : ''}; it starts within {GAME_DATA_CHECK_INTERVAL_MIN} minutes.
+          Full re-sync requested{ s.pendingRequest.requestedBy ? ` by ${s.pendingRequest.requestedBy}` : ''}; it runs at the next scheduled check{s.lastCheckAt && s.checkIntervalMin ? ` (around ${new Date(new Date(s.lastCheckAt).getTime() + s.checkIntervalMin * 60_000).toLocaleString()})` : ''}.
         </p>
       )}
       {s.health === 'failed' && s.lastRun?.error && (

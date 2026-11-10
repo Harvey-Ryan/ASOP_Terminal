@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { EmbedBuilder, type APIEmbed } from 'discord.js';
-import { GAME_DATA_CHECK_INTERVAL_MIN, type GameDataStatus } from '@dem/shared';
+import { describeCheckInterval, type GameDataStatus } from '@dem/shared';
 
 export interface StatusSnapshot {
   app: { version: string; commit: string; deployedAt: Date | null };
@@ -13,10 +13,10 @@ export interface StatusSnapshot {
 }
 
 const COLOR = { ok: 0x2ecc71, syncing: 0x3498db, warn: 0xf1c40f, error: 0xe74c3c, idle: 0x747f8d } as const;
-// The "last check" time moves every 5 minutes. While checks are on schedule the
-// field says so in words (so it doesn't force an edit every 5 minutes); only a
-// late check shows its actual time.
-const LAST_CHECK_FRESH_MS = 15 * 60_000;
+// The message is edited only when its content changes: a game data check (its
+// time is shown), an update or failure, a deploy, a warning, a Sync now request.
+// Everything time-relative uses Discord timestamps (<t:…:R>), which every
+// viewer's client keeps current on its own, so nothing needs a periodic edit.
 
 const ts = (iso: string | Date | null | undefined, style: 'R' | 'f' | 'F' | 'D' = 'R') => {
   if (!iso) return '—';
@@ -26,12 +26,15 @@ const ts = (iso: string | Date | null | undefined, style: 'R' | 'f' | 'F' | 'D' 
 const num = (n: number) => n.toLocaleString('en-US');
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
-function lastCheck(iso: string | null, now: Date): string {
+/** When the next scheduled check is expected (last check + measured interval). */
+function nextCheck(g: GameDataStatus): Date | null {
+  if (!g.lastCheckAt || !g.checkIntervalMin) return null;
+  return new Date(new Date(g.lastCheckAt).getTime() + g.checkIntervalMin * 60_000);
+}
+
+function lastCheck(iso: string | null, intervalMin: number | null): string {
   if (!iso) return '—';
-  if (now.getTime() - new Date(iso).getTime() < LAST_CHECK_FRESH_MS) {
-    return `Within the last 15 min\nevery ${GAME_DATA_CHECK_INTERVAL_MIN} min`;
-  }
-  return `${ts(iso)}\nevery ${GAME_DATA_CHECK_INTERVAL_MIN} min`;
+  return `${ts(iso, 'f')}\n${ts(iso)} · ${describeCheckInterval(intervalMin)}`;
 }
 
 function headline(s: StatusSnapshot): { text: string; color: number } {
@@ -40,7 +43,7 @@ function headline(s: StatusSnapshot): { text: string; color: number } {
     case 'syncing':
       return { text: `🔄 **Updating game data…** started ${ts(g.running?.startedAt)}`, color: COLOR.syncing };
     case 'failed':
-      return { text: '⚠️ **Last game data update failed.** The previous data is still in use; it retries automatically every 30 minutes.', color: COLOR.error };
+      return { text: '⚠️ **Last game data update failed.** The previous data is still in use; it retries automatically at the next check.', color: COLOR.error };
     case 'stale':
       return { text: `⚠️ **Game data checks have stopped** — last check ${ts(g.lastCheckAt)}. The data still works but may fall behind.`, color: COLOR.warn };
     case 'not_set_up':
@@ -56,7 +59,7 @@ export function buildStatusEmbed(s: StatusSnapshot): { embed: APIEmbed; hash: st
   const { text, color } = headline(s);
   const lines = [text];
   if (g.pendingRequest) {
-    lines.push(`🔁 Full re-sync requested${g.pendingRequest.requestedBy ? ` by **${g.pendingRequest.requestedBy}**` : ''} ${ts(g.pendingRequest.requestedAt)}; starts within ${GAME_DATA_CHECK_INTERVAL_MIN} minutes.`);
+    lines.push(`🔁 Full re-sync requested${g.pendingRequest.requestedBy ? ` by **${g.pendingRequest.requestedBy}**` : ''} ${ts(g.pendingRequest.requestedAt)}; it runs at the next check${nextCheck(g) ? ` (${ts(nextCheck(g))})` : ''}.`);
   }
 
   const version = `**v${s.app.version}**${s.app.commit ? ` · \`${s.app.commit}\`` : ''}`;
@@ -76,7 +79,7 @@ export function buildStatusEmbed(s: StatusSnapshot): { embed: APIEmbed; hash: st
     { name: 'scunpacked Published', value: g.committedAt ? `${ts(g.committedAt, 'f')}\n${ts(g.committedAt)}` : '—', inline: true },
     { name: 'Synced to ASOP', value: g.syncedAt ? `${ts(g.syncedAt, 'f')}\n${ts(g.syncedAt)}` : '—', inline: true },
 
-    { name: 'Last Check', value: lastCheck(g.lastCheckAt, s.now), inline: true },
+    { name: 'Last Check', value: lastCheck(g.lastCheckAt, g.checkIntervalMin), inline: true },
     { name: 'Last Update', value: change, inline: true },
     { name: 'Database', value: counts, inline: true },
   ];

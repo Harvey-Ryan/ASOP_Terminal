@@ -6,16 +6,40 @@
 // (not Prisma). Run GAME_DATA_STATUS_SQL with `prisma.$queryRawUnsafe`; if it
 // throws because the schemas don't exist yet, treat that as "not set up".
 
-/** How often the worker checks upstream (the sc-data service's Railway cron schedule, see RAILWAY.md). */
-export const GAME_DATA_CHECK_INTERVAL_MIN = 5;
-/** No check for this long means the worker isn't running. */
-export const GAME_DATA_STALE_AFTER_MIN = 30;
+// How often the worker runs is its Railway cron schedule, which the app can't
+// read, so it's inferred from the gaps between recent scheduled runs. That keeps
+// the "checks have stopped" warning and the wording right whether the schedule
+// is every 5 minutes or daily.
+
+/** Assumed until there are enough scheduled runs to measure (Railway: daily). */
+export const GAME_DATA_DEFAULT_INTERVAL_MIN = 24 * 60;
+
+/** No check for this long (2½ intervals, at least 30 min) means the worker isn't running. */
+export function gameDataStaleAfterMin(intervalMin: number | null): number {
+  return Math.max(30, Math.round((intervalMin ?? GAME_DATA_DEFAULT_INTERVAL_MIN) * 2.5));
+}
+
+/** "every 5 min", "hourly", "every 6 h", "daily", "every 2 days" */
+export function describeCheckInterval(intervalMin: number | null): string {
+  const m = intervalMin ?? GAME_DATA_DEFAULT_INTERVAL_MIN;
+  if (m < 60) return `every ${m} min`;
+  if (Math.abs(m - 60) <= 5) return 'hourly';
+  if (Math.abs(m - 1440) <= 60) return 'daily';
+  if (m < 1440) return `every ${Math.round(m / 60)} h`;
+  return `every ${Math.round(m / 1440)} days`;
+}
 
 export const GAME_DATA_STATUS_SQL = `
 SELECT json_build_object(
   'state', (SELECT row_to_json(s) FROM (
       SELECT commit, build, committed_at, synced_at FROM scdata_raw.state) s),
   'last_check', (SELECT max(started_at) FROM scdata_raw.sync_run),
+  -- typical gap between the last scheduled runs (manual "Sync now" runs excluded)
+  'check_interval_sec', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY gap) FROM (
+      SELECT extract(epoch FROM started_at - lag(started_at) OVER (ORDER BY id)) AS gap
+      FROM (SELECT id, started_at FROM scdata_raw.sync_run
+            WHERE trigger IN ('cron', 'retry') ORDER BY id DESC LIMIT 10) recent) gaps
+      WHERE gap > 0),
   'running', (SELECT row_to_json(r) FROM (
       SELECT started_at, trigger FROM scdata_raw.sync_run
       WHERE status = 'running' AND started_at > now() - interval '1 hour'
@@ -53,6 +77,8 @@ export interface GameDataStatus {
   syncedAt: string | null;
   /** Last time the worker checked upstream (any outcome) */
   lastCheckAt: string | null;
+  /** Typical minutes between scheduled checks (null until measurable) */
+  checkIntervalMin: number | null;
   running: { startedAt: string; trigger: string } | null;
   lastRun: { status: 'success' | 'failed'; trigger: string; startedAt: string; finishedAt: string | null; error: string | null } | null;
   /** The last sync that actually changed something (forced re-checks that found nothing don't count) */
@@ -62,13 +88,14 @@ export interface GameDataStatus {
 }
 
 export const GAME_DATA_NOT_SET_UP: GameDataStatus = {
-  health: 'not_set_up', commit: null, build: null, committedAt: null, syncedAt: null, lastCheckAt: null,
+  health: 'not_set_up', commit: null, build: null, committedAt: null, syncedAt: null, lastCheckAt: null, checkIntervalMin: null,
   running: null, lastRun: null, lastChange: null, pendingRequest: null, counts: null,
 };
 
 interface RawStatus {
   state: { commit: string | null; build: string | null; committed_at: string | null; synced_at: string | null } | null;
   last_check: string | null;
+  check_interval_sec: number | null;
   running: { started_at: string; trigger: string } | null;
   last_run: { status: 'success' | 'failed'; trigger: string; started_at: string; finished_at: string | null; error: string | null } | null;
   last_success: { finished_at: string | null; files_added: number | null; files_changed: number | null; files_removed: number | null } | null;
@@ -77,6 +104,7 @@ interface RawStatus {
 }
 
 const iso = (v: string | null | undefined) => (v ? new Date(v).toISOString() : null);
+const intervalMin = (sec: number | null | undefined) => (sec && sec > 0 ? Math.max(1, Math.round(sec / 60)) : null);
 
 /** Turns the row from GAME_DATA_STATUS_SQL (its `status` column) into a GameDataStatus. */
 export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameDataStatus {
@@ -85,6 +113,7 @@ export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameD
     const empty: GameDataStatus = {
       ...GAME_DATA_NOT_SET_UP,
       lastCheckAt: iso(r?.last_check),
+      checkIntervalMin: intervalMin(r?.check_interval_sec),
       running: r?.running ? { startedAt: iso(r.running.started_at)!, trigger: r.running.trigger } : null,
       lastRun: r?.last_run
         ? { status: r.last_run.status, trigger: r.last_run.trigger, startedAt: iso(r.last_run.started_at)!, finishedAt: iso(r.last_run.finished_at), error: r.last_run.error }
@@ -102,6 +131,7 @@ export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameD
     committedAt: iso(r.state.committed_at),
     syncedAt: iso(r.state.synced_at),
     lastCheckAt: iso(r.last_check),
+    checkIntervalMin: intervalMin(r.check_interval_sec),
     running: r.running ? { startedAt: iso(r.running.started_at)!, trigger: r.running.trigger } : null,
     lastRun: r.last_run
       ? { status: r.last_run.status, trigger: r.last_run.trigger, startedAt: iso(r.last_run.started_at)!, finishedAt: iso(r.last_run.finished_at), error: r.last_run.error }
@@ -123,7 +153,7 @@ export function judgeHealth(s: GameDataStatus, now: Date = new Date()): GameData
   if (s.lastRun?.status === 'failed') return 'failed';
   if (!s.commit) return 'not_set_up';
   const lastCheck = s.lastCheckAt ? new Date(s.lastCheckAt).getTime() : 0;
-  if (now.getTime() - lastCheck > GAME_DATA_STALE_AFTER_MIN * 60_000) return 'stale';
+  if (now.getTime() - lastCheck > gameDataStaleAfterMin(s.checkIntervalMin) * 60_000) return 'stale';
   return 'ok';
 }
 
