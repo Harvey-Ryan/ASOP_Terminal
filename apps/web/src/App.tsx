@@ -36,6 +36,7 @@ import { TournamentPage } from './pages/TournamentPage';
 import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
 import { LootSettingsPage } from './pages/settings/LootSettingsPage';
 import { ModuleSettingsHubPage } from './pages/settings/ModuleSettingsHubPage';
+import { AlliesPage } from './pages/settings/AlliesPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
           <Route path="servers/:guildId/settings/modules/dkp" element={<DkpSettingsPage />} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
+          <Route path="servers/:guildId/settings/allies" element={<AlliesPage />} />
           <Route path="servers/:guildId/settings/game-data" element={<GameDataPage />} />
           <Route path="servers/:guildId/settings/sc-data" element={<ScDataPage />} />
           <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />

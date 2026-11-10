@@ -293,20 +293,17 @@ function rsiContent() {
 function allianceContent() {
   return (
     <>
-      <H>What Is an Alliance?</H>
-      <P>An alliance is a named group of servers that have agreed to coordinate together. Once your guild joins an alliance, events shared by any member guild appear on your dashboard automatically — no separate login or server required.</P>
-      <Divider />
-      <H>Individual Allies</H>
-      <P>In addition to named alliances, you can connect with a single server directly without creating a group. An <B>Individual Ally</B> is a one-to-one connection — shared events between just the two of you, without other servers involved. Individual allies appear in the Allies section of your Alliance settings page.</P>
+      <H>Allies</H>
+      <P>Orgs on ASOP Terminal can become <B>allies</B>: one org's officers send a request and the other org's officers accept or reject it. Your officers manage this on the <B>Allies</B> page.</P>
       <Divider />
       <H>Shared Events on Your Dashboard</H>
-      <P>Shared events (from alliances or individual allies) appear alongside your own guild's events. Click any event card to open the detail view and RSVP exactly as you would for a local event. The event is hosted by another guild but your RSVP is recorded under your guild's roster.</P>
+      <P>Events another org shares with yours appear alongside your own once your officers accept them. Click any event card to open it and RSVP exactly as you would for one of your own events. The event is hosted by the other org, but your RSVP is recorded on your org's roster, and the bot posts the event, thread and roster in your Discord too.</P>
       <Divider />
-      <H>Per-Guild Role Slots</H>
-      <P>Shared events use <B>per-guild role slots</B> — each participating guild has its own set of role assignments. The host org defines the role structure (e.g. Infantry ×10, Pilot ×4) and each guild fills its own complement independently. Your role choice only affects your guild's roster, not other guilds'. This applies to both alliance-shared events and direct-invite shares.</P>
+      <H>Per-Org Role Slots</H>
+      <P>Shared events use <B>per-org role slots</B>: the host sets the role structure (e.g. Infantry ×10, Pilot ×4) and each org fills its own slots. Your role choice only affects your org's roster.</P>
       <Divider />
       <H>Org Tags</H>
-      <P>Each guild can set a short <B>Org Tag</B> (up to 4 characters, e.g. <code className="font-mono text-xs bg-muted px-1 rounded">ASOP</code>) in Alliance settings. This tag appears next to member names in event lists, bot roster embeds, and snake draft order announcements so participants can identify which org each member belongs to.</P>
+      <P>Each org can set a short <B>Org Tag</B> (up to 4 characters, e.g. <code className="font-mono text-xs bg-muted px-1 rounded">ASOP</code>). It appears next to member names on shared events, in bot roster posts and snake draft order announcements, so everyone can tell which org a member belongs to.</P>
     </>
   );
 }
@@ -314,31 +311,27 @@ function allianceContent() {
 function allianceAdminContent() {
   return (
     <>
-      <H>Creating a Named Alliance</H>
-      <P>Go to <B>Module Settings → Alliance</B> and click <B>New Alliance</B>. Give it a name (e.g. "Northern Coalition") and confirm. Your server is added as the first accepted member automatically.</P>
+      <H>The Allies Page</H>
+      <P>Open <B>Org Settings → Allies</B>. A badge on the menu item counts ally requests waiting for an answer. Server managers can use it, plus any role chosen under <B>Who can manage allies</B> on the same page.</P>
       <Divider />
-      <H>Inviting Individual Allies</H>
-      <P>The <B>Individual Allies</B> section on the Alliance settings page lets you connect directly with a single server — no named group required. Click <B>Invite Ally</B>, search for the target server, and select it. The receiving server sees a <B>Pending Alliance Invitations</B> card labelled "Direct ally request" and can accept or reject. Once accepted, both servers can share events with each other independently.</P>
+      <H>Sending a Request</H>
+      <P>Under <B>Add an ally</B>, search for an org by name or tag, or paste its <B>ally code</B>, and click <B>Send request</B>. You can add a short message. Only orgs that turned on <B>Listed in the ally directory</B> show up in search; any org can be reached with its code. If the other org had already asked you, sending a request to them makes you allies straight away.</P>
+      <P>You can have up to 10 requests waiting at once. Withdraw one with <B>Cancel request</B> under <B>Requests you sent</B>.</P>
       <Divider />
-      <H>Inviting Servers to a Named Alliance</H>
-      <P>Open an alliance card and click <B>Invite Server</B>. Search the list of bot-installed guilds and select one to send an invitation. The invited server sees the invitation in their Alliance settings and can accept or reject. Pending invitations show an "Awaiting" badge on your card until resolved.</P>
-      <P>To cancel a pending invitation before it is accepted, hover the awaiting server row and click the remove button.</P>
+      <H>Answering a Request</H>
+      <P>Requests for your org appear at the top of the page. <B>Accept</B> makes you allies. <B>Reject</B> declines; that org can ask again after 7 days. <B>Reject and block</B> stops that org from sending requests until you unblock it under <B>Blocked</B>. The other org isn't told it was blocked.</P>
       <Divider />
-      <H>Accepting Invitations</H>
-      <P>When another guild invites yours — whether to a named alliance or as a direct ally — a highlighted <B>Pending Alliance Invitations</B> card appears at the top of your Alliance settings page. Click <B>Accept</B> to join, or <B>Reject</B> to decline. Accepted connections immediately become active for both servers.</P>
+      <H>Your Listing and Ally Code</H>
+      <P>Turn on <B>Listed in the ally directory</B> to let other orgs find you by name or tag. Whether or not you're listed, your <B>ally code</B> lets an org send you a request. Copy it to share with another org's officers; <B>New code</B> replaces it and stops the old one working.</P>
       <Divider />
-      <H>Sharing Events via Alliance or Direct Invite</H>
-      <P>When creating or editing an event, use the <B>Alliance</B> selector to choose which named alliance to share it with. For direct ally or cross-alliance sharing, use the <B>Direct Invites</B> toggle to pick individual guilds from your connected allies and alliance members.</P>
-      <P>When a guild accepts an event share, the bot automatically creates a forum thread and Discord scheduled event in that guild. Loot result announcements are broadcast to all connected guild threads when a session completes.</P>
+      <H>Ending an Alliance</H>
+      <P>Click <B>Remove</B> next to an ally. It takes effect for both orgs at once, and either org can send a new request later.</P>
       <Divider />
-      <H>Per-Guild Role Slots on Shared Events</H>
-      <P>When a shared event uses role slots, each participating guild gets its own independent copy of the slot roster. You can set different capacity limits per guild from the event's role slot configuration. Individual ally guilds follow the same per-guild slot system as full alliance members.</P>
+      <H>Sharing Events</H>
+      <P>When creating or editing an event, click <B>Direct Invite</B> and pick the servers to share it with. Each server's officers accept or decline the share; once accepted, the bot posts the event, a forum thread and a Discord scheduled event in their server, and loot results are announced in every participating thread. In an upcoming update, sharing will use your ally list.</P>
       <Divider />
-      <H>Org Tag &amp; Manager Roles</H>
-      <P>Set your guild's <B>Org Tag</B> (up to 4 alphanumeric characters) in Alliance settings. It appears in event lists and bot embeds to identify your guild within any alliance or shared event. Use <B>Alliance Manager Roles</B> to grant non-admin Discord roles the ability to create, invite, and manage alliances — server admins always have this permission regardless of the role setting.</P>
-      <Divider />
-      <H>Removing Members &amp; Deleting Alliances</H>
-      <P>Hover any accepted member row in an alliance card and click the remove button to remove that server from the alliance. To delete a named alliance entirely, use the trash icon on the alliance card header. To remove a direct ally, hover their row in the Individual Allies section and click the remove button. All actions take effect immediately.</P>
+      <H>Org Tag &amp; Ally Managers</H>
+      <P>Set your <B>Org Tag</B> (up to 4 letters or numbers) under <B>Ally settings</B> on the Allies page. Server managers can also choose there which Discord roles may manage allies.</P>
     </>
   );
 }
@@ -546,8 +539,8 @@ function buildSections(opts: {
     {
       id: 'alliance',
       icon: <Network className="h-4 w-4" />,
-      title: 'Alliance & Cross-Server Events',
-      subtitle: 'Cross-guild events, per-guild role slots, and org tags.',
+      title: 'Allies & Shared Events',
+      subtitle: 'Allied orgs, events shared between orgs, per-org role slots, and org tags.',
       content: allianceContent(),
     },
     tournamentsEnabled && {
@@ -603,8 +596,8 @@ function buildSections(opts: {
     {
       id: 'alliance-admin',
       icon: <Network className="h-4 w-4" />,
-      title: 'Alliance Administration',
-      subtitle: 'Creating alliances, inviting servers, sharing events, org tags.',
+      title: 'Allies Administration',
+      subtitle: 'Ally requests, the directory and ally codes, blocking, sharing events, org tags.',
       adminOnly: true,
       content: allianceAdminContent(),
     },

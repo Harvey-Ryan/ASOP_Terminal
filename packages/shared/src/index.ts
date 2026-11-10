@@ -1098,3 +1098,4 @@ export * from './gameData.js';
 // Recurring event scheduling
 export * from './recurrence.js';
 export * from './catalog.js';
+export * from './allies.js';
