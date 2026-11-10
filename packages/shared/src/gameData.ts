@@ -19,6 +19,8 @@ SELECT json_build_object(
   'running', (SELECT row_to_json(r) FROM (
       SELECT started_at, trigger FROM scdata_raw.sync_run
       WHERE status = 'running' AND started_at > now() - interval '1 hour'
+        -- a run that finished later supersedes it (an interrupted run can linger)
+        AND id > coalesce((SELECT max(id) FROM scdata_raw.sync_run WHERE status IN ('success', 'failed')), 0)
       ORDER BY id DESC LIMIT 1) r),
   'last_run', (SELECT row_to_json(r) FROM (
       SELECT status, trigger, started_at, finished_at, error FROM scdata_raw.sync_run

@@ -13,9 +13,10 @@ export interface StatusSnapshot {
 }
 
 const COLOR = { ok: 0x2ecc71, syncing: 0x3498db, warn: 0xf1c40f, error: 0xe74c3c, idle: 0x747f8d } as const;
-// The "last check" time moves every 5 minutes. Only let it change the embed in
-// 15-minute steps so we edit the message ~4×/hour instead of 12×.
-const LAST_CHECK_BUCKET_MS = 15 * 60_000;
+// The "last check" time moves every 5 minutes. While checks are on schedule the
+// field says so in words (so it doesn't force an edit every 5 minutes); only a
+// late check shows its actual time.
+const LAST_CHECK_FRESH_MS = 15 * 60_000;
 
 const ts = (iso: string | Date | null | undefined, style: 'R' | 'f' | 'F' | 'D' = 'R') => {
   if (!iso) return '—';
@@ -25,13 +26,21 @@ const ts = (iso: string | Date | null | undefined, style: 'R' | 'f' | 'F' | 'D' 
 const num = (n: number) => n.toLocaleString('en-US');
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
+function lastCheck(iso: string | null, now: Date): string {
+  if (!iso) return '—';
+  if (now.getTime() - new Date(iso).getTime() < LAST_CHECK_FRESH_MS) {
+    return `Within the last 15 min\nevery ${GAME_DATA_CHECK_INTERVAL_MIN} min`;
+  }
+  return `${ts(iso)}\nevery ${GAME_DATA_CHECK_INTERVAL_MIN} min`;
+}
+
 function headline(s: StatusSnapshot): { text: string; color: number } {
   const g = s.gameData;
   switch (g.health) {
     case 'syncing':
       return { text: `🔄 **Updating game data…** started ${ts(g.running?.startedAt)}`, color: COLOR.syncing };
     case 'failed':
-      return { text: '⚠️ **Last game data update failed.** The previous data is still in use; it retries automatically.', color: COLOR.error };
+      return { text: '⚠️ **Last game data update failed.** The previous data is still in use; it retries automatically every 30 minutes.', color: COLOR.error };
     case 'stale':
       return { text: `⚠️ **Game data checks have stopped** — last check ${ts(g.lastCheckAt)}. The data still works but may fall behind.`, color: COLOR.warn };
     case 'not_set_up':
@@ -67,7 +76,7 @@ export function buildStatusEmbed(s: StatusSnapshot): { embed: APIEmbed; hash: st
     { name: 'scunpacked Published', value: g.committedAt ? `${ts(g.committedAt, 'f')}\n${ts(g.committedAt)}` : '—', inline: true },
     { name: 'Synced to ASOP', value: g.syncedAt ? `${ts(g.syncedAt, 'f')}\n${ts(g.syncedAt)}` : '—', inline: true },
 
-    { name: 'Last Check', value: g.lastCheckAt ? `${ts(new Date(Math.floor(new Date(g.lastCheckAt).getTime() / LAST_CHECK_BUCKET_MS) * LAST_CHECK_BUCKET_MS))}\nevery ${GAME_DATA_CHECK_INTERVAL_MIN} min` : '—', inline: true },
+    { name: 'Last Check', value: lastCheck(g.lastCheckAt, s.now), inline: true },
     { name: 'Last Update', value: change, inline: true },
     { name: 'Database', value: counts, inline: true },
   ];

@@ -50,6 +50,20 @@ async function migrate(client: pg.PoolClient): Promise<void> {
   }
 }
 
+const RETRY_AFTER_MIN = 30;
+
+// A run still marked 'running' when we hold the lock was cut off (container
+// stopped, redeployed, out of memory). Its transaction rolled back, so nothing
+// from it was kept; record that instead of leaving it "running".
+async function closeInterruptedRuns(client: pg.PoolClient): Promise<void> {
+  const r = await client.query(
+    `UPDATE scdata_raw.sync_run SET status = 'failed', finished_at = now(),
+       error = 'Interrupted: the worker stopped before this run finished. Nothing from it was kept.'
+     WHERE status = 'running'`,
+  );
+  if (r.rowCount) log(`Marked ${r.rowCount} interrupted run(s) as failed`);
+}
+
 // Every 5-minute check that finds nothing new leaves a 'no_change' row; keep a
 // week of those (enough to see the worker is alive) and all real syncs forever.
 async function prune(client: pg.PoolClient): Promise<void> {
@@ -81,6 +95,7 @@ async function main(): Promise<number> {
 
     await migrate(client);
     await prune(client);
+    await closeInterruptedRuns(client);
 
     // A "Sync now" request from the web app forces a full re-check.
     const request = (
@@ -89,8 +104,22 @@ async function main(): Promise<number> {
       )
     ).rows[0];
     if (request) log(`Sync requested${request.requested_by ? ` by ${request.requested_by}` : ''}; forcing a full re-check`);
-    const forced = force || !!request;
-    const runTrigger = request ? 'manual' : trigger;
+
+    // The last finished run failed and nothing has succeeded since: retry it,
+    // at most every RETRY_AFTER_MIN so a persistent failure doesn't download
+    // the whole tarball every 5 minutes.
+    const lastFinished = (
+      await client.query<{ status: string; finished_at: Date | null }>(
+        `SELECT status, finished_at FROM scdata_raw.sync_run WHERE status IN ('success', 'failed') ORDER BY id DESC LIMIT 1`,
+      )
+    ).rows[0];
+    const retry =
+      lastFinished?.status === 'failed' &&
+      (!lastFinished.finished_at || Date.now() - lastFinished.finished_at.getTime() > RETRY_AFTER_MIN * 60_000);
+    if (retry && !request) log('Last sync failed; retrying');
+
+    const forced = force || !!request || retry;
+    const runTrigger = request ? 'manual' : retry ? 'retry' : trigger;
 
     const head = process.env['SC_DATA_COMMIT'] ?? (await getHeadCommit(cfg));
     const state = (await client.query<{ commit: string | null }>('SELECT commit FROM scdata_raw.state')).rows[0];
