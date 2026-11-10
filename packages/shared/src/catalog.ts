@@ -74,9 +74,9 @@ export const CATALOG_EXCLUDED_CLASSES = [
   'Ship.MainThruster', 'Ship.ManneuverThruster',
 ] as const;
 
-/** Unclassified item types players do carry: collectibles, food, chips, gadgets, storage boxes. */
+/** Unclassified item types players do carry: collectibles, food, chips, gadgets, storage boxes, scrip. */
 export const CATALOG_EXTRA_TYPES = [
-  'Misc', 'Food', 'Drink', 'Gadget', 'RemovableChip', 'Grenade', 'InventoryContainer', 'FPS_Consumable',
+  'Misc', 'Food', 'Drink', 'Gadget', 'RemovableChip', 'Grenade', 'InventoryContainer', 'FPS_Consumable', 'Currency',
 ] as const;
 
 const sqlList = (xs: readonly string[]) => xs.map((x) => `'${x}'`).join(', ');
@@ -153,7 +153,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'Ship.LifeSupportGenerator': 'Life Support', 'Ship.EMP': 'EMP', 'Ship.QuantumInterdictionGenerator': 'Quantum Interdiction',
   'Ship.JumpDrive': 'Jump Drive', 'Ship.Bomb': 'Bomb', 'Mining.Module': 'Mining Module', 'Mining.Gadget': 'Mining Gadget',
   Misc: 'Misc', Food: 'Food', Drink: 'Drink', Gadget: 'Gadget', RemovableChip: 'Chip', Grenade: 'Grenade',
-  InventoryContainer: 'Storage', FPS_Consumable: 'Consumable',
+  InventoryContainer: 'Storage', FPS_Consumable: 'Consumable', Currency: 'Scrip',
 };
 
 const spaced = (s: string) => s.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -316,34 +316,28 @@ export function commodityDetailFromRow(r: CatalogCommodityDetailRow): CatalogDet
 // ── Linking saved inventory to the catalog ───────────────────────────────────
 
 /**
- * Fills InventoryEntry."itemUuid" for entries saved with a UEX id, in order of
- * confidence. $1 = an entry id to link only that entry, or NULL for all.
- * Each statement only touches entries that are still unlinked, so it is safe
+ * Fills InventoryEntry."itemUuid" for entries saved before the catalog, in
+ * order of confidence. (Items were first linked by the game UUID UEX stored,
+ * in v1.6.0; every item entry had been linked by the time UEX items were
+ * retired, so items now only need the name match.)
+ * $1 = an entry id to link only that entry, or NULL for all. Each statement only touches entries that are still unlinked, so it is safe
  * to run any number of times.
  */
 export const INVENTORY_LINK_SQL: readonly string[] = [
-  // 1. Items: UEX stores the game's own UUID; map it to the merged catalog row.
-  `WITH catalog_items AS (${CATALOG_ITEMS_SQL})
-   UPDATE "InventoryEntry" e SET "itemUuid" = c.uuid
-   FROM "UexItem" u
-   JOIN scdata.items i ON i.uuid = lower(u.uuid)
-   JOIN catalog_items c ON lower(c.name) = lower(i.name) AND c.category = coalesce(i.classification, i.type)
-   WHERE e."itemUuid" IS NULL AND e."itemType" = 'ITEM' AND e."externalItemId" = u.id
-     AND ($1::text IS NULL OR e.id = $1)`,
-  // 2. Items by exact name.
+  // 1. Items by exact name.
   `WITH catalog_items AS (${CATALOG_ITEMS_SQL}),
         by_name AS (SELECT DISTINCT ON (lower(name)) lower(name) AS n, uuid FROM catalog_items ORDER BY lower(name), uuid)
    UPDATE "InventoryEntry" e SET "itemUuid" = b.uuid
    FROM by_name b
    WHERE e."itemUuid" IS NULL AND e."itemType" = 'ITEM' AND lower(trim(e."itemName")) = b.n
      AND ($1::text IS NULL OR e.id = $1)`,
-  // 3. Commodities by exact name (UEX uses the game's names).
+  // 2. Commodities by exact name (UEX uses the game's names).
   `WITH catalog_commodities AS (${CATALOG_COMMODITIES_SQL})
    UPDATE "InventoryEntry" e SET "itemUuid" = c.uuid
    FROM catalog_commodities c
    WHERE e."itemUuid" IS NULL AND e."itemType" = 'COMMODITY' AND lower(trim(e."itemName")) = lower(c.name)
      AND ($1::text IS NULL OR e.id = $1)`,
-  // 4. Commodities whose saved name differs: use the UEX name for that id.
+  // 3. Commodities whose saved name differs: use the UEX name for that id.
   `WITH catalog_commodities AS (${CATALOG_COMMODITIES_SQL})
    UPDATE "InventoryEntry" e SET "itemUuid" = c.uuid
    FROM "UexCommodity" u

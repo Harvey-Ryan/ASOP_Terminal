@@ -975,51 +975,9 @@ model ScShipItem {
 // Global tables — not guild-scoped. Populated by the weekly UEX API sync.
 // API key is read from UEX_KEY environment variable at sync time.
 
-/// UEX item category (mirrors /categories endpoint).
-model UexCategory {
-  /// UEX's own integer ID — used as the stable upsert key.
-  id           Int      @id
-  type         String   // "item" | "service" | "contract"
-  section      String
-  name         String
-  /// Raw dateModified string from UEX — used to detect upstream changes.
-  dateModified String
-  syncedAt     DateTime @updatedAt
-
-  items UexItem[]
-
-  @@index([type])
-  @@index([section])
-}
-
-/// UEX item (ship component, weapon, equipment — mirrors /items + /items_attributes).
-model UexItem {
-  /// UEX's own integer ID — used as the stable upsert key.
-  id            Int      @id
-  name          String
-  slug          String
-  uuid          String?
-  section       String?
-  categoryId    Int
-  categoryName  String
-  size          String?
-  isCommodity   Boolean  @default(false)
-  isHarvestable Boolean  @default(false)
-  gameVersion   String?
-  /// JSON: {name:string, value:string, unit:string}[] — from /items_attributes.
-  attributes    String   @default("[]")
-  /// Raw dateModified string from UEX — drives attribute re-fetch on change.
-  dateModified  String
-  /// False when an item disappears from UEX without a hard delete.
-  isActive      Boolean  @default(true)
-  syncedAt      DateTime @updatedAt
-
-  category UexCategory @relation(fields: [categoryId], references: [id])
-
-  @@index([categoryId])
-  @@index([name])
-  @@index([isActive])
-}
+// UexCategory and UexItem were removed in v1.8.0: item names and details come
+// from the game item catalog (scdata, packages/shared/src/catalog.ts). UEX is
+// kept for commodity prices (UexCommodity).
 
 /// UEX commodity (trade good — mirrors /commodities endpoint).
 model UexCommodity {

@@ -5,7 +5,7 @@ import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { parseCatalogRef } from '@dem/shared';
 import type { ApiResponse, InventoryEntryDto, InventorySearchGroup, UpsertInventoryEntryBody, InventoryItemType } from '@dem/shared';
 import type { InventoryEntry } from '@prisma/client';
-import { getCatalog, resolveUexItem, sameItemWhere } from '../../lib/catalog.js';
+import { getCatalog, sameItemWhere } from '../../lib/catalog.js';
 
 
 export const exchangeRouter = Router();
@@ -76,9 +76,8 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
   if (!body.itemType || !['ITEM', 'COMMODITY'].includes(body.itemType)) {
     res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse); return;
   }
-  // Which item: a game catalog ref (current pickers) or a UEX id (older pickers).
+  // Which item: a game catalog ref. (Edits by id keep the entry's item.)
   let itemUuid: string | null = null;
-  let externalItemId: number | null = null;
   let itemName = body.itemName?.trim() ?? '';
   const ref = body.itemRef ? parseCatalogRef(body.itemRef) : null;
   if (body.itemRef && !ref) {
@@ -91,8 +90,6 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
     }
     itemUuid = entry.uuid;
     itemName = entry.name;
-  } else if (typeof body.externalItemId === 'number' && body.externalItemId > 0) {
-    externalItemId = body.externalItemId;
   } else if (!body.id) {
     res.status(400).json({ success: false, error: 'Pick an item from the list' } satisfies ApiResponse); return;
   }
@@ -172,24 +169,20 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
   // ── Composite-key upsert (Add Item form) ──────────────────────────────────
   // Matches on (guildId, userId, item, location, qualityLevel) so that different
   // QL values at the same location are stored as separate rows. "Item" is the
-  // game item, so an entry added from the UEX picker and one added from the game
-  // catalog for the same thing are the same row.
-  if (!itemUuid) itemUuid = await resolveUexItem(body.itemType, externalItemId, itemName);
+  // game item, so it also finds an older entry for it that isn't linked yet.
   const existing = await prisma.inventoryEntry.findFirst({
-    where: { guildId, userId, location, qualityLevel, ...sameItemWhere(body.itemType, itemUuid, externalItemId, null) },
+    where: { guildId, userId, location, qualityLevel, ...sameItemWhere(body.itemType, itemUuid, null, itemName) },
   });
 
   const row = existing
     ? await prisma.inventoryEntry.update({
         where: { id: existing.id },
         data: {
-          username, quantity: body.quantity, qualityLevel, location,
-          ...(itemUuid ? { itemUuid } : {}), ...(existing.externalItemId ? {} : externalItemId ? { externalItemId } : {}),
-          ...(existing.itemUuid && !ref ? {} : { itemName }),
+          username, quantity: body.quantity, qualityLevel, location, itemUuid, itemName,
         },
       })
     : await prisma.inventoryEntry.create({
-        data: { guildId, userId, username, itemType: body.itemType, externalItemId, itemUuid, itemName, quantity: body.quantity, qualityLevel, location },
+        data: { guildId, userId, username, itemType: body.itemType, itemUuid, itemName, quantity: body.quantity, qualityLevel, location },
       });
 
   res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
@@ -240,31 +233,23 @@ exchangeRouter.delete('/:guildId/exchange/inventory/:entryId', requireAuth, asyn
 // Returns all active guild members who have the specified item in their inventory,
 // grouped by qualityLevel. Ex-members (memberActive: false) are excluded.
 // Display names are resolved live from the Discord API so nicknames are always current.
-// Query params: itemType (ITEM|COMMODITY), externalItemId (number)
+// Query params: itemRef (game catalog ref, "ITEM:<uuid>" / "COMMODITY:<uuid>")
 
 exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
     res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
   }
-  // Either itemRef (game catalog) or itemType + externalItemId (UEX).
+  // itemRef = the game catalog ref of the item.
   const ref = parseCatalogRef(typeof req.query.itemRef === 'string' ? req.query.itemRef : null);
-  const itemType = (ref?.kind ?? req.query.itemType) as InventoryItemType | undefined;
-  const externalItemId = ref ? null : parseInt(String(req.query.externalItemId ?? ''), 10);
-
-  if (!itemType || !['ITEM', 'COMMODITY'].includes(itemType)) {
-    res.status(400).json({ success: false, error: 'itemRef, or itemType ITEM or COMMODITY, is required' } satisfies ApiResponse);
-    return;
-  }
-  if (!ref && (externalItemId === null || isNaN(externalItemId) || externalItemId <= 0)) {
-    res.status(400).json({ success: false, error: 'externalItemId must be a positive number' } satisfies ApiResponse);
+  if (!ref) {
+    res.status(400).json({ success: false, error: 'itemRef is required' } satisfies ApiResponse);
     return;
   }
 
-  const catalogEntry = ref ? (await getCatalog()).get(req.query.itemRef as string) : undefined;
-  const itemUuid = ref ? ref.uuid : await resolveUexItem(itemType, externalItemId, null);
+  const catalogEntry = (await getCatalog()).get(req.query.itemRef as string);
   const rows = await prisma.inventoryEntry.findMany({
-    where: { guildId, memberActive: true, ...sameItemWhere(itemType, itemUuid, externalItemId, catalogEntry?.name ?? null) },
+    where: { guildId, memberActive: true, ...sameItemWhere(ref.kind, ref.uuid, null, catalogEntry?.name ?? null) },
     orderBy: [{ qualityLevel: 'desc' }, { username: 'asc' }],
   });
 

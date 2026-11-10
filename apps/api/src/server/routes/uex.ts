@@ -12,8 +12,8 @@ import type {
 
 export const uexRouter = Router();
 
-// Item and category lookups were retired: item names and details come from the
-// game item catalog (routes/catalog.ts). UEX is kept for commodity prices.
+// UEX Corp is only used for average commodity prices. Item names and details
+// come from the game item catalog (routes/catalog.ts).
 
 // ── GET /api/uex/commodities ──────────────────────────────────────────────────
 // Query params: q (name search), limit (default 50, max 200)
@@ -53,11 +53,9 @@ uexRouter.get('/uex/commodities', async (req, res) => {
 // ── GET /api/uex/sync/status ──────────────────────────────────────────────────
 
 uexRouter.get('/uex/sync/status', requireAuth, async (_req, res) => {
-  const [isRunning, lastSync, categories, items, commodities] = await Promise.all([
+  const [isRunning, lastSync, commodities] = await Promise.all([
     prisma.uexSyncLog.findFirst({ where: { status: 'RUNNING' }, orderBy: { startedAt: 'desc' } }),
     prisma.uexSyncLog.findFirst({ orderBy: { startedAt: 'desc' } }),
-    prisma.uexCategory.count(),
-    prisma.uexItem.count({ where: { isActive: true } }),
     prisma.uexCommodity.count({ where: { isActive: true } }),
   ]);
 
@@ -82,7 +80,7 @@ uexRouter.get('/uex/sync/status', requireAuth, async (_req, res) => {
   const data: UexSyncStatusDto = {
     isRunning: !!isRunning,
     lastSync:  toDto(lastSync),
-    counts:    { categories, items, commodities },
+    counts:    { commodities },
   };
 
   res.json({ success: true, data } satisfies ApiResponse<UexSyncStatusDto>);
