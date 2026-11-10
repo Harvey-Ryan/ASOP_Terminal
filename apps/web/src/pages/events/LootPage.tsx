@@ -859,6 +859,8 @@ export function LootPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, guilds } = useAuth();
+  const activeGuild = guilds.find((g) => g.id === guildId);
+  const isManager = !!activeGuild && canManageGuild(activeGuild);
 
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
@@ -898,7 +900,8 @@ export function LootPage() {
   const playersQuery = useQuery({
     queryKey: ['players', guildId, eventId],
     queryFn: () => lootApi.getPlayers(guildId!, eventId!),
-    enabled: !!guildId && !!eventId && sessionQuery.data?.method === 'SNAKE_DRAFT',
+    // Manager-only data (draft-order picker); the API 403s everyone else.
+    enabled: !!guildId && !!eventId && isManager && sessionQuery.data?.method === 'SNAKE_DRAFT',
   });
 
   const session = sessionQuery.data;
@@ -1052,8 +1055,6 @@ export function LootPage() {
     ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? allRsvpMap.get(nextPickerId) ?? nextPickerId, user?.id)
     : null;
 
-  const activeGuild = guilds.find((g) => g.id === guildId);
-  const isManager = !!activeGuild && canManageGuild(activeGuild);
   const isCurrentPicker = session?.method === 'SNAKE_DRAFT' && session.status === 'OPEN' && nextPickerId === user?.id;
 
   // Effective DKP balance for the current user: raw minus DKP committed to items already won this session
