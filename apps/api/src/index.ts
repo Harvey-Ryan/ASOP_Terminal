@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
 import { linkInventoryOnStartup } from './lib/catalog.js';
+import { migrateLegacyAlliancesOnStartup } from './lib/allies.js';
 import { runScSync } from './lib/scSync.js';
 import { prisma } from './lib/prisma.js';
 
@@ -86,6 +87,9 @@ app.listen(PORT, async () => {
 
   // Link saved inventory entries to game items (sc-data); logs what couldn't be linked.
   void linkInventoryOnStartup();
+
+  // Copy old alliances and 1-to-1 ally links into the ally list (v1.9.0; logs what moved).
+  void migrateLegacyAlliancesOnStartup();
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
 
   // ── Startup auto-sync: populate SC data on first boot or after schema additions

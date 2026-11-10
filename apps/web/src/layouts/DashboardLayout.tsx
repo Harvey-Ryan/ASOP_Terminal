@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2 } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -15,6 +15,7 @@ import { HelpPanel } from '@/components/HelpPanel';
 import { RsiVerifyGate } from '@/components/RsiVerifyGate';
 import { settingsApi } from '@/api/settings';
 import { marketplaceApi } from '@/api/marketplace';
+import { alliesApi } from '@/api/allies';
 import { healthApi } from '@/api/gameData';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
@@ -135,6 +136,31 @@ export function DashboardLayout() {
     enabled: !!activeGuildId,
     staleTime: 5 * 60_000,
   });
+  // Allies: guild managers, plus holders of an alliance manager role.
+  const canManageAllies = showAdminNav || !!myPerms?.canManageAllies;
+  const { data: pendingAllyCount = 0 } = useQuery({
+    queryKey: ['allies-pending', activeGuildId],
+    queryFn: () => alliesApi.pendingCount(activeGuildId!),
+    enabled: !!activeGuildId && canManageAllies,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const alliesLink = (cls: string | ((s: { isActive: boolean }) => string)) => (
+    <NavLink
+      to={`/dashboard/servers/${activeGuild!.id}/settings/allies`}
+      title={navCollapsed ? `Allies${pendingAllyCount ? ` (${pendingAllyCount} waiting)` : ''}` : undefined}
+      className={(s) => cn(typeof cls === 'function' ? cls(s) : cls, 'relative')}
+    >
+      <Handshake className="h-4 w-4 shrink-0" />
+      {!navCollapsed && <span className="flex-1">Allies</span>}
+      {!navCollapsed && pendingAllyCount > 0 && (
+        <span aria-label={`${pendingAllyCount} ally requests waiting`} className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+          {pendingAllyCount > 99 ? '99+' : pendingAllyCount}
+        </span>
+      )}
+      {navCollapsed && pendingAllyCount > 0 && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />}
+    </NavLink>
+  );
   const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
@@ -568,6 +594,9 @@ export function DashboardLayout() {
             </>
           )}
 
+          {/* Allies for officers with an alliance manager role who don't see Org Settings */}
+          {activeGuild && !showAdminNav && canManageAllies && alliesLink(serverNavCls)}
+
           {/* ── Org Settings section ── */}
           {showAdminNav && (
             <>
@@ -619,6 +648,8 @@ export function DashboardLayout() {
                     <Rocket className="h-4 w-4 shrink-0" />
                     {!navCollapsed && 'SC Database'}
                   </NavLink>
+
+                  {alliesLink(navCls)}
 
                   <NavLink
                     to={`/dashboard/servers/${activeGuild!.id}/settings/bot`}

@@ -5,6 +5,7 @@ import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
+import { assertAllianceManager } from '../../lib/assertAllianceManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError, optStr, optStrArr, optBool, optNonNegInt, requireStr } from '../../lib/validate.js';
 import type { ApiResponse } from '@dem/shared';
@@ -32,10 +33,11 @@ interface DiscordRole {
 settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
-    const [canManageEvents, canViewEvents, canCreateLootDraft] = await Promise.all([
+    const [canManageEvents, canViewEvents, canCreateLootDraft, canManageAllies] = await Promise.all([
       assertEventCreator(req, guildId),
       assertEventViewer(req, guildId),
       assertLootDraftCreator(req, guildId),
+      assertAllianceManager(req, guildId),
     ]);
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
@@ -56,6 +58,7 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         canManageEvents,
         canViewEvents,
         canCreateLootDraft,
+        canManageAllies,
         eventBotEnabled:    s?.eventBotEnabled    ?? true,
         dkpEnabled:         s?.dkpEnabled         ?? true,
         lootEnabled:        s?.lootEnabled         ?? true,

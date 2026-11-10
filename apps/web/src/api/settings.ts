@@ -51,6 +51,8 @@ export interface GuildMyPermissions {
   canManageEvents: boolean;
   canViewEvents: boolean;
   canCreateLootDraft: boolean;
+  /** Officers who manage allies: guild managers + alliance manager roles. */
+  canManageAllies: boolean;
   eventBotEnabled: boolean;
   dkpEnabled: boolean;
   lootEnabled: boolean;

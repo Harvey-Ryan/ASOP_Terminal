@@ -14,6 +14,19 @@ import type {
 
 export const allianceRouter = Router();
 
+// Retired in v1.9.0: alliances became the ally list (routes/allies.ts), and the
+// old alliances are copied into it at start-up. Changes here would no longer
+// reach the ally list, and these routes never checked that the caller's org
+// was in the alliance it changed, so they are closed. The read-only lookups
+// stay until v2.0.0 (the event form's server picker uses GET /alliances/guilds).
+allianceRouter.use('/alliances', (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  res.status(410).json({
+    success: false,
+    error: 'Alliances have moved to Allies (Settings → Allies). Existing alliances were copied there.',
+  } satisfies ApiResponse);
+});
+
 type MemberRow = {
   id: string;
   status: string;

@@ -72,6 +72,8 @@ model Guild {
   allianceMembers AllianceMember[]
   eventShares     EventGuildShare[]
   memberPins      MemberPin[]
+  allyLinksA      GuildAlly[]       @relation("AllyGuildA")
+  allyLinksB      GuildAlly[]       @relation("AllyGuildB")
 }
 
 /// The role a User holds within a Guild.
@@ -150,6 +152,11 @@ model GuildSettings {
   allianceTag           String?
   /// JSON: string[] — Discord role snowflake IDs allowed to manage alliances (empty = guild-manager-only)
   allianceManagerRoles  String   @default("[]")
+  /// Listed in the ally directory, so other orgs can find this one by name or tag
+  allyDirectoryListed   Boolean  @default(false)
+  /// Private ally code (8 chars, no 0/O/1/I) another org can paste to send a
+  /// request even when this org isn't listed. Generated on first use.
+  allyCode              String?  @unique
   /// Whether regular members can see the Guild Activity and Event Planning heat maps
   activityHeatmapPublic Boolean  @default(true)
   /// Whether the Tournaments module is enabled for this guild
@@ -862,7 +869,55 @@ model EventGuildShare {
   @@index([status])
 }
 
-// ── Alliances ─────────────────────────────────────────────────────────────────
+// ── Allies ────────────────────────────────────────────────────────────────────
+
+enum AllyStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+/// One row per pair of orgs on the ally network, whichever side asked.
+/// guildAId < guildBId (sorted), so a pair can only exist once.
+/// Rules: packages/shared/src/allies.ts.
+model GuildAlly {
+  id                 String     @id @default(cuid())
+  guildAId           String
+  guildBId           String
+  status             AllyStatus @default(PENDING)
+  /// Guild.id of the side that sent the current (or last) request
+  requestedByGuildId String
+  /// Optional note sent with the request (max 200 characters)
+  message            String?
+  /// Side A posts side B's shared events automatically (B's events need no approval in A)
+  autoAcceptA        Boolean    @default(false)
+  /// Side B posts side A's shared events automatically
+  autoAcceptB        Boolean    @default(false)
+  /// Set on reject: the requester may ask again after this
+  retryAfter         DateTime?
+  /// Guild.id of the side that blocked (status BLOCKED); only it can unblock
+  blockedByGuildId   String?
+  /// Discord user ids of who sent and who answered, for notices and the audit trail
+  requestedBy        String?
+  respondedBy        String?
+  requestedAt        DateTime   @default(now())
+  respondedAt        DateTime?
+  /// When the pair became allies
+  acceptedAt         DateTime?
+  /// The Discord notice for this request, edited once someone acts (v1.10.0)
+  noticeChannelId    String?
+  noticeMessageId    String?
+
+  guildA Guild @relation("AllyGuildA", fields: [guildAId], references: [id], onDelete: Cascade)
+  guildB Guild @relation("AllyGuildB", fields: [guildBId], references: [id], onDelete: Cascade)
+
+  @@unique([guildAId, guildBId])
+  @@index([guildBId])
+  @@index([status])
+}
+
+// ── Alliances (retired: replaced by GuildAlly; read only by the start-up migration) ──
 
 /// A named grouping of guilds for cross-org organisation.
 model Alliance {
