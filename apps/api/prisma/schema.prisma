@@ -1068,8 +1068,12 @@ model InventoryEntry {
   username       String
   /// "ITEM" | "COMMODITY"
   itemType       String
-  /// UEX item or commodity numeric ID
-  externalItemId Int
+  /// UEX item or commodity numeric ID. Null for entries added from the game
+  /// item catalog; kept on older entries until UEX items are retired.
+  externalItemId Int?
+  /// Game UUID of the item or commodity (scdata.items / scdata.commodities).
+  /// Linked from the UEX id for older entries; null if it couldn't be matched.
+  itemUuid       String?
   /// Denormalised name for display without re-joining UEX tables
   itemName       String
   /// Quantity; float to support fractional SCU for commodities
@@ -1103,6 +1107,8 @@ model InventoryEntry {
   @@index([guildId, memberActive])
   @@index([guildId, userId, itemType, externalItemId, location, qualityLevel])
   @@index([forSale, memberActive, itemType, externalItemId])
+  @@index([guildId, itemType, itemUuid])
+  @@index([forSale, memberActive, itemType, itemUuid])
 }
 
 /// A buyer's request to purchase a marketplace listing.

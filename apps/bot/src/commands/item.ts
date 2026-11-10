@@ -5,10 +5,11 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
-import { prisma } from '../db.js';
+import type { CatalogDetail } from '@dem/shared';
+import { catalog, respondWithCatalog, resolveCatalogOption } from '../catalog.js';
 
-// Item and commodity details from the UEX Corp cache. Items and commodities
-// share one command; the autocomplete value says which one was picked.
+// Item and commodity details from the game files (sc-data). Commodity prices
+// come from UEX, which collects them from players.
 
 export const data = new SlashCommandBuilder()
   .setName('item')
@@ -21,142 +22,62 @@ export const data = new SlashCommandBuilder()
       .setAutocomplete(true),
   );
 
-// ── Autocomplete ──────────────────────────────────────────────────────────────
-
 export async function autocomplete(interaction: AutocompleteInteraction) {
-  const focused = interaction.options.getFocused();
-  if (focused.trim().length < 2) {
-    await interaction.respond([]);
-    return;
-  }
-
-  const needle = focused.toLowerCase();
-  const rank = (name: string) => (name.toLowerCase().startsWith(needle) ? 0 : 1);
-
-  const [items, commodities] = await Promise.all([
-    prisma.uexItem.findMany({
-      where: { isActive: true, name: { contains: focused, mode: 'insensitive' } },
-      orderBy: { name: 'asc' },
-      take: 25,
-      select: { id: true, name: true, categoryName: true },
-    }),
-    prisma.uexCommodity.findMany({
-      where: { isActive: true, name: { contains: focused, mode: 'insensitive' } },
-      orderBy: { name: 'asc' },
-      take: 25,
-      select: { id: true, name: true, code: true },
-    }),
-  ]);
-
-  const choices = [
-    ...commodities.map((r) => ({ label: r.name, name: `${r.name} (Commodity${r.code ? ` · ${r.code}` : ''})`, value: `COMMODITY:${r.id}` })),
-    ...items.map((r) => ({ label: r.name, name: r.categoryName ? `${r.name} (${r.categoryName})` : r.name, value: `ITEM:${r.id}` })),
-  ]
-    .sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label))
-    .slice(0, 25);
-
-  await interaction.respond(choices.map(({ name, value }) => ({ name: name.slice(0, 100), value })));
+  await respondWithCatalog(interaction);
 }
-
-// ── Execute ───────────────────────────────────────────────────────────────────
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const raw = interaction.options.getString('name', true).trim();
-  const [kind, id] = raw.split(':') as [string, string | undefined];
-  if (kind === 'COMMODITY' && id) return handleCommodity(interaction, id);
-  if (kind === 'ITEM' && id) return handleItem(interaction, id);
-
-  // Typed without picking a suggestion: an exact item name wins, then a commodity.
-  const item = await prisma.uexItem.findFirst({ where: { isActive: true, name: { equals: raw, mode: 'insensitive' } }, select: { id: true } });
-  if (item) return handleItem(interaction, String(item.id));
-  const com = await prisma.uexCommodity.findFirst({ where: { isActive: true, name: { equals: raw, mode: 'insensitive' } }, select: { id: true } });
-  if (com) return handleCommodity(interaction, String(com.id));
-  await interaction.reply({ content: `Nothing found for **${raw}**. Pick a name from the suggestions.`, flags: MessageFlags.Ephemeral });
-}
-
-// ── Item ─────────────────────────────────────────────────────────────────────
-
-async function handleItem(interaction: ChatInputCommandInteraction, rawId: string) {
-  await interaction.deferReply();
-
-  const id = parseInt(rawId, 10);
-  const item = isNaN(id) ? null : await prisma.uexItem.findUnique({ where: { id } });
-
-  if (!item) {
-    await interaction.editReply({ content: `That item is no longer in the UEX data.` });
+  const entry = await resolveCatalogOption(raw);
+  if (!entry) {
+    await interaction.reply({ content: `Nothing found for **${raw}**. Pick a name from the suggestions.`, flags: MessageFlags.Ephemeral });
     return;
   }
-
-  type Attribute = { name?: string; value: string; unit?: string };
-  const attrs: Attribute[] = JSON.parse(item.attributes ?? '[]');
-
-  const embed = new EmbedBuilder()
-    .setTitle(item.name)
-    .setColor(0x5865f2)
-    .setFooter({ text: 'UEX Corp · Star Citizen Item Database' });
-
-  const fields: { name: string; value: string; inline: boolean }[] = [];
-
-  if (item.categoryName) fields.push({ name: 'Category',     value: item.categoryName, inline: true });
-  if (item.section)      fields.push({ name: 'Section',      value: item.section,      inline: true });
-  if (item.gameVersion)  fields.push({ name: 'Game Version', value: item.gameVersion,  inline: true });
-  if (item.slug)         fields.push({ name: 'Slug',         value: item.slug,         inline: true });
-
-  const flags = [
-    item.isCommodity   && 'Commodity',
-    item.isHarvestable && 'Harvestable',
-  ].filter(Boolean).join(', ');
-  if (flags) fields.push({ name: 'Flags', value: flags, inline: true });
-
-  if (attrs.length > 0) {
-    const attrLines = attrs
-      .map((a) => `${a.name ? `**${a.name}:** ` : ''}${a.value}${a.unit ? ` ${a.unit}` : ''}`)
-      .join('\n');
-    fields.push({ name: 'Attributes', value: attrLines, inline: false });
-  }
-
-  if (fields.length > 0) embed.addFields(fields);
-
-  await interaction.editReply({ embeds: [embed] });
-}
-
-// ── Commodity ──────────────────────────────────────────────────────────────
-
-async function handleCommodity(interaction: ChatInputCommandInteraction, rawId: string) {
   await interaction.deferReply();
-
-  const id = parseInt(rawId, 10);
-  const com = isNaN(id) ? null : await prisma.uexCommodity.findUnique({ where: { id } });
-
-  if (!com) {
-    await interaction.editReply({ content: `That commodity is no longer in the UEX data.` });
+  const detail = await catalog.detail(entry.ref);
+  if (!detail) {
+    await interaction.editReply({ content: `**${entry.name}** is no longer in the game data.` });
     return;
   }
+  await interaction.editReply({ embeds: [buildItemEmbed(detail)] });
+}
 
+const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+const aUEC = (n: number) => `${Math.round(n).toLocaleString('en-US')} aUEC`;
+
+export function buildItemEmbed(d: CatalogDetail): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setTitle(com.name)
-    .setColor(0xf59e0b)
-    .setFooter({ text: 'UEX Corp · Star Citizen Commodity Database' });
+    .setTitle(d.name)
+    .setColor(d.kind === 'COMMODITY' ? 0xf59e0b : 0x5865f2)
+    .setFooter({ text: d.commodity && (d.commodity.avgBuy != null || d.commodity.avgSell != null)
+      ? 'Game data: Star Citizen Wiki · Prices: UEX Corp (player reported)'
+      : 'Game data: Star Citizen Wiki' });
+
+  if (d.description) embed.setDescription(clip(d.description, 1000));
 
   const fields: { name: string; value: string; inline: boolean }[] = [];
+  fields.push({ name: 'Type', value: d.detail, inline: true });
+  if (d.kind === 'ITEM') {
+    if (d.category && d.category !== d.detail) fields.push({ name: 'Category', value: d.category, inline: true });
+    if (d.manufacturer) fields.push({ name: 'Manufacturer', value: d.manufacturer, inline: true });
+    if (d.stats.length > 0) {
+      fields.push({
+        name: 'Stats',
+        value: clip(d.stats.map((s) => `**${s.name}:** ${s.value}`).join('\n'), 1024),
+        inline: false,
+      });
+    }
+  }
 
-  if (com.code)              fields.push({ name: 'Code',       value: com.code,                              inline: true });
-  if (com.slug)              fields.push({ name: 'Slug',       value: com.slug,                              inline: true });
-  if (com.weightScu != null) fields.push({ name: 'Weight',     value: `${com.weightScu} SCU`,                inline: true });
-  if (com.priceAvgBuy != null)  fields.push({ name: 'Avg Buy',  value: `${com.priceAvgBuy.toLocaleString()} aUEC`,  inline: true });
-  if (com.priceAvgSell != null) fields.push({ name: 'Avg Sell', value: `${com.priceAvgSell.toLocaleString()} aUEC`, inline: true });
+  const c = d.commodity;
+  if (c) {
+    if (c.avgBuy != null)  fields.push({ name: 'Avg Buy',  value: aUEC(c.avgBuy),  inline: true });
+    if (c.avgSell != null) fields.push({ name: 'Avg Sell', value: aUEC(c.avgSell), inline: true });
+    if (c.avgBuy == null && c.avgSell == null) fields.push({ name: 'Prices', value: 'No UEX price data', inline: true });
+    if (c.refinedName) fields.push({ name: 'Refines into', value: c.refinedName, inline: true });
+    if (c.code) fields.push({ name: 'Code', value: c.code, inline: true });
+  }
 
-  const flags = [
-    com.isMineral    && 'Mineral',
-    com.isRaw        && 'Raw',
-    com.isRefined    && 'Refined',
-    com.isHarvestable && 'Harvestable',
-    com.isFuel       && 'Fuel',
-    com.isIllegal    && '⚠️ Illegal',
-  ].filter(Boolean).join(', ');
-  if (flags) fields.push({ name: 'Flags', value: flags, inline: false });
-
-  if (fields.length > 0) embed.addFields(fields);
-
-  await interaction.editReply({ embeds: [embed] });
+  embed.addFields(fields);
+  return embed;
 }

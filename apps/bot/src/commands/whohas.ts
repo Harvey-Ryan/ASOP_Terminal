@@ -7,6 +7,7 @@ import {
 } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
+import { respondWithCatalog, resolveCatalogOption, inventoryOf } from '../catalog.js';
 
 export const data = new SlashCommandBuilder()
   .setName('whohas')
@@ -20,41 +21,10 @@ export const data = new SlashCommandBuilder()
   );
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
-// Value is encoded as "ITEM:<id>" or "COMMODITY:<id>" so the execute handler
-// can recover both the type and the numeric UEX ID from a single string field.
+// Values are game catalog refs ("ITEM:<uuid>" / "COMMODITY:<uuid>").
 
 export async function autocomplete(interaction: AutocompleteInteraction) {
-  const focused = interaction.options.getFocused();
-
-  const [items, commodities] = await Promise.all([
-    prisma.uexItem.findMany({
-      where: { isActive: true, name: { contains: focused, mode: 'insensitive' } },
-      orderBy: { name: 'asc' },
-      take: 13,
-      select: { id: true, name: true, categoryName: true },
-    }),
-    prisma.uexCommodity.findMany({
-      where: { isActive: true, name: { contains: focused, mode: 'insensitive' } },
-      orderBy: { name: 'asc' },
-      take: 12,
-      select: { id: true, name: true, code: true },
-    }),
-  ]);
-
-  const choices = [
-    ...items.map((r) => ({
-      name: r.categoryName ? `${r.name} (${r.categoryName})` : r.name,
-      value: `ITEM:${r.id}`,
-    })),
-    ...commodities.map((r) => ({
-      name: r.code ? `${r.name} [${r.code}]` : r.name,
-      value: `COMMODITY:${r.id}`,
-    })),
-  ]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, 25);
-
-  await interaction.respond(choices);
+  await respondWithCatalog(interaction);
 }
 
 // ── Execute ───────────────────────────────────────────────────────────────────
@@ -68,16 +38,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   const raw = interaction.options.getString('item', true);
-  const [itemType, rawId] = raw.split(':') as [string, string | undefined];
-  const externalItemId = parseInt(rawId ?? '', 10);
-
-  if ((itemType !== 'ITEM' && itemType !== 'COMMODITY') || isNaN(externalItemId)) {
-    await interaction.editReply({ content: 'Please select an item from the autocomplete list.' });
+  const item = await resolveCatalogOption(raw);
+  if (!item) {
+    await interaction.editReply({ content: 'Please select an item from the suggestions.' });
     return;
   }
+  const itemType = item.kind;
 
   const entries = await prisma.inventoryEntry.findMany({
-    where: { guildId: interaction.guildId, itemType, externalItemId, memberActive: true },
+    where: { guildId: interaction.guildId, memberActive: true, ...inventoryOf(item) },
     orderBy: [{ qualityLevel: 'desc' }, { username: 'asc' }],
   });
 
@@ -96,11 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
   }
 
-  const itemName = entries[0]?.itemName
-    ?? (itemType === 'ITEM'
-      ? (await prisma.uexItem.findUnique({ where: { id: externalItemId }, select: { name: true } }))?.name
-      : (await prisma.uexCommodity.findUnique({ where: { id: externalItemId }, select: { name: true } }))?.name)
-    ?? raw;
+  const itemName = item.name;
 
   if (entries.length === 0) {
     await interaction.editReply({

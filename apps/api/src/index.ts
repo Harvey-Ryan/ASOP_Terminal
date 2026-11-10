@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cron from 'node-cron';
 import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
+import { linkInventoryOnStartup } from './lib/catalog.js';
 import { runScSync } from './lib/scSync.js';
 import { prisma } from './lib/prisma.js';
 
@@ -82,6 +83,9 @@ console.log('[sc] Weekly sync scheduled (Tuesdays 04:00 UTC)');
 
 app.listen(PORT, async () => {
   console.log(`[API] Listening on http://localhost:${PORT}`);
+
+  // Link saved inventory entries to game items (sc-data); logs what couldn't be linked.
+  void linkInventoryOnStartup();
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
 
   // ── Startup auto-sync: populate SC data on first boot or after schema additions
