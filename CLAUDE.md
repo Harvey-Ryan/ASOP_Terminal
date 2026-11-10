@@ -83,6 +83,18 @@ Patch Notes — v1.1.0 — November 10
 5. Versions are tagged when released (see Versioning), so no extra tag is
    needed for announcements.
 
+## Railway
+
+- Settings live in the Railway dashboard, not in the repo. Don't add a
+  `railway.toml` / `railway.json`: Railway stopped supporting them for new
+  services, stops reading them on 2026-12-01, and a root one is applied to
+  every service from this repo (it once made the sc-data service build the
+  main app). Per-service setup is in `RAILWAY.md`.
+- The main Dockerfile runs `prisma db push --accept-data-loss` on start, which
+  drops tables in `public` that `schema.prisma` doesn't model. Anything the app
+  writes outside Prisma in `public` needs a matching model (see `Session`).
+  The start command refuses to run without `DISCORD_TOKEN` and `SESSION_SECRET`.
+
 ## Star Citizen game data (`apps/sc-data`)
 
 - Our copy of StarCitizenWiki/scunpacked-data lives in Postgres schemas

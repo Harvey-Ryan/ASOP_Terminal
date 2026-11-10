@@ -6,7 +6,7 @@
 // (not Prisma). Run GAME_DATA_STATUS_SQL with `prisma.$queryRawUnsafe`; if it
 // throws because the schemas don't exist yet, treat that as "not set up".
 
-/** How often the worker checks upstream (Railway cron in apps/sc-data/railway.toml). */
+/** How often the worker checks upstream (the sc-data service's Railway cron schedule, see RAILWAY.md). */
 export const GAME_DATA_CHECK_INTERVAL_MIN = 5;
 /** No check for this long means the worker isn't running. */
 export const GAME_DATA_STALE_AFTER_MIN = 30;
