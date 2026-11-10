@@ -38,8 +38,8 @@ export function fmtAuec(n: number): string {
 // ── Shared embed builder ──────────────────────────────────────────────────────
 
 /**
- * Builds the standard crafting-recipe embed used by both /recipe and
- * /blueprint recipe.  Returns an EmbedBuilder ready for editReply.
+ * Builds the crafting-recipe embed for /blueprint. Returns an EmbedBuilder
+ * ready for editReply.
  */
 export function buildRecipeEmbed(bp: LocalBlueprint): EmbedBuilder {
   const embed = new EmbedBuilder()

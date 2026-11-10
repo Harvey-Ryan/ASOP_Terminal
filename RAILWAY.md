@@ -198,11 +198,10 @@ This registers the following commands:
 | `/wallet` | View your DKP wallet |
 | `/loot` | Interact with loot drafts |
 | `/fleet` | Fleet ship lookup |
-| `/whohas` | Search who owns a ship |
-| `/blueprint` | Blueprint cost lookup |
-| `/material` | Raw material lookup |
-| `/recipe` | Crafting recipe lookup |
-| `/uex` | UEX commodity price lookup |
+| `/whohas` | Search member inventories for an item |
+| `/blueprint` | Crafting recipe, dismantle return and missions that reward it |
+| `/material` | Blueprints that use a crafting material |
+| `/item` | Item details or commodity prices (UEX data) |
 | `/marketplace` | Org marketplace listings |
 | `/help` | Command reference |
 

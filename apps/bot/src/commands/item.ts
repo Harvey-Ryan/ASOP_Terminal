@@ -1,46 +1,31 @@
 import {
   SlashCommandBuilder,
   EmbedBuilder,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
 import { prisma } from '../db.js';
 
+// Item and commodity details from the UEX Corp cache. Items and commodities
+// share one command; the autocomplete value says which one was picked.
+
 export const data = new SlashCommandBuilder()
-  .setName('uex')
-  .setDescription('Search the local UEX Corp game data cache')
-  .addSubcommand((sub) =>
-    sub
-      .setName('item')
-      .setDescription('Look up a Star Citizen item by name')
-      .addStringOption((opt) =>
-        opt
-          .setName('name')
-          .setDescription('Item name to search for')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('commodity')
-      .setDescription('Look up a Star Citizen commodity by name')
-      .addStringOption((opt) =>
-        opt
-          .setName('name')
-          .setDescription('Commodity name to search for')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
+  .setName('item')
+  .setDescription('Look up a Star Citizen item or commodity')
+  .addStringOption((opt) =>
+    opt
+      .setName('name')
+      .setDescription('Item or commodity name (start typing for suggestions)')
+      .setRequired(true)
+      .setAutocomplete(true),
   );
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
 export async function autocomplete(interaction: AutocompleteInteraction) {
-  const sub = interaction.options.getSubcommand();
   const focused = interaction.options.getFocused();
-
-  if (focused.length < 4) {
+  if (focused.trim().length < 2) {
     await interaction.respond([]);
     return;
   }
@@ -48,70 +33,57 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
   const needle = focused.toLowerCase();
   const rank = (name: string) => (name.toLowerCase().startsWith(needle) ? 0 : 1);
 
-  if (sub === 'item') {
-    const rows = await prisma.uexItem.findMany({
-      where: {
-        isActive: true,
-        name: { contains: focused, mode: 'insensitive' },
-      },
+  const [items, commodities] = await Promise.all([
+    prisma.uexItem.findMany({
+      where: { isActive: true, name: { contains: focused, mode: 'insensitive' } },
       orderBy: { name: 'asc' },
       take: 25,
       select: { id: true, name: true, categoryName: true },
-    });
-    rows.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
-    await interaction.respond(
-      rows.map((r) => ({
-        name: r.categoryName ? `${r.name} (${r.categoryName})` : r.name,
-        value: String(r.id),
-      })),
-    );
-    return;
-  }
-
-  if (sub === 'commodity') {
-    const rows = await prisma.uexCommodity.findMany({
-      where: {
-        isActive: true,
-        name: { contains: focused, mode: 'insensitive' },
-      },
+    }),
+    prisma.uexCommodity.findMany({
+      where: { isActive: true, name: { contains: focused, mode: 'insensitive' } },
       orderBy: { name: 'asc' },
       take: 25,
       select: { id: true, name: true, code: true },
-    });
-    rows.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
-    await interaction.respond(
-      rows.map((r) => ({
-        name: r.code ? `${r.name} (${r.code})` : r.name,
-        value: String(r.id),
-      })),
-    );
-  }
+    }),
+  ]);
+
+  const choices = [
+    ...commodities.map((r) => ({ label: r.name, name: `${r.name} (Commodity${r.code ? ` · ${r.code}` : ''})`, value: `COMMODITY:${r.id}` })),
+    ...items.map((r) => ({ label: r.name, name: r.categoryName ? `${r.name} (${r.categoryName})` : r.name, value: `ITEM:${r.id}` })),
+  ]
+    .sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label))
+    .slice(0, 25);
+
+  await interaction.respond(choices.map(({ name, value }) => ({ name: name.slice(0, 100), value })));
 }
 
 // ── Execute ───────────────────────────────────────────────────────────────────
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const sub = interaction.options.getSubcommand();
-  if (sub === 'item') return handleItem(interaction);
-  if (sub === 'commodity') return handleCommodity(interaction);
+  const raw = interaction.options.getString('name', true).trim();
+  const [kind, id] = raw.split(':') as [string, string | undefined];
+  if (kind === 'COMMODITY' && id) return handleCommodity(interaction, id);
+  if (kind === 'ITEM' && id) return handleItem(interaction, id);
+
+  // Typed without picking a suggestion: an exact item name wins, then a commodity.
+  const item = await prisma.uexItem.findFirst({ where: { isActive: true, name: { equals: raw, mode: 'insensitive' } }, select: { id: true } });
+  if (item) return handleItem(interaction, String(item.id));
+  const com = await prisma.uexCommodity.findFirst({ where: { isActive: true, name: { equals: raw, mode: 'insensitive' } }, select: { id: true } });
+  if (com) return handleCommodity(interaction, String(com.id));
+  await interaction.reply({ content: `Nothing found for **${raw}**. Pick a name from the suggestions.`, flags: MessageFlags.Ephemeral });
 }
 
-// ── /uex item ─────────────────────────────────────────────────────────────────
+// ── Item ─────────────────────────────────────────────────────────────────────
 
-async function handleItem(interaction: ChatInputCommandInteraction) {
+async function handleItem(interaction: ChatInputCommandInteraction, rawId: string) {
   await interaction.deferReply();
 
-  const rawValue = interaction.options.getString('name', true);
-  const id = parseInt(rawValue, 10);
-
-  const item = isNaN(id)
-    ? await prisma.uexItem.findFirst({
-        where: { isActive: true, name: { equals: rawValue, mode: 'insensitive' } },
-      })
-    : await prisma.uexItem.findUnique({ where: { id } });
+  const id = parseInt(rawId, 10);
+  const item = isNaN(id) ? null : await prisma.uexItem.findUnique({ where: { id } });
 
   if (!item) {
-    await interaction.editReply({ content: `No item found matching **${rawValue}**.` });
+    await interaction.editReply({ content: `That item is no longer in the UEX data.` });
     return;
   }
 
@@ -148,22 +120,16 @@ async function handleItem(interaction: ChatInputCommandInteraction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
-// ── /uex commodity ────────────────────────────────────────────────────────────
+// ── Commodity ──────────────────────────────────────────────────────────────
 
-async function handleCommodity(interaction: ChatInputCommandInteraction) {
+async function handleCommodity(interaction: ChatInputCommandInteraction, rawId: string) {
   await interaction.deferReply();
 
-  const rawValue = interaction.options.getString('name', true);
-  const id = parseInt(rawValue, 10);
-
-  const com = isNaN(id)
-    ? await prisma.uexCommodity.findFirst({
-        where: { isActive: true, name: { equals: rawValue, mode: 'insensitive' } },
-      })
-    : await prisma.uexCommodity.findUnique({ where: { id } });
+  const id = parseInt(rawId, 10);
+  const com = isNaN(id) ? null : await prisma.uexCommodity.findUnique({ where: { id } });
 
   if (!com) {
-    await interaction.editReply({ content: `No commodity found matching **${rawValue}**.` });
+    await interaction.editReply({ content: `That commodity is no longer in the UEX data.` });
     return;
   }
 
