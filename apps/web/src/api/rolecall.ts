@@ -33,6 +33,10 @@ export interface RcLeaderboard {
   total: number;
   page: number;
   totalPages: number;
+  /** Members flagged inactive (no activity for the guild's inactivity window). Missing on older RoleCallBot versions. */
+  inactiveCount?: number;
+  /** True when inactive members were left out of `rows` */
+  inactiveHidden?: boolean;
 }
 
 export interface RcAchievement {
@@ -137,8 +141,10 @@ export const roleCallApi = {
   getStats: (guildId: string) =>
     api.get<RcStats>(`/rolecall/stats?guildId=${encodeURIComponent(guildId)}`),
 
-  getLeaderboard: (guildId: string, page = 1) =>
-    api.get<RcLeaderboard>(`/rolecall/leaderboard?guildId=${encodeURIComponent(guildId)}&page=${page}`),
+  getLeaderboard: (guildId: string, page = 1, includeInactive = false) =>
+    api.get<RcLeaderboard>(
+      `/rolecall/leaderboard?guildId=${encodeURIComponent(guildId)}&page=${page}${includeInactive ? '&includeInactive=true' : ''}`,
+    ),
 
   getMember: (guildId: string, userId: string) =>
     api.get<RcMember>(`/rolecall/member?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}`),
