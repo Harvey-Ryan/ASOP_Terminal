@@ -1,3 +1,4 @@
+import { canManageGuild } from '@dem/shared';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1051,7 +1052,8 @@ export function LootPage() {
     ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? allRsvpMap.get(nextPickerId) ?? nextPickerId, user?.id)
     : null;
 
-  const isManager = guilds.some((g) => g.id === guildId);
+  const activeGuild = guilds.find((g) => g.id === guildId);
+  const isManager = !!activeGuild && canManageGuild(activeGuild);
   const isCurrentPicker = session?.method === 'SNAKE_DRAFT' && session.status === 'OPEN' && nextPickerId === user?.id;
 
   // Effective DKP balance for the current user: raw minus DKP committed to items already won this session

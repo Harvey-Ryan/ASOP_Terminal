@@ -307,7 +307,8 @@ export function LootModulePage() {
   function setTab(t: 'sessions' | 'history' | 'my-loot') { setSearchParams(t === 'sessions' ? {} : { tab: t }); }
   const [newSessionOpen, setNewSessionOpen] = useState(false);
 
-  const isManager = guilds.some((g) => g.id === guildId);
+  const activeGuild = guilds.find((g) => g.id === guildId);
+  const isManager = !!activeGuild && canManageGuild(activeGuild);
 
   const permissionsQuery = useQuery({
     queryKey: ['my-permissions', guildId],

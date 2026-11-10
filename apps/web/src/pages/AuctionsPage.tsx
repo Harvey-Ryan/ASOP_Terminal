@@ -1,3 +1,4 @@
+import { canManageGuild } from '@dem/shared';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -244,7 +245,8 @@ export function AuctionsPage() {
   const queryClient = useQueryClient();
   const { user, guilds } = useAuth();
 
-  const isManager = guilds.some((g) => g.id === guildId);
+  const activeGuild = guilds.find((g) => g.id === guildId);
+  const isManager = !!activeGuild && canManageGuild(activeGuild);
   const dkpLabel = useDkpLabel(guildId);
 
   // Create form state

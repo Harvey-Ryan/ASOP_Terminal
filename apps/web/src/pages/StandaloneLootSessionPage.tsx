@@ -1,3 +1,4 @@
+import { canManageGuild } from '@dem/shared';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -644,7 +645,8 @@ export function StandaloneLootSessionPage() {
   const [newItemInputFocused, setNewItemInputFocused] = useState(false);
   const debouncedNewItem = useDebounce(newItemName, 250);
 
-  const isManager = guilds.some((g) => g.id === guildId);
+  const activeGuild = guilds.find((g) => g.id === guildId);
+  const isManager = !!activeGuild && canManageGuild(activeGuild);
 
   const sessionQuery = useQuery({
     queryKey: ['loot-standalone', guildId, sessionId],
