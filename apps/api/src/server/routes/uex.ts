@@ -5,60 +5,15 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import type {
   ApiResponse,
-  UexItemDto,
   UexCommodityDto,
-  UexCategoryDto,
   UexSyncStatusDto,
   UexSyncLogDto,
-  UexAttributeDto,
 } from '@dem/shared';
 
 export const uexRouter = Router();
 
-// ── GET /api/uex/categories ───────────────────────────────────────────────────
-
-uexRouter.get('/uex/categories', async (_req, res) => {
-  const rows = await prisma.uexCategory.findMany({ orderBy: { name: 'asc' } });
-  const data: UexCategoryDto[] = rows.map((c) => ({
-    id: c.id, type: c.type, section: c.section, name: c.name,
-  }));
-  res.json({ success: true, data } satisfies ApiResponse<UexCategoryDto[]>);
-});
-
-// ── GET /api/uex/items ────────────────────────────────────────────────────────
-// Query params: q (name search), categoryId (number), limit (default 50, max 200)
-
-uexRouter.get('/uex/items', async (req, res) => {
-  const q          = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
-  const categoryId = typeof req.query.categoryId === 'string' ? parseInt(req.query.categoryId, 10) : undefined;
-  const limit      = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200);
-
-  const rows = await prisma.uexItem.findMany({
-    where: {
-      isActive: true,
-      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-      ...(categoryId && !isNaN(categoryId) ? { categoryId } : {}),
-    },
-    orderBy: { name: 'asc' },
-    take: limit,
-  });
-
-  const data: UexItemDto[] = rows.map((i) => ({
-    id:           i.id,
-    name:         i.name,
-    slug:         i.slug,
-    categoryId:   i.categoryId,
-    categoryName: i.categoryName,
-    section:      i.section,
-    size:         i.size,
-    isCommodity:  i.isCommodity,
-    isHarvestable: i.isHarvestable,
-    gameVersion:  i.gameVersion,
-    attributes:   JSON.parse(i.attributes) as UexAttributeDto[],
-  }));
-
-  res.json({ success: true, data } satisfies ApiResponse<UexItemDto[]>);
-});
+// Item and category lookups were retired: item names and details come from the
+// game item catalog (routes/catalog.ts). UEX is kept for commodity prices.
 
 // ── GET /api/uex/commodities ──────────────────────────────────────────────────
 // Query params: q (name search), limit (default 50, max 200)

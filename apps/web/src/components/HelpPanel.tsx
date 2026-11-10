@@ -214,7 +214,7 @@ function lootAdminContent(dkpLabel: string) {
       <P>From an event's loot tab or the standalone Loot page, click <B>New Session</B>. Choose a distribution method, optionally set a {dkpLabel} award for attendance, then add items. Sessions can be created before, during, or after an event ends.</P>
       <Divider />
       <H>Adding Items</H>
-      <P>Type item names in the input field. For <B>Snake Draft</B> sessions the autocomplete searches your Exchange commodity list. For <B>Commodity Draft</B>, set a Quality Level (QL) and Count — the count determines how many members will each receive one unit of that item.</P>
+      <P>Type item names in the input field; suggestions come from the game's own item and commodity list (Commodity Draft sessions suggest commodities only). Hover the <B>i</B> next to an item to see its in-game stats, or average prices for a commodity. For <B>Commodity Draft</B>, set a Quality Level (QL) and Count — the count determines how many members will each receive one unit of that item.</P>
       <P>Items can be renamed or removed at any point before the session is marked complete.</P>
       <Divider />
       <H>Snake Draft — Admin Controls</H>
@@ -237,7 +237,7 @@ function marketplaceContent() {
       <P>The <B>Marketplace</B> lets you browse listings from every guild on the platform, not just your own server. Use the <B>Browse</B> tab to search by item name, filter by type (Item / Commodity), this guild only, fixed price only, and sort by newest or price low to high. Results are paginated — click <B>Load more</B> for additional listings.</P>
       <Divider />
       <H>My Inventory</H>
-      <P>The <B>My Inventory</B> tab is your personal stockpile for this server. Add items or commodities using the search box — select a UEX item or commodity, set a quantity, optional quality level (QL), and location. Hover any row to edit quantity/location (✏️) or delete it (🗑). Use the <B>Listed (N)</B> toggle to filter down to only your active listings.</P>
+      <P>The <B>My Inventory</B> tab is your personal stockpile for this server. Add items or commodities using the search box — pick the item from the game's own item list, set a quantity, optional quality level (QL), and location. Hover any row to edit quantity/location (✏️) or delete it (🗑). Use the <B>Listed (N)</B> toggle to filter down to only your active listings.</P>
       <Divider />
       <H>Listing Items for Sale</H>
       <P>Hover any inventory row and click the tag icon to open the listing editor. Set a quantity to list (blank = all of your stock), an asking price in aUEC, or a free-text price note (e.g. "Negotiable", "Trade for Agricium"). Click <B>Publish Listing</B> to make it visible to all guilds on the platform.</P>

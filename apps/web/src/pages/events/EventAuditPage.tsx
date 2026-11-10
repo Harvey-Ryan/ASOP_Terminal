@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { itemSuggestions } from '@/api/catalog';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Gift, PackageX, Plus, X, Users } from 'lucide-react';
@@ -7,8 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
 import { lootApi } from '@/api/loot';
-import { uexApi } from '@/api/uex';
-import { scApi } from '@/api/sc';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
@@ -100,29 +99,7 @@ export function EventAuditPage() {
 
   const lootSuggestQuery = useQuery({
     queryKey: ['loot-suggest-audit', debouncedLootItem],
-    queryFn: async () => {
-      const [items, commodities, scItems] = await Promise.all([
-        uexApi.getItems({ q: debouncedLootItem, limit: 6 }),
-        uexApi.getCommodities({ q: debouncedLootItem, limit: 3 }),
-        scApi.getShipItems(debouncedLootItem, 8),
-      ]);
-      const seen = new Set<string>();
-      const results: { id: string; name: string; detail: string; type: 'item' | 'commodity' | 'sc-item' }[] = [];
-      for (const s of scItems) {
-        const display = s.name ?? s.type;
-        const lc = display.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: s.uuid, name: display, detail: s.classification || s.type || '', type: 'sc-item' }); }
-      }
-      for (const i of items) {
-        const lc = i.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(i.id), name: i.name, detail: i.categoryName || i.section || '', type: 'item' }); }
-      }
-      for (const c of commodities) {
-        const lc = c.name.toLowerCase();
-        if (!seen.has(lc)) { seen.add(lc); results.push({ id: String(c.id), name: c.name, detail: c.code || '', type: 'commodity' }); }
-      }
-      return results;
-    },
+    queryFn: () => itemSuggestions(debouncedLootItem, 12),
     enabled: debouncedLootItem.length >= 2,
     staleTime: 2 * 60 * 1000,
   });
@@ -409,8 +386,8 @@ export function EventAuditPage() {
                           >
                             <span className="flex-1 truncate">{s.name}</span>
                             {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
-                            <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'sc-item' ? 'bg-sky-500/10 text-sky-400' : s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
-                              {s.type === 'sc-item' ? 'SC' : s.type}
+                            <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                              {s.type}
                             </span>
                           </button>
                         ))}
