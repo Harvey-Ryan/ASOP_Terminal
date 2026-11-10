@@ -7,7 +7,8 @@
 // throws because the schemas don't exist yet, treat that as "not set up".
 
 // How often the worker runs is its Railway cron schedule, which the app can't
-// read, so it's inferred from the gaps between recent scheduled runs. That keeps
+// read, so it's inferred from the gaps between recent scheduled runs when they
+// are regular (see inferCheckIntervalMin), otherwise assumed daily. That keeps
 // the "checks have stopped" warning and the wording right whether the schedule
 // is every 5 minutes or daily.
 
@@ -34,9 +35,9 @@ SELECT json_build_object(
   'state', (SELECT row_to_json(s) FROM (
       SELECT commit, build, committed_at, synced_at FROM scdata_raw.state) s),
   'last_check', (SELECT max(started_at) FROM scdata_raw.sync_run),
-  -- typical gap between the last scheduled runs (manual "Sync now" runs excluded)
-  'check_interval_sec', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY gap) FROM (
-      SELECT extract(epoch FROM started_at - lag(started_at) OVER (ORDER BY id)) AS gap
+  -- gaps between the last scheduled runs (manual "Sync now" runs excluded), newest first
+  'check_gaps_sec', (SELECT coalesce(json_agg(gap ORDER BY id DESC), '[]'::json) FROM (
+      SELECT id, extract(epoch FROM started_at - lag(started_at) OVER (ORDER BY id)) AS gap
       FROM (SELECT id, started_at FROM scdata_raw.sync_run
             WHERE trigger IN ('cron', 'retry') ORDER BY id DESC LIMIT 10) recent) gaps
       WHERE gap > 0),
@@ -95,7 +96,7 @@ export const GAME_DATA_NOT_SET_UP: GameDataStatus = {
 interface RawStatus {
   state: { commit: string | null; build: string | null; committed_at: string | null; synced_at: string | null } | null;
   last_check: string | null;
-  check_interval_sec: number | null;
+  check_gaps_sec: number[] | null;
   running: { started_at: string; trigger: string } | null;
   last_run: { status: 'success' | 'failed'; trigger: string; started_at: string; finished_at: string | null; error: string | null } | null;
   last_success: { finished_at: string | null; files_added: number | null; files_changed: number | null; files_removed: number | null } | null;
@@ -104,7 +105,24 @@ interface RawStatus {
 }
 
 const iso = (v: string | null | undefined) => (v ? new Date(v).toISOString() : null);
-const intervalMin = (sec: number | null | undefined) => (sec && sec > 0 ? Math.max(1, Math.round(sec / 60)) : null);
+/**
+ * The worker's schedule in minutes, if the recent scheduled runs show one.
+ * Runs are only trusted as a schedule when there are at least 3 gaps and at
+ * least 3 in 4 sit within 20% (or 2 minutes) of the median. Runs triggered by
+ * deploys or restarts come at irregular times, so they don't count as a
+ * schedule; until one is clear, the daily default applies (no false
+ * "checks have stopped" after a busy deploy day).
+ */
+export function inferCheckIntervalMin(gapsSec: number[] | null | undefined): number | null {
+  const gaps = (gapsSec ?? []).filter((g) => Number.isFinite(g) && g > 0);
+  if (gaps.length < 3) return null;
+  const sorted = [...gaps].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)]!;
+  const tolerance = Math.max(median * 0.2, 120);
+  const regular = gaps.filter((g) => Math.abs(g - median) <= tolerance).length;
+  if (regular / gaps.length < 0.75) return null;
+  return Math.max(1, Math.round(median / 60));
+}
 
 /** Turns the row from GAME_DATA_STATUS_SQL (its `status` column) into a GameDataStatus. */
 export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameDataStatus {
@@ -113,7 +131,7 @@ export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameD
     const empty: GameDataStatus = {
       ...GAME_DATA_NOT_SET_UP,
       lastCheckAt: iso(r?.last_check),
-      checkIntervalMin: intervalMin(r?.check_interval_sec),
+      checkIntervalMin: inferCheckIntervalMin(r?.check_gaps_sec),
       running: r?.running ? { startedAt: iso(r.running.started_at)!, trigger: r.running.trigger } : null,
       lastRun: r?.last_run
         ? { status: r.last_run.status, trigger: r.last_run.trigger, startedAt: iso(r.last_run.started_at)!, finishedAt: iso(r.last_run.finished_at), error: r.last_run.error }
@@ -131,7 +149,7 @@ export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameD
     committedAt: iso(r.state.committed_at),
     syncedAt: iso(r.state.synced_at),
     lastCheckAt: iso(r.last_check),
-    checkIntervalMin: intervalMin(r.check_interval_sec),
+    checkIntervalMin: inferCheckIntervalMin(r.check_gaps_sec),
     running: r.running ? { startedAt: iso(r.running.started_at)!, trigger: r.running.trigger } : null,
     lastRun: r.last_run
       ? { status: r.last_run.status, trigger: r.last_run.trigger, startedAt: iso(r.last_run.started_at)!, finishedAt: iso(r.last_run.finished_at), error: r.last_run.error }
