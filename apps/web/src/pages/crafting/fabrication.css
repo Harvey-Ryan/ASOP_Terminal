@@ -77,3 +77,7 @@
 .fab-scroll::-webkit-scrollbar { width: 8px; }
 .fab-scroll::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 4px; }
 .fab-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* One part per row: sliders line up down the list. */
+.fab-part-row { border-left: 3px solid var(--fab-gold); }
+.fab-part-row + .fab-part-row { border-top: 1px solid #262626; }

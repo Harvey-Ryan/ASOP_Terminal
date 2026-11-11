@@ -747,7 +747,7 @@ function BlueprintBrowser({ selectedUuid, onPick, onCollapse, className }: {
 
 // ── Centre: one blueprint ────────────────────────────────────────────────────
 
-function PartCard({ comp, index, ql, onChange }: {
+function PartRow({ comp, index, ql, onChange }: {
   comp: LocalBlueprint['components'][number];
   index: number;
   ql: number;
@@ -755,46 +755,54 @@ function PartCard({ comp, index, ql, onChange }: {
 }) {
   const id = `part-${index}`;
   return (
-    <div className="fab-part flex min-w-0 flex-col gap-2 px-3 py-3">
-      <span className="fab-label">{comp.slot} · {String(index + 1).padStart(2, '0')}</span>
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="text-base font-semibold text-[var(--fab-bright)]">{comp.material.name}</span>
-        <span className="fab-mono text-[12.5px] text-[var(--fab-gold-text)]">{amountOf(comp.material)}</span>
+    <li className="fab-part-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-3.5 py-3 sm:grid-cols-[9.5rem_minmax(0,1fr)_4.25rem] sm:gap-y-1">
+      <span className="flex min-w-0 flex-col gap-0.5 sm:row-span-2 sm:self-start">
+        <span className="fab-label !text-[11.5px] !tracking-[0.14em]">{comp.slot} · {String(index + 1).padStart(2, '0')}</span>
+        <span className="flex items-baseline gap-2">
+          <span className="truncate text-[15px] font-semibold text-[var(--fab-bright)]">{comp.material.name}</span>
+          <span className="fab-mono shrink-0 text-xs text-[var(--fab-gold-text)]">{amountOf(comp.material)}</span>
+        </span>
+        {comp.material.minQuality > 1 && <span className="text-xs text-[var(--fab-muted)]">Needs quality {comp.material.minQuality}+</span>}
       </span>
-      {comp.material.minQuality > 1 && <span className="text-xs text-[var(--fab-muted)]">Needs quality {comp.material.minQuality}+</span>}
 
       {comp.stats.length > 0 ? (
         <>
-          <span className="mt-1 flex items-center justify-between gap-2">
-            <label htmlFor={id} className="fab-label !text-[12px] !tracking-[0.12em]">Quality</label>
-            <input
-              type="number"
-              min={0}
-              max={1000}
-              value={ql}
-              aria-label={`${comp.material.name} quality, exact`}
-              onChange={(e) => onChange(Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))))}
-              className="fab-input fab-mono h-8 w-[4.25rem] shrink-0 px-1.5 text-right text-sm outline-none"
-            />
-          </span>
-          <input id={id} type="range" min={0} max={1000} step={5} value={ql} onChange={(e) => onChange(Number(e.target.value))} className="w-full" />
-          <ul className="flex flex-col gap-1">
+          <input
+            id={id}
+            type="range"
+            min={0}
+            max={1000}
+            step={5}
+            value={ql}
+            aria-label={`${comp.material.name} quality`}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="col-span-2 row-start-2 w-full sm:col-span-1 sm:col-start-2 sm:row-start-1"
+          />
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            value={ql}
+            aria-label={`${comp.material.name} quality, exact`}
+            onChange={(e) => onChange(Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))))}
+            className="fab-input fab-mono col-start-2 row-start-1 h-8 w-[4.25rem] px-1.5 text-right text-sm outline-none sm:col-start-3"
+          />
+          <ul className="col-span-2 flex flex-col gap-0.5 sm:col-start-2 sm:row-start-2 sm:flex-row sm:flex-wrap sm:gap-x-5">
             {comp.stats.map((s) => {
-              const mult = interpolateStat(s, ql);
-              const pct = (mult - 1) * 100;
+              const pct = (interpolateStat(s, ql) - 1) * 100;
               return (
-                <li key={s.key} className="flex items-baseline justify-between gap-2 text-[13px]">
-                  <span className="text-[var(--fab-muted)]">{s.label}</span>
-                  <span className={cn('fab-mono font-semibold', pct > 0.005 ? 'text-[#7fc97f]' : pct < -0.005 ? 'text-[#e07a6e]' : 'text-[var(--fab-text)]')}>{fmtPct(pct)}</span>
+                <li key={s.key} className="flex items-baseline justify-between gap-2 text-[13px] sm:justify-start">
+                  <span className="truncate text-[var(--fab-muted)]">{s.label}</span>
+                  <span className={cn('fab-mono shrink-0 font-semibold', pct > 0.005 ? 'text-[#7fc97f]' : pct < -0.005 ? 'text-[#e07a6e]' : 'text-[var(--fab-text)]')}>{fmtPct(pct)}</span>
                 </li>
               );
             })}
           </ul>
         </>
       ) : (
-        <span className="text-[13px] text-[var(--fab-muted)]">Quality doesn't change anything for this part.</span>
+        <span className="col-span-2 text-[13px] text-[var(--fab-muted)] sm:col-span-2 sm:col-start-2 sm:row-start-1">Quality doesn't change anything for this part.</span>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -923,11 +931,11 @@ function Workspace({ bp, onPick, onBack, wide = false }: { bp: LocalBlueprint; o
 
       <div>
         <h3 className="fab-stencil m-0 mb-2.5 text-base text-[var(--fab-gold-text)]">PARTS &amp; MATERIALS</h3>
-        <div className={cn('grid gap-3', wide ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-[repeat(auto-fill,minmax(210px,1fr))]')}>
+        <ul className="fab-inset m-0 list-none p-0">
           {bp.components.map((comp, i) => (
-            <PartCard key={`${comp.slot}-${i}`} comp={comp} index={i} ql={qls[i] ?? 500} onChange={(v) => setQls((prev) => { const n = [...prev]; n[i] = v; return n; })} />
+            <PartRow key={`${comp.slot}-${i}`} comp={comp} index={i} ql={qls[i] ?? 500} onChange={(v) => setQls((prev) => { const n = [...prev]; n[i] = v; return n; })} />
           ))}
-        </div>
+        </ul>
       </div>
 
       {statRows.length > 0 && (
