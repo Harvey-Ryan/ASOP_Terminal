@@ -13,7 +13,6 @@ import helmet from 'helmet';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import path from 'node:path';
 import { authRouter } from './routes/auth.js';
-import { guildsRouter } from './routes/guilds.js';
 import { eventsRouter } from './routes/events.js';
 import { imagesRouter } from './routes/images.js';
 import { settingsRouter } from './routes/settings.js';
@@ -238,7 +237,6 @@ export function createServer(): express.Express {
   // ── Routes ─────────────────────────────────────────────────────────────────
 
   app.use('/api/auth', authRouter);
-  app.use('/api/guilds', guildsRouter);
   app.use('/api/guilds', eventsRouter);
   app.use('/api/guilds', imagesRouter);
   app.use('/api/guilds', settingsRouter);

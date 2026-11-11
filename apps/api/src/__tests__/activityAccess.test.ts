@@ -81,3 +81,11 @@ describe('Activity access', () => {
     await officer.agent.get('/api/rolecall/stats').expect(400);
   });
 });
+
+describe('unused routes removed (v1.21.1)', () => {
+  it('GET /api/guilds is gone; /api/guilds/:id routes still answer', async () => {
+    const { officer, g } = await setup();
+    await officer.agent.get('/api/guilds').expect(404);
+    await officer.agent.get(`/api/guilds/${g}/settings`).expect((r) => expect(r.status).not.toBe(404));
+  });
+});
