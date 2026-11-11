@@ -295,3 +295,16 @@ Patch Notes — v1.1.0 — November 10
   `fetchDiscordGuilds` directly. If nothing is cached and Discord says wait,
   `assertGuildManager` marks the request so its 403 becomes a 503 "try again".
 
+## Crafting Calculator (v1.26.0)
+
+- One screen (`pages/CraftingCalculatorPage.tsx`, both routes): blueprints,
+  the selected blueprint (a quality slider per part), and the build list
+  (`lib/buildList.ts`, localStorage). Theme B "fabrication bay", scoped to
+  `.fab` in `pages/crafting/fabrication.css`; keep other pages on the
+  site's normal look.
+- Where materials are mined: `packages/shared/src/materialSources.ts`
+  (from `scdata.resource_locations`; main ore of each rock only), shipped in
+  the crafting data as `materialSources`. When the crafting payload's shape
+  changes, bump `DATA_VERSION` in `apps/api/src/lib/craftingData.ts` so
+  browsers drop their cached copy.
+
