@@ -395,11 +395,90 @@ export async function migrateLegacyAlliances(): Promise<{ created: number; exist
   return { created, existing, droppedPending: dropped };
 }
 
+/** Same as the bot's SETUP_MAX_ATTEMPTS (apps/bot/src/utils/setupRetry.ts): the scheduler won't try to post a share at this count. */
+const SHARE_SETUP_GIVEN_UP = 12;
+const CLOSED_EVENT_STATUSES = ['COMPLETED', 'ENDED', 'CANCELLED'];
+
+/**
+ * Turns the last old-style alliance events into ordinary shares, so the alliance
+ * tables can be dropped (v1.11.2 clean-up). Until now, an event with an
+ * allianceId was visible to every accepted member of that alliance with no share
+ * row (the "grandfathered" clause in routes/events.ts). For each such member
+ * without a share, this adds an ACCEPTED share, so the event stays exactly as
+ * visible as it was, and nothing new is posted in Discord:
+ *   - posted in that server before (an EventAllianceGuild row): linked to it;
+ *   - finished: the scheduler never posts finished events;
+ *   - still to come and never posted there: marked as given up, so the scheduler
+ *     leaves it alone (it was only ever visible on the website).
+ * Old ALLIANCE-type shares become DIRECT, and every allianceId is cleared once
+ * its event is converted. Safe to run on every start-up; does nothing once done.
+ */
+export async function convertLegacyAllianceEvents(): Promise<{ events: number; shares: number; linked: number; retyped: number }> {
+  const retyped = (await prisma.eventGuildShare.updateMany({
+    where: { OR: [{ sourceType: 'ALLIANCE' }, { allianceId: { not: null } }] },
+    data: { sourceType: 'DIRECT', allianceId: null },
+  })).count;
+
+  const events = await prisma.event.findMany({
+    where: { allianceId: { not: null } },
+    select: {
+      id: true, guildId: true, status: true, allianceId: true,
+      guildShares: { select: { guildId: true } },
+      allianceGuilds: { select: { id: true, discordGuildId: true, shareId: true } },
+    },
+  });
+  if (events.length === 0) {
+    if (retyped > 0) console.log(`[allies] ${retyped} old alliance share(s) are now ordinary shares.`);
+    return { events: 0, shares: 0, linked: 0, retyped };
+  }
+
+  const allianceIds = [...new Set(events.map((e) => e.allianceId!))];
+  const members = await prisma.allianceMember.findMany({
+    where: { allianceId: { in: allianceIds }, status: 'ACCEPTED' },
+    select: { allianceId: true, guild: { select: { id: true, guildId: true } } },
+  });
+  const byAlliance = new Map<string, { id: string; guildId: string }[]>();
+  for (const m of members) byAlliance.set(m.allianceId, [...(byAlliance.get(m.allianceId) ?? []), m.guild]);
+
+  let shares = 0, linked = 0;
+  for (const ev of events) {
+    const shared = new Set(ev.guildShares.map((s) => s.guildId));
+    const closed = CLOSED_EVENT_STATUSES.includes(ev.status);
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const g of byAlliance.get(ev.allianceId!) ?? []) {
+        if (g.guildId === ev.guildId || shared.has(g.id)) continue; // the host, or already has its own share
+        const posted = ev.allianceGuilds.find((ag) => ag.discordGuildId === g.guildId && !ag.shareId);
+        const share = await tx.eventGuildShare.create({
+          data: {
+            eventId: ev.id, guildId: g.id, sourceType: 'DIRECT', status: 'ACCEPTED', respondedAt: now,
+            ...(!posted && !closed ? { setupAttempts: SHARE_SETUP_GIVEN_UP } : {}),
+          },
+        });
+        if (posted) {
+          await tx.eventAllianceGuild.update({ where: { id: posted.id }, data: { shareId: share.id } });
+          linked++;
+        }
+        shares++;
+      }
+      await tx.event.update({ where: { id: ev.id }, data: { allianceId: null } });
+    });
+  }
+  console.log(`[allies] Converted ${events.length} old alliance event(s) into ${shares} share(s) (${linked} already posted in Discord)`
+    + (retyped > 0 ? `; ${retyped} old alliance share(s) are now ordinary shares.` : '.'));
+  return { events: events.length, shares, linked, retyped };
+}
+
 export async function migrateLegacyAlliancesOnStartup(): Promise<void> {
   try {
     await migrateLegacyAlliances();
   } catch (err) {
     console.error('[allies] Migrating old alliances failed:', err instanceof Error ? err.message : err);
+  }
+  try {
+    await convertLegacyAllianceEvents();
+  } catch (err) {
+    console.error('[allies] Converting old alliance events failed (retried on the next start-up; the alliance tables must not be dropped until this succeeds):', err instanceof Error ? err.message : err);
   }
 }
 

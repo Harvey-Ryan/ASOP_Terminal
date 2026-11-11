@@ -94,6 +94,9 @@ Patch Notes — v1.1.0 — November 10
   drops tables in `public` that `schema.prisma` doesn't model. Anything the app
   writes outside Prisma in `public` needs a matching model (see `Session`).
   The start command refuses to run without `DISCORD_TOKEN` and `SESSION_SECRET`.
+- Because `db push` runs before any app code, data has to be moved out of a
+  table one release before the release that removes its model (the old
+  alliances: converted at start-up, then dropped in a later release).
 
 ## Star Citizen game data (`apps/sc-data`)
 
@@ -107,10 +110,9 @@ Patch Notes — v1.1.0 — November 10
   - if they're ever added to Prisma (`multiSchema`), list only `scdata`, model
     every table exactly as it exists, and never add `scdata_raw`.
 - Filter `items.is_placeholder = false` for anything players see.
-- The older `Sc*` Prisma tables are no longer read or synced (v1.11.1: the
-  SC Database page reads `scdata`; the weekly download was removed). They're
-  still in `schema.prisma` so `db push` keeps them until a clean-up release
-  drops them.
+- The older `Sc*` Prisma tables (a copy of scunpacked in `public`) were
+  removed from `schema.prisma` after v1.11.2, so `db push` dropped them. Don't
+  bring them back; read `scdata`.
 - Everything that shows game data reads `scdata` (v1.11.2): the bot's
   `/blueprint`, `/item` and `/material`, the SC Database page, and the
   Blueprints and Crafting Calculator pages (via `GET /api/game-data/crafting`,

@@ -15,6 +15,10 @@ import { RECUR_TYPES, isValidTimeZone, describeRecurrence } from '@dem/shared';
 
 const ALLIANCES_MOVED = 'Alliances have moved to Allies. Share events with your allies instead.';
 
+/** Old clients may still send an alliance to share with (retired in v1.11.0); null or empty is ignored. */
+const sendsAllianceId = (body: unknown): boolean =>
+  typeof body === 'object' && body !== null && !!(body as { allianceId?: unknown }).allianceId;
+
 /** Discord id of the signed-in user (who answered, for the Discord notices). */
 async function sessionDiscordId(req: Express.Request): Promise<string | null> {
   const u = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { discordId: true } });
@@ -65,13 +69,6 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
       return;
     }
 
-    // Grandfathered: alliance memberships for old-style allianceId-based sharing
-    const memberships = await prisma.allianceMember.findMany({
-      where: { guild: { guildId }, status: 'ACCEPTED' },
-      select: { allianceId: true },
-    });
-    const allianceIds = memberships.map((m) => m.allianceId);
-
     const statusFilter = completed
       ? { status: { in: [...CLOSED_STATUSES] } }
       : { status: { notIn: [...CLOSED_STATUSES] } };
@@ -81,13 +78,7 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
         ...statusFilter,
         OR: [
           { guildId },
-          // Grandfathered: old-style allianceId events that predate EventGuildShare.
-          // Excluded when a share record exists (any status) — those events use the
-          // guildShares clause below and must be explicitly accepted.
-          ...(allianceIds.length > 0
-            ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
-            : []),
-          // New invite system: events accepted via EventGuildShare
+          // Shared with this server and accepted (EventGuildShare)
           { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
         ],
       },
@@ -181,22 +172,11 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
     return;
   }
 
-  const memberships = await prisma.allianceMember.findMany({
-    where: { guild: { guildId }, status: 'ACCEPTED' },
-    select: { allianceId: true },
-  });
-  const allianceIds = memberships.map((m) => m.allianceId);
-
   const event = await prisma.event.findFirst({
     where: {
       id: eventId,
       OR: [
         { guildId },
-        // Grandfathered: old-style allianceId events that predate EventGuildShare.
-        // Excluded when a share record exists (any status) — those must be accepted.
-        ...(allianceIds.length > 0
-          ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
-          : []),
         { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
       ],
     },
@@ -282,7 +262,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
     // Old group alliances are retired (v1.11.0): events are shared with allies.
-    if (body.allianceId) {
+    if (sendsAllianceId(body)) {
       res.status(410).json({ success: false, error: ALLIANCES_MOVED } satisfies ApiResponse);
       return;
     }
@@ -317,7 +297,6 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         briefingChannel: body.briefingChannel ?? false,
         imageUrl: body.imageUrl ?? null,
         pollData: body.poll ? JSON.stringify(body.poll) : null,
-        allianceId: null,
         createdById: dbUser.discordId,
         status: 'PENDING',
       },
@@ -390,21 +369,11 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     return;
   }
 
-  // Build the same visibility OR clause used by GET /events — supports guest-guild RSVPs
-  const memberships = await prisma.allianceMember.findMany({
-    where: { guild: { guildId }, status: 'ACCEPTED' },
-    select: { allianceId: true },
-  });
-  const allianceIds = memberships.map((m) => m.allianceId);
-
   const event = await prisma.event.findFirst({
     where: {
       id: eventId,
       OR: [
         { guildId },
-        ...(allianceIds.length > 0
-          ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
-          : []),
         { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
       ],
     },
@@ -478,20 +447,11 @@ eventsRouter.delete('/:guildId/events/:eventId/rsvp', requireAuth, async (req, r
     return;
   }
 
-  const memberships = await prisma.allianceMember.findMany({
-    where: { guild: { guildId }, status: 'ACCEPTED' },
-    select: { allianceId: true },
-  });
-  const allianceIds = memberships.map((m) => m.allianceId);
-
   const event = await prisma.event.findFirst({
     where: {
       id: eventId,
       OR: [
         { guildId },
-        ...(allianceIds.length > 0
-          ? [{ allianceId: { in: allianceIds }, guildShares: { none: { guildId: guild.id } } }]
-          : []),
         { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
       ],
     },
@@ -548,8 +508,8 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     throw err;
   }
 
-  // Old group alliances are retired (v1.11.0); clearing one is still allowed.
-  if (body.allianceId && body.allianceId !== event.allianceId) {
+  // Old group alliances are retired (v1.11.0); sending null is ignored.
+  if (sendsAllianceId(body)) {
     res.status(410).json({ success: false, error: ALLIANCES_MOVED } satisfies ApiResponse);
     return;
   }
@@ -562,7 +522,6 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
   if (body.roles !== undefined) data['roles'] = JSON.stringify(body.roles);
   if (body.vcNames !== undefined) data['vcNames'] = JSON.stringify(body.vcNames);
   if (body.briefingChannel !== undefined) data['briefingChannel'] = body.briefingChannel;
-  if (body.allianceId !== undefined) data['allianceId'] = body.allianceId || null;
   let newStartTime: Date | undefined;
   if (body.startTime !== undefined) {
     const startTime = new Date(body.startTime);
@@ -636,22 +595,6 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
     },
   });
-
-  // If allianceId changed (including removed to null), delete unanswered invites from the old
-  // alliance so guilds don't see stale pending notifications after the event moves alliances.
-  //   • PENDING   → deleted   (no response yet — nothing to preserve; deleting lets the guild
-  //                            receive a fresh invite if it is also in the new alliance)
-  //   • DECLINED  → preserved (guild explicitly opted out — don't reinvite automatically)
-  //   • ACCEPTED  → preserved (guild is actively participating — revoke explicitly via DELETE)
-  const newAllianceId = body.allianceId !== undefined ? (body.allianceId || null) : undefined;
-  if (newAllianceId !== undefined && event.allianceId && newAllianceId !== event.allianceId) {
-    const deleted = await prisma.eventGuildShare.deleteMany({
-      where: { eventId, status: 'PENDING', sourceType: 'ALLIANCE', allianceId: event.allianceId },
-    });
-    if (deleted.count > 0) {
-      console.log(`[PATCH event] Removed ${deleted.count} unanswered invite(s) for old alliance ${event.allianceId} on event ${eventId}`);
-    }
-  }
 
   triggerBot(`/trigger/sync/${eventId}`);
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
@@ -1046,8 +989,6 @@ function toShareDto(
     guildId: s.guild.id,
     guildDiscordId: s.guild.guildId,
     guildName: s.guild.name,
-    sourceType: s.sourceType as 'ALLIANCE' | 'DIRECT',
-    allianceId: s.allianceId,
     status: s.status as 'PENDING' | 'ACCEPTED' | 'DECLINED',
     invitedAt: s.invitedAt.toISOString(),
     respondedAt: s.respondedAt?.toISOString() ?? null,
@@ -1091,7 +1032,6 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     confirmedAttendees: event.confirmedAttendees ? (JSON.parse(event.confirmedAttendees) as string[]) : null,
     botCleanedUp: event.botCleanedUp,
     poll: event.pollData ? (JSON.parse(event.pollData) as EventPoll) : null,
-    allianceId: event.allianceId ?? null,
     shares: withShares.guildShares ? withShares.guildShares.map(toShareDto) : [],
   };
 }

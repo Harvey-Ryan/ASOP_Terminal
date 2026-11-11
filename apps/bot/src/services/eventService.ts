@@ -946,7 +946,6 @@ export async function spawnNextRecurrence(eventId: string) {
       briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
       pollData: event.pollData ?? null,
-      allianceId: event.allianceId ?? null, // old alliance events stay visible until v1.11.1
       recurEndsAt: event.recurEndsAt ?? null,
       recurAnchor: anchor,
       recurTimezone: timeZone,
