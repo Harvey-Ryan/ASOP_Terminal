@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { assertLootManager, assertLootViewer, lootItemParam } from '../../lib/lootAccess.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
@@ -9,6 +10,9 @@ import type { ApiResponse, LootAuctionDto, LootAuctionBidDto } from '@dem/shared
 import { resolveProxy } from '@dem/shared';
 
 export const auctionRouter = Router();
+
+// Items and awards in a URL must belong to that URL's event or session (v1.11.3).
+auctionRouter.param('itemId', lootItemParam);
 
 // ── DTO helper ────────────────────────────────────────────────────────────────
 
@@ -92,7 +96,7 @@ export async function maybeAutoClose(auctionId: string): Promise<void> {
 auctionRouter.get('/:guildId/events/:eventId/loot/auctions', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertEventViewer(req, guildId))) {
+  if (!(await assertLootViewer(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
@@ -139,7 +143,7 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction', requi
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
   const body = req.body as Record<string, unknown>;
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
@@ -236,7 +240,7 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/bid', r
     return;
   }
 
-  const isManager = await assertGuildManager(req, guildId);
+  const isManager = await assertLootManager(req, guildId, eventId);
 
   const session = await prisma.lootSession.findUnique({ where: { eventId } });
   if (!session) {
@@ -334,7 +338,7 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/bid', r
 auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/close', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
@@ -384,9 +388,9 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/close',
 // Cancel an open auction with no winner awarded.
 
 auctionRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/auction', requireAuth, async (req, res) => {
-  const { guildId, eventId: _eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
+  const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }

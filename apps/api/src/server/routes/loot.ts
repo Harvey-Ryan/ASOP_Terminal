@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { assertLootManager, assertLootViewer, assertLootCreator, lootItemParam, lootAssignmentParam } from '../../lib/lootAccess.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
@@ -25,6 +26,10 @@ import type {
 } from '@dem/shared';
 
 export const lootRouter = Router();
+
+// Items and awards in a URL must belong to that URL's event or session (v1.11.3).
+lootRouter.param('itemId', lootItemParam);
+lootRouter.param('assignmentId', lootAssignmentParam);
 
 type SessionWithItems = Prisma.LootSessionGetPayload<{
   include: { items: { include: { assignments: true } } };
@@ -271,7 +276,7 @@ lootRouter.get('/loot/my-history', requireAuth, async (req, res) => {
 lootRouter.get('/:guildId/events/:eventId/loot', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  const isViewer = await assertEventViewer(req, guildId);
+  const isViewer = await assertLootViewer(req, guildId, eventId);
   if (!isViewer) {
     const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
     if (dbUser) {
@@ -308,7 +313,7 @@ lootRouter.post('/:guildId/events/:eventId/loot', requireAuth, async (req, res) 
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
   const body = req.body as Record<string, unknown>;
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -371,7 +376,7 @@ lootRouter.patch('/:guildId/events/:eventId/loot', requireAuth, async (req, res)
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
   const body = req.body as Record<string, unknown>;
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -448,7 +453,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items', requireAuth, async (req,
   const { guildId, eventId } = req.params as { guildId: string; eventId: string; itemId: string };
   const body = req.body as Record<string, unknown>;
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -514,7 +519,7 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, as
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
   const body = req.body as Record<string, unknown>;
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -574,7 +579,7 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, as
 
 lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
   const session = await prisma.lootSession.findUnique({ where: { eventId } });
@@ -588,7 +593,7 @@ lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId', requireAuth, a
 lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/roll', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -662,7 +667,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
     throw err;
   }
 
-  const isManager = await assertGuildManager(req, guildId);
+  const isManager = await assertLootManager(req, guildId, eventId);
 
   // Fetch session with items once — needed for both auth check and assignment
   const session = await fetchSession(eventId);
@@ -775,7 +780,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
 lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  const isManager = await assertGuildManager(req, guildId);
+  const isManager = await assertLootManager(req, guildId, eventId);
   const session = await fetchSession(eventId);
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
   if (session.method !== 'SNAKE_DRAFT') { res.status(400).json({ success: false, error: 'Skip is only available for snake draft' } satisfies ApiResponse); return; }
@@ -827,7 +832,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/skip-turn', requireAuth, async (
 lootRouter.post('/:guildId/events/:eventId/loot/start-draft', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -853,7 +858,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/start-draft', requireAuth, async
 lootRouter.post('/:guildId/events/:eventId/loot/restart-draft', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -882,7 +887,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/restart-draft', requireAuth, asy
 
 lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
   await prisma.lootAssignment.deleteMany({ where: { itemId } });
@@ -895,7 +900,7 @@ lootRouter.delete('/:guildId/events/:eventId/loot/items/:itemId/assign', require
 lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId/assign/delivered', requireAuth, async (req, res) => {
   const { guildId, eventId, itemId } = req.params as { guildId: string; eventId: string; itemId: string };
 
-  if (!(await assertEventCreator(req, guildId))) {
+  if (!(await assertLootCreator(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -926,7 +931,7 @@ lootRouter.get('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, 
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
 
   // Allow any viewer, or anyone listed in the draft order
-  const isViewer = await assertEventViewer(req, guildId);
+  const isViewer = await assertLootViewer(req, guildId, eventId);
   if (!isViewer) {
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     if (!draftOrder.includes(dbUser.discordId)) {
@@ -962,7 +967,7 @@ lootRouter.put('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, 
   const session = await fetchSession(eventId);
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
 
-  const isViewer = await assertEventViewer(req, guildId);
+  const isViewer = await assertLootViewer(req, guildId, eventId);
   if (!isViewer) {
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     if (!draftOrder.includes(dbUser.discordId)) {
@@ -997,7 +1002,7 @@ lootRouter.put('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, 
 lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 
@@ -1078,7 +1083,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
 lootRouter.post('/:guildId/events/:eventId/loot/commodity-roll', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
-  if (!(await assertGuildManager(req, guildId))) {
+  if (!(await assertLootManager(req, guildId, eventId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
   }
 

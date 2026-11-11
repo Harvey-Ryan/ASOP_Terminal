@@ -31,6 +31,11 @@ if (isProd) {
   }
 }
 
+// A failed background job (a timer, a cron run, a fire-and-forget call) is
+// logged instead of stopping the API and the bot with it (v1.11.3). Request
+// errors are handled in server/app.ts.
+process.on('unhandledRejection', (err) => console.error('[API] Unhandled rejection:', err));
+
 const app = createServer();
 
 // ── UEX Corp weekly sync ───────────────────────────────────────────────────────

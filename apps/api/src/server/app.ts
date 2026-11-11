@@ -1,4 +1,5 @@
-import express from 'express';
+import express, { type ErrorRequestHandler } from 'express';
+import './asyncErrors.js';
 import cors from 'cors';
 import session from 'express-session';
 import ConnectPgSimple from 'connect-pg-simple';
@@ -267,6 +268,25 @@ export function createServer(): express.Express {
   app.use((_req, res) => {
     res.status(404).json({ success: false, error: 'Not found' } satisfies ApiResponse);
   });
+
+
+  // ── Errors ─────────────────────────────────────────────────────────────────
+  // Anything a route throws or rejects with ends here (see asyncErrors.ts):
+  // logged, and answered with JSON instead of stopping the process (v1.11.3).
+  // Client errors that are safe to show (bad JSON, body too large) keep their
+  // status and message.
+  const onError: ErrorRequestHandler = (err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    const e = err as { status?: number; statusCode?: number; expose?: boolean; message?: string };
+    const status = e.status ?? e.statusCode ?? 500;
+    if (status >= 500) console.error(`[API] ${req.method} ${req.originalUrl} failed:`, err);
+    const clientError = status >= 400 && status < 500 && e.expose;
+    res.status(clientError ? status : 500).json({
+      success: false,
+      error: clientError && e.message ? e.message : 'Something went wrong. Please try again.',
+    } satisfies ApiResponse);
+  };
+  app.use(onError);
 
   return app;
 }

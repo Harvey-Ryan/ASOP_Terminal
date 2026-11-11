@@ -735,8 +735,6 @@ export function LootPage() {
   const queryClient = useQueryClient();
   const { user, guilds } = useAuth();
   const activeGuild = guilds.find((g) => g.id === guildId);
-  const isManager = !!activeGuild && canManageGuild(activeGuild);
-
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
 
@@ -752,6 +750,9 @@ export function LootPage() {
     queryFn: () => eventsApi.get(guildId!, eventId!),
     enabled: !!guildId && !!eventId,
   });
+  // Only the host server's officers run the loot; an ally the event is shared
+  // with sees it like any member (v1.11.3).
+  const isManager = !!activeGuild && canManageGuild(activeGuild) && eventQuery.data?.guildId === guildId;
 
   const dkpQuery = useQuery({
     queryKey: ['dkp', guildId],
