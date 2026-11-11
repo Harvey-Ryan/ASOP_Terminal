@@ -71,3 +71,9 @@
 /* The kept stat panels (armour, weapons…) use the site's tokens; give them the plate look here. */
 .fab .fab-legacy .bg-card { background: #171717; }
 .fab .fab-legacy .border-border { border-color: var(--fab-line); }
+
+/* Columns that scroll on their own (desktop): dark, thin scrollbars. */
+.fab-scroll { scrollbar-width: thin; scrollbar-color: #3a3a3a transparent; }
+.fab-scroll::-webkit-scrollbar { width: 8px; }
+.fab-scroll::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 4px; }
+.fab-scroll::-webkit-scrollbar-track { background: transparent; }

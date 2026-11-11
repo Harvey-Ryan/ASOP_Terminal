@@ -656,7 +656,13 @@ function Rivets() {
 
 // ── Left: find a blueprint ───────────────────────────────────────────────────
 
-function BlueprintBrowser({ selectedUuid, onPick, className }: { selectedUuid: string | null; onPick: (uuid: string) => void; className?: string }) {
+function BlueprintBrowser({ selectedUuid, onPick, onCollapse, className }: {
+  selectedUuid: string | null;
+  onPick: (uuid: string) => void;
+  /** Wide screens, with a blueprint open: tuck the list away to give the parts room */
+  onCollapse?: () => void;
+  className?: string;
+}) {
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
   const [limit, setLimit] = useState(BROWSE_PAGE);
@@ -671,11 +677,20 @@ function BlueprintBrowser({ selectedUuid, onPick, className }: { selectedUuid: s
 
   return (
     <section aria-label="Blueprints" className={cn('flex min-w-0 flex-col gap-3', className)}>
-      <label className="flex flex-col gap-1.5">
-        <span className="fab-label">Search</span>
+      <div className="flex flex-col gap-1.5">
+        <span className="flex items-center justify-between gap-2">
+          <label htmlFor="bp-search" className="fab-label">Search</label>
+          {onCollapse && (
+            <button type="button" onClick={onCollapse} aria-label="Hide the blueprint list" aria-expanded="true" title="Hide the blueprint list"
+              className="fab-btn hidden h-8 items-center gap-1 px-2 text-xs lg:flex">
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" /> Hide
+            </button>
+          )}
+        </span>
         <span className="relative">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7a7a7a]" />
           <input
+            id="bp-search"
             type="search"
             value={q}
             onChange={(e) => { setQ(e.target.value); setLimit(BROWSE_PAGE); }}
@@ -685,7 +700,7 @@ function BlueprintBrowser({ selectedUuid, onPick, className }: { selectedUuid: s
             className="fab-input h-11 w-full pl-9 pr-3 text-[15px] outline-none"
           />
         </span>
-      </label>
+      </div>
       <label className="flex flex-col gap-1.5">
         <span className="fab-label">Type</span>
         <select value={type} onChange={(e) => { setType(e.target.value); setLimit(BROWSE_PAGE); }} className="fab-input h-10 w-full px-2 text-sm outline-none">
@@ -696,7 +711,7 @@ function BlueprintBrowser({ selectedUuid, onPick, className }: { selectedUuid: s
 
       <p className="fab-mono text-xs text-[var(--fab-faint)]" aria-live="polite">{list.length} blueprint{list.length === 1 ? '' : 's'}</p>
 
-      <div className="fab-plate flex flex-col lg:max-h-[calc(100vh-17rem)] lg:overflow-y-auto">
+      <div className="fab-plate fab-scroll flex flex-col lg:max-h-[calc(100vh-17rem)] lg:overflow-y-auto xl:max-h-none xl:min-h-0 xl:flex-1">
         {shown.map((bp) => (
           <div key={bp.uuid} className="fab-row flex items-stretch" aria-current={bp.uuid === selectedUuid ? 'true' : undefined}>
             <button type="button" onClick={() => onPick(bp.uuid)} className="flex min-w-0 flex-1 flex-col gap-1 px-3.5 py-2.5 text-left">
@@ -740,7 +755,7 @@ function PartCard({ comp, index, ql, onChange }: {
 }) {
   const id = `part-${index}`;
   return (
-    <div className="fab-part flex min-w-0 flex-col gap-2 px-3.5 py-3">
+    <div className="fab-part flex min-w-0 flex-col gap-2 px-3 py-3">
       <span className="fab-label">{comp.slot} · {String(index + 1).padStart(2, '0')}</span>
       <span className="flex items-baseline justify-between gap-2">
         <span className="text-base font-semibold text-[var(--fab-bright)]">{comp.material.name}</span>
@@ -751,7 +766,7 @@ function PartCard({ comp, index, ql, onChange }: {
       {comp.stats.length > 0 ? (
         <>
           <span className="mt-1 flex items-center justify-between gap-2">
-            <label htmlFor={id} className="fab-label">Quality</label>
+            <label htmlFor={id} className="fab-label !text-[12px] !tracking-[0.12em]">Quality</label>
             <input
               type="number"
               min={0}
@@ -759,7 +774,7 @@ function PartCard({ comp, index, ql, onChange }: {
               value={ql}
               aria-label={`${comp.material.name} quality, exact`}
               onChange={(e) => onChange(Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))))}
-              className="fab-input fab-mono h-8 w-[4.75rem] shrink-0 px-2 text-right text-sm outline-none"
+              className="fab-input fab-mono h-8 w-[4.25rem] shrink-0 px-1.5 text-right text-sm outline-none"
             />
           </span>
           <input id={id} type="range" min={0} max={1000} step={5} value={ql} onChange={(e) => onChange(Number(e.target.value))} className="w-full" />
@@ -846,7 +861,7 @@ function ContractCard({ contract, onSelectBlueprint, onDetails }: { contract: Mi
   );
 }
 
-function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: string) => void; onBack: () => void }) {
+function Workspace({ bp, onPick, onBack, wide = false }: { bp: LocalBlueprint; onPick: (uuid: string) => void; onBack: () => void; wide?: boolean }) {
   const [qls, setQls] = useState<number[]>(() => bp.components.map(() => 500));
   const [contractModal, setContractModal] = useState<MissionContract | null>(null);
   const queue = useBuildList();
@@ -908,7 +923,7 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
 
       <div>
         <h3 className="fab-stencil m-0 mb-2.5 text-base text-[var(--fab-gold-text)]">PARTS &amp; MATERIALS</h3>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3">
+        <div className={cn('grid gap-3', wide ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-[repeat(auto-fill,minmax(210px,1fr))]')}>
           {bp.components.map((comp, i) => (
             <PartCard key={`${comp.slot}-${i}`} comp={comp} index={i} ql={qls[i] ?? 500} onChange={(v) => setQls((prev) => { const n = [...prev]; n[i] = v; return n; })} />
           ))}
@@ -1082,6 +1097,8 @@ function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
 
 // ── The page ─────────────────────────────────────────────────────────────────
 
+const LIST_HIDDEN_KEY = 'asop-crafting-list-hidden';
+
 function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
@@ -1089,11 +1106,15 @@ function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
   const pick = (uuid: string) => navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`);
   const back = () => navigate(`/dashboard/servers/${guildId}/crafting-calculator`);
   const src = craftingSource();
+  const [listHidden, setListHidden] = useState(() => { try { return localStorage.getItem(LIST_HIDDEN_KEY) === '1'; } catch { return false; } });
+  const hideList = (v: boolean) => { setListHidden(v); try { localStorage.setItem(LIST_HIDDEN_KEY, v ? '1' : '0'); } catch { /* this visit only */ } };
+  // Only with a blueprint open: with none, the list is all there is to use.
+  const collapsed = !!bp && listHidden;
 
   return (
-    <div className="fab -m-6 min-h-[calc(100%+3rem)] pb-10">
-      <div aria-hidden="true" className="fab-hazard h-2 opacity-85" />
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#0d0d0d] px-5 pb-4 pt-5 shadow-[0_1px_0_#2c2c2c] sm:px-8">
+    <div className="fab -m-6 min-h-[calc(100%+3rem)] pb-10 xl:flex xl:h-[calc(100%+3rem)] xl:flex-col xl:overflow-hidden xl:pb-0">
+      <div aria-hidden="true" className="fab-hazard h-2 shrink-0 opacity-85" />
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b-2 border-[#0d0d0d] px-5 pb-4 pt-5 shadow-[0_1px_0_#2c2c2c] sm:px-8">
         <div className="flex items-center gap-4">
           <span aria-hidden="true" className="fab-stencil flex h-11 w-11 items-center justify-center border-2 border-[var(--fab-gold)] text-xl text-[var(--fab-gold-text)]">F</span>
           <div className="flex flex-col gap-0.5">
@@ -1106,20 +1127,29 @@ function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
         </span>
       </header>
 
-      <div className="flex flex-wrap items-start gap-5 px-5 pt-6 sm:px-8">
-        <BlueprintBrowser
-          selectedUuid={bp?.uuid ?? null}
-          onPick={pick}
-          className={cn('flex-[1_1_260px] lg:max-w-[340px]', bp && 'hidden lg:flex')}
-        />
-        <div className="min-w-0 flex-[999_1_480px]">
-          {bp ? <Workspace key={bp.uuid} bp={bp} onPick={pick} onBack={back} /> : selectedUuid ? (
+      <div className="flex flex-wrap items-start gap-5 px-5 pt-6 sm:px-8 xl:min-h-0 xl:flex-1 xl:flex-nowrap xl:items-stretch xl:pb-6">
+        {collapsed ? (
+          <button type="button" onClick={() => hideList(false)} aria-label="Show the blueprint list" aria-expanded="false" title="Show the blueprint list"
+            className="fab-plate hidden w-11 shrink-0 flex-col items-center gap-3 self-stretch py-4 text-[var(--fab-gold-text)] hover:text-[#f0c35a] lg:flex">
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            <span className="fab-label text-[var(--fab-gold-text)] [writing-mode:vertical-rl]">Blueprints</span>
+          </button>
+        ) : (
+          <BlueprintBrowser
+            selectedUuid={bp?.uuid ?? null}
+            onPick={pick}
+            onCollapse={bp ? () => hideList(true) : undefined}
+            className={cn('flex-[1_1_260px] lg:max-w-[340px] xl:min-h-0', bp && 'hidden lg:flex')}
+          />
+        )}
+        <div className="fab-scroll min-w-0 flex-[999_1_480px] xl:min-h-0 xl:overflow-y-auto xl:pb-1">
+          {bp ? <Workspace key={bp.uuid} bp={bp} onPick={pick} onBack={back} wide={collapsed} /> : selectedUuid ? (
             <section className="fab-plate px-6 py-10 text-center text-sm text-[var(--fab-muted)]">
               That blueprint isn't in the current game data. <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">Back to all blueprints</button>
             </section>
           ) : <EmptyWorkspace />}
         </div>
-        <div className="min-w-0 flex-[1_1_300px] lg:max-w-[380px]">
+        <div className={cn('fab-scroll min-w-0 flex-[1_1_300px] xl:min-h-0 xl:overflow-y-auto xl:pb-1', collapsed ? 'lg:max-w-[340px]' : 'lg:max-w-[380px]')}>
           <BuildListPanel onPick={pick} />
         </div>
       </div>
