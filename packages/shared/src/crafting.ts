@@ -13,6 +13,8 @@
 //      the old snapshot used (the bot's pipeline also starts from these).
 //   2. buildCraftingData turns those into what the pages show.
 
+import { buildMaterialSources, type MaterialSources, type ResourceLocationRow } from './materialSources.js';
+
 // ═══ Raw shapes (the old snapshot's format) ════════════════════════════════
 
 export interface RawBpItem { Name: string; ItemUUID: string; BlueprintUUID: string }
@@ -343,6 +345,8 @@ export interface CraftingDataDto {
   missions: MissionContract[];
   /** Base stats of crafted items, by item UUID. */
   baseStats: Record<string, ItemBaseStats>;
+  /** Where each material is mined, by lower-case material name (v1.26.0; materialSources.ts). */
+  materialSources: MaterialSources;
 }
 
 // ═══ Step 2: raw → pages ═══════════════════════════════════════════════════
@@ -547,6 +551,8 @@ export interface CraftingSourceRows {
   contracts: readonly ScContractJson[];
   /** The items blueprints make (scdata.items for each blueprint's output). */
   items: readonly CraftedItemRow[];
+  /** scdata.resource_locations (empty when sc-data doesn't have it yet) */
+  resourceLocations?: readonly ResourceLocationRow[];
 }
 
 /** Builds the pages' data for one game build. */
@@ -585,5 +591,6 @@ export function buildCraftingData(src: CraftingSourceRows): CraftingDataDto {
     obtainableUuids: blueprints.filter((b) => missionsByBlueprint.has(b.uuid)).map((b) => b.uuid),
     missions,
     baseStats,
+    materialSources: buildMaterialSources(src.resourceLocations ?? []),
   };
 }
