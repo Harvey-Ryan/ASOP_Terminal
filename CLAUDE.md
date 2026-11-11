@@ -246,3 +246,16 @@ Patch Notes — v1.1.0 — November 10
 - `GuildSettings.timezone` is only the fallback for repeating events without
   `recurTimezone` (made before v1.12); it isn't a setup step.
 
+## Loot results and the event thread (v1.22.0)
+
+- Every way a loot session completes goes through `completeLootSession()` in
+  `routes/loot.ts` (sets `LootSession.completedAt`, triggers `/trigger/loot`
+  and `/trigger/loot-complete`). Don't set `status: 'COMPLETED'` directly.
+- Event loot posts in the event's thread (and ally threads), which stay open
+  until every winner is marked delivered or 72 h after `completedAt`
+  (`closeLootThreadIfDone` / `checkLootThreadHolds` in the bot's
+  `lootService.ts`; `threadClosedAt` marks it done). Nothing else should
+  archive an event thread while that hold is running (see `checkAutoComplete`).
+- Standalone sessions post in `GuildSettings.lootChannelId`, which is
+  optional and not a setup step.
+
