@@ -665,7 +665,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                       {isMyRole ? (
                         <Button size="sm" disabled={isMutating}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => removeRsvpMutation.mutate()}>
+                          onClick={() => rsvpMutation.mutate(null)}>
                           Unassign
                         </Button>
                       ) : (
