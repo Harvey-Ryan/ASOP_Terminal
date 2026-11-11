@@ -1,3 +1,4 @@
+import type { EventHeatmapDto } from '@dem/shared';
 import { api } from './client';
 import type { ApiResponse, DiscordRoleDto, SetupChecklistDto } from '@dem/shared';
 
@@ -71,15 +72,8 @@ export interface GuildMyPermissions {
   rsiVerified: boolean;
 }
 
-export interface EventHeatmapData {
-  attendanceGrid: number[][];
-  ratioGrid: (number | null)[][];
-  eventCountGrid: number[][];
-  maxAttendance: number;
-  days: number;
-  timezone: string;
-  eventCount: number;
-}
+/** The event planning heat map (rules: packages/shared/src/heatmap.ts). */
+export type EventHeatmapData = EventHeatmapDto;
 
 function requireData<T>(r: ApiResponse<T>): T {
   if (r.data === undefined) throw new Error('Missing data in API response');
