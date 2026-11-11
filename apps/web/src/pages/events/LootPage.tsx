@@ -15,6 +15,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto } from '@dem/shared';
+import { showError } from '@/components/ErrorNotices';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -80,11 +81,13 @@ function AuctionPanel({
   const [bidInput, setBidInput] = useState('');
 
   const startMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.startAuction(guildId, eventId, item.id, { durationSecs }),
     onSuccess: onAuctionChange,
   });
 
   const bidMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.placeBid(guildId, eventId, item.id, { maxBid: Number(bidInput) }),
     onSuccess: () => { setBidInput(''); onAuctionChange(); },
   });
@@ -850,6 +853,7 @@ export function LootPage() {
   });
 
   const commodityRollMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.commodityRoll(guildId!, eventId!),
     onSuccess: invalidate,
   });
@@ -876,13 +880,13 @@ export function LootPage() {
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
-    onError: () => setSkipConfirm(false),
+    onError: (err) => { setSkipConfirm(false); showError(err.message); },
   });
 
   const startDraftMutation = useMutation({
     mutationFn: () => lootApi.startDraft(guildId!, eventId!),
     onSuccess: () => { setStartConfirm(false); invalidate(); },
-    onError: () => setStartConfirm(false),
+    onError: (err) => { setStartConfirm(false); showError(err.message); },
   });
 
   const restartDraftMutation = useMutation({
@@ -892,7 +896,7 @@ export function LootPage() {
       setPreRestartMembers(new Set(session!.draftOrder));
       invalidate();
     },
-    onError: () => setRestartConfirm(false),
+    onError: (err) => { setRestartConfirm(false); showError(err.message); },
   });
 
   async function handleShuffleAndStart() {

@@ -136,6 +136,7 @@ export function EventAuditPage() {
   const effectiveHadLoot = existingSession != null ? true : hadLoot;
 
   const completeMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: async () => {
       await eventsApi.complete(guildId!, eventId!, {
         hadLoot: effectiveHadLoot!,

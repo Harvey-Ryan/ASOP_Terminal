@@ -76,6 +76,7 @@ export function NotificationSettingsPage() {
   });
 
   const updateMut = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: notificationsApi.updatePrefs,
     onSuccess: (updated) => {
       qc.setQueryData(['notification-prefs'], updated);

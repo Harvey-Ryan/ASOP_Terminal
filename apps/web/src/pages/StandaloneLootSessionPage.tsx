@@ -17,6 +17,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, LootQueueItemDto, LootParticipant } from '@dem/shared';
+import { showError } from '@/components/ErrorNotices';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -607,6 +608,7 @@ export function StandaloneLootSessionPage() {
   });
 
   const commodityRollMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.commodityRollStandalone(guildId!, sessionId!),
     onSuccess: invalidate,
   });
@@ -619,19 +621,19 @@ export function StandaloneLootSessionPage() {
   const completeMutation = useMutation({
     mutationFn: () => lootApi.completeStandalone(guildId!, sessionId!),
     onSuccess: () => { setCompleteConfirm(false); navigate(`/dashboard/servers/${guildId}/loot?tab=history`); },
-    onError: () => setCompleteConfirm(false),
+    onError: (err) => { setCompleteConfirm(false); showError(err.message); },
   });
 
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurnStandalone(guildId!, sessionId!),
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
-    onError: () => setSkipConfirm(false),
+    onError: (err) => { setSkipConfirm(false); showError(err.message); },
   });
 
   const startDraftMutation = useMutation({
     mutationFn: () => lootApi.startDraftStandalone(guildId!, sessionId!),
     onSuccess: () => { setStartConfirm(false); invalidate(); },
-    onError: () => setStartConfirm(false),
+    onError: (err) => { setStartConfirm(false); showError(err.message); },
   });
 
   const restartDraftMutation = useMutation({
@@ -641,7 +643,7 @@ export function StandaloneLootSessionPage() {
       setPreRestartMembers(new Set(session!.draftOrder));
       invalidate();
     },
-    onError: () => setRestartConfirm(false),
+    onError: (err) => { setRestartConfirm(false); showError(err.message); },
   });
 
   const isCommodityDraftEarly = session?.method === 'COMMODITY_DRAFT';

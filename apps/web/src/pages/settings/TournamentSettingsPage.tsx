@@ -97,6 +97,7 @@ export function TournamentSettingsPage() {
   }
 
   const save = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: (data: Partial<GuildSettingsData>) => settingsApi.updateSettings(guildId!, data),
     onSuccess: (data) => {
       if (data) qc.setQueryData(['settings', guildId], data);
@@ -532,6 +533,7 @@ function ResetRankingsCard({ guildId }: { guildId: string }) {
   const [flash, setFlash] = useState(false);
 
   const reset = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => tournamentApi.resetRankings(guildId),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] });

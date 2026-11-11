@@ -781,6 +781,7 @@ function TradeChat({ trade, guildId, myDiscordId }: { trade: TradeDto; guildId: 
   });
 
   const sendMut = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: (body: string) => marketplaceApi.sendMessage(guildId, trade.id, body),
     onSuccess: () => {
       setText('');
@@ -878,6 +879,7 @@ function TradeRow({
   const declineMut = useMutation({ mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id), onSuccess: invalidate });
   const cancelMut  = useMutation({ mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),  onSuccess: invalidate });
   const markReadMut = useMutation({
+    meta: { quietErrors: true }, // a background read receipt; failing is harmless
     mutationFn: () => marketplaceApi.markAsRead(guildId, trade.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });

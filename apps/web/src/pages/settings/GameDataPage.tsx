@@ -231,6 +231,7 @@ export function GameDataPage() {
   });
 
   const syncMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => uexApi.triggerSync(guildId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['uex-status'] });

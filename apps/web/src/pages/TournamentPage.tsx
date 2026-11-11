@@ -84,13 +84,11 @@ export function TournamentPage() {
   const openMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.open(guildId!, id),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
   });
 
   const startMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.start(guildId!, id),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
   });
 
   const deleteMutation = useMutation({
@@ -101,7 +99,6 @@ export function TournamentPage() {
         old ? old.filter((t) => t.id !== deletedId) : []
       );
     },
-    onError: (e: Error) => alert(e.message),
   });
 
   const completeMutation = useMutation({
@@ -110,7 +107,6 @@ export function TournamentPage() {
       setSelectedId(null);
       qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
     },
-    onError: (e: Error) => alert(e.message),
   });
 
   const cancelMutation = useMutation({
@@ -122,34 +118,29 @@ export function TournamentPage() {
         old ? old.filter((t) => t.id !== cancelledId) : []
       );
     },
-    onError: (e: Error) => alert(e.message),
   });
 
   const resultMutation = useMutation({
     mutationFn: ({ matchId, winnerId, scoreA, scoreB, forfeit }: { matchId: string; winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean }) =>
       tournamentApi.submitResult(guildId!, detail!.id, matchId, { winnerId, scoreA, scoreB, forfeit }),
     onSuccess: () => { setResultMatch(null); invalidate(); },
-    onError: (e: Error) => alert(e.message),
   });
 
   const addParticipantMutation = useMutation({
     mutationFn: ({ id, discordId, displayName }: { id: string; discordId?: string; displayName?: string }) =>
       tournamentApi.register(guildId!, id, { discordId, displayName }),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
   });
 
   const removeParticipantMutation = useMutation({
     mutationFn: ({ id, pid }: { id: string; pid: string }) =>
       tournamentApi.removeParticipant(guildId!, id, pid),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
   });
 
   const unregisterMutation = useMutation({
     mutationFn: (id: string) => tournamentApi.unregister(guildId!, id),
     onSuccess: invalidate,
-    onError: (e: Error) => alert(e.message),
   });
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -379,7 +370,6 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
   const reorderMutation = useMutation({
     mutationFn: (order: string[]) => tournamentApi.reorder(guildId, detail.id, order),
     onSuccess: () => qcDetail.invalidateQueries({ queryKey: ['tournament-detail', detail.id] }),
-    onError: (e: Error) => alert(e.message),
   });
 
   const canManualSeed = isManager && ['DRAFT', 'REGISTRATION'].includes(detail.status) && detail.seedingMode === 'MANUAL';
@@ -726,7 +716,6 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoste
       setTeamName('');
       setMembers([{ discordId: '', displayName: '' }]);
     },
-    onError: (e: Error) => alert(e.message),
   });
 
   const updateMember = (i: number, field: 'discordId' | 'displayName', val: string) => {
@@ -1365,6 +1354,7 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
 
   const qc = useQueryClient();
   const createMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => tournamentApi.create(guildId, {
       name: name.trim(),
       openRoster,
@@ -1488,6 +1478,7 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
 
   const qc = useQueryClient();
   const updateMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => tournamentApi.update(guildId, tournament.id, {
       name: name.trim(),
       description: description.trim() || undefined,
