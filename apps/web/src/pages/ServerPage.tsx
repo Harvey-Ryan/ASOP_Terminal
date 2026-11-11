@@ -50,6 +50,8 @@ const STATUS_BADGE: Record<string, string> = {
 type Tab = 'upcoming' | 'completed' | 'pending';
 type View = 'table' | 'create' | 'detail' | 'edit';
 
+// The Event Manager's chunky gold scrollbar (Chrome/Edge/Safari), shared by its panels.
+const panelScrollCls = '[&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]';
 const rowCls = 'flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
 const labelCls = 'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-1';
 const inputCls = 'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
@@ -1487,7 +1489,7 @@ export function ServerPage() {
 
           {/* Create form */}
           {view === 'create' && (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+            <div className={`flex-1 overflow-y-auto ${panelScrollCls}`}>
               <EventCreateForm
                 guildId={guildId!}
                 onSuccess={() => {
@@ -1506,7 +1508,7 @@ export function ServerPage() {
 
           {/* Detail view */}
           {view === 'detail' && detailEvent && (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+            <div className={`flex-1 overflow-y-auto ${panelScrollCls}`}>
               <EventDetailView
                 event={detailEvent}
                 guildId={guildId!}
@@ -1520,7 +1522,7 @@ export function ServerPage() {
 
           {/* Edit view */}
           {view === 'edit' && detailEvent && (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+            <div className={`flex-1 overflow-y-auto ${panelScrollCls}`}>
               <EventEditView
                 event={detailEvent}
                 guildId={guildId!}
@@ -1569,7 +1571,7 @@ export function ServerPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto bg-primary [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+                <div className={`flex-1 overflow-y-auto bg-primary ${panelScrollCls}`}>
                   {tab === 'pending'
                     ? active.data.map((e) => (
                         <PendingShareCard
