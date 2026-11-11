@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { requestLoggingOn } from '../../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const trafficRouter = Router();
@@ -39,6 +40,10 @@ trafficRouter.get('/:guildId/traffic', requireAuth, async (req, res) => {
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  if (!requestLoggingOn()) {
+    res.status(404).json({ success: false, error: 'Traffic metering is switched off.' } satisfies ApiResponse);
     return;
   }
 

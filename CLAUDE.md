@@ -217,3 +217,20 @@ Patch Notes — v1.1.0 — November 10
   server and, for ALLIES/GLOBAL jobs, of its allies (never unrelated servers;
   they see GLOBAL jobs on the website). `/trigger/job/:id` re-syncs the posts
   (`Job.messages`) and, with `{ taken }`, DMs the poster.
+
+## Module audit (v1.21.1)
+
+- Every `/api/guilds/:guildId/...` route checks the person against that
+  server, not only "signed in": readers need `assertEventViewer`, officers
+  `assertEventCreator`, settings `assertModuleEditor` (`lib/`). Activity
+  (`routes/rolecall.ts` passes on only whitelisted parameters), the Member Map
+  and Tournaments (one middleware on `/:guildId/tournaments`) were fixed here.
+  A new route gets the same check.
+- Request logging (`RequestLog`, the Traffic page) is off unless
+  `REQUEST_LOG=on`; the table stays modelled and pruned. The admin overview's
+  "people signed in" counts live sessions.
+- Nominatim (member map search) goes through `nominatim()` in
+  `routes/memberPins.ts`: one request at a time, ≥1.1 s apart, cached a day.
+- Platform-admin-only things use `isPlatformAdminId` / `useAuth().isPlatformAdmin`
+  (roadmap board, the tournament Lifecycle Test); never a hard-coded id.
+

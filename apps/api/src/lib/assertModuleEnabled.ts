@@ -1,6 +1,6 @@
 import { prisma } from './prisma.js';
 
-type ModuleKey = 'eventBotEnabled' | 'dkpEnabled' | 'lootEnabled' | 'exchangeEnabled' | 'fleetEnabled' | 'activityEnabled' | 'jobsEnabled';
+type ModuleKey = 'eventBotEnabled' | 'dkpEnabled' | 'lootEnabled' | 'exchangeEnabled' | 'fleetEnabled' | 'activityEnabled' | 'jobsEnabled' | 'tournamentsEnabled';
 
 export async function assertModuleEnabled(guildId: string, module: ModuleKey): Promise<boolean> {
   const guild = await prisma.guild.findUnique({
@@ -15,6 +15,7 @@ export async function assertModuleEnabled(guildId: string, module: ModuleKey): P
           fleetEnabled: true,
           activityEnabled: true,
           jobsEnabled: true,
+          tournamentsEnabled: true,
         },
       },
     },

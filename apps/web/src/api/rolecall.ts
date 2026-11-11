@@ -1,12 +1,5 @@
 import { api } from './client';
 
-export interface RcGuild {
-  id: string;
-  name: string;
-  icon: string | null;
-  memberCount: number;
-}
-
 export interface RcStats {
   total_members: string;
   total_messages: string;
@@ -135,9 +128,6 @@ export interface RcHeatmap {
 }
 
 export const roleCallApi = {
-  getGuilds: () =>
-    api.get<RcGuild[]>('/rolecall/guilds'),
-
   getStats: (guildId: string) =>
     api.get<RcStats>(`/rolecall/stats?guildId=${encodeURIComponent(guildId)}`),
 

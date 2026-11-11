@@ -9,6 +9,7 @@ import { settingsApi } from '@/api/settings';
 import { tournamentApi } from '@/api/tournament';
 import { ChannelSelect, ToggleSwitch } from '@/components/settings/SettingsControls';
 import type { GuildSettingsData } from '@/api/settings';
+import { useAuth } from '@/hooks/useAuth';
 
 type StepState = 'idle' | 'running' | 'done' | 'error';
 interface TestStep { label: string; state: StepState; detail?: string; }
@@ -34,6 +35,9 @@ export function TournamentSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  // The lifecycle test posts in the server's real tournament forum and gives the
+  // fake players ratings, so it's a platform-admin tool only (v1.21.1).
+  const { isPlatformAdmin } = useAuth();
 
   const { data: saved, isLoading: settingsLoading } = useQuery({
     queryKey: ['settings', guildId],
@@ -435,8 +439,8 @@ export function TournamentSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* ── Lifecycle test ─────────────────────────────────────────────────── */}
-      <Card>
+      {/* ── Lifecycle test (platform admins only) ──────────────────────────── */}
+      {isPlatformAdmin && <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Lifecycle Test</CardTitle>
         </CardHeader>
@@ -518,7 +522,7 @@ export function TournamentSettingsPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* ── Reset Rankings ─────────────────────────────────────────────────── */}
       <ResetRankingsCard guildId={guildId!} />

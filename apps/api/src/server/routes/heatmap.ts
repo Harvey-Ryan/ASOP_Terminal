@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
+import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const heatmapRouter = Router();
@@ -8,6 +10,15 @@ export const heatmapRouter = Router();
 // GET /api/guilds/:guildId/heatmap/events?days=180&timezone=UTC
 heatmapRouter.get('/:guildId/heatmap/events', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
+  // Officers, or members when the server lets them see heat maps (v1.21.1: there was no check).
+  const officer = await assertEventCreator(req, guildId);
+  if (!officer) {
+    const g = await prisma.guild.findUnique({ where: { guildId }, select: { settings: { select: { activityHeatmapPublic: true } } } });
+    if (!(await assertEventViewer(req, guildId)) || g?.settings?.activityHeatmapPublic === false) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+      return;
+    }
+  }
   const days = Math.min(365, Math.max(1, Number(req.query.days ?? 180)));
   const timezone = (req.query.timezone as string | undefined) ?? 'UTC';
 

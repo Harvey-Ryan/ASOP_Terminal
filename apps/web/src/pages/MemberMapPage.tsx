@@ -910,8 +910,10 @@ export function MemberMapPage() {
     queryKey:  ['member-pins', guildId],
     queryFn:   () => memberPinsApi.list(guildId!),
     enabled:   !!guildId,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    // Pins rarely move; your own changes refresh at once, and coming back to
+    // the tab refetches. (Was every 60 s, each one also a timezone backfill.)
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
   const { data: myPin } = useQuery({

@@ -44,6 +44,7 @@ import { ValidationError } from '../../lib/validate.js';
 import { applySettingsPatch, parseSettingsPatch } from '../../lib/guildSettings.js';
 import { cachedDiscordGet } from '../../lib/discordRest.js';
 import { triggerBot } from '../../lib/triggerBot.js';
+import { requestLoggingOn } from '../../lib/requestLogger.js';
 import type { ErrorEvent, Prisma } from '@prisma/client';
 
 export const adminRouter = Router();
@@ -108,6 +109,7 @@ adminRouter.get('/overview', async (_req, res) => {
   await prisma.$queryRaw`SELECT 1`;
   const dbLatency = Date.now() - t0;
 
+  const logging = requestLoggingOn();
   const [beats, gameData, guilds, joined7d, left7d, lastHour, bySource, warnings24h, kinds24h, openKinds, requests, failed, slowest,
     upcoming, live, openLoot, activeUsers, hourly, config] = await Promise.all([
     prisma.serviceHeartbeat.findMany(),
@@ -124,13 +126,14 @@ adminRouter.get('/overview', async (_req, res) => {
     prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM (SELECT e.fingerprint FROM "ErrorEvent" e LEFT JOIN "ErrorGroupState" s ON s.fingerprint = e.fingerprint
       WHERE e.level = 'error' AND e."createdAt" >= ${new Date(now - 7 * DAY)} GROUP BY e.fingerprint, s.status, s."resolvedAt"
       HAVING coalesce(s.status, 'open') = 'open' OR (s.status = 'resolved' AND max(e."createdAt") > s."resolvedAt")) k`,
-    prisma.requestLog.count({ where: { createdAt: { gte: since24h } } }),
-    prisma.requestLog.count({ where: { createdAt: { gte: since24h }, statusCode: { gte: 500 } } }),
-    prisma.requestLog.aggregate({ where: { createdAt: { gte: since24h } }, _max: { durationMs: true } }),
+    logging ? prisma.requestLog.count({ where: { createdAt: { gte: since24h } } }) : 0,
+    logging ? prisma.requestLog.count({ where: { createdAt: { gte: since24h }, statusCode: { gte: 500 } } }) : 0,
+    logging ? prisma.requestLog.aggregate({ where: { createdAt: { gte: since24h } }, _max: { durationMs: true } }) : null,
     prisma.event.count({ where: { status: 'PENDING', startTime: { gte: new Date(now) } } }),
     prisma.event.count({ where: { status: 'ACTIVE' } }),
     prisma.lootSession.count({ where: { status: 'OPEN' } }),
-    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(DISTINCT "userId") AS n FROM "RequestLog" WHERE "createdAt" >= ${new Date(now - 7 * DAY)}`,
+    // Signed in during the last 7 days: sign-ins last 7 days, so a live session is one.
+    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(DISTINCT sess->>'userId') AS n FROM "session" WHERE expire > now() AND sess->>'userId' IS NOT NULL`,
     prisma.$queryRaw<{ hour: Date; errors: bigint; warnings: bigint }[]>`
       SELECT date_trunc('hour', "createdAt") AS hour,
              count(*) FILTER (WHERE level = 'error') AS errors,
@@ -176,7 +179,7 @@ adminRouter.get('/overview', async (_req, res) => {
       newKinds24h: Number(kinds24h[0]?.n ?? 0),
       openKinds: Number(openKinds[0]?.n ?? 0),
     },
-    requests: { last24h: requests, failed24h: failed, slowest24hMs: slowest._max.durationMs ?? 0 },
+    requests: logging ? { last24h: requests, failed24h: failed, slowest24hMs: slowest?._max.durationMs ?? 0 } : null,
     activity: { upcomingEvents: upcoming, liveEvents: live, openLootSessions: openLoot, activeUsers7d: Number(activeUsers[0]?.n ?? 0) },
     errorsByHour,
     feed: { configured: !!config?.feedChannelId, alertsEnabled: config?.alertsEnabled ?? true, digestEnabled: config?.digestEnabled ?? true },

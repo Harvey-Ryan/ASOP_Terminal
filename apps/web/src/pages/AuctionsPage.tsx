@@ -271,7 +271,9 @@ export function AuctionsPage() {
     queryKey: ['auctions', guildId],
     queryFn: () => auctionsApi.list(guildId!),
     enabled: !!guildId,
-    refetchInterval: 2000,
+    // Live while an auction is open (bids and the closing moment); otherwise
+    // just enough to notice a new auction someone started from Discord.
+    refetchInterval: (q) => (q.state.data?.some((a) => a.status === 'OPEN') ? 3000 : 30_000),
   });
 
   const eventsQuery = useQuery({
