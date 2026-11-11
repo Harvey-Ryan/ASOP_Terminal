@@ -182,8 +182,8 @@ describe('servers', () => {
     const b = list.find((x) => x.guildId === g.guildId)!;
     expect(b.modules['lootEnabled']).toBe(false);
     expect(b.modules['eventBotEnabled']).toBe(true);
-    expect(b.setupIssues.join(' ')).toMatch(/No event forum/);
-    expect(b.setupIssues.join(' ')).toMatch(/Time zone/);
+    expect(b.setupIssues.join(' ')).toMatch(/event forum/);
+    expect(b.setupIssues.join(' ')).toMatch(/time zone/);
     expect(b.setupIssues.join(' ')).not.toMatch(/loot results/);
     expect(b.counts.upcomingEvents).toBe(1);
   });

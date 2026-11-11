@@ -11,6 +11,7 @@ import { handleShareButton } from './services/shareNoticeService.js';
 import { invalidateStatusTargets } from './services/statusService.js';
 import { startInternalServer } from './internal.js';
 import { botHeartbeat, captureBotConsole, botErrors, withInteraction, withRef } from './utils/errorLog.js';
+import { sendWelcome } from './services/welcomeService.js';
 import { adminFeedTick } from './services/adminFeedService.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
@@ -119,6 +120,8 @@ client.on(Events.GuildCreate, async (guild) => {
     void adminFeedTick();
     // Instant slash commands for the new server (only it is sent; v1.11.1).
     await registerCommands().catch((err) => console.error(`[bot] Registering commands for ${guild.id} failed:`, err));
+    // "Welcome to ASOP!" DM to whoever added the bot, pointing to the setup checklist (v1.15.0).
+    await sendWelcome(guild);
   } catch (err) {
     console.error(`[bot] GuildCreate sync failed for ${guild.name} (${guild.id}):`, err);
   }

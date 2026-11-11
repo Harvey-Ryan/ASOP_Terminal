@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, DiscordRoleDto } from '@dem/shared';
+import type { ApiResponse, DiscordRoleDto, SetupChecklistDto } from '@dem/shared';
 
 export interface DiscordChannel {
   id: string;
@@ -95,6 +95,13 @@ export const settingsApi = {
 
   updateSettings: (guildId: string, data: Partial<GuildSettingsData>) =>
     api.patch<ApiResponse<GuildSettingsData>>(`/guilds/${guildId}/settings`, data).then(requireData),
+
+  /** The setup checklist (v1.15.0); null for people who can't change settings. */
+  getSetup: (guildId: string) =>
+    api.get<ApiResponse<SetupChecklistDto | null>>(`/guilds/${guildId}/setup`).then((r) => r.data ?? null),
+
+  setSetupHidden: (guildId: string, hidden: boolean) =>
+    api.put<ApiResponse<{ hidden: boolean }>>(`/guilds/${guildId}/setup/hidden`, { hidden }).then(requireData),
 
   getMyPermissions: (guildId: string) =>
     api.get<ApiResponse<GuildMyPermissions>>(`/guilds/${guildId}/my-permissions`).then(requireData),

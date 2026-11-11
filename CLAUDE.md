@@ -146,3 +146,16 @@ Patch Notes — v1.1.0 — November 10
   event row (`lockEvent`): API `lib/waitlist.ts`, bot
   `services/waitlistService.ts` (keep the two in step). The bot DMs whoever
   moved in; the API asks it to with `/trigger/waitlist-moved/:eventId`.
+
+## Setup checklist (v1.15.0)
+
+- What a server still needs is decided in `packages/shared/src/setup.ts`
+  (`setupChecklist`), including the bot's Discord permissions in the channels
+  it was given (`channelPermissions`). The admin panel's "looks unfinished"
+  list is the same checklist without the Discord checks (`setupProblems`).
+- Officers see it via `GET /api/guilds/:guildId/setup` (null for others): a
+  card on the server page until done or hidden (`GuildSettings.setupHidden`),
+  and always on Module Settings. A new channel setting the bot needs belongs
+  in the checklist too.
+- When the bot joins a server it DMs "Welcome to ASOP!" to whoever added it
+  (`services/welcomeService.ts`).
