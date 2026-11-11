@@ -12,6 +12,7 @@ import {
   type GameDataStatus,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
+import { getCraftingPayload } from '../../lib/craftingData.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { getPlatformAdmin } from '../../lib/platformAdmin.js';
 
@@ -33,6 +34,33 @@ async function readStatus(): Promise<GameDataStatus> {
 }
 
 // ── GET /api/game-data/status ─────────────────────────────────────────────────
+
+// GET /api/game-data/crafting: everything the Blueprints and Crafting
+// Calculator pages show (v1.11.2), built from sc-data and cached per game build.
+// Sent compressed when the browser accepts it; unchanged builds answer 304.
+gameDataRouter.get('/game-data/crafting', requireAuth, async (req, res) => {
+  try {
+    const p = await getCraftingPayload();
+    if (!p) {
+      res.status(503).json({ success: false, error: 'Game data isn\'t available yet. Try again in a few minutes.' } satisfies ApiResponse);
+      return;
+    }
+    res.setHeader('ETag', p.etag);
+    res.setHeader('Cache-Control', 'private, no-cache'); // revalidate each visit; 304 when the build hasn't changed
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (req.headers['if-none-match'] === p.etag) { res.status(304).end(); return; }
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+      res.setHeader('Content-Encoding', 'gzip');
+      res.end(p.gzip);
+    } else {
+      res.end(p.json);
+    }
+  } catch (err) {
+    console.error('[crafting] GET /game-data/crafting:', err);
+    res.status(500).json({ success: false, error: 'Could not load the game data' } satisfies ApiResponse);
+  }
+});
 
 gameDataRouter.get('/game-data/status', requireAuth, async (req, res) => {
   try {

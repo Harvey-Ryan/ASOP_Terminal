@@ -22,6 +22,7 @@ import { MarketplacePage } from './pages/MarketplacePage';
 import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
 import { FleetPage } from './pages/FleetPage';
 import { BlueprintsPage } from './pages/BlueprintsPage';
+import { CraftingDataGate } from './components/CraftingDataGate';
 import { CraftingCalculatorPage, CraftingCalculatorDetailPage } from './pages/CraftingCalculatorPage';
 import { BlueprintsSettingsPage } from './pages/settings/BlueprintsSettingsPage';
 import { CraftingCalculatorSettingsPage } from './pages/settings/CraftingCalculatorSettingsPage';
@@ -86,9 +87,9 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />
           <Route path="servers/:guildId/loot" element={<LootModulePage />} />
           <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
-          <Route path="servers/:guildId/blueprints" element={<BlueprintsPage />} />
-          <Route path="servers/:guildId/crafting-calculator" element={<CraftingCalculatorPage />} />
-          <Route path="servers/:guildId/crafting-calculator/:blueprintUuid" element={<CraftingCalculatorDetailPage />} />
+          <Route path="servers/:guildId/blueprints" element={<CraftingDataGate><BlueprintsPage /></CraftingDataGate>} />
+          <Route path="servers/:guildId/crafting-calculator" element={<CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate>} />
+          <Route path="servers/:guildId/crafting-calculator/:blueprintUuid" element={<CraftingDataGate><CraftingCalculatorDetailPage /></CraftingDataGate>} />
           <Route path="servers/:guildId/settings/modules/blueprints" element={<BlueprintsSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<CraftingCalculatorSettingsPage />} />
 

@@ -1,79 +1,24 @@
 // Game data for the /blueprint and /material commands.
 //
-// Two sources, same shapes:
-//   - "scdata": our own copy of the Star Citizen Wiki data in Postgres, kept
-//     current by the sc-data worker (apps/sc-data). Adapted to the raw shapes
-//     below in gamedataScdata.ts, so everything after that is shared.
-//   - "legacy": the frozen JSON in packages/shared/src/Filtered Data.
-// loadGameData() picks scdata (falling back to legacy if it's empty or
-// unreachable; GAME_DATA_SOURCE=legacy forces legacy) and reloads when a new
-// game build lands. Commands read through the getters at the bottom.
+// From our own copy of the Star Citizen Wiki data in Postgres, kept current by
+// the sc-data worker (apps/sc-data). gamedataScdata.ts reads it and adapts it
+// to the raw shapes in packages/shared/src/crafting.ts; everything after that
+// is here. loadGameData() runs at startup and every 10 minutes, and reloads
+// when a new game build lands. Commands read through the getters at the bottom.
+//
+// v1.11.2: the fallback to the frozen JSON snapshot (packages/shared/src/
+// Filtered Data) is gone, with the snapshot. Until sc-data answers, the store
+// is empty and the next reload tries again.
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { resolve, dirname } from 'node:path';
+// ── Raw shapes (shared with the API: packages/shared/src/crafting.ts) ────────
 
-// ── Path resolution ───────────────────────────────────────────────────────────
-// Works from both src/ (tsx dev) and dist/ (node build) since both are 3 levels
-// below the monorepo root.
-
-const DATA_DIR = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../packages/shared/src/Filtered Data',
-);
-
-function loadJson<T>(file: string): T {
-  const raw = readFileSync(resolve(DATA_DIR, file), 'utf8').replace(/^﻿/, '');
-  return JSON.parse(raw) as T;
-}
-
-// ── Mission contract raw JSON shapes ─────────────────────────────────────────
-
-export interface RawBpItem {
-  Name: string;
-  ItemUUID: string;
-  BlueprintUUID: string;
-}
-
-export interface RawBpPool {
-  Chance: number;
-  PoolUUID: string;
-  Items: RawBpItem | RawBpItem[];
-}
-
-export interface RawDifficulty {
-  MechanicalSkill?: string;
-  MentalLoad?: string;
-  RiskOfLoss?: string;
-  GameKnowledge?: string;
-  Profile?: string;
-}
-
-export interface RawStanding {
-  Name?: string;
-  MinReputation?: number;
-}
-
-export interface RawReputation {
-  Faction?: string;
-  XP?: number;
-  Scope?: string;
-}
-
-export interface RawMission {
-  Title?: string;
-  Description?: string;
-  MissionType?: string;
-  MissionGiver?: string;
-  Faction?: string;
-  Locations?: string[];
-  BlueprintPool?: RawBpPool[];
-  Reputation?: RawReputation[];
-  Difficulty?: RawDifficulty;
-  TimeToCompleteMinutes?: number;
-  MinStanding?: RawStanding;
-  Illegal?: boolean;
-}
+import type {
+  RawBpItem, RawMission, RawResource, RawLocalBlueprint,
+} from '@dem/shared';
+export type {
+  RawBpItem, RawBpPool, RawDifficulty, RawStanding, RawReputation, RawMission,
+  RawResource, RawStat, RawMaterial, RawComponent, RawDismantle, RawLocalBlueprint,
+} from '@dem/shared';
 
 // ── Exported types ────────────────────────────────────────────────────────────
 
@@ -250,53 +195,6 @@ function buildContracts(raw: RawMission[]): MissionContract[] {
 // Blueprint + Resource data (Blueprints.json / Resources.json)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ── Raw JSON shapes ───────────────────────────────────────────────────────────
-
-export interface RawResource { UUID: string; Name: string }
-
-export interface RawStat {
-  Key:             string;
-  Label:           string;
-  QualityMin:      number;
-  QualityMax:      number;
-  MultiplierAtMin: number;
-  MultiplierAtMax: number;
-  UnitFormat:      string | null;
-}
-
-export interface RawMaterial {
-  UUID:        string | null;
-  Name:        string | null;
-  Kind:        string;
-  Quantity:    number | null;
-  QuantityScu: number | null;
-  MinQuality:  number | null;
-}
-
-export interface RawComponent {
-  Slot:     string;
-  Material: RawMaterial;
-  Stats:    RawStat[];
-}
-
-export interface RawDismantle {
-  TimeSeconds: number | null;
-  Efficiency:  number | null;
-}
-
-export interface RawLocalBlueprint {
-  UUID:             string;
-  Key:              string;
-  Name:             string;
-  ItemUUID:         string;
-  Type:             string;
-  Subtype:          string | null;
-  Grade:            string | null;
-  CraftTimeSeconds: number;
-  Components:       RawComponent[];
-  Dismantle:        RawDismantle | null;
-}
-
 // ── Exported types ────────────────────────────────────────────────────────────
 
 export interface LocalMaterial {
@@ -413,7 +311,8 @@ function buildBlueprints(raw: RawLocalBlueprint[], resources: RawResource[]): Lo
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export interface GameDataSource {
-  kind: 'scdata' | 'legacy';
+  /** 'none' until sc-data has answered. */
+  kind: 'scdata' | 'none';
   /** Game build, e.g. "4.10.2-LIVE.12881860" (scdata only) */
   build: string | null;
   /** Upstream commit the data came from (scdata only) */
@@ -477,55 +376,42 @@ export function buildStore(raw: RawGameData, source: GameDataSource): Store {
   };
 }
 
-export function loadLegacyRaw(): RawGameData {
-  return {
-    blueprints: loadJson<RawLocalBlueprint[]>('Blueprints.json'),
-    resources: loadJson<RawResource[]>('Resources.json'),
-    missions: loadJson<RawMission[]>('Missions.json'),
-  };
-}
+const EMPTY: RawGameData = { blueprints: [], resources: [], missions: [] };
 
 let store: Store | null = null;
 
 function current(): Store {
-  if (!store) {
-    // Commands only run after loadGameData() at startup; this is a safety net.
-    store = buildStore(loadLegacyRaw(), { kind: 'legacy', build: null, commit: null, loadedAt: new Date() });
-  }
+  // Commands only run after loadGameData() at startup; this is a safety net.
+  if (!store) store = buildStore(EMPTY, { kind: 'none', build: null, commit: null, loadedAt: new Date() });
   return store;
 }
 
 /**
- * Loads game data from scdata (or legacy if forced, empty or unreachable).
- * Safe to call repeatedly: with scdata it only reloads when the build changed.
+ * Loads game data from sc-data. Safe to call repeatedly: it only reloads when
+ * the game build changed. If sc-data can't be read, whatever is loaded stays
+ * (or nothing, at startup) and the next call tries again.
  */
 export async function loadGameData(): Promise<GameDataSource> {
-  const wantLegacy = (process.env['GAME_DATA_SOURCE'] ?? 'scdata').toLowerCase() === 'legacy';
-  if (!wantLegacy) {
-    try {
-      const { scdataCommit, loadScdataRaw } = await import('./gamedataScdata.js');
-      const commit = await scdataCommit();
-      if (commit && store?.source.kind === 'scdata' && store.source.commit === commit) return store.source;
-      if (commit) {
-        const { raw, build } = await loadScdataRaw();
-        const next = buildStore(raw, { kind: 'scdata', build, commit, loadedAt: new Date() });
-        if (next.blueprints.length > 0) {
-          store = next;
-          console.log(`[gamedata] Loaded game build ${build ?? commit.slice(0, 12)} from scdata: ${next.blueprints.length} blueprints, ${new Set([...next.contractsByBlueprint.values()].flat()).size} mission contracts`);
-          return store.source;
-        }
-        console.warn('[gamedata] scdata has no blueprints; using legacy data');
-      } else {
-        console.warn('[gamedata] scdata not set up yet; using legacy data');
+  try {
+    const { scdataCommit, loadScdataRaw } = await import('./gamedataScdata.js');
+    const commit = await scdataCommit();
+    if (commit && store?.source.kind === 'scdata' && store.source.commit === commit) return store.source;
+    if (commit) {
+      const { raw, build } = await loadScdataRaw();
+      const next = buildStore(raw, { kind: 'scdata', build, commit, loadedAt: new Date() });
+      if (next.blueprints.length > 0) {
+        store = next;
+        console.log(`[gamedata] Loaded game build ${build ?? commit.slice(0, 12)} from scdata: ${next.blueprints.length} blueprints, ${new Set([...next.contractsByBlueprint.values()].flat()).size} mission contracts`);
+        return store.source;
       }
-    } catch (err) {
-      console.error('[gamedata] Could not load scdata; using legacy data:', err instanceof Error ? err.message : err);
+      console.warn('[gamedata] scdata has no blueprints yet; trying again on the next reload');
+    } else {
+      console.warn('[gamedata] scdata not set up yet; trying again on the next reload');
     }
+  } catch (err) {
+    console.error('[gamedata] Could not load scdata (trying again on the next reload):', err instanceof Error ? err.message : err);
   }
-  if (store?.source.kind === 'legacy') return store.source;
-  store = buildStore(loadLegacyRaw(), { kind: 'legacy', build: null, commit: null, loadedAt: new Date() });
-  console.log(`[gamedata] Loaded legacy data: ${store.blueprints.length} blueprints`);
-  return store.source;
+  return current().source;
 }
 
 // ── Getters used by commands ─────────────────────────────────────────────────
@@ -549,5 +435,5 @@ export function gameDataFooter(): string {
   const s = current().source;
   return s.kind === 'scdata'
     ? `Game data: ${s.build ?? s.commit?.slice(0, 12) ?? 'current'} (Star Citizen Wiki)`
-    : 'Game data: legacy snapshot (June 2026)';
+    : 'Game data is still loading. Try again in a few minutes.';
 }

@@ -4,8 +4,8 @@ import { Search, X, ChevronLeft, ChevronRight, Clock, Wrench, Layers, MapPin, Fi
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  BLUEPRINT_TYPES,
-  MISSION_CONTRACTS,
+  blueprintTypes,
+  missionContracts,
   searchBlueprints,
   getBlueprintByUuid,
   getBaseStats,
@@ -459,7 +459,7 @@ function WeaponStats({
   const dmgM = mults['weapon_damage']   ?? 1;
   const rpmM = mults['weapon_firerate'] ?? 1;
   if (base.modes.length === 0) {
-    return <p className="text-xs text-muted-foreground/60 italic">No fire mode data available in local dataset.</p>;
+    return <p className="text-xs text-muted-foreground/60 italic">No fire mode data for this weapon in the game data.</p>;
   }
   return (
     <div className="space-y-2">
@@ -874,7 +874,7 @@ function BlueprintDetail({ bp, onClose }: { bp: LocalBlueprint; onClose: () => v
   }
 
   const relevantContracts = useMemo(
-    () => MISSION_CONTRACTS.filter(mc =>
+    () => missionContracts().filter(mc =>
       mc.pools.some(pool => pool.blueprints.some(entry => entry.blueprintUuid === bp.uuid))
     ),
     [bp.uuid],
@@ -1086,7 +1086,7 @@ export function CraftingCalculatorPage() {
             className="w-full sm:w-44 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">All types</option>
-            {BLUEPRINT_TYPES.map(t => (
+            {blueprintTypes().map(t => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>

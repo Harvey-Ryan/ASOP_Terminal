@@ -1103,3 +1103,4 @@ export * from './gameData.js';
 export * from './recurrence.js';
 export * from './catalog.js';
 export * from './allies.js';
+export * from './crafting.js';

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cron from 'node-cron';
 import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
+import { getCraftingPayload } from './lib/craftingData.js';
 import { linkInventoryOnStartup } from './lib/catalog.js';
 import { migrateLegacyAlliancesOnStartup } from './lib/allies.js';
 import { prisma } from './lib/prisma.js';
@@ -67,6 +68,9 @@ app.listen(PORT, async () => {
 
   // Link saved inventory entries to game items (sc-data); logs what couldn't be linked.
   void linkInventoryOnStartup();
+
+  // Build the Blueprints / Crafting Calculator data now, so the first visitor doesn't wait (v1.11.2).
+  void getCraftingPayload().catch((err) => console.error('[crafting] Warm-up failed (built on first request instead):', err));
 
   // Copy old alliances and 1-to-1 ally links into the ally list (v1.9.0; logs what moved).
   void migrateLegacyAlliancesOnStartup();
