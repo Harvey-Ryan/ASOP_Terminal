@@ -1,58 +1,12 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
-  RefreshCw, CheckCircle2, XCircle, Loader2, Database, Clock,
-  AlertTriangle, Search, Rocket, Package, Star, MapPin, ShoppingBag,
+  Loader2, Database, Search, Rocket, Package, Star, MapPin, ShoppingBag,
   Pickaxe, Tag, Factory, Globe,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { scApi } from '@/api/sc';
 import { GameDataPipelineCard } from '@/components/GameDataPipelineCard';
 import { useDebounce } from '@/hooks/useDebounce';
-import type { ScSyncLogDto } from '@dem/shared';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000), hours = Math.floor(diff / 3_600_000), days = Math.floor(diff / 86_400_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
-}
-
-function duration(log: ScSyncLogDto) {
-  if (!log.completedAt) return '—';
-  const secs = Math.round((new Date(log.completedAt).getTime() - new Date(log.startedAt).getTime()) / 1000);
-  return secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m ${secs % 60}s`;
-}
-
-function fmt(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === 'RUNNING') return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[11px] font-medium text-amber-500">
-      <Loader2 className="h-3 w-3 animate-spin" /> Running
-    </span>
-  );
-  if (status === 'SUCCESS') return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 border border-green-500/30 px-2 py-0.5 text-[11px] font-medium text-green-500">
-      <CheckCircle2 className="h-3 w-3" /> Success
-    </span>
-  );
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 border border-destructive/30 px-2 py-0.5 text-[11px] font-medium text-destructive">
-      <XCircle className="h-3 w-3" /> Failed
-    </span>
-  );
-}
 
 // ── Result card ───────────────────────────────────────────────────────────────
 
@@ -143,7 +97,7 @@ function SearchPanel() {
   const dq = useDebounce(query, 300);
   const enabled = dq.length >= 2;
 
-  const blueprints     = useQuery<unknown[], Error>({ queryKey: ['sc-blueprints', dq],     queryFn: () => scApi.getBlueprints({ q: dq }),     enabled: enabled && tab === 'blueprints',      staleTime: 60_000 });
+  const blueprints     = useQuery({ queryKey: ['sc-blueprints', dq],     queryFn: () => scApi.getBlueprints(dq),     enabled: enabled && tab === 'blueprints',      staleTime: 60_000 });
   const shipItems      = useQuery({ queryKey: ['sc-ship-items', dq],     queryFn: () => scApi.getShipItems(dq),     enabled: enabled && tab === 'ship-items',      staleTime: 60_000 });
   const commodities    = useQuery({ queryKey: ['sc-commodities', dq],    queryFn: () => scApi.getCommodities(dq),    enabled: enabled && tab === 'commodities',     staleTime: 60_000 });
   const resources      = useQuery({ queryKey: ['sc-resources', dq],      queryFn: () => scApi.getResources(dq),      enabled: enabled && tab === 'resources',       staleTime: 60_000 });
@@ -234,45 +188,9 @@ function SearchPanel() {
   );
 }
 
-// ── Sync panel ────────────────────────────────────────────────────────────────
+// ── About panel ───────────────────────────────────────────────────────────────
 
-function SyncPanel() {
-  const { guildId } = useParams<{ guildId: string }>();
-  const queryClient = useQueryClient();
-
-  const statusQuery = useQuery({
-    queryKey: ['sc-status'],
-    queryFn: () => scApi.getStatus(),
-    refetchInterval: (q) => (q.state.data?.isRunning ? 3000 : false),
-  });
-
-  const syncMutation = useMutation({
-    mutationFn: () => scApi.triggerSync(guildId!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sc-status'] }),
-  });
-
-  const status = statusQuery.data;
-  const isRunning = status?.isRunning ?? false;
-  const lastSync  = status?.lastSync ?? null;
-
-  type DetailCounts = {
-    manufacturers?: number; starmapEntries?: number; tradeLocations?: number;
-    tags?: number; commodities?: number; resourceLocations?: number;
-    resources?: number; labels?: number; shipItemsAdded?: number; shipItemsUpdated?: number;
-  };
-  const details: DetailCounts = lastSync?.detailsJson ? JSON.parse(lastSync.detailsJson as unknown as string) : {};
-
-  const countTiles: { label: string; key: keyof DetailCounts }[] = [
-    { label: 'Manufacturers', key: 'manufacturers' },
-    { label: 'Starmap',       key: 'starmapEntries' },
-    { label: 'Trade Locs',    key: 'tradeLocations' },
-    { label: 'Commodities',   key: 'commodities' },
-    { label: 'Resources',     key: 'resources' },
-    { label: 'Ship Items',    key: 'shipItemsAdded' },
-    { label: 'Labels',        key: 'labels' },
-    { label: 'Tags',          key: 'tags' },
-  ];
-
+function AboutPanel() {
   return (
     <div className="space-y-6">
       <div>
@@ -281,113 +199,15 @@ function SyncPanel() {
           SC Database
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Game data cache sourced from{' '}
-          <span className="font-medium text-foreground">scunpacked-data</span>. Synced automatically every Tuesday.
+          Search our copy of the Star Citizen game data, from{' '}
+          <span className="font-medium text-foreground">scunpacked-data</span>. The game data service checks for
+          new data automatically; its status is below. This is the same data the bot's{' '}
+          <span className="font-mono text-xs">/blueprint</span>, <span className="font-mono text-xs">/item</span> and{' '}
+          <span className="font-mono text-xs">/material</span> commands use.
         </p>
       </div>
 
       <GameDataPipelineCard />
-
-      {statusQuery.isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
-        </div>
-      ) : (
-        <>
-          {/* Sync control */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4 shrink-0" />
-                {isRunning ? (
-                  <span className="text-amber-500 font-medium">Sync in progress…</span>
-                ) : lastSync?.completedAt ? (
-                  <span>Last synced <span className="text-foreground font-medium">{timeAgo(lastSync.completedAt)}</span></span>
-                ) : (
-                  <span>Never synced</span>
-                )}
-              </div>
-              <Button
-                variant="outline" size="sm"
-                onClick={() => syncMutation.mutate()}
-                disabled={isRunning || syncMutation.isPending}
-                className="shrink-0 gap-1.5"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${(isRunning || syncMutation.isPending) ? 'animate-spin' : ''}`} />
-                {isRunning ? 'Running…' : syncMutation.isPending ? 'Starting…' : 'Force Sync'}
-              </Button>
-            </div>
-
-            {isRunning && (
-              <div className="rounded-md bg-amber-500/5 border border-amber-500/20 px-3 py-2 text-xs text-amber-500 flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                Fetching all scunpacked-data sources in parallel. This may take a few minutes.
-              </div>
-            )}
-
-            {lastSync && (
-              <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                <span>{fmt(lastSync.startedAt)} · {duration(lastSync)}</span>
-                <StatusBadge status={lastSync.status} />
-              </div>
-            )}
-
-            {lastSync?.status === 'FAILED' && lastSync.error && (
-              <div className="flex items-start gap-1.5 rounded-md bg-destructive/10 border border-destructive/20 px-2.5 py-1.5 text-xs text-destructive">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span className="break-all">{lastSync.error}</span>
-              </div>
-            )}
-
-            {syncMutation.isError && (
-              <p className="text-xs text-destructive">
-                {syncMutation.error instanceof Error ? syncMutation.error.message : 'Failed to start sync.'}
-              </p>
-            )}
-          </div>
-
-          {/* Record counts */}
-          {Object.keys(details).length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last Sync Counts</p>
-              <div className="grid grid-cols-2 gap-2">
-                {countTiles.map(({ label, key }) => (
-                  details[key] != null && (
-                    <div key={key} className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">{label}</span>
-                      <span className="text-sm font-bold tabular-nums">{(details[key] as number).toLocaleString()}</span>
-                    </div>
-                  )
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Blueprints row */}
-          {lastSync?.status === 'SUCCESS' && (
-            <div className="rounded-md bg-muted/30 border border-border px-3 py-2.5 text-xs grid grid-cols-2 gap-2 text-center">
-              <div>
-                <span className="font-bold text-foreground">+{lastSync.blueprintsAdded}</span>
-                <p className="text-muted-foreground mt-0.5">Blueprints added</p>
-              </div>
-              <div>
-                <span className="font-bold text-foreground">~{lastSync.blueprintsUpdated}</span>
-                <p className="text-muted-foreground mt-0.5">Blueprints updated</p>
-              </div>
-            </div>
-          )}
-
-          {!lastSync && !isRunning && (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center">
-              <Database className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-sm text-muted-foreground">No sync has run yet.</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Click <span className="font-medium text-foreground">Force Sync</span> to populate all tables.
-              </p>
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }
@@ -396,14 +216,15 @@ function SyncPanel() {
 
 export function ScDataPage() {
   return (
-    <div className="flex gap-6 h-full">
-      {/* Left: sync management */}
-      <div className="w-[340px] shrink-0 overflow-y-auto pr-1">
-        <SyncPanel />
+    // Side by side on wide screens; stacked on phones and narrow windows.
+    <div className="flex flex-col lg:flex-row gap-6 lg:h-full">
+      {/* Left: what this is + game data status */}
+      <div className="w-full lg:w-[340px] lg:shrink-0 lg:overflow-y-auto lg:pr-1">
+        <AboutPanel />
       </div>
 
       {/* Right: search */}
-      <div className="flex-1 min-w-0" style={{ height: 'calc(100vh - 56px - 48px)', position: 'sticky', top: 0 }}>
+      <div className="flex-1 min-w-0 h-[70vh] lg:h-[calc(100vh-56px-48px)] lg:sticky lg:top-0">
         <SearchPanel />
       </div>
     </div>

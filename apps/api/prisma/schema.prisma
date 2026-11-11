@@ -245,6 +245,9 @@ model Event {
   vcsEmptiedAt    DateTime?
   /// Set true once the bot has posted the "event is live" message at start time
   livePosted      Boolean  @default(false)
+  /// Scheduler retries of the Discord setup (thread, roster, Discord event) that didn't finish; backs off, gives up after a limit (v1.11.1).
+  setupAttempts   Int       @default(0)
+  nextSetupAt     DateTime?
   /// JSON: EventPoll — poll config posted to the forum thread alongside the embed
   pollData        String?
 
@@ -441,6 +444,8 @@ model DkpTransaction {
 model BotConfig {
   id                    Int     @id @default(1)
   globalCommandsEnabled Boolean @default(true)
+  /// What the bot last registered as slash commands: {"hash","guilds":[…],"global"} (v1.11.1), so restarts skip unchanged registrations.
+  commandRegistration   String?
 }
 
 // ── Repeat Templates ──────────────────────────────────────────────────────────
@@ -868,6 +873,9 @@ model EventGuildShare {
   /// The Accept / Decline message in the receiver's ally notices channel, so it can be edited.
   noticeChannelId String?
   noticeMessageId String?
+  /// Scheduler retries of posting an accepted share in the receiving server; backs off, gives up after a limit (v1.11.1).
+  setupAttempts Int       @default(0)
+  nextSetupAt   DateTime?
 
   event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   guild         Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)

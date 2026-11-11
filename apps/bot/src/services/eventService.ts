@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   ActionRowBuilder,
   AttachmentBuilder,
@@ -241,6 +242,7 @@ async function _setupDiscordForEvent(eventId: string) {
 // ── Sync Discord entities after an event edit ────────────────────────────────
 
 export async function syncDiscordEvent(eventId: string) {
+  forgetRosterWrites(eventId); // this edits the roster messages too
   console.log(`[syncDiscordEvent] start — eventId=${eventId}`);
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -421,6 +423,45 @@ export async function syncDiscordEvent(eventId: string) {
 }
 
 // ── Update the roster embed after any RSVP change ─────────────────────────────
+//
+// v1.11.1: every roster change (role buttons, Leave, voice-channel joins,
+// "Interested" clicks, website changes) goes through scheduleRosterRefresh, so a
+// burst of changes to one event becomes one refresh: at most one runs per event
+// and one more waits behind it, reading the roster when it starts. A refresh
+// only edits a thread's roster message when what it shows changed since the bot
+// last wrote it, and keeps the event image already attached instead of
+// uploading it again.
+
+export const ROSTER_REFRESH_DELAY_MS = 1_000;
+const queuedRefresh = new Map<string, Promise<void>>();
+const runningRefresh = new Map<string, Promise<void>>();
+
+/** Refreshes the event's roster messages shortly; calls made meanwhile share that refresh. */
+export function scheduleRosterRefresh(eventId: string): Promise<void> {
+  const queued = queuedRefresh.get(eventId);
+  if (queued) return queued;
+  const before = runningRefresh.get(eventId);
+  const p = (async () => {
+    await sleep(ROSTER_REFRESH_DELAY_MS);
+    if (before) await before.catch(() => {});
+    queuedRefresh.delete(eventId); // changes from now on need another refresh
+    const run = updateRosterEmbed(eventId);
+    runningRefresh.set(eventId, run);
+    try { await run; } finally { if (runningRefresh.get(eventId) === run) runningRefresh.delete(eventId); }
+  })();
+  queuedRefresh.set(eventId, p);
+  return p;
+}
+
+/** What the bot last wrote to each roster message (by thread), so unchanged refreshes skip Discord. */
+const lastRosterWrite = new Map<string, string>();
+
+/** Something else edited this event's roster messages (sync, end, cancel): don't trust what we remember. */
+export function forgetRosterWrites(eventId: string): void {
+  for (const key of lastRosterWrite.keys()) if (key.startsWith(`${eventId}:`)) lastRosterWrite.delete(key);
+}
+
+const imageFilename = (imageUrl: string) => imageUrl.split('/').pop() ?? 'image.jpg';
 
 export async function updateRosterEmbed(eventId: string) {
   const event = await prisma.event.findUnique({
@@ -432,54 +473,76 @@ export async function updateRosterEmbed(eventId: string) {
   const roles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(roles);
   const eventImageUrl = event.imageUrl;
-  const imageAttachment = eventImageUrl ? await fetchImageAttachment(eventImageUrl) : null;
-  const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
+  const filename = eventImageUrl ? imageFilename(eventImageUrl) : undefined;
+  const embed = buildRosterEmbed(event, undefined, filename, guildTagMap);
 
   type Components = ReturnType<typeof buildRoleButtons>;
+
   async function applyEdit(msg: Message, components: Components) {
     let files: AttachmentBuilder[] = [];
     let keepAttachments: { id: string }[] = [];
-    if (imageAttachment) {
-      files = [imageAttachment.builder];
-    } else if (eventImageUrl) {
-      keepAttachments = [...msg.attachments.values()].map((a) => ({ id: a.id }));
-      const existingImageUrl = msg.embeds[0]?.image?.url;
-      if (existingImageUrl) embed.setImage(existingImageUrl);
-    }
-    await msg.edit({ embeds: [embed], components, files, attachments: keepAttachments });
-  }
-
-  // Update host guild thread
-  if (event.threadId) {
-    try {
-      const thread = await client.channels.fetch(event.threadId);
-      if (thread?.isThread()) {
-        let rosterMsg: Message | null = null;
-        if (event.rosterMessageId) {
-          rosterMsg = await thread.messages.fetch(event.rosterMessageId).catch(() => null);
+    let toSend = embed;
+    if (eventImageUrl && filename) {
+      const attached = [...msg.attachments.values()].find((a) => a.name === filename);
+      if (attached) {
+        keepAttachments = [{ id: attached.id }]; // same image: keep it, no upload
+      } else {
+        const image = await fetchImageAttachment(eventImageUrl);
+        if (image) {
+          files = [image.builder];
+        } else {
+          // Couldn't load the new image: keep whatever is shown now.
+          keepAttachments = [...msg.attachments.values()].map((a) => ({ id: a.id }));
+          toSend = EmbedBuilder.from(embed.toJSON());
+          const existingImageUrl = msg.embeds[0]?.image?.url;
+          if (existingImageUrl) toSend.setImage(existingImageUrl); else toSend.setImage(null);
         }
-        if (!rosterMsg) rosterMsg = await thread.fetchStarterMessage().catch(() => null);
-        if (rosterMsg) await applyEdit(rosterMsg, buildRoleButtons(event.id, roles, undefined, event.guildId));
       }
+    }
+    await msg.edit({ embeds: [toSend], components, files, attachments: keepAttachments });
+  }
+
+  // Compared without the embed's timestamp (it's the time of building, which changes every time).
+  const { timestamp: _builtAt, ...embedContent } = embed.toJSON();
+  const embedJson = JSON.stringify(embedContent);
+  const contentHash = (components: Components) => createHash('sha256')
+    .update(JSON.stringify([embedJson, components.map((c) => c.toJSON()), filename ?? null]))
+    .digest('hex');
+  const upToDate = (threadId: string, components: Components) => lastRosterWrite.get(`${eventId}:${threadId}`) === contentHash(components);
+
+  /** Edits one thread's roster message, unless it already shows exactly this. */
+  async function refreshThread(threadId: string, rosterMessageId: string | null, components: Components, label: string) {
+    const key = `${eventId}:${threadId}`;
+    const content = contentHash(components);
+    if (lastRosterWrite.get(key) === content) return; // nothing new to show: no Discord call
+    try {
+      const thread = await client.channels.fetch(threadId).catch(() => null);
+      if (!thread?.isThread()) return;
+      let msg: Message | null = null;
+      if (rosterMessageId) msg = await thread.messages.fetch(rosterMessageId).catch(() => null);
+      if (!msg) msg = await thread.fetchStarterMessage().catch(() => null);
+      if (!msg) return;
+      await applyEdit(msg, components);
+      lastRosterWrite.set(key, content);
     } catch (err) {
-      console.error('[bot] Failed to update roster embed:', err);
+      console.error(`[updateRosterEmbed] ${label} failed:`, err);
     }
   }
 
-  // Update alliance guild threads — sequential with a 1 s gap to avoid Discord rate limits
+  // Host guild thread
+  if (event.threadId) {
+    await refreshThread(event.threadId, event.rosterMessageId, buildRoleButtons(event.id, roles, undefined, event.guildId), 'host thread');
+  }
+
+  // Alliance guild threads — one after another with a 1 s gap, skipping any already up to date
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
+  let first = true;
   for (const ag of allianceGuilds.filter((ag) => ag.threadId)) {
-    await sleep(1000);
-    try {
-      const thread = await client.channels.fetch(ag.threadId!).catch(() => null);
-      if (!thread?.isThread()) continue;
-      const msg = ag.rosterMessageId
-        ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
-        : await thread.fetchStarterMessage().catch(() => null);
-      if (msg) await applyEdit(msg, buildRoleButtons(event.id, roles, undefined, ag.discordGuildId));
-    } catch (err) {
-      console.error(`[updateRosterEmbed] alliance guild ${ag.discordGuildId} failed:`, err);
-    }
+    const components = buildRoleButtons(event.id, roles, undefined, ag.discordGuildId);
+    if (upToDate(ag.threadId!, components)) continue;
+    if (!first) await sleep(1000);
+    first = false;
+    await refreshThread(ag.threadId!, ag.rosterMessageId, components, `alliance guild ${ag.discordGuildId}`);
   }
 }
 
@@ -570,6 +633,7 @@ export async function deleteEventVcs(eventId: string): Promise<void> {
 }
 
 export async function endEvent(eventId: string) {
+  forgetRosterWrites(eventId); // this edits the roster messages too
   // Atomic claim: only the first caller runs the thread/embed work.
   // Subsequent calls (scheduler retries, concurrent triggers) exit immediately.
   const claim = await prisma.event.updateMany({
@@ -705,6 +769,7 @@ export async function endEvent(eventId: string) {
 // threads archived, and any voice channels already created.
 
 export async function cancelEvent(eventId: string): Promise<void> {
+  forgetRosterWrites(eventId); // this edits the roster messages too
   // Claim it once, like endEvent (scheduler retries / repeated triggers exit here).
   const claim = await prisma.event.updateMany({
     where: { id: eventId, status: 'CANCELLED', botEndedAt: null },
@@ -758,6 +823,7 @@ export async function cancelEvent(eventId: string): Promise<void> {
 // ── Post-event embed (confirmed attendees + loot) ────────────────────────────
 
 export async function updatePostEventEmbed(eventId: string) {
+  forgetRosterWrites(eventId); // this edits the roster messages too
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { rsvps: true },

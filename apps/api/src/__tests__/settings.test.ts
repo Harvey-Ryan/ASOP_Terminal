@@ -293,10 +293,8 @@ describe('Role-based event access (assertEventViewer)', () => {
       data: { viewerRoles: JSON.stringify([viewerRoleId]) },
     });
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ roles: [viewerRoleId] }),
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ user: { id: user.discordId, username: 'u' }, roles: [viewerRoleId] }), { status: 200 })));
 
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
@@ -310,10 +308,8 @@ describe('Role-based event access (assertEventViewer)', () => {
     const user = await createUser();
     await createGuildSettings(guild.id);
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ roles: ['unrelated-role-id'] }),
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ user: { id: user.discordId, username: 'u' }, roles: ['unrelated-role-id'] }), { status: 200 })));
 
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });

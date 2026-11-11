@@ -152,7 +152,7 @@ export async function handleShareButton(interaction: ButtonInteraction, discord:
 
   const r = await prisma.eventGuildShare.updateMany({
     where: { id: share.id, status: 'PENDING' },
-    data: { status: parsed.action === 'accept' ? 'ACCEPTED' : 'DECLINED', respondedAt: new Date(), respondedBy: interaction.user.id },
+    data: { status: parsed.action === 'accept' ? 'ACCEPTED' : 'DECLINED', respondedAt: new Date(), respondedBy: interaction.user.id, setupAttempts: 0, nextSetupAt: null },
   });
   if (r.count === 0) { await reply('This invitation was already answered.'); return; }
 

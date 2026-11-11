@@ -1,6 +1,8 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 
 const LOOT_PICKER_ROLE = 'Loot Picker';
@@ -323,8 +325,9 @@ export async function notifyLootComplete(sessionId: string) {
   });
   const prefsMap = new Map(usersWithPrefs.map((u) => [u.discordId, u.notificationPrefs]));
 
-  await Promise.allSettled(
-    [...winners.entries()].map(async ([userId, { entries }]) => {
+  // DM five winners at a time with a 1 s gap (as the event reminders do): opening
+  // many DMs at once is what Discord's anti-spam watches for.
+  const sendOne = async ([userId, { entries }]: [string, WinnerEntry]) => {
       const prefs = prefsMap.get(userId);
       // Unknown user (no DB record) or no saved prefs → default opt-in
       if (prefs !== undefined && prefs !== null && prefs.dmLootComplete === false) return;
@@ -360,9 +363,16 @@ export async function notifyLootComplete(sessionId: string) {
 
       const discordUser = await client.users.fetch(userId);
       await discordUser.send({ content });
-    }),
-  );
+  };
+  const all = [...winners.entries()];
+  for (let i = 0; i < all.length; i += LOOT_DM_CHUNK) {
+    if (i > 0) await sleep(1_000);
+    const results = await Promise.allSettled(all.slice(i, i + LOOT_DM_CHUNK).map(sendOne));
+    for (const r of results) if (r.status === 'rejected') console.warn('[loot] Loot-complete DM failed:', r.reason instanceof Error ? r.reason.message : r.reason);
+  }
 }
+
+const LOOT_DM_CHUNK = 5;
 
 const METHOD_LABELS: Record<string, string> = {
   RANDOM_ROLL: '🎲 Random Roll',

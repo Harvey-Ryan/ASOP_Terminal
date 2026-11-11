@@ -1,3 +1,4 @@
+import { hasAnyRole } from './memberRoles.js';
 import { prisma } from './prisma.js';
 import { assertGuildManager } from './assertGuildManager.js';
 
@@ -23,19 +24,6 @@ export async function assertEventViewer(req: Express.Request, guildId: string): 
   ];
   if (allowed.length === 0) return false;
 
-  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
-  const botToken = process.env['DISCORD_TOKEN'];
-  if (!dbUser || !botToken) return false;
-
-  try {
-    const r = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${dbUser.discordId}`,
-      { headers: { Authorization: `Bot ${botToken}` } },
-    );
-    if (r.ok) {
-      const member = (await r.json()) as { roles: string[] };
-      return member.roles.some((id) => allowed.includes(id));
-    }
-  } catch {}
-  return false;
+  // Cached, rate-limit-aware lookup (lib/discordRest.ts).
+  return hasAnyRole(req, guildId, allowed);
 }

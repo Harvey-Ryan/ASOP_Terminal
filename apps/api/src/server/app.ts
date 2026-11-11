@@ -33,6 +33,7 @@ import { APP_VERSION, APP_COMMIT } from '../lib/appVersion.js';
 import { memberPinsRouter } from './routes/memberPins.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
+import { discordBusyAsServiceUnavailable } from '../lib/memberRoles.js';
 
 const PgSession = ConnectPgSimple(session);
 
@@ -87,6 +88,9 @@ export function createServer(): express.Express {
   // ── Body parsing ───────────────────────────────────────────────────────────
 
   app.use(express.json({ limit: '100kb' }));
+
+  // A refusal caused only by Discord being unreachable answers 503 "try again" (v1.11.1).
+  app.use(discordBusyAsServiceUnavailable);
 
   // ── Session ────────────────────────────────────────────────────────────────
 

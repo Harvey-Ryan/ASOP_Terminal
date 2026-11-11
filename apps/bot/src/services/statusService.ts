@@ -1,11 +1,16 @@
 // Keeps one live status embed per guild in the guild's configured status channel.
 //
-// Runs on the scheduler's 1-minute tick. Builds the embed once per tick and only
-// touches Discord for a guild when the content changed, the message is gone
-// (deleted by someone), or the channel setting moved.
+// Runs on the scheduler's 1-minute tick, but a quiet minute costs one tiny
+// database query and nothing else: the full status is only read, the embed only
+// rebuilt and Discord only touched when something could have changed — a game
+// data run started, finished or changed status, the synced commit moved, a
+// "Sync now" request came or went, the bot joined or left a server, a status
+// channel setting changed (the API tells us), or the status is due to turn
+// stale on its own. Even then a server's message is only edited when its
+// content changed, the message is gone, or the channel setting moved.
 
 import { DiscordAPIError, type APIEmbed } from 'discord.js';
-import { GAME_DATA_STATUS_SQL, GAME_DATA_NOT_SET_UP, parseGameDataStatus, isGameDataMissingError, type GameDataStatus } from '@dem/shared';
+import { GAME_DATA_CHANGE_SQL, GAME_DATA_STATUS_SQL, GAME_DATA_NOT_SET_UP, gameDataRecheckAt, parseGameDataStatus, isGameDataMissingError, type GameDataStatus } from '@dem/shared';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { APP_VERSION, APP_COMMIT } from '../appVersion.js';
@@ -86,8 +91,8 @@ const discordOps: StatusOps = {
   async edit(channelId, messageId, embed) {
     const ch = await textChannel(channelId);
     try {
-      const msg = await ch.messages.fetch(messageId);
-      await msg.edit({ embeds: [embed] });
+      // Edit by id: one request, no need to fetch the message first.
+      await ch.messages.edit(messageId, { embeds: [embed] });
       return 'ok';
     } catch (err) {
       if (err instanceof DiscordAPIError && err.code === UNKNOWN_MESSAGE) return 'missing';
@@ -127,38 +132,103 @@ async function readGameData(): Promise<GameDataStatus> {
   }
 }
 
-export async function refreshStatusEmbeds(): Promise<void> {
-  const targets = await prisma.guildSettings.findMany({
-    where: { OR: [{ statusChannelId: { not: null } }, { statusMessageId: { not: null } }] },
-    select: { id: true, statusChannelId: true, statusMessageId: true, statusMessageChannelId: true, statusEmbedHash: true },
-  });
+/** The small "has anything changed?" token; null if it can't be read (then do a full refresh). */
+async function readGameDataToken(): Promise<string | null> {
+  try {
+    const rows = await prisma.$queryRawUnsafe<{ token: string }[]>(GAME_DATA_CHANGE_SQL);
+    return rows[0]?.token ?? null;
+  } catch (err) {
+    if (isGameDataMissingError(err)) return 'not-set-up';
+    return null;
+  }
+}
+
+type TargetRow = { id: string; statusChannelId: string | null; statusMessageId: string | null; statusMessageChannelId: string | null; statusEmbedHash: string | null };
+
+/** Servers with a status channel (or a message to take down), kept until a setting changes. */
+let targets: TargetRow[] | null = null;
+let lastToken: string | null = null;
+let lastServerCount = -1;
+/** When to rebuild even with nothing new: the status turning stale, or a failed server's retry. */
+let recheckAt = 0;
+const RETRY_FAILED_MS = 10 * 60_000;
+
+/** A status channel setting changed, or a server was removed: re-read the settings on the next refresh. */
+export function invalidateStatusTargets(): void {
+  targets = null;
+}
+
+let inFlight: Promise<void> | null = null;
+let again = false;
+
+/** Brings every status message up to date; cheap when nothing changed. Overlapping calls are merged. */
+export async function refreshStatusEmbeds(ops: StatusOps = discordOps): Promise<void> {
+  if (inFlight) { again = true; return inFlight; }
+  inFlight = (async () => {
+    do {
+      again = false;
+      await refreshOnce(ops);
+    } while (again);
+  })().finally(() => { inFlight = null; });
+  return inFlight;
+}
+
+async function refreshOnce(ops: StatusOps): Promise<void> {
+  const targetsChanged = targets === null;
+  if (targets === null) {
+    targets = await prisma.guildSettings.findMany({
+      where: { OR: [{ statusChannelId: { not: null } }, { statusMessageId: { not: null } }] },
+      select: { id: true, statusChannelId: true, statusMessageId: true, statusMessageChannelId: true, statusEmbedHash: true },
+    });
+  }
   if (targets.length === 0) return;
+
+  const token = await readGameDataToken();
+  const serverCount = client.guilds.cache.size;
+  const quiet = !targetsChanged && token !== null && token === lastToken && serverCount === lastServerCount && Date.now() < recheckAt;
+  if (quiet) return;
 
   const snapshot: StatusSnapshot = {
     app: { version: APP_VERSION, commit: APP_COMMIT, deployedAt },
     gameData: await readGameData(),
-    serverCount: client.guilds.cache.size,
+    serverCount,
     now: new Date(),
   };
   const { embed, hash } = buildStatusEmbed(snapshot);
 
+  let failed = false;
   for (const s of targets) {
     const t: StatusTarget = {
       settingsId: s.id, channelId: s.statusChannelId, messageId: s.statusMessageId,
       messageChannelId: s.statusMessageChannelId, hash: s.statusEmbedHash,
     };
     try {
-      const update = await refreshTarget(t, embed, hash, discordOps);
+      const update = await refreshTarget(t, embed, hash, ops);
       if (update) {
         await prisma.guildSettings.update({
           where: { id: s.id },
           data: { statusMessageId: update.messageId, statusMessageChannelId: update.messageChannelId, statusEmbedHash: update.hash },
         });
+        Object.assign(s, { statusMessageId: update.messageId, statusMessageChannelId: update.messageChannelId, statusEmbedHash: update.hash });
       }
     } catch (err) {
-      // Usually missing permissions or a deleted channel; try again next tick, log at most hourly.
+      // Usually missing permissions or a deleted channel. Retried in 10 minutes
+      // (not every minute: refused requests count against the bot), logged at most hourly.
+      failed = true;
       const reason = err instanceof DiscordAPIError ? `${err.code} ${err.message}` : (err as Error).message;
       warnHourly(s.id, `[bot] Status embed for settings ${s.id} in channel ${s.statusChannelId} failed: ${reason}`);
     }
   }
+  // Settings for a server the bot left are gone; drop them from the list.
+  targets = targets.filter((s) => s.statusChannelId !== null || s.statusMessageId !== null);
+
+  lastToken = token;
+  lastServerCount = serverCount;
+  const due = gameDataRecheckAt(snapshot.gameData)?.getTime() ?? Infinity;
+  recheckAt = Math.min(due, failed ? Date.now() + RETRY_FAILED_MS : Infinity);
+}
+
+/** For tests: forget everything remembered between refreshes. */
+export function resetStatusState(): void {
+  targets = null; lastToken = null; lastServerCount = -1; recheckAt = 0;
 }

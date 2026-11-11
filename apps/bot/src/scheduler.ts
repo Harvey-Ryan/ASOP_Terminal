@@ -7,15 +7,72 @@ import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { dispatchTournamentReminder, recordMatchForfeit } from './services/tournamentService.js';
 import { formatMinutes } from './utils/time.js';
+import { SETUP_MAX_ATTEMPTS, afterSetupAttempt } from './utils/setupRetry.js';
 import { recordDeployment, refreshStatusEmbeds } from './services/statusService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-// Prevents a slow tick from overlapping the next one.
-// If a tick takes longer than 60 s (e.g. Discord rate-limiting), node-cron fires
-// again before the previous one completes. The guard drops the duplicate tick
-// instead of running two concurrent copies of the same checks.
-let tickRunning = false;
+/** Like Promise.allSettled(items.map(fn)), but at most `limit` at a time; results keep their order. */
+export async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      try { results[i] = { status: 'fulfilled', value: await fn(items[i]!) }; }
+      catch (reason) { results[i] = { status: 'rejected', reason }; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+// Two loops, each run every minute with its own guard (v1.11.1). The event
+// lifecycle (going live, voice channels, ending, loot timeouts, auctions,
+// tournament matches) is time-critical and quick; posting (Discord setup
+// retries, reminders and their DMs, status embeds) can be slow when there's a
+// lot to send. Before, one sequential tick ran both, so a burst of reminders
+// could delay voice-channel creation, and a tick running over a minute made
+// the next one skip everything. A loop still never overlaps itself.
+const running = { lifecycle: false, posting: false };
+
+export async function runLoop(name: keyof typeof running, checks: [string, () => Promise<void>][]): Promise<void> {
+  if (running[name]) {
+    console.warn(`[bot] ${name} tick skipped — previous one still running (possible Discord rate-limit or slow query)`);
+    return;
+  }
+  running[name] = true;
+  try {
+    for (const [label, fn] of checks) await timedCheck(label, fn);
+  } finally {
+    running[name] = false;
+  }
+}
+
+const LIFECYCLE_CHECKS: [string, () => Promise<void>][] = [
+  ['checkEventStart',                checkEventStart],
+  ['checkVcCreation',                checkVcCreation],
+  ['checkVcActivity',                checkVcActivity],
+  ['checkInactivityEnd',             checkInactivityEnd],
+  ['checkStuckActiveEvents',         checkStuckActiveEvents],
+  ['checkEventEnd',                  checkEventEnd],
+  ['checkEndedEvents',               checkEndedEvents],
+  ['checkLootPromptTimeout',         checkLootPromptTimeout],
+  ['checkAutoComplete',              checkAutoComplete],
+  ['closeExpiredAuctions',           closeExpiredAuctions],
+  ['closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions],
+  ['checkMatchCheckIn',              checkMatchCheckIn],
+  ['checkMatchNoShow',               checkMatchNoShow],
+  ['checkMatchNoShowEscalation',     checkMatchNoShowEscalation],
+];
+
+const POSTING_CHECKS: [string, () => Promise<void>][] = [
+  ['checkPendingDiscordSetup', checkPendingDiscordSetup],
+  ['checkPendingShareSetup',   checkPendingShareSetup],
+  ['checkReminders',           checkReminders],
+  ['checkTournamentReminders', checkTournamentReminders],
+  ['refreshStatusEmbeds',      () => refreshStatusEmbeds()],
+];
 
 // Runs a named scheduler check, logs its duration, and swallows errors so one
 // failing check never blocks the rest of the tick.
@@ -60,10 +117,12 @@ export async function startScheduler() {
       where: { status: { in: ['PENDING', 'ACTIVE'] }, discordEventId: { not: null } },
       include: { rsvps: true },
     });
-    const results = await Promise.allSettled(
-      activeEvents
-        .filter((e) => e.discordEventId)
-        .map(async (event) => {
+    // Two at a time (v1.11.1): a restart with many upcoming events used to fire
+    // three Discord requests per event all at once.
+    const results = await mapLimit(
+      activeEvents.filter((e) => e.discordEventId),
+      2,
+      async (event) => {
           const guild = await client.guilds.fetch(event.guildId);
           const scheduled = await guild.scheduledEvents.fetch(event.discordEventId!).catch(() => null);
           if (!scheduled) return 0;
@@ -80,7 +139,7 @@ export async function startScheduler() {
             count++;
           }
           return count;
-        }),
+      },
     );
 
     let syncCount = 0;
@@ -112,11 +171,9 @@ export async function startScheduler() {
     });
     if (missingVcs.length > 0) {
       console.log(`[bot] Startup VC recovery: found ${missingVcs.length} ACTIVE event(s) with no VCs — creating now`);
-      const vcResults = await Promise.allSettled(
-        missingVcs.map((event) =>
-          createVcsForEvent(event.id).catch((err) =>
-            console.error(`[bot] Startup VC recovery failed for event ${event.id}:`, err),
-          ),
+      const vcResults = await mapLimit(missingVcs, 2, (event) =>
+        createVcsForEvent(event.id).catch((err) =>
+          console.error(`[bot] Startup VC recovery failed for event ${event.id}:`, err),
         ),
       );
       const created = vcResults.filter((r) => r.status === 'fulfilled').length;
@@ -126,48 +183,29 @@ export async function startScheduler() {
     console.error('[bot] Startup VC recovery failed:', err);
   }
 
-  cron.schedule('* * * * *', async () => {
-    if (tickRunning) {
-      console.warn('[bot] Cron tick skipped — previous tick still running (possible Discord rate-limit or slow query)');
-      return;
-    }
-    tickRunning = true;
-    try {
-      await timedCheck('checkPendingDiscordSetup', checkPendingDiscordSetup);
-      await timedCheck('checkPendingShareSetup',   checkPendingShareSetup);
-      await timedCheck('checkReminders',           checkReminders);
-      await timedCheck('checkEventStart',          checkEventStart);
-      await timedCheck('checkVcCreation',          checkVcCreation);
-      await timedCheck('checkVcActivity',          checkVcActivity);
-      await timedCheck('checkInactivityEnd',       checkInactivityEnd);
-      await timedCheck('checkStuckActiveEvents',   checkStuckActiveEvents);
-      await timedCheck('checkEventEnd',            checkEventEnd);
-      await timedCheck('checkEndedEvents',         checkEndedEvents);
-      await timedCheck('checkLootPromptTimeout',   checkLootPromptTimeout);
-      await timedCheck('checkAutoComplete',        checkAutoComplete);
-      await timedCheck('closeExpiredAuctions',     closeExpiredAuctions);
-      await timedCheck('closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions);
-      await timedCheck('checkTournamentReminders',      checkTournamentReminders);
-      await timedCheck('checkMatchCheckIn',             checkMatchCheckIn);
-      await timedCheck('checkMatchNoShow',              checkMatchNoShow);
-      await timedCheck('checkMatchNoShowEscalation',    checkMatchNoShowEscalation);
-      await timedCheck('refreshStatusEmbeds',           refreshStatusEmbeds);
-    } finally {
-      tickRunning = false;
-    }
+  cron.schedule('* * * * *', () => {
+    // Independent: a slow posting run never holds up the lifecycle.
+    void runLoop('lifecycle', LIFECYCLE_CHECKS);
+    void runLoop('posting', POSTING_CHECKS);
   });
   console.log('[bot] Scheduler started');
 }
 
 // ── "Event is live" announcement at start time ────────────────────────────────
 
-async function checkEventStart() {
+export async function checkEventStart() {
   const now = new Date();
 
-  // Auto-transition PENDING events whose start time has arrived.
-  // Events without a threadId stay PENDING so Discord setup can still retry.
+  // Auto-transition PENDING events whose start time has arrived. An event
+  // without a forum thread waits 15 minutes for setup to catch up, then goes
+  // live anyway (v1.11.1; before, it stayed PENDING forever). Setup retries
+  // still cover ACTIVE events.
   const transitioned = await prisma.event.updateMany({
-    where: { status: 'PENDING', startTime: { lte: now }, threadId: { not: null } },
+    where: {
+      status: 'PENDING',
+      startTime: { lte: now },
+      OR: [{ threadId: { not: null } }, { startTime: { lte: new Date(now.getTime() - 15 * 60_000) } }],
+    },
     data: { status: 'ACTIVE' },
   });
   if (transitioned.count > 0) {
@@ -195,26 +233,37 @@ async function checkEventStart() {
 
 // ── Discord setup for web-created events ─────────────────────────────────────
 
-async function checkPendingDiscordSetup() {
-  // Catch events not yet set up, plus active events where forum thread creation
-  // previously failed (e.g. forum channel wasn't configured at the time).
-  // orderBy createdAt asc so oldest events are retried first — avoids a single
-  // stuck new event blocking a backlog of older ones.
+export async function checkPendingDiscordSetup() {
+  // Events whose Discord setup didn't finish: no forum thread yet, or no
+  // Discord event while it's still upcoming (one can't be made for the past).
+  // Each gets a few attempts with growing gaps (utils/setupRetry.ts), and items
+  // that keep failing never block newer ones. A changed forum channel setting
+  // resets the count (API settings route).
+  const now = new Date();
   const pending = await prisma.event.findMany({
     where: {
       status: { in: ['PENDING', 'ACTIVE'] },
-      OR: [
-        { discordEventId: null },
-        { threadId: null },
-      ],
+      OR: [{ threadId: null }, { discordEventId: null, startTime: { gt: now } }],
+      setupAttempts: { lt: SETUP_MAX_ATTEMPTS },
+      AND: [{ OR: [{ nextSetupAt: null }, { nextSetupAt: { lte: now } }] }],
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: [{ nextSetupAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'asc' }],
     take: 5,
   });
   for (const event of pending) {
     await setupDiscordForEvent(event.id).catch((err) =>
       console.error(`[bot] Discord setup failed for event ${event.id}:`, err),
     );
+    const after = await prisma.event.findUnique({ where: { id: event.id }, select: { threadId: true, discordEventId: true, startTime: true } });
+    if (!after) continue;
+    const done = !!after.threadId && (!!after.discordEventId || after.startTime <= new Date());
+    const next = afterSetupAttempt(done, event.setupAttempts, new Date());
+    if (done && event.setupAttempts === 0) continue; // nothing to record
+    await prisma.event.update({ where: { id: event.id }, data: { setupAttempts: next.setupAttempts, nextSetupAt: next.nextSetupAt } });
+    if (next.gaveUp) {
+      console.warn(`[bot] Giving up on Discord setup for event ${event.id} (${event.name}) in ${event.guildId} after ${next.setupAttempts} attempts — `
+        + `is a forum channel set and can the bot post there? Changing the forum channel setting retries it.`);
+    }
   }
 }
 
@@ -248,12 +297,13 @@ async function checkReminders() {
       }
 
       // ── Alliance guild threads (fan-out) ────────────────────────────────────
-      // Sequential with a 1 s gap to stay inside Discord's rate limits.
+      // One after another. Each thread is its own rate-limit bucket and
+      // discord.js already queues per bucket, so no manual wait is needed
+      // (it only held up the rest of the posting loop).
       const agReminders = await prisma.eventAllianceGuild.findMany({
         where: { eventId: event.id, threadId: { not: null } },
       });
       for (const ag of agReminders) {
-        await sleep(1000);
         try {
           const agThread = await client.channels.fetch(ag.threadId!);
           if (agThread?.isThread()) {
@@ -649,15 +699,18 @@ async function checkLootPromptTimeout() {
 // Legacy rows (created before shareId was added) get their shareId backfilled on the
 // first successful call to setupDiscordForShare, so they stop appearing here.
 
-async function checkPendingShareSetup() {
+export async function checkPendingShareSetup() {
+  const now = new Date();
   const orphaned = await prisma.eventGuildShare.findMany({
     where: {
       status: 'ACCEPTED',
       allianceGuild: null,                          // no linked EventAllianceGuild yet
       event: { status: { notIn: ['COMPLETED', 'ENDED', 'CANCELLED'] } },
+      setupAttempts: { lt: SETUP_MAX_ATTEMPTS },
+      OR: [{ nextSetupAt: null }, { nextSetupAt: { lte: now } }],
     },
     take: 5,                                        // cap per tick to avoid Discord rate-limits
-    orderBy: { invitedAt: 'asc' },                  // oldest first
+    orderBy: [{ nextSetupAt: { sort: 'asc', nulls: 'first' } }, { invitedAt: 'asc' }],
   });
 
   for (const share of orphaned) {
@@ -665,6 +718,13 @@ async function checkPendingShareSetup() {
     await setupDiscordForShare(share.id).catch((err) =>
       console.error(`[bot] checkPendingShareSetup: setup failed for share ${share.id}:`, err),
     );
+    const done = (await prisma.eventAllianceGuild.count({ where: { shareId: share.id } })) > 0;
+    const next = afterSetupAttempt(done, share.setupAttempts, new Date());
+    if (done && share.setupAttempts === 0) continue;
+    await prisma.eventGuildShare.update({ where: { id: share.id }, data: { setupAttempts: next.setupAttempts, nextSetupAt: next.nextSetupAt } });
+    if (next.gaveUp) {
+      console.warn(`[bot] Giving up on posting share ${share.id} (event ${share.eventId}) after ${next.setupAttempts} attempts — is the bot still in that server?`);
+    }
   }
 }
 

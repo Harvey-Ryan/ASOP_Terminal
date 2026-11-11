@@ -1,3 +1,4 @@
+import { getGuildMember } from '../../lib/discordRest.js';
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
@@ -180,17 +181,9 @@ authRouter.get('/me', requireAuth, async (req, res) => {
                 if (allowed.length === 0) return g; // no roles configured — open access
 
                 if (!botToken) return g; // bot token unavailable — fail open
-                try {
-                  const r = await fetch(
-                    `https://discord.com/api/v10/guilds/${g.id}/members/${dbUser.discordId}`,
-                    { headers: { Authorization: `Bot ${botToken}` } },
-                  );
-                  if (r.ok) {
-                    const member = (await r.json()) as { roles: string[] };
-                    return member.roles.some((id) => allowed.includes(id)) ? g : null;
-                  }
-                } catch {}
-                return null;
+                // Cached, rate-limit-aware (lib/discordRest.ts); the same answer serves the role checks that follow.
+                const m = await getGuildMember(g.id, dbUser.discordId);
+                return m.status === 'member' && m.member.roles.some((id) => allowed.includes(id)) ? g : null;
               }),
             )
           ).filter((g): g is (typeof memberGuilds)[0] => g !== null);

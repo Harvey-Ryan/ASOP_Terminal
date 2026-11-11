@@ -1,3 +1,5 @@
+import { cachedDiscordGet } from '../../lib/discordRest.js';
+import { hasAnyRole } from '../../lib/memberRoles.js';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -96,14 +98,13 @@ settingsRouter.get('/:guildId/roles', requireAuth, async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
-      headers: { Authorization: `Bot ${botToken}` },
-    });
-    if (!response.ok) {
-      res.status(502).json({ success: false, error: 'Failed to fetch roles from Discord' } satisfies ApiResponse);
+    // Cached 30 s (lib/discordRest.ts): settings pages ask for this on every visit.
+    const r = await cachedDiscordGet<DiscordRole[]>(`roles:${guildId}`, `/guilds/${guildId}/roles`, `roles:${guildId}`, 30_000);
+    if (!r.ok) {
+      res.status(r.unavailable ? 503 : 502).json({ success: false, error: r.unavailable ? 'Discord is busy right now. Try again in a few seconds.' : 'Failed to fetch roles from Discord' } satisfies ApiResponse);
       return;
     }
-    const all = (await response.json()) as DiscordRole[];
+    const all = [...r.data];
     // Exclude @everyone (id === guildId) and bot-managed roles
     const roles = all
       .filter((r) => r.id !== guildId && !r.managed)
@@ -132,16 +133,14 @@ settingsRouter.get('/:guildId/channels', requireAuth, async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-      headers: { Authorization: `Bot ${botToken}` },
-    });
-
-    if (!response.ok) {
-      res.status(502).json({ success: false, error: 'Failed to fetch channels from Discord' } satisfies ApiResponse);
+    // Cached 30 s (lib/discordRest.ts): every settings page with a channel picker asks for this.
+    const r = await cachedDiscordGet<DiscordChannel[]>(`channels:${guildId}`, `/guilds/${guildId}/channels`, `channels:${guildId}`, 30_000);
+    if (!r.ok) {
+      res.status(r.unavailable ? 503 : 502).json({ success: false, error: r.unavailable ? 'Discord is busy right now. Try again in a few seconds.' : 'Failed to fetch channels from Discord' } satisfies ApiResponse);
       return;
     }
 
-    const all = (await response.json()) as DiscordChannel[];
+    const all = [...r.data];
     // Sort: categories first by position, then channels by position within their category
     const channels = all.sort((a, b) => {
       const aCat = a.type === 4 ? a.position : (all.find(c => c.id === a.parent_id)?.position ?? 999);
@@ -196,21 +195,8 @@ async function assertModuleEditor(req: Express.Request, guildId: string): Promis
   const { moduleEditorRoles } = await readPermissionFields(settingsId);
   if (moduleEditorRoles.length === 0) return false;
 
-  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
-  const botToken = process.env['DISCORD_TOKEN'];
-  if (!dbUser || !botToken) return false;
-
-  try {
-    const r = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${dbUser.discordId}`,
-      { headers: { Authorization: `Bot ${botToken}` } },
-    );
-    if (r.ok) {
-      const member = (await r.json()) as { roles: string[] };
-      return member.roles.some((id) => moduleEditorRoles.includes(id));
-    }
-  } catch {}
-  return false;
+  // Cached, rate-limit-aware lookup (lib/discordRest.ts).
+  return hasAnyRole(req, guildId, moduleEditorRoles);
 }
 
 // ── GET /api/guilds/:guildId/settings ─────────────────────────────────────────
@@ -466,6 +452,16 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     });
 
     const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } = await readPermissionFields(s.id);
+    // The bot keeps the status channel settings in memory; tell it when one changes.
+    if (body.statusChannelId !== undefined) triggerBot('/trigger/status');
+    // A new forum channel: events still waiting for their thread get a fresh set of setup attempts (v1.11.1).
+    if (body.forumChannelId !== undefined) {
+      await prisma.event.updateMany({
+        where: { guildId, status: { in: ['PENDING', 'ACTIVE'] }, threadId: null },
+        data: { setupAttempts: 0, nextSetupAt: null },
+      });
+    }
+
     res.json({
       success: true,
       data: {
