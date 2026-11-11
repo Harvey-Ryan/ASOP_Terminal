@@ -1,46 +1,50 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
 import { LoginPage } from './pages/LoginPage';
-// Lazy-load the map page so Three.js (~1MB) only downloads when visited
-const MemberMapPage = lazy(() => import('./pages/MemberMapPage').then((m) => ({ default: m.MemberMapPage })));
 import { DashboardPage } from './pages/DashboardPage';
 import { ServerPage } from './pages/ServerPage';
-import { EventCreatePage } from './pages/events/EventCreatePage';
-import { EventAuditPage } from './pages/events/EventAuditPage';
-import { LootPage } from './pages/events/LootPage';
-import { LootModulePage } from './pages/LootModulePage';
-import { StandaloneLootSessionPage } from './pages/StandaloneLootSessionPage';
-import { ModuleEventBotPage } from './pages/settings/ModuleEventBotPage';
-import { BotSettingsPage } from './pages/settings/BotSettingsPage';
-import { PermissionsPage } from './pages/settings/PermissionsPage';
-import { DkpSettingsPage } from './pages/settings/DkpSettingsPage';
-import { GameDataPage } from './pages/settings/GameDataPage';
-import { ScDataPage } from './pages/settings/ScDataPage';
-import { AuctionsPage } from './pages/AuctionsPage';
-import { DkpPage } from './pages/DkpPage';
-import { MarketplacePage } from './pages/MarketplacePage';
-import { ExchangeSettingsPage } from './pages/settings/ExchangeSettingsPage';
-import { FleetPage } from './pages/FleetPage';
-import { BlueprintsPage } from './pages/BlueprintsPage';
 import { CraftingDataGate } from './components/CraftingDataGate';
-import { CraftingCalculatorPage, CraftingCalculatorDetailPage } from './pages/CraftingCalculatorPage';
-import { BlueprintsSettingsPage } from './pages/settings/BlueprintsSettingsPage';
-import { CraftingCalculatorSettingsPage } from './pages/settings/CraftingCalculatorSettingsPage';
-import { RosterPage } from './pages/RosterPage';
-import { RoleCallPage } from './pages/RoleCallPage';
-import { ActivitySettingsPage } from './pages/settings/ActivitySettingsPage';
-import { TournamentSettingsPage } from './pages/settings/TournamentSettingsPage';
-import { KanbanPage } from './pages/KanbanPage';
-import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
-import { TrafficPage } from './pages/TrafficPage';
-import { TournamentPage } from './pages/TournamentPage';
-import { FleetSettingsPage } from './pages/settings/FleetSettingsPage';
-import { LootSettingsPage } from './pages/settings/LootSettingsPage';
-import { ModuleSettingsHubPage } from './pages/settings/ModuleSettingsHubPage';
-import { AlliesPage } from './pages/settings/AlliesPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { lazyPage } from './lib/lazyPage';
+
+// Every page except the common landing pages loads when first opened (v1.12.0);
+// DashboardLayout shows a spinner meanwhile. The map page also pulls in
+// Three.js (~1 MB) only when visited.
+const EventCreatePage = lazyPage(() => import('./pages/events/EventCreatePage'), 'EventCreatePage');
+const EventAuditPage = lazyPage(() => import('./pages/events/EventAuditPage'), 'EventAuditPage');
+const LootPage = lazyPage(() => import('./pages/events/LootPage'), 'LootPage');
+const LootModulePage = lazyPage(() => import('./pages/LootModulePage'), 'LootModulePage');
+const StandaloneLootSessionPage = lazyPage(() => import('./pages/StandaloneLootSessionPage'), 'StandaloneLootSessionPage');
+const ModuleEventBotPage = lazyPage(() => import('./pages/settings/ModuleEventBotPage'), 'ModuleEventBotPage');
+const BotSettingsPage = lazyPage(() => import('./pages/settings/BotSettingsPage'), 'BotSettingsPage');
+const PermissionsPage = lazyPage(() => import('./pages/settings/PermissionsPage'), 'PermissionsPage');
+const DkpSettingsPage = lazyPage(() => import('./pages/settings/DkpSettingsPage'), 'DkpSettingsPage');
+const GameDataPage = lazyPage(() => import('./pages/settings/GameDataPage'), 'GameDataPage');
+const ScDataPage = lazyPage(() => import('./pages/settings/ScDataPage'), 'ScDataPage');
+const AuctionsPage = lazyPage(() => import('./pages/AuctionsPage'), 'AuctionsPage');
+const DkpPage = lazyPage(() => import('./pages/DkpPage'), 'DkpPage');
+const MarketplacePage = lazyPage(() => import('./pages/MarketplacePage'), 'MarketplacePage');
+const ExchangeSettingsPage = lazyPage(() => import('./pages/settings/ExchangeSettingsPage'), 'ExchangeSettingsPage');
+const FleetPage = lazyPage(() => import('./pages/FleetPage'), 'FleetPage');
+const BlueprintsPage = lazyPage(() => import('./pages/BlueprintsPage'), 'BlueprintsPage');
+const CraftingCalculatorPage = lazyPage(() => import('./pages/CraftingCalculatorPage'), 'CraftingCalculatorPage');
+const CraftingCalculatorDetailPage = lazyPage(() => import('./pages/CraftingCalculatorPage'), 'CraftingCalculatorDetailPage');
+const BlueprintsSettingsPage = lazyPage(() => import('./pages/settings/BlueprintsSettingsPage'), 'BlueprintsSettingsPage');
+const CraftingCalculatorSettingsPage = lazyPage(() => import('./pages/settings/CraftingCalculatorSettingsPage'), 'CraftingCalculatorSettingsPage');
+const RosterPage = lazyPage(() => import('./pages/RosterPage'), 'RosterPage');
+const RoleCallPage = lazyPage(() => import('./pages/RoleCallPage'), 'RoleCallPage');
+const ActivitySettingsPage = lazyPage(() => import('./pages/settings/ActivitySettingsPage'), 'ActivitySettingsPage');
+const TournamentSettingsPage = lazyPage(() => import('./pages/settings/TournamentSettingsPage'), 'TournamentSettingsPage');
+const KanbanPage = lazyPage(() => import('./pages/KanbanPage'), 'KanbanPage');
+const NotificationSettingsPage = lazyPage(() => import('./pages/NotificationSettingsPage'), 'NotificationSettingsPage');
+const TrafficPage = lazyPage(() => import('./pages/TrafficPage'), 'TrafficPage');
+const TournamentPage = lazyPage(() => import('./pages/TournamentPage'), 'TournamentPage');
+const FleetSettingsPage = lazyPage(() => import('./pages/settings/FleetSettingsPage'), 'FleetSettingsPage');
+const LootSettingsPage = lazyPage(() => import('./pages/settings/LootSettingsPage'), 'LootSettingsPage');
+const ModuleSettingsHubPage = lazyPage(() => import('./pages/settings/ModuleSettingsHubPage'), 'ModuleSettingsHubPage');
+const AlliesPage = lazyPage(() => import('./pages/settings/AlliesPage'), 'AlliesPage');
+const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
   return (
@@ -95,11 +99,7 @@ export default function App() {
 
           <Route path="servers/:guildId/settings/modules/activity" element={<ActivitySettingsPage />} />
           <Route path="servers/:guildId/settings/modules/tournaments" element={<TournamentSettingsPage />} />
-          <Route path="servers/:guildId/map" element={
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground text-sm">Loading map…</div>}>
-              <MemberMapPage />
-            </Suspense>
-          } />
+          <Route path="servers/:guildId/map" element={<MemberMapPage />} />
           <Route path="kanban" element={<KanbanPage />} />
           <Route path="settings/notifications" element={<NotificationSettingsPage />} />
         </Route>
