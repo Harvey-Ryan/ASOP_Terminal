@@ -6,6 +6,8 @@ import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
+import { hasAnyRole } from '../../lib/memberRoles.js';
+import { getGuildMember } from '../../lib/discordRest.js';
 import { createPlannedShares, notAllyError, notifyShare, planEventShares } from '../../lib/allyShares.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
@@ -234,25 +236,8 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
         allowedRoles = JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[];
       }
 
-      let hasPermission = false;
-      if (allowedRoles.length > 0) {
-        const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
-        const botToken = process.env['DISCORD_TOKEN'];
-        if (dbUser && botToken) {
-          try {
-            const r = await fetch(
-              `https://discord.com/api/v10/guilds/${guildId}/members/${dbUser.discordId}`,
-              { headers: { Authorization: `Bot ${botToken}` } },
-            );
-            if (r.ok) {
-              const member = (await r.json()) as { roles: string[] };
-              hasPermission = member.roles.some((id) => allowedRoles.includes(id));
-            }
-          } catch {
-            // leave hasPermission = false
-          }
-        }
-      }
+      // Cached, rate-limit-aware lookup (lib/discordRest.ts).
+      const hasPermission = await hasAnyRole(req, guildId, allowedRoles);
 
       if (!hasPermission) {
         res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
@@ -446,19 +431,11 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
 
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
+  // Server nickname when Discord can give it without waiting (cached, lib/discordRest.ts).
   let displayName = dbUser.globalName ?? dbUser.username;
-  const botToken = process.env['DISCORD_TOKEN'];
-  if (botToken) {
-    try {
-      const r = await fetch(
-        `https://discord.com/api/v10/guilds/${guildId}/members/${dbUser.discordId}`,
-        { headers: { Authorization: `Bot ${botToken}` } },
-      );
-      if (r.ok) {
-        const member = (await r.json()) as { nick?: string | null; user?: { global_name?: string | null } };
-        displayName = member.nick ?? member.user?.global_name ?? dbUser.globalName ?? dbUser.username;
-      }
-    } catch {}
+  if (process.env['DISCORD_TOKEN']) {
+    const m = await getGuildMember(guildId, dbUser.discordId, { maxWaitMs: 0 });
+    if (m.status === 'member') displayName = m.member.nick ?? m.member.user.global_name ?? displayName;
   }
 
   // Check before upsert so we can tell the bot whether this is a brand-new join.

@@ -1,8 +1,13 @@
 import { EmbedBuilder } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
-import { updateRosterEmbed } from './eventService.js';
+import { scheduleRosterRefresh } from './eventService.js';
 import type { EventRole } from '@dem/shared';
+
+/** Roster messages refresh shortly, batched per event (eventService.scheduleRosterRefresh); callers don't wait. */
+function refreshRosterSoon(eventId: string): void {
+  scheduleRosterRefresh(eventId).catch((err) => console.error(`[bot] Roster refresh failed for ${eventId}:`, err));
+}
 
 /**
  * Upsert a roster entry. role=null means Unassigned.
@@ -19,7 +24,7 @@ export async function setRosterRole(
     create: { eventId, userId, username, role },
     update: { role, username },
   });
-  await updateRosterEmbed(eventId);
+  refreshRosterSoon(eventId);
 }
 
 /**
@@ -33,7 +38,7 @@ export async function leaveRoster(eventId: string, userId: string) {
   if (!rsvp) return; // wasn't on the roster — nothing to do
 
   await prisma.eventRsvp.delete({ where: { eventId_userId: { eventId, userId } } });
-  await updateRosterEmbed(eventId);
+  refreshRosterSoon(eventId);
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (event?.threadId) {
@@ -89,7 +94,7 @@ export async function joinRoster(eventId: string, userId: string, username: stri
   if (existing) return; // already on roster
 
   await prisma.eventRsvp.create({ data: { eventId, userId, username, role: null } });
-  await updateRosterEmbed(eventId);
+  refreshRosterSoon(eventId);
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (event?.threadId) {
@@ -154,7 +159,7 @@ async function flushRosterUpdate(eventId: string) {
   if (!entry) return;
 
   // Refresh the embed first
-  await updateRosterEmbed(eventId);
+  await scheduleRosterRefresh(eventId); // shares the batched refresh with button clicks and voice joins
 
   // Fetch current state and diff against snapshot
   const event = await prisma.event.findUnique({ where: { id: eventId } });

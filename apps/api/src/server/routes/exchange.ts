@@ -1,3 +1,4 @@
+import { getMemberNames } from '../../lib/discordRest.js';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -255,23 +256,8 @@ exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) =>
 
   // Resolve live display names from Discord. Falls back to stored username on error.
   const userIds = [...new Set(rows.map((r) => r.userId))];
-  const nickMap = new Map<string, string>();
-  const botToken = process.env['DISCORD_TOKEN'];
-  if (botToken && userIds.length > 0) {
-    const results = await Promise.allSettled(
-      userIds.map((uid) =>
-        fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${uid}`, {
-          headers: { Authorization: `Bot ${botToken}` },
-        }).then((r) => (r.ok ? (r.json() as Promise<{ user: { id: string; username: string; global_name?: string | null }; nick?: string | null }>) : null)),
-      ),
-    );
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value) {
-        const m = result.value;
-        nickMap.set(m.user.id, m.nick ?? m.user.global_name ?? m.user.username);
-      }
-    }
-  }
+  // Cached and throttled (lib/discordRest.ts); names Discord can't give right now fall back to the stored one.
+  const nickMap = process.env['DISCORD_TOKEN'] && userIds.length > 0 ? await getMemberNames(guildId, userIds) : new Map<string, string>();
 
   // Group by qualityLevel
   const groupMap = new Map<string, InventorySearchGroup>();

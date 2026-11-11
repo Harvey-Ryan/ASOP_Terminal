@@ -7,6 +7,7 @@ import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
 import { isAllyNoticePayload, isShareNoticePayload } from '@dem/shared';
 import { handleAllyNotice } from './services/allyNoticeService.js';
 import { handleShareNotice } from './services/shareNoticeService.js';
+import { invalidateStatusTargets, refreshStatusEmbeds } from './services/statusService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const TOO_BIG = Symbol('too big');
@@ -43,6 +44,14 @@ export function startInternalServer() {
       await handleAllyNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleAllyNotice failed for ${payload.event} ${payload.linkId}:`, err),
       );
+      return;
+    }
+
+    // A status channel setting changed on the website (v1.11.1).
+    if (req.url === '/trigger/status') {
+      res.writeHead(202).end();
+      invalidateStatusTargets();
+      await refreshStatusEmbeds().catch((err) => console.error('[bot:internal] refreshStatusEmbeds failed:', err));
       return;
     }
 

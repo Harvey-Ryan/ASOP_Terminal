@@ -1,3 +1,4 @@
+import { cachedDiscordGet } from '../../lib/discordRest.js';
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { requireAuth } from '../middleware/requireAuth.js';
@@ -1259,14 +1260,15 @@ async function fetchPlayersForGuild(discordGuildId: string): Promise<PlayerDto[]
       roles: string[];
     }
 
-    // Paginate up to 5 pages × 1 000 = 5 000 members
+    // Paginate up to 5 pages × 1 000 = 5 000 members. Each page is cached for
+    // 2 minutes (lib/discordRest.ts), so reopening the page doesn't refetch the list.
     const allMembers: DiscordMember[] = [];
     let after = '0';
     for (let page = 0; page < 5; page++) {
-      const url = `https://discord.com/api/v10/guilds/${discordGuildId}/members?limit=1000&after=${after}`;
-      const r = await fetch(url, { headers: { Authorization: `Bot ${botToken}` } });
+      const path = `/guilds/${discordGuildId}/members?limit=1000&after=${after}`;
+      const r = await cachedDiscordGet<DiscordMember[]>(`members-list:${discordGuildId}:${after}`, path, `members-list:${discordGuildId}`, 2 * 60_000);
       if (!r.ok) break;
-      const batch = (await r.json()) as DiscordMember[];
+      const batch = r.data;
       if (batch.length === 0) break;
       allMembers.push(...batch);
       if (batch.length < 1000) break;

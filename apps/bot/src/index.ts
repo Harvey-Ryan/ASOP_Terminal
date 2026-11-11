@@ -8,6 +8,7 @@ import { startScheduler } from './scheduler.js';
 import { loadGameData } from './gamedata.js';
 import { handleAllyButton } from './services/allyNoticeService.js';
 import { handleShareButton } from './services/shareNoticeService.js';
+import { invalidateStatusTargets } from './services/statusService.js';
 import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
@@ -102,6 +103,7 @@ client.on(Events.GuildCreate, async (guild) => {
 
 client.on(Events.GuildDelete, async (guild) => {
   await prisma.guild.deleteMany({ where: { guildId: guild.id } }).catch(() => null);
+  invalidateStatusTargets(); // its settings (and status channel) went with it
   console.log(`[bot] Left guild: ${guild.name} (${guild.id})`);
 });
 

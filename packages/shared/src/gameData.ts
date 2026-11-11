@@ -175,6 +175,33 @@ export function judgeHealth(s: GameDataStatus, now: Date = new Date()): GameData
   return 'ok';
 }
 
+/**
+ * A tiny query whose result changes whenever the status could: a run starts or
+ * finishes (or changes status), the synced commit moves, or a "Sync now"
+ * request arrives or is handled. Lets the status embed skip the full status
+ * query (and Discord) on quiet minutes.
+ */
+export const GAME_DATA_CHANGE_SQL = `
+SELECT json_build_object(
+  'run',     (SELECT row_to_json(r) FROM (SELECT id, status FROM scdata_raw.sync_run ORDER BY id DESC LIMIT 1) r),
+  'commit',  (SELECT commit FROM scdata_raw.state),
+  'request', (SELECT max(id) FROM scdata_raw.sync_request WHERE handled_at IS NULL)
+)::text AS token`;
+
+/**
+ * The next moment the status changes on its own with nothing new in the
+ * database: an "updating" run passes the 1-hour window the status query
+ * allows it, or checks stop and the data turns stale. Null if neither applies.
+ */
+export function gameDataRecheckAt(s: GameDataStatus): Date | null {
+  const times: number[] = [];
+  if (s.running) times.push(new Date(s.running.startedAt).getTime() + 60 * 60_000);
+  if (s.health !== 'stale' && s.lastCheckAt) {
+    times.push(new Date(s.lastCheckAt).getTime() + gameDataStaleAfterMin(s.checkIntervalMin) * 60_000);
+  }
+  return times.length > 0 ? new Date(Math.min(...times) + 1000) : null;
+}
+
 /** True for "schema/table doesn't exist" errors, i.e. the worker hasn't run yet. */
 export function isGameDataMissingError(err: unknown): boolean {
   const e = err as { code?: string; meta?: { code?: string }; message?: string };

@@ -54,3 +54,31 @@ test('a real stop is still caught: regular 5-minute runs, then nothing for an ho
   }, new Date('2026-11-10T18:00:00Z'));
   assert.equal(s.health, 'stale');
 });
+
+// ── When the status changes on its own (v1.11.1) ─────────────────────────────
+import { gameDataRecheckAt, GAME_DATA_CHANGE_SQL, GAME_DATA_NOT_SET_UP } from '../dist/gameData.js';
+
+test('gameDataRecheckAt: when the status turns stale with no new runs', () => {
+  const base = { ...GAME_DATA_NOT_SET_UP, commit: 'abc', health: 'ok', lastCheckAt: '2026-11-10T00:00:00.000Z', checkIntervalMin: 60 };
+  // hourly checks → stale after 150 min (+1 s so the check lands just past it)
+  assert.equal(gameDataRecheckAt(base).toISOString(), '2026-11-10T02:30:01.000Z');
+  // unknown interval → daily → 60 h
+  assert.equal(gameDataRecheckAt({ ...base, checkIntervalMin: null }).toISOString(), '2026-11-12T12:00:01.000Z');
+  // already stale: nothing more happens on its own
+  assert.equal(gameDataRecheckAt({ ...base, health: 'stale' }), null);
+  // never checked: nothing to wait for
+  assert.equal(gameDataRecheckAt({ ...base, lastCheckAt: null }), null);
+});
+
+test('gameDataRecheckAt: an "updating" run drops out of the status after an hour', () => {
+  const s = { ...GAME_DATA_NOT_SET_UP, commit: 'abc', health: 'syncing', lastCheckAt: '2026-11-10T00:00:00.000Z', checkIntervalMin: 1440,
+    running: { startedAt: '2026-11-10T00:00:00.000Z', trigger: 'cron' } };
+  assert.equal(gameDataRecheckAt(s).toISOString(), '2026-11-10T01:00:01.000Z'); // sooner than stale (60 h)
+});
+
+test('the change check reads only the latest run, the commit and pending requests', () => {
+  assert.match(GAME_DATA_CHANGE_SQL, /sync_run ORDER BY id DESC LIMIT 1/);
+  assert.match(GAME_DATA_CHANGE_SQL, /scdata_raw\.state/);
+  assert.match(GAME_DATA_CHANGE_SQL, /sync_request WHERE handled_at IS NULL/);
+  assert.doesNotMatch(GAME_DATA_CHANGE_SQL, /count\(/);
+});

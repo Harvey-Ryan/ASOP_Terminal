@@ -1,3 +1,4 @@
+import { hasAnyRole } from './memberRoles.js';
 import { prisma } from './prisma.js';
 import { assertGuildManager } from './assertGuildManager.js';
 
@@ -19,19 +20,6 @@ export async function assertLootDraftCreator(req: Express.Request, guildId: stri
   const allowedRoles = JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[];
   if (allowedRoles.length === 0) return true; // no restriction — any authenticated user may create
 
-  const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
-  const botToken = process.env['DISCORD_TOKEN'];
-  if (!dbUser || !botToken) return false;
-
-  try {
-    const r = await fetch(
-      `https://discord.com/api/v10/guilds/${guildId}/members/${dbUser.discordId}`,
-      { headers: { Authorization: `Bot ${botToken}` } },
-    );
-    if (r.ok) {
-      const member = (await r.json()) as { roles: string[] };
-      return member.roles.some((id) => allowedRoles.includes(id));
-    }
-  } catch {}
-  return false;
+  // Cached, rate-limit-aware lookup (lib/discordRest.ts).
+  return hasAnyRole(req, guildId, allowedRoles);
 }
