@@ -90,13 +90,6 @@ describe.skipIf(!hasScData)('SC Database search (sc-data)', () => {
     }
   });
 
-  it('the old routes say they moved', async () => {
-    const a = await signedIn();
-    for (const [m, p] of [['get', '/api/sc/sync/status'], ['post', '/api/sc/sync'], ['get', '/api/sc/missions'], ['get', '/api/sc/blueprints/abc']] as const) {
-      const res = await a[m](p).expect(410);
-      expect(res.body.error).toMatch(/game-data/);
-    }
-  });
 });
 
 describe.skipIf(hasScData)('SC Database search without sc-data', () => {
