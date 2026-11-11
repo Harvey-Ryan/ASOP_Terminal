@@ -107,6 +107,8 @@ Patch Notes — v1.1.0 — November 10
   - if they're ever added to Prisma (`multiSchema`), list only `scdata`, model
     every table exactly as it exists, and never add `scdata_raw`.
 - Filter `items.is_placeholder = false` for anything players see.
-- The older `Sc*` Prisma tables (`apps/api/src/lib/scSync.ts`) and the
-  frozen `packages/shared/src/Filtered Data/` JSON still exist; features are
-  being moved over to `scdata` one at a time.
+- The older `Sc*` Prisma tables are no longer read or synced (v1.11.1: the
+  SC Database page reads `scdata`; the weekly download was removed). They're
+  still in `schema.prisma` so `db push` keeps them until a clean-up release
+  drops them. The frozen `packages/shared/src/Filtered Data/` JSON still
+  exists; features are being moved over to `scdata` one at a time.
