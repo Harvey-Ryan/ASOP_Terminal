@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { contours } from 'd3-contour';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,10 @@ interface HeatMapProps {
   showRatio?: boolean;    // if true, color by ratioGrid instead of grid
   // Dual-layer contour: when provided, grid = text (orange), overlayGrid = voice (yellow)
   overlayGrid?: number[][];
+  /** What a square means, in words ("Saturday 8 PM: 12 people on average · 3 events"); shown on hover or tap (v1.24.0) */
+  describe?: (day: number, hour: number) => string;
+  /** The key's two ends ("Less" / "More", "0%" / "100%") */
+  legend?: { low: string; high: string; empty?: string };
 }
 
 // 2-D separable Gaussian: horizontal pass (wrapping) then vertical pass (clamping).
@@ -70,17 +74,41 @@ const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => {
   return i < 12 ? `${i}a` : `${i - 12}p`;
 });
 
+// A quiet low end (v1.24.0): the faintest activity is faint, so quiet hours don't look busy.
 function intensity(value: number, max: number): number {
   if (max === 0 || value === 0) return 0;
-  return 0.15 + (value / max) * 0.85;
+  return 0.08 + (value / max) * 0.92;
+}
+
+const LEGEND_STEPS = [0.08, 0.3, 0.55, 0.78, 1];
+
+/** The colour key under a map, and the line that reads out the square you're on. */
+function Key({ legend, readout, ratio }: { legend?: HeatMapProps['legend']; readout: string; ratio: boolean }) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-10 text-[11px] text-muted-foreground">
+      <span className="flex items-center gap-1">
+        {legend?.low ?? 'Less'}
+        {LEGEND_STEPS.map((a) => <span key={a} className={cn('inline-block h-3 w-3 rounded-sm', ratio && 'ring-1 ring-inset ring-foreground/30')} style={{ backgroundColor: cellColor(a) }} />)}
+        {legend?.high ?? 'More'}
+      </span>
+      {legend?.empty && <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--muted))', opacity: 0.3 }} />{legend.empty}</span>}
+      <span aria-live="polite" className="min-w-0 basis-full text-xs text-foreground/80 sm:basis-auto">{readout}</span>
+    </div>
+  );
 }
 
 function cellColor(alpha: number): string {
   return `hsl(var(--primary) / ${alpha})`;
 }
 
-export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, overlayGrid }: HeatMapProps) {
+export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, overlayGrid, describe, legend }: HeatMapProps) {
   const uid = useId().replace(/:/g, '');
+  const [at, setAt] = useState<{ d: number; h: number } | null>(null);
+  const [bar, setBar] = useState<string | null>(null);
+  const barReadout = <p aria-live="polite" className="mt-1 text-xs text-foreground/80">{bar ?? 'Hover over or tap a bar to see its value.'}</p>;
+  const readout = at && describe ? describe(at.d, at.h) : describe ? 'Hover over or tap a square to see what it means.' : '';
+  /** In ratio mode a square with no events (null) is empty; 0% is a real value and still shows. */
+  const hasValue = (d: number, h: number) => !(showRatio && ratioGrid) || ratioGrid[d]?.[h] != null;
 
   // Contour uses 2D Gaussian smoothing — discrete grid produces stepped lines without it.
   const activeGrid = useMemo(
@@ -127,16 +155,21 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
               <div className="w-10 text-xs text-muted-foreground text-right pr-2 shrink-0">{day}</div>
               {Array.from({ length: 24 }, (_, h) => {
                 const val   = cellValue(d, h);
-                const alpha = intensity(val, effectiveMax);
+                const present = hasValue(d, h);
+                // A real 0% (events, nobody came) still shows, faintly, with an outline.
+                const alpha = present && showRatio ? Math.max(0.08, intensity(val, effectiveMax)) : intensity(val, effectiveMax);
+                const selected = at?.d === d && at?.h === h;
                 return (
                   <div
                     key={h}
-                    className="flex-1 mx-px"
-                    title={`${day} ${HOUR_LABELS[h]}: ${val.toFixed(val < 10 ? 1 : 0)}`}
+                    className="flex-1 mx-px cursor-pointer"
+                    title={describe ? describe(d, h) : `${day} ${HOUR_LABELS[h]}: ${Number.isInteger(val) ? val : val.toFixed(1)}`}
+                    onMouseEnter={() => setAt({ d, h })}
+                    onClick={() => setAt({ d, h })}
                   >
                     {isBlock ? (
                       <div
-                        className="w-full rounded-sm"
+                        className={cn('w-full rounded-sm', selected && 'ring-2 ring-foreground', !selected && present && showRatio && 'ring-1 ring-inset ring-foreground/30')}
                         style={{
                           height: '20px',
                           backgroundColor: alpha > 0 ? cellColor(alpha) : 'hsl(var(--muted))',
@@ -162,6 +195,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
               })}
             </div>
           ))}
+          <Key legend={legend} readout={readout} ratio={!!showRatio} />
         </div>
       </div>
     );
@@ -170,16 +204,21 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
   // ── Hour chart ─────────────────────────────────────────────────────────────
 
   if (style === 'hour-chart') {
-    const hourTotals = Array.from({ length: 24 }, (_, h) =>
-      DAY_LABELS.reduce((sum, _, d) => sum + cellValue(d, h), 0)
-    );
-    const barMax = Math.max(1, ...hourTotals);
+    // Totals per hour; for a show-up rate, the average of the squares with events.
+    const hourTotals = Array.from({ length: 24 }, (_, h) => {
+      const cells = DAY_LABELS.map((_, d) => d).filter((d) => hasValue(d, h)).map((d) => cellValue(d, h));
+      const sum = cells.reduce((a, b) => a + b, 0);
+      return showRatio ? (cells.length ? sum / cells.length : 0) : sum;
+    });
+    const barMax = Math.max(showRatio ? 0.0001 : 1, ...hourTotals);
+    const barText = (label: string, v: number) => (showRatio ? `${label}: ${Math.round(v * 100)}% showed up` : `${label}: ${Math.round((v / barMax) * 100)}% of the busiest`);
     return (
       <div className={cn('w-full overflow-x-auto', className)}>
         <div className="min-w-[400px]">
           <div className="flex items-end gap-px" style={{ height: '100px' }}>
             {hourTotals.map((val, h) => (
-              <div key={h} className="flex-1 flex flex-col items-center justify-end" title={`${HOUR_LABELS[h]}: ${val.toFixed(1)}`}>
+              <div key={h} className="flex-1 flex flex-col items-center justify-end cursor-pointer" title={barText(HOUR_LABELS[h]!, val)}
+                onMouseEnter={() => setBar(barText(HOUR_LABELS[h]!, val))} onClick={() => setBar(barText(HOUR_LABELS[h]!, val))}>
                 <div
                   className="w-full rounded-t-sm"
                   style={{
@@ -197,6 +236,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
               </div>
             ))}
           </div>
+          {barReadout}
         </div>
       </div>
     );
@@ -205,15 +245,19 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
   // ── Day chart ──────────────────────────────────────────────────────────────
 
   if (style === 'day-chart') {
-    const dayTotals = DAY_LABELS.map((_, d) =>
-      Array.from({ length: 24 }, (__, h) => cellValue(d, h)).reduce((a, b) => a + b, 0)
-    );
-    const barMax = Math.max(1, ...dayTotals);
+    const dayTotals = DAY_LABELS.map((_, d) => {
+      const cells = Array.from({ length: 24 }, (__, h) => h).filter((h) => hasValue(d, h)).map((h) => cellValue(d, h));
+      const sum = cells.reduce((a, b) => a + b, 0);
+      return showRatio ? (cells.length ? sum / cells.length : 0) : sum;
+    });
+    const barMax = Math.max(showRatio ? 0.0001 : 1, ...dayTotals);
+    const barText = (label: string, v: number) => (showRatio ? `${label}: ${Math.round(v * 100)}% showed up` : `${label}: ${Math.round((v / barMax) * 100)}% of the busiest`);
     return (
       <div className={cn('w-full', className)}>
         <div className="flex items-end gap-2" style={{ height: '100px' }}>
           {dayTotals.map((val, d) => (
-            <div key={d} className="flex-1 flex flex-col items-center justify-end" title={`${DAY_LABELS[d]}: ${val.toFixed(1)}`}>
+            <div key={d} className="flex-1 flex flex-col items-center justify-end cursor-pointer" title={barText(DAY_LABELS[d]!, val)}
+                onMouseEnter={() => setBar(barText(DAY_LABELS[d]!, val))} onClick={() => setBar(barText(DAY_LABELS[d]!, val))}>
               <div
                 className="w-full rounded-t-sm"
                 style={{
@@ -229,6 +273,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
             <div key={d} className="flex-1 text-center text-xs text-muted-foreground">{label}</div>
           ))}
         </div>
+        {barReadout}
       </div>
     );
   }
@@ -351,6 +396,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
               ))}
             </svg>
           </div>
+          {!isDual && <Key legend={legend} readout="" ratio={!!showRatio} />}
           {/* Color key — only shown in dual-layer mode */}
           {isDual && (
             <div className="flex gap-4 mt-2 pl-10">
