@@ -126,15 +126,19 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   });
 
   const reassignMutation = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string | null }) =>
-      eventsApi.reassignRsvp(guildId, event.id, userId, role),
+    mutationFn: ({ userId, role, tentative }: { userId: string; role: string | null; tentative: boolean }) =>
+      eventsApi.reassignRsvp(guildId, event.id, userId, role, tentative),
     onSuccess: invalidate,
   });
 
-  function handleDrop(targetRole: string | null) {
+  /** A role key, null for Unassigned, or '__maybe' (v1.17.0). */
+  function handleDrop(target: string | null) {
     if (draggingUserId) {
-      const currentRole = ev.rsvps.find((r) => r.userId === draggingUserId)?.role ?? null;
-      if (currentRole !== targetRole) reassignMutation.mutate({ userId: draggingUserId, role: targetRole });
+      const r = ev.rsvps.find((x) => x.userId === draggingUserId);
+      const current = r?.tentative ? '__maybe' : r?.role ?? null;
+      if (current !== target) {
+        reassignMutation.mutate({ userId: draggingUserId, role: target === '__maybe' ? null : target, tentative: target === '__maybe' });
+      }
     }
     setDraggingUserId(null);
     setDragOverBucket(null);
@@ -186,7 +190,8 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       count: role.count as number | null,
       members: ev.rsvps.filter((r) => r.role === (role.id ?? role.name)),
     })),
-    { key: '__unassigned', label: 'Unassigned', count: null, members: ev.rsvps.filter((r) => !r.role) },
+    { key: '__unassigned', label: 'Unassigned', count: null, members: ev.rsvps.filter((r) => !r.role && !r.tentative) },
+    { key: '__maybe', label: 'Maybe', count: null, members: ev.rsvps.filter((r) => r.tentative) },
   ];
 
   return (
@@ -459,6 +464,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     onSuccess: invalidateEvent,
   });
 
+  const maybeMutation = useMutation({
+    mutationFn: () => eventsApi.rsvp(guildId, event.id, null, true),
+    onSuccess: invalidateEvent,
+  });
+
   const removeRsvpMutation = useMutation({
     mutationFn: () => eventsApi.removeRsvp(guildId, event.id),
     onSuccess: invalidateEvent,
@@ -567,8 +577,9 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const isHostGuild = ev.guildId === guildId;
   const canManage = isManager && isHostGuild;
   const userRsvp = userId ? ev.rsvps.find((r) => r.userId === userId) : undefined;
-  const unassigned = ev.rsvps?.filter((r) => !r.role) ?? [];
-  const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending || waitlistMutation.isPending;
+  const unassigned = ev.rsvps?.filter((r) => !r.role && !r.tentative) ?? [];
+  const maybes = ev.rsvps?.filter((r) => r.tentative) ?? [];
+  const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending || waitlistMutation.isPending || maybeMutation.isPending;
   const waitlist = ev.waitlist ?? [];
   const myWait = userId ? waitlist.find((w) => w.userId === userId) : undefined;
 
@@ -706,7 +717,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                         <Button size="sm" disabled={isMutating || otherServer}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
                           onClick={() => rsvpMutation.mutate(roleKey)}>
-                          {otherServer ? 'Other server' : userRsvp ? 'Switch Here' : 'Sign Up'}
+                          {otherServer ? 'Other server' : userRsvp && !userRsvp.tentative ? 'Switch Here' : 'Sign Up'}
                         </Button>
                       )}
                     </div>
@@ -731,13 +742,13 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           </div>
           {canRsvp && userId && (
             <div className="mt-1.5">
-              {userRsvp && !userRsvp.role ? (
+              {userRsvp && !userRsvp.role && !userRsvp.tentative ? (
                 <Button size="sm" disabled={isMutating}
                   className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={() => removeRsvpMutation.mutate()}>
                   Leave
                 </Button>
-              ) : !userRsvp ? (
+              ) : !userRsvp || userRsvp.tentative ? (
                 <Button size="sm" disabled={isMutating}
                   className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={() => rsvpMutation.mutate(null)}>
@@ -749,11 +760,35 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         </div>
       </div>
 
+      {/* Maybe (v1.17.0): on the roster without a role, so it never takes a slot */}
+      <div className={rowCls}>
+        <span className={labelCls}>Maybe</span>
+        <div className="flex-1">
+          <div className="space-y-0.5">
+            {maybes.length > 0
+              ? maybes.map((r) => (
+                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
+                ))
+              : <span className="opacity-50 italic text-lg">None</span>}
+          </div>
+          {canRsvp && userId && (
+            <div className="mt-1.5">
+              <Button size="sm" disabled={isMutating}
+                className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                title={userRsvp?.tentative ? undefined : 'Show you might come, without taking a role'}
+                onClick={() => (userRsvp?.tentative ? removeRsvpMutation.mutate() : maybeMutation.mutate())}>
+                {userRsvp?.tentative ? 'Leave' : "I'm a maybe"}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Attending */}
       <div className={rowCls}>
         <span className={labelCls}>Attending</span>
         <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
-          <p className="text-lg font-medium">{ev.rsvpCounts.total}</p>
+          <p className="text-lg font-medium">{ev.rsvps.length - maybes.length}{maybes.length > 0 && <span className="font-normal opacity-70"> · {maybes.length} maybe</span>}</p>
           {userRsvp && canRsvp && (
             <Link to="/dashboard/settings/notifications" className="text-base underline underline-offset-2 opacity-70 hover:opacity-100">
               Add your sign-ups to your calendar
@@ -1100,7 +1135,7 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const location = event.musterPoint ?? '—';
   const userRsvp = userId ? event.rsvps.find((r) => r.userId === userId) : undefined;
-  const userRoleName = userRsvp?.role
+  const userRoleName = userRsvp?.tentative ? 'Maybe' : userRsvp?.role
     ? (event.roles.find((r) => (r.id ?? r.name) === userRsvp.role)?.name ?? userRsvp.role)
     : null;
 

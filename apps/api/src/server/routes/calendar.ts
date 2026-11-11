@@ -57,7 +57,7 @@ calendarRouter.get('/calendar/:file', async (req, res) => {
     select: { guildId: true, name: true },
   })).map((g) => [g.guildId, g.name]));
 
-  const events: IcsEvent[] = rsvps.map(({ event: e, role }) => {
+  const events: IcsEvent[] = rsvps.map(({ event: e, role, tentative }) => {
     const roles = JSON.parse(e.roles) as EventRole[];
     const roleName = (key: string | null) => (key ? findRole(roles, key)?.name ?? key : null);
     const waiting = e.waitlist.find((w) => w.userId === user.discordId);
@@ -65,7 +65,7 @@ calendarRouter.get('/calendar/:file', async (req, res) => {
     // The host's thread, when everyone can open it (shared events have a thread per server).
     const url = e.threadId && e.allianceGuilds.length === 0 ? `https://discord.com/channels/${e.guildId}/${e.threadId}` : null;
     const description = [
-      `Your role: ${roleName(role) ?? 'Unassigned'}`,
+      tentative ? 'You said maybe' : `Your role: ${roleName(role) ?? 'Unassigned'}`,
       waiting ? `Waiting for ${roleName(waiting.role)} (#${place} in line)` : null,
       `Server: ${hostNames.get(e.guildId) ?? 'ASOP'}`,
       e.description ? `\n${e.description}` : null,
@@ -80,6 +80,7 @@ calendarRouter.get('/calendar/:file', async (req, res) => {
       location: e.musterPoint,
       url,
       updated: e.updatedAt,
+      tentative,
     };
   });
 

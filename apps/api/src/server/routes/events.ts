@@ -413,7 +413,10 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
   const ctx = await signupContext(req, res);
   if (!ctx) return;
   const { guildId, eventId, dbUser, displayName } = ctx;
-  const role = (req.body as { role?: string | null }).role ?? null;
+  const body = req.body as { role?: string | null; tentative?: unknown };
+  const role = body.role ?? null;
+  // "Maybe" (v1.17.0): on the roster without a role, so it never takes a slot.
+  const tentative = role === null && body.tentative === true;
 
   // Check before upsert so we can tell the bot whether this is a brand-new join.
   const existingRsvp = await prisma.eventRsvp.findUnique({
@@ -433,9 +436,11 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     }
     await tx.eventRsvp.upsert({
       where: { eventId_userId: { eventId, userId: dbUser.discordId } },
-      create: { eventId, userId: dbUser.discordId, username: displayName, role },
-      update: { role, username: displayName },
+      create: { eventId, userId: dbUser.discordId, username: displayName, role, tentative },
+      update: { role, username: displayName, tentative },
     });
+    // A maybe isn't waiting for a role (joining a line means you're coming).
+    if (tentative) await tx.eventWaitlist.deleteMany({ where: { eventId, userId: dbUser.discordId } });
     return { problem: null, moves: await fillFromWaitlist(tx, eventId, locked) };
   });
   if (problem) {
@@ -524,6 +529,7 @@ eventsRouter.put('/:guildId/events/:eventId/waitlist', requireAuth, async (req, 
     const key = roleKeyOf(findRole(roles, role)!);
     const joined = !rsvps.some((r) => r.userId === userId);
     if (joined) await tx.eventRsvp.create({ data: { eventId, userId, username: displayName, role: null } });
+    else await tx.eventRsvp.updateMany({ where: { eventId, userId, tentative: true }, data: { tentative: false } }); // joining a line means you're coming
     const current = await tx.eventWaitlist.findUnique({ where: { eventId_userId: { eventId, userId } } });
     if (current?.role !== key) {
       if (current) await tx.eventWaitlist.delete({ where: { id: current.id } });
@@ -681,8 +687,9 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
     return;
   }
 
-  const body = req.body as { role?: string | null };
+  const body = req.body as { role?: string | null; tentative?: unknown };
   const role = body.role ?? null;
+  const tentative = role === null && body.tentative === true; // officers can move people to Maybe too
 
   // Only the host server's events (unassigning used to skip this check).
   const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
@@ -698,7 +705,8 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
   // Officers can place people beyond a role's limit; moving someone out lets the next in line in.
   const moves = await prisma.$transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
-    await tx.eventRsvp.updateMany({ where: { eventId, userId }, data: { role } });
+    await tx.eventRsvp.updateMany({ where: { eventId, userId }, data: { role, tentative } });
+    if (tentative) await tx.eventWaitlist.deleteMany({ where: { eventId, userId } });
     return locked ? fillFromWaitlist(tx, eventId, locked) : [];
   });
   announceWaitlistMoves(eventId, moves);
@@ -1100,7 +1108,7 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
     rsvpCounts: { total: event.rsvps.length },
-    rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role })),
+    rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative })),
     waitlist: event.waitlist.map((w) => ({ userId: w.userId, username: event.rsvps.find((r) => r.userId === w.userId)?.username ?? w.userId, role: w.role })),
     hadLoot: event.hadLoot ?? null,
     lootNotes: event.lootNotes ?? null,

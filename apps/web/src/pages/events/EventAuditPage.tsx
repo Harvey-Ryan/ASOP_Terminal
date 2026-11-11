@@ -251,7 +251,7 @@ export function EventAuditPage() {
                 <AttendeeRow
                   key={rsvp.userId}
                   rsvp={rsvp}
-                  roleName={rsvp.role ? (event.roles.find((r) => (r.id ?? r.name) === rsvp.role)?.name ?? rsvp.role) : undefined}
+                  roleName={rsvp.tentative ? 'Maybe' : rsvp.role ? (event.roles.find((r) => (r.id ?? r.name) === rsvp.role)?.name ?? rsvp.role) : undefined}
                   currentUserId={user?.id}
                   checked={attendance[rsvp.userId] ?? false}
                   wasInVc={event.vcAttendees.includes(rsvp.userId)}

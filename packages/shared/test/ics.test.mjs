@@ -26,7 +26,7 @@ test('a calendar with one event', () => {
   }], new Date('2026-11-11T00:00:00Z'));
   assert.ok(ics.startsWith('BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'));
   assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
-  for (const l of ['UID:e1@asop', 'DTSTART:20261113T150000Z', 'DTEND:20261113T170000Z', 'SUMMARY:Mining op\\, Aaron Halo', 'LOCATION:Lorville', 'X-WR-CALNAME:ASOP events', 'DTSTAMP:20261111T000000Z']) {
+  for (const l of ['UID:e1@asop', 'DTSTART:20261113T150000Z', 'DTEND:20261113T170000Z', 'SUMMARY:Mining op\\, Aaron Halo', 'LOCATION:Lorville', 'X-WR-CALNAME:ASOP events', 'DTSTAMP:20261111T000000Z', 'STATUS:CONFIRMED']) {
     assert.ok(ics.includes(`\r\n${l}\r\n`), l);
   }
   assert.ok(!ics.includes('URL:'));

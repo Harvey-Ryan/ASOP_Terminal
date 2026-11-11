@@ -21,11 +21,13 @@ export const eventsApi = {
   update: (guildId: string, eventId: string, body: Partial<CreateEventBody>) =>
     api.patch<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}`, body).then((r) => r.data!),
 
-  reassignRsvp: (guildId: string, eventId: string, userId: string, role: string | null) =>
-    api.patch<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp/${userId}`, { role }).then((r) => r.data!),
+  /** Officers: move someone to a role, Unassigned, or (role null + tentative) Maybe. */
+  reassignRsvp: (guildId: string, eventId: string, userId: string, role: string | null, tentative = false) =>
+    api.patch<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp/${userId}`, { role, tentative }).then((r) => r.data!),
 
-  rsvp: (guildId: string, eventId: string, role: string | null) =>
-    api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`, { role }).then((r) => r.data!),
+  /** Sign up for a role, Unassigned (null), or Maybe (null + tentative, v1.17.0). */
+  rsvp: (guildId: string, eventId: string, role: string | null, tentative = false) =>
+    api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`, { role, tentative }).then((r) => r.data!),
 
   removeRsvp: (guildId: string, eventId: string) =>
     api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`).then((r) => r.data!),

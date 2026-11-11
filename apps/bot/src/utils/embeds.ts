@@ -10,6 +10,8 @@ import { describeRecurrence } from '@dem/shared';
 interface RsvpEntry {
   userId: string;
   role: string | null;
+  /** "Maybe" (v1.17.0) */
+  tentative?: boolean;
 }
 
 interface EventForRoster {
@@ -76,7 +78,8 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
     embed.addFields({ name: '📍 Muster Point', value: event.musterPoint, inline: false });
   }
 
-  const unassigned = event.rsvps.filter((r) => !r.role);
+  const unassigned = event.rsvps.filter((r) => !r.role && !r.tentative);
+  const maybes = event.rsvps.filter((r) => r.tentative);
 
   if (roles.length > 0) {
     for (const role of roles) {
@@ -100,6 +103,11 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
     value: unassignedValue,
     inline: true,
   });
+
+  // Only when someone said maybe, to keep the roster short (v1.17.0).
+  if (maybes.length > 0) {
+    embed.addFields({ name: `❔ Maybe (${maybes.length})`, value: mentionList(maybes.map((r) => formatMember(r.userId, activeUserIds))), inline: true });
+  }
 
   if (ended && activeUserIds.size > 0) {
     embed.addFields({
@@ -184,8 +192,8 @@ export function buildPostEventEmbed(
 
 /**
  * The buttons under a roster: one per role this server can take (a full role
- * becomes a grey "· waitlist" button, v1.14.0), then Unassigned and Leave
- * Roster, which always fit in Discord's 25.
+ * becomes a grey "· waitlist" button, v1.14.0), then Unassigned, Maybe
+ * (v1.17.0) and Leave Roster, which always fit in Discord's 25.
  */
 export function buildRoleButtons(
   eventId: string,
@@ -198,7 +206,7 @@ export function buildRoleButtons(
     : roles;
 
   const allButtons: ButtonBuilder[] = [
-    ...visibleRoles.slice(0, 23).map((role) => {
+    ...visibleRoles.slice(0, 22).map((role) => {
       const key = role.id ?? role.name;
       const full = rsvps.filter((r) => r.role === key).length >= role.count;
       return full
@@ -209,6 +217,11 @@ export function buildRoleButtons(
       .setCustomId(`role:${eventId}:__unassigned__`)
       .setLabel('Unassigned')
       .setEmoji('📋')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`maybe:${eventId}`)
+      .setLabel('Maybe')
+      .setEmoji('❔')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`leave:${eventId}`)
