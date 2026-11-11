@@ -938,3 +938,18 @@ export * from './recurrence.js';
 export * from './catalog.js';
 export * from './allies.js';
 export * from './crafting.js';
+
+// ── Return after login (v1.12.0) ─────────────────────────────────────────────
+
+/**
+ * The page to return to after signing in, if it is safe to redirect to: a path
+ * inside the dashboard on our own site. Anything else (another site, "//host",
+ * backslashes, control characters, very long values) gives null, so login
+ * can't be used to send people elsewhere.
+ */
+export function safeReturnPath(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 512) return null;
+  if (!/^\/dashboard(?:[/?#]|$)/.test(value)) return null;
+  if (/[\\\u0000-\u001f\u007f]/.test(value) || value.includes('//')) return null;
+  return value;
+}

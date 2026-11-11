@@ -9,6 +9,6 @@ export const authApi = {
   /** Destroy the server session and clear the cookie. */
   logout: () => api.post<ApiResponse>('/auth/logout'),
 
-  /** The URL to navigate to in order to start the Discord OAuth flow. */
-  loginUrl: '/api/auth/login',
+  /** Starts the Discord sign-in; `next` is the dashboard page to come back to (v1.12.0). */
+  loginUrl: (next?: string | null) => `/api/auth/login${next ? `?next=${encodeURIComponent(next)}` : ''}`,
 };

@@ -17,6 +17,7 @@ import {
   getGuildIconUrl,
   resolveAvatarUrl,
   canManageGuild,
+  safeReturnPath,
 } from '@dem/shared';
 import type { ApiResponse, DiscordUser, ManagedGuild, MeResponse } from '@dem/shared';
 
@@ -29,6 +30,8 @@ const WEB_URL = () => process.env.WEB_URL ?? 'http://localhost:5173';
 authRouter.get('/login', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   req.session.oauthState = state;
+  // ?next=/dashboard/… : where to go after signing in (a link from Discord, an expired session).
+  req.session.returnTo = safeReturnPath(req.query['next']) ?? undefined;
 
   req.session.save((err) => {
     if (err) {
@@ -109,6 +112,9 @@ authRouter.get('/callback', async (req, res) => {
       },
     });
 
+    // Read before regenerating: the new session starts empty.
+    const returnTo = safeReturnPath(req.session.returnTo) ?? '/dashboard';
+
     // Regenerate session ID to prevent session fixation
     req.session.regenerate((regenErr) => {
       if (regenErr) {
@@ -121,7 +127,7 @@ authRouter.get('/callback', async (req, res) => {
           res.redirect(`${WEB_URL()}/login?error=session_error`);
           return;
         }
-        res.redirect(`${WEB_URL()}/dashboard`);
+        res.redirect(`${WEB_URL()}${returnTo}`);
       });
     });
   } catch (err) {
