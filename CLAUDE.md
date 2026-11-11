@@ -83,6 +83,24 @@ Patch Notes — v1.1.0 — November 10
 5. Versions are tagged when released (see Versioning), so no extra tag is
    needed for announcements.
 
+## Errors and the admin panel (v1.13.0)
+
+- Errors are stored in `ErrorEvent` (90 days) by `ErrorRecorder`
+  (`packages/shared/src/errorLog.ts`): API `lib/errorLog.ts`, bot
+  `utils/errorLog.ts`, browsers via `POST /api/client-errors`
+  (`apps/web/src/lib/reportError.ts`). `console.error`/`console.warn` are
+  recorded automatically, so log failures with them; don't swallow errors
+  silently. Each API request and bot interaction has a ref (shown to users as
+  "Ref XXXXXX"; `X-Request-Id`, `withRef()` in the bot).
+- The admin panel is `/dashboard/admin` (web `pages/admin/`, API
+  `routes/admin.ts`), for `PLATFORM_ADMIN_DISCORD_IDS` only (404 for everyone
+  else). Admin setting changes go through `lib/guildSettings.ts`, the same code
+  as the servers' own settings pages, and are written to `AdminLog`.
+- The admin Discord feed (`AdminConfig`) is posted by the bot
+  (`services/adminFeedService.ts`): joins/leaves, alerts for new or returning
+  kinds of error, and a daily digest. A new kind of thing to report there
+  goes into `AdminLog` with a new `kind` (add it to `ADMIN_LOG_KINDS`).
+
 ## Railway
 
 - Settings live in the Railway dashboard, not in the repo. Don't add a

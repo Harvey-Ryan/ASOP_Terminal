@@ -44,6 +44,14 @@ const FleetSettingsPage = lazyPage(() => import('./pages/settings/FleetSettingsP
 const LootSettingsPage = lazyPage(() => import('./pages/settings/LootSettingsPage'), 'LootSettingsPage');
 const ModuleSettingsHubPage = lazyPage(() => import('./pages/settings/ModuleSettingsHubPage'), 'ModuleSettingsHubPage');
 const AlliesPage = lazyPage(() => import('./pages/settings/AlliesPage'), 'AlliesPage');
+const AdminLayout = lazyPage(() => import('./pages/admin/AdminLayout'), 'AdminLayout');
+const AdminOverviewPage = lazyPage(() => import('./pages/admin/AdminOverviewPage'), 'AdminOverviewPage');
+const AdminErrorsPage = lazyPage(() => import('./pages/admin/AdminErrorsPage'), 'AdminErrorsPage');
+const AdminErrorDetailPage = lazyPage(() => import('./pages/admin/AdminErrorDetailPage'), 'AdminErrorDetailPage');
+const AdminServersPage = lazyPage(() => import('./pages/admin/AdminServersPage'), 'AdminServersPage');
+const AdminServerPage = lazyPage(() => import('./pages/admin/AdminServerPage'), 'AdminServerPage');
+const AdminActivityPage = lazyPage(() => import('./pages/admin/AdminActivityPage'), 'AdminActivityPage');
+const AdminFeedPage = lazyPage(() => import('./pages/admin/AdminFeedPage'), 'AdminFeedPage');
 const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
@@ -101,6 +109,16 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/tournaments" element={<TournamentSettingsPage />} />
           <Route path="servers/:guildId/map" element={<MemberMapPage />} />
           <Route path="kanban" element={<KanbanPage />} />
+          {/* Admin panel (v1.13.0): platform admins only; AdminLayout shows "not found" to everyone else. */}
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverviewPage />} />
+            <Route path="errors" element={<AdminErrorsPage />} />
+            <Route path="errors/:id" element={<AdminErrorDetailPage />} />
+            <Route path="servers" element={<AdminServersPage />} />
+            <Route path="servers/:guildId" element={<AdminServerPage />} />
+            <Route path="activity" element={<AdminActivityPage />} />
+            <Route path="feed" element={<AdminFeedPage />} />
+          </Route>
           <Route path="settings/notifications" element={<NotificationSettingsPage />} />
         </Route>
 

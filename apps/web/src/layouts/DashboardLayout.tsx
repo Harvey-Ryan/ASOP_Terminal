@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
+import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -129,7 +130,7 @@ function GuildIcon({ guild }: { guild: ManagedGuild }) {
 export function DashboardLayout() {
   const { data: health } = useQuery({ queryKey: ['health'], queryFn: healthApi.get, staleTime: 10 * 60_000 });
   const appVersion = health?.version && health.version !== '0.0.0' ? health.version : null;
-  const { user, guilds, logout } = useAuth();
+  const { user, guilds, logout, isPlatformAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -710,6 +711,16 @@ export function DashboardLayout() {
             <KanbanSquare className="h-4 w-4 shrink-0" />
             {!navCollapsed && 'Roadmap'}
           </NavLink>
+          {isPlatformAdmin && (
+            <NavLink
+              to="/dashboard/admin"
+              title={navCollapsed ? 'Admin' : undefined}
+              className={navCls}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              {!navCollapsed && 'Admin'}
+            </NavLink>
+          )}
           <a
             href="https://buymeacoffee.com/asopterminal"
             target="_blank"
@@ -727,9 +738,11 @@ export function DashboardLayout() {
         <main className="flex-1 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
             {/* Pages load when first opened (App.tsx); the nav stays put meanwhile. */}
-            <Suspense fallback={<PageLoading />}>
-              <Outlet context={{ displayName } satisfies DashboardOutletContext} />
-            </Suspense>
+            <CrashScreen resetKey={location.pathname}>
+              <Suspense fallback={<PageLoading />}>
+                <Outlet context={{ displayName } satisfies DashboardOutletContext} />
+              </Suspense>
+            </CrashScreen>
           </div>
         </main>
       </div>

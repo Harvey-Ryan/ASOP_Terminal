@@ -7,6 +7,10 @@ import App from './App';
 import { ApiError } from './api/client';
 import { AUTH_QUERY_KEY } from './hooks/useAuth';
 import { ErrorNotices, showError } from './components/ErrorNotices';
+import { installErrorReporting } from './lib/reportError';
+
+// Browser errors are reported for the admin panel (v1.13.0).
+installErrorReporting();
 
 declare module '@tanstack/react-query' {
   interface Register {
@@ -33,7 +37,10 @@ const queryClient = new QueryClient({
       if (mutation.options.onError || mutation.meta?.quietErrors) return;
       // Signed out (session expired): back to the login page, as for queries.
       if (error instanceof ApiError && error.status === 401) { queryClient.setQueryData(AUTH_QUERY_KEY, null); return; }
-      showError(error instanceof Error && error.message ? error.message : 'Something went wrong. Please try again.');
+      const text = error instanceof Error && error.message ? error.message : 'Something went wrong. Please try again.';
+      // Server errors carry a ref to quote when asking for help (v1.13.0).
+      const ref = error instanceof ApiError && error.status >= 500 ? error.ref : null;
+      showError(ref ? `${text} (Ref ${ref})` : text);
     },
   }),
   defaultOptions: {

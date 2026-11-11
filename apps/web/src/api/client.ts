@@ -5,6 +5,8 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** The request's reference code (X-Request-Id), to quote when reporting a problem (v1.13.0) */
+    public readonly ref: string | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -22,7 +24,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
 
   if (!res.ok) {
-    throw new ApiError(res.status, (body as { error?: string }).error ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, (body as { error?: string }).error ?? `Request failed (${res.status})`, res.headers.get('X-Request-Id'));
   }
 
   return body as T;
