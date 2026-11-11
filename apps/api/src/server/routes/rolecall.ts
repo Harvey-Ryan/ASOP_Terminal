@@ -5,6 +5,7 @@ import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertModuleEditor } from '../../lib/assertModuleEditor.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
+import { activityAvailable } from '../../lib/activityAvailable.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const roleCallRouter = Router();
@@ -82,6 +83,11 @@ async function allowed(req: Request, res: Response, access: Access): Promise<Rec
     return null;
   }
   const deny = () => { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return null; };
+  // RoleCall only tracks some servers (v1.25.0): elsewhere nothing, settings included.
+  if (!activityAvailable(guildId)) {
+    res.status(404).json({ success: false, error: 'Activity isn\'t available for this server.' } satisfies ApiResponse);
+    return null;
+  }
 
   if (access === 'editor') {
     if (!(await assertModuleEditor(req, guildId))) return deny();

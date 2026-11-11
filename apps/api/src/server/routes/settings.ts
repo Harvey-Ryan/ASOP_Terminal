@@ -11,6 +11,7 @@ import { assertAllianceManager } from '../../lib/assertAllianceManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError } from '../../lib/validate.js';
 import { applySettingsPatch, parseSettingsPatch, patchNeedsManager, readPermissionFields, type SettingsPatch } from '../../lib/guildSettings.js';
+import { activityAvailable } from '../../lib/activityAvailable.js';
 import { setupChecklist, type ApiResponse, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
 
 export const settingsRouter = Router();
@@ -69,7 +70,8 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         fleetEnabled:       s?.fleetEnabled        ?? true,
         blueprintsEnabled:  s?.blueprintsEnabled   ?? true,
         craftingEnabled:    s?.craftingEnabled     ?? true,
-        activityEnabled:    s?.activityEnabled     ?? true,
+        activityEnabled:    activityAvailable(guildId) && (s?.activityEnabled ?? true),
+        activityAvailable:  activityAvailable(guildId),
         activityHeatmapPublic: s?.activityHeatmapPublic ?? true,
         tournamentsEnabled: s?.tournamentsEnabled  ?? true,
         jobsEnabled:        s?.jobsEnabled         ?? true,
@@ -199,6 +201,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         blueprintsEnabled:          s?.blueprintsEnabled          ?? true,
         craftingEnabled:            s?.craftingEnabled            ?? true,
         activityEnabled:            s?.activityEnabled            ?? true,
+        activityAvailable:          activityAvailable(guildId),
         activityHeatmapPublic:      s?.activityHeatmapPublic      ?? true,
         tournamentsEnabled:         s?.tournamentsEnabled          ?? true,
         tournamentHideElo:          s?.tournamentHideElo           ?? false,

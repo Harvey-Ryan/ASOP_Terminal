@@ -267,6 +267,7 @@ These environment variables enable optional features. The app starts and runs no
 | `UPLOADS_DIR` | Override the default uploads directory path |
 | `ROLECALL_API_URL` | RoleCall integration API base URL |
 | `ROLECALL_API_KEY` | RoleCall integration API key |
+| `ACTIVITY_SERVER_IDS` | Optional. Comma-separated Discord server ids that get Activity (RoleCall). Defaults to Fleet 919; every other server doesn't see the module. |
 
 ---
 

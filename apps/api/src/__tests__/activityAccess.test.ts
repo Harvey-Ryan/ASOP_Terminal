@@ -34,6 +34,7 @@ async function login(managed: string[]) {
 
 async function setup(heatmapPublic = true) {
   const g = await createGuild({ guildId: String(Date.now()) + String(Math.floor(Math.random() * 1000)) });
+  process.env['ACTIVITY_SERVER_IDS'] = g.guildId; // Activity only exists for the servers RoleCall tracks (v1.25.0)
   await createGuildSettings(g.id, { viewerRoles: JSON.stringify(['viewer']), activityHeatmapPublic: heatmapPublic });
   const other = await createGuild({ guildId: String(Date.now() + 1) + String(Math.floor(Math.random() * 1000)) });
   return { g: g.guildId, officer: await login([g.guildId]), member: await login([]), outsider: await login([other.guildId]) };
@@ -89,3 +90,26 @@ describe('unused routes removed (v1.21.1)', () => {
     await officer.agent.get(`/api/guilds/${g}/settings`).expect((r) => expect(r.status).not.toBe(404));
   });
 });
+
+describe('Activity only exists for the servers RoleCall tracks (v1.25.0)', () => {
+  it('elsewhere: off in permissions and settings, every Activity route 404, even for officers', async () => {
+    const { g, officer } = await setup();
+    delete process.env['ACTIVITY_SERVER_IDS']; // default: Fleet 919 only
+    const perms = (await officer.agent.get(`/api/guilds/${g}/my-permissions`).expect(200)).body.data;
+    expect(perms).toMatchObject({ activityEnabled: false, activityAvailable: false });
+    expect((await officer.agent.get(`/api/guilds/${g}/settings`).expect(200)).body.data.activityAvailable).toBe(false);
+    for (const path of ['stats', 'leaderboard', 'heatmap/guild', 'config']) {
+      await officer.agent.get(`/api/rolecall/${path}?guildId=${g}`).expect(404);
+    }
+    await officer.agent.patch(`/api/rolecall/config?guildId=${g}`).send({ x: 1 }).expect(404);
+    await officer.agent.get(`/api/guilds/${g}/heatmap/events`).expect(404);
+  });
+
+  it('the listed server: available, as before', async () => {
+    const { g, officer } = await setup();
+    const perms = (await officer.agent.get(`/api/guilds/${g}/my-permissions`).expect(200)).body.data;
+    expect(perms).toMatchObject({ activityEnabled: true, activityAvailable: true });
+    await passes(officer.agent.get(`/api/rolecall/stats?guildId=${g}`));
+  });
+});
+

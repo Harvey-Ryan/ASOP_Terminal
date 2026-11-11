@@ -95,6 +95,8 @@ export function ActivitySettingsPage() {
     queryFn: () => settingsApi.getSettings(guildId!),
     enabled: !!guildId,
   });
+  // Only ask RoleCall once we know this server has Activity (v1.25.0).
+  const hasActivity = !!saved && saved.activityAvailable !== false;
 
   const { data: channelData, isLoading: channelsLoading } = useQuery({
     queryKey: ['channels', guildId],
@@ -151,7 +153,7 @@ export function ActivitySettingsPage() {
   const { data: rcConfig, isLoading: rcLoading } = useQuery({
     queryKey: ['rolecall-config', guildId],
     queryFn: () => roleCallApi.getConfig(guildId!),
-    enabled: !!guildId,
+    enabled: !!guildId && hasActivity,
     retry: false,
   });
 
@@ -216,7 +218,7 @@ export function ActivitySettingsPage() {
   const { data: leftMembers, isLoading: leftLoading, isError: leftError } = useQuery({
     queryKey: ['rolecall-left-members', guildId],
     queryFn: () => roleCallApi.getLeftMembers(guildId!),
-    enabled: !!guildId,
+    enabled: !!guildId && hasActivity,
     retry: false,
   });
 
@@ -225,7 +227,7 @@ export function ActivitySettingsPage() {
   const { data: log, isLoading: logLoading, isError: logError } = useQuery({
     queryKey: ['rolecall-role-change-log', guildId, logPage],
     queryFn: () => roleCallApi.getRoleChangeLog(guildId!, logPage),
-    enabled: !!guildId,
+    enabled: !!guildId && hasActivity,
     retry: false,
   });
 
@@ -234,6 +236,11 @@ export function ActivitySettingsPage() {
   const textChannels = channels.filter((c) => c.type === 0 || c.type === 5);
   const roles = rolesData ?? [];
   const loading = settingsLoading || channelsLoading || rolesLoading;
+
+  // Activity (RoleCall) only exists for the servers it tracks (v1.25.0).
+  if (saved && saved.activityAvailable === false) {
+    return <p className="text-sm text-muted-foreground">Activity isn't available for this server.</p>;
+  }
 
   return (
     <div className="space-y-6">

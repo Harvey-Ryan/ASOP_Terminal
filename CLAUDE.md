@@ -268,6 +268,14 @@ Patch Notes — v1.1.0 — November 10
 
 ## Activity heat maps (v1.24.0)
 
+- Activity (RoleCall, its heat maps included) exists only for the servers in
+  `ACTIVITY_SERVER_IDS` (default: Fleet 919), via `activityAvailable()` in
+  `apps/api/src/lib/activityAvailable.ts` (v1.25.0). Elsewhere
+  `my-permissions` says `activityEnabled: false, activityAvailable: false`, the
+  module is off in `assertModuleEnabled`, and the RoleCall proxy and the event
+  heat map answer 404 (settings included). The website hides the link and the
+  Module Settings tile, and asks RoleCall nothing until availability is known.
+
 - Week × hour grids (row 0 = Sunday) in the viewer's time zone (default: the
   browser's). Server and member maps come from RoleCall (no unit: read them
   relative to the busiest hour); the event map is ours:

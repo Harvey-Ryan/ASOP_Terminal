@@ -35,6 +35,8 @@ export interface GuildSettingsData {
   blueprintsEnabled: boolean;
   craftingEnabled: boolean;
   activityEnabled: boolean;
+  /** Activity (RoleCall) exists for this server at all (v1.25.0) */
+  activityAvailable?: boolean;
   activityHeatmapPublic: boolean;
   tournamentsEnabled: boolean;
   tournamentChannelId: string | null;
@@ -65,6 +67,8 @@ export interface GuildMyPermissions {
   blueprintsEnabled: boolean;
   craftingEnabled: boolean;
   activityEnabled: boolean;
+  /** Activity (RoleCall) exists for this server at all (v1.25.0) */
+  activityAvailable?: boolean;
   activityHeatmapPublic: boolean;
   tournamentsEnabled: boolean;
   jobsEnabled: boolean;

@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { buildEventHeatmap, isValidTimeZone, type ApiResponse, type EventHeatmapDto } from '@dem/shared';
 
 export const heatmapRouter = Router();
@@ -10,6 +11,11 @@ export const heatmapRouter = Router();
 // GET /api/guilds/:guildId/heatmap/events?days=180&timezone=America/Chicago
 heatmapRouter.get('/:guildId/heatmap/events', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
+  // Part of Activity, which only some servers have (v1.25.0).
+  if (!(await assertModuleEnabled(guildId, 'activityEnabled'))) {
+    res.status(404).json({ success: false, error: 'Activity isn\'t available for this server.' } satisfies ApiResponse);
+    return;
+  }
   // Officers, or members when the server lets them see heat maps (v1.21.1: there was no check).
   const officer = await assertEventCreator(req, guildId);
   if (!officer) {
