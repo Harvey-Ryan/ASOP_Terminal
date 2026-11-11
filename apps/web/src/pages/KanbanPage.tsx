@@ -30,7 +30,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import type { KanbanColumnDto, KanbanCardDto } from '@dem/shared';
 
-const ADMIN_ID = '1135606224155586571';
 
 const COLORS: { key: string; label: string; header: string; border: string; badge: string }[] = [
   { key: 'slate',  label: 'Default', header: 'text-slate-400',  border: 'border-slate-500/40',  badge: 'bg-slate-500/20 text-slate-300' },
@@ -418,9 +417,9 @@ function KanbanColumnView({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function KanbanPage() {
-  const { user } = useAuth();
+  const { isPlatformAdmin } = useAuth();
   const qc = useQueryClient();
-  const isAdmin = user?.id === ADMIN_ID;
+  const isAdmin = isPlatformAdmin;
 
   const { data: serverColumns = [], isLoading } = useQuery({
     queryKey: ['kanban'],

@@ -1,18 +1,17 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { isPlatformAdminId } from '../../lib/platformAdmin.js';
 import type { ApiResponse, KanbanColumnDto, KanbanCardDto } from '@dem/shared';
 
 export const kanbanRouter = Router();
-
-const ADMIN_DISCORD_ID = '1135606224155586571';
 
 async function isAdmin(sessionUserId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: sessionUserId },
     select: { discordId: true },
   });
-  return user?.discordId === ADMIN_DISCORD_ID;
+  return !!user && isPlatformAdminId(user.discordId); // PLATFORM_ADMIN_DISCORD_IDS
 }
 
 function toCardDto(c: {
