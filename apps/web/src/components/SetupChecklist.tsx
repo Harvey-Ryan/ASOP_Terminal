@@ -1,6 +1,8 @@
 // The setup checklist for officers (v1.15.0). On the server page it's a card
-// listing what's left, until the required steps are done or someone hides it;
-// Module Settings always shows every step. Built by packages/shared/src/setup.ts.
+// listing what's left, until someone hides it; Module Settings lists every
+// step. Once the required steps are done it's gone from both (v1.22.1), and
+// comes back by itself if something breaks later. Built by
+// packages/shared/src/setup.ts.
 
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,13 +43,14 @@ export function SetupChecklist({ guildId, variant }: { guildId: string; variant:
 
   if (!Array.isArray(data?.steps)) return null; // not an officer, or not loaded
   const todo = unfinished(data.steps);
-  if (variant === 'card' && (data.hidden || todo === 0)) return null;
+  if (todo === 0) return null; // all set up: no banner anywhere
+  if (variant === 'card' && data.hidden) return null;
   const done = data.steps.filter((s) => s.done).length;
 
   return (
     <section aria-label="Setup checklist" className="shrink-0 rounded-xl border border-border bg-card px-4 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="font-semibold">{todo ? 'Finish setting up ASOP' : 'ASOP is set up'}</h2>
+        <h2 className="font-semibold">Finish setting up ASOP</h2>
         <span className="text-sm text-muted-foreground">{done} of {data.steps.length} done</span>
         <div className="ml-auto flex items-center gap-3 text-sm">
           {variant === 'card' ? (
@@ -56,7 +59,7 @@ export function SetupChecklist({ guildId, variant }: { guildId: string; variant:
               title="Hide this card for everyone. The checklist stays in Module Settings.">
               <X className="h-4 w-4" aria-hidden />Hide
             </button>
-          ) : data.hidden && todo > 0 ? (
+          ) : data.hidden ? (
             <button type="button" disabled={hide.isPending} onClick={() => hide.mutate(false)} className="text-primary hover:underline">
               Show on the server page
             </button>
