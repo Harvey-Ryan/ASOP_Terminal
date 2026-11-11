@@ -1,4 +1,4 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ThreadAutoArchiveDuration } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 
@@ -66,6 +66,8 @@ async function postToAllianceThreads(
   eventId: string,
   embed: EmbedBuilder,
   row?: ActionRowBuilder<ButtonBuilder>,
+  /** Leave the threads open (loot results: they close with the host's thread) */
+  keepOpen = false,
 ) {
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({
     where: { eventId },
@@ -80,7 +82,8 @@ async function postToAllianceThreads(
         const wasArchived = thread.archived ?? false;
         if (wasArchived) await thread.setArchived(false).catch(() => null);
         await thread.send(row ? { embeds: [embed], components: [row] } : { embeds: [embed] });
-        if (wasArchived) await thread.setArchived(true).catch(() => null);
+        if (keepOpen) await thread.setAutoArchiveDuration(ThreadAutoArchiveDuration.OneWeek).catch(() => null);
+        else if (wasArchived) await thread.setArchived(true).catch(() => null);
       }),
   );
 }
@@ -445,10 +448,13 @@ export async function announceLootResults(sessionId: string) {
     where: { id: sessionId },
     include: { items: { include: { assignments: true }, orderBy: { sortOrder: 'asc' } } },
   });
-  if (!session || !session.eventId) return;
+  if (!session) return;
 
-  const event = await prisma.event.findUnique({ where: { id: session.eventId } });
-  if (!event?.threadId) return;
+  // Event sessions post in the event's thread; standalone ones in the loot
+  // results channel, if the server chose one (v1.22.0).
+  const event = session.eventId ? await prisma.event.findUnique({ where: { id: session.eventId } }) : null;
+  if (session.eventId && !event?.threadId) return;
+  const label = event?.name ?? session.name ?? 'Loot session';
 
   const dkpLabel = await getGuildDkpLabel(session.guildId);
 
@@ -506,13 +512,13 @@ export async function announceLootResults(sessionId: string) {
       : METHOD_LABELS[session.method] ?? session.method;
 
     embed = new EmbedBuilder()
-      .setTitle(`🎁 Loot — ${event.name}`)
+      .setTitle(`🎁 Loot — ${label}`)
       .setColor(0xf59e0b)
       .setDescription(description)
       .setFooter({ text: `Method: ${methodLabel}` })
       .setTimestamp();
 
-    if (session.dkpAward > 0) {
+    if (event && session.dkpAward > 0) {
       const confirmedIds: string[] = event.confirmedAttendees
         ? JSON.parse(event.confirmedAttendees)
         : [];
@@ -524,17 +530,104 @@ export async function announceLootResults(sessionId: string) {
     }
   }
 
+  if (!event) {
+    if (embed) await postToLootChannel(session.guildId, embed);
+    return;
+  }
+
+  // The thread stays open while the loot is handed out: until every item is
+  // marked delivered, or LOOT_THREAD_HOLD_MS after the loot (v1.22.0).
+  const holding = assignedItems.length > 0 && !!session.completedAt;
   try {
-    const thread = await client.channels.fetch(event.threadId);
+    const thread = await client.channels.fetch(event.threadId!);
     if (thread?.isThread()) {
       if (thread.archived) await thread.setArchived(false).catch(() => null);
       if (embed) await thread.send({ embeds: [embed] });
-      // Archive thread after loot session completes regardless of whether items were assigned
-      await thread.setArchived(true).catch(() => null);
+      if (holding) {
+        // Discord would otherwise archive a quiet thread sooner; we close it ourselves.
+        await thread.setAutoArchiveDuration(ThreadAutoArchiveDuration.OneWeek).catch(() => null);
+      } else {
+        await thread.setArchived(true).catch(() => null);
+      }
     }
   } catch (err) {
     console.error('[bot] Failed to post loot results:', err);
   }
 
-  if (embed) await postToAllianceThreads(session.eventId, embed);
+  if (embed) await postToAllianceThreads(session.eventId!, embed, undefined, holding);
+  if (!holding) {
+    await prisma.lootSession.update({ where: { id: session.id }, data: { threadClosedAt: new Date() } }).catch(() => null);
+  } else {
+    await closeLootThreadIfDone(session.id); // everything already delivered
+  }
+}
+
+/** Standalone sessions: the loot results channel (GuildSettings.lootChannelId), if set. */
+async function postToLootChannel(guildId: string, embed: EmbedBuilder): Promise<void> {
+  const g = await prisma.guild.findUnique({ where: { guildId }, select: { settings: { select: { lootChannelId: true } } } });
+  const channelId = g?.settings?.lootChannelId;
+  if (!channelId) return;
+  try {
+    const ch = await client.channels.fetch(channelId);
+    if (ch?.isTextBased() && 'send' in ch) await ch.send({ embeds: [embed] });
+  } catch (err) {
+    console.warn(`[bot] Couldn't post loot results in the loot channel of ${guildId}:`, err);
+  }
+}
+
+// ── Closing the event thread after the loot (v1.22.0) ─────────────────────────
+
+/** How long an event's thread stays open after its loot, unless everything is delivered sooner. */
+export const LOOT_THREAD_HOLD_MS = 72 * 60 * 60_000;
+
+/** Why a completed event loot session's thread should close now, or null to keep it open. */
+export function lootThreadCloseReason(
+  completedAt: Date,
+  assignments: readonly { delivered: boolean }[],
+  now = Date.now(),
+): 'delivered' | 'expired' | null {
+  if (assignments.length > 0 && assignments.every((a) => a.delivered)) return 'delivered';
+  if (now - completedAt.getTime() >= LOOT_THREAD_HOLD_MS) return 'expired';
+  return null;
+}
+
+const CLOSE_NOTICE = {
+  delivered: '📦 All loot has been delivered. Closing this thread.',
+  expired: '🔒 Closing this thread: it\'s been 72 hours since the loot was handed out.',
+} as const;
+
+/** Closes the event's thread (and allies' threads) if the session's loot is delivered or the hold is over. */
+export async function closeLootThreadIfDone(sessionId: string, now = Date.now()): Promise<boolean> {
+  const session = await prisma.lootSession.findUnique({
+    where: { id: sessionId },
+    include: { items: { include: { assignments: { select: { delivered: true } } } } },
+  });
+  if (!session?.eventId || session.status !== 'COMPLETED' || !session.completedAt || session.threadClosedAt) return false;
+  const why = lootThreadCloseReason(session.completedAt, session.items.flatMap((i) => i.assignments), now);
+  if (!why) return false;
+
+  // Claim it first, so two ticks (or a tick and a delivery) don't both post.
+  const claimed = await prisma.lootSession.updateMany({ where: { id: sessionId, threadClosedAt: null }, data: { threadClosedAt: new Date(now) } });
+  if (claimed.count === 0) return false;
+
+  const event = await prisma.event.findUnique({ where: { id: session.eventId }, select: { threadId: true } });
+  const allies = await prisma.eventAllianceGuild.findMany({ where: { eventId: session.eventId, threadId: { not: null } }, select: { threadId: true } });
+  await Promise.allSettled([event?.threadId, ...allies.map((a) => a.threadId)].filter((t): t is string => !!t).map(async (threadId) => {
+    const thread = await client.channels.fetch(threadId).catch(() => null);
+    if (!thread?.isThread()) return;
+    if (thread.archived) return; // already closed (by hand, or by Discord)
+    await thread.send(CLOSE_NOTICE[why]).catch(() => null);
+    await thread.setArchived(true).catch((err) => console.warn(`[bot] Couldn't close thread ${threadId} after loot:`, err));
+  }));
+  return true;
+}
+
+/** Scheduler backstop: closes threads whose hold is over (or that were all delivered while the bot was down). */
+export async function checkLootThreadHolds(): Promise<void> {
+  const open = await prisma.lootSession.findMany({
+    where: { status: 'COMPLETED', eventId: { not: null }, completedAt: { not: null }, threadClosedAt: null },
+    select: { id: true },
+    take: 20,
+  });
+  for (const { id } of open) await closeLootThreadIfDone(id);
 }

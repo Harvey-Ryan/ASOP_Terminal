@@ -41,10 +41,11 @@ const byKey = (steps) => Object.fromEntries(steps.map((s) => [s.key, s]));
 
 test('a fresh server: everything to do, in plain words', () => {
   const steps = setupChecklist({ settings: null, hasEvents: false, discord: null });
-  assert.deepEqual(steps.map((s) => s.key), ['forum', 'voice', 'creators', 'loot', 'dkp', 'tournaments', 'first-event']);
+  assert.deepEqual(steps.map((s) => s.key), ['forum', 'voice', 'creators', 'dkp', 'tournaments', 'first-event']);
   assert.ok(steps.every((s) => !s.done));
   assert.deepEqual(setupProblems(steps).slice(0, 1), ['Choose an event forum: Events aren\'t posted in Discord without it.']);
   assert.ok(!steps.some((s) => s.key === 'timezone')); // everyone sees their own time zone (v1.21.2)
+  assert.ok(!steps.some((s) => s.key === 'loot')); // optional: event loot posts in the event's thread (v1.22.0)
   assert.ok(!setupProblems(steps).some((t) => t.includes('first event') || t.includes('who can create')));
 });
 

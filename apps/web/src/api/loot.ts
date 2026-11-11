@@ -76,8 +76,9 @@ export const lootApi = {
   startDraft: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`${base(guildId, eventId)}/start-draft`).then((r) => r),
 
-  toggleDelivered: (guildId: string, eventId: string, itemId: string) =>
-    api.patch<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/assign/delivered`).then((r) => r),
+  /** assignmentId picks one winner of an item with several (commodity drafts). */
+  toggleDelivered: (guildId: string, eventId: string, itemId: string, assignmentId?: string) =>
+    api.patch<ApiResponse>(`${base(guildId, eventId)}/items/${itemId}/assign/delivered${assignmentId ? `?assignmentId=${encodeURIComponent(assignmentId)}` : ''}`).then((r) => r),
 
   restartDraft: (guildId: string, eventId: string) =>
     api.post<ApiResponse<LootSessionDto>>(`${base(guildId, eventId)}/restart-draft`, {}).then((r) => r.data!),

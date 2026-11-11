@@ -10,6 +10,22 @@ import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { triggerBot } from '../../lib/triggerBot.js';
+
+/**
+ * Marks a loot session completed and tells the bot: results go to the event's
+ * thread (or the loot channel for a standalone session) and winners get a DM.
+ * Every way a session completes goes through here (v1.22.0).
+ */
+async function completeLootSession(sessionId: string): Promise<void> {
+  await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED', completedAt: new Date() } });
+  triggerBot(`/trigger/loot/${sessionId}`);
+  triggerBot(`/trigger/loot-complete/${sessionId}`);
+}
+
+/** After a delivery is marked: the bot closes the event thread once everything is delivered. */
+function deliveryChanged(sessionId: string): void {
+  triggerBot(`/trigger/loot-delivered/${sessionId}`);
+}
 import { ValidationError, requireStr, optStrArr, optEnum, optNonNegInt, optPosInt } from '../../lib/validate.js';
 import type {
   ApiResponse,
@@ -743,8 +759,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
             await applyDkp(guildId, uid, usernameMap.get(uid) ?? uid, session.dkpAward, `Attendance: ${ev.name}`);
           }
         }
-        await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
-        triggerBot(`/trigger/loot/${session.id}`);
+        await completeLootSession(session.id);
         res.json({ success: true } satisfies ApiResponse);
         return;
       }
@@ -907,7 +922,13 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId/assign/delivered'
   const session = await prisma.lootSession.findUnique({ where: { eventId } });
   if (!session) { res.status(404).json({ success: false, error: 'No loot session' } satisfies ApiResponse); return; }
 
-  const assignment = await prisma.lootAssignment.findFirst({ where: { itemId } });
+  // An item with several winners (commodity drafts) is marked one winner at a
+  // time with ?assignmentId=; without it, the item's first winner (as before).
+  const assignmentId = typeof req.query['assignmentId'] === 'string' ? req.query['assignmentId'] : null;
+  const assignment = await prisma.lootAssignment.findFirst({
+    where: { itemId, item: { sessionId: session.id }, ...(assignmentId ? { id: assignmentId } : {}) },
+    orderBy: { assignedAt: 'asc' },
+  });
   if (!assignment) { res.status(404).json({ success: false, error: 'No assignment for this item' } satisfies ApiResponse); return; }
 
   const nowDelivered = !assignment.delivered;
@@ -915,6 +936,7 @@ lootRouter.patch('/:guildId/events/:eventId/loot/items/:itemId/assign/delivered'
     where: { id: assignment.id },
     data: { delivered: nowDelivered, deliveredAt: nowDelivered ? new Date() : null },
   });
+  deliveryChanged(session.id);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -1067,10 +1089,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
     }
   }
 
-  await prisma.lootSession.update({ where: { id: session.id }, data: { status: 'COMPLETED' } });
-
-  triggerBot(`/trigger/loot/${session.id}`);
-  triggerBot(`/trigger/loot-complete/${session.id}`);
+  await completeLootSession(session.id);
 
   res.json({ success: true, message: 'Loot session completed' } satisfies ApiResponse);
 });
@@ -1598,7 +1617,7 @@ async function runStandaloneAutoPick(sessionId: string, startPosition: number, s
     const allDone = items.every((i) => i.assignments.length > 0);
     const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * totalRounds;
     if (allDone || rotationDone) {
-      await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
+      await completeLootSession(sessionId);
       return true;
     }
     const nextPickerId = snakePick(autoPickCount + skipCount, draftOrder);
@@ -2098,8 +2117,7 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/complete', requireAuth, asyn
     }
   }
 
-  await prisma.lootSession.update({ where: { id: sessionId }, data: { status: 'COMPLETED' } });
-  triggerBot(`/trigger/loot-complete/${sessionId}`);
+  await completeLootSession(sessionId);
   res.json({ success: true } satisfies ApiResponse);
 });
 

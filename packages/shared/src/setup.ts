@@ -130,13 +130,14 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
     const creators = (() => { try { return (JSON.parse(String(s?.['eventCreatorRoles'] ?? '[]')) as unknown[]).length; } catch { return 0; } })();
     steps.push({ key: 'creators', label: 'Choose who can create events', done: creators > 0, optional: true, detail: creators ? `${creators} role${creators === 1 ? '' : 's'}` : 'Only server managers can, for now.', page: 'event-bot' });
   }
-  if (on('lootEnabled')) channel('loot', 'Choose a loot results channel', 'lootChannelId', 'loot', TEXT_NEEDS, 'channel', 'Loot results aren\'t posted without it.');
+  // The loot channel is optional (v1.22.0): event loot posts in the event's thread.
   if (on('dkpEnabled')) channel('dkp', 'Choose an auction announcements channel', 'dkpAnnouncementChannelId', 'dkp', TEXT_NEEDS, 'channel', 'Auctions aren\'t announced without it.');
   if (on('tournamentsEnabled')) channel('tournaments', 'Choose a tournament forum', 'tournamentChannelId', 'tournaments', FORUM_NEEDS, 'forum', 'Tournaments aren\'t posted without it.');
 
   // Optional channels: only checked once chosen.
   if (discord) {
     for (const [setting, key, label, page] of [
+      ['lootChannelId', 'loot', 'Loot results channel', 'loot'],
       ['statusChannelId', 'status', 'ASOP status channel', 'bot'],
       ['allyNoticeChannelId', 'allies', 'Ally notices channel', 'allies'],
       ['h2hChannelId', 'h2h', 'Head-to-head results channel', 'tournaments'],

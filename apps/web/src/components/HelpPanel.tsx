@@ -127,7 +127,7 @@ function eventsAdminContent() {
       <P>After an event ends, open the <B>Audit</B> page to confirm attendance. Members who were active in event VCs are pre-marked as present. Manually confirm or remove attendees — only confirmed attendees receive DKP awards and qualify for loot rolls.</P>
       <Divider />
       <H>Ending Events</H>
-      <P>Use the <B>End Event</B> button on the event card to close the event, archive voice channels, and lock RSVPs. The bot cleans up VCs and archives the forum thread automatically. You can still run a loot session after an event is ended.</P>
+      <P>Use the <B>End Event</B> button on the event card to close the event, archive voice channels, and lock RSVPs. The bot cleans up VCs and archives the forum thread automatically. You can still run a loot session after an event is ended: the results are posted in the event's forum post, which stays open until all the loot is marked delivered, or for 72 hours.</P>
     </>
   );
 }
@@ -418,7 +418,7 @@ function settingsContent(dkpLabel: string) {
       <P>The DKP module settings page also lets you set the <B>currency label</B> (e.g. renaming "DKP" to "Credits"), the default auction duration, and the minimum valid bid.</P>
       <Divider />
       <H>Bot Channel Configuration</H>
-      <P>In <B>Event Bot</B> module settings, configure the forum channel for event threads, the scheduled events channel, and the voice category for auto-created VCs. In <B>DKP</B> settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings, set the channel for loot result posts. In <B>Tournaments</B> settings, configure the bracket announcement forum channel, the H2H results channel, and the ELO visibility toggle.</P>
+      <P>In <B>Event Bot</B> module settings, configure the forum channel for event threads, the scheduled events channel, and the voice category for auto-created VCs. In <B>DKP</B> settings, set the announcement channel for standalone auctions. In <B>Loot</B> settings you can optionally set a channel for standalone loot results (event loot is posted in the event's forum post). In <B>Tournaments</B> settings, configure the bracket announcement forum channel, the H2H results channel, and the ELO visibility toggle.</P>
       <Divider />
       <H>RSI Org Tag</H>
       <P>Set your org's RSI tag in <B>Org Settings</B> to enable the RSI Roster and bio verification requirement. Once set, all members must verify their RSI handle before accessing the dashboard.</P>
