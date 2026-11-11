@@ -294,10 +294,10 @@ function allianceContent() {
   return (
     <>
       <H>Allies</H>
-      <P>Orgs on ASOP Terminal can become <B>allies</B>: one org's officers send a request and the other org's officers accept or reject it. Your officers manage this on the <B>Allies</B> page.</P>
+      <P>Orgs on ASOP Terminal can become <B>allies</B>: one org's officers send a request and the other org's officers accept or reject it. Your officers manage this on the <B>Allies</B> page. Only allies can share events with each other.</P>
       <Divider />
       <H>Shared Events on Your Dashboard</H>
-      <P>Events another org shares with yours appear alongside your own once your officers accept them. Click any event card to open it and RSVP exactly as you would for one of your own events. The event is hosted by the other org, but your RSVP is recorded on your org's roster, and the bot posts the event, thread and roster in your Discord too.</P>
+      <P>Events an allied org shares with yours appear alongside your own once they're accepted: either by your server managers, or straight away if your officers chose to post that ally's events automatically. Click any event card to open it and RSVP exactly as you would for one of your own events. The event is hosted by the other org, but your RSVP is recorded on your org's roster, and the bot posts the event, thread and roster in your Discord too.</P>
       <Divider />
       <H>Per-Org Role Slots</H>
       <P>Shared events use <B>per-org role slots</B>: the host sets the role structure (e.g. Infantry ×10, Pilot ×4) and each org fills its own slots. Your role choice only affects your org's roster.</P>
@@ -323,7 +323,7 @@ function allianceAdminContent() {
       <Divider />
       <H>Ally Notices in Discord</H>
       <P>Choose an <B>Ally notices channel</B> under <B>Ally settings</B> and the bot posts each new request there, with the org's name, tag and message, and <B>Accept</B>, <B>Reject</B> and <B>Reject and block</B> buttons. Anyone who can manage allies can use the buttons; others are told privately they can't. Once a request is answered, from Discord or this page, the post updates to show who answered it, and its buttons go away.</P>
-      <P>The same channel tells you when another org accepts or declines your request, or ends an alliance with you. Pick a channel only officers can see, and make sure the bot can view it, send messages and embed links there. With no channel set, everything still works from the Allies page.</P>
+      <P>The same channel tells you when another org accepts or declines your request, or ends an alliance with you. Events your allies share with you are posted there too, with <B>Accept</B>, <B>Decline</B> and <B>Open</B> buttons; only server managers can accept or decline them. Pick a channel only officers can see, and make sure the bot can view it, send messages and embed links there. With no channel set, everything still works from the Allies page.</P>
       <Divider />
       <H>Your Listing and Ally Code</H>
       <P>Turn on <B>Listed in the ally directory</B> to let other orgs find you by name or tag. Whether or not you're listed, your <B>ally code</B> lets an org send you a request. Copy it to share with another org's officers; <B>New code</B> replaces it and stops the old one working.</P>
@@ -331,8 +331,14 @@ function allianceAdminContent() {
       <H>Ending an Alliance</H>
       <P>Click <B>Remove</B> next to an ally. It takes effect for both orgs at once, and either org can send a new request later.</P>
       <Divider />
-      <H>Sharing Events</H>
-      <P>When creating or editing an event, click <B>Direct Invite</B> and pick the servers to share it with. Each server's officers accept or decline the share; once accepted, the bot posts the event, a forum thread and a Discord scheduled event in their server, and loot results are announced in every participating thread. In an upcoming update, sharing will use your ally list.</P>
+      <H>Sharing Events with Allies</H>
+      <P>When creating an event, click <B>Share with allies</B> and tick the allies to share it with (<B>Select all</B> picks every one). To share an event that already exists, open it and use <B>+ Share with an ally</B> under <B>Shared With</B>. Only allies can be picked: add an org on the Allies page first.</P>
+      <P>Once a share is accepted, the bot posts the event, a forum thread with the roster and a Discord event in the ally's server, and loot results are announced in every participating thread. Under <B>Shared With</B> you can cancel an invitation that's still waiting, stop sharing with an ally that accepted, or invite one that declined again.</P>
+      <P>A repeating event is shared again each time with the allies that accepted the last one, as long as they're still allies.</P>
+      <Divider />
+      <H>Their Events: Approve Each or Post Automatically</H>
+      <P>Next to each ally on the Allies page, <B>Their events</B> sets what happens when that ally shares an event with you. <B>Approve each</B> (the default) puts it under <B>Pending</B> on your Events page, and in your ally notices channel with <B>Accept</B> and <B>Decline</B> buttons, for a server manager to answer. <B>Post automatically</B> posts it in your server straight away. Each org sets this for itself.</P>
+      <P>Removing an ally withdraws invitations still waiting between your two orgs, both ways. Events already accepted stay until they end.</P>
       <Divider />
       <H>Org Tag, Notices &amp; Ally Managers</H>
       <P>Set your <B>Org Tag</B> (up to 4 letters or numbers) and <B>Ally notices channel</B> under <B>Ally settings</B> on the Allies page. Server managers can also choose there which Discord roles may manage allies.</P>
@@ -601,7 +607,7 @@ function buildSections(opts: {
       id: 'alliance-admin',
       icon: <Network className="h-4 w-4" />,
       title: 'Allies Administration',
-      subtitle: 'Ally requests, Discord ally notices, the directory and ally codes, blocking, sharing events, org tags.',
+      subtitle: 'Ally requests, sharing events with allies, Discord ally notices, the directory and ally codes, blocking, org tags.',
       adminOnly: true,
       content: allianceAdminContent(),
     },

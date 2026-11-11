@@ -295,7 +295,7 @@ export function AlliesPage() {
       <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Handshake className="h-6 w-6" />Allies</h1>
       <p className="mt-1 text-muted-foreground">
         Orgs on ASOP Terminal can become allies: one sends a request and the other accepts or rejects it.
-        Event sharing will move onto your ally list in an upcoming update.
+        Allies can share events with each other.
       </p>
     </div>
   );
@@ -353,10 +353,35 @@ export function AlliesPage() {
       <Section title="Your allies" count={undefined}>
         {d.allies.length === 0
           ? <Empty>No allies yet. Find an org below, or share your ally code with one.</Empty>
+          : null}
+        {d.allies.length > 0 && (
+          <p className="text-xs text-muted-foreground pb-1">
+            <b>Their events</b>: with <i>Approve each</i>, an event an ally shares waits for a server manager to accept it (on your Events page, or in your ally notices channel). <i>Post automatically</i> posts it in your server straight away. Removing an ally withdraws invitations still waiting; events already accepted stay until they end.
+          </p>
+        )}
+        {d.allies.length === 0
+          ? null
           : d.allies.map((a) => (
             <Row key={a.id}>
               <OrgIcon guild={a.guild} />
               <OrgName guild={a.guild} sub={`Allies since ${fmtDate(a.since)}`} />
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Their events</span>
+                <select
+                  aria-label={`Events shared by ${a.guild.name}`}
+                  value={a.autoAcceptTheirEvents ? 'auto' : 'approve'}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const auto = e.target.value === 'auto';
+                    run(() => alliesApi.setAutoAccept(guildId!, a.id, auto),
+                      auto ? `${a.guild.name}'s events will now be posted in your server straight away.` : `You'll now approve each event ${a.guild.name} shares.`);
+                  }}
+                  className="rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground"
+                >
+                  <option value="approve">Approve each</option>
+                  <option value="auto">Post automatically</option>
+                </select>
+              </label>
               <ConfirmButton label="Remove" confirmLabel={`Remove ${a.guild.name}`} icon={<UserMinus className="h-3.5 w-3.5 mr-1.5" />} disabled={busy}
                 onConfirm={() => run(() => alliesApi.removeAlly(guildId!, a.id), `${a.guild.name} is no longer an ally.`)} />
             </Row>

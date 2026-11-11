@@ -204,6 +204,8 @@ export interface EventGuildShareDto {
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
   invitedAt: string;
   respondedAt: string | null;
+  /** Posted straight away because that ally posts your events automatically. */
+  autoAccepted: boolean;
 }
 
 /** Event as returned by the API */
@@ -242,6 +244,8 @@ export interface EventDto {
   poll: EventPoll | null;
   allianceId: string | null;
   shares: EventGuildShareDto[];
+  /** The hosting server's name; only on the pending-invitations list. */
+  hostGuildName?: string | null;
 }
 
 // ── Loot ─────────────────────────────────────────────────────────────────────

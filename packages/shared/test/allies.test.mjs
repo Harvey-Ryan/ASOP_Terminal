@@ -195,3 +195,63 @@ test('button ids round-trip and reject anything else', () => {
   assert.equal(parseAllyButtonId('ally:accept:a:b'), null);
   assert.equal(parseAllyButtonId('loot:accept:x'), null);
 });
+
+// ── Sharing events with allies (v1.11.0) ────────────────────────────────────
+import {
+  planShares, withdrawnOnRemoval, isShareNoticePayload, shareButtonId, parseShareButtonId, NOT_ALLY_MESSAGE,
+} from '../dist/allies.js';
+
+const D = 'g-ddd';
+
+test('planShares: only allies get the event; each ally\'s own setting decides', () => {
+  const links = [
+    link({ status: 'ACCEPTED', autoAcceptB: true }),                       // A–B: B posts A's events automatically
+    link({ guildBId: C, status: 'ACCEPTED' }),                             // A–C: C approves each
+    link({ guildBId: D, status: 'PENDING' }),                              // A–D: not allies yet
+  ];
+  assert.deepEqual(planShares(A, [B, C, D, 'g-zzz'], links), { accepted: [B], pending: [C], notAllies: [D, 'g-zzz'] });
+});
+
+test('planShares: the receiving side\'s flag counts, not the host\'s', () => {
+  const l = link({ status: 'ACCEPTED', autoAcceptA: true }); // A posts B's events automatically
+  assert.deepEqual(planShares(A, [B], [l]), { accepted: [], pending: [B], notAllies: [] });
+  assert.deepEqual(planShares(B, [A], [l]), { accepted: [A], pending: [], notAllies: [] });
+});
+
+test('planShares: rejected and blocked pairs are not allies; duplicates and the host are ignored', () => {
+  assert.deepEqual(planShares(A, [B], [link({ status: 'REJECTED' })]).notAllies, [B]);
+  assert.deepEqual(planShares(A, [B], [link({ status: 'BLOCKED', blockedByGuildId: B })]).notAllies, [B]);
+  assert.deepEqual(planShares(A, [B, B, A], [link({ status: 'ACCEPTED' })]), { accepted: [], pending: [B], notAllies: [] });
+  assert.deepEqual(planShares(A, [], []), { accepted: [], pending: [], notAllies: [] });
+});
+
+test('planShares: a link between two other orgs doesn\'t count', () => {
+  const bc = { ...link({ status: 'ACCEPTED' }), guildAId: B, guildBId: C };
+  assert.deepEqual(planShares(A, [C], [bc]).notAllies, [C]);
+});
+
+test('withdrawnOnRemoval: only waiting invitations between the two orgs, both ways', () => {
+  const pair = { guildAId: A, guildBId: B };
+  assert.equal(withdrawnOnRemoval({ status: 'PENDING', hostGuildId: A, guildId: B }, pair), true);
+  assert.equal(withdrawnOnRemoval({ status: 'PENDING', hostGuildId: B, guildId: A }, pair), true);
+  assert.equal(withdrawnOnRemoval({ status: 'ACCEPTED', hostGuildId: A, guildId: B }, pair), false);
+  assert.equal(withdrawnOnRemoval({ status: 'DECLINED', hostGuildId: A, guildId: B }, pair), false);
+  assert.equal(withdrawnOnRemoval({ status: 'PENDING', hostGuildId: A, guildId: C }, pair), false);
+  assert.equal(withdrawnOnRemoval({ status: 'PENDING', hostGuildId: C, guildId: B }, pair), false);
+});
+
+test('share notice payloads and button ids', () => {
+  const p = { event: 'pending', shareId: 's1', eventId: 'e1', hostGuildId: A, receiverGuildId: B, actorUserId: null, noticeChannelId: null, noticeMessageId: null };
+  assert.equal(isShareNoticePayload(p), true);
+  for (const e of ['accepted', 'declined', 'withdrawn']) assert.equal(isShareNoticePayload({ ...p, event: e, actorUserId: 'u1', noticeChannelId: 'c', noticeMessageId: 'm' }), true);
+  assert.equal(isShareNoticePayload({ ...p, event: 'removed' }), false);
+  assert.equal(isShareNoticePayload({ ...p, eventId: undefined }), false);
+  assert.equal(isShareNoticePayload({ ...p, actorUserId: 5 }), false);
+  assert.equal(isShareNoticePayload(null), false);
+  assert.equal(shareButtonId('accept', 's1'), 'share:accept:s1');
+  assert.deepEqual(parseShareButtonId('share:decline:cmabc123'), { action: 'decline', shareId: 'cmabc123' });
+  assert.equal(parseShareButtonId('share:block:s1'), null);
+  assert.equal(parseShareButtonId('ally:accept:s1'), null);
+  assert.equal(parseShareButtonId('share:accept:'), null);
+  assert.match(NOT_ALLY_MESSAGE, /allies/);
+});

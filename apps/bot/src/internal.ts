@@ -4,9 +4,22 @@ import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyS
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
-import { isAllyNoticePayload } from '@dem/shared';
+import { isAllyNoticePayload, isShareNoticePayload } from '@dem/shared';
 import { handleAllyNotice } from './services/allyNoticeService.js';
+import { handleShareNotice } from './services/shareNoticeService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
+
+const TOO_BIG = Symbol('too big');
+
+/** A small JSON request body (null if it isn't JSON). */
+async function readJson(req: AsyncIterable<Buffer | string>): Promise<unknown> {
+  let raw = '';
+  for await (const chunk of req) {
+    raw += chunk;
+    if (raw.length > 10_000) return TOO_BIG;
+  }
+  try { return JSON.parse(raw); } catch { return null; }
+}
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
 
@@ -23,17 +36,24 @@ export function startInternalServer() {
 
     // Ally notices (v1.10.0): the payload comes as JSON in the body.
     if (req.url === '/trigger/ally') {
-      let raw = '';
-      for await (const chunk of req) {
-        raw += chunk;
-        if (raw.length > 10_000) { res.writeHead(413).end(); return; }
-      }
-      let payload: unknown;
-      try { payload = JSON.parse(raw); } catch { payload = null; }
+      const payload = await readJson(req);
+      if (payload === TOO_BIG) { res.writeHead(413).end(); return; }
       if (!isAllyNoticePayload(payload)) { res.writeHead(400).end(); return; }
       res.writeHead(202).end();
       await handleAllyNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleAllyNotice failed for ${payload.event} ${payload.linkId}:`, err),
+      );
+      return;
+    }
+
+    // Shared-event notices (v1.11.0).
+    if (req.url === '/trigger/share-notice') {
+      const payload = await readJson(req);
+      if (payload === TOO_BIG) { res.writeHead(413).end(); return; }
+      if (!isShareNoticePayload(payload)) { res.writeHead(400).end(); return; }
+      res.writeHead(202).end();
+      await handleShareNotice(payload).catch((err) =>
+        console.error(`[bot:internal] handleShareNotice failed for ${payload.event} ${payload.shareId}:`, err),
       );
       return;
     }

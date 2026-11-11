@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2 } from 'lucide-react';
 import { imagesApi } from '@/api/images';
@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { eventsApi } from '@/api/events';
-import { allianceApi } from '@/api/alliance';
+import { alliesApi } from '@/api/allies';
 import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
 import { auctionsApi } from '@/api/auctions';
@@ -514,12 +514,15 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   });
   const myDraftPick: MyPickDto | undefined = myPicksQuery.data?.find((p) => p.eventId === event.id);
 
-  const { data: allGuilds = [] } = useQuery({
-    queryKey: ['alliances', 'guilds'],
-    queryFn: () => allianceApi.listGuilds(),
-    staleTime: 5 * 60_000,
-    enabled: isManager,
+  // Allies you can share this event with (v1.11.0: allies only).
+  const { data: shareable } = useQuery({
+    queryKey: ['allies', guildId, 'shareable'],
+    queryFn: () => alliesApi.shareable(guildId),
+    staleTime: 60_000,
+    enabled: isManager && ev.guildId === guildId,
+    retry: false,
   });
+  const [shareError, setShareError] = useState<string | null>(null);
 
   function invalidateShares() {
     queryClient.invalidateQueries({ queryKey: ['events', guildId, event.id] });
@@ -529,7 +532,8 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const inviteGuildMutation = useMutation({
     mutationFn: (targetDiscordGuildId: string) =>
       eventsApi.inviteGuildDirect(guildId, event.id, targetDiscordGuildId),
-    onSuccess: () => { invalidateShares(); setSharePickerOpen(false); setSelectedGuildId(''); },
+    onSuccess: () => { invalidateShares(); setSharePickerOpen(false); setSelectedGuildId(''); setShareError(null); },
+    onError: (err: Error) => setShareError(err.message),
   });
 
 
@@ -834,9 +838,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   <span className={`text-[11px] font-bold uppercase tracking-wide ${statusColor}`}>
                     {s.status}
                   </span>
-                  <span className="text-[11px] opacity-50 uppercase tracking-wide">
-                    Direct
-                  </span>
+                  {s.autoAccepted && (
+                    <span className="text-[11px] opacity-50 uppercase tracking-wide" title="This ally posts your events automatically">
+                      Auto
+                    </span>
+                  )}
                   {ev.status !== 'COMPLETED' && (
                     <div className="flex gap-1 ml-auto">
                       {s.status === 'DECLINED' && (
@@ -871,11 +877,13 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   onChange={(e) => setSelectedGuildId(e.target.value)}
                   className="flex-1 min-w-0 rounded-md bg-primary text-primary-foreground px-2 py-1.5 text-sm border-2 border-primary-foreground/20 focus:outline-none"
                 >
-                  <option value="">— Select guild —</option>
-                  {allGuilds
-                    .filter((g) => g.guildId !== guildId && !ev.shares.some((s) => s.guildDiscordId === g.guildId))
-                    .map((g) => (
-                      <option key={g.guildId} value={g.guildId}>{g.name}</option>
+                  <option value="">— Select an ally —</option>
+                  {(shareable?.allies ?? [])
+                    .filter((a) => !ev.shares.some((s) => s.guildDiscordId === a.guild.guildId))
+                    .map((a) => (
+                      <option key={a.guild.guildId} value={a.guild.guildId}>
+                        {a.guild.name}{a.postsAutomatically ? ' (posts automatically)' : ''}
+                      </option>
                     ))
                   }
                 </select>
@@ -884,10 +892,10 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   onClick={() => inviteGuildMutation.mutate(selectedGuildId)}
                   className="px-3 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-sky-600 hover:bg-sky-500 text-white transition-colors disabled:opacity-50"
                 >
-                  {inviteGuildMutation.isPending ? 'Sending…' : 'Send Invite'}
+                  {inviteGuildMutation.isPending ? 'Sharing…' : 'Share'}
                 </button>
                 <button
-                  onClick={() => { setSharePickerOpen(false); setSelectedGuildId(''); }}
+                  onClick={() => { setSharePickerOpen(false); setSelectedGuildId(''); setShareError(null); }}
                   className="px-2 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
                 >
                   Cancel
@@ -903,10 +911,16 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                     onClick={() => setSharePickerOpen(true)}
                     className="px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
                   >
-                    + Invite Guild
+                    + Share with an ally
                   </button>
                 )}
               </div>
+            )}
+            {shareError && <p className="text-sm text-red-300">{shareError}</p>}
+            {sharePickerOpen && shareable && shareable.allies.length === 0 && (
+              <p className="text-sm opacity-70">
+                You have no allies yet. <Link to={`/dashboard/servers/${guildId}/settings/allies`} className="underline">Add allies</Link> to share events with them.
+              </p>
             )}
           </div>
         </div>
@@ -1119,12 +1133,10 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
 function PendingShareCard({
   event,
   guildId,
-  allGuilds,
   onRespond,
 }: {
   event: EventDto;
   guildId: string;
-  allGuilds: { id: string; guildId: string; name: string }[];
   onRespond: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -1133,8 +1145,6 @@ function PendingShareCard({
   const day = start.getDate();
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-  const hostGuild = allGuilds.find((g) => g.guildId === event.guildId);
-  const sourceLabel = 'Direct Invite';
 
   const acceptMutation = useMutation({
     mutationFn: () => eventsApi.respondToShare(guildId, event.id, 'accept'),
@@ -1178,7 +1188,7 @@ function PendingShareCard({
       <div className="flex-1 px-4 py-3 min-w-0">
         <p className="font-semibold text-[18px] leading-tight line-clamp-1">{event.name}</p>
         <p className="text-[13px] opacity-70 mt-0.5 truncate">
-          {hostGuild ? hostGuild.name : event.guildId} · {sourceLabel}
+          Shared by {event.hostGuildName ?? 'another server'}
         </p>
       </div>
 
@@ -1298,7 +1308,9 @@ export function ServerPage() {
   const isManager = isDiscordManager || (myPermsQuery.data?.canManageEvents ?? false);
   const canView = isManager || (myPermsQuery.data?.canViewEvents ?? false);
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>('upcoming');
+  // ?tab=pending opens the invitations tab (the Open button on Discord share notices).
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'pending' ? 'pending' : 'upcoming');
   const [view, setView] = useState<View>('table');
   const [detailEvent, setDetailEvent] = useState<EventDto | null>(null);
   const [repeatSource, setRepeatSource] = useState<EventDto | null>(null);
@@ -1344,12 +1356,6 @@ export function ServerPage() {
 
   const active = tab === 'upcoming' ? upcomingQuery : tab === 'completed' ? completedQuery : pendingSharesQuery;
 
-  const { data: allGuilds = [] } = useQuery({
-    queryKey: ['alliances', 'guilds'],
-    queryFn: () => allianceApi.listGuilds(),
-    staleTime: 5 * 60_000,
-    enabled: !!guildId && isManager,
-  });
 
   function openDetail(event: EventDto) {
     setDetailEvent(event);
@@ -1565,7 +1571,6 @@ export function ServerPage() {
                           key={e.id}
                           event={e}
                           guildId={guildId!}
-                          allGuilds={allGuilds}
                           onRespond={() => {}}
                         />
                       ))
