@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight, Briefcase } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { SetupChecklist } from '@/components/SetupChecklist';
+import { settingsApi } from '@/api/settings';
 
 interface ModuleTile {
   label: string;
@@ -76,6 +78,9 @@ const MODULES: ModuleTile[] = [
 export function ModuleSettingsHubPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
+  // Activity (RoleCall) only exists for the servers it tracks (v1.25.0).
+  const { data: perms } = useQuery({ queryKey: ['my-permissions', guildId], queryFn: () => settingsApi.getMyPermissions(guildId!), enabled: !!guildId, staleTime: 60_000 });
+  const modules = MODULES.filter((m) => m.slug !== 'activity' || perms?.activityAvailable !== false);
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -87,7 +92,7 @@ export function ModuleSettingsHubPage() {
       <SetupChecklist guildId={guildId!} variant="page" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {MODULES.map(({ label, description, icon: Icon, slug }) => (
+        {modules.map(({ label, description, icon: Icon, slug }) => (
           <button
             key={slug}
             type="button"

@@ -11,6 +11,7 @@ const app = createServer();
 describe('event heat map', () => {
   it('averages recorded turnout per event in the viewer\'s time zone', async () => {
     const g = await createGuild();
+    process.env['ACTIVITY_SERVER_IDS'] = g.guildId;
     const officer = await createUser();
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: officer.id, managedGuildIds: [g.guildId] });

@@ -112,6 +112,8 @@ export function RoleCallPage() {
     enabled: !!guildId,
     staleTime: 60_000,
   });
+  // Only ask RoleCall once we know this server has Activity (v1.25.0).
+  const hasActivity = !!myPerms && myPerms.activityAvailable !== false;
 
   // Managers and module editors can view any member's detail.
   // Regular members can only view their own.
@@ -126,7 +128,7 @@ export function RoleCallPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['rolecall-stats', guildId],
     queryFn: () => roleCallApi.getStats(guildId!),
-    enabled: !!guildId,
+    enabled: !!guildId && hasActivity,
     retry: false,
   });
 
@@ -134,16 +136,21 @@ export function RoleCallPage() {
   const { data: lb, isLoading: lbLoading, isError: lbError } = useQuery({
     queryKey: ['rolecall-leaderboard', guildId, page, showInactive],
     queryFn: () => roleCallApi.getLeaderboard(guildId!, page, showInactive),
-    enabled: !!guildId && !selectedUserId,
+    enabled: !!guildId && hasActivity && !selectedUserId,
     retry: false,
   });
 
   const { data: member, isLoading: memberLoading } = useQuery({
     queryKey: ['rolecall-member', guildId, selectedUserId],
     queryFn: () => roleCallApi.getMember(guildId!, selectedUserId!),
-    enabled: !!guildId && !!selectedUserId,
+    enabled: !!guildId && hasActivity && !!selectedUserId,
     retry: false,
   });
+
+  // Activity (RoleCall) only exists for the servers it tracks (v1.25.0).
+  if (myPerms && myPerms.activityAvailable === false) {
+    return <p className="text-sm text-muted-foreground">Activity isn't available for this server.</p>;
+  }
 
   return (
     <div className="space-y-6">
