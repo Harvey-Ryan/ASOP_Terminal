@@ -251,7 +251,7 @@ model Event {
   /// JSON: EventPoll — poll config posted to the forum thread alongside the embed
   pollData        String?
 
-  /// Optional alliance this event is shared across
+  /// Retired: always null once the start-up conversion has run (lib/allies.ts)
   allianceId     String?
 
   createdById    String
@@ -624,223 +624,6 @@ model AuctionBid {
   @@index([auctionId])
 }
 
-// ── Star Citizen scunpacked Blueprint Cache ───────────────────────────────────
-// Global tables — not guild-scoped. Populated by syncing blueprints.json
-// from https://github.com/StarCitizenWiki/scunpacked-data
-
-/// A craftable blueprint extracted from scunpacked-data.
-model ScBlueprint {
-  uuid                String   @id
-  key                 String   @unique
-  kind                String
-  outputUuid          String
-  outputName          String
-  outputClass         String
-  outputType          String
-  outputSubtype       String?
-  outputGrade         String?
-  categoryUuid        String?
-  dismantleTimeSecs   Int?
-  dismantleEfficiency Float?
-  syncedAt            DateTime @updatedAt
-
-  tiers       ScBlueprintTier[]
-  rewardPools ScBlueprintRewardPool[]
-
-  @@index([outputName])
-  @@index([outputType])
-}
-
-/// One craft tier per blueprint (multiple tiers = different quality paths).
-model ScBlueprintTier {
-  id            String @id @default(cuid())
-  blueprintUuid String
-  tierIndex     Int
-  craftTimeSecs Int
-
-  blueprint ScBlueprint          @relation(fields: [blueprintUuid], references: [uuid], onDelete: Cascade)
-  materials ScBlueprintMaterial[]
-  modifiers ScBlueprintModifier[]
-
-  @@unique([blueprintUuid, tierIndex])
-  @@index([blueprintUuid])
-}
-
-/// A single required material or resource within a blueprint tier.
-model ScBlueprintMaterial {
-  id          String  @id @default(cuid())
-  tierId      String
-  kind        String  // "resource" | "item"
-  name        String
-  itemUuid    String?
-  quantityScu Float?  // bulk resources measured in SCU
-  quantity    Int?    // discrete items measured in count
-  minQuality  Int?
-  groupKey    String? // parent group name for display grouping
-
-  tier ScBlueprintTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
-
-  @@index([tierId])
-  @@index([name])
-}
-
-/// A quality-scaling stat modifier attached to a blueprint tier.
-model ScBlueprintModifier {
-  id            String  @id @default(cuid())
-  tierId        String
-  key           String  // e.g. "health_maxhealth", "weapon_damage"
-  name          String
-  unitFormat    String?
-  qualityMin    Int
-  qualityMax    Int
-  modifierAtMin Float
-  modifierAtMax Float
-
-  tier ScBlueprintTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
-
-  @@index([tierId])
-}
-
-/// Links a blueprint to a mission reward pool UUID.
-model ScBlueprintRewardPool {
-  id            String @id @default(cuid())
-  blueprintUuid String
-  poolUuid      String
-  poolKey       String
-
-  blueprint ScBlueprint @relation(fields: [blueprintUuid], references: [uuid], onDelete: Cascade)
-
-  @@index([blueprintUuid])
-  @@index([poolUuid])
-}
-
-/// A Star Citizen mission that can reward blueprints (populated when mission data is available).
-model ScMission {
-  uuid         String  @id
-  name         String
-  description  String?
-  faction      String?
-  missionType  String?
-  missionGiver String?
-  locationName String?
-  syncedAt     DateTime @default(now()) @updatedAt
-
-  rewardPools ScMissionRewardPool[]
-
-  @@index([name])
-  @@index([faction])
-}
-
-/// Junction table linking a mission to the reward pool UUIDs it can grant.
-model ScMissionRewardPool {
-  id          String @id @default(cuid())
-  missionUuid String
-  poolUuid    String
-
-  mission ScMission @relation(fields: [missionUuid], references: [uuid], onDelete: Cascade)
-
-  @@unique([missionUuid, poolUuid])
-  @@index([missionUuid])
-  @@index([poolUuid])
-}
-
-/// Immutable audit log — one row per scunpacked sync run.
-model ScSyncLog {
-  id                String    @id @default(cuid())
-  trigger           String    // "MANUAL" | "SCHEDULED"
-  status            String    @default("RUNNING") // "RUNNING" | "SUCCESS" | "FAILED"
-  blueprintsAdded   Int       @default(0)
-  blueprintsUpdated Int       @default(0)
-  /// JSON: per-type record counts for full sync runs
-  detailsJson       String?
-  error             String?
-  startedAt         DateTime  @default(now())
-  completedAt       DateTime?
-
-  @@index([status])
-  @@index([startedAt])
-}
-
-/// Star Citizen manufacturer directory.
-model ScManufacturer {
-  uuid        String   @id
-  code        String?
-  name        String
-  description String?
-  syncedAt    DateTime @updatedAt
-
-  @@index([name])
-}
-
-/// One entry per location/POI in the in-game starmap.
-model ScStarmapEntry {
-  uuid          String   @id
-  name          String
-  description   String?
-  parentUuid    String?
-  navIcon       String?
-  type          String   // e.g. "PointOfInterest", "NavPoint", "Outpost"
-  isScannable   Boolean  @default(false)
-  hideInStarmap Boolean  @default(false)
-  size          Float?
-  amenitiesJson String?
-  syncedAt      DateTime @updatedAt
-
-  @@index([name])
-  @@index([type])
-  @@index([parentUuid])
-}
-
-/// A location that produces or consumes tagged commodities.
-model ScTradeLocation {
-  uuid             String   @id
-  className        String   @unique
-  displayName      String?
-  disabled         Boolean  @default(false)
-  producesTagsJson String?
-  consumesTagsJson String?
-  syncedAt         DateTime @updatedAt
-
-  @@index([displayName])
-}
-
-/// UUID → tag-name lookup from tags.json.
-model ScTag {
-  uuid     String @id
-  name     String
-
-  @@index([name])
-}
-
-/// In-game commodity definition from scunpacked resources/commodities.json.
-model ScCommodity {
-  uuid               String   @id
-  key                String   @unique
-  name               String
-  description        String?
-  refinedVersionUuid String?
-  refinedVersionName String?
-  tier               String?
-  densityGPerCc      Float?
-  instability        Float?
-  resistance         Float?
-  syncedAt           DateTime @updatedAt
-
-  @@index([name])
-  @@index([tier])
-}
-
-/// Resource harvestable location provider from resources/locations.json.
-model ScResourceLocation {
-  uuid          String   @id
-  providerName  String
-  presetFile    String   @unique
-  locationsJson String   // JSON: Location[]
-  areasJson     String?  // JSON: Area[]
-  groupsJson    String?  // JSON: Group[] with Deposits
-  syncedAt      DateTime @updatedAt
-}
-
 // ── Event Guild Shares ────────────────────────────────────────────────────────
 
 enum ShareSource {
@@ -862,7 +645,7 @@ model EventGuildShare {
   eventId     String
   guildId     String      // internal Guild.id (receiving guild — never the host)
   sourceType  ShareSource
-  allianceId  String?     // set when sourceType = ALLIANCE
+  allianceId  String?     // retired: always null once the start-up conversion has run
   status      ShareStatus @default(PENDING)
   invitedAt   DateTime    @default(now())
   respondedAt DateTime?
@@ -935,7 +718,11 @@ model GuildAlly {
   @@index([status])
 }
 
-// ── Alliances (retired: replaced by GuildAlly; read only by the start-up migration) ──
+// ── Alliances (retired: replaced by GuildAlly) ──
+// Read only by the start-up conversion in apps/api/src/lib/allies.ts, which turns
+// what's left into GuildAlly pairs and event shares. Dropped in the next clean-up,
+// once a deploy has logged that conversion (with Event.allianceId,
+// EventGuildShare.allianceId and ShareSource.ALLIANCE).
 
 /// A named grouping of guilds for cross-org organisation.
 model Alliance {
@@ -991,57 +778,6 @@ model EventAllianceGuild {
 
   @@unique([eventId, discordGuildId])
   @@index([eventId])
-}
-
-/// Minable / harvestable resource definition from resources/resources.json.
-model ScResource {
-  uuid            String   @id
-  key             String   @unique
-  name            String
-  kind            String
-  harvestableUuid String?
-  harvestableKey  String?
-  tier            String?
-  syncedAt        DateTime @updatedAt
-
-  @@index([name])
-  @@index([kind])
-}
-
-/// Localization label map from labels.json (key → display string).
-model ScLabel {
-  key      String   @id
-  value    String
-  syncedAt DateTime @updatedAt
-
-  @@index([value])
-}
-
-/// Ship component / item from ship-items.json (weapons, shields, drives, etc.).
-model ScShipItem {
-  uuid             String   @id
-  className        String   @unique
-  itemName         String
-  type             String
-  subType          String?
-  size             Int?
-  grade            Int?
-  name             String?
-  classification   String?
-  tags             String?
-  manufacturerCode String?
-  manufacturerName String?
-  manufacturerUuid String?
-  description      String?
-  mass             Float?
-  inventoryScu     Float?
-  stdItemJson      String   // full stdItem blob
-  syncedAt         DateTime @updatedAt
-
-  @@index([name])
-  @@index([type])
-  @@index([classification])
-  @@index([manufacturerCode])
 }
 
 // ── UEX Corp Game Data Cache ──────────────────────────────────────────────────

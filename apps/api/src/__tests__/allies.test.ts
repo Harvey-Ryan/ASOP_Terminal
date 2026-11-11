@@ -4,8 +4,8 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import { createServer } from '../server/app.js';
-import { migrateLegacyAlliances } from '../lib/allies.js';
-import { createUser, createGuild, createGuildSettings } from './factories.js';
+import { convertLegacyAllianceEvents, migrateLegacyAlliances } from '../lib/allies.js';
+import { createUser, createGuild, createGuildSettings, createEvent } from './factories.js';
 
 type TestAgent = ReturnType<typeof request.agent>;
 
@@ -346,17 +346,13 @@ describe('allies', () => {
 });
 
 describe('the old /alliances routes', () => {
-  it('no longer change anything (410), but the read-only server list still works', async () => {
+  it('are gone', async () => {
     const a = await org('Alpha');
-    for (const [method, path] of [['post', '/api/alliances'], ['post', '/api/alliances/direct'], ['patch', '/api/alliances/x'],
-      ['delete', '/api/alliances/x'], ['post', '/api/alliances/x/members'], ['delete', '/api/alliances/x/members/y'],
-      ['patch', '/api/alliances/invitations/x/accept'], ['delete', '/api/alliances/invitations/x']] as const) {
+    for (const [method, path] of [['get', '/api/alliances'], ['get', '/api/alliances/guilds'], ['post', '/api/alliances'],
+      ['patch', '/api/alliances/invitations/x/accept'], ['delete', '/api/alliances/x']] as const) {
       const res = await a.agent[method](path).send({ callerGuildId: a.guild.guildId, name: 'x' });
-      expect(res.status, `${method} ${path}`).toBe(410);
-      expect(res.body.error).toMatch(/moved to Allies/);
+      expect(res.status, `${method} ${path}`).toBe(404);
     }
-    expect(await prisma.alliance.count()).toBe(0);
-    await a.agent.get('/api/alliances/guilds').expect(200);
   });
 });
 
@@ -388,6 +384,66 @@ describe('migrating the old alliances', () => {
 
   it('does nothing when there are no old alliances', async () => {
     expect(await migrateLegacyAlliances()).toEqual({ created: 0, existing: 0, droppedPending: [] });
+  });
+});
+
+describe('converting the old alliance events', () => {
+  /** Host + two accepted members + one pending member of one old alliance. */
+  async function world() {
+    const host = await org('Host');
+    const memberA = await org('Member A');
+    const memberB = await org('Member B');
+    const pending = await org('Pending');
+    const alliance = await prisma.alliance.create({ data: { name: 'Old', members: { create: [
+      { guildId: host.guild.id, status: 'ACCEPTED' }, { guildId: memberA.guild.id, status: 'ACCEPTED' },
+      { guildId: memberB.guild.id, status: 'ACCEPTED' }, { guildId: pending.guild.id, status: 'PENDING' }] } } });
+    return { host, memberA, memberB, pending, alliance };
+  }
+  const listed = async (o: Org, completed = false) =>
+    ((await o.agent.get(`/api/guilds/${o.guild.guildId}/events${completed ? '?completed=true' : ''}`).expect(200)).body.data as { id: string }[]).map((e) => e.id);
+
+  it('keeps every old alliance event visible to the same servers, without posting anything new', async () => {
+    const { host, memberA, memberB, pending, alliance } = await world();
+    const upcoming = await createEvent(host.guild.guildId, host.user.discordId, { allianceId: alliance.id });
+    const finished = await createEvent(host.guild.guildId, host.user.discordId, { allianceId: alliance.id, status: 'COMPLETED' });
+    // Already posted in Member A's Discord before share rows existed.
+    const posted = await prisma.eventAllianceGuild.create({ data: { eventId: upcoming.id, discordGuildId: memberA.guild.guildId, threadId: 't-1' } });
+    // Member B declined a share of the finished event: that answer stands.
+    await prisma.eventGuildShare.create({ data: { eventId: finished.id, guildId: memberB.guild.id, sourceType: 'ALLIANCE', allianceId: alliance.id, status: 'DECLINED' } });
+
+    const r = await convertLegacyAllianceEvents();
+    expect(r).toEqual({ events: 2, shares: 3, linked: 1, retyped: 1 });
+
+    expect(await listed(memberA)).toEqual([upcoming.id]);
+    expect(await listed(memberB)).toEqual([upcoming.id]);
+    expect(await listed(memberA, true)).toEqual([finished.id]);
+    expect(await listed(memberB, true)).toEqual([]);
+    expect(await listed(pending)).toEqual([]);
+    expect(await listed(pending, true)).toEqual([]);
+    await memberB.agent.get(`/api/guilds/${memberB.guild.guildId}/events/${upcoming.id}`).expect(200);
+    await memberB.agent.put(`/api/guilds/${memberB.guild.guildId}/events/${upcoming.id}/rsvp`).send({}).expect((res) => expect(res.status).toBeLessThan(400));
+
+    const shares = await prisma.eventGuildShare.findMany({ where: { eventId: { in: [upcoming.id, finished.id] } }, include: { allianceGuild: true } });
+    expect(shares.every((s) => s.sourceType === 'DIRECT' && s.allianceId === null)).toBe(true);
+    const aUp = shares.find((s) => s.eventId === upcoming.id && s.guildId === memberA.guild.id)!;
+    expect(aUp).toMatchObject({ status: 'ACCEPTED', setupAttempts: 0 });
+    expect(aUp.allianceGuild?.id).toBe(posted.id); // linked, so the scheduler sees it as posted
+    const bUp = shares.find((s) => s.eventId === upcoming.id && s.guildId === memberB.guild.id)!;
+    expect(bUp.setupAttempts).toBe(12); // never posted there before: the scheduler leaves it alone
+    expect(shares.find((s) => s.eventId === finished.id && s.guildId === memberA.guild.id)).toMatchObject({ status: 'ACCEPTED', setupAttempts: 0 });
+    expect(shares.some((s) => s.guildId === host.guild.id || s.guildId === pending.guild.id)).toBe(false);
+    expect(await prisma.event.count({ where: { allianceId: { not: null } } })).toBe(0);
+
+    // Safe to run again; nothing left to do.
+    expect(await convertLegacyAllianceEvents()).toEqual({ events: 0, shares: 0, linked: 0, retyped: 0 });
+    expect(await prisma.eventGuildShare.count({ where: { eventId: { in: [upcoming.id, finished.id] } } })).toBe(4); // 3 added + the declined one
+  });
+
+  it('does nothing when there are no old alliance events', async () => {
+    await world();
+    const ev = await createEvent((await createGuild()).guildId, 'someone');
+    expect(await convertLegacyAllianceEvents()).toEqual({ events: 0, shares: 0, linked: 0, retyped: 0 });
+    expect(await prisma.eventGuildShare.count({ where: { eventId: ev.id } })).toBe(0);
   });
 });
 

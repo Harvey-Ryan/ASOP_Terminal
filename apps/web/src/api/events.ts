@@ -63,9 +63,6 @@ export const eventsApi = {
   inviteGuildDirect: (guildId: string, eventId: string, targetDiscordGuildId: string) =>
     api.post<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/direct`, { targetDiscordGuildId }).then((r) => r.data!),
 
-  inviteAlliance: (guildId: string, eventId: string, allianceId: string) =>
-    api.post<ApiResponse<{ created: number }>>(`/guilds/${guildId}/events/${eventId}/shares/alliance`, { allianceId }).then((r) => r.data!),
-
   cancelShare: (guildId: string, eventId: string, shareId: string) =>
     api.delete<ApiResponse>(`/guilds/${guildId}/events/${eventId}/shares/${shareId}`).then((r) => r),
 

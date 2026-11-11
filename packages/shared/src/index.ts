@@ -180,8 +180,6 @@ export interface CreateEventBody {
   repeatFromTemplateId?: string;
   /** Optional poll posted to the forum thread below the roster embed */
   poll?: EventPoll;
-  /** Alliance ID to share this event across all member guilds; null removes the existing share */
-  allianceId?: string | null;
   /** Discord guild IDs to directly invite at creation time */
   directGuildIds?: string[];
 }
@@ -199,8 +197,6 @@ export interface EventGuildShareDto {
   guildId: string;
   guildDiscordId: string;
   guildName: string;
-  sourceType: 'ALLIANCE' | 'DIRECT';
-  allianceId: string | null;
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
   invitedAt: string;
   respondedAt: string | null;
@@ -242,7 +238,6 @@ export interface EventDto {
   confirmedAttendees: string[] | null;
   botCleanedUp: boolean;
   poll: EventPoll | null;
-  allianceId: string | null;
   shares: EventGuildShareDto[];
   /** The hosting server's name; only on the pending-invitations list. */
   hostGuildName?: string | null;
@@ -808,101 +803,6 @@ export interface UexSyncStatusDto {
   };
 }
 
-// ── Star Citizen scunpacked Blueprint Cache ───────────────────────────────────
-
-export interface ScBlueprintMaterialDto {
-  kind: string;
-  name: string;
-  itemUuid: string | null;
-  quantityScu: number | null;
-  quantity: number | null;
-  minQuality: number | null;
-  groupKey: string | null;
-}
-
-export interface ScBlueprintModifierDto {
-  key: string;
-  name: string;
-  unitFormat: string | null;
-  qualityMin: number;
-  qualityMax: number;
-  modifierAtMin: number;
-  modifierAtMax: number;
-}
-
-export interface ScBlueprintTierDto {
-  tierIndex: number;
-  craftTimeSecs: number;
-  materials: ScBlueprintMaterialDto[];
-  modifiers: ScBlueprintModifierDto[];
-}
-
-export interface ScBlueprintRewardPoolDto {
-  poolUuid: string;
-  poolKey: string;
-}
-
-export interface ScMissionSummaryDto {
-  uuid: string;
-  name: string;
-  faction: string | null;
-  missionType: string | null;
-  missionGiver: string | null;
-  locationName: string | null;
-}
-
-export interface ScMissionDto extends ScMissionSummaryDto {
-  description: string | null;
-  poolUuids: string[];
-}
-
-/** Full blueprint with recipe tiers — returned by GET /api/sc/blueprints/:uuid */
-export interface ScBlueprintDto {
-  uuid: string;
-  key: string;
-  outputName: string;
-  outputClass: string;
-  outputType: string;
-  outputSubtype: string | null;
-  outputGrade: string | null;
-  dismantleTimeSecs: number | null;
-  dismantleEfficiency: number | null;
-  tiers: ScBlueprintTierDto[];
-  rewardPools: ScBlueprintRewardPoolDto[];
-  missions: ScMissionSummaryDto[];
-}
-
-/** Lightweight summary — returned by search and by-material endpoints */
-export interface ScBlueprintSummaryDto {
-  uuid: string;
-  key: string;
-  outputName: string;
-  outputType: string;
-  outputSubtype: string | null;
-  outputGrade: string | null;
-  tierCount: number;
-  dismantleTimeSecs: number | null;
-  dismantleEfficiency: number | null;
-}
-
-export interface ScSyncLogDto {
-  id: string;
-  trigger: string;
-  status: string;
-  blueprintsAdded: number;
-  blueprintsUpdated: number;
-  detailsJson: string | null;
-  error: string | null;
-  startedAt: string;
-  completedAt: string | null;
-}
-
-export interface ScSyncStatusDto {
-  isRunning: boolean;
-  lastSync: ScSyncLogDto | null;
-  counts: { blueprints: number };
-}
-
 /** A reusable event blueprint, auto-created on Repeat and surfaced in the create-event form. */
 export interface EventTemplateDto {
   id: string;
@@ -924,72 +824,6 @@ export interface EventTemplateDto {
   createdAt: string;
   updatedAt: string;
 }
-
-// ── SC Ship Item summary (used for loot autocomplete) ────────────────────────
-
-export interface ScShipItemSummaryDto {
-  uuid: string;
-  name: string | null;
-  type: string;
-  subType: string | null;
-  classification: string | null;
-  manufacturerName: string | null;
-}
-
-// ── Alliances ─────────────────────────────────────────────────────────────────
-
-export interface AllianceGuildDto {
-  id: string;        // Guild.id (cuid)
-  guildId: string;   // Discord snowflake
-  name: string;
-  icon: string | null;
-  /** 'PENDING' | 'ACCEPTED' */
-  status: string;
-  /** AllianceMember.id — needed for accept/reject operations */
-  memberId: string;
-  allianceTag: string | null;
-}
-
-export interface AllianceDto {
-  id: string;
-  name: string;
-  isDirect: boolean;
-  members: AllianceGuildDto[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Pending invitation for a specific guild */
-export interface AllianceInvitationDto {
-  memberId: string;
-  allianceId: string;
-  allianceName: string;
-  isDirect: boolean;
-  invitedByGuildId: string | null;
-  invitedByGuildName: string | null;
-  invitedByGuildIcon: string | null;
-  createdAt: string;
-}
-
-export interface CreateAllianceBody {
-  name: string;
-  /** Discord snowflake of the guild making the request — used for permission check */
-  callerGuildId?: string;
-}
-
-export interface RenameAllianceBody {
-  name: string;
-  /** Discord snowflake of the guild making the request — used for permission check */
-  callerGuildId?: string;
-}
-
-export interface AddAllianceMemberBody {
-  /** Discord snowflake of the guild being invited */
-  guildId: string;   // Discord snowflake (Guild.guildId)
-  /** Discord snowflake of the guild sending the invitation */
-  invitingGuildId?: string;
-}
-
 
 // ── Tournament BYE-round helpers ──────────────────────────────────────────────
 

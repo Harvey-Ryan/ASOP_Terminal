@@ -20,7 +20,6 @@ import { scRouter } from './routes/sc.js';
 import { fleetRouter, fleetyardsRouter } from './routes/fleet.js';
 import { rsiRouter } from './routes/rsi.js';
 import { kanbanRouter } from './routes/kanban.js';
-import { allianceRouter } from './routes/alliance.js';
 import { alliesRouter } from './routes/allies.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { roleCallRouter } from './routes/rolecall.js';
@@ -228,7 +227,6 @@ export function createServer(): express.Express {
   app.use('/api', fleetyardsRouter);
   app.use('/api/guilds', rsiRouter);
   app.use('/api', kanbanRouter);
-  app.use('/api', allianceRouter);
   app.use('/api/guilds', alliesRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', roleCallRouter);
