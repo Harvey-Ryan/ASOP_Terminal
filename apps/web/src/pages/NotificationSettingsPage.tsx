@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CalendarDays, Check, Copy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { notificationsApi } from '@/api/notifications';
@@ -64,6 +67,73 @@ function PrefRow({
   );
 }
 
+// ── Calendar feed (v1.16.0) ───────────────────────────────────────────────────
+
+/** Your sign-ups as a calendar link that Google / Apple / Outlook subscribe to. */
+function CalendarCard() {
+  const qc = useQueryClient();
+  const [copied, setCopied] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const { data: token } = useQuery({ queryKey: ['calendar-token'], queryFn: notificationsApi.getCalendarToken, staleTime: Infinity });
+  const reset = useMutation({
+    mutationFn: notificationsApi.resetCalendarToken,
+    onSuccess: (t) => { qc.setQueryData(['calendar-token'], t); setConfirmReset(false); setCopied(false); },
+  });
+
+  const url = token ? `${window.location.origin}/api/calendar/${token}.ics` : '';
+  const webcal = url.replace(/^https?:/, 'webcal:');
+  const links = [
+    { label: 'Google Calendar', href: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}` },
+    { label: 'Apple Calendar', href: webcal },
+    { label: 'Outlook', href: `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(url)}&name=${encodeURIComponent('ASOP events')}` },
+  ];
+
+  async function copy() {
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* the field can still be selected */ }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-1">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <CalendarDays className="h-4 w-4" aria-hidden />Calendar
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Add the events you sign up for to your own calendar, with your role. It keeps itself up to date as you join, leave or
+          change roles; calendar apps check for changes every few hours.
+        </p>
+        <div className="flex gap-2">
+          <input readOnly aria-label="Your calendar link" value={url} onFocus={(e) => e.target.select()}
+            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 font-mono text-xs" />
+          <Button size="sm" variant="outline" className="h-9 shrink-0" disabled={!url} onClick={copy}>
+            {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+            <span className="ml-1.5">{copied ? 'Copied' : 'Copy'}</span>
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted-foreground">Add to:</span>
+          {links.map((l) => (
+            <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className="text-primary hover:underline">{l.label}</a>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+          <span className="flex-1">Anyone with this link can see the events you signed up for. If you shared it by mistake, reset it; the old link stops working.</span>
+          {confirmReset ? (
+            <>
+              <Button size="sm" variant="destructive" className="h-7" disabled={reset.isPending} onClick={() => reset.mutate()}>Reset link</Button>
+              <Button size="sm" variant="ghost" className="h-7" onClick={() => setConfirmReset(false)}>Keep it</Button>
+            </>
+          ) : (
+            <Button size="sm" variant="outline" className="h-7" disabled={!url} onClick={() => setConfirmReset(true)}>Reset link</Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function NotificationSettingsPage() {
@@ -95,7 +165,7 @@ export function NotificationSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Notification Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Control which events trigger a Discord DM from the bot. Changes take effect immediately.
+          Control which events trigger a Discord DM from the bot, and sync your events to your calendar. Changes take effect immediately.
         </p>
       </div>
 
@@ -168,6 +238,8 @@ export function NotificationSettingsPage() {
               />
             </CardContent>
           </Card>
+
+          <CalendarCard />
 
           {updateMut.isError && (
             <p className="text-sm text-destructive">Failed to save. Please try again.</p>

@@ -954,6 +954,7 @@ export * from './errorLog.js';
 export * from './admin.js';
 export * from './roster.js';
 export * from './setup.js';
+export * from './ics.js';
 
 // ── Return after login (v1.12.0) ─────────────────────────────────────────────
 
