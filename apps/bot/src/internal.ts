@@ -10,6 +10,7 @@ import { handleShareNotice } from './services/shareNoticeService.js';
 import { invalidateStatusTargets, refreshStatusEmbeds } from './services/statusService.js';
 import { adminFeedTick } from './services/adminFeedService.js';
 import { isWaitlistMoves, notifyWaitlistMoves } from './services/waitlistService.js';
+import { notifyJobTaken, syncJobMessages } from './services/jobService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const TOO_BIG = Symbol('too big');
@@ -73,6 +74,18 @@ export function startInternalServer() {
       await handleShareNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleShareNotice failed for ${payload.event} ${payload.shareId}:`, err),
       );
+      return;
+    }
+
+    // A job was posted, edited, taken, left or closed on the website (v1.21.0).
+    const jobMatch = req.url?.match(/^\/trigger\/job\/([^/]+)$/);
+    if (jobMatch) {
+      const jobId = jobMatch[1]!;
+      const payload = await readJson(req);
+      res.writeHead(202).end();
+      const taken = (payload as { taken?: unknown } | null)?.taken;
+      await syncJobMessages(jobId).catch((err) => console.error(`[bot:internal] Job sync failed for ${jobId}:`, err));
+      if (typeof taken === 'string') await notifyJobTaken(jobId, taken);
       return;
     }
 

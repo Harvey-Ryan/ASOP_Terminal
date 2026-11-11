@@ -175,6 +175,9 @@ model GuildSettings {
   statusChannelId        String?
   /// Message id of the status embed the bot keeps editing (bot-managed)
   statusMessageId        String?
+  /// Job board (v1.21.0): module switch, and an optional Discord channel where jobs are posted
+  jobsEnabled            Boolean  @default(true)
+  jobsChannelId          String?
   /// Officers hid the setup checklist card on the server page (v1.15.0); Module Settings still shows it
   setupHidden            Boolean  @default(false)
   /// Channel that message lives in, so a moved setting can clean up the old one (bot-managed)
@@ -1449,4 +1452,57 @@ model ServiceHeartbeat {
   release   String   @default("")
   /// { guilds, wsPing, memoryMb, … } (JSON)
   details   String   @default("{}")
+}
+
+// ── Job board (v1.21.0) ──────────────────────────────────────────────────────
+
+/// A job a member posted ("Need a hauler, 60k aUEC"). Rules: packages/shared/src/jobs.ts.
+model Job {
+  id         String   @id @default(cuid())
+  /// Discord server it was posted from
+  guildId    String
+  posterId   String
+  posterName String
+  /// HAULING | ESCORT | MINING | SALVAGE | CRAFTING | BOUNTY | MEDICAL | OTHER
+  kind       String
+  title      String
+  details    String?
+  /// Free text, paid in game ("60k aUEC")
+  reward     String?
+  location   String?
+  /// Free text ("Tonight 8 PM", "Any time")
+  whenText   String?
+  /// Crew wanted
+  slots      Int      @default(1)
+  /// SERVER | ALLIES | GLOBAL (every ASOP server)
+  visibility String   @default("SERVER")
+  /// OPEN | DONE | CANCELLED | EXPIRED
+  status     String   @default("OPEN")
+  expiresAt  DateTime
+  closedAt   DateTime?
+  /// JSON: { channelId, messageId }[]: the job's posts in Discord jobs channels (bot-managed)
+  messages   String   @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  crew JobCrew[]
+
+  @@index([status, visibility])
+  @@index([guildId, status])
+  @@index([posterId])
+}
+
+model JobCrew {
+  id       Int      @id @default(autoincrement())
+  jobId    String
+  userId   String
+  username String
+  /// Discord server they took it from
+  guildId  String?
+  takenAt  DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId])
+  @@index([userId])
 }

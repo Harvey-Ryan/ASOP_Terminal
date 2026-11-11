@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake, ShieldCheck, History } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -175,6 +175,7 @@ export function DashboardLayout() {
     </NavLink>
   );
   const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
+  const jobsEnabled = myPerms?.jobsEnabled ?? true;
   const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
   const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
 
@@ -515,6 +516,18 @@ export function DashboardLayout() {
                 >
                   <Trophy className="h-4 w-4 shrink-0" />
                   {!navCollapsed && 'Activity'}
+                </NavLink>
+              )}
+
+              {/* Job board (v1.21.0) */}
+              {jobsEnabled && (showAdminNav || myPerms?.canViewEvents) && (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/jobs`}
+                  title={navCollapsed ? 'Jobs' : undefined}
+                  className={serverNavCls}
+                >
+                  <Briefcase className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Jobs'}
                 </NavLink>
               )}
 

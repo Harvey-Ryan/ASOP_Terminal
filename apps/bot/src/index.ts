@@ -28,6 +28,7 @@ import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
 import { joinRoster, setRosterRole, leaveRoster, notifyThreadJoin } from './services/rsvpService.js';
 import { clickWaitlist } from './services/waitlistService.js';
+import { clickJob } from './services/jobService.js';
 import { endEvent, scheduleRosterRefresh } from './services/eventService.js';
 import { postMatchAnnouncement, updateRegistrationEmbed, recordMatchForfeit } from './services/tournamentService.js';
 
@@ -226,6 +227,20 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
         console.error('[bot] Share button error:', err);
         if (interaction.deferred) await interaction.editReply({ content: withRef('Something went wrong. Try again, or answer on the website.') }).catch(() => {});
       });
+      return;
+    }
+
+    // ── Job board buttons (v1.21.0): job:take:<id> / job:leave:<id> ─────────
+    if (interaction.customId.startsWith('job:')) {
+      const [, action, jobId] = interaction.customId.split(':') as [string, 'take' | 'leave', string];
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const name = (interaction.member instanceof GuildMember) ? interaction.member.displayName : interaction.user.username;
+        await interaction.editReply({ content: await clickJob(action, jobId, interaction.user.id, name, interaction.guildId) });
+      } catch (err) {
+        console.error('[bot] Job button error:', err);
+        await interaction.editReply({ content: withRef('❌ Something went wrong. Try again, or use the job board on the website.') });
+      }
       return;
     }
 

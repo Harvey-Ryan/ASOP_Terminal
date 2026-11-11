@@ -17,6 +17,8 @@ beforeEach(async () => {
     prisma.lootItem.deleteMany(),
     prisma.lootSession.deleteMany(),
     prisma.eventReminder.deleteMany(),
+    prisma.jobCrew.deleteMany(),
+    prisma.job.deleteMany(),
     prisma.eventComment.deleteMany(),
     prisma.eventWaitlist.deleteMany(),
     prisma.eventRsvp.deleteMany(),

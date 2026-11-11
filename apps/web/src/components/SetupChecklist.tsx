@@ -16,6 +16,7 @@ const PAGE_PATH: Record<SetupPage, string> = {
   tournaments: 'settings/modules/tournaments',
   bot: 'settings/bot',
   allies: 'settings/allies',
+  jobs: 'settings/modules/jobs',
   'new-event': 'events/new',
 };
 
