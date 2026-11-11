@@ -63,6 +63,27 @@ export interface MemberHistoryDto {
 
 const FINISHED = new Set(['ENDED', 'COMPLETED']);
 
+/** Attendance as recorded: the officers' check, or else who was in voice; null when neither (or not over yet). */
+export function recordedAttendees(e: { status: string; confirmedAttendees: string | null; vcAttendees: string }): string[] | null {
+  if (!FINISHED.has(e.status)) return null;
+  if (e.confirmedAttendees) return JSON.parse(e.confirmedAttendees) as string[];
+  const vc = JSON.parse(e.vcAttendees) as string[];
+  return vc.length ? vc : null;
+}
+
+/**
+ * Who may comment on a finished event's after-action notes (v1.19.0): people
+ * who attended, or, where attendance wasn't recorded, who signed up (not maybe).
+ */
+export function canComment(
+  e: { status: string; confirmedAttendees: string | null; vcAttendees: string; rsvps: { userId: string; tentative: boolean }[] },
+  userId: string,
+): boolean {
+  if (!FINISHED.has(e.status)) return false;
+  const attended = recordedAttendees(e);
+  return attended ? attended.includes(userId) : e.rsvps.some((r) => r.userId === userId && !r.tentative);
+}
+
 /** One person's outcome for one event, or null when they had nothing to do with it. */
 export function outcomeFor(e: HistoryEvent, userId: string): MemberEventDto | null {
   const rsvp = e.rsvps.find((r) => r.userId === userId);

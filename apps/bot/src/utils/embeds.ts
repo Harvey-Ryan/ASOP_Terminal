@@ -5,7 +5,7 @@ import {
   ButtonStyle,
 } from 'discord.js';
 import type { EventRole } from '@dem/shared';
-import { describeRecurrence } from '@dem/shared';
+import { describeRecurrence, AFTER_ACTION_OUTCOMES, type AfterActionOutcome } from '@dem/shared';
 
 interface RsvpEntry {
   userId: string;
@@ -126,6 +126,8 @@ export function buildPostEventEmbed(
   imageFileName?: string,
   dkpAward?: number,
   dkpLabel?: string,
+  /** The officers' after-action notes (v1.19.0) */
+  afterAction?: { outcome: string | null; notes: string | null } | null,
 ): EmbedBuilder {
   const startTs = Math.floor(event.startTime.getTime() / 1000);
   const endTs = event.endTime ? Math.floor(event.endTime.getTime() / 1000) : null;
@@ -145,6 +147,16 @@ export function buildPostEventEmbed(
   embed.addFields({ name: '🕐 When', value: whenParts.join(' '), inline: false });
   if (event.musterPoint) {
     embed.addFields({ name: '📍 Muster Point', value: event.musterPoint, inline: false });
+  }
+
+  if (afterAction && (afterAction.outcome || afterAction.notes)) {
+    const o = afterAction.outcome ? AFTER_ACTION_OUTCOMES[afterAction.outcome as AfterActionOutcome] : null;
+    const notes = afterAction.notes ?? '';
+    embed.addFields({
+      name: `📝 After action${o ? ` · ${o.emoji} ${o.label}` : ''}`,
+      value: notes ? (notes.length > 1024 ? `${notes.slice(0, 1020)}…` : notes) : '​',
+      inline: false,
+    });
   }
 
   const lines = attendees.map(({ userId, items }) => {

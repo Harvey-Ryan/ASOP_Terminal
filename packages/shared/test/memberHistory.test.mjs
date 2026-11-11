@@ -56,3 +56,15 @@ test('tournament results in words', async () => {
     ['Winner', 'Runner-up', '4th place', '11th place', '22nd place', 'Eliminated', 'Playing', 'Signed up', 'Cancelled'],
   );
 });
+
+test('who can comment on after-action notes', async () => {
+  const { canComment, recordedAttendees } = await import('../dist/index.js');
+  const base = { status: 'COMPLETED', confirmedAttendees: JSON.stringify(['a']), vcAttendees: '[]', rsvps: [{ userId: 'b', tentative: false }] };
+  assert.equal(canComment(base, 'a'), true);
+  assert.equal(canComment(base, 'b'), false); // attendance recorded and b wasn't there
+  const unrecorded = { ...base, status: 'ENDED', confirmedAttendees: null, rsvps: [{ userId: 'b', tentative: false }, { userId: 'm', tentative: true }] };
+  assert.equal(canComment(unrecorded, 'b'), true);
+  assert.equal(canComment(unrecorded, 'm'), false);
+  assert.equal(canComment({ ...base, status: 'PENDING' }, 'a'), false);
+  assert.deepEqual(recordedAttendees({ status: 'ENDED', confirmedAttendees: null, vcAttendees: '["x"]' }), ['x']);
+});

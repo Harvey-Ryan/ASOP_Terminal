@@ -76,6 +76,17 @@ export function startInternalServer() {
       return;
     }
 
+    // After-action notes were written or edited on a completed event (v1.19.0): redo its final summary.
+    const aarMatch = req.url?.match(/^\/trigger\/after-action\/([^/]+)$/);
+    if (aarMatch) {
+      const eventId = aarMatch[1]!;
+      res.writeHead(202).end();
+      await updatePostEventEmbed(eventId).catch((err) =>
+        console.error(`[bot:internal] After-action update failed for ${eventId}:`, err),
+      );
+      return;
+    }
+
     // People the website moved off a role waitlist get a DM (v1.14.0).
     const waitlistMatch = req.url?.match(/^\/trigger\/waitlist-moved\/([^/]+)$/);
     if (waitlistMatch) {

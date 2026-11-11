@@ -17,6 +17,7 @@ import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import { SetupChecklist } from '@/components/SetupChecklist';
+import { AfterActionSection } from '@/components/AfterAction';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { RecentLootEvent } from '@/api/loot';
 
@@ -761,7 +762,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       </div>
 
       {/* Maybe (v1.17.0): on the roster without a role, so it never takes a slot */}
-      <div className={rowCls}>
+      {(canRsvp || maybes.length > 0) && <div className={rowCls}>
         <span className={labelCls}>Maybe</span>
         <div className="flex-1">
           <div className="space-y-0.5">
@@ -782,7 +783,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Attending */}
       <div className={rowCls}>
@@ -796,6 +797,15 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           )}
         </div>
       </div>
+
+      {/* After action (v1.19.0): once it's over */}
+      {(ev.status === 'ENDED' || ev.status === 'COMPLETED') && (
+        <div className={rowCls}>
+          <span className={labelCls}>After Action</span>
+          <AfterActionSection ev={ev} guildId={guildId} canEdit={canManage} userId={userId}
+            onSaved={(updated) => { queryClient.setQueryData(['events', guildId, event.id], updated); invalidateEvent(); }} />
+        </div>
+      )}
 
       {/* Loot (completed) */}
       {ev.status === 'COMPLETED' && (

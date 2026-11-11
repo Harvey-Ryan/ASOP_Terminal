@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import {
-  outcomeFor, rolesPlayed, statsFor, summarizeMembers, tournamentResult,
+  outcomeFor, recordedAttendees, rolesPlayed, statsFor, summarizeMembers, tournamentResult,
   type ApiResponse, type EventRole, type HistoryEvent, type MemberHistoryDto, type MemberSummaryDto,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
@@ -18,14 +18,6 @@ export const membersRouter = Router();
 /** The most events a history reads (the newest). */
 const MAX_EVENTS = 2000;
 
-/** Attendance as recorded: the officers' check, or else who was in voice; null when neither. */
-function attendeesOf(e: { status: string; confirmedAttendees: string | null; vcAttendees: string }): string[] | null {
-  if (e.status !== 'ENDED' && e.status !== 'COMPLETED') return null;
-  if (e.confirmedAttendees) return JSON.parse(e.confirmedAttendees) as string[];
-  const vc = JSON.parse(e.vcAttendees) as string[];
-  return vc.length ? vc : null;
-}
-
 /** This server's own events (shared events are counted by the server that ran them). */
 async function historyEvents(guildId: string, userId?: string): Promise<HistoryEvent[]> {
   const events = await prisma.event.findMany({
@@ -37,7 +29,7 @@ async function historyEvents(guildId: string, userId?: string): Promise<HistoryE
       rsvps: { ...(userId ? { where: { userId } } : {}), select: { userId: true, username: true, role: true, tentative: true } },
     },
   });
-  return events.map((e) => ({ ...e, roles: JSON.parse(e.roles) as EventRole[], attendees: attendeesOf(e) }));
+  return events.map((e) => ({ ...e, roles: JSON.parse(e.roles) as EventRole[], attendees: recordedAttendees(e) }));
 }
 
 /** Names for people we only know by id (they turned up without signing up). */

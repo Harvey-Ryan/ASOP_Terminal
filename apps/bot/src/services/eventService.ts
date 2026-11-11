@@ -835,11 +835,12 @@ export async function updatePostEventEmbed(eventId: string) {
     ? JSON.parse(event.confirmedAttendees)
     : [];
 
-  // Build the post-event embed only when there are confirmed attendees
+  // Build the post-event embed when there are confirmed attendees or after-action notes (v1.19.0)
   let embed: ReturnType<typeof buildPostEventEmbed> | null = null;
   let files: AttachmentBuilder[] = [];
+  const afterAction = event.aarOutcome || event.aarNotes ? { outcome: event.aarOutcome, notes: event.aarNotes } : null;
 
-  if (confirmedIds.length > 0) {
+  if (confirmedIds.length > 0 || afterAction) {
     const lootByUser = new Map<string, { name: string; quantity: number }[]>();
     const session = await prisma.lootSession.findUnique({
       where: { eventId },
@@ -864,7 +865,7 @@ export async function updatePostEventEmbed(eventId: string) {
     const dkpLabel = dkpAward ? await getGuildDkpLabel(event.guildId) : undefined;
 
     const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
-    embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename, dkpAward, dkpLabel);
+    embed = buildPostEventEmbed(event, attendees, imageAttachment?.filename, dkpAward, dkpLabel, afterAction);
     files = imageAttachment ? [imageAttachment.builder] : [];
   }
 
