@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2 } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
@@ -1339,9 +1339,13 @@ export function ServerPage() {
     select: (data) => data.find((a) => a.status === 'OPEN'),
   });
 
-  const completedQuery = useQuery({
+  // Past events load 50 at a time; Show more fetches the next 50 (v1.12.0).
+  const completedQuery = useInfiniteQuery({
     queryKey: ['events', guildId, 'completed'],
-    queryFn: () => eventsApi.listCompleted(guildId!),
+    queryFn: ({ pageParam }) => eventsApi.listCompleted(guildId!, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.length === eventsApi.pageSize ? last[last.length - 1]!.id : undefined),
+    select: (d) => d.pages.flat(),
     enabled: !!guildId && tab === 'completed',
     retry: 1,
   });
@@ -1551,7 +1555,7 @@ export function ServerPage() {
                     <Skeleton key={i} className="h-14 rounded-none border-b border-border last:border-b-0" />
                   ))}
                 </div>
-              ) : !active.data || active.data.length === 0 ? (
+              ) : active.isError && !active.data?.length ? null : !active.data || active.data.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center bg-primary">
                   <CalendarDays className="h-7 w-7 text-primary-foreground mb-2" />
                   <p className="text-sm text-primary-foreground">
@@ -1579,6 +1583,14 @@ export function ServerPage() {
                         <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} onClick={() => openDetail(e)} />
                       ))
                   }
+                  {tab === 'completed' && completedQuery.hasNextPage && (
+                    <div className="flex justify-center p-4">
+                      <Button size="sm" className="bg-background text-primary hover:bg-background/80 hover:text-primary"
+                        disabled={completedQuery.isFetchingNextPage} onClick={() => completedQuery.fetchNextPage()}>
+                        {completedQuery.isFetchingNextPage ? 'Loading…' : 'Show more'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

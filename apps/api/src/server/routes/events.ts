@@ -48,9 +48,13 @@ async function guildTimezone(discordGuildId: string): Promise<string> {
 
 // ── GET /api/guilds/:guildId/events ───────────────────────────────────────────
 
+/** Events per page. A full page means there may be more (?after=). */
+export const EVENTS_PAGE = 50;
+
 eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const completed = req.query['completed'] === 'true';
+  const after = typeof req.query['after'] === 'string' ? req.query['after'] : null;
 
   try {
     if (!(await assertEventViewer(req, guildId))) {
@@ -77,8 +81,11 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
           { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
         ],
       },
-      orderBy: { startTime: completed ? 'desc' : 'asc' },
-      take: 50,
+      // id breaks ties, so paging past events with the same start never skips one.
+      orderBy: [{ startTime: completed ? 'desc' : 'asc' }, { id: 'asc' }],
+      take: EVENTS_PAGE,
+      // ?after=<id of the last event shown>: the next page (Completed's Show more, v1.12.0).
+      ...(completed && after ? { cursor: { id: after }, skip: 1 } : {}),
       include: {
         rsvps: true,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },

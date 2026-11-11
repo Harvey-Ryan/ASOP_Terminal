@@ -5,8 +5,12 @@ export const eventsApi = {
   list: (guildId: string) =>
     api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events`).then((r) => r.data!),
 
-  listCompleted: (guildId: string) =>
-    api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events?completed=true`).then((r) => r.data!),
+  /** One page of past events, newest first; `after` is the last event's id from the page before. */
+  listCompleted: (guildId: string, after?: string) =>
+    api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events?completed=true${after ? `&after=${encodeURIComponent(after)}` : ''}`).then((r) => r.data!),
+
+  /** Events per page from list/listCompleted (matches the API). */
+  pageSize: 50,
 
   get: (guildId: string, eventId: string) =>
     api.get<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}`).then((r) => r.data!),
