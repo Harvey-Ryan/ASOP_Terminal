@@ -13,8 +13,10 @@ export function reportError(error: unknown, kind: string, ref?: string | null): 
   try {
     const e = error instanceof Error ? error : new Error(typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error');
     const message = `${e.name}: ${e.message}`.slice(0, 2_000);
-    if (sent.has(message) || budget <= 0) return r;
-    sent.add(message);
+    // Once per kind and message (a crash can also surface as a window error in development).
+    const key = `${kind}|${message}`;
+    if (sent.has(key) || budget <= 0) return r;
+    sent.add(key);
     budget--;
     void fetch('/api/client-errors', {
       method: 'POST',
