@@ -648,6 +648,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               const members = ev.rsvps?.filter((r) => r.role === roleKey) ?? [];
               const isFull = members.length >= role.count;
               const isMyRole = userRsvp?.role === roleKey;
+              const otherServer = !!role.guildId && role.guildId !== guildId; // a role for another server's members
               return (
                 <div key={roleKey}>
                   <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
@@ -669,10 +670,10 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                           Unassign
                         </Button>
                       ) : (
-                        <Button size="sm" disabled={isMutating || (isFull && !isMyRole)}
+                        <Button size="sm" disabled={isMutating || (isFull && !isMyRole) || otherServer}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
                           onClick={() => rsvpMutation.mutate(roleKey)}>
-                          {isFull ? 'Full' : userRsvp ? 'Switch Here' : 'Sign Up'}
+                          {otherServer ? 'Other server' : isFull ? 'Full' : userRsvp ? 'Switch Here' : 'Sign Up'}
                         </Button>
                       )}
                     </div>

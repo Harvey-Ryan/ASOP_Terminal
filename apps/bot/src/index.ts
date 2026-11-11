@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
-import type { EventRole } from '@dem/shared';
+import { ROLE_SIGNUP_MESSAGES, type EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
@@ -223,7 +223,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const displayName = (interaction.member instanceof GuildMember)
           ? interaction.member.displayName
           : interaction.user.username;
-        await setRosterRole(entityId, interaction.user.id, displayName, roleKey);
+        const problem = await setRosterRole(entityId, interaction.user.id, displayName, roleKey, interaction.guildId ?? event.guildId);
+        if (problem) {
+          await interaction.editReply({ content: `⚠️ ${ROLE_SIGNUP_MESSAGES[problem]}` });
+          return;
+        }
         await interaction.editReply({
           content: `✅ You are marked as **${label}** for **${event.name}**.`,
         });
