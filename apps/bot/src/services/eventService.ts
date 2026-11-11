@@ -16,7 +16,8 @@ import { client } from '../client.js';
 import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
-import { nextOccurrence, isRecurType, isValidTimeZone } from '@dem/shared';
+import { nextOccurrence, isRecurType, isValidTimeZone, planShares } from '@dem/shared';
+import { handleShareNotice } from './shareNoticeService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -879,7 +880,7 @@ export async function spawnNextRecurrence(eventId: string) {
       briefingChannel: event.briefingChannel,
       imageUrl: event.imageUrl,
       pollData: event.pollData ?? null,
-      allianceId: event.allianceId ?? null,
+      allianceId: event.allianceId ?? null, // old alliance events stay visible until v1.11.1
       recurEndsAt: event.recurEndsAt ?? null,
       recurAnchor: anchor,
       recurTimezone: timeZone,
@@ -888,28 +889,13 @@ export async function spawnNextRecurrence(eventId: string) {
     },
   });
 
-  // Re-invite guilds that accepted the previous occurrence.
-  // Only ACCEPTED shares propagate — PENDING means they never responded to the
-  // last invite (don't auto-forward), DECLINED means they explicitly opted out.
-  // New invites are created as PENDING so each guild gets the standard accept/decline
-  // flow for each occurrence rather than being silently added.
-  const acceptedShares = await prisma.eventGuildShare.findMany({
-    where: { eventId, status: 'ACCEPTED' },
-    select: { guildId: true, sourceType: true, allianceId: true },
-  });
-  if (acceptedShares.length > 0) {
-    await prisma.eventGuildShare.createMany({
-      data: acceptedShares.map((s) => ({
-        eventId: next.id,
-        guildId: s.guildId,
-        sourceType: s.sourceType,
-        allianceId: s.allianceId,
-        status: 'PENDING' as const,
-      })),
-      skipDuplicates: true,
-    });
-    console.log(`[bot] spawnNextRecurrence: re-invited ${acceptedShares.length} guild(s) for event ${next.id}`);
-  }
+  // The next occurrence goes to the servers that accepted this one, if they're
+  // still allies (v1.11.0). Each ally's own setting decides: posted straight
+  // away, or an invitation to approve. PENDING (never answered) and DECLINED
+  // shares don't carry over. Rules: planShares in packages/shared/src/allies.ts.
+  await shareNextOccurrence(eventId, next.id, event.guildId).catch((err) =>
+    console.error(`[bot] spawnNextRecurrence: sharing ${next.id} with allies failed:`, err),
+  );
 
   // Build reminder schedule.
   // If the event has a linked template with a custom reminderMinutes array, use that
@@ -933,6 +919,36 @@ export async function spawnNextRecurrence(eventId: string) {
     { eventId: next.id, sendAt: new Date(nextStart.getTime() - 15 * 60_000), type: 'DM' },
   ].filter((r) => r.sendAt > now);
   if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
+}
+
+/** Shares a new occurrence with the allies that accepted the previous one. Exported for tests. */
+export async function shareNextOccurrence(previousEventId: string, nextEventId: string, hostDiscordId: string): Promise<void> {
+  const accepted = await prisma.eventGuildShare.findMany({ where: { eventId: previousEventId, status: 'ACCEPTED' }, select: { guildId: true } });
+  if (accepted.length === 0) return;
+  const host = await prisma.guild.findUnique({ where: { guildId: hostDiscordId }, select: { id: true } });
+  if (!host) return;
+  const links = await prisma.guildAlly.findMany({ where: { status: 'ACCEPTED', OR: [{ guildAId: host.id }, { guildBId: host.id }] } });
+  const plan = planShares(host.id, accepted.map((s) => s.guildId), links);
+  const now = new Date();
+  await prisma.eventGuildShare.createMany({
+    data: [
+      ...plan.accepted.map((guildId) => ({ eventId: nextEventId, guildId, sourceType: 'DIRECT' as const, status: 'ACCEPTED' as const, autoAccepted: true, respondedAt: now })),
+      ...plan.pending.map((guildId) => ({ eventId: nextEventId, guildId, sourceType: 'DIRECT' as const, status: 'PENDING' as const })),
+    ],
+    skipDuplicates: true,
+  });
+  console.log(`[bot] shareNextOccurrence: ${nextEventId} posted to ${plan.accepted.length} ally(s), invited ${plan.pending.length}, dropped ${plan.notAllies.length} no longer allied`);
+  const shares = await prisma.eventGuildShare.findMany({ where: { eventId: nextEventId } });
+  for (const s of shares) {
+    if (s.status === 'ACCEPTED') {
+      await setupDiscordForShare(s.id).catch((err) => console.error(`[bot] shareNextOccurrence: posting share ${s.id} failed (the scheduler retries):`, err));
+    } else if (s.status === 'PENDING') {
+      await handleShareNotice({
+        event: 'pending', shareId: s.id, eventId: nextEventId, hostGuildId: host.id, receiverGuildId: s.guildId,
+        actorUserId: null, noticeChannelId: null, noticeMessageId: null,
+      });
+    }
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

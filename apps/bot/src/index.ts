@@ -7,6 +7,7 @@ import { prisma } from './db.js';
 import { startScheduler } from './scheduler.js';
 import { loadGameData } from './gamedata.js';
 import { handleAllyButton } from './services/allyNoticeService.js';
+import { handleShareButton } from './services/shareNoticeService.js';
 import { startInternalServer } from './internal.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
@@ -181,6 +182,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleAllyButton(interaction).catch(async (err) => {
         console.error('[bot] Ally button error:', err);
         if (interaction.deferred) await interaction.editReply({ content: 'Something went wrong. Try again, or answer on the Allies page.' }).catch(() => {});
+      });
+      return;
+    }
+
+    // ── Shared-event buttons (Accept / Decline) ──────────────────────────────
+    if (interaction.customId.startsWith('share:')) {
+      await handleShareButton(interaction).catch(async (err) => {
+        console.error('[bot] Share button error:', err);
+        if (interaction.deferred) await interaction.editReply({ content: 'Something went wrong. Try again, or answer on the website.' }).catch(() => {});
       });
       return;
     }

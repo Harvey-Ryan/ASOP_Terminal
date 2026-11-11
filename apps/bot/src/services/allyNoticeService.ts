@@ -60,7 +60,7 @@ export const liveDiscord: AllyDiscord = {
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 
-const COLOR = { request: 0x5865f2, good: 0x2ecc71, bad: 0xe74c3c, quiet: 0x747f8d } as const;
+export const COLOR = { request: 0x5865f2, good: 0x2ecc71, bad: 0xe74c3c, quiet: 0x747f8d } as const;
 
 export interface OrgInfo {
   /** Discord snowflake. */
@@ -70,10 +70,10 @@ export interface OrgInfo {
   icon: string | null;
 }
 
-const webUrl = () => process.env['WEB_URL'] ?? 'http://localhost:5173';
+export const webUrl = () => process.env['WEB_URL'] ?? 'http://localhost:5173';
 const alliesPage = (discordGuildId: string) => `${webUrl()}/dashboard/servers/${discordGuildId}/settings/allies`;
-const label = (o: OrgInfo) => (o.tag ? `${o.name} [${o.tag}]` : o.name);
-const iconUrl = (o: OrgInfo) => (o.icon ? `https://cdn.discordapp.com/icons/${o.guildId}/${o.icon}.png?size=128` : null);
+export const label = (o: OrgInfo) => (o.tag ? `${o.name} [${o.tag}]` : o.name);
+export const iconUrl = (o: OrgInfo) => (o.icon ? `https://cdn.discordapp.com/icons/${o.guildId}/${o.icon}.png?size=128` : null);
 const day = (d: Date) => `<t:${Math.floor(d.getTime() / 1000)}:D>`;
 
 /** The request as first posted in the asked org's channel, with its buttons. */
@@ -136,14 +136,14 @@ export function infoMessage(kind: 'accepted' | 'rejected' | 'removed', actor: Or
 
 // ── Handling a notice from the API ───────────────────────────────────────────
 
-async function loadOrg(internalId: string): Promise<(OrgInfo & { noticeChannelId: string | null }) | null> {
+export async function loadOrg(internalId: string): Promise<(OrgInfo & { noticeChannelId: string | null }) | null> {
   const g = await prisma.guild.findUnique({ where: { id: internalId }, include: { settings: true } });
   if (!g) return null;
   return { guildId: g.guildId, name: g.name, icon: g.icon, tag: g.settings?.allianceTag ?? null, noticeChannelId: g.settings?.allyNoticeChannelId ?? null };
 }
 
 /** Logs and swallows a Discord failure (missing channel, missing permission…): notices are best-effort. */
-async function tryDiscord<T>(what: string, fn: () => Promise<T>): Promise<T | null> {
+export async function tryDiscord<T>(what: string, fn: () => Promise<T>): Promise<T | null> {
   try {
     return await fn();
   } catch (err) {

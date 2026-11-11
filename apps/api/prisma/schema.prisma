@@ -861,6 +861,13 @@ model EventGuildShare {
   status      ShareStatus @default(PENDING)
   invitedAt   DateTime    @default(now())
   respondedAt DateTime?
+  /// Discord user id of whoever accepted or declined (null for automatic posts).
+  respondedBy String?
+  /// Posted straight away because the receiving ally posts this host's events automatically.
+  autoAccepted Boolean    @default(false)
+  /// The Accept / Decline message in the receiver's ally notices channel, so it can be edited.
+  noticeChannelId String?
+  noticeMessageId String?
 
   event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   guild         Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)

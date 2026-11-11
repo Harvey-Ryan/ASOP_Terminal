@@ -231,6 +231,98 @@ export function parseAllyButtonId(customId: string): { action: AllyResponse; lin
   return m ? { action: m[1] as AllyResponse, linkId: m[2]! } : null;
 }
 
+// ── Sharing events with allies (v1.11.0) ────────────────────────────────────
+
+/** Who gets a new share of an event, by internal Guild.id. */
+export interface SharePlan {
+  /** Allies that post the host's events automatically: share starts ACCEPTED. */
+  accepted: string[];
+  /** Allies that approve each event: share starts PENDING. */
+  pending: string[];
+  /** Asked for, but not allies with the host: no share. */
+  notAllies: string[];
+}
+
+/**
+ * Only allies can receive an event. Each ally's own "Their events" setting
+ * decides whether it's posted straight away or waits for an officer. Targets
+ * are de-duplicated and the host itself is ignored.
+ */
+export function planShares(hostGuildId: string, targetGuildIds: readonly string[], links: readonly AllyLink[]): SharePlan {
+  const plan: SharePlan = { accepted: [], pending: [], notAllies: [] };
+  for (const target of new Set(targetGuildIds)) {
+    if (target === hostGuildId) continue;
+    const link = links.find((l) => inPair(l, hostGuildId) && inPair(l, target));
+    if (!link || !canShareEvents(link)) plan.notAllies.push(target);
+    else if (receiverAutoAccepts(link, target)) plan.accepted.push(target);
+    else plan.pending.push(target);
+  }
+  return plan;
+}
+
+/**
+ * Removing an ally withdraws the invitations still waiting between the two orgs,
+ * in both directions. Accepted shares stay until the event ends.
+ */
+export function withdrawnOnRemoval(
+  share: { status: 'PENDING' | 'ACCEPTED' | 'DECLINED'; hostGuildId: string; guildId: string },
+  pair: Pick<AllyLink, 'guildAId' | 'guildBId'>,
+): boolean {
+  return share.status === 'PENDING' && share.hostGuildId !== share.guildId
+    && inPair(pair, share.hostGuildId) && inPair(pair, share.guildId);
+}
+
+export const NOT_ALLY_MESSAGE = 'You can only share events with your allies. Add them on the Allies page first.';
+
+export type ShareResponse = 'accept' | 'decline';
+
+/** What happened to a shared event invitation, for the bot's notices. */
+export type ShareNoticeEvent = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+
+/**
+ * Sent by the API (and the bot itself) after a share changes. Guild ids are
+ * internal Guild.id values.
+ *
+ * - pending: host shared an event with receiver, waiting for approval → message
+ *   with Accept / Decline / Open in the receiver's ally notices channel
+ * - accepted / declined: receiver answered → that message is edited
+ * - withdrawn: host cancelled the invitation, or the alliance ended → edited.
+ *   The share row may already be gone, so the notice ids and names come along.
+ */
+export interface ShareNoticePayload {
+  event: ShareNoticeEvent;
+  shareId: string;
+  eventId: string;
+  hostGuildId: string;
+  receiverGuildId: string;
+  actorUserId: string | null;
+  noticeChannelId: string | null;
+  noticeMessageId: string | null;
+}
+
+export const SHARE_NOTICE_EVENTS: readonly ShareNoticeEvent[] = ['pending', 'accepted', 'declined', 'withdrawn'];
+
+export function isShareNoticePayload(x: unknown): x is ShareNoticePayload {
+  const p = x as Partial<ShareNoticePayload> | null;
+  return !!p && typeof p === 'object'
+    && SHARE_NOTICE_EVENTS.includes(p.event as ShareNoticeEvent)
+    && typeof p.shareId === 'string' && typeof p.eventId === 'string'
+    && typeof p.hostGuildId === 'string' && typeof p.receiverGuildId === 'string'
+    && (p.actorUserId === null || typeof p.actorUserId === 'string')
+    && (p.noticeChannelId === null || typeof p.noticeChannelId === 'string')
+    && (p.noticeMessageId === null || typeof p.noticeMessageId === 'string');
+}
+
+/** customId of a shared-event button: `share:<accept|decline>:<shareId>`. */
+export function shareButtonId(action: ShareResponse, shareId: string): string {
+  return `share:${action}:${shareId}`;
+}
+
+export function parseShareButtonId(customId: string): { action: ShareResponse; shareId: string } | null {
+  const m = /^share:(accept|decline):([A-Za-z0-9_-]{1,60})$/.exec(customId);
+  return m ? { action: m[1] as ShareResponse, shareId: m[2]! } : null;
+}
+
 // ── Ally codes ───────────────────────────────────────────────────────────────
 
 /** No 0/O or 1/I, so a code read aloud or retyped can't be misread. */
@@ -375,4 +467,17 @@ export interface SendAllyRequestResult {
   /** `accepted` when the other org had already asked you. */
   outcome: 'requested' | 'accepted';
   guild: AllyGuildDto;
+}
+
+/** An ally you can share an event with (the event form's picker). */
+export interface ShareableAllyDto {
+  guild: AllyGuildDto;
+  /** That ally posts your events automatically; otherwise its officers approve each one. */
+  postsAutomatically: boolean;
+}
+
+export interface ShareableAlliesDto {
+  /** Your own org, for the role-slot server labels. */
+  host: AllyGuildDto;
+  allies: ShareableAllyDto[];
 }

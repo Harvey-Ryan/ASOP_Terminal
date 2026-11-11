@@ -1,7 +1,9 @@
 import { Router, type Request, type RequestHandler, type Response } from 'express';
-import type { ApiResponse, AlliesOverviewDto, AllyDirectoryEntryDto, SendAllyRequestBody, SendAllyRequestResult } from '@dem/shared';
+import type { ApiResponse, AlliesOverviewDto, AllyDirectoryEntryDto, SendAllyRequestBody, SendAllyRequestResult, ShareableAlliesDto } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { assertAllianceManager } from '../../lib/assertAllianceManager.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
+import { shareableAllies } from '../../lib/allyShares.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   AllyError,
@@ -66,6 +68,19 @@ alliesRouter.get('/:guildId/allies', requireAuth, handle(async (req, res) => {
 alliesRouter.get('/:guildId/allies/pending-count', requireAuth, handle(async (req, res) => {
   const guild = await managedGuild(req, res);
   if (guild) ok<{ count: number }>(res, { count: await pendingAllyRequestCount(guild) });
+}));
+
+// GET /api/guilds/:guildId/allies/shareable: your allies, for sharing an event.
+// For event creators (they pick who to share with), not just ally managers.
+alliesRouter.get('/:guildId/allies/shareable', requireAuth, handle(async (req, res) => {
+  const guildId = param(req, 'guildId');
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Only event organisers can share events.' } satisfies ApiResponse);
+    return;
+  }
+  const data = await shareableAllies(guildId);
+  if (!data) throw new AllyError(404, 'Server not found');
+  ok<ShareableAlliesDto>(res, data);
 }));
 
 // GET /api/guilds/:guildId/allies/directory?q=

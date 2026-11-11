@@ -5,6 +5,7 @@ import type {
   AllyDirectoryEntryDto,
   SendAllyRequestBody,
   SendAllyRequestResult,
+  ShareableAlliesDto,
 } from '@dem/shared';
 
 // Ally network (Settings → Allies). Rules: packages/shared/src/allies.ts.
@@ -41,6 +42,10 @@ export const alliesApi = {
 
   setListed: (guildId: string, listed: boolean) =>
     api.patch<ApiResponse>(`${base(guildId)}/listing`, { listed }),
+
+  /** Your allies, for sharing an event (event organisers). */
+  shareable: (guildId: string) =>
+    api.get<ApiResponse<ShareableAlliesDto>>(`${base(guildId)}/shareable`).then((r) => r.data!),
 
   newCode: (guildId: string) =>
     api.post<ApiResponse<{ code: string }>>(`${base(guildId)}/code`).then((r) => r.data!.code),

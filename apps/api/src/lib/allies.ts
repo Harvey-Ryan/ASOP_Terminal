@@ -35,6 +35,7 @@ import {
 } from '@dem/shared';
 import { prisma } from './prisma.js';
 import { triggerBot } from './triggerBot.js';
+import { withdrawPendingShares } from './allyShares.js';
 
 type GuildWithSettings = Guild & { settings: GuildSettings | null };
 
@@ -322,6 +323,9 @@ export async function removeAlly(guild: Guild, linkId: string, actor: Actor): Pr
   if (!d.ok) refuse(d.refusal);
   await deleteIf(link);
   notify('removed', link, guild.id, otherGuild(link, guild.id), actor);
+  // Invitations still waiting between the two orgs go too; accepted shares stay.
+  const withdrawn = await withdrawPendingShares(link, actor.userId);
+  if (withdrawn > 0) console.log(`[allies] ${guild.name} ended alliance ${link.id}: withdrew ${withdrawn} pending event invitation(s)`);
 }
 
 /** Your own setting for one ally: post their shared events without asking (used from v1.11.0). */

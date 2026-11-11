@@ -4,7 +4,8 @@ import { Plus, Trash2, Upload, Check, LayoutTemplate, ChevronDown, BarChart2, Ne
 import { Button } from '@/components/ui/button';
 import { eventsApi } from '@/api/events';
 import { imagesApi } from '@/api/images';
-import { allianceApi } from '@/api/alliance'; // listGuilds() used for direct invite guild picker
+import { Link } from 'react-router-dom';
+import { alliesApi } from '@/api/allies';
 import type { CreateEventBody, EventDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 import { RECUR_TYPES, isRecurType, recurrenceOptions, describeRecurrence, upcomingOccurrences } from '@dem/shared';
 
@@ -31,10 +32,10 @@ function RoleRow({
   guildOptions?: { guildId: string; label: string }[];
 }) {
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex flex-wrap gap-2 items-center">
       <input
         ref={inputRef}
-        className={inputCls}
+        className={`${inputCls} min-w-0 flex-1 basis-40`}
         placeholder="Role name (e.g. Tank)"
         value={role.name}
         onChange={(e) => onChange({ ...role, name: e.target.value })}
@@ -52,7 +53,7 @@ function RoleRow({
           value={role.guildId ?? ''}
           onChange={(e) => onChange({ ...role, guildId: e.target.value || null })}
         >
-          <option value="">All Guilds</option>
+          <option value="">All servers</option>
           {guildOptions.map((g) => (
             <option key={g.guildId} value={g.guildId}>{g.label}</option>
           ))}
@@ -219,12 +220,16 @@ export function EventCreateForm({
     queryFn: () => imagesApi.list(guildId),
   });
 
-  const { data: allGuilds = [] } = useQuery({
-    queryKey: ['alliances', 'guilds'],
-    queryFn: () => allianceApi.listGuilds(),
-    staleTime: 5 * 60_000,
+  // Allies only (v1.11.0). Each ally's own setting decides whether the event is
+  // posted straight away or waits for their officers to accept it.
+  const shareableQuery = useQuery({
+    queryKey: ['allies', guildId, 'shareable'],
+    queryFn: () => alliesApi.shareable(guildId),
+    staleTime: 60_000,
     enabled: directInviteEnabled,
+    retry: false,
   });
+  const allies = shareableQuery.data?.allies ?? [];
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => imagesApi.upload(guildId, file),
@@ -347,7 +352,7 @@ export function EventCreateForm({
               if (!next) setDirectGuildIds([]);
             }}>
             <Network className="h-3.5 w-3.5" />
-            Direct Invite
+            Share with allies
           </Button>
           {repeatSource && (
             <span className="text-xs text-primary-foreground/60">
@@ -357,41 +362,66 @@ export function EventCreateForm({
         </div>
       )}
 
-      {/* Direct invite picker */}
+      {/* Ally picker */}
       {directInviteEnabled && (
         <div className="bg-primary px-5 py-3 border-b border-background/40">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary-foreground/70 mb-2">
-            Direct Guild Invites — guilds will see this in their Pending tab
-          </p>
-          {allGuilds.filter((g) => g.guildId !== guildId).length === 0 ? (
-            <p className="text-sm text-primary-foreground/60 italic">No other guilds found in the system.</p>
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary-foreground/70">
+              Share with allies
+            </p>
+            {allies.length > 1 && (
+              <button
+                type="button"
+                className="text-xs underline text-primary-foreground/70 hover:text-primary-foreground"
+                onClick={() => setDirectGuildIds(directGuildIds.length === allies.length ? [] : allies.map((a) => a.guild.guildId))}
+              >
+                {directGuildIds.length === allies.length ? 'Clear all' : 'Select all'}
+              </button>
+            )}
+          </div>
+          {shareableQuery.isLoading ? (
+            <p className="text-sm text-primary-foreground/60 italic">Loading your allies…</p>
+          ) : shareableQuery.isError ? (
+            <p className="text-sm text-primary-foreground/60 italic">Couldn't load your allies. Close and reopen this to try again.</p>
+          ) : allies.length === 0 ? (
+            <p className="text-sm text-primary-foreground/70">
+              You have no allies yet. Events can only be shared with allies:{' '}
+              <Link to={`/dashboard/servers/${guildId}/settings/allies`} className="underline">add them on the Allies page</Link>.
+            </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {allGuilds
-                .filter((g) => g.guildId !== guildId)
-                .map((g) => {
-                  const selected = directGuildIds.includes(g.guildId);
+            <>
+              <div className="flex flex-wrap gap-2">
+                {allies.map((a) => {
+                  const selected = directGuildIds.includes(a.guild.guildId);
                   return (
                     <button
-                      key={g.guildId}
+                      key={a.guild.guildId}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() =>
                         setDirectGuildIds((prev) =>
-                          selected ? prev.filter((id) => id !== g.guildId) : [...prev, g.guildId],
+                          selected ? prev.filter((id) => id !== a.guild.guildId) : [...prev, a.guild.guildId],
                         )
                       }
+                      title={a.postsAutomatically ? 'Posts your events in their server straight away' : 'Their officers accept or decline each event'}
                       className={`inline-flex items-center gap-1 text-xs border rounded px-2 py-0.5 transition-colors ${
                         selected
-                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                          : 'bg-primary-foreground/5 text-primary-foreground/60 border-primary-foreground/20 hover:border-primary-foreground/50 hover:text-primary-foreground'
+                          ? 'bg-primary-foreground text-primary border-primary-foreground font-semibold'
+                          : 'bg-primary-foreground/5 text-primary-foreground/70 border-primary-foreground/30 hover:border-primary-foreground hover:text-primary-foreground'
                       }`}
                     >
                       {selected && <Check className="h-3 w-3" />}
-                      {g.name}
+                      {a.guild.name}
+                      {a.guild.allianceTag && <span className="opacity-60">[{a.guild.allianceTag}]</span>}
+                      {a.postsAutomatically && <span className="opacity-60">· auto</span>}
                     </button>
                   );
                 })}
-            </div>
+              </div>
+              <p className="text-xs text-primary-foreground/60 mt-2">
+                Allies marked auto post your events in their server straight away; the others' officers accept or decline each one.
+              </p>
+            </>
           )}
         </div>
       )}
@@ -495,10 +525,12 @@ export function EventCreateForm({
         <span className={labelCls}>Roles *</span>
         <div className="flex-1 space-y-2">
           {(() => {
-            const directOptions: { guildId: string; label: string }[] = (directInviteEnabled && directGuildIds.length > 0)
-              ? allGuilds
-                  .filter((g) => g.guildId === guildId || directGuildIds.includes(g.guildId))
-                  .map((g) => ({ guildId: g.guildId, label: g.guildId === guildId ? `${g.name} (You)` : g.name }))
+            const host = shareableQuery.data?.host;
+            const directOptions: { guildId: string; label: string }[] = (directInviteEnabled && directGuildIds.length > 0 && host)
+              ? [
+                  { guildId: host.guildId, label: `${host.name} (You)` },
+                  ...allies.filter((a) => directGuildIds.includes(a.guild.guildId)).map((a) => ({ guildId: a.guild.guildId, label: a.guild.name })),
+                ]
               : [];
             const guildOptions = directOptions.length > 0 ? directOptions : undefined;
             return roles.map((role, i) => (
