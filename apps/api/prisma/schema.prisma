@@ -24,6 +24,8 @@ model User {
   updatedAt     DateTime @updatedAt
 
   rsiHandle    String?
+  /// Secret in the personal calendar feed link (/api/calendar/<token>.ics, v1.16.0); reset replaces it
+  calendarToken String? @unique
 
   accounts           Account[]
   guildMembers       GuildMember[]

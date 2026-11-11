@@ -29,6 +29,7 @@ import { rsiRouter } from './routes/rsi.js';
 import { kanbanRouter } from './routes/kanban.js';
 import { alliesRouter } from './routes/allies.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { calendarRouter } from './routes/calendar.js';
 import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
 import { trafficRouter } from './routes/traffic.js';
@@ -147,6 +148,19 @@ export function createServer(): express.Express {
       }),
     );
 
+    // Calendar feeds are fetched by calendar apps every hour or so (v1.16.0).
+    app.use(
+      '/api/calendar',
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 60,
+        keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: rateLimitMessage,
+      }),
+    );
+
     // General API rate limit — high enough for active users with polling queries
     app.use(
       '/api/guilds',
@@ -182,7 +196,7 @@ export function createServer(): express.Express {
   // ── Request logger ─────────────────────────────────────────────────────────
 
   app.use((req, res, next) => {
-    console.log(`[api] ${req.method} ${req.path}`);
+    console.log(`[api] ${req.method} ${req.path.replace(/^\/api\/calendar\/[^/]+/, '/api/calendar/…')}`); // feed links are secret
     if (!isTest) {
       const start = Date.now();
       res.on('finish', () => {
@@ -241,6 +255,7 @@ export function createServer(): express.Express {
   app.use('/api', kanbanRouter);
   app.use('/api/guilds', alliesRouter);
   app.use('/api', notificationsRouter);
+  app.use('/api', calendarRouter);
   app.use('/api', roleCallRouter);
   app.use('/api/guilds', heatmapRouter);
   app.use('/api/guilds', trafficRouter);

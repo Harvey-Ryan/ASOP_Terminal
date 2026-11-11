@@ -752,7 +752,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       {/* Attending */}
       <div className={rowCls}>
         <span className={labelCls}>Attending</span>
-        <p className="flex-1 text-lg font-medium">{ev.rsvpCounts.total}</p>
+        <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p className="text-lg font-medium">{ev.rsvpCounts.total}</p>
+          {userRsvp && canRsvp && (
+            <Link to="/dashboard/settings/notifications" className="text-base underline underline-offset-2 opacity-70 hover:opacity-100">
+              Add your sign-ups to your calendar
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Loot (completed) */}
