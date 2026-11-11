@@ -957,6 +957,7 @@ export * from './admin.js';
 export * from './roster.js';
 export * from './setup.js';
 export * from './ics.js';
+export * from './memberHistory.js';
 
 // ── Return after login (v1.12.0) ─────────────────────────────────────────────
 

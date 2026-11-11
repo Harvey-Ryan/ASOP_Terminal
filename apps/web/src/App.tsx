@@ -14,6 +14,8 @@ import { lazyPage } from './lib/lazyPage';
 const EventCreatePage = lazyPage(() => import('./pages/events/EventCreatePage'), 'EventCreatePage');
 const EventAuditPage = lazyPage(() => import('./pages/events/EventAuditPage'), 'EventAuditPage');
 const LootPage = lazyPage(() => import('./pages/events/LootPage'), 'LootPage');
+const MembersPage = lazyPage(() => import('./pages/MembersPage'), 'MembersPage');
+const MemberHistoryPage = lazyPage(() => import('./pages/MembersPage'), 'MemberHistoryPage');
 const LootModulePage = lazyPage(() => import('./pages/LootModulePage'), 'LootModulePage');
 const StandaloneLootSessionPage = lazyPage(() => import('./pages/StandaloneLootSessionPage'), 'StandaloneLootSessionPage');
 const ModuleEventBotPage = lazyPage(() => import('./pages/settings/ModuleEventBotPage'), 'ModuleEventBotPage');
@@ -92,6 +94,8 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/exchange" element={<ExchangeSettingsPage />} />
           <Route path="servers/:guildId/fleet" element={<FleetPage />} />
           <Route path="servers/:guildId/roster" element={<RosterPage />} />
+          <Route path="servers/:guildId/members" element={<MembersPage />} />
+          <Route path="servers/:guildId/members/:userId" element={<MemberHistoryPage />} />
           <Route path="servers/:guildId/activity" element={<RoleCallPage />} />
           <Route path="servers/:guildId/traffic" element={<TrafficPage />} />
           <Route path="servers/:guildId/tournaments" element={<TournamentPage />} />

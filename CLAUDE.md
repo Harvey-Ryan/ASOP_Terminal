@@ -175,3 +175,12 @@ Patch Notes — v1.1.0 — November 10
   maybe never takes a slot. Picking a role or Unassigned (or joining a
   waitlist) makes it a yes; saying maybe leaves any waitlist. Maybes get the
   reminder DM (worded for them) and show as tentative in the calendar feed.
+
+## Member history (v1.18.0)
+
+- `GET /api/guilds/:guildId/members` (officers who can create events) and
+  `/members/:userId` (them, or anyone for `me`): `routes/members.ts`, rules in
+  `packages/shared/src/memberHistory.ts`. Only the server's own events count.
+- Attendance counts only where it was recorded: `confirmedAttendees` (the
+  check after an event), else `vcAttendees` if anyone was in voice. Events
+  with neither are "not recorded", never no-shows; maybes are never no-shows.
