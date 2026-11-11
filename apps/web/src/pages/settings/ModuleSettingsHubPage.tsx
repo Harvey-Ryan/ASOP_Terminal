@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight } from 'lucide-react';
+import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight, Briefcase } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { SetupChecklist } from '@/components/SetupChecklist';
 
@@ -58,6 +58,12 @@ const MODULES: ModuleTile[] = [
     description: 'RoleCallBot integration — inactivity tracking, leaderboard, and role change log.',
     icon: Trophy,
     slug: 'activity',
+  },
+  {
+    label: 'Job Board',
+    description: 'Members post small jobs and others take them; optional Discord channel.',
+    icon: Briefcase,
+    slug: 'jobs',
   },
   {
     label: 'Tournaments',

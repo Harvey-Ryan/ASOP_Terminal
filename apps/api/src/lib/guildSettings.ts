@@ -35,6 +35,8 @@ export type SettingsPatch = {
     h2hChannelId?: string | null;
     statusChannelId?: string | null;
     allyNoticeChannelId?: string | null;
+    jobsEnabled?: boolean;
+    jobsChannelId?: string | null;
     dkpDefaultAuctionDuration?: number;
     dkpMinBid?: number;
     lootDefaultMethod?: string;
@@ -75,6 +77,8 @@ export function parseSettingsPatch(raw: Record<string, unknown>): SettingsPatch 
     h2hChannelId:              raw.h2hChannelId !== undefined ? optStr(raw.h2hChannelId, 'h2hChannelId', 30) : undefined,
     statusChannelId:           raw.statusChannelId !== undefined ? optStr(raw.statusChannelId, 'statusChannelId', 30) : undefined,
     allyNoticeChannelId:       raw.allyNoticeChannelId !== undefined ? optStr(raw.allyNoticeChannelId, 'allyNoticeChannelId', 30) : undefined,
+    jobsEnabled:               raw.jobsEnabled !== undefined ? optBool(raw.jobsEnabled, 'jobsEnabled') : undefined,
+    jobsChannelId:             raw.jobsChannelId !== undefined ? optStr(raw.jobsChannelId, 'jobsChannelId', 30) : undefined,
     dkpDefaultAuctionDuration: rawDur !== undefined ? Math.min(168, Math.max(1, rawDur)) : undefined,
     dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
     lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
@@ -99,7 +103,8 @@ export function patchNeedsManager(patch: SettingsPatch): boolean {
     patch.craftingEnabled !== undefined ||
     patch.activityEnabled !== undefined ||
     patch.activityHeatmapPublic !== undefined ||
-    patch.tournamentsEnabled !== undefined);
+    patch.tournamentsEnabled !== undefined ||
+    patch.jobsEnabled !== undefined);
 }
 
 export interface PermissionFields {
@@ -159,6 +164,8 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       ...(patch.h2hChannelId !== undefined               ? { h2hChannelId: patch.h2hChannelId }                                       : {}),
       ...(patch.statusChannelId !== undefined            ? { statusChannelId: patch.statusChannelId }                                 : {}),
       ...(patch.allyNoticeChannelId !== undefined        ? { allyNoticeChannelId: patch.allyNoticeChannelId }                         : {}),
+      ...(patch.jobsEnabled !== undefined                ? { jobsEnabled: patch.jobsEnabled }                                         : {}),
+      ...(patch.jobsChannelId !== undefined              ? { jobsChannelId: patch.jobsChannelId }                                     : {}),
       ...(patch.dkpDefaultAuctionDuration !== undefined ? { dkpDefaultAuctionDuration: patch.dkpDefaultAuctionDuration }             : {}),
       ...(patch.dkpMinBid !== undefined                 ? { dkpMinBid: patch.dkpMinBid }                                             : {}),
       ...(patch.lootDefaultMethod !== undefined         ? { lootDefaultMethod: patch.lootDefaultMethod }                             : {}),
@@ -194,6 +201,8 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       h2hChannelId:               patch.h2hChannelId                ?? null,
       statusChannelId:            patch.statusChannelId             ?? null,
       allyNoticeChannelId:        patch.allyNoticeChannelId         ?? null,
+      jobsEnabled:                patch.jobsEnabled                 ?? true,
+      jobsChannelId:              patch.jobsChannelId               ?? null,
       dkpDefaultAuctionDuration:  patch.dkpDefaultAuctionDuration  ?? 24,
       dkpMinBid:                  patch.dkpMinBid                  ?? 0,
       lootDefaultMethod:          patch.lootDefaultMethod          ?? 'RANDOM_ROLL',

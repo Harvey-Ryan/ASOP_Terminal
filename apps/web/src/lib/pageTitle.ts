@@ -15,6 +15,7 @@ const SERVER_PAGES: [RegExp, string][] = [
   [/^\/marketplace$/, 'Marketplace'],
   [/^\/fleet$/, 'Fleet'],
   [/^\/roster$/, 'RSI Roster'],
+  [/^\/jobs$/, 'Job Board'],
   [/^\/members\/me$/, 'My history'],
   [/^\/members(\/[^/]+)?$/, 'Members'],
   [/^\/activity$/, 'Activity'],
@@ -28,6 +29,7 @@ const SERVER_PAGES: [RegExp, string][] = [
   [/^\/settings\/sc-data$/, 'SC Database'],
   [/^\/settings\/permissions$/, 'Permissions'],
   [/^\/settings\/bot$/, 'Bot Settings'],
+  [/^\/settings\/modules\/jobs$/, 'Job Board settings'],
   [/^\/settings\/modules(\/.*)?$/, 'Module Settings'],
   [/^$/, 'Events'],
 ];

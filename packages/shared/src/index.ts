@@ -989,6 +989,7 @@ export * from './roster.js';
 export * from './setup.js';
 export * from './ics.js';
 export * from './memberHistory.js';
+export * from './jobs.js';
 
 // ── Return after login (v1.12.0) ─────────────────────────────────────────────
 

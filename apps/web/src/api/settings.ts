@@ -40,6 +40,8 @@ export interface GuildSettingsData {
   h2hChannelId: string | null;
   statusChannelId: string | null;
   allyNoticeChannelId: string | null;
+  jobsEnabled: boolean;
+  jobsChannelId: string | null;
   tournamentHideElo: boolean;
   dkpDefaultAuctionDuration: number;
   dkpMinBid: number;
@@ -64,6 +66,7 @@ export interface GuildMyPermissions {
   activityEnabled: boolean;
   activityHeatmapPublic: boolean;
   tournamentsEnabled: boolean;
+  jobsEnabled: boolean;
   rsiOrgRequired: boolean;
   rsiVerified: boolean;
 }

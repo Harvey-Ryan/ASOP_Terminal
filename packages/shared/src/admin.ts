@@ -142,6 +142,7 @@ export const ADMIN_SETTING_FIELDS: readonly AdminSettingField[] = [
   { key: 'craftingEnabled', label: 'Crafting Calculator', group: 'Modules', type: 'boolean' },
   { key: 'activityEnabled', label: 'Activity', group: 'Modules', type: 'boolean' },
   { key: 'tournamentsEnabled', label: 'Tournaments', group: 'Modules', type: 'boolean' },
+  { key: 'jobsEnabled', label: 'Job Board', group: 'Modules', type: 'boolean' },
 
   { key: 'forumChannelId', label: 'Event forum', group: 'Channels', type: 'forum', help: 'Where event threads are posted. Without it, events aren\'t posted in Discord.' },
   { key: 'eventChannelId', label: 'Scheduled events channel', group: 'Channels', type: 'channel' },
@@ -152,6 +153,7 @@ export const ADMIN_SETTING_FIELDS: readonly AdminSettingField[] = [
   { key: 'h2hChannelId', label: 'Head-to-head results', group: 'Channels', type: 'channel' },
   { key: 'allyNoticeChannelId', label: 'Ally notices', group: 'Channels', type: 'channel' },
   { key: 'statusChannelId', label: 'ASOP status message', group: 'Channels', type: 'channel' },
+  { key: 'jobsChannelId', label: 'Job board posts', group: 'Channels', type: 'channel', help: 'Optional. Jobs are always on the website.' },
 
   { key: 'timezone', label: 'Time zone', group: 'General', type: 'timezone' },
   { key: 'dkpLabel', label: 'DKP currency name', group: 'General', type: 'text', maxLength: 30 },

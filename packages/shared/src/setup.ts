@@ -52,7 +52,7 @@ const TEXT_NEEDS: Need = [[PERMS.VIEW_CHANNEL, 'View Channel'], [PERMS.SEND_MESS
 // ── The checklist ────────────────────────────────────────────────────────────
 
 /** Where on the website a step is fixed (a settings page, or creating an event). */
-export type SetupPage = 'event-bot' | 'loot' | 'dkp' | 'tournaments' | 'bot' | 'allies' | 'new-event';
+export type SetupPage = 'event-bot' | 'loot' | 'dkp' | 'tournaments' | 'bot' | 'allies' | 'jobs' | 'new-event';
 
 export interface SetupStep {
   key: string;
@@ -140,6 +140,7 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
       ['statusChannelId', 'status', 'ASOP status channel', 'bot'],
       ['allyNoticeChannelId', 'allies', 'Ally notices channel', 'allies'],
       ['h2hChannelId', 'h2h', 'Head-to-head results channel', 'tournaments'],
+      ['jobsChannelId', 'jobs', 'Job board channel', 'jobs'],
     ] as const) {
       if (!str(setting)) continue;
       const before = steps.length;

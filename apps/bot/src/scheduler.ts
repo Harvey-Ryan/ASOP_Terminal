@@ -1,3 +1,4 @@
+import { expireJobs } from './services/jobService.js';
 import cron from 'node-cron';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { prisma } from './db.js';
@@ -60,6 +61,7 @@ const LIFECYCLE_CHECKS: [string, () => Promise<void>][] = [
   ['checkLootPromptTimeout',         checkLootPromptTimeout],
   ['checkAutoComplete',              checkAutoComplete],
   ['closeExpiredAuctions',           closeExpiredAuctions],
+  ['expireJobs',                     expireJobs],
   ['closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions],
   ['checkMatchCheckIn',              checkMatchCheckIn],
   ['checkMatchNoShow',               checkMatchNoShow],
