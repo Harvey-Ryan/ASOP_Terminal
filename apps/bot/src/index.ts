@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
-import { ROLE_SIGNUP_MESSAGES, type EventRole } from '@dem/shared';
+import { ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, type EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
@@ -25,8 +25,9 @@ import * as fleetCommand from './commands/fleet.js';
 import * as helpCommand from './commands/help.js';
 import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
-import { joinRoster, setRosterRole, leaveRoster } from './services/rsvpService.js';
-import { endEvent } from './services/eventService.js';
+import { joinRoster, setRosterRole, leaveRoster, notifyThreadJoin } from './services/rsvpService.js';
+import { clickWaitlist } from './services/waitlistService.js';
+import { endEvent, scheduleRosterRefresh } from './services/eventService.js';
 import { postMatchAnnouncement, updateRegistrationEmbed, recordMatchForfeit } from './services/tournamentService.js';
 
 interface Command {
@@ -260,6 +261,39 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
       } catch (err) {
         console.error('[bot] Role button error:', err);
         await interaction.editReply({ content: '❌ Failed to update roster.' });
+      }
+      return;
+    }
+
+    // ── "· waitlist" buttons on full roles (v1.14.0) ─────────────────────────
+    if (prefix === 'wait') {
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const event = await prisma.event.findFirst({
+          where: { id: entityId, status: { in: ['PENDING', 'ACTIVE'] } },
+        });
+        if (!event) {
+          await interaction.editReply({ content: 'This event has already ended.' });
+          return;
+        }
+        const displayName = (interaction.member instanceof GuildMember)
+          ? interaction.member.displayName
+          : interaction.user.username;
+        const r = await clickWaitlist(entityId, interaction.user.id, displayName, value, interaction.guildId ?? event.guildId);
+        if (r.joinedRoster) notifyThreadJoin(entityId, interaction.user.id).catch((err) => console.error('[bot] Join notice failed:', err));
+        scheduleRosterRefresh(entityId).catch((err) => console.error(`[bot] Roster refresh failed for ${entityId}:`, err));
+        let reply: string;
+        switch (r.result) {
+          case 'joined': reply = `⏳ You're **#${r.position}** in line for **${r.roleName}**. You keep your current spot until a slot opens; then you're moved in and DMed. Click the button again to leave the line.`; break;
+          case 'left': reply = `You've left the **${r.roleName}** waitlist. Your roster spot is unchanged.`; break;
+          case 'has-role': reply = `You're already **${r.roleName}**.`; break;
+          case 'open': reply = `A **${r.roleName}** slot is free now. Take it with its button.`; break;
+          default: reply = `⚠️ ${WAITLIST_MESSAGES[r.result]}`;
+        }
+        await interaction.editReply({ content: reply });
+      } catch (err) {
+        console.error('[bot] Waitlist button error:', err);
+        await interaction.editReply({ content: withRef('❌ Failed to update the waitlist.') });
       }
       return;
     }

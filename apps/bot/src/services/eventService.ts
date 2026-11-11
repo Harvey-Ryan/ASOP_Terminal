@@ -15,6 +15,7 @@ import type { ForumChannel, Message } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../utils/embeds.js';
+import { WAITLIST_ORDER } from './waitlistService.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
 import { nextOccurrence, isRecurType, isValidTimeZone, planShares } from '@dem/shared';
@@ -124,7 +125,7 @@ async function _setupDiscordForEvent(eventId: string) {
   console.log(`[setupDiscordForEvent] start — eventId=${eventId}`);
   const event = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
-    include: { rsvps: true },
+    include: { rsvps: true, waitlist: WAITLIST_ORDER },
   });
   console.log(`[setupDiscordForEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} threadId=${event.threadId ?? 'null'} discordEventId=${event.discordEventId ?? 'null'}`);
 
@@ -246,7 +247,7 @@ export async function syncDiscordEvent(eventId: string) {
   console.log(`[syncDiscordEvent] start — eventId=${eventId}`);
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: true },
+    include: { rsvps: true, waitlist: WAITLIST_ORDER },
   });
   if (!event) { console.warn(`[syncDiscordEvent] event not found — ${eventId}`); return; }
   console.log(`[syncDiscordEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} discordEventId=${event.discordEventId ?? 'null'} threadId=${event.threadId ?? 'null'} status=${event.status}`);
@@ -466,7 +467,7 @@ const imageFilename = (imageUrl: string) => imageUrl.split('/').pop() ?? 'image.
 export async function updateRosterEmbed(eventId: string) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { rsvps: true },
+    include: { rsvps: true, waitlist: WAITLIST_ORDER },
   });
   if (!event) return;
 
@@ -531,14 +532,14 @@ export async function updateRosterEmbed(eventId: string) {
 
   // Host guild thread
   if (event.threadId) {
-    await refreshThread(event.threadId, event.rosterMessageId, buildRoleButtons(event.id, roles, undefined, event.guildId), 'host thread');
+    await refreshThread(event.threadId, event.rosterMessageId, buildRoleButtons(event.id, roles, event.rsvps, event.guildId), 'host thread');
   }
 
   // Alliance guild threads — one after another with a 1 s gap, skipping any already up to date
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
   let first = true;
   for (const ag of allianceGuilds.filter((ag) => ag.threadId)) {
-    const components = buildRoleButtons(event.id, roles, undefined, ag.discordGuildId);
+    const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId);
     if (upToDate(ag.threadId!, components)) continue;
     if (!first) await sleep(1000);
     first = false;
@@ -1195,7 +1196,7 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
   const share = await prisma.eventGuildShare.findUnique({
     where: { id: shareId },
     include: {
-      event: { include: { rsvps: { select: { userId: true, role: true } } } },
+      event: { include: { rsvps: { select: { userId: true, role: true } }, waitlist: WAITLIST_ORDER } },
       guild: true,
     },
   });
@@ -1258,7 +1259,7 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
     const ch = await client.channels.fetch(forumChannelId).catch(() => null);
     if (ch?.type === ChannelType.GuildForum) {
       const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
-      const components = buildRoleButtons(event.id, roles, [], receivingDiscordGuildId);
+      const components = buildRoleButtons(event.id, roles, event.rsvps, receivingDiscordGuildId);
       const thread = await (ch as ForumChannel).threads.create({
         name: event.name,
         message: {

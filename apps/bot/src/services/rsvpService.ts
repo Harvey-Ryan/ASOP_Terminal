@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { scheduleRosterRefresh } from './eventService.js';
 import { roleSignupProblem, type EventRole } from '@dem/shared';
+import { fillFromWaitlist, lockEvent, notifyWaitlistMoves } from './waitlistService.js';
 
 /** Roster messages refresh shortly, batched per event (eventService.scheduleRosterRefresh); callers don't wait. */
 function refreshRosterSoon(eventId: string): void {
@@ -24,22 +25,24 @@ export async function setRosterRole(
   role: string | null,
   viewingGuildId: string,
 ): Promise<ReturnType<typeof roleSignupProblem>> {
-  const problem = await prisma.$transaction(async (tx) => {
-    const [event] = await tx.$queryRaw<{ roles: string }[]>`SELECT roles FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+  const { problem, moves } = await prisma.$transaction(async (tx) => {
+    const event = await lockEvent(tx, eventId);
     if (role !== null) {
       const rsvps = await tx.eventRsvp.findMany({ where: { eventId }, select: { userId: true, role: true } });
       const why = roleSignupProblem(JSON.parse(event?.roles ?? '[]') as EventRole[], rsvps, role, userId, viewingGuildId);
-      if (why) return why;
+      if (why) return { problem: why, moves: [] };
     }
     await tx.eventRsvp.upsert({
       where: { eventId_userId: { eventId, userId } },
       create: { eventId, userId, username, role },
       update: { role, username },
     });
-    return null;
+    // Leaving a role lets the first person waiting for it in (v1.14.0).
+    return { problem: null, moves: event ? await fillFromWaitlist(tx, eventId, event) : [] };
   });
-  // Also when refused: the refresh drops a full role's button left on a stale embed.
+  // Also when refused: the refresh turns a full role's button left on a stale embed into its waitlist button.
   refreshRosterSoon(eventId);
+  notifyWaitlistMoves(eventId, moves).catch((err) => console.error(`[bot] Waitlist DMs failed for ${eventId}:`, err));
   return problem;
 }
 
@@ -53,8 +56,14 @@ export async function leaveRoster(eventId: string, userId: string) {
   });
   if (!rsvp) return; // wasn't on the roster — nothing to do
 
-  await prisma.eventRsvp.delete({ where: { eventId_userId: { eventId, userId } } });
+  // Their place in any waitlist goes too, and their role goes to the next in line (v1.14.0).
+  const moves = await prisma.$transaction(async (tx) => {
+    const event = await lockEvent(tx, eventId);
+    await tx.eventRsvp.deleteMany({ where: { eventId, userId } });
+    return event ? fillFromWaitlist(tx, eventId, event) : [];
+  });
   refreshRosterSoon(eventId);
+  notifyWaitlistMoves(eventId, moves).catch((err) => console.error(`[bot] Waitlist DMs failed for ${eventId}:`, err));
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (event?.threadId) {

@@ -6,12 +6,13 @@ import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { triggerBot } from '../../lib/triggerBot.js';
+import { WAITLIST_ORDER, announceWaitlistMoves, carryRoleChanges, fillFromWaitlist, lockEvent } from '../../lib/waitlist.js';
 import { hasAnyRole } from '../../lib/memberRoles.js';
 import { getGuildMember } from '../../lib/discordRest.js';
 import { createPlannedShares, notAllyError, notifyShare, planEventShares } from '../../lib/allyShares.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
-import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES } from '@dem/shared';
+import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, findRole, roleKeyOf, waitlistProblem } from '@dem/shared';
 
 
 /** Discord id of the signed-in user (who answered, for the Discord notices). */
@@ -25,12 +26,13 @@ export const eventsRouter = Router();
 type EventWithRsvpsAndShares = Prisma.EventGetPayload<{
   include: {
     rsvps: true;
+    waitlist: true;
     guildShares: { include: { guild: { select: { id: true; guildId: true; name: true } } } };
   };
 }>;
 
 // kept for routes that don't need shares (e.g. RSVP updates)
-type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true } }>;
+type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true; waitlist: true } }>;
 
 // Repeat types and their scheduling rules live in packages/shared/src/recurrence.ts.
 // An event is finished (no RSVPs, edits, starts) once it's ended, completed or cancelled.
@@ -88,6 +90,7 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
       ...(completed && after ? { cursor: { id: after }, skip: 1 } : {}),
       include: {
         rsvps: true,
+        waitlist: WAITLIST_ORDER,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
       },
     });
@@ -125,6 +128,7 @@ eventsRouter.get('/:guildId/events/pending-shares', requireAuth, async (req, res
     orderBy: { startTime: 'asc' },
     include: {
       rsvps: true,
+      waitlist: WAITLIST_ORDER,
       guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
     },
   });
@@ -153,6 +157,7 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
         where: { id: eventId },
         include: {
           rsvps: true,
+          waitlist: WAITLIST_ORDER,
           guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
         },
       });
@@ -184,6 +189,7 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
     },
     include: {
       rsvps: true,
+      waitlist: WAITLIST_ORDER,
       guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
     },
   });
@@ -298,6 +304,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
       },
       include: {
         rsvps: true,
+        waitlist: WAITLIST_ORDER,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
       },
     });
@@ -350,19 +357,24 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
 
 // ── PUT /api/guilds/:guildId/events/:eventId/rsvp ────────────────────────────
 
-eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res) => {
+/**
+ * The open event someone is signing up to from this server (theirs or shared
+ * with it), with who they are and their name there. Answers the error itself
+ * and returns null when they can't.
+ */
+async function signupContext(req: Request, res: Response) {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
 
   if (!(await assertEventViewer(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
-    return;
+    return null;
   }
 
   // Resolve the requesting guild's DB id for shared-event visibility checks
   const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
   if (!guild) {
     res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
-    return;
+    return null;
   }
 
   const event = await prisma.event.findFirst({
@@ -376,15 +388,12 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
   });
   if (!event) {
     res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
-    return;
+    return null;
   }
   if (event.status === 'COMPLETED' || event.status === 'ENDED' || event.status === 'CANCELLED') {
     res.status(409).json({ success: false, error: 'Cannot RSVP to a completed, ended or cancelled event' } satisfies ApiResponse);
-    return;
+    return null;
   }
-
-  const body = req.body as { role?: string | null };
-  const role = body.role ?? null;
 
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
@@ -394,6 +403,17 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     const m = await getGuildMember(guildId, dbUser.discordId, { maxWaitMs: 0 });
     if (m.status === 'member') displayName = m.member.nick ?? m.member.user.global_name ?? displayName;
   }
+  return { guildId, eventId, event, dbUser, displayName };
+}
+
+const eventDto = async (eventId: string) =>
+  toDto(await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER } }));
+
+eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res) => {
+  const ctx = await signupContext(req, res);
+  if (!ctx) return;
+  const { guildId, eventId, dbUser, displayName } = ctx;
+  const role = (req.body as { role?: string | null }).role ?? null;
 
   // Check before upsert so we can tell the bot whether this is a brand-new join.
   const existingRsvp = await prisma.eventRsvp.findUnique({
@@ -403,24 +423,26 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
 
   // Role limits are checked while holding the event row, so two people (here or
   // on the Discord buttons, which do the same) can't both take the last slot (v1.12.0).
-  const problem = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+  // Leaving a role lets the first person waiting for it in (v1.14.0).
+  const { problem, moves } = await prisma.$transaction(async (tx) => {
+    const locked = (await lockEvent(tx, eventId))!;
     if (role !== null) {
       const rsvps = await tx.eventRsvp.findMany({ where: { eventId }, select: { userId: true, role: true } });
-      const why = roleSignupProblem(JSON.parse(event.roles) as EventRole[], rsvps, role, dbUser.discordId, guildId);
-      if (why) return why;
+      const why = roleSignupProblem(JSON.parse(locked.roles) as EventRole[], rsvps, role, dbUser.discordId, guildId);
+      if (why) return { problem: why, moves: [] };
     }
     await tx.eventRsvp.upsert({
       where: { eventId_userId: { eventId, userId: dbUser.discordId } },
       create: { eventId, userId: dbUser.discordId, username: displayName, role },
       update: { role, username: displayName },
     });
-    return null;
+    return { problem: null, moves: await fillFromWaitlist(tx, eventId, locked) };
   });
   if (problem) {
     res.status(problem === 'full' ? 409 : 400).json({ success: false, error: ROLE_SIGNUP_MESSAGES[problem] } satisfies ApiResponse);
     return;
   }
+  announceWaitlistMoves(eventId, moves);
 
   // New join → add to thread + post "👋 joined" embed
   if (!existingRsvp) {
@@ -428,9 +450,7 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
   }
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  // eventId is the unique PK — guildId check is not needed after we've already verified visibility
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true } });
-  res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
+  res.json({ success: true, data: await eventDto(eventId) } satisfies ApiResponse<EventDto>);
 });
 
 // ── DELETE /api/guilds/:guildId/events/:eventId/rsvp ─────────────────────────
@@ -466,12 +486,68 @@ eventsRouter.delete('/:guildId/events/:eventId/rsvp', requireAuth, async (req, r
 
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
-  await prisma.eventRsvp.deleteMany({ where: { eventId, userId: dbUser.discordId } });
+  const moves = await prisma.$transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId);
+    await tx.eventRsvp.deleteMany({ where: { eventId, userId: dbUser.discordId } });
+    return locked ? fillFromWaitlist(tx, eventId, locked) : [];
+  });
+  announceWaitlistMoves(eventId, moves);
 
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true } });
+  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
+});
+
+// ── PUT / DELETE /api/guilds/:guildId/events/:eventId/waitlist (v1.14.0) ─────
+// Wait for a slot in a full role, keeping your current one. Joining puts you on
+// the roster (Unassigned) if you weren't; one line at a time per event, so
+// waiting for another role moves you to the back of that one.
+
+eventsRouter.put('/:guildId/events/:eventId/waitlist', requireAuth, async (req, res) => {
+  const ctx = await signupContext(req, res);
+  if (!ctx) return;
+  const { guildId, eventId, dbUser, displayName } = ctx;
+  const role = (req.body as { role?: unknown }).role;
+  if (typeof role !== 'string' || !role) {
+    res.status(400).json({ success: false, error: 'role is required' } satisfies ApiResponse);
+    return;
+  }
+  const userId = dbUser.discordId;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const locked = (await lockEvent(tx, eventId))!;
+    const roles = JSON.parse(locked.roles) as EventRole[];
+    const rsvps = await tx.eventRsvp.findMany({ where: { eventId }, select: { userId: true, role: true } });
+    const why = waitlistProblem(roles, rsvps, role, userId, guildId);
+    if (why) return { why };
+    const key = roleKeyOf(findRole(roles, role)!);
+    const joined = !rsvps.some((r) => r.userId === userId);
+    if (joined) await tx.eventRsvp.create({ data: { eventId, userId, username: displayName, role: null } });
+    const current = await tx.eventWaitlist.findUnique({ where: { eventId_userId: { eventId, userId } } });
+    if (current?.role !== key) {
+      if (current) await tx.eventWaitlist.delete({ where: { id: current.id } });
+      await tx.eventWaitlist.create({ data: { eventId, userId, role: key, guildId } });
+    }
+    return { joined };
+  });
+  if ('why' in result) {
+    res.status(result.why === 'unknown' || result.why === 'other-server' ? 400 : 409)
+      .json({ success: false, error: WAITLIST_MESSAGES[result.why!] } satisfies ApiResponse);
+    return;
+  }
+
+  if (result.joined) triggerBot(`/trigger/rsvp-join/${eventId}/${userId}`);
+  triggerBot(`/trigger/rsvp/${eventId}`);
+  res.json({ success: true, data: await eventDto(eventId) } satisfies ApiResponse<EventDto>);
+});
+
+eventsRouter.delete('/:guildId/events/:eventId/waitlist', requireAuth, async (req, res) => {
+  const ctx = await signupContext(req, res);
+  if (!ctx) return;
+  await prisma.eventWaitlist.deleteMany({ where: { eventId: ctx.eventId, userId: ctx.dbUser.discordId } });
+  triggerBot(`/trigger/rsvp/${ctx.eventId}`);
+  res.json({ success: true, data: await eventDto(ctx.eventId) } satisfies ApiResponse<EventDto>);
 });
 
 // ── PATCH /api/guilds/:guildId/events/:eventId ───────────────────────────────
@@ -558,20 +634,6 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     if (body.recurTimezone !== undefined) data['recurTimezone'] = body.recurTimezone;
   }
 
-  // If roles changed, move members whose role no longer exists to Unassigned
-  // rather than leaving them stranded on a deleted/renamed role.
-  if (body.roles !== undefined) {
-    const oldRoleNames = new Set((JSON.parse(event.roles) as EventRole[]).map((r) => r.name));
-    const newRoleNames = new Set(body.roles.map((r) => r.name));
-    const removedNames = [...oldRoleNames].filter((n) => !newRoleNames.has(n));
-    if (removedNames.length > 0) {
-      await prisma.eventRsvp.updateMany({
-        where: { eventId, role: { in: removedNames } },
-        data: { role: null },
-      });
-    }
-  }
-
   // If startTime changed, reschedule reminders to match the new time.
   if (newStartTime) {
     await prisma.eventReminder.deleteMany({ where: { eventId, sent: false } });
@@ -584,14 +646,26 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
     if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
   }
 
-  const updated = await prisma.event.update({
-    where: { id: eventId },
-    data,
-    include: {
-      rsvps: true,
-      guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
-    },
+  // Role changes happen with the event row held: people in a removed role go to
+  // Unassigned, and new slots let people in off the waitlist (v1.14.0).
+  const { updated, moves } = await prisma.$transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId);
+    if (body.roles !== undefined && locked) await carryRoleChanges(tx, eventId, JSON.parse(locked.roles) as EventRole[], body.roles);
+    await tx.event.update({ where: { id: eventId }, data });
+    const moves = body.roles !== undefined && locked
+      ? await fillFromWaitlist(tx, eventId, { roles: data['roles'] as string, status: locked.status })
+      : [];
+    const updated = await tx.event.findUniqueOrThrow({
+      where: { id: eventId },
+      include: {
+        rsvps: true,
+        waitlist: WAITLIST_ORDER,
+        guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
+      },
+    });
+    return { updated, moves };
   });
+  announceWaitlistMoves(eventId, moves);
 
   triggerBot(`/trigger/sync/${eventId}`);
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
@@ -610,23 +684,27 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
   const body = req.body as { role?: string | null };
   const role = body.role ?? null;
 
-  if (role !== null) {
-    const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
-    if (!event) {
-      res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
-      return;
-    }
-    const roles = JSON.parse(event.roles) as EventRole[];
-    if (!roles.some((r) => r.id === role || r.name === role)) {
-      res.status(400).json({ success: false, error: 'Invalid role' } satisfies ApiResponse);
-      return;
-    }
+  // Only the host server's events (unassigning used to skip this check).
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+  if (role !== null && !(JSON.parse(event.roles) as EventRole[]).some((r) => r.id === role || r.name === role)) {
+    res.status(400).json({ success: false, error: 'Invalid role' } satisfies ApiResponse);
+    return;
   }
 
-  await prisma.eventRsvp.updateMany({ where: { eventId, userId }, data: { role } });
+  // Officers can place people beyond a role's limit; moving someone out lets the next in line in.
+  const moves = await prisma.$transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId);
+    await tx.eventRsvp.updateMany({ where: { eventId, userId }, data: { role } });
+    return locked ? fillFromWaitlist(tx, eventId, locked) : [];
+  });
+  announceWaitlistMoves(eventId, moves);
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true } });
+  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true, waitlist: WAITLIST_ORDER } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
@@ -672,7 +750,7 @@ eventsRouter.post('/:guildId/events/:eventId/stop-recurrence', requireAuth, asyn
 
   const updated = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
-    include: { rsvps: true, guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } } },
+    include: { rsvps: true, waitlist: WAITLIST_ORDER, guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } } },
   });
   res.json({ success: true, data: { ...toDto(updated), cancelled: cancel } } satisfies ApiResponse<EventDto & { cancelled: boolean }>);
 });
@@ -1023,6 +1101,7 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     updatedAt: event.updatedAt.toISOString(),
     rsvpCounts: { total: event.rsvps.length },
     rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role })),
+    waitlist: event.waitlist.map((w) => ({ userId: w.userId, username: event.rsvps.find((r) => r.userId === w.userId)?.username ?? w.userId, role: w.role })),
     hadLoot: event.hadLoot ?? null,
     lootNotes: event.lootNotes ?? null,
     vcAttendees: JSON.parse(event.vcAttendees) as string[],

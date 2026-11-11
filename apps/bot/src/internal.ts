@@ -9,6 +9,7 @@ import { handleAllyNotice } from './services/allyNoticeService.js';
 import { handleShareNotice } from './services/shareNoticeService.js';
 import { invalidateStatusTargets, refreshStatusEmbeds } from './services/statusService.js';
 import { adminFeedTick } from './services/adminFeedService.js';
+import { isWaitlistMoves, notifyWaitlistMoves } from './services/waitlistService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const TOO_BIG = Symbol('too big');
@@ -71,6 +72,21 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await handleShareNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleShareNotice failed for ${payload.event} ${payload.shareId}:`, err),
+      );
+      return;
+    }
+
+    // People the website moved off a role waitlist get a DM (v1.14.0).
+    const waitlistMatch = req.url?.match(/^\/trigger\/waitlist-moved\/([^/]+)$/);
+    if (waitlistMatch) {
+      const eventId = waitlistMatch[1]!;
+      const payload = await readJson(req);
+      if (payload === TOO_BIG) { res.writeHead(413).end(); return; }
+      const moves = (payload as { moves?: unknown } | null)?.moves;
+      if (!isWaitlistMoves(moves)) { res.writeHead(400).end(); return; }
+      res.writeHead(202).end();
+      await notifyWaitlistMoves(eventId, moves).catch((err) =>
+        console.error(`[bot:internal] Waitlist DMs failed for ${eventId}:`, err),
       );
       return;
     }

@@ -25,6 +25,23 @@ interface EventForRoster {
   imageUrl: string | null;
   roles: string; // JSON
   rsvps: RsvpEntry[];
+  /** In line order (v1.14.0) */
+  waitlist?: { userId: string; role: string }[];
+}
+
+/** Discord's limit for an embed field's text. */
+const FIELD_MAX = 1024;
+
+/** Joins mentions, ending with "+N more" rather than going over Discord's field limit. */
+function mentionList(items: string[], prefix = ''): string {
+  let out = prefix;
+  for (let i = 0; i < items.length; i++) {
+    const next = `${i ? ', ' : ''}${items[i]}`;
+    const more = ` +${items.length - i} more`;
+    if (out.length + next.length + (i < items.length - 1 ? more.length : 0) > FIELD_MAX - 20) return `${out}${more}`;
+    out += next;
+  }
+  return out;
 }
 
 
@@ -66,9 +83,9 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
       const roleKey = role.id ?? role.name;
       const members = event.rsvps.filter((r) => r.role === roleKey);
       const filled = `${members.length}/${role.count}`;
-      const value = members.length > 0
-        ? members.map((r) => formatMember(r.userId, activeUserIds)).join(', ')
-        : '*None*';
+      let value = members.length > 0 ? mentionList(members.map((r) => formatMember(r.userId, activeUserIds))) : '*None*';
+      const waiting = ended ? [] : (event.waitlist ?? []).filter((w) => w.role === roleKey);
+      if (waiting.length) value = mentionList(waiting.map((w) => `<@${w.userId}>`), `${value}\n⏳ Waiting: `);
       const tag = role.guildId && guildTagMap ? guildTagMap[role.guildId] : undefined;
       const fieldName = tag ? `${role.name} [${tag}] (${filled})` : `${role.name} (${filled})`;
       embed.addFields({ name: fieldName, value, inline: true });
@@ -76,7 +93,7 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
   }
 
   const unassignedValue = unassigned.length > 0
-    ? unassigned.map((r) => formatMember(r.userId, activeUserIds)).join(', ')
+    ? mentionList(unassigned.map((r) => formatMember(r.userId, activeUserIds)))
     : '*None*';
   embed.addFields({
     name: `📋 Unassigned (${unassigned.length})`,
@@ -87,7 +104,7 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
   if (ended && activeUserIds.size > 0) {
     embed.addFields({
       name: `🎙️ Active in VC (${activeUserIds.size})`,
-      value: [...activeUserIds].map((id) => `<@${id}>`).join(', '),
+      value: mentionList([...activeUserIds].map((id) => `<@${id}>`)),
       inline: false,
     });
   }
@@ -165,10 +182,15 @@ export function buildPostEventEmbed(
   return embed;
 }
 
+/**
+ * The buttons under a roster: one per role this server can take (a full role
+ * becomes a grey "· waitlist" button, v1.14.0), then Unassigned and Leave
+ * Roster, which always fit in Discord's 25.
+ */
 export function buildRoleButtons(
   eventId: string,
   roles: EventRole[],
-  rsvps: { role: string | null }[] = [],
+  rsvps: { role: string | null }[],
   viewingGuildId?: string,
 ): ActionRowBuilder<ButtonBuilder>[] {
   const visibleRoles = viewingGuildId
@@ -176,14 +198,13 @@ export function buildRoleButtons(
     : roles;
 
   const allButtons: ButtonBuilder[] = [
-    ...visibleRoles
-      .filter((role) => rsvps.filter((r) => r.role === (role.id ?? role.name)).length < role.count)
-      .map((role) =>
-        new ButtonBuilder()
-          .setCustomId(`role:${eventId}:${role.id ?? role.name}`)
-          .setLabel(role.name)
-          .setStyle(ButtonStyle.Primary),
-      ),
+    ...visibleRoles.slice(0, 23).map((role) => {
+      const key = role.id ?? role.name;
+      const full = rsvps.filter((r) => r.role === key).length >= role.count;
+      return full
+        ? new ButtonBuilder().setCustomId(`wait:${eventId}:${key}`).setLabel(`${role.name} · waitlist`.slice(0, 80)).setStyle(ButtonStyle.Secondary)
+        : new ButtonBuilder().setCustomId(`role:${eventId}:${key}`).setLabel(role.name.slice(0, 80)).setStyle(ButtonStyle.Primary);
+    }),
     new ButtonBuilder()
       .setCustomId(`role:${eventId}:__unassigned__`)
       .setLabel('Unassigned')
