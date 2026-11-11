@@ -1,5 +1,11 @@
 import express, { type ErrorRequestHandler } from 'express';
 import './asyncErrors.js';
+import { requestContext, recordError } from '../lib/errorLog.js';
+import { adminRouter } from './routes/admin.js';
+import { clientErrorsRouter } from './routes/clientErrors.js';
+
+// Printed without being recorded a second time (the error handler records it itself).
+const original500Log = console.error.bind(console);
 import cors from 'cors';
 import session from 'express-session';
 import ConnectPgSimple from 'connect-pg-simple';
@@ -49,6 +55,11 @@ export function createServer(): express.Express {
   // Behind a reverse proxy in production (e.g. nginx, Railway) — needed for
   // secure cookies and accurate req.ip
   if (isProd) app.set('trust proxy', 1);
+
+  // ── Request context ────────────────────────────────────────────────────────
+  // A ref per request (X-Request-Id), kept with anything recorded while it's
+  // handled (lib/errorLog.ts, v1.13.0).
+  app.use(requestContext);
 
   // ── Security headers ───────────────────────────────────────────────────────
   // Allow Discord CDN images (avatars, guild icons) in the SPA.
@@ -235,6 +246,8 @@ export function createServer(): express.Express {
   app.use('/api/guilds', trafficRouter);
   app.use('/api/guilds', tournamentRouter);
   app.use('/api/guilds', memberPinsRouter);
+  app.use('/api/admin', adminRouter);
+  app.use('/api', clientErrorsRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -279,7 +292,11 @@ export function createServer(): express.Express {
     if (res.headersSent) return next(err);
     const e = err as { status?: number; statusCode?: number; expose?: boolean; message?: string };
     const status = e.status ?? e.statusCode ?? 500;
-    if (status >= 500) console.error(`[API] ${req.method} ${req.originalUrl} failed:`, err);
+    if (status >= 500) {
+      const e2 = err instanceof Error ? err : new Error(String(err));
+      original500Log(`[API] ${req.method} ${req.originalUrl} failed:`, e2);
+      recordError({ message: `${e2.name}: ${e2.message}`, stack: e2.stack ?? null, context: { status } });
+    }
     const clientError = status >= 400 && status < 500 && e.expose;
     res.status(clientError ? status : 500).json({
       success: false,
