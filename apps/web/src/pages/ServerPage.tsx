@@ -50,8 +50,8 @@ const STATUS_BADGE: Record<string, string> = {
 type Tab = 'upcoming' | 'completed' | 'pending';
 type View = 'table' | 'create' | 'detail' | 'edit';
 
-const rowCls = 'flex items-start gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
-const labelCls = 'w-36 shrink-0 font-condensed text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 pt-1';
+const rowCls = 'flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
+const labelCls = 'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-1';
 const inputCls = 'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 const timeInputCls = 'w-36 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 const btnCls = 'gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground';
@@ -1409,9 +1409,9 @@ export function ServerPage() {
           <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2 shrink-0" />
 
           {/* Header bar */}
-          <div className="shrink-0 flex items-center justify-between bg-card px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-3">
-              <span className="font-condensed text-2xl font-bold uppercase tracking-widest text-white px-6">Event Manager</span>
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-3 border-b border-border">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
+              <span className="font-condensed text-xl sm:text-2xl font-bold uppercase tracking-widest text-white sm:px-6">Event Manager</span>
               {view === 'table' && (
                 <div className="flex gap-1">
                   {(['upcoming', 'completed'] as Tab[]).map((t) => (
@@ -1448,7 +1448,7 @@ export function ServerPage() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2" title="Adjust gold shade">
+              <div className="hidden sm:flex items-center gap-2" title="Adjust gold shade">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hidden sm:block">Shade</span>
                 <input
                   type="range"

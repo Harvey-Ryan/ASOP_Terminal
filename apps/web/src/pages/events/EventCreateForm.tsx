@@ -18,8 +18,8 @@ function ensureRoleIds(roles: EventRole[]): EventRole[] {
 const inputCls =
   'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 
-const rowCls = 'flex items-start gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
-const labelCls = 'w-36 shrink-0 font-condensed text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 pt-2';
+const rowCls = 'flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
+const labelCls = 'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-2';
 
 function RoleRow({
   role, onChange, onRemove, onEnter, inputRef, guildOptions,
@@ -322,7 +322,7 @@ export function EventCreateForm({
     <form onSubmit={handleSubmit}>
       {/* Templates + Poll toggle (manager only) */}
       {isManager && (
-        <div className="flex items-center gap-2 bg-primary px-5 py-2 border-b border-background/40">
+        <div className="flex flex-wrap items-center gap-2 bg-primary px-5 py-2 border-b border-background/40">
           <Button type="button" variant="outline" size="sm"
             className="gap-1.5 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => setShowTemplates((v) => !v)}>
@@ -474,8 +474,8 @@ export function EventCreateForm({
       {/* Start + Duration */}
       <div className={rowCls}>
         <span className={labelCls}>Start *</span>
-        <div className="flex flex-1 gap-2">
-          <input type="date" className={inputCls} value={startDate} required
+        <div className="flex flex-1 flex-wrap gap-2">
+          <input type="date" className={`${inputCls} min-w-0 flex-1 basis-40`} value={startDate} required
             onChange={(e) => { setStartDate(e.target.value); setFormError(null); }} />
           <input type="time"
             className="w-36 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
