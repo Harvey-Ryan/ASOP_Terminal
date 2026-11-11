@@ -150,3 +150,33 @@ export function tournamentResult(status: string, placement: number | null, tourn
   if (status === 'ELIMINATED') return 'Eliminated';
   return ({ COMPLETED: 'Took part', CANCELLED: 'Cancelled', IN_PROGRESS: 'Playing' } as Record<string, string>)[tournamentStatus] ?? 'Signed up';
 }
+
+// ── Date range (v1.23.0) ─────────────────────────────────────────────────────
+
+/** Only count what happened between these moments (either end open). */
+export interface HistoryRange { from?: Date; to?: Date }
+
+/**
+ * The ?from=&to= of a member history request: ISO moments (the website sends
+ * the start and end of the chosen days in the viewer's own time zone).
+ */
+export function parseHistoryRange(from: unknown, to: unknown): { range: HistoryRange } | { error: string } {
+  const one = (v: unknown, name: string): Date | undefined | string => {
+    if (v === undefined || v === '') return undefined;
+    if (typeof v !== 'string' || v.length > 40) return `${name} must be a date.`;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? `${name} must be a date.` : d;
+  };
+  const f = one(from, 'from');
+  const t = one(to, 'to');
+  if (typeof f === 'string') return { error: f };
+  if (typeof t === 'string') return { error: t };
+  if (f && t && f > t) return { error: 'The start of the range is after its end.' };
+  return { range: { ...(f ? { from: f } : {}), ...(t ? { to: t } : {}) } };
+}
+
+/** A Prisma date filter for the range (undefined when open on both ends). */
+export function rangeWhere(r: HistoryRange): { gte?: Date; lte?: Date } | undefined {
+  if (!r.from && !r.to) return undefined;
+  return { ...(r.from ? { gte: r.from } : {}), ...(r.to ? { lte: r.to } : {}) };
+}

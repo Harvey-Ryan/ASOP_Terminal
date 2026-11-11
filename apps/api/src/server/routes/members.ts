@@ -2,11 +2,12 @@
 // tournaments per person in a server. Officers who can create events see
 // everyone; anyone who can view events sees their own ("me").
 // The rules are in packages/shared/src/memberHistory.ts.
+// ?from=&to= (ISO moments) limit everything to a date range (v1.23.0).
 
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import {
-  outcomeFor, recordedAttendees, rolesPlayed, statsFor, summarizeMembers, tournamentResult,
-  type ApiResponse, type EventRole, type HistoryEvent, type MemberHistoryDto, type MemberSummaryDto,
+  outcomeFor, parseHistoryRange, rangeWhere, recordedAttendees, rolesPlayed, statsFor, summarizeMembers, tournamentResult,
+  type ApiResponse, type HistoryRange, type EventRole, type HistoryEvent, type MemberHistoryDto, type MemberSummaryDto,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -19,9 +20,10 @@ export const membersRouter = Router();
 const MAX_EVENTS = 2000;
 
 /** This server's own events (shared events are counted by the server that ran them). */
-async function historyEvents(guildId: string, userId?: string): Promise<HistoryEvent[]> {
+async function historyEvents(guildId: string, range: HistoryRange, userId?: string): Promise<HistoryEvent[]> {
+  const startTime = rangeWhere(range);
   const events = await prisma.event.findMany({
-    where: { guildId, status: { not: 'CANCELLED' } },
+    where: { guildId, status: { not: 'CANCELLED' }, ...(startTime ? { startTime } : {}) },
     orderBy: { startTime: 'desc' },
     take: MAX_EVENTS,
     select: {
@@ -39,6 +41,16 @@ async function namesFor(ids: string[]): Promise<Map<string, string>> {
   return new Map(users.map((u) => [u.discordId, u.globalName ?? u.username]));
 }
 
+/** The ?from=&to= range, or a 400 already sent. */
+function rangeOf(req: Request, res: Response): HistoryRange | null {
+  const r = parseHistoryRange(req.query['from'], req.query['to']);
+  if ('error' in r) {
+    res.status(400).json({ success: false, error: r.error } satisfies ApiResponse);
+    return null;
+  }
+  return r.range;
+}
+
 async function myDiscordId(req: Express.Request): Promise<string> {
   return (await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true } })).discordId;
 }
@@ -49,7 +61,9 @@ membersRouter.get('/:guildId/members', requireAuth, async (req, res) => {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
-  const events = await historyEvents(guildId);
+  const range = rangeOf(req, res);
+  if (!range) return;
+  const events = await historyEvents(guildId, range);
   const signedUp = new Set(events.flatMap((e) => e.rsvps.map((r) => r.userId)));
   const onlyAttended = [...new Set(events.flatMap((e) => e.attendees ?? []))].filter((id) => !signedUp.has(id));
   const members = summarizeMembers(events, await namesFor(onlyAttended));
@@ -65,28 +79,32 @@ membersRouter.get('/:guildId/members/:userId', requireAuth, async (req, res) => 
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
+  const range = rangeOf(req, res);
+  if (!range) return;
+  const when = rangeWhere(range);
 
   const [events, guild, user] = await Promise.all([
-    historyEvents(guildId, userId),
+    historyEvents(guildId, range, userId),
     prisma.guild.findUnique({ where: { guildId }, select: { id: true } }),
     prisma.user.findUnique({ where: { discordId: userId }, select: { id: true, globalName: true, username: true, rsiHandle: true } }),
   ]);
   const mine = events.map((e) => outcomeFor(e, userId)).filter((o) => o !== null);
 
   const [lootCount, loot, balance, tournaments, member] = await Promise.all([
-    prisma.lootAssignment.count({ where: { userId, item: { session: { guildId } } } }),
+    prisma.lootAssignment.count({ where: { userId, item: { session: { guildId } }, ...(when ? { assignedAt: when } : {}) } }),
     prisma.lootAssignment.findMany({
-      where: { userId, item: { session: { guildId } } },
+      where: { userId, item: { session: { guildId } }, ...(when ? { assignedAt: when } : {}) },
       orderBy: { assignedAt: 'desc' },
       take: 10,
       select: { assignedAt: true, username: true, item: { select: { name: true, quantity: true, session: { select: { name: true, eventId: true } } } } },
     }),
     prisma.dkpBalance.findUnique({
       where: { guildId_userId: { guildId, userId } },
-      select: { balance: true, username: true, transactions: { orderBy: { createdAt: 'desc' }, take: 10, select: { amount: true, reason: true, createdAt: true } } },
+      // The balance is always today's; the changes listed follow the range.
+      select: { balance: true, username: true, transactions: { ...(when ? { where: { createdAt: when } } : {}), orderBy: { createdAt: 'desc' }, take: 10, select: { amount: true, reason: true, createdAt: true } } },
     }),
     prisma.tournamentParticipant.findMany({
-      where: { tournament: { guildId }, OR: [{ discordId: userId }, { teamMembers: { some: { discordId: userId } } }] },
+      where: { tournament: { guildId, ...(when ? { createdAt: when } : {}) }, OR: [{ discordId: userId }, { teamMembers: { some: { discordId: userId } } }] },
       orderBy: { createdAt: 'desc' },
       take: 20,
       select: { placement: true, status: true, tournament: { select: { id: true, name: true, status: true, createdAt: true } } },
