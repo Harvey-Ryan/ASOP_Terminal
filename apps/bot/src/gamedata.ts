@@ -82,7 +82,6 @@ function cleanStr(s: string | undefined | null): string | null {
 // ── Main build function ───────────────────────────────────────────────────────
 
 function buildContracts(raw: RawMission[]): MissionContract[] {
-  console.log('[gamedata] Loading Missions.json…');
 
   // Keep only missions that have at least one blueprint pool with items
   const relevant = raw.filter(

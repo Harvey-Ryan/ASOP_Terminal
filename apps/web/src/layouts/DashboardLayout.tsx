@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
+import { pageTitle } from '@/lib/pageTitle';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -135,6 +136,9 @@ export function DashboardLayout() {
   const serverMatch = useMatch({ path: '/dashboard/servers/:guildId', end: false });
   const activeGuildId = serverMatch?.params.guildId;
   const activeGuild = guilds.find((g) => g.id === activeGuildId);
+
+  // Tab title per page (lib/pageTitle.ts).
+  useEffect(() => { document.title = pageTitle(location.pathname, activeGuild?.name); }, [location.pathname, activeGuild?.name]);
   const showAdminNav = !!activeGuild && canManageGuild(activeGuild);
   const dkpLabel = useDkpLabel(activeGuildId);
 

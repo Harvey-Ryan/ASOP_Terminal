@@ -251,7 +251,7 @@ function StandaloneQueueCard({ session, guildId, sessionId }: { session: LootSes
   const queueQuery = useQuery({
     queryKey: ['loot-queue-standalone', guildId, sessionId],
     queryFn: () => lootApi.getQueueStandalone(guildId, sessionId),
-    refetchInterval: 4000,
+    refetchInterval: session.status === 'OPEN' ? 4000 : false,
   });
 
   const [localIds, setLocalIds] = useState<string[]>([]);
@@ -575,7 +575,8 @@ export function StandaloneLootSessionPage() {
     queryKey: ['loot-standalone', guildId, sessionId],
     queryFn: () => lootApi.getStandaloneSession(guildId!, sessionId!),
     enabled: !!guildId && !!sessionId,
-    refetchInterval: 4000,
+    // Every 4 s while the loot is live; once completed only every minute, in case it's re-opened (v1.12.0).
+    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' ? 60_000 : 4000),
   });
 
   const session = sessionQuery.data;

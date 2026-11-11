@@ -551,7 +551,7 @@ function QueueCard({
   const queueQuery = useQuery({
     queryKey: ['loot-queue', guildId, eventId],
     queryFn: () => lootApi.getQueue(guildId, eventId),
-    refetchInterval: 4000,
+    refetchInterval: session.status === 'OPEN' ? 4000 : false,
   });
 
   // Local item-id order drives the drag-and-drop UI optimistically
@@ -745,7 +745,8 @@ export function LootPage() {
     queryKey: ['loot', guildId, eventId],
     queryFn: () => lootApi.getSession(guildId!, eventId!),
     enabled: !!guildId && !!eventId,
-    refetchInterval: 4000,
+    // Every 4 s while the loot is live; once completed only every minute, in case it's re-opened (v1.12.0).
+    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' ? 60_000 : 4000),
   });
 
   const eventQuery = useQuery({
@@ -785,7 +786,7 @@ export function LootPage() {
     queryKey: queueKey,
     queryFn: () => lootApi.getQueue(guildId!, eventId!),
     enabled: !!guildId && !!eventId && inDraft,
-    refetchInterval: 4000,
+    refetchInterval: sessionForQueue?.status === 'OPEN' ? 4000 : false,
   });
   const queuedIds = new Set((myQueueQuery.data ?? []).map((q) => q.itemId));
   const queueToggleMutation = useMutation({
