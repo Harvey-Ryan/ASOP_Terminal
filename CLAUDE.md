@@ -234,3 +234,15 @@ Patch Notes — v1.1.0 — November 10
 - Platform-admin-only things use `isPlatformAdminId` / `useAuth().isPlatformAdmin`
   (roadmap board, the tournament Lifecycle Test); never a hard-coded id.
 
+## Times and time zones (v1.21.2)
+
+- Show times in each person's own time zone: Discord timestamps (`<t:…>`) in
+  the bot, the browser's zone on the website. Never print a UTC time as
+  text; where a time can't be a timestamp (an image, a select menu), put it
+  in the message as a timestamp or say it relatively ("Started 2 h ago").
+- `datetime-local` inputs: fill and read them with `toLocalInputValue` /
+  `fromLocalInputValue` (`apps/web/src/lib/localDateTime.ts`), never
+  `toISOString().slice(0, 16)` (that's UTC and shifts the time on save).
+- `GuildSettings.timezone` is only the fallback for repeating events without
+  `recurTimezone` (made before v1.12); it isn't a setup step.
+

@@ -183,7 +183,7 @@ describe('servers', () => {
     expect(b.modules['lootEnabled']).toBe(false);
     expect(b.modules['eventBotEnabled']).toBe(true);
     expect(b.setupIssues.join(' ')).toMatch(/event forum/);
-    expect(b.setupIssues.join(' ')).toMatch(/time zone/);
+    expect(b.setupIssues.join(' ')).not.toMatch(/time zone/); // not a setup step since v1.21.2
     expect(b.setupIssues.join(' ')).not.toMatch(/loot results/);
     expect(b.counts.upcomingEvents).toBe(1);
   });

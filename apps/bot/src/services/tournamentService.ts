@@ -160,7 +160,6 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
     round: match.round,
     position: match.position,
     roundLabel,
-    scheduledAt: match.scheduledAt,
     participantA: pA,
     participantB: pB,
   });
@@ -171,7 +170,10 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
     : `⚔️ ${roundLabel}`;
   const embed = new EmbedBuilder()
     .setTitle(matchTitle)
-    .setDescription(`**${match.participantA.displayName}** vs **${match.participantB.displayName}**`)
+    .setDescription(
+      `**${match.participantA.displayName}** vs **${match.participantB.displayName}**` +
+      (match.scheduledAt ? `\n📅 <t:${Math.floor(match.scheduledAt.getTime() / 1000)}:F>` : ''),
+    )
     .setImage('attachment://match-card.png')
     .setColor(match.bracketSide === 'THIRD_PLACE' ? 0xcd7f32 : 0x5865f2); // bronze for 3rd place
 
@@ -641,7 +643,8 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
     : match.round;
   const scheduledRoundLabel = getRoundLabel(match.round, scheduledMaxRound, match.bracketSide, match.position);
 
-  // Re-generate the match card PNG with the new scheduledAt displayed
+  // Re-generate the match card PNG (names/ratings); the time is in the embed as a Discord
+  // timestamp so everyone sees it in their own time zone (v1.21.2).
   const hideEloSched = await fetchHideElo(match.tournament.guildId);
   const pA = await resolveMatchCardParticipant(match.participantA, match.tournament.guildId, hideEloSched);
   const pB = await resolveMatchCardParticipant(match.participantB, match.tournament.guildId, hideEloSched);
@@ -650,7 +653,6 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
     round: match.round,
     position: match.position,
     roundLabel: scheduledRoundLabel,
-    scheduledAt: match.scheduledAt,
     participantA: pA,
     participantB: pB,
   });

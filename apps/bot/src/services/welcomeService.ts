@@ -19,7 +19,7 @@ export function welcomeMessage(guild: { id: string; name: string }) {
     .setColor(0x5865f2)
     .setTitle('Welcome to ASOP!')
     .setDescription(
-      `ASOP is now in **${guild.name}**. A few steps get events posting in Discord: a time zone, an event forum and a voice channel category.\n\n` +
+      `ASOP is now in **${guild.name}**. A few steps get events posting in Discord: an event forum and a voice channel category.\n\n` +
       'The setup checklist on the website walks you through them, and checks that the bot has the permissions it needs.',
     );
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(

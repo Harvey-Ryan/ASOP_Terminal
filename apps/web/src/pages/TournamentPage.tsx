@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Trophy, Plus, Users, X, TrendingUp, TrendingDown, Minus, Swords } from 'lucide-react';
+import { toLocalInputValue, fromLocalInputValue } from '@/lib/localDateTime';
 import type { EloSummaryEntry } from '../api/tournament';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -847,7 +848,7 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
                   <Button
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={() => { scheduleMutation.mutate({ matchId: m.id, scheduledAt: new Date(schedDate).toISOString() }); setScheduling(null); }}
+                    onClick={() => { scheduleMutation.mutate({ matchId: m.id, scheduledAt: fromLocalInputValue(schedDate)! }); setScheduling(null); }}
                     disabled={!schedDate}
                   >
                     Save
@@ -858,7 +859,7 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                   setScheduling(m.id);
                   // Pre-populate with the existing scheduled time so the manager only needs to adjust
-                  setSchedDate(m.scheduledAt ? new Date(m.scheduledAt).toISOString().slice(0, 16) : '');
+                  setSchedDate(toLocalInputValue(m.scheduledAt));
                 }}>
                   {m.scheduledAt ? 'Reschedule' : 'Schedule'}
                 </Button>
@@ -1471,9 +1472,7 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
     tournament.openRoster || tournament.size < 4 ? '8' : String(tournament.size),
   );
   const [registrationEndsAt, setRegistrationEndsAt] = useState(
-    tournament.registrationEndsAt
-      ? new Date(tournament.registrationEndsAt).toISOString().slice(0, 16)
-      : '',
+    toLocalInputValue(tournament.registrationEndsAt),
   );
 
   const qc = useQueryClient();
@@ -1482,7 +1481,7 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
     mutationFn: () => tournamentApi.update(guildId, tournament.id, {
       name: name.trim(),
       description: description.trim() || undefined,
-      registrationEndsAt: registrationEndsAt ? new Date(registrationEndsAt).toISOString() : undefined,
+      registrationEndsAt: fromLocalInputValue(registrationEndsAt),
       ...(isDraft && {
         seedingMode,
         openRoster,

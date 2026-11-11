@@ -242,12 +242,12 @@ export function ModuleEventBotPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-1.5">
                 Timezone
-                <SettingTooltip content="The timezone used when displaying all event times in the dashboard, bot messages, DM notifications, and Discord Scheduled Events. Applies to this server only — allied guilds each use their own timezone setting." />
+                <SettingTooltip content="Event times on the website and in Discord are always shown in each person's own time zone, so most servers can leave this alone. It's only used to keep repeating events that were created before v1.12 at the same local time." />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                All event times are displayed in this timezone across the bot and dashboard.
+                Everyone sees event times in their own time zone. This is only your server's home time zone, used for older repeating events.
               </p>
               <select
                 value={form.timezone}

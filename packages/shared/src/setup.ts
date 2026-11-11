@@ -118,8 +118,8 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
       : { key, label, done: true, detail: name, page });
   };
 
-  const tz = str('timezone');
-  steps.push({ key: 'timezone', label: 'Set your time zone', done: !!tz && tz !== 'UTC', detail: tz && tz !== 'UTC' ? tz : 'Event times are shown in UTC until you do.', page: 'event-bot' });
+  // No time zone step (v1.21.2): everyone sees event times in their own time zone,
+  // whatever the server's setting is.
 
   if (on('eventBotEnabled')) {
     channel('forum', 'Choose an event forum', 'forumChannelId', 'event-bot', FORUM_NEEDS, 'forum', 'Events aren\'t posted in Discord without it.');

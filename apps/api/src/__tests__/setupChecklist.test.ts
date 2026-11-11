@@ -49,7 +49,7 @@ describe('setup checklist', () => {
     const step = (k: string) => data.steps.find((s: { key: string }) => s.key === k);
     expect(data.discordChecked).toBe(true);
     expect(data.hidden).toBe(false);
-    expect(step('timezone').done).toBe(true);
+    expect(step('timezone')).toBeUndefined();
     expect(step('forum')).toMatchObject({ done: true, detail: '#operations' });
     expect(step('voice')).toMatchObject({ done: false, detail: 'The bot is missing Manage Channels in Ops voice.' });
     expect(step('first-event').done).toBe(false);
@@ -64,7 +64,7 @@ describe('setup checklist', () => {
     const agent = await officer(g.guildId);
     const data = (await agent.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data;
     expect(data.discordChecked).toBe(false);
-    expect(data.steps[0]).toMatchObject({ key: 'timezone', done: false });
+    expect(data.steps[0]).toMatchObject({ key: 'forum', done: false });
   });
 
   it('officers can hide the card for everyone; members get nothing', async () => {
