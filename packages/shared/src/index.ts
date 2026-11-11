@@ -147,35 +147,6 @@ export interface EventRole {
   guildId?: string | null;
 }
 
-/**
- * Why someone can't take a role on an event's roster right now, or null if
- * they can (v1.12.0). Checked by the website and the Discord buttons at the
- * moment of signing up, so two people can't both take the last slot.
- *   unknown      — no such role on the event
- *   other-server — the role is only for members of another server
- *   full         — every slot is taken by someone else
- */
-export function roleSignupProblem(
-  roles: readonly EventRole[],
-  rsvps: readonly { userId: string; role: string | null }[],
-  roleKey: string,
-  userId: string,
-  viewingGuildId: string,
-): 'unknown' | 'other-server' | 'full' | null {
-  const role = roles.find((r) => (r.id ?? r.name) === roleKey || r.name === roleKey);
-  if (!role) return 'unknown';
-  if (role.guildId && role.guildId !== viewingGuildId) return 'other-server';
-  const key = role.id ?? role.name;
-  const taken = rsvps.filter((r) => r.role === key && r.userId !== userId).length;
-  return taken >= role.count ? 'full' : null;
-}
-
-export const ROLE_SIGNUP_MESSAGES = {
-  unknown: 'That role is no longer on this event.',
-  'other-server': 'That role is only for members of another server.',
-  full: 'That role just filled up. Pick another one.',
-} as const;
-
 /** A poll posted to the forum thread when an event is created. */
 export interface EventPoll {
   question: string;
@@ -221,6 +192,14 @@ export interface RsvpDto {
   role: string | null;
 }
 
+/** Someone waiting for a slot in a full role (v1.14.0); EventDto.waitlist is in line order. */
+export interface WaitlistDto {
+  userId: string;
+  username: string;
+  /** The role key (EventRole.id, or its name on old events) */
+  role: string;
+}
+
 /** One share invite record — returned inside EventDto.shares */
 export interface EventGuildShareDto {
   id: string;
@@ -263,6 +242,8 @@ export interface EventDto {
   updatedAt: string;
   rsvpCounts: { total: number };
   rsvps: RsvpDto[];
+  /** In line order (v1.14.0) */
+  waitlist: WaitlistDto[];
   hadLoot: boolean | null;
   lootNotes: string | null;
   vcAttendees: string[];
@@ -971,6 +952,7 @@ export * from './allies.js';
 export * from './crafting.js';
 export * from './errorLog.js';
 export * from './admin.js';
+export * from './roster.js';
 
 // ── Return after login (v1.12.0) ─────────────────────────────────────────────
 

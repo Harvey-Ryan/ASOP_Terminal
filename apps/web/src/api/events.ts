@@ -30,6 +30,12 @@ export const eventsApi = {
   removeRsvp: (guildId: string, eventId: string) =>
     api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`).then((r) => r.data!),
 
+  /** Wait for a slot in a full role (v1.14.0); null leaves the line. */
+  waitlist: (guildId: string, eventId: string, role: string | null) =>
+    (role === null
+      ? api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/waitlist`)
+      : api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/waitlist`, { role })).then((r) => r.data!),
+
   start: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/start`).then((r) => r),
 

@@ -463,6 +463,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     onSuccess: invalidateEvent,
   });
 
+  const waitlistMutation = useMutation({
+    mutationFn: (role: string | null) => eventsApi.waitlist(guildId, event.id, role),
+    onSuccess: invalidateEvent,
+  });
+
   const startMutation = useMutation({
     mutationFn: () => eventsApi.start(guildId, event.id),
     onSuccess: invalidateEvent,
@@ -562,7 +567,9 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const canManage = isManager && isHostGuild;
   const userRsvp = userId ? ev.rsvps.find((r) => r.userId === userId) : undefined;
   const unassigned = ev.rsvps?.filter((r) => !r.role) ?? [];
-  const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending;
+  const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending || waitlistMutation.isPending;
+  const waitlist = ev.waitlist ?? [];
+  const myWait = userId ? waitlist.find((w) => w.userId === userId) : undefined;
 
   return (
     <div>
@@ -651,10 +658,13 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               const isFull = members.length >= role.count;
               const isMyRole = userRsvp?.role === roleKey;
               const otherServer = !!role.guildId && role.guildId !== guildId; // a role for another server's members
+              const waiting = waitlist.filter((w) => w.role === roleKey);
+              const myPlace = myWait?.role === roleKey ? waiting.findIndex((w) => w.userId === userId) + 1 : 0;
               return (
                 <div key={roleKey}>
                   <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
                     {role.name} ({members.length}/{role.count})
+                    {waiting.length > 0 && <span className="ml-2 text-sm font-medium normal-case tracking-normal opacity-60">{waiting.length} waiting</span>}
                   </p>
                   <div className="mt-0.5 space-y-0.5">
                     {members.length > 0
@@ -662,20 +672,40 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                           <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
                         ))
                       : <span className="opacity-50 italic text-lg">None</span>}
+                    {waiting.length > 0 && (
+                      <p className="text-base opacity-60">Waiting: {waiting.map((w) => resolveUsername(w.userId, w.username, userId)).join(', ')}</p>
+                    )}
                   </div>
                   {canRsvp && userId && (
-                    <div className="mt-1.5">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       {isMyRole ? (
                         <Button size="sm" disabled={isMutating}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
                           onClick={() => rsvpMutation.mutate(null)}>
                           Unassign
                         </Button>
+                      ) : isFull && !otherServer ? (
+                        // A full role: wait in line for it, keeping your current spot (v1.14.0).
+                        myPlace ? (
+                          <>
+                            <Button size="sm" disabled={isMutating} className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => waitlistMutation.mutate(null)}>
+                              Leave waitlist
+                            </Button>
+                            <span className="text-base font-semibold">You're #{myPlace} in line</span>
+                          </>
+                        ) : (
+                          <Button size="sm" disabled={isMutating} className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                            title="You keep your current spot until a slot opens; then you're moved in and DMed."
+                            onClick={() => waitlistMutation.mutate(roleKey)}>
+                            Join waitlist
+                          </Button>
+                        )
                       ) : (
-                        <Button size="sm" disabled={isMutating || (isFull && !isMyRole) || otherServer}
+                        <Button size="sm" disabled={isMutating || otherServer}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
                           onClick={() => rsvpMutation.mutate(roleKey)}>
-                          {otherServer ? 'Other server' : isFull ? 'Full' : userRsvp ? 'Switch Here' : 'Sign Up'}
+                          {otherServer ? 'Other server' : userRsvp ? 'Switch Here' : 'Sign Up'}
                         </Button>
                       )}
                     </div>

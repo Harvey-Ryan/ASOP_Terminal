@@ -255,6 +255,7 @@ model Event {
   updatedAt      DateTime @updatedAt
 
   rsvps          EventRsvp[]
+  waitlist       EventWaitlist[]
   reminders      EventReminder[]
   allianceGuilds EventAllianceGuild[]
   guildShares    EventGuildShare[]
@@ -278,6 +279,25 @@ model EventRsvp {
 
   @@unique([eventId, userId])
   @@index([eventId])
+}
+
+/// Someone waiting for a slot in a full role (v1.14.0). They're on the roster
+/// too (EventRsvp), keeping their current role; when a slot opens the first in
+/// line is moved in and DMed. One entry per person per event; line order = id.
+model EventWaitlist {
+  id        Int      @id @default(autoincrement())
+  eventId   String
+  userId    String
+  /// The role key (EventRole.id, or its name on old events)
+  role      String
+  /// Server they joined from: a role limited to one server only takes its members
+  guildId   String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, role])
 }
 
 /// A scheduled reminder for an event.
