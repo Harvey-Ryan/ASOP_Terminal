@@ -425,7 +425,7 @@ function settingsContent(dkpLabel: string) {
       <Divider />
       <H>Status Channel</H>
       <P>Choose a <B>Status Channel</B> in <B>Org Settings</B> and the bot keeps one live status message there. It shows the ASOP version and when it was deployed, plus the Star Citizen game data build, when the Star Citizen Wiki published it and when ASOP last checked for and installed an update. The message is edited in place, and only when something changes (a new version, a game data update, a failed update or a warning), so it never floods the channel.</P>
-      <P>Game data is checked for updates once a day. If an update fails, the previous data stays in use and the status message shows the error until the next successful check. The <B>SC Database</B> page shows the same status.</P>
+      <P>Game data is checked for updates once a day. If an update fails, the previous data stays in use and the status message shows the error until the next successful check. The <B>SC Database</B> page shows the same status. The bot's <C>/blueprint</C>, <C>/item</C> and <C>/material</C> commands and the <B>SC Database</B>, <B>Blueprints</B> and <B>Crafting Calculator</B> pages all use this same data, so they update together.</P>
       <Divider />
       <H>Registering Bot Commands</H>
       <P>The bot registers its slash commands every time it starts, so new commands appear and removed ones disappear after an update with nothing to do on your side. If commands ever stop appearing in Discord, use <B>Re-register Commands</B> in <B>Org Settings</B>. It doesn't affect anything else the bot does.</P>

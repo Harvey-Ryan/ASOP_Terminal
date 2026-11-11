@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Search, X, MapPin, Layers, FileText, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  MISSION_CONTRACTS,
+  missionContracts,
   searchBlueprints,
   type LocalBlueprint,
   type MissionContract,
@@ -348,7 +348,7 @@ export function BlueprintsPage() {
   const contracts = useMemo(
     () =>
       submittedBp
-        ? MISSION_CONTRACTS.filter(mc =>
+        ? missionContracts().filter(mc =>
             mc.pools.some(pool =>
               pool.blueprints.some(e => e.blueprintUuid === submittedBp.uuid),
             ),

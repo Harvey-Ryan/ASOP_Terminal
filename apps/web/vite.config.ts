@@ -7,7 +7,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@gamedata': path.resolve(__dirname, '../../packages/shared/src/Filtered Data'),
     },
   },
   server: {

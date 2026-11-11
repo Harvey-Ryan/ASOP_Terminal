@@ -110,5 +110,9 @@ Patch Notes — v1.1.0 — November 10
 - The older `Sc*` Prisma tables are no longer read or synced (v1.11.1: the
   SC Database page reads `scdata`; the weekly download was removed). They're
   still in `schema.prisma` so `db push` keeps them until a clean-up release
-  drops them. The frozen `packages/shared/src/Filtered Data/` JSON still
-  exists; features are being moved over to `scdata` one at a time.
+  drops them.
+- Everything that shows game data reads `scdata` (v1.11.2): the bot's
+  `/blueprint`, `/item` and `/material`, the SC Database page, and the
+  Blueprints and Crafting Calculator pages (via `GET /api/game-data/crafting`,
+  built by `packages/shared/src/crafting.ts`). The frozen JSON snapshot
+  (`packages/shared/src/Filtered Data/`) is gone; don't bring it back.
