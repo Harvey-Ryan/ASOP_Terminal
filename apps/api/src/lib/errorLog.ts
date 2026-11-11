@@ -110,14 +110,28 @@ export function requestContext(req: Request, res: Response, next: NextFunction):
   });
 }
 
-/** Deletes old rows (90 days of errors, a year of the admin log). Daily from index.ts. */
+/**
+ * Deletes old rows, daily from index.ts: errors after 90 days, the admin log
+ * after a year, and the request log (Traffic page, every API request) after
+ * 90 days, which until v1.13.0 was never pruned. The request log goes in
+ * batches so a large first clean-up doesn't hold the table for long.
+ */
 export async function pruneOldErrors(): Promise<void> {
   const day = 86_400_000;
+  const ninetyDays = new Date(Date.now() - 90 * day);
   const [errors, log] = await Promise.all([
-    prisma.errorEvent.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 90 * day) } } }),
+    prisma.errorEvent.deleteMany({ where: { createdAt: { lt: ninetyDays } } }),
     prisma.adminLog.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 365 * day) } } }),
   ]);
-  if (errors.count + log.count > 0) console.log(`[errorLog] Pruned ${errors.count} old error(s) and ${log.count} old admin log entr(ies).`);
+  let requests = 0;
+  for (;;) {
+    const n = await prisma.$executeRaw`DELETE FROM "RequestLog" WHERE id IN (SELECT id FROM "RequestLog" WHERE "createdAt" < ${ninetyDays} LIMIT 20000)`;
+    requests += n;
+    if (n < 20000) break;
+  }
+  if (errors.count + log.count + requests > 0) {
+    console.log(`[errorLog] Pruned ${errors.count} error(s), ${log.count} admin log entr(ies) and ${requests} request log row(s) past their keep time.`);
+  }
 }
 
 /** Every minute from index.ts: the API is alive (Overview page). */

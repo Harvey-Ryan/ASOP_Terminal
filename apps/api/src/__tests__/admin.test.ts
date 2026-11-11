@@ -259,3 +259,19 @@ describe('overview', () => {
     expect(o.database.ok).toBe(true);
   });
 });
+
+describe('keeping the tables small', () => {
+  it('prunes errors and request logs older than 90 days, and the admin log after a year', async () => {
+    const { pruneOldErrors } = await import('../lib/errorLog.js');
+    const old = new Date(Date.now() - 91 * 86_400_000);
+    const recent = new Date(Date.now() - 89 * 86_400_000);
+    await prisma.errorEvent.createMany({ data: [old, recent].map((createdAt) => ({ createdAt, source: 'api', level: 'error', message: 'x', fingerprint: 'f' })) });
+    await prisma.requestLog.createMany({ data: [old, old, recent].map((createdAt) => ({ createdAt, method: 'GET', path: '/x', module: 'x', statusCode: 200, durationMs: 1 })) });
+    await prisma.adminLog.createMany({ data: [new Date(Date.now() - 400 * 86_400_000), old].map((createdAt) => ({ createdAt, kind: 'guild.joined', summary: 's' })) });
+    await pruneOldErrors();
+    expect(await prisma.errorEvent.count()).toBe(1);
+    expect(await prisma.requestLog.count({ where: { path: '/x' } })).toBe(1);
+    expect(await prisma.adminLog.count()).toBe(1);
+    await prisma.requestLog.deleteMany({ where: { path: '/x' } });
+  });
+});

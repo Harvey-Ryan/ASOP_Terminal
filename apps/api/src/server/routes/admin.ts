@@ -128,7 +128,7 @@ adminRouter.get('/overview', async (_req, res) => {
     prisma.event.count({ where: { status: 'PENDING', startTime: { gte: new Date(now) } } }),
     prisma.event.count({ where: { status: 'ACTIVE' } }),
     prisma.lootSession.count({ where: { status: 'OPEN' } }),
-    prisma.requestLog.findMany({ where: { createdAt: { gte: new Date(now - 7 * DAY) }, userId: { not: null } }, distinct: ['userId'], select: { userId: true } }),
+    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(DISTINCT "userId") AS n FROM "RequestLog" WHERE "createdAt" >= ${new Date(now - 7 * DAY)}`,
     prisma.$queryRaw<{ hour: Date; errors: bigint; warnings: bigint }[]>`
       SELECT date_trunc('hour', "createdAt") AS hour,
              count(*) FILTER (WHERE level = 'error') AS errors,
@@ -175,7 +175,7 @@ adminRouter.get('/overview', async (_req, res) => {
       openKinds: Number(openKinds[0]?.n ?? 0),
     },
     requests: { last24h: requests, failed24h: failed, slowest24hMs: slowest._max.durationMs ?? 0 },
-    activity: { upcomingEvents: upcoming, liveEvents: live, openLootSessions: openLoot, activeUsers7d: activeUsers.length },
+    activity: { upcomingEvents: upcoming, liveEvents: live, openLootSessions: openLoot, activeUsers7d: Number(activeUsers[0]?.n ?? 0) },
     errorsByHour,
     feed: { configured: !!config?.feedChannelId, alertsEnabled: config?.alertsEnabled ?? true, digestEnabled: config?.digestEnabled ?? true },
   });
