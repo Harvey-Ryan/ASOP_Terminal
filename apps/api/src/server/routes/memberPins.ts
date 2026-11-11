@@ -1,10 +1,52 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { prisma } from '../../lib/prisma.js';
 import { ValidationError } from '../../lib/validate.js';
 import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult, MunicipalitySearchResult } from '@dem/shared';
 
 export const memberPinsRouter = Router();
+
+// v1.21.1: the map is for people who can see the server's events (same rule as
+// the rest of the server page). Previously any signed-in user could read any
+// server's pins, or put a pin on its map.
+async function canViewServer(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (await assertEventViewer(req, (req.params as { guildId: string }).guildId)) return next();
+    res.status(403).json({ success: false, error: 'You don\'t have access to this server\'s map.' } satisfies ApiResponse);
+  } catch (err) { next(err); }
+}
+
+// ── Nominatim (OpenStreetMap geocoding) ───────────────────────────────────────
+// Their usage policy allows at most one request a second from the whole app, so
+// requests are spaced out and answers are cached for a day.
+
+const NOMINATIM_GAP_MS = 1100;
+const NOMINATIM_CACHE_MS = 24 * 60 * 60 * 1000;
+const nominatimCache = new Map<string, { at: number; body: unknown }>();
+let nominatimQueue: Promise<unknown> = Promise.resolve();
+
+export async function nominatim(url: string): Promise<unknown> {
+  const hit = nominatimCache.get(url);
+  if (hit && Date.now() - hit.at < NOMINATIM_CACHE_MS) return hit.body;
+  const run = nominatimQueue.then(async () => {
+    try {
+      const r = await fetch(url, {
+        headers: { 'User-Agent': 'ASOP-Terminal/1.0 (member-map)', 'Accept-Language': 'en' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) throw new Error(`Nominatim ${r.status}`);
+      const body = await r.json() as unknown;
+      if (nominatimCache.size >= 500) nominatimCache.delete(nominatimCache.keys().next().value!);
+      nominatimCache.set(url, { at: Date.now(), body });
+      return body;
+    } finally {
+      await new Promise((ok) => setTimeout(ok, NOMINATIM_GAP_MS));
+    }
+  });
+  nominatimQueue = run.catch(() => undefined);
+  return run;
+}
 
 // ── Timezone backfill helper ──────────────────────────────────────────────────
 // Pins placed before the timezone column was added have timezone = null.
@@ -14,9 +56,16 @@ export const memberPinsRouter = Router();
 
 type PinWithTimezone = { id: string; lat: number; lng: number; timezone: string | null };
 
+// Pins whose lookup failed aren't retried for a while, so a slow or down
+// timeapi.io doesn't slow every map load.
+const tzTried = new Map<string, number>();
+const TZ_RETRY_MS = 6 * 60 * 60 * 1000;
+
 async function backfillTimezones(pins: PinWithTimezone[]): Promise<void> {
-  const missing = pins.filter((p) => !p.timezone);
+  const now = Date.now();
+  const missing = pins.filter((p) => !p.timezone && now - (tzTried.get(p.id) ?? 0) > TZ_RETRY_MS).slice(0, 10);
   if (missing.length === 0) return;
+  for (const p of missing) tzTried.set(p.id, now);
   await Promise.allSettled(
     missing.map(async (pin) => {
       try {
@@ -41,7 +90,7 @@ async function backfillTimezones(pins: PinWithTimezone[]): Promise<void> {
 // ── GET /api/guilds/:guildId/member-pins ──────────────────────────────────────
 // Returns all pins for the guild. userId is never included in the response.
 
-memberPinsRouter.get('/:guildId/member-pins', requireAuth, async (req, res) => {
+memberPinsRouter.get('/:guildId/member-pins', requireAuth, canViewServer, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
@@ -67,7 +116,7 @@ memberPinsRouter.get('/:guildId/member-pins', requireAuth, async (req, res) => {
 // ── GET /api/guilds/:guildId/member-pins/mine ─────────────────────────────────
 // Returns the current user's own pin (for "is my pin set / what are my current settings").
 
-memberPinsRouter.get('/:guildId/member-pins/mine', requireAuth, async (req, res) => {
+memberPinsRouter.get('/:guildId/member-pins/mine', requireAuth, canViewServer, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
@@ -90,7 +139,7 @@ memberPinsRouter.get('/:guildId/member-pins/mine', requireAuth, async (req, res)
 // ── PUT /api/guilds/:guildId/member-pins ──────────────────────────────────────
 // Upsert (create or update) the current user's pin.
 
-memberPinsRouter.put('/:guildId/member-pins', requireAuth, async (req, res) => {
+memberPinsRouter.put('/:guildId/member-pins', requireAuth, canViewServer, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
@@ -176,7 +225,7 @@ memberPinsRouter.put('/:guildId/member-pins', requireAuth, async (req, res) => {
 // ── DELETE /api/guilds/:guildId/member-pins ───────────────────────────────────
 // Remove the current user's pin.
 
-memberPinsRouter.delete('/:guildId/member-pins', requireAuth, async (req, res) => {
+memberPinsRouter.delete('/:guildId/member-pins', requireAuth, canViewServer, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
@@ -197,7 +246,7 @@ memberPinsRouter.delete('/:guildId/member-pins', requireAuth, async (req, res) =
 // ── GET /api/guilds/:guildId/member-pins/search?q=NAME ───────────────────────
 // Forward geocoding by place name — proxied through the API to avoid CSP issues.
 
-memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, async (req, res) => {
+memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, canViewServer, async (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   if (!q) {
     res.json({ success: true, data: [] } satisfies ApiResponse<MunicipalitySearchResult[]>);
@@ -209,16 +258,14 @@ memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, async (req, re
       `https://nominatim.openstreetmap.org/search` +
       `?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`;
 
-    const nominatimRes = await fetch(url, {
-      headers: { 'User-Agent': 'ASOP-Terminal/1.0 (member-map)', 'Accept-Language': 'en' },
-    });
-
-    if (!nominatimRes.ok) {
+    let found: unknown;
+    try { found = await nominatim(url); } catch (err) {
+      console.warn('[GET member-pins/search] Nominatim unavailable', err);
       res.status(502).json({ success: false, error: 'Geocoding service unavailable' } satisfies ApiResponse);
       return;
     }
 
-    const raw = await nominatimRes.json() as Array<{
+    const raw = (Array.isArray(found) ? found : []) as Array<{
       display_name: string;
       lat: string;
       lon: string;
@@ -260,7 +307,7 @@ memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, async (req, re
 // Server-side reverse geocoding via Nominatim (avoids CSP connect-src issues).
 // Returns the municipality name and its canonical center coordinates.
 
-memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, async (req, res) => {
+memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, canViewServer, async (req, res) => {
   const rawLat = req.query['lat'];
   const rawLng = req.query['lng'];
   const lat = parseFloat(typeof rawLat === 'string' ? rawLat : '');
@@ -274,18 +321,7 @@ memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, async (req, r
   try {
     // Step 1: reverse geocode to get city/town name
     const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`;
-    const reverseRes = await fetch(reverseUrl, {
-      headers: {
-        'User-Agent': 'ASOP-Terminal/1.0 (member-map)',
-        'Accept-Language': 'en',
-      },
-    });
-
-    if (!reverseRes.ok) {
-      throw new Error(`Nominatim reverse geocode failed: ${reverseRes.status}`);
-    }
-
-    const reverseData = await reverseRes.json() as {
+    const reverseData = await nominatim(reverseUrl) as {
       address?: {
         city?: string; town?: string; village?: string; county?: string;
         state?: string; country?: string;
@@ -313,16 +349,9 @@ memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, async (req, r
     // resolve to the first matching county in any other state.
     const forwardQuery = [city, state, country].filter(Boolean).join(', ');
     const forwardUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(forwardQuery)}&format=json&limit=1&addressdetails=0`;
-    const forwardRes = await fetch(forwardUrl, {
-      headers: {
-        'User-Agent': 'ASOP-Terminal/1.0 (member-map)',
-        'Accept-Language': 'en',
-      },
-    });
-
-    if (forwardRes.ok) {
-      const forwardData = await forwardRes.json() as Array<{ lat: string; lon: string }>;
-      if (forwardData[0]) {
+    const forwardData = await nominatim(forwardUrl).catch(() => null) as Array<{ lat: string; lon: string }> | null;
+    {
+      if (Array.isArray(forwardData) && forwardData[0]) {
         res.json({
           success: true,
           data: {
