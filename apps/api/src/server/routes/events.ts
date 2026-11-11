@@ -11,8 +11,8 @@ import { hasAnyRole } from '../../lib/memberRoles.js';
 import { getGuildMember } from '../../lib/discordRest.js';
 import { createPlannedShares, notAllyError, notifyShare, planEventShares } from '../../lib/allyShares.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
-import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
-import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, findRole, roleKeyOf, waitlistProblem } from '@dem/shared';
+import type { AfterActionOutcome, ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
+import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, canComment, findRole, roleKeyOf, waitlistProblem } from '@dem/shared';
 
 
 /** Discord id of the signed-in user (who answered, for the Discord notices). */
@@ -27,12 +27,16 @@ type EventWithRsvpsAndShares = Prisma.EventGetPayload<{
   include: {
     rsvps: true;
     waitlist: true;
+    comments: true;
     guildShares: { include: { guild: { select: { id: true; guildId: true; name: true } } } };
   };
 }>;
 
 // kept for routes that don't need shares (e.g. RSVP updates)
-type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true; waitlist: true } }>;
+type EventWithRsvps = Prisma.EventGetPayload<{ include: { rsvps: true; waitlist: true; comments: true } }>;
+
+/** Comments under after-action notes, oldest first (v1.19.0). */
+const COMMENT_ORDER = { orderBy: { id: 'asc' } } as const;
 
 // Repeat types and their scheduling rules live in packages/shared/src/recurrence.ts.
 // An event is finished (no RSVPs, edits, starts) once it's ended, completed or cancelled.
@@ -91,6 +95,7 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
       include: {
         rsvps: true,
         waitlist: WAITLIST_ORDER,
+        comments: COMMENT_ORDER,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
       },
     });
@@ -129,6 +134,7 @@ eventsRouter.get('/:guildId/events/pending-shares', requireAuth, async (req, res
     include: {
       rsvps: true,
       waitlist: WAITLIST_ORDER,
+      comments: COMMENT_ORDER,
       guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
     },
   });
@@ -158,6 +164,7 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
         include: {
           rsvps: true,
           waitlist: WAITLIST_ORDER,
+          comments: COMMENT_ORDER,
           guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
         },
       });
@@ -190,6 +197,7 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
     include: {
       rsvps: true,
       waitlist: WAITLIST_ORDER,
+      comments: COMMENT_ORDER,
       guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
     },
   });
@@ -305,6 +313,7 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
       include: {
         rsvps: true,
         waitlist: WAITLIST_ORDER,
+        comments: COMMENT_ORDER,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
       },
     });
@@ -407,7 +416,7 @@ async function signupContext(req: Request, res: Response) {
 }
 
 const eventDto = async (eventId: string) =>
-  toDto(await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER } }));
+  toDto(await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER, comments: COMMENT_ORDER } }));
 
 eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res) => {
   const ctx = await signupContext(req, res);
@@ -500,7 +509,7 @@ eventsRouter.delete('/:guildId/events/:eventId/rsvp', requireAuth, async (req, r
 
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER } });
+  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER, comments: COMMENT_ORDER } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
@@ -666,6 +675,7 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       include: {
         rsvps: true,
         waitlist: WAITLIST_ORDER,
+        comments: COMMENT_ORDER,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
       },
     });
@@ -712,7 +722,7 @@ eventsRouter.patch('/:guildId/events/:eventId/rsvp/:userId', requireAuth, async 
   announceWaitlistMoves(eventId, moves);
   triggerBot(`/trigger/rsvp/${eventId}`);
 
-  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true, waitlist: WAITLIST_ORDER } });
+  const updated = await prisma.event.findFirstOrThrow({ where: { id: eventId, guildId }, include: { rsvps: true, waitlist: WAITLIST_ORDER, comments: COMMENT_ORDER } });
   res.json({ success: true, data: toDto(updated) } satisfies ApiResponse<EventDto>);
 });
 
@@ -758,7 +768,7 @@ eventsRouter.post('/:guildId/events/:eventId/stop-recurrence', requireAuth, asyn
 
   const updated = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
-    include: { rsvps: true, waitlist: WAITLIST_ORDER, guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } } },
+    include: { rsvps: true, waitlist: WAITLIST_ORDER, comments: COMMENT_ORDER, guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } } },
   });
   res.json({ success: true, data: { ...toDto(updated), cancelled: cancel } } satisfies ApiResponse<EventDto & { cancelled: boolean }>);
 });
@@ -857,8 +867,10 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
   }
 
   // Validate complete body
-  const body = req.body as { hadLoot?: unknown; lootNotes?: unknown; confirmedAttendees?: unknown };
+  const body = req.body as { hadLoot?: unknown; lootNotes?: unknown; confirmedAttendees?: unknown; afterAction?: unknown };
+  let afterAction: { aarOutcome: string | null; aarNotes: string | null } | null = null;
   try {
+    if (body.afterAction !== undefined) afterAction = parseAfterAction(body.afterAction);
     if (body.lootNotes !== undefined) optStr(body.lootNotes, 'lootNotes', 2000);
     if (body.confirmedAttendees !== undefined) optStrArr(body.confirmedAttendees, 'confirmedAttendees', 500, 30);
     if (body.hadLoot !== undefined && typeof body.hadLoot !== 'boolean')
@@ -884,6 +896,7 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
       ...(hadLoot !== undefined ? { hadLoot } : {}),
       ...(lootNotes ? { lootNotes } : {}),
       ...(confirmedAttendees ? { confirmedAttendees: JSON.stringify(confirmedAttendees) } : {}),
+      ...(afterAction && (afterAction.aarOutcome || afterAction.aarNotes) ? { ...afterAction, ...(await afterActionBy(req)) } : {}),
     },
   });
 
@@ -896,6 +909,117 @@ eventsRouter.post('/:guildId/events/:eventId/complete', requireAuth, async (req,
   triggerBot(`/trigger/complete/${eventId}`);
 
   res.json({ success: true, message: 'Event completed' } satisfies ApiResponse);
+});
+
+// ── After-action notes and comments (v1.19.0) ───────────────────────────────
+
+const AFTER_ACTION_OUTCOME_KEYS = ['SUCCESS', 'PARTIAL', 'FAILED'];
+
+/** { outcome, notes } from a request; both empty clears the notes. Throws ValidationError. */
+function parseAfterAction(raw: unknown): { aarOutcome: string | null; aarNotes: string | null } {
+  const b = (raw ?? {}) as { outcome?: unknown; notes?: unknown };
+  if (b.outcome != null && !AFTER_ACTION_OUTCOME_KEYS.includes(String(b.outcome))) throw new ValidationError('outcome must be SUCCESS, PARTIAL or FAILED');
+  if (b.notes != null && typeof b.notes !== 'string') throw new ValidationError('notes must be text');
+  const notes = typeof b.notes === 'string' ? b.notes.trim() : '';
+  if (notes.length > 2000) throw new ValidationError('notes must be at most 2000 characters');
+  return { aarOutcome: b.outcome ? String(b.outcome) : null, aarNotes: notes || null };
+}
+
+async function afterActionBy(req: Request) {
+  const u = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true, globalName: true, username: true } });
+  return { aarById: u.discordId, aarByName: u.globalName ?? u.username, aarAt: new Date() };
+}
+
+const FINISHED_STATUSES = ['ENDED', 'COMPLETED'];
+
+// PUT /api/guilds/:guildId/events/:eventId/after-action  { outcome, notes }
+// Officers of the server that ran it, once it's over; also editable later.
+eventsRouter.put('/:guildId/events/:eventId/after-action', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const event = await prisma.event.findFirst({ where: { id: eventId, guildId }, select: { status: true } });
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+  if (!FINISHED_STATUSES.includes(event.status)) {
+    res.status(409).json({ success: false, error: 'After-action notes can be written once the event has ended.' } satisfies ApiResponse);
+    return;
+  }
+  let notes: ReturnType<typeof parseAfterAction>;
+  try {
+    notes = parseAfterAction(req.body);
+  } catch (err) {
+    if (err instanceof ValidationError) { res.status(400).json({ success: false, error: err.message } satisfies ApiResponse); return; }
+    throw err;
+  }
+  const cleared = !notes.aarOutcome && !notes.aarNotes;
+  await prisma.event.update({
+    where: { id: eventId },
+    data: cleared ? { aarOutcome: null, aarNotes: null, aarById: null, aarByName: null, aarAt: null } : { ...notes, ...(await afterActionBy(req)) },
+  });
+  if (event.status === 'COMPLETED') triggerBot(`/trigger/after-action/${eventId}`); // the final summary in Discord
+  res.json({ success: true, data: await eventDto(eventId) } satisfies ApiResponse<EventDto>);
+});
+
+/** A finished event this server can see (its own, or shared with it), with what deciding who may comment needs. */
+async function finishedEventFor(guildId: string, eventId: string) {
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) return null;
+  return prisma.event.findFirst({
+    where: { id: eventId, status: { in: FINISHED_STATUSES }, OR: [{ guildId }, { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } }] },
+    select: { status: true, confirmedAttendees: true, vcAttendees: true, rsvps: { select: { userId: true, tentative: true } } },
+  });
+}
+
+// PUT /api/guilds/:guildId/events/:eventId/comment  { body }  (empty removes yours)
+// People who attended (or signed up, where attendance wasn't recorded) can leave one comment.
+eventsRouter.put('/:guildId/events/:eventId/comment', requireAuth, async (req, res) => {
+  const { guildId, eventId } = req.params as { guildId: string; eventId: string };
+  if (!(await assertEventViewer(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const event = await finishedEventFor(guildId, eventId);
+  if (!event) {
+    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
+    return;
+  }
+  const u = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true, globalName: true, username: true } });
+  if (!canComment(event, u.discordId)) {
+    res.status(403).json({ success: false, error: 'Only people who were at this event can comment on it.' } satisfies ApiResponse);
+    return;
+  }
+  const raw = (req.body as { body?: unknown }).body;
+  const text = typeof raw === 'string' ? raw.trim() : '';
+  if (text.length > 500) {
+    res.status(400).json({ success: false, error: 'Comments can be at most 500 characters.' } satisfies ApiResponse);
+    return;
+  }
+  if (!text) await prisma.eventComment.deleteMany({ where: { eventId, userId: u.discordId } });
+  else {
+    const username = u.globalName ?? u.username;
+    await prisma.eventComment.upsert({
+      where: { eventId_userId: { eventId, userId: u.discordId } },
+      create: { eventId, userId: u.discordId, username, body: text },
+      update: { body: text, username },
+    });
+  }
+  res.json({ success: true, data: await eventDto(eventId) } satisfies ApiResponse<EventDto>);
+});
+
+// DELETE /api/guilds/:guildId/events/:eventId/comments/:userId — officers of the server that ran it
+eventsRouter.delete('/:guildId/events/:eventId/comments/:userId', requireAuth, async (req, res) => {
+  const { guildId, eventId, userId } = req.params as { guildId: string; eventId: string; userId: string };
+  if (!(await assertEventCreator(req, guildId)) || !(await prisma.event.findFirst({ where: { id: eventId, guildId }, select: { id: true } }))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  await prisma.eventComment.deleteMany({ where: { eventId, userId } });
+  res.json({ success: true, data: await eventDto(eventId) } satisfies ApiResponse<EventDto>);
 });
 
 // ── POST /api/guilds/:guildId/events/:eventId/reopen ─────────────────────────
@@ -1109,6 +1233,10 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     updatedAt: event.updatedAt.toISOString(),
     rsvpCounts: { total: event.rsvps.length },
     rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative })),
+    afterAction: event.aarOutcome || event.aarNotes
+      ? { outcome: event.aarOutcome as AfterActionOutcome | null, notes: event.aarNotes ?? '', byName: event.aarByName, at: (event.aarAt ?? event.updatedAt).toISOString() }
+      : null,
+    comments: event.comments.map((c) => ({ userId: c.userId, username: c.username, body: c.body, at: c.updatedAt.toISOString() })),
     waitlist: event.waitlist.map((w) => ({ userId: w.userId, username: event.rsvps.find((r) => r.userId === w.userId)?.username ?? w.userId, role: w.role })),
     hadLoot: event.hadLoot ?? null,
     lootNotes: event.lootNotes ?? null,

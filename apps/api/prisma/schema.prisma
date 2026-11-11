@@ -236,6 +236,12 @@ model Event {
   /// Set when the admin completes the loot prompt on the web dashboard
   hadLoot         Boolean?
   lootNotes       String?
+  /// After-action notes (v1.19.0): SUCCESS | PARTIAL | FAILED, the officer's write-up, who (Discord id, name) and when
+  aarOutcome      String?
+  aarNotes        String?
+  aarById         String?
+  aarByName       String?
+  aarAt           DateTime?
   /// JSON: string[] — Discord user IDs that were active in event VCs when the event ended
   vcAttendees     String   @default("[]")
   /// JSON: string[] — user IDs confirmed as attendees after the audit
@@ -260,6 +266,7 @@ model Event {
 
   rsvps          EventRsvp[]
   waitlist       EventWaitlist[]
+  comments       EventComment[]
   reminders      EventReminder[]
   allianceGuilds EventAllianceGuild[]
   guildShares    EventGuildShare[]
@@ -304,6 +311,21 @@ model EventWaitlist {
 
   @@unique([eventId, userId])
   @@index([eventId, role])
+}
+
+/// An attendee's comment under an event's after-action notes (v1.19.0); one each, editable.
+model EventComment {
+  id        Int      @id @default(autoincrement())
+  eventId   String
+  userId    String
+  username  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
 }
 
 /// A scheduled reminder for an event.

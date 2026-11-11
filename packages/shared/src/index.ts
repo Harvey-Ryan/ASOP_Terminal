@@ -194,6 +194,29 @@ export interface RsvpDto {
   tentative: boolean;
 }
 
+export type AfterActionOutcome = 'SUCCESS' | 'PARTIAL' | 'FAILED';
+
+export const AFTER_ACTION_OUTCOMES: Record<AfterActionOutcome, { label: string; emoji: string }> = {
+  SUCCESS: { label: 'Success', emoji: '✅' },
+  PARTIAL: { label: 'Partial', emoji: '⚠️' },
+  FAILED: { label: 'Failed', emoji: '❌' },
+};
+
+/** After-action notes (v1.19.0). */
+export interface AfterActionDto {
+  outcome: AfterActionOutcome | null;
+  notes: string;
+  byName: string | null;
+  at: string;
+}
+
+export interface EventCommentDto {
+  userId: string;
+  username: string;
+  body: string;
+  at: string;
+}
+
 /** Someone waiting for a slot in a full role (v1.14.0); EventDto.waitlist is in line order. */
 export interface WaitlistDto {
   userId: string;
@@ -246,6 +269,10 @@ export interface EventDto {
   rsvps: RsvpDto[];
   /** In line order (v1.14.0) */
   waitlist: WaitlistDto[];
+  /** The officers' write-up once it's over (v1.19.0) */
+  afterAction: AfterActionDto | null;
+  /** Attendees' comments under it, oldest first */
+  comments: EventCommentDto[];
   hadLoot: boolean | null;
   lootNotes: string | null;
   vcAttendees: string[];

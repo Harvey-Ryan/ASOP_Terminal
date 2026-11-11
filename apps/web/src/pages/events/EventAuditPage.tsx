@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { itemSuggestions } from '@/api/catalog';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Gift, PackageX, Plus, X, Users } from 'lucide-react';
+import { ArrowLeft, Gift, NotebookPen, PackageX, Plus, X, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,7 +11,8 @@ import { lootApi } from '@/api/loot';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
-import type { EventDto, RsvpDto } from '@dem/shared';
+import type { AfterActionOutcome, EventDto, RsvpDto } from '@dem/shared';
+import { OutcomePicker } from '@/components/AfterAction';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -94,6 +95,8 @@ export function EventAuditPage() {
   const [lootItems, setLootItems] = useState<string[]>([]);
   const [newLootItem, setNewLootItem] = useState('');
   const [lootInputFocused, setLootInputFocused] = useState(false);
+  const [aarOutcome, setAarOutcome] = useState<AfterActionOutcome | null>(null);
+  const [aarNotes, setAarNotes] = useState('');
   const lootInputRef = useRef<HTMLInputElement>(null);
   const debouncedLootItem = useDebounce(newLootItem, 250);
 
@@ -143,6 +146,7 @@ export function EventAuditPage() {
         confirmedAttendees: Object.entries(attendance)
           .filter(([, v]) => v)
           .map(([k]) => k),
+        ...(aarOutcome || aarNotes.trim() ? { afterAction: { outcome: aarOutcome, notes: aarNotes } } : {}),
       });
       // Skip session creation if one already exists from before the event ended
       if (!existingSession && hadLoot && lootItems.length > 0) {
@@ -405,6 +409,23 @@ export function EventAuditPage() {
               <p className="text-sm text-muted-foreground">No loot for this event.</p>
             )}
           </CardContent>
+      </Card>
+
+      {/* After action (v1.19.0) */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <NotebookPen className="h-4 w-4" />
+            After action <span className="text-xs font-normal text-muted-foreground">optional, can be written later</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <OutcomePicker value={aarOutcome} onChange={setAarOutcome} />
+          <textarea aria-label="After-action notes" rows={3} maxLength={2000} value={aarNotes} onChange={(e) => setAarNotes(e.target.value)}
+            placeholder="How did it go? What worked, and what should change next time?"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          <p className="text-xs text-muted-foreground">Shown on the event and in its final summary in Discord. Attendees can add comments under it.</p>
+        </CardContent>
       </Card>
 
       {/* Complete */}

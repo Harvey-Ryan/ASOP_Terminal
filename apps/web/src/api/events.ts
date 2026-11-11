@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventTemplateDto } from '@dem/shared';
+import type { AfterActionOutcome, ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventTemplateDto } from '@dem/shared';
 
 export const eventsApi = {
   list: (guildId: string) =>
@@ -57,8 +57,20 @@ export const eventsApi = {
   complete: (
     guildId: string,
     eventId: string,
-    body: { hadLoot: boolean; lootNotes?: string; confirmedAttendees?: string[] },
+    body: { hadLoot: boolean; lootNotes?: string; confirmedAttendees?: string[]; afterAction?: { outcome: AfterActionOutcome | null; notes: string } },
   ) => api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/complete`, body).then((r) => r),
+
+  /** After-action notes (v1.19.0); empty outcome and notes clears them. */
+  afterAction: (guildId: string, eventId: string, body: { outcome: AfterActionOutcome | null; notes: string }) =>
+    api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/after-action`, body).then((r) => r.data!),
+
+  /** Your comment under the after-action notes; empty removes it. */
+  comment: (guildId: string, eventId: string, body: string) =>
+    api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/comment`, { body }).then((r) => r.data!),
+
+  /** Officers: remove someone's comment. */
+  removeComment: (guildId: string, eventId: string, userId: string) =>
+    api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/comments/${userId}`).then((r) => r.data!),
 
   reopen: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/reopen`).then((r) => r),
