@@ -413,7 +413,7 @@ function settingsContent(dkpLabel: string) {
       <P>The <B>Org Settings</B> panel controls who can edit module settings. Assign Discord roles to <B>Module Settings Editors</B> to allow non-admin members to configure channels and module options. <B>Viewer Roles</B> grant members access to view events and loot without being a server admin.</P>
       <Divider />
       <H>Module Settings &amp; Setting Tooltips</H>
-      <P>Each module (Event Bot, DKP, Loot, Marketplace, Fleet, Blueprints, Crafting Calculator, Alliance, Tournaments) has its own settings page under <B>Module Settings</B> in the sidebar. Toggle the enabled switch to show or hide that module's nav link for all members. Disabled modules are completely hidden.</P>
+      <P>Each module (Event Bot, DKP, Marketplace, Loot, Fleet, Blueprints, Crafting Calculator, Activity, Tournaments) has its own settings page under <B>Module Settings</B> in the sidebar. Allies are under <B>Org Settings → Allies</B>. Toggle the enabled switch to show or hide that module's nav link for all members. Disabled modules are completely hidden.</P>
       <P>Every setting input has a <B>?</B> icon next to its label. Hovering it shows a detailed explanation of what that setting controls and how it affects the bot and dashboard.</P>
       <P>The DKP module settings page also lets you set the <B>currency label</B> (e.g. renaming "DKP" to "Credits"), the default auction duration, and the minimum valid bid.</P>
       <Divider />

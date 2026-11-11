@@ -13,11 +13,6 @@ import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../l
 import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 import { RECUR_TYPES, isValidTimeZone, describeRecurrence } from '@dem/shared';
 
-const ALLIANCES_MOVED = 'Alliances have moved to Allies. Share events with your allies instead.';
-
-/** Old clients may still send an alliance to share with (retired in v1.11.0); null or empty is ignored. */
-const sendsAllianceId = (body: unknown): boolean =>
-  typeof body === 'object' && body !== null && !!(body as { allianceId?: unknown }).allianceId;
 
 /** Discord id of the signed-in user (who answered, for the Discord notices). */
 async function sessionDiscordId(req: Express.Request): Promise<string | null> {
@@ -261,12 +256,6 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
 
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
-    // Old group alliances are retired (v1.11.0): events are shared with allies.
-    if (sendsAllianceId(body)) {
-      res.status(410).json({ success: false, error: ALLIANCES_MOVED } satisfies ApiResponse);
-      return;
-    }
-
     // Only allies can receive the event; check before anything is created.
     const shareTargets = Array.isArray(body.directGuildIds) ? (body.directGuildIds as unknown[]).filter((x): x is string => typeof x === 'string') : [];
     const hostRecord = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
@@ -506,12 +495,6 @@ eventsRouter.patch('/:guildId/events/:eventId', requireAuth, async (req, res) =>
       return;
     }
     throw err;
-  }
-
-  // Old group alliances are retired (v1.11.0); sending null is ignored.
-  if (sendsAllianceId(body)) {
-    res.status(410).json({ success: false, error: ALLIANCES_MOVED } satisfies ApiResponse);
-    return;
   }
 
   const data: Record<string, unknown> = {};
@@ -1119,11 +1102,6 @@ eventsRouter.post('/:guildId/events/:eventId/shares/direct', requireAuth, shareR
   });
   res.status(201).json({ success: true, data: toShareDto(share) } satisfies ApiResponse<EventGuildShareDto>);
 }));
-
-// POST /api/guilds/:guildId/events/:eventId/shares/alliance — retired in v1.11.0.
-eventsRouter.post('/:guildId/events/:eventId/shares/alliance', requireAuth, (_req, res) => {
-  res.status(410).json({ success: false, error: ALLIANCES_MOVED } satisfies ApiResponse);
-});
 
 // DELETE /api/guilds/:guildId/events/:eventId/shares/:shareId
 // Host cancels a pending invitation, or stops sharing with a server that accepted.

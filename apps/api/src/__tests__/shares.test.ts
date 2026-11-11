@@ -155,15 +155,6 @@ describe('creating an event shared with allies', () => {
     expect(await prisma.eventGuildShare.count({ where: { eventId: ev.id } })).toBe(0);
   });
 
-  it('old alliances are retired on create and edit', async () => {
-    const a = await org('Alpha');
-    const res = await newEvent(a, { allianceId: 'some-alliance' }).expect(410);
-    expect(res.body.error).toMatch(/Allies/);
-    const ev = (await newEvent(a).expect(201)).body.data;
-    await a.agent.patch(`${a.events}/${ev.id}`).send({ allianceId: 'some-alliance' }).expect(410);
-    await a.agent.patch(`${a.events}/${ev.id}`).send({ allianceId: null, name: 'Renamed' }).expect(200);
-    await a.agent.post(`${a.events}/${ev.id}/shares/alliance`).send({ allianceId: 'x' }).expect(410);
-  });
 });
 
 // ── Sharing an existing event ─────────────────────────────────────────────────

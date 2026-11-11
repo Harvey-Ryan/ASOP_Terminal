@@ -123,16 +123,3 @@ searchRoute('/sc/labels', (c, p) => Prisma.sql`
   WHERE value ILIKE ${c} OR key ILIKE ${c}
   ORDER BY value ILIKE ${p} DESC, value
   LIMIT ${limit}`);
-
-// ── Retired with the old tables (v1.11.1) ───────────────────────────────────
-// Nothing in the app called these; the sync moved to /api/game-data/*.
-const RETIRED = [
-  ['get', '/sc/blueprints/by-material'], ['get', '/sc/blueprints/:uuid'], ['get', '/sc/starmap/:uuid'],
-  ['get', '/sc/ship-items/:uuid'], ['get', '/sc/missions'], ['get', '/sc/missions/:uuid'],
-  ['get', '/sc/sync/status'], ['post', '/sc/sync'],
-] as const;
-for (const [method, path] of RETIRED) {
-  scRouter[method](path, (_req, res) => {
-    res.status(410).json({ success: false, error: 'This moved to the new game data (sc-data). Game data status and "Sync now" are at /api/game-data.' } satisfies ApiResponse);
-  });
-}
