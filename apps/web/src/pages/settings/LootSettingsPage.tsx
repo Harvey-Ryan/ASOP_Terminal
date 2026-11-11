@@ -125,12 +125,12 @@ export function LootSettingsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-1.5">
                 Results Channel
-                <SettingTooltip content="The Discord channel where the bot posts a loot summary embed when a session is completed. The summary lists every item, its distribution method, and the recipient. Leave unset to skip Discord posting entirely." />
+                <SettingTooltip content="Loot from an event is always posted in that event's forum post, which stays open until everything is delivered or for 72 hours. This channel is for standalone loot sessions (not tied to an event): their results are posted here. Optional." />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                When a loot session is completed, the bot posts a summary to this channel. Leave unset to skip posting.
+                Optional. Results of standalone loot sessions are posted here. Event loot is posted in the event's own forum post.
               </p>
               <ChannelSelect
                 id="lootChannel"
