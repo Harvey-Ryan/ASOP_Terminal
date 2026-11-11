@@ -285,3 +285,13 @@ Patch Notes — v1.1.0 — November 10
 - `HeatMap.tsx` takes `describe` (words for a square, shown on hover or tap)
   and `legend`; in ratio mode null = no events (grey), 0 = a real 0%.
 
+## Your Discord servers (v1.25.1)
+
+- A person's server list (`GET /users/@me/guilds`, tightly rate-limited per
+  person) comes only from `getUserGuilds()` in `apps/api/src/lib/userGuilds.ts`:
+  one cache, one Discord call per person at a time, short 429s waited out and
+  retried, long ones served from the last list. `/auth/me` (2 min) and
+  `assertGuildManager` (30 min, plus the session copy) both use it; never call
+  `fetchDiscordGuilds` directly. If nothing is cached and Discord says wait,
+  `assertGuildManager` marks the request so its 403 becomes a 503 "try again".
+
