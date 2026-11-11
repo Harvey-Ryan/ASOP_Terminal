@@ -16,6 +16,7 @@ import { settingsApi } from '@/api/settings';
 import { canManageGuild } from '@dem/shared';
 import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
+import { SetupChecklist } from '@/components/SetupChecklist';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { RecentLootEvent } from '@/api/loot';
 
@@ -1437,6 +1438,9 @@ export function ServerPage() {
           </Button>
         </div>
       )}
+
+      {/* Setup checklist for officers, until it's done or hidden (v1.15.0) */}
+      <SetupChecklist guildId={guildId!} variant="card" />
 
       {/* Responsive two-column layout: events left, loot right */}
       <div className={`flex-1 min-h-0 grid grid-cols-1 gap-6 w-full${canView ? ' 2xl:grid-cols-[1fr_380px]' : ''}`}>

@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { SetupChecklist } from '@/components/SetupChecklist';
 
 interface ModuleTile {
   label: string;
@@ -76,6 +77,8 @@ export function ModuleSettingsHubPage() {
         <h1 className="text-2xl font-bold tracking-tight">Module Settings</h1>
         <p className="text-muted-foreground mt-0.5 text-sm">Configure each module independently.</p>
       </div>
+
+      <SetupChecklist guildId={guildId!} variant="page" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {MODULES.map(({ label, description, icon: Icon, slug }) => (

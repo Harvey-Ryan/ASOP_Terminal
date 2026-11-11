@@ -11,7 +11,7 @@ import { assertAllianceManager } from '../../lib/assertAllianceManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError } from '../../lib/validate.js';
 import { applySettingsPatch, parseSettingsPatch, patchNeedsManager, readPermissionFields, type SettingsPatch } from '../../lib/guildSettings.js';
-import type { ApiResponse } from '@dem/shared';
+import { setupChecklist, type ApiResponse, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
 
 export const settingsRouter = Router();
 
@@ -274,6 +274,58 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     console.error('[settings/patch]', err);
     res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
   }
+});
+
+// ── GET / PUT /api/guilds/:guildId/setup (v1.15.0) ───────────────────────────
+// The setup checklist for officers who can change settings. Others get null
+// (not an error), so the server page can simply ask.
+
+/** The bot's own channels-and-roles view of a server, or null when Discord can't say right now. */
+async function setupDiscord(guildId: string): Promise<SetupDiscord | null> {
+  const [me, channels, roles] = await Promise.all([
+    cachedDiscordGet<{ id: string }>('bot-user', '/users/@me', 'users', 24 * 3600_000),
+    cachedDiscordGet<DiscordChannelInfo[]>(`channels:${guildId}`, `/guilds/${guildId}/channels`, `channels:${guildId}`, 30_000),
+    cachedDiscordGet<(DiscordRoleInfo & DiscordRole)[]>(`roles:${guildId}`, `/guilds/${guildId}/roles`, `roles:${guildId}`, 30_000),
+  ]);
+  if (!me.ok || !channels.ok || !roles.ok) return null;
+  const member = await cachedDiscordGet<{ roles: string[] }>(`bot-member:${guildId}`, `/guilds/${guildId}/members/${me.data.id}`, `member:${guildId}`, 30_000);
+  if (!member.ok) return null;
+  return { guildId, botId: me.data.id, botRoleIds: member.data.roles, channels: channels.data, roles: roles.data };
+}
+
+settingsRouter.get('/:guildId/setup', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEditor(req, guildId))) {
+    res.json({ success: true, data: null } satisfies ApiResponse<SetupChecklistDto | null>);
+    return;
+  }
+  const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
+  const [discord, anyEvent] = await Promise.all([
+    setupDiscord(guildId),
+    prisma.event.findFirst({ where: { guildId }, select: { id: true } }),
+  ]);
+  const steps = setupChecklist({ settings: (guild?.settings ?? null) as Record<string, unknown> | null, hasEvents: !!anyEvent, discord });
+  res.json({ success: true, data: { steps, hidden: guild?.settings?.setupHidden ?? false, discordChecked: !!discord } } satisfies ApiResponse<SetupChecklistDto>);
+});
+
+settingsRouter.put('/:guildId/setup/hidden', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEditor(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const hidden = (req.body as { hidden?: unknown }).hidden;
+  if (typeof hidden !== 'boolean') {
+    res.status(400).json({ success: false, error: 'hidden must be true or false' } satisfies ApiResponse);
+    return;
+  }
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+  await prisma.guildSettings.upsert({ where: { guildId: guild.id }, update: { setupHidden: hidden }, create: { guildId: guild.id, setupHidden: hidden } });
+  res.json({ success: true, data: { hidden } } satisfies ApiResponse);
 });
 
 // ── POST /api/guilds/:guildId/settings/register-commands ─────────────────────

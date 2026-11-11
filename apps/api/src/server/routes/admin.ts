@@ -19,6 +19,8 @@ import {
   ERROR_SOURCES,
   getGuildIconUrl,
   isValidTimeZone,
+  setupChecklist,
+  setupProblems,
   type AdminConfigDto,
   type AdminGuildDetailDto,
   type AdminGuildDto,
@@ -331,18 +333,10 @@ const MODULE_KEYS = ADMIN_SETTING_FIELDS.filter((f) => f.group === 'Modules').ma
 
 type SettingsRow = Record<string, unknown> | null;
 
-/** Plain-words problems with a server's setup. */
+/** Plain-words problems with a server's setup: the officers' checklist without the Discord checks. */
 function setupIssues(s: SettingsRow): string[] {
   if (!s) return ['Never set up: no settings saved yet.'];
-  const issues: string[] = [];
-  const on = (k: string) => s[k] !== false;
-  if (on('eventBotEnabled') && !s['forumChannelId']) issues.push('No event forum: events aren\'t posted in Discord.');
-  if (on('eventBotEnabled') && !s['voiceCategoryId']) issues.push('No voice category: events get no voice channels.');
-  if (on('lootEnabled') && !s['lootChannelId']) issues.push('No loot results channel.');
-  if (on('dkpEnabled') && !s['dkpAnnouncementChannelId']) issues.push('No auction announcement channel.');
-  if (on('tournamentsEnabled') && !s['tournamentChannelId']) issues.push('No tournament forum.');
-  if (s['timezone'] === 'UTC') issues.push('Time zone is still the default (UTC).');
-  return issues;
+  return setupProblems(setupChecklist({ settings: s, hasEvents: true, discord: null }));
 }
 
 function modulesOf(s: SettingsRow): Record<string, boolean> {

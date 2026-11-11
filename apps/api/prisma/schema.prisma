@@ -173,6 +173,8 @@ model GuildSettings {
   statusChannelId        String?
   /// Message id of the status embed the bot keeps editing (bot-managed)
   statusMessageId        String?
+  /// Officers hid the setup checklist card on the server page (v1.15.0); Module Settings still shows it
+  setupHidden            Boolean  @default(false)
   /// Channel that message lives in, so a moved setting can clean up the old one (bot-managed)
   statusMessageChannelId String?
   /// Hash of the last embed content posted, to skip edits when nothing changed (bot-managed)
