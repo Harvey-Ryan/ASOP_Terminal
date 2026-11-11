@@ -41,16 +41,17 @@ const byKey = (steps) => Object.fromEntries(steps.map((s) => [s.key, s]));
 
 test('a fresh server: everything to do, in plain words', () => {
   const steps = setupChecklist({ settings: null, hasEvents: false, discord: null });
-  assert.deepEqual(steps.map((s) => s.key), ['timezone', 'forum', 'voice', 'creators', 'loot', 'dkp', 'tournaments', 'first-event']);
+  assert.deepEqual(steps.map((s) => s.key), ['forum', 'voice', 'creators', 'loot', 'dkp', 'tournaments', 'first-event']);
   assert.ok(steps.every((s) => !s.done));
-  assert.deepEqual(setupProblems(steps).slice(0, 2), ['Set your time zone: Event times are shown in UTC until you do.', 'Choose an event forum: Events aren\'t posted in Discord without it.']);
+  assert.deepEqual(setupProblems(steps).slice(0, 1), ['Choose an event forum: Events aren\'t posted in Discord without it.']);
+  assert.ok(!steps.some((s) => s.key === 'timezone')); // everyone sees their own time zone (v1.21.2)
   assert.ok(!setupProblems(steps).some((t) => t.includes('first event') || t.includes('who can create')));
 });
 
 test('a set-up server: names shown, permission gaps and deleted channels caught', () => {
   const settings = { ...allOff, timezone: 'America/Chicago', forumChannelId: 'forum', voiceCategoryId: 'cat', lootChannelId: 'loot', eventCreatorRoles: '["a"]' };
   const s = byKey(setupChecklist({ settings, hasEvents: true, discord: discord() }));
-  assert.deepEqual([s.timezone.done, s.forum.detail, s.voice.detail, s.creators.detail], [true, '#operations', 'Ops voice', '1 role']);
+  assert.deepEqual([s.forum.detail, s.voice.detail, s.creators.detail], ['#operations', 'Ops voice', '1 role']);
   assert.equal(s.loot.done, false);
   assert.equal(s.loot.detail, 'The bot is missing Embed Links in #loot.');
   assert.equal(s['events-perm'], undefined);
@@ -69,7 +70,7 @@ test('missing Manage Events and broken optional channels show up; working option
 
 test('switched-off modules add no steps; without Discord, chosen channels count as done', () => {
   const steps = setupChecklist({ settings: { eventBotEnabled: false, lootEnabled: false, dkpEnabled: false, tournamentsEnabled: false, timezone: 'UTC' }, hasEvents: false, discord: null });
-  assert.deepEqual(steps.map((s) => s.key), ['timezone']);
+  assert.deepEqual(steps.map((s) => s.key), []);
   const s = byKey(setupChecklist({ settings: { ...allOff, lootEnabled: false, forumChannelId: 'x', voiceCategoryId: 'y' }, hasEvents: false, discord: null }));
   assert.equal(s.forum.done && s.voice.done, true);
 });
