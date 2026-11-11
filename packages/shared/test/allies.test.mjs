@@ -6,7 +6,7 @@ import {
   decideRequest, decideResponse, decideCancel, decideAllyChange, decideUnblock,
   retryAfterFrom, allyRefusalMessage, ALLY_RETRY_DAYS,
   allyCodeFromBytes, normalizeAllyCode, formatAllyCode, ALLY_CODE_ALPHABET,
-  pairsFromAlliances, responseChanges, isAllyNoticePayload, allyButtonId, parseAllyButtonId,
+  responseChanges, isAllyNoticePayload, allyButtonId, parseAllyButtonId,
 } from '../dist/allies.js';
 
 const NOW = new Date('2026-11-10T12:00:00Z');
@@ -141,31 +141,6 @@ test('ally codes: 8 unambiguous characters, normalised from user input', () => {
   assert.equal(normalizeAllyCode(''), null);
   assert.equal(normalizeAllyCode(undefined), null);
   assert.equal(formatAllyCode('ABCDEFGH'), 'ABCD-EFGH');
-});
-
-test('migration: 1-to-1 links and every two accepted members of a group become pairs', () => {
-  const { pairs, droppedPending } = pairsFromAlliances([
-    { id: '1', name: 'x', isDirect: true, members: [{ guildId: B, status: 'ACCEPTED' }, { guildId: A, status: 'ACCEPTED' }] },
-    { id: '2', name: 'Big Alliance', isDirect: false, members: [
-      { guildId: A, status: 'ACCEPTED' }, { guildId: B, status: 'ACCEPTED' }, { guildId: C, status: 'ACCEPTED' }, { guildId: 'g-ddd', status: 'PENDING' }] },
-    { id: '3', name: 'y', isDirect: true, members: [{ guildId: C, status: 'ACCEPTED' }, { guildId: 'g-eee', status: 'PENDING' }] },
-    { id: '4', name: 'Solo', isDirect: false, members: [{ guildId: A, status: 'ACCEPTED' }] },
-  ]);
-  const keys = pairs.map((p) => `${p.guildAId}+${p.guildBId}:${p.from.join(',')}`).sort();
-  assert.deepEqual(keys, [
-    'g-aaa+g-bbb:direct ally link,Big Alliance',
-    'g-aaa+g-ccc:Big Alliance',
-    'g-bbb+g-ccc:Big Alliance',
-  ]);
-  assert.deepEqual(droppedPending, [{ allianceName: 'Big Alliance', guildId: 'g-ddd' }, { allianceName: 'y', guildId: 'g-eee' }]);
-  for (const p of pairs) assert.ok(p.guildAId < p.guildBId, 'stored order');
-  assert.deepEqual(pairs.find((p) => p.guildBId === 'g-bbb').allianceIds, ['1', '2']);
-});
-
-test('migration: duplicate member rows do not make a pair with itself', () => {
-  const { pairs } = pairsFromAlliances([{ id: '1', name: 'dup', isDirect: false, members: [
-    { guildId: A, status: 'ACCEPTED' }, { guildId: A, status: 'ACCEPTED' }, { guildId: B, status: 'ACCEPTED' }] }]);
-  assert.equal(pairs.length, 1);
 });
 
 test('answers change the same columns everywhere', () => {
