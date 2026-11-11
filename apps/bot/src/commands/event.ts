@@ -96,7 +96,8 @@ async function handleEnd(interaction: ChatInputCommandInteraction) {
         new StringSelectMenuOptionBuilder()
           .setLabel(e.name)
           .setValue(e.id)
-          .setDescription(new Date(e.startTime).toUTCString()),
+          // Menus can't show Discord timestamps, so say it without a time zone.
+          .setDescription(startedAgo(e.startTime)),
       ),
     );
 
@@ -178,3 +179,12 @@ async function handleList(interaction: ChatInputCommandInteraction) {
 
   await interaction.editReply({ embeds: [embed] });
 }
+
+/** "Started 2 h ago" / "Starts in 15 min": a menu can't show local times. */
+export function startedAgo(start: Date | string, now = Date.now()): string {
+  const diff = now - new Date(start).getTime();
+  const mins = Math.round(Math.abs(diff) / 60_000);
+  const span = mins < 60 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`;
+  return diff >= 0 ? `Started ${span} ago` : `Starts in ${span}`;
+}
+

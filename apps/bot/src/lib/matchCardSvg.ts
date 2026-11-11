@@ -92,7 +92,6 @@ export interface MatchCardData {
   position: number;
   /** Overrides the auto-generated "ROUND X · MATCH Y" header label. */
   roundLabel?: string;
-  scheduledAt: Date | null;
   participantA: MatchCardParticipant | null;
   participantB: MatchCardParticipant | null;
 }
@@ -103,7 +102,7 @@ export async function buildMatchCardPng(data: MatchCardData): Promise<Buffer> {
 }
 
 export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
-  const { tournamentName, round, position, roundLabel, scheduledAt, participantA, participantB } = data;
+  const { tournamentName, round, position, roundLabel, participantA, participantB } = data;
 
   const [avatarA, avatarB] = await Promise.all([
     participantA?.discordId ? fetchAvatarDataUri(participantA.discordId, participantA.avatarHash) : Promise.resolve(null),
@@ -170,18 +169,6 @@ export async function buildMatchCardSvg(data: MatchCardData): Promise<string> {
   ].filter(Boolean).join('  ·  ');
   lines.push(svgT(AX, AY_STATS, statA, COLOR_DIM, 10, 'normal', 'middle'));
   lines.push(svgT(BX, AY_STATS, statB, COLOR_DIM, 10, 'normal', 'middle'));
-
-  // ── Scheduled time badge ──────────────────────────────────────────────────
-  if (scheduledAt) {
-    const timeStr = scheduledAt.toLocaleString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric',
-      hour: 'numeric', minute: '2-digit', timeZone: 'UTC',
-    }) + ' UTC';
-    const badgeY = CARD_H - 8;
-    const badgeW = 260;
-    lines.push(`<rect x="${cx - badgeW / 2}" y="${badgeY - 18}" width="${badgeW}" height="22" rx="4" fill="${COLOR_SLOT}"/>`);
-    lines.push(svgT(cx, badgeY - 2, `🕐  ${timeStr}`, COLOR_DIM, 11, 'normal', 'middle'));
-  }
 
   lines.push('</svg>');
   return lines.join('\n');
