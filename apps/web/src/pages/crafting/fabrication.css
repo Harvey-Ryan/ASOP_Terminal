@@ -1,0 +1,73 @@
+/* Crafting Calculator, "distressed industrial" theme (v1.26.0). Scoped to .fab
+   so nothing else on the site changes. ASOP gold (#b98a13) on charcoal. */
+
+.fab {
+  --fab-gold: #b98a13;
+  --fab-gold-text: #d4a53a;
+  --fab-text: #cccccc;
+  --fab-bright: #e6e6e6;
+  --fab-muted: #a6a6a6;
+  --fab-faint: #9a9a9a;
+  --fab-line: #2e2e2e;
+  color: var(--fab-text);
+  font-family: Barlow, system-ui, sans-serif;
+  background-color: #171717;
+  background-image:
+    radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.045), transparent 45%),
+    radial-gradient(ellipse at 82% 88%, rgba(185, 138, 19, 0.06), transparent 50%),
+    radial-gradient(ellipse at 60% 30%, rgba(0, 0, 0, 0.35), transparent 40%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(25deg, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 19px);
+}
+
+.fab input[type='range'] { accent-color: var(--fab-gold); }
+.fab :focus-visible { outline: 2px solid var(--fab-gold-text); outline-offset: 2px; }
+
+.fab-stencil { font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif; font-weight: 400; letter-spacing: 0.04em; }
+.fab-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fab-faint); }
+.fab-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+.fab-hazard { background: repeating-linear-gradient(-45deg, var(--fab-gold) 0 14px, #161616 14px 28px); }
+.fab-hazard-thin { background: repeating-linear-gradient(-45deg, var(--fab-gold) 0 10px, #161616 10px 20px); }
+
+.fab-plate {
+  position: relative;
+  background: linear-gradient(#1f1f1f, #1a1a1a);
+  border: 1px solid var(--fab-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 0 rgba(0, 0, 0, 0.5), 0 3px 0 #0b0b0b;
+}
+.fab-rivet {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #5a5a5a, #1a1a1a);
+}
+.fab-inset { background: #121212; border: 1px solid #2a2a2a; box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6); }
+.fab-part { background: #171717; border: 1px solid var(--fab-line); border-top: 3px solid var(--fab-gold); }
+
+.fab-input {
+  background: #0f0f0f; border: 1px solid #3a3a3a; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  color: var(--fab-bright);
+}
+.fab-input::placeholder { color: #7a7a7a; }
+
+.fab-btn {
+  border: 1px solid #3a3a3a; background: #1c1c1c; color: #b3b3b3;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.fab-btn:hover { border-color: #5a5a5a; color: var(--fab-bright); }
+.fab-btn[aria-pressed='true'] { border-color: var(--fab-gold); background: rgba(185, 138, 19, 0.15); color: #e0b54a; }
+.fab-btn-primary {
+  background: linear-gradient(#c9971a, #a87c10); color: #141414; border: 1px solid #6e520a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 0 #0b0b0b;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.fab-btn-primary:hover { background: linear-gradient(#d6a321, #b5870f); }
+
+.fab-row { border-bottom: 1px solid #0f0f0f; box-shadow: 0 1px 0 #262626; }
+.fab-row:hover { background: rgba(255, 255, 255, 0.03); }
+.fab-row[aria-current='true'] { background: rgba(185, 138, 19, 0.12); box-shadow: inset 4px 0 0 var(--fab-gold), 0 1px 0 #262626; }
+
+.fab-stop { background: var(--fab-gold); color: #141414; }
+
+/* The kept stat panels (armour, weapons…) use the site's tokens; give them the plate look here. */
+.fab .fab-legacy .bg-card { background: #171717; }
+.fab .fab-legacy .border-border { border-color: var(--fab-line); }
