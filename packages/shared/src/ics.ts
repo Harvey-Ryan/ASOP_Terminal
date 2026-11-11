@@ -11,6 +11,8 @@ export interface IcsEvent {
   url?: string | null;
   /** When it last changed (calendars use it to spot updates) */
   updated: Date;
+  /** You said maybe (v1.17.0) */
+  tentative?: boolean;
 }
 
 /** 20261113T150000Z */
@@ -59,6 +61,7 @@ export function buildIcs(calendarName: string, events: readonly IcsEvent[], now 
       `DTSTART:${icsDate(e.start)}`,
       `DTEND:${icsDate(e.end)}`,
       `SUMMARY:${icsText(e.summary)}`,
+      `STATUS:${e.tentative ? 'TENTATIVE' : 'CONFIRMED'}`,
       ...(e.description ? [`DESCRIPTION:${icsText(e.description)}`] : []),
       ...(e.location ? [`LOCATION:${icsText(e.location)}`] : []),
       ...(e.url ? [`URL:${e.url}`] : []),

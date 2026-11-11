@@ -24,7 +24,10 @@ export async function setRosterRole(
   username: string,
   role: string | null,
   viewingGuildId: string,
+  /** "Maybe" (v1.17.0): only without a role, so it never takes a slot */
+  maybe = false,
 ): Promise<ReturnType<typeof roleSignupProblem>> {
+  const tentative = role === null && maybe;
   const { problem, moves } = await prisma.$transaction(async (tx) => {
     const event = await lockEvent(tx, eventId);
     if (role !== null) {
@@ -34,9 +37,11 @@ export async function setRosterRole(
     }
     await tx.eventRsvp.upsert({
       where: { eventId_userId: { eventId, userId } },
-      create: { eventId, userId, username, role },
-      update: { role, username },
+      create: { eventId, userId, username, role, tentative },
+      update: { role, username, tentative },
     });
+    // A maybe isn't waiting for a role (joining a line means you're coming).
+    if (tentative) await tx.eventWaitlist.deleteMany({ where: { eventId, userId } });
     // Leaving a role lets the first person waiting for it in (v1.14.0).
     return { problem: null, moves: event ? await fillFromWaitlist(tx, eventId, event) : [] };
   });
@@ -152,9 +157,11 @@ export async function notifyThreadJoin(eventId: string, userId: string) {
 
 interface DebounceEntry {
   timer: ReturnType<typeof setTimeout>;
-  snapshot: { userId: string; username: string; role: string | null }[];
+  snapshot: { userId: string; username: string; role: string | null; tentative: boolean }[];
 }
 const rosterUpdateDebounce = new Map<string, DebounceEntry>();
+/** Stands for "Maybe" in the change list (never a role key). */
+const MAYBE = '\u0000maybe';
 
 /**
  * Queue a roster embed refresh + diff announcement for web-app changes.
@@ -167,7 +174,7 @@ export async function queueRosterUpdate(eventId: string) {
   if (!existing) {
     // First call — snapshot the current roster state before any further changes
     const rsvps = await prisma.eventRsvp.findMany({ where: { eventId } });
-    const snapshot = rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role }));
+    const snapshot = rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative }));
     const timer = setTimeout(() => { flushRosterUpdate(eventId).catch(console.error); }, 3_000);
     rosterUpdateDebounce.set(eventId, { timer, snapshot });
   } else {
@@ -203,8 +210,8 @@ async function flushRosterUpdate(eventId: string) {
       joined.push(userId);
     } else {
       const prev = before.get(userId)!;
-      if (prev.role !== curr.role) {
-        roleChanged.push({ userId, from: prev.role, to: curr.role });
+      if (prev.role !== curr.role || prev.tentative !== curr.tentative) {
+        roleChanged.push({ userId, from: prev.tentative ? MAYBE : prev.role, to: curr.tentative ? MAYBE : curr.role });
       }
     }
   }
@@ -239,8 +246,9 @@ async function flushRosterUpdate(eventId: string) {
   }
   if (roleChanged.length > 0) {
     const lines = roleChanged.map((r) => {
-      const from = r.from ? (roleNameByKey.get(r.from) ?? r.from) : 'Unassigned';
-      const to = r.to ? (roleNameByKey.get(r.to) ?? r.to) : 'Unassigned';
+      const name = (key: string | null) => (key === MAYBE ? 'Maybe' : key ? (roleNameByKey.get(key) ?? key) : 'Unassigned');
+      const from = name(r.from);
+      const to = name(r.to);
       return `<@${r.userId}> · ${from} → **${to}**`;
     });
     embed.addFields({ name: 'Role Changes', value: lines.join('\n'), inline: false });

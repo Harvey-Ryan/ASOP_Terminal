@@ -24,7 +24,7 @@ heatmapRouter.get('/:guildId/heatmap/events', requireAuth, async (req, res) => {
         startTime: true,
         vcAttendees: true,
         confirmedAttendees: true,
-        rsvps: { select: { id: true } },
+        rsvps: { where: { tentative: false }, select: { id: true } }, // maybes aren't sign-ups here
       },
     });
 

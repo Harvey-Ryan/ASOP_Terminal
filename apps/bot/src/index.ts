@@ -268,6 +268,31 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
       return;
     }
 
+    // ── Maybe button (v1.17.0): on the roster without a role ──────────────────
+    if (prefix === 'maybe') {
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const event = await prisma.event.findFirst({
+          where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        });
+        if (!event) {
+          await interaction.editReply({ content: 'This event has already ended.' });
+          return;
+        }
+        const displayName = (interaction.member instanceof GuildMember)
+          ? interaction.member.displayName
+          : interaction.user.username;
+        await setRosterRole(entityId, interaction.user.id, displayName, null, interaction.guildId ?? event.guildId, true);
+        await interaction.editReply({
+          content: `❔ You're down as **maybe** for **${event.name}**. Pick a role or Unassigned when you're sure.`,
+        });
+      } catch (err) {
+        console.error('[bot] Maybe button error:', err);
+        await interaction.editReply({ content: withRef('❌ Failed to update roster.') });
+      }
+      return;
+    }
+
     // ── "· waitlist" buttons on full roles (v1.14.0) ─────────────────────────
     if (prefix === 'wait') {
       await interaction.deferReply({ ephemeral: true });

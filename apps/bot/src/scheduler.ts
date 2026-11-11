@@ -367,7 +367,7 @@ async function checkReminders() {
           chunk.map(async (rsvp) => {
             const user = await client.users.fetch(rsvp.userId);
             await user.send(
-              `${event.name} starts in 15 minutes! Join a voice channel to participate.\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
+              `${event.name} starts in 15 minutes! ${rsvp.tentative ? 'You said maybe; if you can make it, join a voice channel to participate.' : 'Join a voice channel to participate.'}\nMuster Point: ${event.musterPoint ?? 'See event details'}${notifFooter}`,
             );
           }),
         );

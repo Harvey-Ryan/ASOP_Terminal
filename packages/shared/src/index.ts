@@ -190,6 +190,8 @@ export interface RsvpDto {
   userId: string;
   username: string;
   role: string | null;
+  /** "Maybe" (v1.17.0): on the roster, not sure yet; never has a role */
+  tentative: boolean;
 }
 
 /** Someone waiting for a slot in a full role (v1.14.0); EventDto.waitlist is in line order. */
