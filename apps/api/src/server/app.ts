@@ -30,6 +30,7 @@ import { kanbanRouter } from './routes/kanban.js';
 import { alliesRouter } from './routes/allies.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { calendarRouter } from './routes/calendar.js';
+import { membersRouter } from './routes/members.js';
 import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
 import { trafficRouter } from './routes/traffic.js';
@@ -261,6 +262,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', trafficRouter);
   app.use('/api/guilds', tournamentRouter);
   app.use('/api/guilds', memberPinsRouter);
+  app.use('/api/guilds', membersRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', clientErrorsRouter);
 

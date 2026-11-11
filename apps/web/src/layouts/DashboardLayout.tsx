@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake, ShieldCheck } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake, ShieldCheck, History } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -517,6 +517,27 @@ export function DashboardLayout() {
                   {!navCollapsed && 'Activity'}
                 </NavLink>
               )}
+
+              {/* Member history (v1.18.0): officers see everyone, others their own */}
+              {eventBotEnabled && (showAdminNav || myPerms?.canManageEvents) ? (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/members`}
+                  title={navCollapsed ? 'Members' : undefined}
+                  className={serverNavCls}
+                >
+                  <History className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Members'}
+                </NavLink>
+              ) : eventBotEnabled && myPerms?.canViewEvents ? (
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/members/me`}
+                  title={navCollapsed ? 'My history' : undefined}
+                  className={serverNavCls}
+                >
+                  <History className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'My history'}
+                </NavLink>
+              ) : null}
 
               <NavLink
                 to={`/dashboard/servers/${activeGuild.id}/traffic`}
