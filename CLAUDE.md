@@ -154,8 +154,10 @@ Patch Notes — v1.1.0 — November 10
   it was given (`channelPermissions`). The admin panel's "looks unfinished"
   list is the same checklist without the Discord checks (`setupProblems`).
 - Officers see it via `GET /api/guilds/:guildId/setup` (null for others): a
-  card on the server page until done or hidden (`GuildSettings.setupHidden`),
-  and always on Module Settings. A new channel setting the bot needs belongs
+  card on the server page until hidden (`GuildSettings.setupHidden`), and on
+  Module Settings. Once the required steps are done it shows nowhere (v1.22.1);
+  every successful mutation re-checks it (`MutationCache.onSuccess` in
+  `main.tsx`). A new channel setting the bot needs belongs
   in the checklist too.
 - When the bot joins a server it DMs "Welcome to ASOP!" to whoever added it
   (`services/welcomeService.ts`).

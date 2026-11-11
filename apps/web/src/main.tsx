@@ -33,6 +33,10 @@ const queryClient = new QueryClient({
   // A failed button or form shows an error notice, unless it shows its own
   // error (an onError handler, or meta.quietErrors). v1.12.0.
   mutationCache: new MutationCache({
+    // Saving a setting, creating an event or switching a module can finish the
+    // setup checklist, so it's checked again (v1.22.1). Only a mounted
+    // checklist refetches; others just count as stale.
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['setup'] }); },
     onError: (error, _vars, _ctx, mutation) => {
       if (mutation.options.onError || mutation.meta?.quietErrors) return;
       // Signed out (session expired): back to the login page, as for queries.
