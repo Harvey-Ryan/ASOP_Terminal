@@ -1296,3 +1296,107 @@ model AppDeployment {
 
   @@unique([version, commitSha])
 }
+
+// ── Admin panel and error monitoring (v1.13.0) ──────────────────────────────
+
+/// One error (or warning) from the API, the bot, the sc-data worker or a
+/// browser. Written in batches by the error recorders (packages/shared/src/
+/// errorLog.ts); kept 90 days. id is sequential, so the live feed and paging
+/// use it as a cursor.
+model ErrorEvent {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  /// api | bot | web | sc-data
+  source      String
+  /// error | warn
+  level       String
+  message     String
+  stack       String?
+  /// Same kind of error → same fingerprint (source + normalised message + first app frame)
+  fingerprint String
+  /// Short code shown to the user ("Ref K7QW3P"); one per API request / bot interaction
+  ref         String?
+  /// Discord server snowflake, when known
+  guildId     String?
+  /// Discord user snowflake, when known
+  userId      String?
+  /// What was going on: { method, route, status, command, url, userAgent, … } (JSON)
+  context     String   @default("{}")
+  /// ASOP version and commit that produced it
+  release     String   @default("")
+  /// Identical errors dropped by the rate limit just before this one
+  suppressed  Int      @default(0)
+
+  @@index([createdAt])
+  @@index([fingerprint, createdAt])
+  @@index([ref])
+  @@index([guildId, createdAt])
+  @@index([source, level, createdAt])
+}
+
+/// Triage state of one kind of error (a fingerprint). Resolved groups reopen
+/// when the error happens again after resolvedAt.
+model ErrorGroupState {
+  fingerprint String    @id
+  /// open | resolved | ignored
+  status      String    @default("open")
+  note        String    @default("")
+  resolvedAt  DateTime?
+  /// When the admin feed last alerted about this kind (rate limit)
+  alertedAt   DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+/// What happened around the platform: admin changes (audit log) and system
+/// events (servers joining or leaving). Feeds the admin panel and digest.
+model AdminLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  /// admin.settings | admin.group | admin.config | guild.joined | guild.left | …
+  kind      String
+  /// Discord id of the admin who did it (null for system events)
+  actorId   String?
+  actorName String?
+  /// Discord server snowflake, when it concerns one
+  guildId   String?
+  guildName String?
+  summary   String
+  /// Details, e.g. { changes: { field: [before, after] } } (JSON)
+  details   String   @default("{}")
+  /// Posted to the admin Discord channel
+  posted    Boolean  @default(false)
+
+  @@index([createdAt])
+  @@index([guildId, createdAt])
+  @@index([kind, createdAt])
+}
+
+/// Platform-wide admin settings (one row, id 1).
+model AdminConfig {
+  id               Int       @id @default(1)
+  /// Admin Discord feed: where alerts and the digest go
+  feedGuildId      String?
+  feedChannelId    String?
+  /// Post new kinds of errors as they happen (rate-limited)
+  alertsEnabled    Boolean   @default(true)
+  /// Post a daily summary
+  digestEnabled    Boolean   @default(true)
+  /// Local hour (0–23) of the daily digest, in digestTimezone
+  digestHour       Int       @default(8)
+  digestTimezone   String    @default("America/Chicago")
+  /// Bot-managed cursors
+  lastDigestDate   String?
+  alertCursor      Int       @default(0)
+  updatedAt        DateTime  @updatedAt
+}
+
+/// "I'm alive" from each long-running process, every minute.
+model ServiceHeartbeat {
+  /// api | bot
+  service   String   @id
+  startedAt DateTime
+  beatAt    DateTime
+  release   String   @default("")
+  /// { guilds, wsPing, memoryMb, … } (JSON)
+  details   String   @default("{}")
+}

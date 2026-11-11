@@ -10,6 +10,8 @@ import { handleAllyButton } from './services/allyNoticeService.js';
 import { handleShareButton } from './services/shareNoticeService.js';
 import { invalidateStatusTargets } from './services/statusService.js';
 import { startInternalServer } from './internal.js';
+import { botHeartbeat, captureBotConsole, botErrors, withInteraction, withRef } from './utils/errorLog.js';
+import { adminFeedTick } from './services/adminFeedService.js';
 import * as eventCommand from './commands/event.js';
 import * as loginCommand from './commands/login.js';
 import * as bidCommand from './commands/bid.js';
@@ -61,8 +63,20 @@ if (!apiUrl) {
   }
 }
 
+// Errors and warnings logged from here on are also stored for the admin panel (v1.13.0).
+captureBotConsole();
+client.on(Events.Error, (err) => console.error('[bot] Discord client error:', err));
+client.on(Events.ShardError, (err, shard) => console.error(`[bot] Discord connection error (shard ${shard}):`, err));
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
+  // Admin panel (v1.13.0): "bot is up" every minute with gateway numbers, and the admin Discord feed.
+  const startedAt = new Date();
+  const beat = () => botHeartbeat(startedAt, { guilds: client.guilds.cache.size, wsPingMs: client.ws.ping })
+    .catch((err) => console.warn('[bot] Heartbeat failed:', err));
+  void beat();
+  setInterval(beat, 60_000).unref();
+  setInterval(() => { void adminFeedTick(); }, 60_000).unref();
   await registerCommands(c.user.id);
   await syncAllGuilds();
   // Blueprints, materials and mission rewards for /blueprint and
@@ -96,6 +110,12 @@ client.on(Events.GuildCreate, async (guild) => {
   try {
     await upsertGuild(guild.id, guild.name, guild.icon);
     console.log(`[bot] Joined new guild: ${guild.name} (${guild.id}) — DB record created, ready to operate`);
+    await prisma.adminLog.create({ data: {
+      kind: 'guild.joined', guildId: guild.id, guildName: guild.name,
+      summary: `${guild.memberCount} members. Owner ${guild.ownerId}.`,
+      details: JSON.stringify({ memberCount: guild.memberCount, ownerId: guild.ownerId }),
+    } }).catch((err) => console.error('[bot] Admin log (joined) failed:', err));
+    void adminFeedTick();
     // Instant slash commands for the new server (only it is sent; v1.11.1).
     await registerCommands().catch((err) => console.error(`[bot] Registering commands for ${guild.id} failed:`, err));
   } catch (err) {
@@ -107,6 +127,12 @@ client.on(Events.GuildDelete, async (guild) => {
   await prisma.guild.deleteMany({ where: { guildId: guild.id } }).catch(() => null);
   invalidateStatusTargets(); // its settings (and status channel) went with it
   console.log(`[bot] Left guild: ${guild.name} (${guild.id})`);
+  // (discord.js reports outages as GuildUnavailable, not here.)
+  await prisma.adminLog.create({ data: {
+    kind: 'guild.left', guildId: guild.id, guildName: guild.name ?? null,
+    summary: 'The bot was removed, or the server was deleted. Its ASOP settings were deleted with it.',
+  } }).catch((err) => console.error('[bot] Admin log (left) failed:', err));
+  void adminFeedTick();
 });
 
 // ── Exchange member-active lifecycle ──────────────────────────────────────────
@@ -149,7 +175,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
 
 // ── Slash commands & autocomplete ─────────────────────────────────────────────
 
-client.on(Events.InteractionCreate, async (interaction) => {
+client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction, async () => {
   if (interaction.isChatInputCommand()) {
     const cmd = commands.get(interaction.commandName);
     if (!cmd) return;
@@ -157,7 +183,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await cmd.execute(interaction);
     } catch (err) {
       console.error('[bot] Command error:', err);
-      const payload = { content: '❌ An error occurred.', flags: MessageFlags.Ephemeral } as const;
+      const payload = { content: withRef('❌ An error occurred.'), flags: MessageFlags.Ephemeral } as const;
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(payload).catch(() => null);
       } else {
@@ -185,7 +211,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.customId.startsWith('ally:')) {
       await handleAllyButton(interaction).catch(async (err) => {
         console.error('[bot] Ally button error:', err);
-        if (interaction.deferred) await interaction.editReply({ content: 'Something went wrong. Try again, or answer on the Allies page.' }).catch(() => {});
+        if (interaction.deferred) await interaction.editReply({ content: withRef('Something went wrong. Try again, or answer on the Allies page.') }).catch(() => {});
       });
       return;
     }
@@ -194,7 +220,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.customId.startsWith('share:')) {
       await handleShareButton(interaction).catch(async (err) => {
         console.error('[bot] Share button error:', err);
-        if (interaction.deferred) await interaction.editReply({ content: 'Something went wrong. Try again, or answer on the website.' }).catch(() => {});
+        if (interaction.deferred) await interaction.editReply({ content: withRef('Something went wrong. Try again, or answer on the website.') }).catch(() => {});
       });
       return;
     }
@@ -354,7 +380,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       } catch (err) {
         console.error('[bot] Loot prompt button error:', err);
-        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
       }
       return;
     }
@@ -402,7 +428,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       } catch (err) {
         console.error('[bot] bracket_ready error:', err);
-        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
       }
       return;
     }
@@ -447,7 +473,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       } catch (err) {
         console.error('[bot] bracket_checkin error:', err);
-        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
       }
       return;
     }
@@ -504,7 +530,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.editReply({ content: `✅ You are registered for **${tournament.name}**!` });
       } catch (err) {
         console.error('[bot] bracket_register error:', err);
-        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
       }
       return;
     }
@@ -540,7 +566,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.editReply({ content: `✅ You have left **${tournament.name}**. Your spot is now available again.` });
       } catch (err) {
         console.error('[bot] bracket_leave error:', err);
-        await interaction.editReply({ content: '❌ Something went wrong.' }).catch(() => null);
+        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
       }
       return;
     }
@@ -587,13 +613,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       } catch (err) {
         console.error('[bot] bracket_autoforfeit error:', err);
-        await interaction.editReply({ content: '❌ Something went wrong recording the forfeit.' }).catch(() => null);
+        await interaction.editReply({ content: withRef('❌ Something went wrong recording the forfeit.') }).catch(() => null);
       }
       return;
     }
 
   }
-});
+}));
 
 // ── !asop prefix command ──────────────────────────────────────────────────────
 
@@ -698,6 +724,7 @@ process.on('unhandledRejection', (err) => console.error('[bot] Unhandled rejecti
 
 process.on('SIGINT', async () => {
   console.log('[bot] Shutting down…');
+  await botErrors.flush();
   await prisma.$disconnect();
   client.destroy();
   process.exit(0);

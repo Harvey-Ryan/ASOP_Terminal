@@ -40,6 +40,8 @@ export function useAuth() {
     guilds:          data?.guilds ?? [],
     isLoading,
     isAuthenticated: data !== null && data !== undefined && !!data.user,
+    /** May open the admin panel (v1.13.0) */
+    isPlatformAdmin: !!data?.isPlatformAdmin,
     logout,
   };
 }

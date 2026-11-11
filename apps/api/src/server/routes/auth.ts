@@ -2,6 +2,7 @@ import { getGuildMember } from '../../lib/discordRest.js';
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
+import { isPlatformAdminId } from '../../lib/platformAdmin.js';
 import { buildOAuthUrl, exchangeCode, fetchDiscordUser, fetchDiscordGuilds } from '../../lib/discord-oauth.js';
 import { getValidAccessToken } from '../../lib/token-helpers.js';
 import { requireAuth } from '../middleware/requireAuth.js';
@@ -228,7 +229,7 @@ authRouter.get('/me', requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      data: { user, guilds } satisfies MeResponse,
+      data: { user, guilds, isPlatformAdmin: isPlatformAdminId(dbUser.discordId) } satisfies MeResponse,
     } satisfies ApiResponse<MeResponse>);
   } catch (err) {
     console.error('[auth/me]', err);

@@ -8,6 +8,7 @@ import { isAllyNoticePayload, isShareNoticePayload } from '@dem/shared';
 import { handleAllyNotice } from './services/allyNoticeService.js';
 import { handleShareNotice } from './services/shareNoticeService.js';
 import { invalidateStatusTargets, refreshStatusEmbeds } from './services/statusService.js';
+import { adminFeedTick } from './services/adminFeedService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const TOO_BIG = Symbol('too big');
@@ -44,6 +45,13 @@ export function startInternalServer() {
       await handleAllyNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleAllyNotice failed for ${payload.event} ${payload.linkId}:`, err),
       );
+      return;
+    }
+
+    // The admin panel saved feed settings or asked for a test message (v1.13.0).
+    if (req.url === '/trigger/admin-feed') {
+      res.writeHead(202).end();
+      await adminFeedTick();
       return;
     }
 

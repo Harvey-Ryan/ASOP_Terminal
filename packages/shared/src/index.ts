@@ -128,6 +128,8 @@ export interface ManagedGuild {
 export interface MeResponse {
   user: DiscordUser;
   guilds: ManagedGuild[];
+  /** May open the admin panel (/dashboard/admin), v1.13.0 */
+  isPlatformAdmin?: boolean;
 }
 
 // ── Guild membership ──────────────────────────────────────────────────────────
@@ -967,6 +969,8 @@ export * from './recurrence.js';
 export * from './catalog.js';
 export * from './allies.js';
 export * from './crafting.js';
+export * from './errorLog.js';
+export * from './admin.js';
 
 // ── Return after login (v1.12.0) ─────────────────────────────────────────────
 

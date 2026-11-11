@@ -23,7 +23,7 @@ export interface GameDataStatusResponse extends GameDataStatus {
   canRequestSync: boolean;
 }
 
-async function readStatus(): Promise<GameDataStatus> {
+export async function readGameDataStatus(): Promise<GameDataStatus> {
   try {
     const rows = await prisma.$queryRawUnsafe<{ status: unknown }[]>(GAME_DATA_STATUS_SQL);
     return parseGameDataStatus(rows[0]?.status);
@@ -64,7 +64,7 @@ gameDataRouter.get('/game-data/crafting', requireAuth, async (req, res) => {
 
 gameDataRouter.get('/game-data/status', requireAuth, async (req, res) => {
   try {
-    const [status, admin] = await Promise.all([readStatus(), getPlatformAdmin(req.session.userId)]);
+    const [status, admin] = await Promise.all([readGameDataStatus(), getPlatformAdmin(req.session.userId)]);
     res.json({ success: true, data: { ...status, canRequestSync: !!admin } } satisfies ApiResponse<GameDataStatusResponse>);
   } catch (err) {
     console.error('[game-data/status]', err);
@@ -88,7 +88,7 @@ gameDataRouter.post('/game-data/sync', requireAuth, async (req, res) => {
        SELECT $1::text WHERE NOT EXISTS (SELECT 1 FROM scdata_raw.sync_request WHERE handled_at IS NULL)`,
       admin.username,
     );
-    const status = await readStatus();
+    const status = await readGameDataStatus();
     res.status(202).json({ success: true, data: { ...status, canRequestSync: true } } satisfies ApiResponse<GameDataStatusResponse>);
   } catch (err) {
     if (isGameDataMissingError(err)) {

@@ -5,6 +5,10 @@ import { runUexSync } from './lib/uexSync.js';
 import { getCraftingPayload } from './lib/craftingData.js';
 import { linkInventoryOnStartup } from './lib/catalog.js';
 import { prisma } from './lib/prisma.js';
+import { apiHeartbeat, captureApiConsole, flushErrors, pruneOldErrors } from './lib/errorLog.js';
+
+// Errors and warnings logged from here on are also stored for the admin panel (v1.13.0).
+captureApiConsole();
 
 const isProd = process.env.NODE_ENV === 'production';
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -35,6 +39,10 @@ if (isProd) {
 // logged instead of stopping the API and the bot with it (v1.11.3). Request
 // errors are handled in server/app.ts.
 process.on('unhandledRejection', (err) => console.error('[API] Unhandled rejection:', err));
+// Errors waiting to be written are saved before a deploy stops the process.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => { void flushErrors().finally(() => process.exit(0)); });
+}
 
 const app = createServer();
 
@@ -77,5 +85,12 @@ app.listen(PORT, async () => {
   void getCraftingPayload().catch((err) => console.error('[crafting] Warm-up failed (built on first request instead):', err));
 
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
+
+  // Admin panel (v1.13.0): "API is up" every minute, and old errors pruned daily (04:15 UTC).
+  const startedAt = new Date();
+  const beat = () => apiHeartbeat(startedAt).catch((err) => console.warn('[API] Heartbeat failed:', err));
+  void beat();
+  setInterval(beat, 60_000).unref();
+  cron.schedule('15 4 * * *', () => { pruneOldErrors().catch((err) => console.error('[errorLog] Pruning failed:', err)); });
 
 });

@@ -6,6 +6,11 @@ const prisma = new PrismaClient();
 // Wipe all data before each test in dependency order (children before parents)
 beforeEach(async () => {
   await prisma.$transaction([
+    prisma.errorEvent.deleteMany(),
+    prisma.errorGroupState.deleteMany(),
+    prisma.adminLog.deleteMany(),
+    prisma.adminConfig.deleteMany(),
+    prisma.serviceHeartbeat.deleteMany(),
     prisma.dkpTransaction.deleteMany(),
     prisma.dkpBalance.deleteMany(),
     prisma.lootAssignment.deleteMany(),
