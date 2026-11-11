@@ -201,6 +201,7 @@ export function ActivitySettingsPage() {
   }
 
   const rcMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: (data: Partial<Omit<RcConfig, 'guild_id'>>) =>
       roleCallApi.updateConfig(guildId!, data),
     onSuccess: (data) => {

@@ -199,6 +199,7 @@ function NewSessionDialog({
   const STANDALONE_METHODS: LootMethod[] = ['RANDOM_ROLL', 'SNAKE_DRAFT', 'COMMODITY_DRAFT'];
 
   const createMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.createStandaloneSession(guildId, { name: name.trim(), method, ...(method === 'SNAKE_DRAFT' ? { totalRounds } : {}) }),
     onSuccess: (session) => {
       setName('');

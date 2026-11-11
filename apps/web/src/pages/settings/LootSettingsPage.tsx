@@ -67,6 +67,7 @@ export function LootSettingsPage() {
   }, [saved]);
 
   const mutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: (data: Partial<GuildSettingsData>) => settingsApi.updateSettings(guildId!, data),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);

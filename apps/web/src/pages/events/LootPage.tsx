@@ -15,6 +15,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto } from '@dem/shared';
+import { showError } from '@/components/ErrorNotices';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -80,11 +81,13 @@ function AuctionPanel({
   const [bidInput, setBidInput] = useState('');
 
   const startMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.startAuction(guildId, eventId, item.id, { durationSecs }),
     onSuccess: onAuctionChange,
   });
 
   const bidMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.placeBid(guildId, eventId, item.id, { maxBid: Number(bidInput) }),
     onSuccess: () => { setBidInput(''); onAuctionChange(); },
   });
@@ -548,7 +551,7 @@ function QueueCard({
   const queueQuery = useQuery({
     queryKey: ['loot-queue', guildId, eventId],
     queryFn: () => lootApi.getQueue(guildId, eventId),
-    refetchInterval: 4000,
+    refetchInterval: session.status === 'OPEN' ? 4000 : false,
   });
 
   // Local item-id order drives the drag-and-drop UI optimistically
@@ -742,7 +745,8 @@ export function LootPage() {
     queryKey: ['loot', guildId, eventId],
     queryFn: () => lootApi.getSession(guildId!, eventId!),
     enabled: !!guildId && !!eventId,
-    refetchInterval: 4000,
+    // Every 4 s while the loot is live; once completed only every minute, in case it's re-opened (v1.12.0).
+    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' ? 60_000 : 4000),
   });
 
   const eventQuery = useQuery({
@@ -782,7 +786,7 @@ export function LootPage() {
     queryKey: queueKey,
     queryFn: () => lootApi.getQueue(guildId!, eventId!),
     enabled: !!guildId && !!eventId && inDraft,
-    refetchInterval: 4000,
+    refetchInterval: sessionForQueue?.status === 'OPEN' ? 4000 : false,
   });
   const queuedIds = new Set((myQueueQuery.data ?? []).map((q) => q.itemId));
   const queueToggleMutation = useMutation({
@@ -850,6 +854,7 @@ export function LootPage() {
   });
 
   const commodityRollMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.commodityRoll(guildId!, eventId!),
     onSuccess: invalidate,
   });
@@ -876,13 +881,13 @@ export function LootPage() {
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
     onSuccess: () => { setSkipConfirm(false); invalidate(); },
-    onError: () => setSkipConfirm(false),
+    onError: (err) => { setSkipConfirm(false); showError(err.message); },
   });
 
   const startDraftMutation = useMutation({
     mutationFn: () => lootApi.startDraft(guildId!, eventId!),
     onSuccess: () => { setStartConfirm(false); invalidate(); },
-    onError: () => setStartConfirm(false),
+    onError: (err) => { setStartConfirm(false); showError(err.message); },
   });
 
   const restartDraftMutation = useMutation({
@@ -892,7 +897,7 @@ export function LootPage() {
       setPreRestartMembers(new Set(session!.draftOrder));
       invalidate();
     },
-    onError: () => setRestartConfirm(false),
+    onError: (err) => { setRestartConfirm(false); showError(err.message); },
   });
 
   async function handleShuffleAndStart() {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2 } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
@@ -50,8 +50,10 @@ const STATUS_BADGE: Record<string, string> = {
 type Tab = 'upcoming' | 'completed' | 'pending';
 type View = 'table' | 'create' | 'detail' | 'edit';
 
-const rowCls = 'flex items-start gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
-const labelCls = 'w-36 shrink-0 font-condensed text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 pt-1';
+// The Event Manager's chunky gold scrollbar (Chrome/Edge/Safari), shared by its panels.
+const panelScrollCls = '[&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]';
+const rowCls = 'flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
+const labelCls = 'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-1';
 const inputCls = 'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 const timeInputCls = 'w-36 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 const btnCls = 'gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground';
@@ -648,6 +650,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               const members = ev.rsvps?.filter((r) => r.role === roleKey) ?? [];
               const isFull = members.length >= role.count;
               const isMyRole = userRsvp?.role === roleKey;
+              const otherServer = !!role.guildId && role.guildId !== guildId; // a role for another server's members
               return (
                 <div key={roleKey}>
                   <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
@@ -665,14 +668,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                       {isMyRole ? (
                         <Button size="sm" disabled={isMutating}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => removeRsvpMutation.mutate()}>
+                          onClick={() => rsvpMutation.mutate(null)}>
                           Unassign
                         </Button>
                       ) : (
-                        <Button size="sm" disabled={isMutating || (isFull && !isMyRole)}
+                        <Button size="sm" disabled={isMutating || (isFull && !isMyRole) || otherServer}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
                           onClick={() => rsvpMutation.mutate(roleKey)}>
-                          {isFull ? 'Full' : userRsvp ? 'Switch Here' : 'Sign Up'}
+                          {otherServer ? 'Other server' : isFull ? 'Full' : userRsvp ? 'Switch Here' : 'Sign Up'}
                         </Button>
                       )}
                     </div>
@@ -1338,9 +1341,13 @@ export function ServerPage() {
     select: (data) => data.find((a) => a.status === 'OPEN'),
   });
 
-  const completedQuery = useQuery({
+  // Past events load 50 at a time; Show more fetches the next 50 (v1.12.0).
+  const completedQuery = useInfiniteQuery({
     queryKey: ['events', guildId, 'completed'],
-    queryFn: () => eventsApi.listCompleted(guildId!),
+    queryFn: ({ pageParam }) => eventsApi.listCompleted(guildId!, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.length === eventsApi.pageSize ? last[last.length - 1]!.id : undefined),
+    select: (d) => d.pages.flat(),
     enabled: !!guildId && tab === 'completed',
     retry: 1,
   });
@@ -1409,9 +1416,9 @@ export function ServerPage() {
           <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2 shrink-0" />
 
           {/* Header bar */}
-          <div className="shrink-0 flex items-center justify-between bg-card px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-3">
-              <span className="font-condensed text-2xl font-bold uppercase tracking-widest text-white px-6">Event Manager</span>
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-3 border-b border-border">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
+              <span className="font-condensed text-xl sm:text-2xl font-bold uppercase tracking-widest text-white sm:px-6">Event Manager</span>
               {view === 'table' && (
                 <div className="flex gap-1">
                   {(['upcoming', 'completed'] as Tab[]).map((t) => (
@@ -1448,7 +1455,7 @@ export function ServerPage() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2" title="Adjust gold shade">
+              <div className="hidden sm:flex items-center gap-2" title="Adjust gold shade">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hidden sm:block">Shade</span>
                 <input
                   type="range"
@@ -1482,7 +1489,7 @@ export function ServerPage() {
 
           {/* Create form */}
           {view === 'create' && (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+            <div className={`flex-1 overflow-y-auto ${panelScrollCls}`}>
               <EventCreateForm
                 guildId={guildId!}
                 onSuccess={() => {
@@ -1501,7 +1508,7 @@ export function ServerPage() {
 
           {/* Detail view */}
           {view === 'detail' && detailEvent && (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+            <div className={`flex-1 overflow-y-auto ${panelScrollCls}`}>
               <EventDetailView
                 event={detailEvent}
                 guildId={guildId!}
@@ -1515,7 +1522,7 @@ export function ServerPage() {
 
           {/* Edit view */}
           {view === 'edit' && detailEvent && (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+            <div className={`flex-1 overflow-y-auto ${panelScrollCls}`}>
               <EventEditView
                 event={detailEvent}
                 guildId={guildId!}
@@ -1550,7 +1557,7 @@ export function ServerPage() {
                     <Skeleton key={i} className="h-14 rounded-none border-b border-border last:border-b-0" />
                   ))}
                 </div>
-              ) : !active.data || active.data.length === 0 ? (
+              ) : active.isError && !active.data?.length ? null : !active.data || active.data.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center bg-primary">
                   <CalendarDays className="h-7 w-7 text-primary-foreground mb-2" />
                   <p className="text-sm text-primary-foreground">
@@ -1564,7 +1571,7 @@ export function ServerPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto bg-primary [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]">
+                <div className={`flex-1 overflow-y-auto bg-primary ${panelScrollCls}`}>
                   {tab === 'pending'
                     ? active.data.map((e) => (
                         <PendingShareCard
@@ -1578,6 +1585,14 @@ export function ServerPage() {
                         <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} onClick={() => openDetail(e)} />
                       ))
                   }
+                  {tab === 'completed' && completedQuery.hasNextPage && (
+                    <div className="flex justify-center p-4">
+                      <Button size="sm" className="bg-background text-primary hover:bg-background/80 hover:text-primary"
+                        disabled={completedQuery.isFetchingNextPage} onClick={() => completedQuery.fetchNextPage()}>
+                        {completedQuery.isFetchingNextPage ? 'Loading…' : 'Show more'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

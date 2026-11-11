@@ -11,7 +11,7 @@ import { getGuildMember } from '../../lib/discordRest.js';
 import { createPlannedShares, notAllyError, notifyShare, planEventShares } from '../../lib/allyShares.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
 import type { ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
-import { RECUR_TYPES, isValidTimeZone, describeRecurrence } from '@dem/shared';
+import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES } from '@dem/shared';
 
 
 /** Discord id of the signed-in user (who answered, for the Discord notices). */
@@ -48,9 +48,13 @@ async function guildTimezone(discordGuildId: string): Promise<string> {
 
 // ── GET /api/guilds/:guildId/events ───────────────────────────────────────────
 
+/** Events per page. A full page means there may be more (?after=). */
+export const EVENTS_PAGE = 50;
+
 eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const completed = req.query['completed'] === 'true';
+  const after = typeof req.query['after'] === 'string' ? req.query['after'] : null;
 
   try {
     if (!(await assertEventViewer(req, guildId))) {
@@ -77,8 +81,11 @@ eventsRouter.get('/:guildId/events', requireAuth, async (req, res) => {
           { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } },
         ],
       },
-      orderBy: { startTime: completed ? 'desc' : 'asc' },
-      take: 50,
+      // id breaks ties, so paging past events with the same start never skips one.
+      orderBy: [{ startTime: completed ? 'desc' : 'asc' }, { id: 'asc' }],
+      take: EVENTS_PAGE,
+      // ?after=<id of the last event shown>: the next page (Completed's Show more, v1.12.0).
+      ...(completed && after ? { cursor: { id: after }, skip: 1 } : {}),
       include: {
         rsvps: true,
         guildShares: { include: { guild: { select: { id: true, guildId: true, name: true } } } },
@@ -379,14 +386,6 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
   const body = req.body as { role?: string | null };
   const role = body.role ?? null;
 
-  if (role !== null) {
-    const roles = JSON.parse(event.roles) as EventRole[];
-    if (!roles.some((r) => r.id === role || r.name === role)) {
-      res.status(400).json({ success: false, error: 'Invalid role' } satisfies ApiResponse);
-      return;
-    }
-  }
-
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
   // Server nickname when Discord can give it without waiting (cached, lib/discordRest.ts).
@@ -402,11 +401,26 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     select: { id: true },
   });
 
-  await prisma.eventRsvp.upsert({
-    where: { eventId_userId: { eventId, userId: dbUser.discordId } },
-    create: { eventId, userId: dbUser.discordId, username: displayName, role },
-    update: { role, username: displayName },
+  // Role limits are checked while holding the event row, so two people (here or
+  // on the Discord buttons, which do the same) can't both take the last slot (v1.12.0).
+  const problem = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+    if (role !== null) {
+      const rsvps = await tx.eventRsvp.findMany({ where: { eventId }, select: { userId: true, role: true } });
+      const why = roleSignupProblem(JSON.parse(event.roles) as EventRole[], rsvps, role, dbUser.discordId, guildId);
+      if (why) return why;
+    }
+    await tx.eventRsvp.upsert({
+      where: { eventId_userId: { eventId, userId: dbUser.discordId } },
+      create: { eventId, userId: dbUser.discordId, username: displayName, role },
+      update: { role, username: displayName },
+    });
+    return null;
   });
+  if (problem) {
+    res.status(problem === 'full' ? 409 : 400).json({ success: false, error: ROLE_SIGNUP_MESSAGES[problem] } satisfies ApiResponse);
+    return;
+  }
 
   // New join → add to thread + post "👋 joined" embed
   if (!existingRsvp) {

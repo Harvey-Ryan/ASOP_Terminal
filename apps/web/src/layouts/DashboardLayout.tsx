@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { pageTitle } from '@/lib/pageTitle';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, BarChart2, Swords, Globe2, Handshake } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -22,6 +23,14 @@ import type { ManagedGuild, DiscordUser } from '@dem/shared';
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
 
 export type DashboardOutletContext = { displayName: string };
+
+function PageLoading() {
+  return (
+    <div className="flex h-full items-center justify-center" role="status" aria-label="Loading">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+    </div>
+  );
+}
 
 // ── Profile dropdown ──────────────────────────────────────────────────────────
 
@@ -127,6 +136,9 @@ export function DashboardLayout() {
   const serverMatch = useMatch({ path: '/dashboard/servers/:guildId', end: false });
   const activeGuildId = serverMatch?.params.guildId;
   const activeGuild = guilds.find((g) => g.id === activeGuildId);
+
+  // Tab title per page (lib/pageTitle.ts).
+  useEffect(() => { document.title = pageTitle(location.pathname, activeGuild?.name); }, [location.pathname, activeGuild?.name]);
   const showAdminNav = !!activeGuild && canManageGuild(activeGuild);
   const dkpLabel = useDkpLabel(activeGuildId);
 
@@ -714,7 +726,10 @@ export function DashboardLayout() {
         {/* ── Main area ── */}
         <main className="flex-1 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
-            <Outlet context={{ displayName } satisfies DashboardOutletContext} />
+            {/* Pages load when first opened (App.tsx); the nav stays put meanwhile. */}
+            <Suspense fallback={<PageLoading />}>
+              <Outlet context={{ displayName } satisfies DashboardOutletContext} />
+            </Suspense>
           </div>
         </main>
       </div>

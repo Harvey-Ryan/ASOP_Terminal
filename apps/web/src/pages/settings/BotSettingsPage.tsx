@@ -41,11 +41,13 @@ function ImageBucket({ guildId }: { guildId: string }) {
   });
 
   const deleteMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: (imageId: string) => imagesApi.delete(guildId, imageId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['images', guildId] }),
   });
 
   const uploadMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: (file: File) => imagesApi.upload(guildId, file),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['images', guildId] }),
   });
@@ -258,6 +260,7 @@ export function BotSettingsPage() {
   const channels = channelData?.channels ?? [];
 
   const registerMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () => settingsApi.registerCommands(guildId!),
   });
 
@@ -276,6 +279,7 @@ export function BotSettingsPage() {
   });
 
   const mutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
       settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId } as Partial<GuildSettingsData>),
     onSuccess: (data) => {

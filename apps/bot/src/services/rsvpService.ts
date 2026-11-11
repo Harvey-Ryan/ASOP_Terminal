@@ -2,7 +2,7 @@ import { EmbedBuilder } from 'discord.js';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { scheduleRosterRefresh } from './eventService.js';
-import type { EventRole } from '@dem/shared';
+import { roleSignupProblem, type EventRole } from '@dem/shared';
 
 /** Roster messages refresh shortly, batched per event (eventService.scheduleRosterRefresh); callers don't wait. */
 function refreshRosterSoon(eventId: string): void {
@@ -10,21 +10,37 @@ function refreshRosterSoon(eventId: string): void {
 }
 
 /**
- * Upsert a roster entry. role=null means Unassigned.
- * Always updates the roster embed after changing.
+ * Upsert a roster entry. role=null means Unassigned. The roster embed refreshes
+ * shortly after a change.
+ *
+ * A role is checked while holding the event row, as the website does, so two
+ * people can't both take the last slot (the buttons stay on the embed until it
+ * refreshes). Returns why the role can't be taken, or null when it was (v1.12.0).
  */
 export async function setRosterRole(
   eventId: string,
   userId: string,
   username: string,
   role: string | null,
-) {
-  await prisma.eventRsvp.upsert({
-    where: { eventId_userId: { eventId, userId } },
-    create: { eventId, userId, username, role },
-    update: { role, username },
+  viewingGuildId: string,
+): Promise<ReturnType<typeof roleSignupProblem>> {
+  const problem = await prisma.$transaction(async (tx) => {
+    const [event] = await tx.$queryRaw<{ roles: string }[]>`SELECT roles FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+    if (role !== null) {
+      const rsvps = await tx.eventRsvp.findMany({ where: { eventId }, select: { userId: true, role: true } });
+      const why = roleSignupProblem(JSON.parse(event?.roles ?? '[]') as EventRole[], rsvps, role, userId, viewingGuildId);
+      if (why) return why;
+    }
+    await tx.eventRsvp.upsert({
+      where: { eventId_userId: { eventId, userId } },
+      create: { eventId, userId, username, role },
+      update: { role, username },
+    });
+    return null;
   });
+  // Also when refused: the refresh drops a full role's button left on a stale embed.
   refreshRosterSoon(eventId);
+  return problem;
 }
 
 /**

@@ -30,6 +30,7 @@ export function GameDataPipelineCard() {
     refetchInterval: (q) => (q.state.data?.running || q.state.data?.pendingRequest ? 10_000 : 60_000),
   });
   const sync = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: gameDataApi.requestSync,
     onSuccess: (data) => queryClient.setQueryData(['game-data-status'], data),
   });

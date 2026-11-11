@@ -78,6 +78,7 @@ function AuctionCard({
   }, [auction.id, auction.status, auction.secondsRemaining]);
 
   const bidMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
       auctionsApi.placeBid(guildId, auction.id, { maxBid: Number(bidInput) }),
     onSuccess: () => {
@@ -291,6 +292,7 @@ export function AuctionsPage() {
   };
 
   const createMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
       auctionsApi.create(guildId!, {
         title: title.trim(),

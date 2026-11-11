@@ -7,6 +7,8 @@ declare module 'express-session' {
     userId?: string;
     /** CSRF state token stored during /auth/login, verified in /auth/callback */
     oauthState?: string;
+    /** Dashboard page to return to after Discord login (safeReturnPath), v1.12.0 */
+    returnTo?: string;
     /** CSRF state token for the FleetYards OAuth flow */
     fyOAuthState?: string;
     /** PKCE code_verifier generated at the start of the FleetYards OAuth flow */

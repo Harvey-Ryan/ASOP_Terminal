@@ -38,6 +38,7 @@ export function PermissionsPage() {
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
+    meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
       settingsApi.updateSettings(guildId!, { eventCreatorRoles: [...selected] }),
     onSuccess: () => {
