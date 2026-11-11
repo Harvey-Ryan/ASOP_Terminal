@@ -68,3 +68,17 @@ test('who can comment on after-action notes', async () => {
   assert.equal(canComment({ ...base, status: 'PENDING' }, 'a'), false);
   assert.deepEqual(recordedAttendees({ status: 'ENDED', confirmedAttendees: null, vcAttendees: '["x"]' }), ['x']);
 });
+
+test('date range: parsed from the query, checked, and turned into a filter', async () => {
+  const { parseHistoryRange, rangeWhere } = await import('../dist/index.js');
+  const from = '2026-01-01T06:00:00.000Z', to = '2026-02-01T05:59:59.999Z';
+  const ok = parseHistoryRange(from, to);
+  assert.deepEqual(ok, { range: { from: new Date(from), to: new Date(to) } });
+  assert.deepEqual(rangeWhere(ok.range), { gte: new Date(from), lte: new Date(to) });
+  assert.deepEqual(parseHistoryRange(undefined, ''), { range: {} });
+  assert.equal(rangeWhere({}), undefined);
+  assert.deepEqual(rangeWhere(parseHistoryRange(from, undefined).range), { gte: new Date(from) });
+  assert.match(parseHistoryRange('soon', undefined).error, /from must be a date/);
+  assert.match(parseHistoryRange(['x'], undefined).error, /from must be a date/);
+  assert.match(parseHistoryRange(to, from).error, /after its end/);
+});

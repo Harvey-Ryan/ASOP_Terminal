@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, History, Users } from 'lucide-react';
 import type { HistoryOutcome, MemberSummaryDto } from '@dem/shared';
 import { membersApi } from '@/api/members';
+import { DateRangeFilter, useDateRange } from '@/components/DateRangeFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
@@ -35,7 +36,8 @@ type Sort = 'name' | 'attended' | 'rate' | 'last';
 
 export function MembersPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const q = useQuery({ queryKey: ['members', guildId], queryFn: () => membersApi.list(guildId!), retry: false });
+  const dr = useDateRange();
+  const q = useQuery({ queryKey: ['members', guildId, 'list', dr.range], queryFn: () => membersApi.list(guildId!, dr.range), retry: false, placeholderData: (prev) => prev });
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<Sort>('attended');
 
@@ -61,6 +63,7 @@ export function MembersPage() {
       </div>
       {q.isError ? <Failed error={q.error} /> : !q.data ? <Skeleton className="h-64" /> : (
         <>
+          <DateRangeFilter value={dr} />
           <div className="flex flex-wrap items-center gap-2">
             <input aria-label="Find a member" placeholder="Find a member" value={search} onChange={(e) => setSearch(e.target.value)}
               className="h-9 min-w-[12rem] flex-1 rounded-md border border-input bg-background px-3 text-sm" />
@@ -71,16 +74,16 @@ export function MembersPage() {
               <option value="last">Seen most recently</option>
               <option value="name">Name</option>
             </select>
-            <span className="text-sm text-muted-foreground">{q.data.length} members</span>
+            <span className="text-sm text-muted-foreground">{q.data.length} member{q.data.length === 1 ? '' : 's'}</span>
           </div>
           <Card>
             <CardContent className="p-0">
               <div className="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
                 <span>Member</span><span>Attended</span><span title="Of the events they signed up for">Showed up</span><span>Last seen</span>
               </div>
-              {rows.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">{q.data.length ? 'No member matches.' : 'Nobody has signed up for an event yet.'}</p>}
+              {rows.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">{q.data.length ? 'No member matches.' : dr.active ? 'Nobody signed up for or attended an event in this range.' : 'Nobody has signed up for an event yet.'}</p>}
               {rows.map((m) => (
-                <Link key={m.userId} to={m.userId}
+                <Link key={m.userId} to={`${m.userId}${dr.search}`}
                   className="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] items-center gap-2 border-b px-4 py-2.5 text-sm last:border-0 hover:bg-accent">
                   <span className="truncate font-medium">{m.name}</span>
                   <span>{m.attended}</span>
@@ -121,12 +124,13 @@ export function MemberHistoryPage() {
   const { guildId, userId } = useParams<{ guildId: string; userId: string }>();
   const dkpLabel = useDkpLabel(guildId);
   const own = userId === 'me';
-  const q = useQuery({ queryKey: ['members', guildId, userId], queryFn: () => membersApi.get(guildId!, userId!), retry: false });
+  const dr = useDateRange();
+  const q = useQuery({ queryKey: ['members', guildId, userId, dr.range], queryFn: () => membersApi.get(guildId!, userId!, dr.range), retry: false, placeholderData: (prev) => prev });
   const h = q.data;
 
   return (
     <div className="max-w-4xl space-y-4">
-      {!own && <Link to=".." relative="path" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" aria-hidden />Members</Link>}
+      {!own && <Link to={`..${dr.search}`} relative="path" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" aria-hidden />Members</Link>}
       {q.isError ? <Failed error={q.error} /> : !h ? <Skeleton className="h-96" /> : (
         <>
           <div>
@@ -136,17 +140,19 @@ export function MemberHistoryPage() {
             </p>
           </div>
 
+          <DateRangeFilter value={dr} />
+
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat value={h.stats.attended} label="Attended" />
             <Stat value={rate(h.stats.showRate)} label="Showed up when signed up" />
             <Stat value={h.stats.noShows} label="No-shows" />
-            {h.dkp ? <Stat value={h.dkp.balance} label={dkpLabel} /> : <Stat value={h.loot.total} label="Loot items" />}
+            {h.dkp ? <Stat value={h.dkp.balance} label={dr.active ? `${dkpLabel} now` : dkpLabel} /> : <Stat value={h.loot.total} label="Loot items" />}
           </div>
 
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Events</CardTitle></CardHeader>
             <CardContent className="pt-0">
-              {h.events.length === 0 ? <p className="text-sm text-muted-foreground">No events yet.</p> : (
+              {h.events.length === 0 ? <p className="text-sm text-muted-foreground">{dr.active ? 'No events in this range.' : 'No events yet.'}</p> : (
                 <ul>
                   {h.events.map((e) => (
                     <li key={e.eventId} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 border-t py-2 text-sm first:border-t-0">

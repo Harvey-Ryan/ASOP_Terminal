@@ -86,3 +86,36 @@ describe('member history', () => {
     await member.agent.get(`/api/guilds/${g.guildId}/members`).expect(403);
   });
 });
+
+describe('date range (v1.23.0)', () => {
+  it('only counts events, loot, DKP changes and tournaments inside the range', async () => {
+    const { g, officer, m } = await seed();
+    const base = `/api/guilds/${g.guildId}/members`;
+    // Op two (Oct 8) only: Kade signed up without a role and wasn't in voice = a no-show.
+    const q = `from=${encodeURIComponent('2026-10-05T00:00:00.000Z')}&to=${encodeURIComponent('2026-10-10T23:59:59.999Z')}`;
+    const list = (await officer.agent.get(`${base}?${q}`).expect(200)).body.data as { userId: string; attended: number; noShows: number }[];
+    expect(list.find((x) => x.userId === m)).toMatchObject({ attended: 0, noShows: 1 });
+    expect(list.find((x) => x.userId === 'walkin')).toBeUndefined(); // only at Op one
+    const h = (await officer.agent.get(`${base}/${m}?${q}`).expect(200)).body.data;
+    expect(h.events.map((e: { name: string }) => e.name)).toEqual(['Op two']);
+    expect(h.loot.total).toBe(0);
+    expect(h.dkp.balance).toBe(340); // today's balance either way
+    expect(h.tournaments).toEqual([]);
+
+    // Open-ended from a date
+    const since = (await officer.agent.get(`${base}/${m}?from=${encodeURIComponent('2026-10-14T00:00:00.000Z')}`).expect(200)).body.data;
+    expect(since.events.map((e: { name: string }) => e.name)).toEqual(['Op three']);
+
+    // No range: everything, as before
+    const all = (await officer.agent.get(`${base}/${m}`).expect(200)).body.data;
+    expect(all.events).toHaveLength(3);
+    expect(all.loot.total).toBe(1);
+  });
+
+  it('a bad or backwards range is a 400', async () => {
+    const { g, officer } = await seed();
+    await officer.agent.get(`/api/guilds/${g.guildId}/members?from=yesterday`).expect(400);
+    await officer.agent.get(`/api/guilds/${g.guildId}/members/me?from=2026-10-10T00:00:00Z&to=2026-10-01T00:00:00Z`).expect(400);
+  });
+});
+
