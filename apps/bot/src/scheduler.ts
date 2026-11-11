@@ -1,4 +1,5 @@
 import { expireJobs } from './services/jobService.js';
+import { checkLootThreadHolds } from './services/lootService.js';
 import cron from 'node-cron';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { prisma } from './db.js';
@@ -62,6 +63,7 @@ const LIFECYCLE_CHECKS: [string, () => Promise<void>][] = [
   ['checkAutoComplete',              checkAutoComplete],
   ['closeExpiredAuctions',           closeExpiredAuctions],
   ['expireJobs',                     expireJobs],
+  ['checkLootThreadHolds',           checkLootThreadHolds],
   ['closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions],
   ['checkMatchCheckIn',              checkMatchCheckIn],
   ['checkMatchNoShow',               checkMatchNoShow],
@@ -525,7 +527,9 @@ async function checkAutoComplete() {
         if (thread?.isThread()) {
           if (thread.archived) await thread.setArchived(false).catch(() => null);
           await thread.send('✅ This event has been automatically completed after the 24-hour review period.');
-          await thread.setArchived(true).catch(() => null);
+          // While its loot is being handed out the thread stays open; checkLootThreadHolds closes it (v1.22.0).
+          const holding = await prisma.lootSession.count({ where: { eventId: event.id, status: 'COMPLETED', completedAt: { not: null }, threadClosedAt: null } });
+          if (!holding) await thread.setArchived(true).catch(() => null);
         }
       } catch (err) {
         console.error(`[bot] Failed to post auto-complete notice for event ${event.id}:`, err);

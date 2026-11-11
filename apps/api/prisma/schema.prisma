@@ -389,6 +389,10 @@ model LootSession {
   dkpAward   Int      @default(0)
   /// Discord snowflake of the user who created this standalone session; null for event-linked sessions
   ownerId    String?
+  /// When the session was completed (v1.22.0; null for sessions completed before)
+  completedAt    DateTime?
+  /// When the bot closed the event's thread after the loot (all delivered, or 72 h on)
+  threadClosedAt DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

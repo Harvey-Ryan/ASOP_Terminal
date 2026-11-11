@@ -40,7 +40,7 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
   const toggleMutation = useMutation({
     mutationFn: ({ itemId, assignmentId }: { itemId: string; assignmentId: string }) =>
       session.eventId
-        ? lootApi.toggleDelivered(session.guildId, session.eventId!, itemId)
+        ? lootApi.toggleDelivered(session.guildId, session.eventId!, itemId, assignmentId)
         : lootApi.toggleDeliveredStandalone(session.guildId, session.id, assignmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loot-history', session.guildId] });

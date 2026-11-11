@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { setupDiscordForEvent, endEvent, cancelEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare, revokeDiscordShare } from './services/eventService.js';
-import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete } from './services/lootService.js';
+import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete, closeLootThreadIfDone } from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
@@ -203,6 +203,17 @@ export function startInternalServer() {
       res.writeHead(202).end();
       await announceLootSessionStart(sessionId).catch((err) =>
         console.error(`[bot:internal] announceLootSessionStart failed for ${sessionId}:`, err),
+      );
+      return;
+    }
+
+    // A delivery was marked: close the event's thread once everything is delivered (v1.22.0).
+    const deliveredMatch = req.url?.match(/^\/trigger\/loot-delivered\/([^/]+)$/);
+    if (deliveredMatch) {
+      const sessionId = deliveredMatch[1]!;
+      res.writeHead(202).end();
+      await closeLootThreadIfDone(sessionId).catch((err) =>
+        console.error(`[bot:internal] closeLootThreadIfDone failed for ${sessionId}:`, err),
       );
       return;
     }
