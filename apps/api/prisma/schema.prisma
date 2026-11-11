@@ -69,7 +69,6 @@ model Guild {
   settings        GuildSettings?
   members         GuildMember[]
   templates       EventTemplate[]
-  allianceMembers AllianceMember[]
   eventShares     EventGuildShare[]
   memberPins      MemberPin[]
   allyLinksA      GuildAlly[]       @relation("AllyGuildA")
@@ -251,23 +250,18 @@ model Event {
   /// JSON: EventPoll — poll config posted to the forum thread alongside the embed
   pollData        String?
 
-  /// Retired: always null once the start-up conversion has run (lib/allies.ts)
-  allianceId     String?
-
   createdById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   rsvps          EventRsvp[]
   reminders      EventReminder[]
-  alliance       Alliance?            @relation(fields: [allianceId], references: [id], onDelete: SetNull)
   allianceGuilds EventAllianceGuild[]
   guildShares    EventGuildShare[]
 
   @@index([guildId])
   @@index([startTime])
   @@index([status])
-  @@index([allianceId])
 }
 
 /// A roster entry — created when a user clicks Interested or a role button.
@@ -627,7 +621,6 @@ model AuctionBid {
 // ── Event Guild Shares ────────────────────────────────────────────────────────
 
 enum ShareSource {
-  ALLIANCE
   DIRECT
 }
 
@@ -645,7 +638,6 @@ model EventGuildShare {
   eventId     String
   guildId     String      // internal Guild.id (receiving guild — never the host)
   sourceType  ShareSource
-  allianceId  String?     // retired: always null once the start-up conversion has run
   status      ShareStatus @default(PENDING)
   invitedAt   DateTime    @default(now())
   respondedAt DateTime?
@@ -715,44 +707,6 @@ model GuildAlly {
 
   @@unique([guildAId, guildBId])
   @@index([guildBId])
-  @@index([status])
-}
-
-// ── Alliances (retired: replaced by GuildAlly) ──
-// Read only by the start-up conversion in apps/api/src/lib/allies.ts, which turns
-// what's left into GuildAlly pairs and event shares. Dropped in the next clean-up,
-// once a deploy has logged that conversion (with Event.allianceId,
-// EventGuildShare.allianceId and ShareSource.ALLIANCE).
-
-/// A named grouping of guilds for cross-org organisation.
-model Alliance {
-  id        String           @id @default(cuid())
-  name      String
-  isDirect  Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-
-  members AllianceMember[]
-  events  Event[]
-}
-
-/// Junction table — one row per guild in an Alliance.
-model AllianceMember {
-  id               String   @id @default(cuid())
-  allianceId       String
-  guildId          String
-  /// PENDING (awaiting acceptance) | ACCEPTED
-  status           String   @default("PENDING")
-  /// Discord snowflake of the guild that sent the invitation
-  invitedByGuildId String?
-  createdAt        DateTime @default(now())
-
-  alliance Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  guild    Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-
-  @@unique([allianceId, guildId])
-  @@index([allianceId])
-  @@index([guildId])
   @@index([status])
 }
 

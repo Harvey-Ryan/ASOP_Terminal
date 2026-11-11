@@ -4,7 +4,6 @@ import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
 import { getCraftingPayload } from './lib/craftingData.js';
 import { linkInventoryOnStartup } from './lib/catalog.js';
-import { migrateLegacyAlliancesOnStartup } from './lib/allies.js';
 import { prisma } from './lib/prisma.js';
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -72,8 +71,6 @@ app.listen(PORT, async () => {
   // Build the Blueprints / Crafting Calculator data now, so the first visitor doesn't wait (v1.11.2).
   void getCraftingPayload().catch((err) => console.error('[crafting] Warm-up failed (built on first request instead):', err));
 
-  // Copy old alliances and 1-to-1 ally links into the ally list (v1.9.0; logs what moved).
-  void migrateLegacyAlliancesOnStartup();
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
 
 });

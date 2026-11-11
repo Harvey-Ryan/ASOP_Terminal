@@ -351,54 +351,6 @@ export function formatAllyCode(code: string): string {
   return `${code.slice(0, 4)}-${code.slice(4)}`;
 }
 
-// ── Migration from the old alliances ─────────────────────────────────────────
-
-export interface LegacyAlliance {
-  id: string;
-  name: string;
-  isDirect: boolean;
-  members: { guildId: string; status: string }[];
-}
-
-export interface MigratedPair {
-  guildAId: string;
-  guildBId: string;
-  /** Names of the alliances that produced this pair ("direct ally link" for a 1-to-1 link). */
-  from: string[];
-  /** Ids of those alliances. */
-  allianceIds: string[];
-}
-
-/**
- * Ally pairs implied by the old alliances: every two ACCEPTED members of the
- * same alliance (a 1-to-1 link is an alliance of two). Pending memberships are
- * not carried over; they're returned so they can be reported.
- */
-export function pairsFromAlliances(alliances: readonly LegacyAlliance[]): {
-  pairs: MigratedPair[];
-  droppedPending: { allianceName: string; guildId: string }[];
-} {
-  const pairs = new Map<string, MigratedPair>();
-  const droppedPending: { allianceName: string; guildId: string }[] = [];
-  for (const al of alliances) {
-    const accepted = [...new Set(al.members.filter((m) => m.status === 'ACCEPTED').map((m) => m.guildId))].sort();
-    for (const m of al.members) if (m.status !== 'ACCEPTED') droppedPending.push({ allianceName: al.name, guildId: m.guildId });
-    for (let i = 0; i < accepted.length; i++) {
-      for (let j = i + 1; j < accepted.length; j++) {
-        const [a, b] = sortPair(accepted[i]!, accepted[j]!);
-        const key = `${a}|${b}`;
-        const label = al.isDirect ? 'direct ally link' : al.name;
-        const existing = pairs.get(key);
-        if (existing) {
-          if (!existing.from.includes(label)) existing.from.push(label);
-          existing.allianceIds.push(al.id);
-        } else pairs.set(key, { guildAId: a, guildBId: b, from: [label], allianceIds: [al.id] });
-      }
-    }
-  }
-  return { pairs: [...pairs.values()], droppedPending };
-}
-
 // ── API shapes ───────────────────────────────────────────────────────────────
 
 export interface AllyGuildDto {
