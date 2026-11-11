@@ -133,7 +133,7 @@ export async function startScheduler() {
           for (const sub of subscribers.values()) {
             if (existingIds.has(sub.user.id)) continue;
             const username = sub.member?.displayName ?? sub.user.username;
-            await joinRoster(event.id, sub.user.id, username).catch((err) =>
+            await joinRoster(event.id, sub.user.id, username, event.guildId).catch((err) =>
               console.error(`[bot] Startup sync: joinRoster failed for ${sub.user.id}:`, err),
             );
             count++;

@@ -13,8 +13,8 @@ import { applyShade, loadShade, saveShade } from '@/lib/shade';
 import { lootApi } from '@/api/loot';
 import { auctionsApi } from '@/api/auctions';
 import { settingsApi } from '@/api/settings';
-import { canManageGuild } from '@dem/shared';
-import type { EventDto, EventRole, CreateEventBody, MyPickDto } from '@dem/shared';
+import { canManageGuild, serverHeadcount, serverTagOf } from '@dem/shared';
+import type { EventDto, EventRole, CreateEventBody, MyPickDto, RsvpDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import { SetupChecklist } from '@/components/SetupChecklist';
 import { AfterActionSection } from '@/components/AfterAction';
@@ -580,6 +580,9 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const userRsvp = userId ? ev.rsvps.find((r) => r.userId === userId) : undefined;
   const unassigned = ev.rsvps?.filter((r) => !r.role && !r.tentative) ?? [];
   const maybes = ev.rsvps?.filter((r) => r.tentative) ?? [];
+  // Joint ops (v1.20.0): on a shared event, everyone's server tag and a headcount per server.
+  const serverTag = (r: RsvpDto) => (ev.serverTags ? serverTagOf(r, ev.guildId, ev.serverTags) : undefined);
+  const byServer = ev.serverTags ? serverHeadcount(ev.rsvps, ev.guildId, ev.serverTags) : [];
   const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending || waitlistMutation.isPending || maybeMutation.isPending;
   const waitlist = ev.waitlist ?? [];
   const myWait = userId ? waitlist.find((w) => w.userId === userId) : undefined;
@@ -682,7 +685,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   <div className="mt-0.5 space-y-0.5">
                     {members.length > 0
                       ? members.map((r) => (
-                          <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
+                          <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}{serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}</p>
                         ))
                       : <span className="opacity-50 italic text-lg">None</span>}
                     {waiting.length > 0 && (
@@ -737,7 +740,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <div className="space-y-0.5">
             {unassigned.length > 0
               ? unassigned.map((r) => (
-                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
+                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}{serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}</p>
                 ))
               : <span className="opacity-50 italic text-lg">None</span>}
           </div>
@@ -768,7 +771,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <div className="space-y-0.5">
             {maybes.length > 0
               ? maybes.map((r) => (
-                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}</p>
+                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}{serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}</p>
                 ))
               : <span className="opacity-50 italic text-lg">None</span>}
           </div>
@@ -790,6 +793,7 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         <span className={labelCls}>Attending</span>
         <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
           <p className="text-lg font-medium">{ev.rsvps.length - maybes.length}{maybes.length > 0 && <span className="font-normal opacity-70"> · {maybes.length} maybe</span>}</p>
+          {byServer.length > 1 && <p className="text-base opacity-80">{byServer.map((c) => `${c.tag} ${c.count}`).join(' · ')}</p>}
           {userRsvp && canRsvp && (
             <Link to="/dashboard/settings/notifications" className="text-base underline underline-offset-2 opacity-70 hover:opacity-100">
               Add your sign-ups to your calendar

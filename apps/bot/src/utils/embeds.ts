@@ -5,13 +5,15 @@ import {
   ButtonStyle,
 } from 'discord.js';
 import type { EventRole } from '@dem/shared';
-import { describeRecurrence, AFTER_ACTION_OUTCOMES, type AfterActionOutcome } from '@dem/shared';
+import { describeRecurrence, serverHeadcount, serverTagOf, AFTER_ACTION_OUTCOMES, type AfterActionOutcome } from '@dem/shared';
 
 interface RsvpEntry {
   userId: string;
   role: string | null;
   /** "Maybe" (v1.17.0) */
   tentative?: boolean;
+  /** Server they signed up from (v1.20.0) */
+  guildId?: string | null;
 }
 
 interface EventForRoster {
@@ -26,6 +28,8 @@ interface EventForRoster {
   recurTimezone?: string | null;
   imageUrl: string | null;
   roles: string; // JSON
+  /** The host server (for server tags on shared events) */
+  guildId?: string;
   rsvps: RsvpEntry[];
   /** In line order (v1.14.0) */
   waitlist?: { userId: string; role: string }[];
@@ -52,7 +56,16 @@ function formatMember(userId: string, activeUserIds?: Set<string>): string {
   return activeUserIds.has(userId) ? `✅ <@${userId}>` : `<@${userId}>`;
 }
 
-export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<string>, imageFileName?: string, guildTagMap?: Record<string, string>): EmbedBuilder {
+/**
+ * The roster message. On a shared event (joint op, v1.20.0) `serverTags` holds
+ * each taking-part server's tag: everyone gets theirs, with a headcount per server.
+ */
+export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<string>, imageFileName?: string, guildTagMap?: Record<string, string>, serverTags?: Record<string, string>): EmbedBuilder {
+  const joint = serverTags && event.guildId && Object.keys(serverTags).length > 1 ? { tags: serverTags, host: event.guildId } : null;
+  const member = (r: RsvpEntry) => {
+    const tag = joint ? serverTagOf({ guildId: r.guildId ?? null }, joint.host, joint.tags) : undefined;
+    return tag ? `${formatMember(r.userId, activeUserIds)} \`${tag}\`` : formatMember(r.userId, activeUserIds);
+  };
   const roles = JSON.parse(event.roles) as EventRole[];
   const startTs = Math.floor(event.startTime.getTime() / 1000);
   const endTs = event.endTime ? Math.floor(event.endTime.getTime() / 1000) : null;
@@ -78,6 +91,11 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
     embed.addFields({ name: '📍 Muster Point', value: event.musterPoint, inline: false });
   }
 
+  if (joint) {
+    const counts = serverHeadcount(event.rsvps.map((r) => ({ guildId: r.guildId ?? null, tentative: r.tentative })), joint.host, joint.tags);
+    embed.addFields({ name: '👥 By server', value: counts.map((c) => `${c.tag} ${c.count}`).join(' · '), inline: false });
+  }
+
   const unassigned = event.rsvps.filter((r) => !r.role && !r.tentative);
   const maybes = event.rsvps.filter((r) => r.tentative);
 
@@ -86,7 +104,7 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
       const roleKey = role.id ?? role.name;
       const members = event.rsvps.filter((r) => r.role === roleKey);
       const filled = `${members.length}/${role.count}`;
-      let value = members.length > 0 ? mentionList(members.map((r) => formatMember(r.userId, activeUserIds))) : '*None*';
+      let value = members.length > 0 ? mentionList(members.map(member)) : '*None*';
       const waiting = ended ? [] : (event.waitlist ?? []).filter((w) => w.role === roleKey);
       if (waiting.length) value = mentionList(waiting.map((w) => `<@${w.userId}>`), `${value}\n⏳ Waiting: `);
       const tag = role.guildId && guildTagMap ? guildTagMap[role.guildId] : undefined;
@@ -96,7 +114,7 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
   }
 
   const unassignedValue = unassigned.length > 0
-    ? mentionList(unassigned.map((r) => formatMember(r.userId, activeUserIds)))
+    ? mentionList(unassigned.map(member))
     : '*None*';
   embed.addFields({
     name: `📋 Unassigned (${unassigned.length})`,
@@ -106,7 +124,7 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
 
   // Only when someone said maybe, to keep the roster short (v1.17.0).
   if (maybes.length > 0) {
-    embed.addFields({ name: `❔ Maybe (${maybes.length})`, value: mentionList(maybes.map((r) => formatMember(r.userId, activeUserIds))), inline: true });
+    embed.addFields({ name: `❔ Maybe (${maybes.length})`, value: mentionList(maybes.map(member)), inline: true });
   }
 
   if (ended && activeUserIds.size > 0) {

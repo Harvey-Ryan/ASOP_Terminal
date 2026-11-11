@@ -707,8 +707,9 @@ client.on(Events.MessageCreate, async (message) => {
 client.on(Events.GuildScheduledEventUserAdd, async (scheduledEvent, user) => {
   console.log(`[bot] Interested: user=${user.id} scheduledEventId=${scheduledEvent.id}`);
   try {
+    // The host's Discord event, or an ally's copy of a shared one (v1.20.0: allies' were missed before).
     const event = await prisma.event.findFirst({
-      where: { discordEventId: scheduledEvent.id },
+      where: { OR: [{ discordEventId: scheduledEvent.id }, { allianceGuilds: { some: { discordEventId: scheduledEvent.id } } }] },
     });
     if (!event) {
       console.warn(`[bot] No event found for discordEventId=${scheduledEvent.id}`);
@@ -717,7 +718,7 @@ client.on(Events.GuildScheduledEventUserAdd, async (scheduledEvent, user) => {
 
     const member = await scheduledEvent.guild?.members.fetch(user.id).catch(() => null);
     const username = member?.displayName ?? user.username;
-    await joinRoster(event.id, user.id, username);
+    await joinRoster(event.id, user.id, username, scheduledEvent.guildId);
   } catch (err) {
     console.error('[bot] GuildScheduledEventUserAdd error:', err);
   }

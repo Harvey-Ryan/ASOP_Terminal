@@ -66,3 +66,18 @@ test('several slots fill in line order; nobody moves twice', () => {
   const waitlist = ['a', 'b', 'c'].map((userId) => ({ userId, role: 'miner', guildId: 'G1' }));
   assert.deepEqual(planWaitlistMoves(roles, rsvps, waitlist).map((m) => m.userId), ['a', 'b']);
 });
+
+test('joint ops: server labels, tags and headcount', async () => {
+  const { serverLabel, serverHeadcount, serverTagOf } = await import('../dist/index.js');
+  assert.equal(serverLabel('NC', 'Northern Coalition'), 'NC');
+  assert.equal(serverLabel(null, 'Northern Coalition'), 'Northern Co…');
+  assert.equal(serverLabel('', null), '?');
+  const tags = { host: 'ASOP', ally: 'NC' };
+  const rsvps = [
+    { guildId: 'ally' }, { guildId: 'ally' }, { guildId: 'host' }, { guildId: null }, { guildId: 'gone' }, { guildId: 'ally', tentative: true },
+  ];
+  assert.deepEqual(serverHeadcount(rsvps, 'host', tags), [{ guildId: 'host', tag: 'ASOP', count: 3 }, { guildId: 'ally', tag: 'NC', count: 2 }]);
+  assert.equal(serverTagOf({ guildId: null }, 'host', tags), 'ASOP');
+  assert.equal(serverTagOf({ guildId: 'ally' }, 'host', tags), 'NC');
+  assert.equal(serverTagOf({ guildId: 'gone' }, 'host', tags), 'ASOP');
+});

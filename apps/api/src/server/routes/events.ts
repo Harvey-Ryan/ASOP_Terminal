@@ -12,7 +12,7 @@ import { getGuildMember } from '../../lib/discordRest.js';
 import { createPlannedShares, notAllyError, notifyShare, planEventShares } from '../../lib/allyShares.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
 import type { AfterActionOutcome, ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
-import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, canComment, findRole, roleKeyOf, waitlistProblem } from '@dem/shared';
+import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, canComment, findRole, roleKeyOf, serverLabel, waitlistProblem } from '@dem/shared';
 
 
 /** Discord id of the signed-in user (who answered, for the Discord notices). */
@@ -171,7 +171,7 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
       if (ev?.confirmedAttendees) {
         const confirmedIds: string[] = JSON.parse(ev.confirmedAttendees);
         if (confirmedIds.includes(dbUser.discordId)) {
-          res.json({ success: true, data: toDto(ev) } satisfies ApiResponse<EventDto>);
+          res.json({ success: true, data: await withServerTags(toDto(ev)) } satisfies ApiResponse<EventDto>);
           return;
         }
       }
@@ -207,7 +207,7 @@ eventsRouter.get('/:guildId/events/:eventId', requireAuth, async (req, res) => {
     return;
   }
 
-  res.json({ success: true, data: toDto(event) } satisfies ApiResponse<EventDto>);
+  res.json({ success: true, data: await withServerTags(toDto(event)) } satisfies ApiResponse<EventDto>);
 });
 
 // ── POST /api/guilds/:guildId/events ──────────────────────────────────────────
@@ -416,7 +416,23 @@ async function signupContext(req: Request, res: Response) {
 }
 
 const eventDto = async (eventId: string) =>
-  toDto(await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER, comments: COMMENT_ORDER } }));
+  withServerTags(toDto(await prisma.event.findFirstOrThrow({ where: { id: eventId }, include: { rsvps: true, waitlist: WAITLIST_ORDER, comments: COMMENT_ORDER } })));
+
+/**
+ * Joint ops (v1.20.0): on an event shared with allies, each taking-part
+ * server's tag (ally tag, else name), so the roster shows who's from where.
+ */
+async function withServerTags(dto: EventDto): Promise<EventDto> {
+  const shares = await prisma.eventGuildShare.findMany({ where: { eventId: dto.id, status: 'ACCEPTED' }, select: { guild: { select: { guildId: true } } } });
+  if (shares.length === 0) return dto;
+  const ids = [dto.guildId, ...shares.map((s) => s.guild.guildId)];
+  const guilds = await prisma.guild.findMany({ where: { guildId: { in: ids } }, select: { guildId: true, name: true, settings: { select: { allianceTag: true } } } });
+  const serverTags = Object.fromEntries(ids.map((id) => {
+    const g = guilds.find((x) => x.guildId === id);
+    return [id, serverLabel(g?.settings?.allianceTag, g?.name)];
+  }));
+  return { ...dto, serverTags };
+}
 
 eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res) => {
   const ctx = await signupContext(req, res);
@@ -445,8 +461,8 @@ eventsRouter.put('/:guildId/events/:eventId/rsvp', requireAuth, async (req, res)
     }
     await tx.eventRsvp.upsert({
       where: { eventId_userId: { eventId, userId: dbUser.discordId } },
-      create: { eventId, userId: dbUser.discordId, username: displayName, role, tentative },
-      update: { role, username: displayName, tentative },
+      create: { eventId, userId: dbUser.discordId, username: displayName, role, tentative, guildId },
+      update: { role, username: displayName, tentative, guildId },
     });
     // A maybe isn't waiting for a role (joining a line means you're coming).
     if (tentative) await tx.eventWaitlist.deleteMany({ where: { eventId, userId: dbUser.discordId } });
@@ -537,7 +553,7 @@ eventsRouter.put('/:guildId/events/:eventId/waitlist', requireAuth, async (req, 
     if (why) return { why };
     const key = roleKeyOf(findRole(roles, role)!);
     const joined = !rsvps.some((r) => r.userId === userId);
-    if (joined) await tx.eventRsvp.create({ data: { eventId, userId, username: displayName, role: null } });
+    if (joined) await tx.eventRsvp.create({ data: { eventId, userId, username: displayName, role: null, guildId } });
     else await tx.eventRsvp.updateMany({ where: { eventId, userId, tentative: true }, data: { tentative: false } }); // joining a line means you're coming
     const current = await tx.eventWaitlist.findUnique({ where: { eventId_userId: { eventId, userId } } });
     if (current?.role !== key) {
@@ -1232,7 +1248,7 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
     rsvpCounts: { total: event.rsvps.length },
-    rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative })),
+    rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative, guildId: r.guildId })),
     afterAction: event.aarOutcome || event.aarNotes
       ? { outcome: event.aarOutcome as AfterActionOutcome | null, notes: event.aarNotes ?? '', byName: event.aarByName, at: (event.aarAt ?? event.updatedAt).toISOString() }
       : null,
