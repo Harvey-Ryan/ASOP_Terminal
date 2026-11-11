@@ -54,10 +54,12 @@ export function AdminOverviewPage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Servers" value={o.servers.total} sub={`+${o.servers.joined7d} / −${o.servers.left7d} this week`} to={`${ADMIN}/servers`} />
-        <Stat label="Requests, 24 h" value={o.requests.last24h.toLocaleString()} sub={`${o.requests.failed24h} failed · slowest ${(o.requests.slowest24hMs / 1000).toFixed(1)} s`}
-          tone={o.requests.failed24h > 0 ? 'warn' : undefined} />
+        {o.requests
+          ? <Stat label="Requests, 24 h" value={o.requests.last24h.toLocaleString()} sub={`${o.requests.failed24h} failed · slowest ${(o.requests.slowest24hMs / 1000).toFixed(1)} s`}
+              tone={o.requests.failed24h > 0 ? 'warn' : undefined} />
+          : <Stat label="Requests, 24 h" value="Off" sub="Request logging is switched off" />}
         <Stat label="Events" value={o.activity.upcomingEvents} sub={`upcoming · ${o.activity.liveEvents} live now`} />
-        <Stat label="People active, 7 days" value={o.activity.activeUsers7d} sub={`${o.activity.openLootSessions} loot sessions open`} />
+        <Stat label="People signed in, 7 days" value={o.activity.activeUsers7d} sub={`${o.activity.openLootSessions} loot sessions open`} />
       </div>
 
       {!o.feed.configured && (

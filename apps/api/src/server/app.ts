@@ -40,7 +40,7 @@ import { gameDataRouter } from './routes/gameData.js';
 import { catalogRouter } from './routes/catalog.js';
 import { APP_VERSION, APP_COMMIT } from '../lib/appVersion.js';
 import { memberPinsRouter } from './routes/memberPins.js';
-import { logRequest, normalizePath, deriveModule, extractGuildId } from '../lib/requestLogger.js';
+import { logRequest, normalizePath, deriveModule, extractGuildId, requestLoggingOn } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 import { discordBusyAsServiceUnavailable } from '../lib/memberRoles.js';
 
@@ -199,7 +199,7 @@ export function createServer(): express.Express {
 
   app.use((req, res, next) => {
     console.log(`[api] ${req.method} ${req.path.replace(/^\/api\/calendar\/[^/]+/, '/api/calendar/…')}`); // feed links are secret
-    if (!isTest) {
+    if (!isTest && requestLoggingOn()) {
       const start = Date.now();
       res.on('finish', () => {
         if (req.path === '/api/health' || req.path.startsWith('/test/')) return;

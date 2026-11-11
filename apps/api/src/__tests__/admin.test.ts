@@ -258,6 +258,16 @@ describe('overview', () => {
     expect(o.errorsByHour[23]).toMatchObject({ errors: 2, warnings: 1 });
     expect(o.database.ok).toBe(true);
   });
+
+  it('request logging is off by default: no request numbers, Traffic gone; sign-ins count from sessions', async () => {
+    await prisma.session.create({ data: { sid: `s${Date.now()}`, sess: { userId: 'someone' }, expire: new Date(Date.now() + 86_400_000) } });
+    const { agent } = await admin();
+    const o = (await agent.get('/api/admin/overview').expect(200)).body.data;
+    expect(o.requests).toBeNull();
+    expect(o.activity.activeUsers7d).toBeGreaterThanOrEqual(1);
+    const { requestLoggingOn } = await import('../lib/requestLogger.js');
+    expect(requestLoggingOn()).toBe(false);
+  });
 });
 
 describe('keeping the tables small', () => {

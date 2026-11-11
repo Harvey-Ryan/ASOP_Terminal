@@ -42,7 +42,7 @@ const ActivitySettingsPage = lazyPage(() => import('./pages/settings/ActivitySet
 const TournamentSettingsPage = lazyPage(() => import('./pages/settings/TournamentSettingsPage'), 'TournamentSettingsPage');
 const KanbanPage = lazyPage(() => import('./pages/KanbanPage'), 'KanbanPage');
 const NotificationSettingsPage = lazyPage(() => import('./pages/NotificationSettingsPage'), 'NotificationSettingsPage');
-const TrafficPage = lazyPage(() => import('./pages/TrafficPage'), 'TrafficPage');
+// TrafficPage (pages/TrafficPage.tsx) is unrouted while request logging is off (v1.21.1).
 const TournamentPage = lazyPage(() => import('./pages/TournamentPage'), 'TournamentPage');
 const FleetSettingsPage = lazyPage(() => import('./pages/settings/FleetSettingsPage'), 'FleetSettingsPage');
 const LootSettingsPage = lazyPage(() => import('./pages/settings/LootSettingsPage'), 'LootSettingsPage');
@@ -101,7 +101,6 @@ export default function App() {
           <Route path="servers/:guildId/jobs" element={<JobsPage />} />
           <Route path="servers/:guildId/settings/modules/jobs" element={<JobsSettingsPage />} />
           <Route path="servers/:guildId/activity" element={<RoleCallPage />} />
-          <Route path="servers/:guildId/traffic" element={<TrafficPage />} />
           <Route path="servers/:guildId/tournaments" element={<TournamentPage />} />
           <Route path="servers/:guildId/settings/modules/fleet" element={<FleetSettingsPage />} />
           <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />

@@ -21,7 +21,8 @@ export interface AdminOverviewDto {
   gameData: { build: string | null; syncedAt: string | null; checkedAt: string | null } | null;
   servers: { total: number; joined7d: number; left7d: number };
   errors: { lastHour: number; last24h: number; warnings24h: number; bySource24h: Partial<Record<ErrorSource, number>>; newKinds24h: number; openKinds: number };
-  requests: { last24h: number; failed24h: number; slowest24hMs: number };
+  /** null while request logging is switched off (REQUEST_LOG, v1.21.1) */
+  requests: { last24h: number; failed24h: number; slowest24hMs: number } | null;
   activity: { upcomingEvents: number; liveEvents: number; openLootSessions: number; activeUsers7d: number };
   /** Errors per hour for the last 24 hours, oldest first */
   errorsByHour: { hour: string; errors: number; warnings: number }[];

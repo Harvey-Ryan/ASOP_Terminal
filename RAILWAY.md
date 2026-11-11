@@ -56,6 +56,7 @@ Deploy**: Restart Policy **On Failure**.
 | `BOT_INTERNAL_URL` | `http://<bot-service-name>.railway.internal:3002` (private network) |
 | `BOT_INTERNAL_SECRET` | Any strong random string — must match the bot's value |
 | `PORT` | `3001` (or leave unset; Railway injects its own PORT) |
+| `REQUEST_LOG` | Optional. `on` records every API request for the Traffic page. Off by default since v1.21.1 (the page is hidden while off). |
 
 > **Note on sessions:** Sessions are backed by PostgreSQL via `connect-pg-simple` and are persistent across restarts — no Redis required.
 

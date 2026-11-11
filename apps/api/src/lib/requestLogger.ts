@@ -10,6 +10,13 @@ interface LogEntry {
   durationMs: number;
 }
 
+/**
+ * Request logging (RequestLog, the Traffic page) is switched off unless
+ * REQUEST_LOG=on (v1.21.1): it wrote a row for every API call. The table stays
+ * modelled so `db push` keeps it, and old rows are still pruned after 90 days.
+ */
+export const requestLoggingOn = (): boolean => process.env['REQUEST_LOG'] === 'on';
+
 const buffer: LogEntry[] = [];
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 
