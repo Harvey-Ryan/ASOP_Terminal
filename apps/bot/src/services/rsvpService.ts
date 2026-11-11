@@ -37,8 +37,8 @@ export async function setRosterRole(
     }
     await tx.eventRsvp.upsert({
       where: { eventId_userId: { eventId, userId } },
-      create: { eventId, userId, username, role, tentative },
-      update: { role, username, tentative },
+      create: { eventId, userId, username, role, tentative, guildId: viewingGuildId },
+      update: { role, username, tentative, guildId: viewingGuildId },
     });
     // A maybe isn't waiting for a role (joining a line means you're coming).
     if (tentative) await tx.eventWaitlist.deleteMany({ where: { eventId, userId } });
@@ -115,20 +115,26 @@ async function _postJoinNotification(threadId: string, userId: string, username:
 /**
  * Add a user to the roster as Unassigned if not already present.
  * Called when the user clicks Interested on a Discord Scheduled Event,
- * or when a member joins the event VC during an active event.
+ * or when a member joins the event VC during an active event. `guildId` is the
+ * server they did it in, when known (v1.20.0; a voice channel doesn't say).
  */
-export async function joinRoster(eventId: string, userId: string, username: string) {
+export async function joinRoster(eventId: string, userId: string, username: string, guildId: string | null = null) {
   const existing = await prisma.eventRsvp.findUnique({
     where: { eventId_userId: { eventId, userId } },
   });
   if (existing) return; // already on roster
 
-  await prisma.eventRsvp.create({ data: { eventId, userId, username, role: null } });
+  await prisma.eventRsvp.create({ data: { eventId, userId, username, role: null, guildId } });
   refreshRosterSoon(eventId);
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (event?.threadId) {
-    await _postJoinNotification(event.threadId, userId, username);
+  // Someone joining from an ally's copy of a shared event hears about it in that server's thread.
+  const ally = guildId && event && guildId !== event.guildId
+    ? await prisma.eventAllianceGuild.findFirst({ where: { eventId, discordGuildId: guildId }, select: { threadId: true } })
+    : null;
+  const threadId = ally?.threadId ?? event?.threadId;
+  if (threadId) {
+    await _postJoinNotification(threadId, userId, username);
   } else {
     console.warn(`[bot] joinRoster: event ${eventId} has no threadId yet`);
   }

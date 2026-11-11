@@ -18,7 +18,7 @@ import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../util
 import { WAITLIST_ORDER } from './waitlistService.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
-import { nextOccurrence, isRecurType, isValidTimeZone, planShares } from '@dem/shared';
+import { nextOccurrence, isRecurType, isValidTimeZone, planShares, serverLabel } from '@dem/shared';
 import { handleShareNotice } from './shareNoticeService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -37,6 +37,21 @@ async function buildGuildTagMap(roles: EventRole[]): Promise<Record<string, stri
     if (row.allianceTag) map[row.guildId] = row.allianceTag;
   }
   return map;
+}
+
+/**
+ * Joint ops (v1.20.0): each taking-part server's tag (ally tag, else name) on a
+ * shared event, so its roster shows who's from where. Undefined when not shared.
+ */
+async function buildServerTags(eventId: string, hostGuildId: string): Promise<Record<string, string> | undefined> {
+  const allies = await prisma.eventAllianceGuild.findMany({ where: { eventId }, select: { discordGuildId: true } });
+  if (allies.length === 0) return undefined;
+  const ids = [hostGuildId, ...allies.map((a) => a.discordGuildId)];
+  const guilds = await prisma.guild.findMany({ where: { guildId: { in: ids } }, select: { guildId: true, name: true, settings: { select: { allianceTag: true } } } });
+  return Object.fromEntries(ids.map((id) => {
+    const g = guilds.find((x) => x.guildId === id);
+    return [id, serverLabel(g?.settings?.allianceTag, g?.name)];
+  }));
 }
 
 function buildScheduledEventDescription(description: string | null, guildId: string, threadId: string | null): string | undefined {
@@ -132,6 +147,7 @@ async function _setupDiscordForEvent(eventId: string) {
   const guild = await client.guilds.fetch(event.guildId);
   const roles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(roles);
+  const serverTags = await buildServerTags(event.id, event.guildId);
   let { discordEventId, threadId, rosterMessageId } = event;
 
   // ── Forum thread ──────────────────────────────────────────────────────────
@@ -146,7 +162,7 @@ async function _setupDiscordForEvent(eventId: string) {
           console.log(`[setupDiscordForEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           console.log(`[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
-          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
+          const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
           const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
@@ -317,6 +333,7 @@ export async function syncDiscordEvent(eventId: string) {
   // ── Update forum thread name + roster embed ───────────────────────────────
   const roles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(roles);
+  const serverTags = await buildServerTags(event.id, event.guildId);
   if (event.threadId) {
     console.log(`[syncDiscordEvent] updating forum thread ${event.threadId}`);
     try {
@@ -331,7 +348,7 @@ export async function syncDiscordEvent(eventId: string) {
         console.log(`[syncDiscordEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
         console.log(`[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
-        const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
+        const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
         const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
 
         const rosterMsg = event.rosterMessageId
@@ -407,7 +424,7 @@ export async function syncDiscordEvent(eventId: string) {
         if (thread.name !== event.name) {
           await thread.setName(event.name).catch(() => null);
         }
-        const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename, guildTagMap);
+        const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename, guildTagMap, serverTags);
         const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId);
         const rosterMsg = ag.rosterMessageId
           ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
@@ -473,9 +490,10 @@ export async function updateRosterEmbed(eventId: string) {
 
   const roles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(roles);
+  const serverTags = await buildServerTags(event.id, event.guildId);
   const eventImageUrl = event.imageUrl;
   const filename = eventImageUrl ? imageFilename(eventImageUrl) : undefined;
-  const embed = buildRosterEmbed(event, undefined, filename, guildTagMap);
+  const embed = buildRosterEmbed(event, undefined, filename, guildTagMap, serverTags);
 
   type Components = ReturnType<typeof buildRoleButtons>;
 
@@ -675,6 +693,7 @@ export async function endEvent(eventId: string) {
   // not the decision-makers for loot.
   const endRoles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(endRoles);
+  const serverTags = await buildServerTags(event.id, event.guildId);
   const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
   if (event.threadId) {
     try {
@@ -684,7 +703,7 @@ export async function endEvent(eventId: string) {
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
         if (rosterMsg) {
-          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap);
+          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap, serverTags);
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
@@ -736,7 +755,7 @@ export async function endEvent(eventId: string) {
           ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
         if (rosterMsg) {
-          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap);
+          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap, serverTags);
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
@@ -1139,6 +1158,9 @@ export async function revokeDiscordShare(shareId: string): Promise<void> {
   await prisma.eventAllianceGuild.delete({ where: { id: ag.id } }).catch((err) =>
     console.error(`[revokeDiscordShare] failed to delete EventAllianceGuild for ${receivingDiscordGuildId}:`, err),
   );
+  // The host's roster drops that server's tag (joint ops, v1.20.0).
+  forgetRosterWrites(ag.eventId);
+  scheduleRosterRefresh(ag.eventId).catch((err) => console.error(`[revokeDiscordShare] Roster refresh failed for ${ag.eventId}:`, err));
 
   console.log(`[revokeDiscordShare] done — shareId=${shareId}, guild=${receivingDiscordGuildId}`);
 }
@@ -1242,6 +1264,7 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
 
   const roles = JSON.parse(event.roles) as EventRole[];
   const guildTagMap = await buildGuildTagMap(roles);
+  const serverTags = await buildServerTags(event.id, event.guildId);
 
   const [imageAttachment, imageDataUri] = await Promise.all([
     event.imageUrl ? fetchImageAttachment(event.imageUrl) : Promise.resolve(null),
@@ -1259,7 +1282,7 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
   if (forumChannelId) {
     const ch = await client.channels.fetch(forumChannelId).catch(() => null);
     if (ch?.type === ChannelType.GuildForum) {
-      const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap);
+      const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
       const components = buildRoleButtons(event.id, roles, event.rsvps, receivingDiscordGuildId);
       const thread = await (ch as ForumChannel).threads.create({
         name: event.name,
@@ -1308,6 +1331,9 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
       shareId, // links this record back to the EventGuildShare that triggered setup
     },
   });
+  // Every thread's roster now shows server tags, including this server (joint ops, v1.20.0).
+  forgetRosterWrites(event.id);
+  scheduleRosterRefresh(event.id).catch((err) => console.error(`[setupDiscordForShare] Roster refresh failed for ${event.id}:`, err));
 
   console.log(`[setupDiscordForShare] done — shareId=${shareId}, guild=${receivingDiscordGuildId}`);
 }

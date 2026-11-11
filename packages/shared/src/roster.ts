@@ -109,3 +109,33 @@ export function planWaitlistMoves(
   }
   return moves;
 }
+
+// ── Joint ops (v1.20.0) ──────────────────────────────────────────────────────
+
+/** A server's short label on a shared event's roster: its ally tag, else its name. */
+export function serverLabel(allianceTag: string | null | undefined, name: string | null | undefined): string {
+  const t = allianceTag?.trim() || name?.trim() || '?';
+  return t.length > 12 ? `${t.slice(0, 11)}…` : t;
+}
+
+/** Who's coming from each server (maybes not counted), host first, then most people. */
+export function serverHeadcount(
+  rsvps: readonly { guildId: string | null; tentative?: boolean }[],
+  hostGuildId: string,
+  tags: Readonly<Record<string, string>>,
+): { guildId: string; tag: string; count: number }[] {
+  const counts = new Map<string, number>([[hostGuildId, 0]]);
+  for (const r of rsvps) {
+    if (r.tentative) continue;
+    const g = r.guildId && tags[r.guildId] ? r.guildId : hostGuildId;
+    counts.set(g, (counts.get(g) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([guildId, count]) => ({ guildId, tag: tags[guildId] ?? '?', count }))
+    .sort((a, b) => (a.guildId === hostGuildId ? -1 : b.guildId === hostGuildId ? 1 : b.count - a.count));
+}
+
+/** The tag to show next to someone on a shared event (unknown servers count as the host). */
+export function serverTagOf(rsvp: { guildId: string | null }, hostGuildId: string, tags: Readonly<Record<string, string>>): string | undefined {
+  return tags[rsvp.guildId ?? hostGuildId] ?? tags[hostGuildId];
+}

@@ -192,6 +192,8 @@ export interface RsvpDto {
   role: string | null;
   /** "Maybe" (v1.17.0): on the roster, not sure yet; never has a role */
   tentative: boolean;
+  /** Discord server they signed up from (v1.20.0); null = the host */
+  guildId: string | null;
 }
 
 export type AfterActionOutcome = 'SUCCESS' | 'PARTIAL' | 'FAILED';
@@ -273,6 +275,8 @@ export interface EventDto {
   afterAction: AfterActionDto | null;
   /** Attendees' comments under it, oldest first */
   comments: EventCommentDto[];
+  /** Shared events only (v1.20.0): each taking-part server's tag, by Discord server id, host first */
+  serverTags?: Record<string, string>;
   hadLoot: boolean | null;
   lootNotes: string | null;
   vcAttendees: string[];

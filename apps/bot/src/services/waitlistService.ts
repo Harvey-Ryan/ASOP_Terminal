@@ -71,7 +71,7 @@ export async function clickWaitlist(eventId: string, userId: string, username: s
 
     const key = roleKeyOf(role!);
     const joinedRoster = !rsvps.some((r) => r.userId === userId);
-    if (joinedRoster) await tx.eventRsvp.create({ data: { eventId, userId, username, role: null } });
+    if (joinedRoster) await tx.eventRsvp.create({ data: { eventId, userId, username, role: null, guildId } });
     else await tx.eventRsvp.updateMany({ where: { eventId, userId, tentative: true }, data: { tentative: false } }); // joining a line means you're coming
     if (current) await tx.eventWaitlist.delete({ where: { id: current.id } });
     await tx.eventWaitlist.create({ data: { eventId, userId, role: key, guildId } });

@@ -286,6 +286,8 @@ model EventRsvp {
   role      String?
   /// "Maybe" (v1.17.0): on the roster but not sure. Always without a role, so it never takes a slot.
   tentative Boolean  @default(false)
+  /// The Discord server they signed up from (v1.20.0), for server tags on shared events. Null = unknown (treated as the host).
+  guildId   String?
   updatedAt DateTime @default(now()) @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
