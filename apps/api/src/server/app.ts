@@ -188,8 +188,11 @@ export function createServer(): express.Express {
         ? (body.managedGuildIds as string[])
         : [];
       req.session.userId = userId;
-      req.session.managedGuildIds = managedGuildIds;
-      req.session.managedGuildsCachedAt = Date.now() + 10 * 60_000;
+      // managedGuildIds: null = no list yet, so the manager check asks Discord.
+      if (body.managedGuildIds !== null) {
+        req.session.managedGuildIds = managedGuildIds;
+        req.session.managedGuildsCachedAt = Date.now() + 10 * 60_000;
+      }
       req.session.save(() => res.json({ ok: true }));
     });
   }

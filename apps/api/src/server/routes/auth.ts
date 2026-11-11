@@ -3,8 +3,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { isPlatformAdminId } from '../../lib/platformAdmin.js';
-import { buildOAuthUrl, exchangeCode, fetchDiscordUser, fetchDiscordGuilds } from '../../lib/discord-oauth.js';
-import { getValidAccessToken } from '../../lib/token-helpers.js';
+import { buildOAuthUrl, exchangeCode, fetchDiscordUser } from '../../lib/discord-oauth.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import {
   buildFleetyardsOAuthUrl,
@@ -20,6 +19,7 @@ import {
   canManageGuild,
   safeReturnPath,
 } from '@dem/shared';
+import { getUserGuilds, GuildsUnavailableError } from '../../lib/userGuilds.js';
 import type { ApiResponse, DiscordUser, ManagedGuild, MeResponse } from '@dem/shared';
 
 export const authRouter = Router();
@@ -139,6 +139,9 @@ authRouter.get('/callback', async (req, res) => {
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 
+/** /me accepts a server list this old (new servers show up within it). */
+const ME_GUILDS_MAX_AGE_MS = 2 * 60_000;
+
 authRouter.get('/me', requireAuth, async (req, res) => {
   try {
     const dbUser = await prisma.user.findUniqueOrThrow({
@@ -153,9 +156,10 @@ authRouter.get('/me', requireAuth, async (req, res) => {
 
     if (account) {
       try {
-        const accessToken = await getValidAccessToken(account);
+        // Shared with the manager check and cached (v1.25.1): this used to ask
+        // Discord on every call, which ran into its rate limit.
         const [raw, botGuildRows] = await Promise.all([
-          fetchDiscordGuilds(accessToken),
+          getUserGuilds(dbUser.id, ME_GUILDS_MAX_AGE_MS),
           prisma.guild.findMany({ select: { guildId: true } }),
         ]);
         const botGuildIds = new Set(botGuildRows.map((g) => g.guildId));
@@ -212,8 +216,9 @@ authRouter.get('/me', requireAuth, async (req, res) => {
             if (a.owner !== b.owner) return a.owner ? -1 : 1;
             return a.name.localeCompare(b.name);
           });
-      } catch {
-        // Non-fatal: return empty guild list rather than failing /me entirely
+      } catch (err) {
+        // Non-fatal: an empty server list rather than failing /me entirely.
+        if (!(err instanceof GuildsUnavailableError)) console.error('[auth/me] server list', err);
       }
     }
 
