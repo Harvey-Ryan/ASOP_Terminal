@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { REST, Routes } from 'discord.js';
 import { client } from '../client.js';
 import { prisma } from '../db.js';
@@ -16,7 +17,28 @@ import * as marketplaceCommand from '../commands/marketplace.js';
 
 const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), lootCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), itemCommand.data.toJSON(), whohasCommand.data.toJSON(), blueprintCommand.data.toJSON(), materialCommand.data.toJSON(), fleetCommand.data.toJSON(), helpCommand.data.toJSON(), marketplaceCommand.data.toJSON()];
 
-export async function registerCommands(clientId?: string): Promise<void> {
+/** What was last registered, saved in BotConfig.commandRegistration. */
+interface Registration { hash: string; guilds: string[]; global: boolean }
+
+export const commandsHash = (): string => createHash('sha256').update(JSON.stringify(body)).digest('hex').slice(0, 16);
+
+/** Which registrations a run needs: changed commands or `force` → everything; otherwise only servers not yet registered. */
+export function registrationPlan(prev: Registration | null, hash: string, guildIds: readonly string[], globalEnabled: boolean, force: boolean) {
+  const fresh = force || !prev || prev.hash !== hash;
+  const known = new Set(fresh ? [] : prev!.guilds);
+  return {
+    guilds: guildIds.filter((g) => !known.has(g)),
+    global: fresh || prev!.global !== globalEnabled,
+  };
+}
+
+/**
+ * Registers the slash commands per server (instant) and globally. v1.11.1:
+ * a restart only sends what changed — new commands, a server not registered
+ * yet, or the global setting flipped. `force` (the settings page's button or
+ * the global toggle) re-sends everything.
+ */
+export async function registerCommands(clientId?: string, opts: { force?: boolean } = {}): Promise<void> {
   const token = process.env['DISCORD_TOKEN'];
   if (!token) return;
 
@@ -27,37 +49,50 @@ export async function registerCommands(clientId?: string): Promise<void> {
   }
 
   const rest = new REST().setToken(token);
+  const config = await prisma.botConfig.findUnique({ where: { id: 1 } });
+  const globalEnabled = config?.globalCommandsEnabled ?? true;
+  let prev: Registration | null = null;
+  try { prev = config?.commandRegistration ? JSON.parse(config.commandRegistration) as Registration : null; } catch { prev = null; }
 
+  const hash = commandsHash();
   const guildIds = [...client.guilds.cache.keys()];
+  const plan = registrationPlan(prev, hash, guildIds, globalEnabled, !!opts.force);
+  const keep = prev && prev.hash === hash && !opts.force ? prev.guilds.filter((g) => guildIds.includes(g)) : [];
+  const registered = new Set(keep);
+
   let guildSuccesses = 0;
-  for (const guildId of guildIds) {
+  for (const guildId of plan.guilds) {
     try {
       await rest.put(Routes.applicationGuildCommands(resolvedClientId, guildId), { body });
+      registered.add(guildId);
       guildSuccesses++;
     } catch (err) {
       console.error(`[bot] Failed to register commands for guild ${guildId}:`, err);
     }
   }
-  if (guildSuccesses > 0) {
-    console.log(`[bot] Slash commands registered instantly to ${guildSuccesses} guild(s)`);
-  }
+  if (guildSuccesses > 0) console.log(`[bot] Slash commands registered instantly to ${guildSuccesses} guild(s)`);
 
-  const config = await prisma.botConfig.findUnique({ where: { id: 1 } });
-  const globalEnabled = config?.globalCommandsEnabled ?? true;
-
-  if (globalEnabled) {
+  let globalDone = prev?.global ?? globalEnabled;
+  if (plan.global) {
     try {
-      await rest.put(Routes.applicationCommands(resolvedClientId), { body });
-      console.log(`[bot] Global slash commands registered`);
+      await rest.put(Routes.applicationCommands(resolvedClientId), { body: globalEnabled ? body : [] });
+      globalDone = globalEnabled;
+      console.log(globalEnabled ? '[bot] Global slash commands registered' : '[bot] Global slash commands cleared (disabled)');
     } catch (err) {
-      console.error('[bot] Failed to register global commands:', err);
-    }
-  } else {
-    try {
-      await rest.put(Routes.applicationCommands(resolvedClientId), { body: [] });
-      console.log(`[bot] Global slash commands cleared (disabled)`);
-    } catch (err) {
-      console.error('[bot] Failed to clear global commands:', err);
+      console.error(`[bot] Failed to ${globalEnabled ? 'register' : 'clear'} global commands:`, err);
     }
   }
+  if (plan.guilds.length === 0 && !plan.global) {
+    console.log(`[bot] Slash commands unchanged (${hash}); nothing sent to Discord`);
+    return;
+  }
+
+  const next: Registration = { hash, guilds: [...registered], global: globalDone };
+  // A failed global call leaves the old global state, so the next run tries again.
+  if (plan.global && globalDone !== globalEnabled) next.hash = prev?.hash ?? '';
+  await prisma.botConfig.upsert({
+    where: { id: 1 },
+    create: { id: 1, commandRegistration: JSON.stringify(next) },
+    update: { commandRegistration: JSON.stringify(next) },
+  });
 }

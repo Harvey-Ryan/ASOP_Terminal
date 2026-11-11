@@ -454,6 +454,13 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
     const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } = await readPermissionFields(s.id);
     // The bot keeps the status channel settings in memory; tell it when one changes.
     if (body.statusChannelId !== undefined) triggerBot('/trigger/status');
+    // A new forum channel: events still waiting for their thread get a fresh set of setup attempts (v1.11.1).
+    if (body.forumChannelId !== undefined) {
+      await prisma.event.updateMany({
+        where: { guildId, status: { in: ['PENDING', 'ACTIVE'] }, threadId: null },
+        data: { setupAttempts: 0, nextSetupAt: null },
+      });
+    }
 
     res.json({
       success: true,

@@ -1164,7 +1164,7 @@ eventsRouter.post('/:guildId/events/:eventId/shares/direct', requireAuth, shareR
     // They declined this event before: ask again, even if they post automatically.
     const again = await prisma.eventGuildShare.update({
       where: { id: existing.id },
-      data: { status: 'PENDING', respondedAt: null, respondedBy: null, autoAccepted: false, invitedAt: new Date(), noticeChannelId: null, noticeMessageId: null },
+      data: { status: 'PENDING', respondedAt: null, respondedBy: null, autoAccepted: false, invitedAt: new Date(), noticeChannelId: null, noticeMessageId: null, setupAttempts: 0, nextSetupAt: null },
       include: shareInclude,
     });
     notifyShare('pending', again, host.id, null);
@@ -1267,7 +1267,7 @@ eventsRouter.patch('/:guildId/events/:eventId/shares/:shareId/reinvite', require
 
   const updated = await prisma.eventGuildShare.update({
     where: { id: shareId },
-    data: { status: 'PENDING', respondedAt: null, respondedBy: null, autoAccepted: false, invitedAt: new Date(), noticeChannelId: null, noticeMessageId: null },
+    data: { status: 'PENDING', respondedAt: null, respondedBy: null, autoAccepted: false, invitedAt: new Date(), noticeChannelId: null, noticeMessageId: null, setupAttempts: 0, nextSetupAt: null },
     include: shareInclude,
   });
   notifyShare('pending', updated, host.id, null);
@@ -1313,7 +1313,7 @@ eventsRouter.patch('/:guildId/events/:eventId/shares/respond', requireAuth, shar
   const actorUserId = await sessionDiscordId(req);
   const changed = await prisma.eventGuildShare.updateMany({
     where: { id: share.id, status: 'PENDING' },
-    data: { status: action === 'accept' ? 'ACCEPTED' : 'DECLINED', respondedAt: new Date(), respondedBy: actorUserId },
+    data: { status: action === 'accept' ? 'ACCEPTED' : 'DECLINED', respondedAt: new Date(), respondedBy: actorUserId, setupAttempts: 0, nextSetupAt: null },
   });
   if (changed.count === 0) {
     res.status(409).json({ success: false, error: 'Invite is no longer pending' } satisfies ApiResponse);

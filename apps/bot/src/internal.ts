@@ -301,7 +301,7 @@ export function startInternalServer() {
 
     if (req.url === '/trigger/register-commands') {
       res.writeHead(202).end();
-      await registerCommands().catch((err) =>
+      await registerCommands(undefined, { force: true }).catch((err) =>
         console.error('[bot:internal] registerCommands failed:', err),
       );
       return;

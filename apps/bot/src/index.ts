@@ -96,6 +96,8 @@ client.on(Events.GuildCreate, async (guild) => {
   try {
     await upsertGuild(guild.id, guild.name, guild.icon);
     console.log(`[bot] Joined new guild: ${guild.name} (${guild.id}) — DB record created, ready to operate`);
+    // Instant slash commands for the new server (only it is sent; v1.11.1).
+    await registerCommands().catch((err) => console.error(`[bot] Registering commands for ${guild.id} failed:`, err));
   } catch (err) {
     console.error(`[bot] GuildCreate sync failed for ${guild.name} (${guild.id}):`, err);
   }
