@@ -1,9 +1,9 @@
 import { cachedDiscordGet } from '../../lib/discordRest.js';
-import { hasAnyRole } from '../../lib/memberRoles.js';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
+import { assertModuleEditor } from '../../lib/assertModuleEditor.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
@@ -159,23 +159,6 @@ settingsRouter.get('/:guildId/channels', requireAuth, async (req, res) => {
     res.status(500).json({ success: false, error: 'Internal server error' } satisfies ApiResponse);
   }
 });
-
-// ── Module-editor permission check ────────────────────────────────────────────
-// Guild managers always pass. Non-managers pass if they hold any moduleEditorRole.
-
-async function assertModuleEditor(req: Express.Request, guildId: string): Promise<boolean> {
-  if (await assertGuildManager(req, guildId)) return true;
-
-  const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
-  const settingsId = guild?.settings?.id;
-  if (!settingsId) return false;
-
-  const { moduleEditorRoles } = await readPermissionFields(settingsId);
-  if (moduleEditorRoles.length === 0) return false;
-
-  // Cached, rate-limit-aware lookup (lib/discordRest.ts).
-  return hasAnyRole(req, guildId, moduleEditorRoles);
-}
 
 // ── GET /api/guilds/:guildId/settings ─────────────────────────────────────────
 

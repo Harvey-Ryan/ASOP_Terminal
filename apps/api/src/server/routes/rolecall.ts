@@ -1,6 +1,10 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { assertEventCreator } from '../../lib/assertEventCreator.js';
+import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { assertModuleEditor } from '../../lib/assertModuleEditor.js';
+import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import type { ApiResponse } from '@dem/shared';
 
 export const roleCallRouter = Router();
@@ -60,127 +64,87 @@ async function proxyPatch(subpath: string, query: Record<string, string>, body: 
   }
 }
 
-roleCallRouter.get('/rolecall/guilds', requireAuth, async (_req, res) => {
-  const result = await proxyGet('/guilds', {});
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
+// ── Access (v1.21.1) ────────────────────────────────────────────────────────
+// Every route used to pass any guildId straight to RoleCall with our API key,
+// so anyone signed in could read (or change the settings of) any server.
+// Each route now checks the person against the server it asks about, and only
+// the query parameters RoleCall needs are passed on.
 
-roleCallRouter.get('/rolecall/stats', requireAuth, async (req, res) => {
-  const result = await proxyGet('/stats', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
+type Access = 'viewer' | 'heatmap' | 'self-or-officer' | 'editor';
+const PARAMS = ['guildId', 'userId', 'page', 'includeInactive', 'days', 'timezone', 'type'] as const;
 
-roleCallRouter.get('/rolecall/leaderboard', requireAuth, async (req, res) => {
-  const result = await proxyGet('/leaderboard', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
+/** The query to pass on, or null (answered) when the person may not see this server's data. */
+async function allowed(req: Request, res: Response, access: Access): Promise<Record<string, string> | null> {
+  const q = req.query as Record<string, unknown>;
+  const guildId = typeof q['guildId'] === 'string' ? q['guildId'] : '';
+  if (!/^\d{5,25}$/.test(guildId)) {
+    res.status(400).json({ success: false, error: 'guildId required' } satisfies ApiResponse);
+    return null;
   }
-  res.json(result.body);
-});
+  const deny = () => { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return null; };
 
-roleCallRouter.get('/rolecall/member', requireAuth, async (req, res) => {
-  const result = await proxyGet('/member', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
+  if (access === 'editor') {
+    if (!(await assertModuleEditor(req, guildId))) return deny();
+  } else {
+    if (!(await assertModuleEnabled(guildId, 'activityEnabled'))) {
+      res.status(404).json({ success: false, error: 'Activity is switched off in this server.' } satisfies ApiResponse);
+      return null;
+    }
+    if (!(await assertEventViewer(req, guildId))) return deny();
+    if (access === 'heatmap' || access === 'self-or-officer') {
+      const officer = await assertEventCreator(req, guildId);
+      if (!officer) {
+        if (access === 'heatmap' && !(await heatmapsPublic(guildId))) return deny();
+        if (access === 'self-or-officer' && q['userId'] !== (await myDiscordId(req))) return deny();
+      }
+    }
   }
-  res.json(result.body);
-});
+  const out: Record<string, string> = {};
+  for (const k of PARAMS) if (typeof q[k] === 'string') out[k] = q[k] as string;
+  return out;
+}
 
-roleCallRouter.get('/rolecall/config', requireAuth, async (req, res) => {
-  const result = await proxyGet('/config', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
+async function heatmapsPublic(guildId: string): Promise<boolean> {
+  const g = await prisma.guild.findUnique({ where: { guildId }, select: { settings: { select: { activityHeatmapPublic: true } } } });
+  return g?.settings?.activityHeatmapPublic ?? true;
+}
+
+async function myDiscordId(req: Request): Promise<string | null> {
+  const u = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { discordId: true } });
+  return u?.discordId ?? null;
+}
+
+/** A GET passed on to RoleCall after the access check. */
+function proxied(path: string, subpath: string, access: Access) {
+  roleCallRouter.get(path, requireAuth, async (req, res) => {
+    const query = await allowed(req, res, access);
+    if (!query) return;
+    const result = await proxyGet(subpath, query);
+    if (!result.ok) {
+      res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
+      return;
+    }
+    res.json(result.body);
+  });
+}
+
+// Members who can see events: the server's numbers and leaderboard.
+proxied('/rolecall/stats', '/stats', 'viewer');
+proxied('/rolecall/leaderboard', '/leaderboard', 'viewer');
+// One person's details: officers, or that person.
+proxied('/rolecall/member', '/member', 'self-or-officer');
+proxied('/rolecall/heatmap/user', '/heatmap/user', 'self-or-officer');
+// The server's heat map: officers, or members when the server allows it.
+proxied('/rolecall/heatmap/guild', '/heatmap/guild', 'heatmap');
+// Activity settings (Module Settings → Activity): module editors.
+proxied('/rolecall/config', '/config', 'editor');
+proxied('/rolecall/role-change-log', '/role-change-log', 'editor');
+proxied('/rolecall/left-members', '/left-members', 'editor');
 
 roleCallRouter.patch('/rolecall/config', requireAuth, async (req, res) => {
-  const result = await proxyPatch('/config', req.query as Record<string, string>, req.body);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
-
-roleCallRouter.get('/rolecall/role-change-log', requireAuth, async (req, res) => {
-  const result = await proxyGet('/role-change-log', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
-
-roleCallRouter.get('/rolecall/left-members', requireAuth, async (req, res) => {
-  const result = await proxyGet('/left-members', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
-
-// ── GET /rolecall/public/heatmap ─────────────────────────────────────────────
-// No auth — serves guild heatmap when activityHeatmapPublic is enabled.
-
-roleCallRouter.get('/rolecall/public/heatmap', async (req, res) => {
-  const { guildId, type = 'combined', timezone = 'UTC', days = '365' } = req.query as Record<string, string>;
-
-  if (!guildId) {
-    res.status(400).json({ success: false, error: 'guildId required' } satisfies ApiResponse);
-    return;
-  }
-  if (!['combined', 'message', 'voice'].includes(type)) {
-    res.status(400).json({ success: false, error: 'type must be combined, message, or voice' } satisfies ApiResponse);
-    return;
-  }
-
-  const guild = await prisma.guild.findUnique({
-    where: { guildId },
-    include: { settings: { select: { activityHeatmapPublic: true } } },
-  });
-  if (!guild) {
-    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
-    return;
-  }
-  if (!guild.settings?.activityHeatmapPublic) {
-    res.status(403).json({ success: false, error: 'Activity heatmap is not public for this guild' } satisfies ApiResponse);
-    return;
-  }
-
-  const result = await proxyGet('/heatmap/guild', { guildId, type, timezone, days });
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-
-  res.setHeader('Cache-Control', 'public, max-age=300');
-  res.json(result.body);
-});
-
-roleCallRouter.get('/rolecall/heatmap/guild', requireAuth, async (req, res) => {
-  const result = await proxyGet('/heatmap/guild', req.query as Record<string, string>);
-  if (!result.ok) {
-    res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
-    return;
-  }
-  res.json(result.body);
-});
-
-roleCallRouter.get('/rolecall/heatmap/user', requireAuth, async (req, res) => {
-  const result = await proxyGet('/heatmap/user', req.query as Record<string, string>);
+  const query = await allowed(req, res, 'editor');
+  if (!query) return;
+  const result = await proxyPatch('/config', { guildId: query['guildId']! }, req.body);
   if (!result.ok) {
     res.status(result.status).json({ success: false, error: result.error } satisfies ApiResponse);
     return;
