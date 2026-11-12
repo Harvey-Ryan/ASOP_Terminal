@@ -39,9 +39,12 @@ export function AdminOverviewPage() {
       <Section title="Errors per hour, last 24 hours">
         <div className="flex h-32 items-end gap-1" role="img" aria-label="Errors and warnings per hour">
           {o.errorsByHour.map((h) => (
-            <div key={h.hour} className="flex flex-1 flex-col justify-end" title={`${new Date(h.hour).toLocaleTimeString([], { hour: 'numeric' })}: ${h.errors} errors, ${h.warnings} warnings`}>
-              <div className="bg-yellow-400/60" style={{ height: `${(h.warnings / maxHour) * 100}%` }} />
-              <div className={cn('bg-red-500/80', h.errors + h.warnings === 0 && 'h-px bg-muted')} style={h.errors ? { height: `${(h.errors / maxHour) * 100}%` } : undefined} />
+            // h-full: the bars are a share of the column's height, so the column needs one (an
+            // items-end row would otherwise shrink it to its content and every bar to 0 px).
+            <div key={h.hour} className="flex h-full flex-1 flex-col justify-end" title={`${new Date(h.hour).toLocaleTimeString([], { hour: 'numeric' })}: ${h.errors} errors, ${h.warnings} warnings`}>
+              {h.warnings > 0 && <div className="bg-yellow-400/60" style={{ height: `${(h.warnings / maxHour) * 100}%`, minHeight: 3 }} />}
+              {h.errors > 0 && <div className="bg-red-500/80" style={{ height: `${(h.errors / maxHour) * 100}%`, minHeight: 3 }} />}
+              {h.errors + h.warnings === 0 && <div className="h-px bg-muted" />}
             </div>
           ))}
         </div>
