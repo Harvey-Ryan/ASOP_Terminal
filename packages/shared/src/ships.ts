@@ -218,13 +218,44 @@ export function searchShips(query: string, ships: ShipCatalogEntry[], limit = 25
 
 // ── Importing a list ─────────────────────────────────────────────────────────
 
-export interface FleetImportLine { name: string; quantity: number; manufacturer?: string | null; nickname?: string | null }
+export interface FleetImportLine {
+  name: string;
+  quantity: number;
+  manufacturer?: string | null;
+  nickname?: string | null;
+  /** Other names to try when `name` doesn't match a ship (an RSI ship code like ORIG_600i → "600i"). */
+  altNames?: string[];
+}
+
+/**
+ * True when `candidate` is a name someone gave their ship, not just the
+ * ship's own name or a shortening of it ("F8C Lightning" for the F8C
+ * Lightning Executive Edition is not a nickname; "Battle Almond" is).
+ */
+export function isCustomShipName(candidate: string | null | undefined, ...ownNames: (string | null | undefined)[]): boolean {
+  const c = tokens(candidate ?? '');
+  if (!c.length) return false;
+  for (const own of ownNames) {
+    const o = new Set(tokens(own ?? ''));
+    if (o.size && c.every((w) => o.has(w))) return false;
+  }
+  return true;
+}
+
+/** "ORIG_600i" → "600i", "AEGS_Idris_P" → "Idris P": an RSI ship code as a name, minus the maker. */
+export function shipCodeName(code: string | null | undefined): string | null {
+  if (!code || !/^[A-Za-z0-9]+_[A-Za-z0-9_]+$/.test(code)) return null;
+  const parts = code.split('_').slice(1).filter(Boolean);
+  return parts.length ? parts.join(' ') : null;
+}
 export interface FleetImport { format: 'hangarexport' | 'fleetviewer' | 'json' | 'text'; lines: FleetImportLine[] }
 
 /**
  * Reads what someone pasted or uploaded: Hangar Export / hangar.link JSON
  * (pledge items of kind Ship or Vehicle), a FleetViewer layout (STARJUMP /
- * fleetviewer.link: its SHIP canvas items), a FleetYards or similar JSON list,
+ * fleetviewer.link: its SHIP canvas items), an RSI hangar list (Hangar XPLOR
+ * style: `name` is the model, `ship_name` the name its owner gave it,
+ * `ship_code` the game's code), a FleetYards or similar JSON list,
  * or plain text, one ship per line ("2x Carrack", "Cutlass Black, 2").
  * The same ship on several lines adds up.
  */
@@ -279,6 +310,9 @@ function jsonShips(v: unknown, depth = 0): FleetImportLine[] {
       if (typeof e === 'string') return e.trim() ? [{ name: e.trim(), quantity: 1 }] : [];
       if (!e || typeof e !== 'object') return [];
       const o = e as Record<string, any>;
+      // RSI hangar lists also hold paints, gear and the like.
+      const kind = text(o.entity_type) ?? text(o.kind) ?? text(o.type);
+      if (kind && (o.entity_type !== undefined || o.ship_code !== undefined) && !/ship|vehicle/i.test(kind)) return [];
       const model = o.model && typeof o.model === 'object' ? o.model : null;
       const name = text(model?.name) ?? text(o.modelName) ?? text(o.shipName) ?? text(o.title) ?? text(o.name) ?? (text(o.slug) ?? text(model?.slug))?.replace(/[-_]+/g, ' ') ?? null;
       if (!name) {
@@ -287,8 +321,15 @@ function jsonShips(v: unknown, depth = 0): FleetImportLine[] {
       }
       const quantity = Math.max(1, Math.min(99, Math.floor(num(o.quantity) ?? num(o.count) ?? num(o.amount) ?? 1)));
       const manufacturer = text(model?.manufacturer?.name) ?? text(o.manufacturer?.name) ?? text(o.manufacturer) ?? text(o.manufacturerName) ?? text(o.manufacturer_name) ?? text(o.liner);
-      const nickname = model ? text(o.name) : text(o.nickname) ?? text(o.customName);
-      return [{ name, quantity, manufacturer, nickname: nickname && nickname !== name ? nickname : null }];
+      const codeName = shipCodeName(text(o.ship_code) ?? text(o.shipCode));
+      // FleetYards: `name` is the owner's name for it next to `model`. RSI
+      // lists: `ship_name` is, unless it's just the ship's own name again.
+      const given = model ? text(o.name)
+        : text(o.nickname) ?? text(o.customName) ?? text(o.custom_name)
+          ?? (text(o.ship_name) && text(o.ship_name) !== name && isCustomShipName(text(o.ship_name), name, codeName) ? text(o.ship_name) : null);
+      const nickname = given && given !== name ? given : null;
+      const altNames = codeName && codeName.toLowerCase() !== name.toLowerCase() ? [codeName] : undefined;
+      return [{ name, quantity, manufacturer, nickname, ...(altNames ? { altNames } : {}) }];
     });
   }
   if (typeof v === 'object') {
