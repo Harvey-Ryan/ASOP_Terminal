@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptBlueprint, adaptContract, buildMissionContracts, baseStatsFor, buildCraftingData, fillMissionTokens, cleanMissionLocations } from '../dist/crafting.js';
+import { adaptBlueprint, adaptContract, buildMissionContracts, baseStatsFor, buildCraftingData, fillMissionTokens, cleanMissionLocations, adaptModifier, statAt } from '../dist/crafting.js';
 
 const BP = {
   UUID: 'bp-1', Key: 'BP_CRAFT_armor_torso',
@@ -19,7 +19,7 @@ test('adaptBlueprint: slots, alternatives, stats and dismantle returns', () => {
   assert.equal(r.CraftTimeSeconds, 90);
   assert.deepEqual(r.Components.map((c) => [c.Slot, c.Material.Name, c.Material.Kind]), [['Frame', 'Aluminum', 'resource'], ['Weave', 'Ceramic Plate or Steel Plate', 'item']]);
   assert.equal(r.Components[1].Material.Quantity, 2, 'alternatives use the first one\'s quantity');
-  assert.deepEqual(r.Components[0].Stats[0], { Key: 'armor_physical', Label: 'Physical Resistance', QualityMin: 0, QualityMax: 1000, MultiplierAtMin: 0.9, MultiplierAtMax: 1.1, UnitFormat: '%' });
+  assert.deepEqual(r.Components[0].Stats[0], { Key: 'armor_physical', Label: 'Physical Resistance', QualityMin: 0, QualityMax: 1000, MultiplierAtMin: 0.9, MultiplierAtMax: 1.1, UnitFormat: '%', Additive: false, Segments: null });
   assert.deepEqual(r.Dismantle, { TimeSeconds: 15, Efficiency: 0.5, Returns: [{ UUID: 'res-to', Name: 'Torite', Kind: 'resource', Quantity: null, QuantityScu: 0.005 }] });
   assert.equal(adaptBlueprint({ UUID: 'x', Key: 'k' }).Dismantle, null);
 });
@@ -134,4 +134,38 @@ test('missions carry their real rewards, enemy counts and readable difficulty', 
   assert.equal(m.difficulty.riskOfLossLabel, 'Minimal danger, on foot only');
   assert.equal(m.difficulty.riskOfLoss, 3);
   assert.equal(m.difficulty.mentalLoadLabel, 'Some new thing');
+});
+
+test('quality curves keep every piece: Chimalli-style shields go past ×1.0 above 500', () => {
+  const shell = adaptModifier({
+    Key: 'health_maxhealth', Name: 'Integrity', QualityRange: { Min: 0, Max: 500 }, ModifierRange: { AtMinQuality: 0.8, AtMaxQuality: 1 },
+    ValueSegments: [{ QualityMin: 0, QualityMax: 500, ModifierAtStart: 0.8, ModifierAtEnd: 1 }, { QualityMin: 501, QualityMax: 1000, ModifierAtStart: 1, ModifierAtEnd: 1.2 }],
+    ValueRangeType: 'linear',
+  });
+  assert.equal(shell.QualityMin, 0);
+  assert.equal(shell.QualityMax, 1000);
+  assert.equal(shell.MultiplierAtMin, 0.8);
+  assert.equal(shell.MultiplierAtMax, 1.2);
+  const stat = { qualityMin: shell.QualityMin, qualityMax: shell.QualityMax, multiplierAtMin: shell.MultiplierAtMin, multiplierAtMax: shell.MultiplierAtMax,
+    segments: shell.Segments.map((g) => ({ qMin: g.QMin, qMax: g.QMax, mStart: g.Start, mEnd: g.End })) };
+  assert.equal(statAt(stat, 0), 0.8);
+  assert.equal(statAt(stat, 250), 0.9);
+  assert.equal(statAt(stat, 500), 1);
+  assert.equal(statAt(stat, 500.5), 1);
+  assert.ok(Math.abs(statAt(stat, 1000) - 1.2) < 1e-9);
+});
+
+test('additive curves add whole numbers by band; modifiers with no data are dropped', () => {
+  const pips = adaptModifier({
+    Key: 'itemresource_powergeneration', Name: 'Power Pips', QualityRange: { Min: 0, Max: 249 }, ModifierRange: [], ValueRangeType: 'linear_integer_additive',
+    ValueSegments: [-2, -1, 0, 1, 2].map((v, i) => ({ QualityMin: [0, 250, 500, 700, 900][i], QualityMax: [249, 499, 699, 899, 1000][i], AdditiveAtStart: v, AdditiveAtEnd: v })),
+  });
+  assert.equal(pips.Additive, true);
+  const stat = { qualityMin: 0, qualityMax: 1000, multiplierAtMin: -2, multiplierAtMax: 2, segments: pips.Segments.map((g) => ({ qMin: g.QMin, qMax: g.QMax, mStart: g.Start, mEnd: g.End })) };
+  assert.deepEqual([0, 300, 500, 750, 1000].map((q) => statAt(stat, q)), [-2, -1, 0, 1, 2]);
+  assert.equal(adaptModifier({ Key: 'armor_damagemitigation', Name: 'Damage Mitigation', QualityRange: [], ModifierRange: [] }), null);
+  // A single-piece curve still works as before (and stops at its ends).
+  const simple = adaptModifier({ Key: 'k', Name: 'K', QualityRange: { Min: 500, Max: 1000 }, ModifierRange: { AtMinQuality: 1, AtMaxQuality: 1.2 }, ValueRangeType: 'linear' });
+  assert.equal(simple.Segments, null);
+  assert.equal(statAt({ qualityMin: 500, qualityMax: 1000, multiplierAtMin: 1, multiplierAtMax: 1.2, segments: null }, 200), 1);
 });

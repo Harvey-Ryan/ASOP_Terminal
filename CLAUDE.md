@@ -330,6 +330,12 @@ Patch Notes — v1.1.0 — November 10
   placeholders the game fills in ("[Location]") show as "‹location›".
 - Blueprint search (`searchBlueprints`) matches every word in any order
   across name, type, subtype and maker, ignoring quotes.
+- Quality curves (v1.28.1): most stats come in pieces (`ValueSegments`:
+  0–500 ×0.8→×1.0, then 501–1000 ×1.0→×1.2); `QualityRange`/`ModifierRange`
+  only describe the first piece. `adaptModifier()` keeps every piece and
+  spans the whole range; read a stat with `statAt()`. `linear_integer_additive`
+  curves (Power Pips) add whole numbers (`curve: 'additive'`); modifiers with
+  no range and no pieces are dropped.
 
 ## Modules hidden for every server (v1.28.0)
 

@@ -21,6 +21,8 @@ import {
   getBaseStats,
   interpolateStat,
   combinedMultiplier,
+  combinedAdditive,
+  isAdditive,
   type LocalBlueprint,
   type MissionContract,
   type ItemBaseStats,
@@ -32,6 +34,12 @@ import { diffCls, fmtContractTitle, fmtMinutes, MissionModal } from './crafting/
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** A whole number added by quality ("+1", "−2", "±0"). */
+function fmtAdd(v: number) {
+  return v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '±0';
+}
+const changeCls = (v: number, zero: string) => (v > 0.005 ? 'text-[#7fc97f]' : v < -0.005 ? 'text-[#e07a6e]' : zero);
 
 function fmtPct(v: number, decimals = 2) {
   const sign = v >= 0 ? '+' : '';
@@ -426,11 +434,13 @@ function PartRow({ comp, index, ql, onChange }: {
           />
           <ul className="col-span-2 flex flex-col gap-0.5 sm:col-start-2 sm:row-start-2 sm:flex-row sm:flex-wrap sm:gap-x-5">
             {comp.stats.map((s) => {
-              const pct = (interpolateStat(s, ql) - 1) * 100;
+              const v = interpolateStat(s, ql);
+              const add = isAdditive(s);
+              const sign = add ? Math.round(v) : (v - 1) * 100;
               return (
                 <li key={s.key} className="flex items-baseline justify-between gap-2 text-[13px] sm:justify-start">
                   <span className="truncate text-[var(--fab-muted)]">{s.label}</span>
-                  <span className={cn('fab-mono shrink-0 font-semibold', pct > 0.005 ? 'text-[#7fc97f]' : pct < -0.005 ? 'text-[#e07a6e]' : 'text-[var(--fab-text)]')}>{fmtPct(pct)}</span>
+                  <span className={cn('fab-mono shrink-0 font-semibold', changeCls(sign, 'text-[var(--fab-text)]'))}>{add ? fmtAdd(sign) : fmtPct(sign)}</span>
                 </li>
               );
             })}
@@ -522,7 +532,10 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
   const statRows = useMemo(() => {
     const keys = new Map<string, string>();
     for (const c of bp.components) for (const s of c.stats) if (!keys.has(s.key)) keys.set(s.key, s.label);
-    return [...keys].map(([key, label]) => ({ key, label, mult: combinedMultiplier(bp, key, qls) }));
+    return [...keys].map(([key, label]) => {
+      const additive = bp.components.some((c) => c.stats.some((s) => s.key === key && isAdditive(s)));
+      return { key, label, additive, mult: combinedMultiplier(bp, key, qls), add: combinedAdditive(bp, key, qls) };
+    });
   }, [bp, qls]);
 
   return (
@@ -586,12 +599,12 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
             </thead>
             <tbody>
               {statRows.map((r) => {
-                const pct = (r.mult - 1) * 100;
+                const sign = r.additive ? r.add : (r.mult - 1) * 100;
                 return (
                   <tr key={r.key}>
                     <td className="border-b border-[#262626] py-2.5">{r.label}</td>
-                    <td className="fab-mono border-b border-[#262626] py-2.5 text-right text-[var(--fab-muted)]">{fmtMult(r.mult)}</td>
-                    <td className={cn('fab-mono border-b border-[#262626] py-2.5 text-right', pct > 0.005 ? 'text-[#7fc97f]' : pct < -0.005 ? 'text-[#e07a6e]' : 'text-[var(--fab-gold-text)]')}>{fmtPct(pct)}</td>
+                    <td className="fab-mono border-b border-[#262626] py-2.5 text-right text-[var(--fab-muted)]">{r.additive ? '—' : fmtMult(r.mult)}</td>
+                    <td className={cn('fab-mono border-b border-[#262626] py-2.5 text-right', changeCls(sign, 'text-[var(--fab-gold-text)]'))}>{r.additive ? fmtAdd(r.add) : fmtPct(sign)}</td>
                   </tr>
                 );
               })}

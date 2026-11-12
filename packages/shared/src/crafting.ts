@@ -47,11 +47,17 @@ export interface RawResource { UUID: string; Name: string }
 export interface RawStat {
   Key: string;
   Label: string;
+  /** The whole curve: the first piece's start to the last piece's end. */
   QualityMin: number;
   QualityMax: number;
+  /** For an additive stat these are the amounts added at QualityMin / QualityMax. */
   MultiplierAtMin: number;
   MultiplierAtMax: number;
   UnitFormat: string | null;
+  /** v1.28.1: the curve's pieces, when it has more than one */
+  Segments?: { QMin: number; QMax: number; Start: number; End: number }[] | null;
+  /** Adds a whole number (Power Pips…) instead of multiplying */
+  Additive?: boolean;
 }
 
 export interface RawMaterial {
@@ -100,8 +106,15 @@ export interface ScRequirementNode {
     Key: string;
     Name: string;
     UnitFormat?: string | null;
-    QualityRange?: { Min: number; Max: number };
-    ModifierRange?: { AtMinQuality: number; AtMaxQuality: number };
+    QualityRange?: { Min: number; Max: number } | [];
+    ModifierRange?: { AtMinQuality: number; AtMaxQuality: number } | [];
+    /** The curve piece by piece (most stats: 0–500 then 501–1000); additive ones add whole numbers. */
+    ValueSegments?: {
+      QualityMin: number; QualityMax: number;
+      ModifierAtStart?: number; ModifierAtEnd?: number;
+      AdditiveAtStart?: number; AdditiveAtEnd?: number;
+    }[];
+    ValueRangeType?: string;
   }[];
 }
 
@@ -150,6 +163,39 @@ const isToken = (s: string | null | undefined) => !s || /^\s*(~mission\(|<=)/.te
 /** A location name the game completes at runtime ("Remote Outpost near ~mission(…)"). */
 const hasToken = (s: string) => /~mission\(|<=/.test(s);
 
+type ScModifier = NonNullable<ScRequirementNode['Modifiers']>[number];
+
+/**
+ * One quality modifier as the calculator uses it (v1.28.1). The game gives most
+ * curves in pieces (0–500: ×0.8→×1.0, then 501–1000: ×1.0→×1.2); QualityRange
+ * and ModifierRange only describe the first piece, so the pieces are kept and
+ * the overall range spans all of them. "linear_integer_additive" curves add a
+ * whole number per quality band (Power Pips −2…+2). A modifier with no range
+ * and no pieces says nothing about quality and is left out.
+ */
+export function adaptModifier(m: ScModifier): RawStat | null {
+  const additive = m.ValueRangeType === 'linear_integer_additive';
+  const segs = (m.ValueSegments ?? [])
+    .map((v) => ({
+      QMin: v.QualityMin,
+      QMax: v.QualityMax,
+      Start: (additive ? v.AdditiveAtStart : v.ModifierAtStart) ?? NaN,
+      End: (additive ? v.AdditiveAtEnd : v.ModifierAtEnd) ?? NaN,
+    }))
+    .filter((v) => Number.isFinite(v.QMin) && Number.isFinite(v.QMax) && Number.isFinite(v.Start) && Number.isFinite(v.End))
+    .sort((a, b) => a.QMin - b.QMin);
+  const range = Array.isArray(m.QualityRange) ? null : m.QualityRange ?? null;
+  const mods = Array.isArray(m.ModifierRange) ? null : m.ModifierRange ?? null;
+  const base = { Key: m.Key, Label: m.Name, UnitFormat: m.UnitFormat ?? null, Additive: additive };
+  if (segs.length > 0) {
+    const first = segs[0]!;
+    const last = segs[segs.length - 1]!;
+    return { ...base, QualityMin: first.QMin, QualityMax: last.QMax, MultiplierAtMin: first.Start, MultiplierAtMax: last.End, Segments: segs.length > 1 ? segs : null };
+  }
+  if (additive || !mods || typeof mods.AtMinQuality !== 'number' || typeof mods.AtMaxQuality !== 'number') return null;
+  return { ...base, QualityMin: range?.Min ?? 0, QualityMax: range?.Max ?? 1000, MultiplierAtMin: mods.AtMinQuality, MultiplierAtMax: mods.AtMaxQuality, Segments: null };
+}
+
 export function adaptBlueprint(b: ScBlueprintJson): RawLocalBlueprint {
   const tier = b.Tiers?.[0];
   const groups = tier?.Requirements?.Children ?? [];
@@ -177,15 +223,7 @@ export function adaptBlueprint(b: ScBlueprintJson): RawLocalBlueprint {
           QuantityScu: first.QuantityScu ?? null,
           MinQuality: first.MinQuality ?? null,
         },
-        Stats: (g.Modifiers ?? []).map((m) => ({
-          Key: m.Key,
-          Label: m.Name,
-          QualityMin: m.QualityRange?.Min ?? 0,
-          QualityMax: m.QualityRange?.Max ?? 1000,
-          MultiplierAtMin: m.ModifierRange?.AtMinQuality ?? 1,
-          MultiplierAtMax: m.ModifierRange?.AtMaxQuality ?? 1,
-          UnitFormat: m.UnitFormat ?? null,
-        })),
+        Stats: (g.Modifiers ?? []).map(adaptModifier).filter((x): x is RawStat => x !== null),
       };
     }),
     Dismantle: b.Dismantle
@@ -295,6 +333,7 @@ export interface CraftingStat {
   qualityMax: number;
   multiplierAtMin: number;
   multiplierAtMax: number;
+  /** 'linear' multiplies; 'additive' adds a whole number (v1.28.1) */
   curve: string;
   segments: CraftingStatSegment[] | null;
   unitFormat: string | null;
@@ -455,8 +494,8 @@ function toBlueprint(b: RawLocalBlueprint, item: CraftedItemRow | undefined, res
           qualityMax: s.QualityMax ?? 1000,
           multiplierAtMin: s.MultiplierAtMin,
           multiplierAtMax: s.MultiplierAtMax,
-          curve: 'linear',
-          segments: null,
+          curve: s.Additive ? 'additive' : 'linear',
+          segments: s.Segments?.map((g) => ({ qMin: g.QMin, qMax: g.QMax, mStart: g.Start, mEnd: g.End })) ?? null,
           unitFormat: s.UnitFormat ?? null,
         })),
     })),
@@ -693,4 +732,27 @@ export function buildCraftingData(src: CraftingSourceRows): CraftingDataDto {
     baseStats,
     materialSources: buildMaterialSources(src.resourceLocations ?? []),
   };
+}
+
+/**
+ * A stat's value at a quality (0–1000), following every piece of its curve
+ * (v1.28.1): a multiplier, or for curve 'additive' the whole number added.
+ * Below the first piece it's the first value, above the last the last.
+ */
+export function statAt(
+  stat: Pick<CraftingStat, 'qualityMin' | 'qualityMax' | 'multiplierAtMin' | 'multiplierAtMax' | 'segments'>,
+  quality: number,
+): number {
+  const pieces = stat.segments && stat.segments.length > 0
+    ? stat.segments
+    : [{ qMin: stat.qualityMin, qMax: stat.qualityMax, mStart: stat.multiplierAtMin, mEnd: stat.multiplierAtMax }];
+  if (quality <= pieces[0]!.qMin) return pieces[0]!.mStart;
+  for (const p of pieces) {
+    if (quality <= p.qMax) {
+      const span = p.qMax - p.qMin;
+      const t = span <= 0 ? 1 : Math.max(0, Math.min(1, (quality - p.qMin) / span));
+      return p.mStart + t * (p.mEnd - p.mStart);
+    }
+  }
+  return pieces[pieces.length - 1]!.mEnd;
 }

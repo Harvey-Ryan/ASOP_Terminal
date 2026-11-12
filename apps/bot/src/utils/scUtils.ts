@@ -84,6 +84,10 @@ export function buildRecipeEmbed(bp: LocalBlueprint): EmbedBuilder {
 
     const first  = dedup[0]!;
     const modLines = dedup.map((mod) => {
+      if (mod.additive) {
+        const n = (v: number) => (v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '±0');
+        return `• **${mod.name}**: ${n(mod.modifierAtMin)} → ${n(mod.modifierAtMax)}`;
+      }
       const lo   = (mod.modifierAtMin * 100).toFixed(0);
       const hi   = (mod.modifierAtMax * 100).toFixed(0);
       const unit = mod.unitFormat ?? '%';
