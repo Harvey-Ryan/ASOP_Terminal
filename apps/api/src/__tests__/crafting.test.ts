@@ -74,6 +74,19 @@ describe.skipIf(!hasScData)('crafting data from sc-data', () => {
     if (gun?.kind === 'weapon') expect(gun.modes[0]!.dps).toBeGreaterThan(0);
   });
 
+  it('where materials are mined: every resource a blueprint uses has a source, with real place names (v1.26.0)', async () => {
+    const a = await signedIn();
+    const d = (await a.get('/api/game-data/crafting').set('Accept-Encoding', 'identity').expect(200)).body.data as CraftingDataDto;
+    const iron = d.materialSources['iron']!;
+    expect(iron.length).toBeGreaterThan(5);
+    expect(iron.find((x) => x.place === 'Adir')).toMatchObject({ system: 'Pyro', method: 'ship' });
+    const used = new Set(d.blueprints.flatMap((b) => b.components.filter((c) => c.material.kind === 'resource').map((c) => c.material.name.toLowerCase())));
+    const without = [...used].filter((m) => !d.materialSources[m]?.length);
+    expect(without).toEqual([]);
+    const places = Object.values(d.materialSources).flat().map((x) => x.place);
+    expect(places.some((p) => p.startsWith('<=') || /^HPP_|^Loot_/.test(p))).toBe(false);
+  });
+
   it('every mission blueprint in the contracts exists, and every obtainable one is in a contract', async () => {
     const a = await signedIn();
     const d = (await a.get('/api/game-data/crafting').set('Accept-Encoding', 'identity').expect(200)).body.data as CraftingDataDto;

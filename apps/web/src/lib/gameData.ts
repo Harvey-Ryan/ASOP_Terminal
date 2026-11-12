@@ -11,6 +11,7 @@ import type {
   CraftingDataDto,
   CraftingStat,
   ItemBaseStats,
+  MaterialSources,
   MissionContract,
 } from '@dem/shared';
 
@@ -67,6 +68,9 @@ function current(): Loaded {
   if (!loaded) throw new Error('Crafting data not loaded: wrap the page in <CraftingDataGate>');
   return loaded;
 }
+
+/** Where each material is mined, by lower-case name (v1.26.0). */
+export const materialSources = (): MaterialSources => current().data.materialSources ?? {};
 
 /** Which game build the pages are showing. */
 export const craftingSource = () => current().data.source;
