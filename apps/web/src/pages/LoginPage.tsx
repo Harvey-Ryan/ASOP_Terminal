@@ -45,6 +45,12 @@ export function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {searchParams.get('deleted') === '1' && (
+              <div role="status" className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                Your data was deleted and you&apos;re signed out. Signing in again starts you from scratch.
+              </div>
+            )}
+
             {/* Error banner */}
             {errorCode && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">

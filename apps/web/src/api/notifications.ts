@@ -18,4 +18,9 @@ export const notificationsApi = {
 
   resetCalendarToken: () =>
     api.post<ApiResponse<{ token: string }>>('/me/calendar/reset').then((r) => r.data!.token),
+
+  /** Your data (v1.31.0): the download is a plain link to GET /api/me/data. */
+  myDataUrl: '/api/me/data',
+  /** Deletes everything about you; `confirm` is your Discord username. */
+  deleteMyData: (confirm: string) => api.post<ApiResponse>('/me/delete', { confirm }),
 };
