@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, ChevronDown, ChevronRight, Package, ExternalLink, Truck, CheckCircle2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { lootApi } from '@/api/loot';
 import { settingsApi } from '@/api/settings';
 import { useAuth } from '@/hooks/useAuth';
+import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 import { canManageGuild } from '@dem/shared';
 import type { LootHistorySessionDto, LootMethod, MyPickDto } from '@dem/shared';
 
@@ -318,19 +319,27 @@ export function LootModulePage() {
   });
   const canCreateSession = isManager || (permissionsQuery.data?.canCreateLootDraft ?? false);
 
+  // Read by refetchInterval, which runs before useLiveQueries below.
+  const liveRef = useRef(false);
   const sessionsQuery = useQuery({
     queryKey: ['loot-sessions', guildId],
     queryFn: () => lootApi.listSessions(guildId!),
     enabled: !!guildId,
-    refetchInterval: tab === 'sessions' ? 10000 : false,
+    refetchInterval: () => (tab === 'sessions' ? (liveRef.current ? LIVE_SAFETY_MS : 10000) : false),
   });
 
   const myPicksQuery = useQuery({
     queryKey: ['loot', 'my-picks'],
     queryFn: () => lootApi.getMyPicks(),
     enabled: tab === 'sessions',
-    refetchInterval: tab === 'sessions' ? 10000 : false,
+    refetchInterval: () => (tab === 'sessions' ? (liveRef.current ? LIVE_SAFETY_MS : 10000) : false),
   });
+  // Sessions starting or ending here, and picks in the drafts you're in (v1.30.0).
+  const live = useLiveQueries(
+    tab === 'sessions' ? [guildId && `loot-guild:${guildId}`, ...(myPicksQuery.data ?? []).map((p) => `loot:${p.sessionId}`)] : [],
+    [['loot-sessions', guildId], ['loot', 'my-picks']],
+  );
+  liveRef.current = live;
   // Sessions in guilds the user is not a member of (participating as an allied member)
   const crossGuildPicks: MyPickDto[] = (myPicksQuery.data ?? []).filter((p) => p.guildId !== guildId);
 

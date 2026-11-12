@@ -20,6 +20,7 @@ import { SetupChecklist } from '@/components/SetupChecklist';
 import { AfterActionSection } from '@/components/AfterAction';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import type { RecentLootEvent } from '@/api/loot';
+import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -525,13 +526,20 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   });
   const lootSession = lootQuery.data ?? null;
 
+  // Read by refetchInterval, which runs before useLiveQueries below.
+  const lootLiveRef = useRef(false);
   const myPicksQuery = useQuery({
     queryKey: ['loot', 'my-picks'],
     queryFn: () => lootApi.getMyPicks(),
     staleTime: 15_000,
-    refetchInterval: 15_000,
+    refetchInterval: () => (lootLiveRef.current ? LIVE_SAFETY_MS : 15_000),
   });
   const myDraftPick: MyPickDto | undefined = myPicksQuery.data?.find((p) => p.eventId === event.id);
+  // This event's loot starting, and picks in its draft, as they happen (v1.30.0).
+  lootLiveRef.current = useLiveQueries(
+    [`loot-event:${event.id}`, myDraftPick && `loot:${myDraftPick.sessionId}`],
+    [['loot', guildId, event.id], ['loot', 'my-picks']],
+  );
 
   // Allies you can share this event with (v1.11.0: allies only).
   const { data: shareable } = useQuery({
@@ -1420,11 +1428,12 @@ export function ServerPage() {
     staleTime: 5 * 60_000,
   });
 
+  const auctionsLive = useLiveQueries(guildSettingsQuery.data?.dkpEnabled ? [guildId && `auctions:${guildId}`] : [], [['auctions', guildId]]);
   const openAuctionQuery = useQuery({
     queryKey: ['auctions', guildId, 'open'],
     queryFn: () => auctionsApi.list(guildId!),
     enabled: !!guildId && (guildSettingsQuery.data?.dkpEnabled ?? false),
-    refetchInterval: 10_000,
+    refetchInterval: auctionsLive ? LIVE_SAFETY_MS : 10_000,
     select: (data) => data.find((a) => a.status === 'OPEN'),
   });
 

@@ -25,6 +25,7 @@ import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import type { AuctionDto } from '@dem/shared';
+import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,14 @@ function AuctionCard({
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auction.id, auction.status, auction.secondsRemaining]);
+  // At zero, ask again: the server closes the auction when it's next read.
+  const closingDue = auction.status === 'OPEN' && secondsLeft === 0;
+  useEffect(() => {
+    if (!closingDue) return;
+    const id = setTimeout(onChanged, 1500);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closingDue, auction.id]);
 
   const bidMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
@@ -267,14 +276,17 @@ export function AuctionsPage() {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Read by refetchInterval, which runs before useLiveQueries below.
+  const liveRef = useRef(false);
   const auctionsQuery = useQuery({
     queryKey: ['auctions', guildId],
     queryFn: () => auctionsApi.list(guildId!),
     enabled: !!guildId,
-    // Live while an auction is open (bids and the closing moment); otherwise
-    // just enough to notice a new auction someone started from Discord.
-    refetchInterval: (q) => (q.state.data?.some((a) => a.status === 'OPEN') ? 3000 : 30_000),
+    // Bids, new auctions and results arrive as they happen (v1.30.0). Without
+    // live updates: every 3 s while an auction is open, else every 30 s.
+    refetchInterval: (q) => (liveRef.current ? LIVE_SAFETY_MS : q.state.data?.some((a) => a.status === 'OPEN') ? 3000 : 30_000),
   });
+  liveRef.current = useLiveQueries([guildId && `auctions:${guildId}`], [['auctions', guildId], ['dkp-me', guildId]]);
 
   const eventsQuery = useQuery({
     queryKey: ['events', guildId, 'upcoming'],

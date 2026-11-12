@@ -16,6 +16,7 @@ import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto } from '@dem/shared';
 import { showError } from '@/components/ErrorNotices';
+import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -111,6 +112,14 @@ function AuctionPanel({
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auction?.id, auction?.status, auction?.secondsRemaining]);
+  // At zero, ask again: the server closes the auction when it's next read.
+  const closingDue = auction?.status === 'OPEN' && secondsLeft === 0;
+  useEffect(() => {
+    if (!closingDue) return;
+    const id = setTimeout(onAuctionChange, 1500);
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closingDue, auction?.id]);
 
   // No active auction
   if (!auction || auction.status === 'CANCELLED') {
@@ -541,17 +550,20 @@ function QueueCard({
   session,
   guildId,
   eventId,
+  live,
 }: {
   session: LootSessionDto;
   guildId: string;
   eventId: string;
+  /** The page is getting live updates (LootPage refetches this queue on them). */
+  live: boolean;
 }) {
   const queryClient = useQueryClient();
 
   const queueQuery = useQuery({
     queryKey: ['loot-queue', guildId, eventId],
     queryFn: () => lootApi.getQueue(guildId, eventId),
-    refetchInterval: session.status === 'OPEN' ? 4000 : false,
+    refetchInterval: session.status === 'OPEN' ? (live ? LIVE_SAFETY_MS : 4000) : false,
   });
 
   // Local item-id order drives the drag-and-drop UI optimistically
@@ -741,13 +753,22 @@ export function LootPage() {
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
 
+  // Read by refetchInterval, which runs before useLiveQueries below.
+  const liveRef = useRef(false);
   const sessionQuery = useQuery({
     queryKey: ['loot', guildId, eventId],
     queryFn: () => lootApi.getSession(guildId!, eventId!),
     enabled: !!guildId && !!eventId,
-    // Every 4 s while the loot is live; once completed only every minute, in case it's re-opened (v1.12.0).
-    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' ? 60_000 : 4000),
+    // Every 4 s while the loot is open (unless live updates are on); once
+    // completed only every minute, in case it's re-opened (v1.12.0).
+    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' || liveRef.current ? LIVE_SAFETY_MS : 4000),
   });
+  // Picks, bids and queue changes, from here or Discord, arrive as they happen (v1.30.0).
+  const live = useLiveQueries(
+    [sessionQuery.data?.id && `loot:${sessionQuery.data.id}`, eventId && `loot-event:${eventId}`],
+    [['loot', guildId, eventId], ['loot-queue', guildId, eventId], ['loot-auctions', guildId, eventId], ['dkp', guildId], ['dkp-me', guildId]],
+  );
+  liveRef.current = live;
 
   const eventQuery = useQuery({
     queryKey: ['event', guildId, eventId],
@@ -774,7 +795,7 @@ export function LootPage() {
     queryKey: ['loot-auctions', guildId, eventId],
     queryFn: () => lootApi.getAuctions(guildId!, eventId!),
     enabled: !!guildId && !!eventId && sessionQuery.data?.method === 'DKP',
-    refetchInterval: sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN' ? 2000 : false,
+    refetchInterval: sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN' ? (live ? LIVE_SAFETY_MS : 2000) : false,
   });
 
   // Current user's snake-draft queue. Same query key as QueueCard, so both
@@ -786,7 +807,7 @@ export function LootPage() {
     queryKey: queueKey,
     queryFn: () => lootApi.getQueue(guildId!, eventId!),
     enabled: !!guildId && !!eventId && inDraft,
-    refetchInterval: sessionForQueue?.status === 'OPEN' ? 4000 : false,
+    refetchInterval: sessionForQueue?.status === 'OPEN' ? (live ? LIVE_SAFETY_MS : 4000) : false,
   });
   const queuedIds = new Set((myQueueQuery.data ?? []).map((q) => q.itemId));
   const queueToggleMutation = useMutation({
@@ -1447,6 +1468,7 @@ export function LootPage() {
               session={session}
               guildId={guildId!}
               eventId={eventId!}
+              live={live}
             />
           </div>
         )}
