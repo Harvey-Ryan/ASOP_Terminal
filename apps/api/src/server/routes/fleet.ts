@@ -191,8 +191,15 @@ fleetRouter.post('/me/fleet/import/preview', requireAuth, async (req, res) => {
   const parsed = parseFleetImport(text);
   if (!parsed.lines.length) return fail(res, 400, 'No ships found in that.');
   const index = shipIndex(await listShips());
-  const lines: FleetImportPreviewLine[] = parsed.lines.slice(0, MAX_SHIPS).map((l) => {
-    const m = matchShip(l.name, index, l.manufacturer);
+  const lines: FleetImportPreviewLine[] = parsed.lines.slice(0, MAX_SHIPS).map(({ altNames, ...l }) => {
+    let m = matchShip(l.name, index, l.manufacturer);
+    // The name didn't place it: try the others the file gave (an RSI ship code).
+    for (const alt of altNames ?? []) {
+      if (m.status === 'matched' && m.exact) break;
+      const a = matchShip(alt, index, l.manufacturer);
+      if (a.status === 'matched' && m.status !== 'matched') m = a;
+      else if (a.status === 'ambiguous' && m.status === 'none') m = a;
+    }
     return { ...l, match: m.status === 'matched' ? m : { status: m.status, suggestions: m.suggestions } };
   });
   res.json({ success: true, data: { format: parsed.format, lines } } satisfies ApiResponse<{ format: string; lines: FleetImportPreviewLine[] }>);

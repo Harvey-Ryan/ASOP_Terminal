@@ -430,8 +430,9 @@ Patch Notes — v1.1.0 — November 10
   deleted. After each refresh, `rematchFleetShips()` moves unmatched or
   game-file ships to RSI's entries.
 - Names → ships, imports (Hangar Export / hangar.link JSON, FleetViewer
-  layouts (`canvasItems` of type SHIP, v1.32.1), FleetYards-style JSON,
-  plain text) and the check-in rule are in
+  layouts (`canvasItems` of type SHIP, v1.32.1), RSI hangar lists (Hangar
+  XPLOR style: `ship_name` → nickname when `isCustomShipName`, `ship_code`
+  tried when `name` doesn't match, v1.33.2), FleetYards-style JSON, plain text) and the check-in rule are in
   `packages/shared/src/ships.ts` (`matchShip`, `parseFleetImport`,
   `fleetCheckDue`). Unmatched imports are kept as `customName` for the owner
   to fix; they don't count in a server's fleet.

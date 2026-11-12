@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  eventFleetPeople, parseShipMatrix, shipsFromGameFiles, shipIndex, matchShip, searchShips, parseFleetImport, shipRoleGroup, fleetCheckDue,
+  eventFleetPeople, isCustomShipName, shipCodeName, parseShipMatrix, shipsFromGameFiles, shipIndex, matchShip, searchShips, parseFleetImport, shipRoleGroup, fleetCheckDue,
 } from '../dist/index.js';
 
 const matrix = {
@@ -159,4 +159,29 @@ test("an event's fleets: signed up, not maybes, not hidden from the server they 
     { userId: 'e', username: 'No fleet', guildId: 'host', tentative: false },
   ];
   assert.deepEqual([...eventFleetPeople({ guildId: 'host' }, rsvps, owners)], [['a', 'Rook'], ['c', 'Ally']]);
+});
+
+test('an RSI hangar list (Hangar XPLOR style): names people gave their ships become nicknames', () => {
+  const row = (name, ship_name, ship_code, extra = {}) => ({ name, ship_name, ship_code, manufacturer_name: 'Maker', entity_type: 'ship', lti: true, ...extra });
+  const r = parseFleetImport(JSON.stringify([
+    row('Idris-P Frigate', 'Silly Ship Name', 'AEGS_Idris_P'),
+    row('Reclaimer', 'Free Candy Boys n Girls', 'AEGS_Reclaimer'),
+    row('600i Exploration Module', 'Battle Almond', 'ORIG_600i'),
+    row('MOTH', 'MOTH', 'ARGO_MOTH'),
+    row('F8C Lightning Executive Edition', 'F8C Lightning', 'ANVL_Lightning_F8C'), // the default name, shortened
+    row('Dragonfly Star Kitten Edition', 'Dragonfly Star Kitten', 'DRAK_Dragonfly_Pink'),
+    row('Ironscale', 'Ironscale', 'PAINT_X', { entity_type: 'skin' }),
+  ]));
+  assert.deepEqual(r.lines.map((l) => [l.name, l.nickname, l.altNames ?? null]), [
+    ['Idris-P Frigate', 'Silly Ship Name', ['Idris P']],
+    ['Reclaimer', 'Free Candy Boys n Girls', null],
+    ['600i Exploration Module', 'Battle Almond', ['600i']],
+    ['MOTH', null, null],
+    ['F8C Lightning Executive Edition', null, ['Lightning F8C']],
+    ['Dragonfly Star Kitten Edition', null, ['Dragonfly Pink']],
+  ]);
+  assert.equal(isCustomShipName('F8C Lightning', 'F8C Lightning Executive Edition'), false);
+  assert.equal(isCustomShipName('Battle Almond', '600i Exploration Module', '600i'), true);
+  assert.equal(shipCodeName('ORIG_600i'), '600i');
+  assert.equal(shipCodeName('Carrack'), null);
 });

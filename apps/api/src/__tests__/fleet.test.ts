@@ -101,6 +101,16 @@ describe('your fleet', () => {
     expect(fleet.ships.find((s: { id: number }) => s.id === mystery.id)).toMatchObject({ customName: null, ship: { name: 'Prospector' } });
 
     await p.agent.post('/api/me/fleet/import/preview').send({ text: '   ' }).expect(400);
+
+    // An RSI hangar list: the owner's name for the ship comes through, and
+    // the ship code places a model name the list doesn't know.
+    const rsi = JSON.stringify([
+      { name: 'Prospector Mining Edition', ship_name: 'Rock Muncher', ship_code: 'MISC_Prospector', manufacturer_name: 'MISC', entity_type: 'ship' },
+      { name: 'Carrack', ship_name: 'Carrack', ship_code: 'ANVL_Carrack', manufacturer_name: 'Anvil Aerospace', entity_type: 'ship' },
+    ]);
+    const rsiPreview = (await p.agent.post('/api/me/fleet/import/preview').send({ text: rsi }).expect(200)).body.data;
+    expect(rsiPreview.lines.map((l: { name: string; nickname: string | null; match: { ship?: { name: string } } }) => [l.name, l.nickname, l.match.ship?.name ?? null]))
+      .toEqual([['Prospector Mining Edition', 'Rock Muncher', 'Prospector'], ['Carrack', null, 'Carrack']]);
   });
 });
 
