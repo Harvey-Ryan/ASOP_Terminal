@@ -91,6 +91,8 @@ export interface ClientErrorReport {
   /** The API's ref when the error came with one */
   ref?: string | null;
   guildId?: string | null;
+  /** The website build that sent it (an old tab after a release shows an older one) */
+  version?: string | null;
 }
 
 // ── Servers ─────────────────────────────────────────────────────────────────

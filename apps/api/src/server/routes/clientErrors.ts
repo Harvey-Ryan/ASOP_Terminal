@@ -45,7 +45,7 @@ clientErrorsRouter.post('/client-errors', (req, res) => {
     ref: str(body.ref, 12),
     guildId: str(body.guildId, 30) ?? path?.match(/\/servers\/(\d{15,21})/)?.[1] ?? null,
     userId: req.session?.userId ? `user:${req.session.userId}` : null,
-    context: { kind: str(body.kind, 40) ?? 'error', page: path, userAgent: str(req.get('user-agent'), 300) },
+    context: { kind: str(body.kind, 40) ?? 'error', page: path, version: str(body.version, 20), userAgent: str(req.get('user-agent'), 300) },
   });
   res.status(202).json({ success: true, data: null } satisfies ApiResponse);
 });

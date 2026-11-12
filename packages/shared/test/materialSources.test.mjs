@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMaterialSources, planRoute, routeSystems, materialKey, chanceLabel } from '../dist/index.js';
+import { buildMaterialSources, planRoute, routeSystems, materialKey, chanceLabel, groupedPlaceName } from '../dist/index.js';
 
 const rock = (p, ...ores) => ({ RelativeProbability: p, ResourceQualities: ores.map(([k, pct]) => ({ ResourceKey: k, MaxPercentage: pct })) });
 const place = (provider, name, type, system, groups) => ({ provider_name: provider, data: { Locations: [{ Name: name, Type: type, System: system }], Groups: groups } });
@@ -29,7 +29,7 @@ test('material names match blueprint names', () => {
 
 test('sources: main ore only, per method, best first; skips loot, salvage; fixes names', () => {
   const s = buildMaterialSources(rows);
-  assert.deepEqual(s.iron.map((x) => `${x.place}|${x.method}|${x.chance}`), ['ARC L5, MIC L3|ship|1', 'Fuego|ship|0.7', 'Adir|ship|0.4']);
+  assert.deepEqual(s.iron.map((x) => `${x.place}|${x.method}|${x.chance}`), ['ARC L5 · MIC L3|ship|1', 'Fuego|ship|0.7', 'Adir|ship|0.4']);
   assert.equal(s.riccite[0].chance, 0.1); // the riccite rock's trace of iron doesn't count for iron
   assert.deepEqual(s.glacosite[0], { place: 'Adir', kind: 'moon', system: 'Pyro', method: 'roc', chance: 1, maxPercent: 100 });
   assert.equal(s['pressurized ice'][0].method, 'hand');
@@ -69,4 +69,12 @@ test('build list: amounts as the game shows them, totals times quantity', async 
   assert.deepEqual(t.materials.map((x) => [x.name, x.scu, x.units]), [
     ['Iron', 1.43, null], ['Titanium', 0.64, null], ['Corundum', 0.24, null], ['Riccite', 0.18, null], ['Glacosite', null, 20],
   ]);
+});
+
+test('groupedPlaceName lists every Lagrange point, grouped by body', () => {
+  const pyr = ['PYR1', 'PYR2'].flatMap((b) => [1, 2, 3, 4, 5].map((l) => `${b} L${l}`));
+  assert.equal(groupedPlaceName(pyr), 'PYR1 & PYR2 L1–L5');
+  assert.equal(groupedPlaceName(['MIC L5', 'CRU L3', 'MIC L1', 'HUR L5', 'MIC L2']), 'HUR L5 · CRU L3 · MIC L1, L2, L5');
+  assert.equal(groupedPlaceName(['ARC L4', 'HUR L2', 'ARC L1', 'ARC L2']), 'HUR L2 · ARC L1, L2, L4');
+  assert.equal(groupedPlaceName(['Zeta', 'Alpha']), 'Alpha · Zeta');
 });
