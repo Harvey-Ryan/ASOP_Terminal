@@ -21,6 +21,7 @@ export async function assertModuleEnabled(guildId: string, module: ModuleSetting
           tournamentsEnabled: true,
           blueprintsEnabled: true,
           craftingEnabled: true,
+          wikeloEnabled: true,
         },
       },
     },

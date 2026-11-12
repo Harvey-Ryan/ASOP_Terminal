@@ -24,6 +24,7 @@ import { exchangeRouter } from './routes/exchange.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { scRouter } from './routes/sc.js';
 import { fleetRouter } from './routes/fleet.js';
+import { wikeloRouter } from './routes/wikelo.js';
 import { rsiRosterRouter } from './routes/rsiRoster.js';
 import { rsiRouter } from './routes/rsi.js';
 import { kanbanRouter } from './routes/kanban.js';
@@ -270,6 +271,7 @@ export function createServer(): express.Express {
   app.use('/api', marketplaceRouter);
   app.use('/api/guilds', rsiRosterRouter);
   app.use('/api', fleetRouter);
+  app.use('/api', wikeloRouter);
   app.use('/api/guilds', rsiRouter);
   app.use('/api', kanbanRouter);
   app.use('/api/guilds', alliesRouter);

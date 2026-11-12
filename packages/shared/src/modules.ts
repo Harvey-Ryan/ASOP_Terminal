@@ -11,6 +11,7 @@ export const PLATFORM_MODULES = [
   { setting: 'fleetEnabled', label: 'Fleet' },
   { setting: 'blueprintsEnabled', label: 'Blueprints' },
   { setting: 'craftingEnabled', label: 'Crafting Calculator' },
+  { setting: 'wikeloEnabled', label: 'Wikelo' },
   { setting: 'activityEnabled', label: 'Activity' },
   { setting: 'jobsEnabled', label: 'Job Board' },
   { setting: 'tournamentsEnabled', label: 'Tournaments' },

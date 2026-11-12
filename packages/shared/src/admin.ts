@@ -143,6 +143,7 @@ export const ADMIN_SETTING_FIELDS: readonly AdminSettingField[] = [
   { key: 'fleetEnabled', label: 'Fleet', group: 'Modules', type: 'boolean' },
   { key: 'blueprintsEnabled', label: 'Blueprints', group: 'Modules', type: 'boolean' },
   { key: 'craftingEnabled', label: 'Crafting Calculator', group: 'Modules', type: 'boolean' },
+  { key: 'wikeloEnabled', label: 'Wikelo', group: 'Modules', type: 'boolean' },
   { key: 'activityEnabled', label: 'Activity', group: 'Modules', type: 'boolean' },
   { key: 'tournamentsEnabled', label: 'Tournaments', group: 'Modules', type: 'boolean' },
   { key: 'jobsEnabled', label: 'Job Board', group: 'Modules', type: 'boolean' },
