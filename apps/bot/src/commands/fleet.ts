@@ -11,7 +11,7 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
-import { searchShips } from '@dem/shared';
+import { searchShips, eventFleetPeople } from '@dem/shared';
 import { prisma } from '../db.js';
 import { hiddenModules } from '../utils/hiddenModules.js';
 import { shipList, fleetOwner, fleetLines, confirmButton, editButton, FLEET_COLOR } from '../services/fleetService.js';
@@ -37,17 +37,44 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) => sub
     .setName('search')
     .setDescription('Who in this server has a ship')
-    .addStringOption((o) => o.setName('ship').setDescription('Start typing a ship name').setRequired(true).setAutocomplete(true)));
+    .addStringOption((o) => o.setName('ship').setDescription('Start typing a ship name').setRequired(true).setAutocomplete(true))
+    .addStringOption((o) => o.setName('event').setDescription('Only people signed up for this event').setAutocomplete(true)));
 
 const displayName = (i: ChatInputCommandInteraction) =>
   (i.member && 'displayName' in i.member ? i.member.displayName : null) ?? i.user.globalName ?? i.user.username;
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
+/** Upcoming events this server can see: its own, and ones allies shared into it. */
+async function upcomingEvents(guildId: string) {
+  return prisma.event.findMany({
+    where: {
+      status: { in: ['PENDING', 'ACTIVE'] },
+      OR: [{ guildId }, { allianceGuilds: { some: { discordGuildId: guildId } } }],
+    },
+    select: { id: true, name: true, startTime: true },
+    orderBy: { startTime: 'asc' },
+    take: 50,
+  });
+}
+
 export async function autocomplete(interaction: AutocompleteInteraction) {
   const sub = interaction.options.getSubcommand(false);
-  const typed = interaction.options.getFocused();
+  const focused = interaction.options.getFocused(true);
+  const typed = focused.value;
   try {
+    if (focused.name === 'event') {
+      if (!interaction.guildId) { await interaction.respond([]); return; }
+      const q = typed.toLowerCase();
+      const events = (await upcomingEvents(interaction.guildId)).filter((e) => e.name.toLowerCase().includes(q));
+      // Choice names can't hold a Discord timestamp, so the date is relative.
+      const when = (d: Date) => {
+        const days = Math.round((d.getTime() - Date.now()) / 86_400_000);
+        return days <= 0 ? 'today or live' : days === 1 ? 'tomorrow' : `in ${days} days`;
+      };
+      await interaction.respond(events.slice(0, 25).map((e) => ({ name: `${e.name} · ${when(e.startTime)}`.slice(0, 100), value: e.id })));
+      return;
+    }
     if (sub === 'remove') {
       const mine = await prisma.fleetShip.findMany({ where: { discordId: interaction.user.id }, include: { ship: true } });
       const q = typed.toLowerCase();
@@ -175,21 +202,49 @@ async function search(interaction: ChatInputCommandInteraction) {
     await interaction.reply({ content: 'I couldn\'t find that ship. Start typing its name and pick it from the list.', flags: MessageFlags.Ephemeral });
     return;
   }
-  await interaction.deferReply();
   const guildId = interaction.guild.id;
-  const rows = await prisma.fleetShip.findMany({ where: { shipId: ship.id, available: true }, include: { owner: true } });
-  const visible = rows.filter((r) => !(JSON.parse(r.owner.hiddenGuildIds) as string[]).includes(guildId));
-  // Only people in this server.
-  const members = visible.length ? await interaction.guild.members.fetch({ user: [...new Set(visible.map((r) => r.discordId))] }).catch(() => null) : null;
-  const here = visible.filter((r) => members?.has(r.discordId));
-  const embed = new EmbedBuilder().setColor(here.length ? FLEET_COLOR : 0x747f8d).setTitle(`🚀 Who has a ${ship.name}?`);
+  const eventValue = interaction.options.getString('event');
+  let event: { id: string; name: string; signedUp: number } | null = null;
+  let people: Map<string, string> | null = null; // who counts, with their name
+  if (eventValue) {
+    const events = await upcomingEvents(guildId);
+    const picked = events.find((e) => e.id === eventValue) ?? events.find((e) => e.name.toLowerCase() === eventValue.toLowerCase());
+    if (!picked) {
+      await interaction.reply({ content: 'I couldn\'t find that event. Start typing its name and pick it from the list (upcoming events only).', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const ev = await prisma.event.findUniqueOrThrow({ where: { id: picked.id }, select: { id: true, name: true, guildId: true, rsvps: { select: { userId: true, username: true, guildId: true, tentative: true } } } });
+    const owners = await prisma.fleetOwner.findMany({ where: { discordId: { in: ev.rsvps.map((r) => r.userId) } }, select: { discordId: true, hiddenGuildIds: true } });
+    people = eventFleetPeople(ev, ev.rsvps, owners);
+    event = { id: ev.id, name: ev.name, signedUp: ev.rsvps.filter((r) => !r.tentative).length };
+  }
+  await interaction.deferReply();
+  const rows = await prisma.fleetShip.findMany({ where: { shipId: ship.id, available: true, ...(people ? { discordId: { in: [...people.keys()] } } : {}) }, include: { owner: true } });
+  let here: typeof rows;
+  const nameOf = new Map<string, string>();
+  if (people) {
+    // An event's sign-ups, allies included (hidden fleets already left out).
+    here = rows;
+    for (const [id, name] of people) nameOf.set(id, name);
+  } else {
+    const visible = rows.filter((r) => !(JSON.parse(r.owner.hiddenGuildIds) as string[]).includes(guildId));
+    // Only people in this server.
+    const members = visible.length ? await interaction.guild.members.fetch({ user: [...new Set(visible.map((r) => r.discordId))] }).catch(() => null) : null;
+    here = visible.filter((r) => members?.has(r.discordId));
+    for (const r of here) nameOf.set(r.discordId, members!.get(r.discordId)!.displayName);
+  }
+  const embed = new EmbedBuilder()
+    .setColor(here.length ? FLEET_COLOR : 0x747f8d)
+    .setTitle(event ? `🚀 ${ship.name}s coming to ${event.name}`.slice(0, 256) : `🚀 Who has a ${ship.name}?`);
   if (ship.imageUrl) embed.setThumbnail(ship.thumbUrl ?? ship.imageUrl);
   if (!here.length) {
-    embed.setDescription('Nobody in this server has one in their fleet yet.\nAdd yours with `/fleet add`.');
+    embed.setDescription(event
+      ? `Nobody signed up for this event has one in their fleet.\n${event.signedUp} signed up; maybes aren't counted.`
+      : 'Nobody in this server has one in their fleet yet.\nAdd yours with `/fleet add`.');
   } else {
     const byPerson = new Map<string, { name: string; quantity: number; nicknames: string[]; checkedAt: Date | null }>();
     for (const r of here) {
-      const p = byPerson.get(r.discordId) ?? { name: members!.get(r.discordId)!.displayName, quantity: 0, nicknames: [], checkedAt: r.owner.checkedAt };
+      const p = byPerson.get(r.discordId) ?? { name: nameOf.get(r.discordId) ?? r.owner.username, quantity: 0, nicknames: [], checkedAt: r.owner.checkedAt };
       p.quantity += r.quantity;
       if (r.nickname) p.nicknames.push(`"${r.nickname}"`);
       byPerson.set(r.discordId, p);
@@ -200,7 +255,8 @@ async function search(interaction: ChatInputCommandInteraction) {
     embed.setDescription(lines.slice(0, 30).join('\n') + (lines.length > 30 ? `\n…and ${lines.length - 30} more` : ''));
   }
   const crew = ship.maxCrew ? ` · crew ${ship.minCrew && ship.minCrew !== ship.maxCrew ? `${ship.minCrew}–` : ''}${ship.maxCrew}` : '';
-  embed.setFooter({ text: `${ship.manufacturer}${ship.focus ? ` · ${ship.focus}` : ''}${crew} · ${here.length} member${here.length === 1 ? '' : 's'}` });
+  const who = new Set(here.map((r) => r.discordId)).size;
+  embed.setFooter({ text: `${ship.manufacturer}${ship.focus ? ` · ${ship.focus}` : ''}${crew} · ${event ? `${who} of ${event.signedUp} signed up` : `${who} member${who === 1 ? '' : 's'}`}` });
   await interaction.editReply({ embeds: [embed] });
 }
 

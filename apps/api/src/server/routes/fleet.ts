@@ -5,7 +5,7 @@
 
 import { Router, type Request } from 'express';
 import {
-  isShipSource, parseFleetImport, shipIndex, matchShip,
+  isShipSource, parseFleetImport, shipIndex, matchShip, eventFleetPeople,
   type ApiResponse, type FleetShipDto, type MyFleetDto, type GuildFleetDto, type GuildFleetShipDto, type FleetImportPreviewLine, type ShipCatalogEntry, type ShipSource,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
@@ -232,11 +232,32 @@ fleetRouter.get('/guilds/:guildId/fleet', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) return fail(res, 403, 'The Fleet module is switched off in this server.');
   if (!(await assertEventViewer(req, guildId))) return fail(res, 403, 'Forbidden');
-  const members = await getGuildMemberList(guildId);
-  if (!members) return fail(res, 503, 'Discord is busy, so the server\'s members couldn\'t be loaded. Try again in a minute.');
 
-  const owners = (await prisma.fleetOwner.findMany({ where: { discordId: { in: [...members.keys()] } } }))
-    .filter((o) => !(JSON.parse(o.hiddenGuildIds) as string[]).includes(guildId));
+  // Everyone in the server, or (v1.33.0) the people signed up for one of its
+  // events, allies' members included.
+  const eventId = typeof req.query.eventId === 'string' && req.query.eventId ? req.query.eventId : null;
+  let names: Map<string, string>;
+  let owners: Awaited<ReturnType<typeof prisma.fleetOwner.findMany>>;
+  let event: GuildFleetDto['event'];
+  if (eventId) {
+    const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+    const ev = guild && await prisma.event.findFirst({
+      where: { id: eventId, OR: [{ guildId }, { guildShares: { some: { guildId: guild.id, status: 'ACCEPTED' } } }] },
+      select: { id: true, name: true, startTime: true, guildId: true, rsvps: { select: { userId: true, username: true, guildId: true, tentative: true } } },
+    });
+    if (!ev) return fail(res, 404, 'Event not found');
+    const signed = ev.rsvps.filter((r) => !r.tentative);
+    const candidates = await prisma.fleetOwner.findMany({ where: { discordId: { in: signed.map((r) => r.userId) } } });
+    names = eventFleetPeople(ev, ev.rsvps, candidates);
+    owners = candidates.filter((o) => names.has(o.discordId));
+    event = { id: ev.id, name: ev.name, startTime: ev.startTime.toISOString(), signedUp: signed.length };
+  } else {
+    const members = await getGuildMemberList(guildId);
+    if (!members) return fail(res, 503, 'Discord is busy, so the server\'s members couldn\'t be loaded. Try again in a minute.');
+    owners = (await prisma.fleetOwner.findMany({ where: { discordId: { in: [...members.keys()] } } }))
+      .filter((o) => !(JSON.parse(o.hiddenGuildIds) as string[]).includes(guildId));
+    names = members;
+  }
   const ids = owners.map((o) => o.discordId);
   const [rows, ships] = await Promise.all([
     prisma.fleetShip.findMany({ where: { discordId: { in: ids }, available: true } }),
@@ -255,9 +276,10 @@ fleetRouter.get('/guilds/:guildId/fleet', requireAuth, async (req, res) => {
   const data: GuildFleetDto = {
     ships: [...byShip.values()].sort((a, b) => b.total - a.total || a.ship.name.localeCompare(b.ship.name)),
     owners: owners
-      .map((o) => ({ discordId: o.discordId, name: members.get(o.discordId) ?? o.username, checkedAt: o.checkedAt?.toISOString() ?? null }))
+      .map((o) => ({ discordId: o.discordId, name: names.get(o.discordId) ?? o.username, checkedAt: o.checkedAt?.toISOString() ?? null }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     unmatched,
+    ...(event ? { event } : {}),
   };
   res.json({ success: true, data } satisfies ApiResponse<GuildFleetDto>);
 });

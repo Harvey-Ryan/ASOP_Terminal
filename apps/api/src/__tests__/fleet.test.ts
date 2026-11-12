@@ -7,7 +7,7 @@ import { createServer } from '../server/app.js';
 import { refreshShipCatalog, forgetShipList } from '../lib/shipCatalog.js';
 import { migrateOldFleets } from '../lib/fleetMigration.js';
 import { resetDiscordRest } from '../lib/discordRest.js';
-import { createUser, createGuild, createGuildSettings } from './factories.js';
+import { createUser, createGuild, createGuildSettings, createEvent } from './factories.js';
 
 const app = createServer();
 const prisma = new PrismaClient();
@@ -156,4 +156,31 @@ describe("a server's fleet", () => {
 
     await outsider.agent.get(`/api/guilds/${guild.guildId}/fleet`).expect(403);
   });
+
+  it('narrowed to one event: its sign-ups (allies too), not maybes, not hidden, no Discord call', async () => {
+    const guild = await createGuild();
+    const other = await createGuild();
+    await createGuildSettings(guild.id, { fleetEnabled: true });
+    const officer = await person([guild.guildId]);
+    const [going, maybe, hider, notSigned] = [await person(), await person(), await person(), await person()];
+    for (const p of [going, maybe, hider, notSigned]) await p.agent.post('/api/me/fleet/ships').send({ shipId: 'rsi-9003' }).expect(200);
+    await prisma.fleetOwner.update({ where: { discordId: hider.id }, data: { hiddenGuildIds: JSON.stringify([guild.guildId]) } });
+    const ev = await createEvent(guild.guildId, 'host');
+    await prisma.eventRsvp.createMany({ data: [
+      { eventId: ev.id, userId: going.id, username: 'Going Pilot', guildId: guild.guildId },
+      { eventId: ev.id, userId: maybe.id, username: 'Maybe Pilot', guildId: guild.guildId, tentative: true },
+      { eventId: ev.id, userId: hider.id, username: 'Hider', guildId: guild.guildId },
+      { eventId: ev.id, userId: 'no-fleet', username: 'No Fleet' },
+    ] });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no Discord call expected'); }));
+    const data = (await officer.agent.get(`/api/guilds/${guild.guildId}/fleet?eventId=${ev.id}`).expect(200)).body.data;
+    expect(data.event).toMatchObject({ id: ev.id, signedUp: 3 });
+    expect(data.owners.map((o: { name: string }) => o.name)).toEqual(['Going Pilot']);
+    expect(data.ships.map((s: { ship: { name: string }; total: number }) => [s.ship.name, s.total])).toEqual([['Prospector', 1]]);
+
+    // Another server's event isn't visible from here.
+    const elsewhere = await createEvent(other.guildId, 'host');
+    await officer.agent.get(`/api/guilds/${guild.guildId}/fleet?eventId=${elsewhere.id}`).expect(404);
+  });
 });
+

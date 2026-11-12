@@ -23,7 +23,8 @@ export const fleetApi = {
   applyImport: (lines: { shipId: string | null; name: string; quantity: number; nickname?: string | null }[], replace: boolean) =>
     api.post<ApiResponse<MyFleetDto>>('/me/fleet/import', { lines, replace }).then(data),
 
-  guild: (guildId: string) => api.get<ApiResponse<GuildFleetDto>>(`/guilds/${guildId}/fleet`).then(data),
+  guild: (guildId: string, eventId?: string) =>
+    api.get<ApiResponse<GuildFleetDto>>(`/guilds/${guildId}/fleet${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`).then(data),
 
   getRsiRoster: (guildId: string) => api.get<ApiResponse<RsiRosterDto>>(`/guilds/${guildId}/rsi/roster`).then(data),
 };
