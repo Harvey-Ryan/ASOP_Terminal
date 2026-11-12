@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, ApiError } from './client';
 
 export interface RcStats {
   total_members: string;
@@ -151,9 +151,39 @@ export const roleCallApi = {
   getLeftMembers: (guildId: string) =>
     api.get<RcLeftMembers>(`/rolecall/left-members?guildId=${encodeURIComponent(guildId)}`),
 
-  getGuildHeatmap: (guildId: string, params: { days?: number; timezone?: string; type?: RcHeatmapType }) =>
-    api.get<RcHeatmap>(`/rolecall/heatmap/guild?guildId=${encodeURIComponent(guildId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}${params.type ? `&type=${params.type}` : ''}`),
+  /** The server's combined, message and voice grids. */
+  getGuildHeatmaps: (guildId: string, params: HeatmapParams) =>
+    heatmapLayers(`/rolecall/heatmap/guild?guildId=${encodeURIComponent(guildId)}${heatmapQuery(params)}`),
 
-  getMemberHeatmap: (guildId: string, userId: string, params: { days?: number; timezone?: string; type?: RcHeatmapType }) =>
-    api.get<RcHeatmap>(`/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${params.days ? `&days=${params.days}` : ''}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}${params.type ? `&type=${params.type}` : ''}`),
+  /** One member's combined, message and voice grids. */
+  getMemberHeatmaps: (guildId: string, userId: string, params: HeatmapParams) =>
+    heatmapLayers(`/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${heatmapQuery(params)}`),
 };
+
+interface HeatmapParams { days?: number; timezone?: string }
+const heatmapQuery = (p: HeatmapParams) =>
+  `${p.days ? `&days=${p.days}` : ''}${p.timezone ? `&timezone=${encodeURIComponent(p.timezone)}` : ''}`;
+
+export interface RcHeatmapLayer { grid: number[][]; max: number }
+export type RcHeatmapLayers = Record<RcHeatmapType, RcHeatmapLayer>;
+
+/**
+ * All three grids in one request (RoleCall's type=all). A RoleCall from
+ * before it answers 400, so then ask for each grid separately.
+ */
+let allUnsupported = false; // learnt once per page load
+
+async function heatmapLayers(url: string): Promise<RcHeatmapLayers> {
+  if (!allUnsupported) {
+    try {
+      const r = await api.get<RcHeatmap & { layers?: RcHeatmapLayers }>(`${url}&type=all`);
+      if (r.layers) return r.layers;
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 400)) throw err;
+    }
+    allUnsupported = true;
+  }
+  const types: RcHeatmapType[] = ['combined', 'message', 'voice'];
+  const [combined, message, voice] = await Promise.all(types.map((t) => api.get<RcHeatmap>(`${url}&type=${t}`)));
+  return { combined: combined!, message: message!, voice: voice! };
+}
