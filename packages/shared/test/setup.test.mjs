@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PERMS, basePermissions, channelPermissions, setupChecklist, setupProblems } from '../dist/index.js';
+import { PERMS, BOT_PERMISSIONS, BOT_INVITE_PERMISSIONS, botInviteUrl, basePermissions, channelPermissions, setupChecklist, setupProblems } from '../dist/index.js';
 
 const G = 'g1', BOT = 'bot', BOT_ROLE = 'r-bot';
 const p = (...bits) => String(bits.reduce((a, b) => a | b, 0n));
@@ -74,4 +74,37 @@ test('switched-off modules add no steps; without Discord, chosen channels count 
   assert.deepEqual(steps.map((s) => s.key), []);
   const s = byKey(setupChecklist({ settings: { ...allOff, lootEnabled: false, forumChannelId: 'x', voiceCategoryId: 'y' }, hasEvents: false, discord: null }));
   assert.equal(s.forum.done && s.voice.done, true);
+});
+
+test('the invite asks for exactly what the bot uses, never Administrator', () => {
+  assert.equal(BOT_INVITE_PERMISSIONS & PERMS.ADMINISTRATOR, 0n);
+  for (const [bit] of BOT_PERMISSIONS) assert.ok(BOT_INVITE_PERMISSIONS & bit);
+  // Everything the checklist checks for is in the invite.
+  for (const bit of [PERMS.VIEW_CHANNEL, PERMS.SEND_MESSAGES, PERMS.SEND_MESSAGES_IN_THREADS, PERMS.EMBED_LINKS, PERMS.ATTACH_FILES, PERMS.READ_MESSAGE_HISTORY, PERMS.MANAGE_CHANNELS, PERMS.MANAGE_EVENTS, PERMS.MANAGE_ROLES]) {
+    assert.ok(BOT_INVITE_PERMISSIONS & bit);
+  }
+  assert.match(botInviteUrl('42'), /client_id=42&permissions=\d+&scope=bot\+applications\.commands$/);
+});
+
+test('missing or deleted channels can be created with one click; broken permissions can\'t', () => {
+  const fresh = byKey(setupChecklist({ settings: null, hasEvents: false, discord: null }));
+  assert.deepEqual([fresh.forum.create, fresh.voice.create, fresh.dkp.create, fresh.tournaments.create], ['forum', 'voice', 'dkp', 'tournaments']);
+  assert.equal(fresh.creators.create, undefined);
+  const settings = { ...allOff, forumChannelId: 'deleted', voiceCategoryId: 'cat' };
+  const s = byKey(setupChecklist({ settings, hasEvents: true, discord: discord() }));
+  assert.equal(s.forum.create, 'forum'); // deleted: make a new one
+  assert.equal(s.voice.create, undefined); // fine as it is
+  const noPerm = discord({ roles: [{ id: G, permissions: '0' }, { id: BOT_ROLE, permissions: p(PERMS.VIEW_CHANNEL) }] });
+  const t = byKey(setupChecklist({ settings: { ...allOff, forumChannelId: 'forum' }, hasEvents: true, discord: noPerm }));
+  assert.equal(t.forum.broken, true);
+  assert.equal(t.forum.create, undefined); // the fix is a permission, not a new channel
+});
+
+test('without Manage Roles the loot draft can\'t mark the picker: a step says so', () => {
+  const settings = { ...allOff, forumChannelId: 'forum', voiceCategoryId: 'cat' };
+  const without = byKey(setupChecklist({ settings, hasEvents: true, discord: discord() }));
+  assert.equal(without['roles-perm'].broken, true);
+  const withRoles = discord({ roles: [{ id: G, permissions: '0' }, { id: BOT_ROLE, permissions: p(...FORUM, PERMS.MANAGE_CHANNELS, PERMS.MANAGE_EVENTS, PERMS.MANAGE_ROLES) }] });
+  assert.equal(byKey(setupChecklist({ settings, hasEvents: true, discord: withRoles }))['roles-perm'], undefined);
+  assert.equal(byKey(setupChecklist({ settings: { ...settings, lootEnabled: false }, hasEvents: true, discord: discord() }))['roles-perm'], undefined);
 });

@@ -1,4 +1,4 @@
-import type { EventHeatmapDto } from '@dem/shared';
+import type { EventHeatmapDto, CreatableChannel } from '@dem/shared';
 import { api } from './client';
 import type { ApiResponse, DiscordRoleDto, ModuleSetting, SetupChecklistDto } from '@dem/shared';
 
@@ -102,6 +102,10 @@ export const settingsApi = {
   /** The setup checklist (v1.15.0); null for people who can't change settings. */
   getSetup: (guildId: string) =>
     api.get<ApiResponse<SetupChecklistDto | null>>(`/guilds/${guildId}/setup`).then((r) => r.data ?? null),
+
+  /** "Create it" on the checklist (v1.29.0): makes the channel in Discord and saves it. */
+  createSetupChannel: (guildId: string, key: CreatableChannel) =>
+    api.post<ApiResponse<{ id: string; name: string }>>(`/guilds/${guildId}/setup/create/${key}`, {}).then(requireData),
 
   setSetupHidden: (guildId: string, hidden: boolean) =>
     api.put<ApiResponse<{ hidden: boolean }>>(`/guilds/${guildId}/setup/hidden`, { hidden }).then(requireData),

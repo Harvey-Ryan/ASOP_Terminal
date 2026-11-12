@@ -213,12 +213,32 @@ This registers the following commands:
 
 ## 8. Invite the bot to your server
 
-Generate an invite URL from the [Discord Developer Portal](https://discord.com/developers/applications) → **OAuth2 → URL Generator**:
-- Scopes: `bot`, `applications.commands`
-- Bot permissions:
+The website's **Add to Discord** buttons use the right link already
+(`botInviteUrl()` in `packages/shared/src/setup.ts`). To make one by hand,
+use the [Discord Developer Portal](https://discord.com/developers/applications)
+→ **OAuth2 → URL Generator** with the scopes `bot` and `applications.commands`
+and exactly these permissions (not Administrator; v1.29.0):
 
 | Permission | Why it's needed |
 |-----------|----------------|
+| `View Channels` | See the channels it posts in |
+| `Send Messages` | Post events, loot and auctions |
+| `Send Messages in Threads` | Post in event threads |
+| `Create Public Threads` | Start event and tournament posts |
+| `Manage Threads` | Rename, close and reopen event threads |
+| `Embed Links` | Show event cards |
+| `Attach Files` | Post bracket and match images |
+| `Read Message History` | Update its own posts |
+| `Manage Messages` | Pin event posts |
+| `Manage Channels` | Create and remove event voice channels (and the setup checklist's "Create it") |
+| `Manage Roles` | The loot draft picker role, and push-to-talk in briefing channels |
+| `Manage Events` | Keep Discord events in step with ASOP |
+| `Create Events` | Add events to Discord's Events list |
+| `View Audit Log` | Find who added the bot, to send them the setup link |
+
+Servers that added the bot with Administrator keep it until they re-invite.
+
+-----------|----------------|
 | `View Channel` | Read channels and categories |
 | `Send Messages` | Post event and tournament announcements |
 | `Send Messages in Threads` | Post inside forum threads |

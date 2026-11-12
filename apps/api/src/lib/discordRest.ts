@@ -103,6 +103,44 @@ export async function discordGet<T>(path: string, bucket: string, opts: { maxWai
   return { ok: false, status: 429, code: null, unavailable: true };
 }
 
+/**
+ * POST to Discord with the bot token (v1.29.0: the setup checklist's "Create
+ * it"). Same queue and rate-limit pauses as discordGet; never retried, since a
+ * repeat could create a second channel. `reason` shows in the server's audit log.
+ */
+export async function discordPost<T>(path: string, body: unknown, bucket: string, reason?: string): Promise<DiscordGetResult<T>> {
+  const token = process.env['DISCORD_TOKEN'];
+  if (!token) return { ok: false, status: 0, code: null, unavailable: true };
+  if (Math.max(globalBlockedUntil, bucketBlockedUntil.get(bucket) ?? 0) > Date.now()) return { ok: false, status: 429, code: null, unavailable: true };
+  let res: Response;
+  await acquire();
+  try {
+    res = await fetch(`${API}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${token}`,
+        'Content-Type': 'application/json',
+        ...(reason ? { 'X-Audit-Log-Reason': encodeURIComponent(reason) } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    warnOncePerMinute(`net:${bucket}`, `[discord] POST ${path}: ${(err as Error).message}`);
+    return { ok: false, status: 0, code: null, unavailable: true };
+  } finally {
+    release();
+  }
+  if (res.status === 429) {
+    const b = (await res.json().catch(() => ({}))) as { retry_after?: number; global?: boolean };
+    const until = Date.now() + Math.ceil(1000 * (b.retry_after ?? 1));
+    if (b.global) globalBlockedUntil = until; else bucketBlockedUntil.set(bucket, until);
+    return { ok: false, status: 429, code: null, unavailable: true };
+  }
+  if (res.ok) return { ok: true, data: (await res.json()) as T };
+  const b = (await res.json().catch(() => ({}))) as { code?: number };
+  return { ok: false, status: res.status, code: b.code ?? null, unavailable: res.status >= 500 };
+}
+
 // ── Cached reads ─────────────────────────────────────────────────────────────
 
 interface Entry<T> { value: T; fetchedAt: number; ttl: number }
@@ -124,6 +162,7 @@ class TtlCache<T> {
     this.inflight.set(key, p);
     return p;
   }
+  delete(key: string) { this.map.delete(key); }
   clear() { this.map.clear(); this.inflight.clear(); }
 }
 
@@ -196,6 +235,11 @@ export async function cachedDiscordGet<T>(key: string, path: string, bucket: str
     if (r.unavailable && usable(prev)) return { ok: true as const, data: prev!.value as T };
     return r;
   });
+}
+
+/** Drops one cachedDiscordGet answer, e.g. a channel list right after creating a channel. */
+export function forgetCached(key: string): void {
+  lists.delete(key);
 }
 
 /** For tests: forget cached answers and rate-limit pauses. */

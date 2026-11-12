@@ -4,10 +4,11 @@
 // comes back by itself if something breaks later. Built by
 // packages/shared/src/setup.ts.
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, ChevronRight, Circle, X } from 'lucide-react';
-import type { SetupPage, SetupStep } from '@dem/shared';
+import { AlertTriangle, CheckCircle2, ChevronRight, Circle, Plus, X } from 'lucide-react';
+import { CREATABLE_CHANNELS, type CreatableChannel, type SetupPage, type SetupStep } from '@dem/shared';
 import { settingsApi } from '@/api/settings';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +40,17 @@ export function SetupChecklist({ guildId, variant }: { guildId: string; variant:
   const hide = useMutation({
     mutationFn: (hidden: boolean) => settingsApi.setSetupHidden(guildId, hidden),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['setup', guildId] }),
+  });
+  // "Create it" (v1.29.0): the bot makes the channel and it's saved, like choosing one in settings.
+  const [createError, setCreateError] = useState<{ key: CreatableChannel; message: string } | null>(null);
+  const create = useMutation({
+    mutationFn: (key: CreatableChannel) => settingsApi.createSetupChannel(guildId, key),
+    onMutate: () => setCreateError(null),
+    onError: (err, key) => setCreateError({ key, message: err instanceof Error ? err.message : 'Couldn\'t create it.' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['setup', guildId] });
+      void qc.invalidateQueries({ queryKey: ['settings', guildId] });
+    },
   });
 
   if (!Array.isArray(data?.steps)) return null; // not an officer, or not loaded
@@ -81,7 +93,16 @@ export function SetupChecklist({ guildId, variant }: { guildId: string; variant:
               <span className={cn(s.done && 'text-muted-foreground')}>{s.label}</span>
               {s.optional && !s.done && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">optional</span>}
               {s.detail && <p className={cn('text-xs', s.broken ? 'text-yellow-300' : 'text-muted-foreground')}>{s.detail}</p>}
+              {createError?.key === s.key && <p className="text-xs text-red-400" role="alert">{createError.message}</p>}
             </div>
+            {!s.done && s.create && (
+              <button type="button" disabled={create.isPending} onClick={() => create.mutate(s.create!)}
+                title={`The bot makes ${CREATABLE_CHANNELS[s.create].what} and it's chosen here. You can rename or move it in Discord.`}
+                className="inline-flex shrink-0 items-center gap-0.5 rounded border border-primary/40 px-2 py-0.5 text-primary hover:bg-primary/10 disabled:opacity-60">
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {create.isPending && create.variables === s.create ? 'Creating…' : 'Create it'}
+              </button>
+            )}
             {!s.done && (
               <Link to={`/dashboard/servers/${guildId}/${PAGE_PATH[s.page]}`} className="inline-flex shrink-0 items-center text-primary hover:underline">
                 {s.page === 'new-event' ? 'Create' : s.broken ? 'Fix' : 'Set up'}<ChevronRight className="h-4 w-4" aria-hidden />

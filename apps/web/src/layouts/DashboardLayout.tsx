@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { applyShade, loadShade } from '@/lib/shade';
 import { loadDisplayName, saveDisplayName } from '@/lib/displayName';
-import { canManageGuild } from '@dem/shared';
+import { botInviteUrl, canManageGuild } from '@dem/shared';
 import { useDkpLabel } from '@/hooks/useDkpLabel';
 import { HelpPanel } from '@/components/HelpPanel';
 import { RsiVerifyGate } from '@/components/RsiVerifyGate';
@@ -21,7 +21,8 @@ import { alliesApi } from '@/api/allies';
 import { healthApi } from '@/api/gameData';
 import type { ManagedGuild, DiscordUser } from '@dem/shared';
 
-const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
+// Exactly the permissions the bot uses, not Administrator (v1.29.0).
+const INVITE_URL = botInviteUrl(import.meta.env.VITE_DISCORD_CLIENT_ID ?? '');
 
 export type DashboardOutletContext = { displayName: string };
 

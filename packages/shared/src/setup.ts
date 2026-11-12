@@ -7,15 +7,48 @@
 export const PERMS = {
   ADMINISTRATOR: 1n << 3n,
   MANAGE_CHANNELS: 1n << 4n,
+  VIEW_AUDIT_LOG: 1n << 7n,
   VIEW_CHANNEL: 1n << 10n,
   SEND_MESSAGES: 1n << 11n,
+  MANAGE_MESSAGES: 1n << 13n,
   EMBED_LINKS: 1n << 14n,
   ATTACH_FILES: 1n << 15n,
   READ_MESSAGE_HISTORY: 1n << 16n,
+  MANAGE_ROLES: 1n << 28n,
   MANAGE_EVENTS: 1n << 33n,
+  MANAGE_THREADS: 1n << 34n,
+  CREATE_PUBLIC_THREADS: 1n << 35n,
   SEND_MESSAGES_IN_THREADS: 1n << 38n,
   CREATE_EVENTS: 1n << 44n,
 } as const;
+
+/**
+ * What the bot asks for when it's invited (v1.29.0), and why. Before, the
+ * invite asked for Administrator, which many server owners refuse and which
+ * made every permission check meaningless.
+ */
+export const BOT_PERMISSIONS: readonly [bigint, string, string][] = [
+  [PERMS.VIEW_CHANNEL, 'View Channels', 'see the channels it posts in'],
+  [PERMS.SEND_MESSAGES, 'Send Messages', 'post events, loot and auctions'],
+  [PERMS.SEND_MESSAGES_IN_THREADS, 'Send Messages in Threads', 'post in event threads'],
+  [PERMS.CREATE_PUBLIC_THREADS, 'Create Public Threads', 'start event and tournament posts'],
+  [PERMS.MANAGE_THREADS, 'Manage Threads', 'rename, close and reopen event threads'],
+  [PERMS.EMBED_LINKS, 'Embed Links', 'show event cards'],
+  [PERMS.ATTACH_FILES, 'Attach Files', 'post bracket and match images'],
+  [PERMS.READ_MESSAGE_HISTORY, 'Read Message History', 'update its own posts'],
+  [PERMS.MANAGE_MESSAGES, 'Manage Messages', 'pin event posts'],
+  [PERMS.MANAGE_CHANNELS, 'Manage Channels', 'create and remove event voice channels'],
+  [PERMS.MANAGE_ROLES, 'Manage Roles', 'the loot draft picker role, and push-to-talk in briefing channels'],
+  [PERMS.MANAGE_EVENTS, 'Manage Events', 'keep Discord events in step with ASOP'],
+  [PERMS.CREATE_EVENTS, 'Create Events', 'add events to Discord\'s Events list'],
+  [PERMS.VIEW_AUDIT_LOG, 'View Audit Log', 'find who added the bot, to send them the setup link'],
+];
+export const BOT_INVITE_PERMISSIONS: bigint = BOT_PERMISSIONS.reduce((all, [bit]) => all | bit, 0n);
+
+/** The link that adds the bot to a server, with exactly BOT_PERMISSIONS. */
+export function botInviteUrl(clientId: string): string {
+  return `https://discord.com/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&permissions=${BOT_INVITE_PERMISSIONS}&scope=bot+applications.commands`;
+}
 const ALL = (1n << 64n) - 1n;
 
 export interface DiscordOverwrite { id: string; type: number; allow: string; deny: string }
@@ -51,6 +84,19 @@ const TEXT_NEEDS: Need = [[PERMS.VIEW_CHANNEL, 'View Channel'], [PERMS.SEND_MESS
 
 // ── The checklist ────────────────────────────────────────────────────────────
 
+/**
+ * Channels the checklist can make with one click (v1.29.0): the setting it fills,
+ * Discord's channel type (15 forum, 4 category, 0 text) and the name it gets.
+ */
+export const CREATABLE_CHANNELS = {
+  forum: { setting: 'forumChannelId', type: 15, name: 'events', what: 'an "events" forum' },
+  voice: { setting: 'voiceCategoryId', type: 4, name: 'Event Voice', what: 'an "Event Voice" category' },
+  dkp: { setting: 'dkpAnnouncementChannelId', type: 0, name: 'auctions', what: 'an "auctions" channel' },
+  tournaments: { setting: 'tournamentChannelId', type: 15, name: 'tournaments', what: 'a "tournaments" forum' },
+} as const;
+export type CreatableChannel = keyof typeof CREATABLE_CHANNELS;
+export const isCreatableChannel = (v: unknown): v is CreatableChannel => typeof v === 'string' && Object.hasOwn(CREATABLE_CHANNELS, v);
+
 /** Where on the website a step is fixed (a settings page, or creating an event). */
 export type SetupPage = 'event-bot' | 'loot' | 'dkp' | 'tournaments' | 'bot' | 'allies' | 'jobs' | 'new-event';
 
@@ -65,6 +111,8 @@ export interface SetupStep {
   /** What's set ("#operations"), or what's wrong ("The bot is missing Create Posts.") */
   detail?: string;
   page: SetupPage;
+  /** Not chosen (or deleted): the website offers to create it (v1.29.0) */
+  create?: CreatableChannel;
 }
 
 export interface SetupChecklistDto {
@@ -105,10 +153,11 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
   /** A channel setting: chosen, still there, and usable by the bot. */
   const channel = (key: string, label: string, setting: string, page: SetupPage, needs: Need, kind: string, why: string) => {
     const id = str(setting);
-    if (!id) return steps.push({ key, label, done: false, detail: why, page });
+    const create = isCreatableChannel(key) ? key : undefined;
+    if (!id) return steps.push({ key, label, done: false, detail: why, page, ...(create && { create }) });
     if (!discord) return steps.push({ key, label, done: true, page });
     const ch = discord.channels.find((c) => c.id === id);
-    if (!ch) return steps.push({ key, label, done: false, detail: `The chosen ${kind} was deleted. Pick another.`, page, broken: true });
+    if (!ch) return steps.push({ key, label, done: false, detail: `The chosen ${kind} was deleted. Pick another.`, page, broken: true, ...(create && { create }) });
     const name = ch.type === 4 ? ch.name : `#${ch.name}`;
     // A channel in a category takes the category's overwrites only when it's synced; Discord stores them on the channel either way.
     const have = channelPermissions(base, discord.guildId, discord.botId, discord.botRoleIds, ch.permission_overwrites);
@@ -129,6 +178,11 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
     }
     const creators = (() => { try { return (JSON.parse(String(s?.['eventCreatorRoles'] ?? '[]')) as unknown[]).length; } catch { return 0; } })();
     steps.push({ key: 'creators', label: 'Choose who can create events', done: creators > 0, optional: true, detail: creators ? `${creators} role${creators === 1 ? '' : 's'}` : 'Only server managers can, for now.', page: 'event-bot' });
+  }
+  // Server-wide: the loot draft gives the current picker a role (v1.29.0: the
+  // invite no longer grants Administrator, so this can be missing).
+  if (discord && on('lootEnabled') && !(base & PERMS.MANAGE_ROLES)) {
+    steps.push({ key: 'roles-perm', label: 'Let the bot manage roles', done: false, detail: 'The bot is missing Manage Roles, so the loot draft can\'t mark whose pick it is, and briefing channels can\'t be push-to-talk.', page: 'loot', broken: true });
   }
   // The loot channel is optional (v1.22.0): event loot posts in the event's thread.
   if (on('dkpEnabled')) channel('dkp', 'Choose an auction announcements channel', 'dkpAnnouncementChannelId', 'dkp', TEXT_NEEDS, 'channel', 'Auctions aren\'t announced without it.');

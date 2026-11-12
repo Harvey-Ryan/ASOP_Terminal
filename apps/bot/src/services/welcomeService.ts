@@ -20,7 +20,8 @@ export function welcomeMessage(guild: { id: string; name: string }) {
     .setTitle('Welcome to ASOP!')
     .setDescription(
       `ASOP is now in **${guild.name}**. A few steps get events posting in Discord: an event forum and a voice channel category.\n\n` +
-      'The setup checklist on the website walks you through them, and checks that the bot has the permissions it needs.',
+      'The setup checklist on the website walks you through them, can create the channels for you, and checks that the bot has the permissions it needs.\n\n' +
+      'DKP auctions and Tournaments start switched off, since each needs a channel of its own. Turn them on in Module Settings when you want them.',
     );
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Open setup').setURL(`${webUrl}/dashboard/servers/${guild.id}/settings/modules`),

@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lootApi } from '@/api/loot';
-import type { MyPickDto } from '@dem/shared';
+import { botInviteUrl, type MyPickDto } from '@dem/shared';
 import type { DashboardOutletContext } from '@/layouts/DashboardLayout';
 
 function DraftPickCard({ pick }: { pick: MyPickDto }) {
@@ -45,7 +45,8 @@ function DraftPickCard({ pick }: { pick: MyPickDto }) {
   );
 }
 
-const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_CLIENT_ID}&permissions=8&scope=bot+applications.commands`;
+// Exactly the permissions the bot uses, not Administrator (v1.29.0).
+const INVITE_URL = botInviteUrl(import.meta.env.VITE_DISCORD_CLIENT_ID ?? '');
 
 export function DashboardPage() {
   const { user, guilds, isLoading } = useAuth();
