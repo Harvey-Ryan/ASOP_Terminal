@@ -79,9 +79,9 @@ export default function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="servers/:guildId" element={<ServerPage />} />
-          <Route path="servers/:guildId/events/new" element={<EventCreatePage />} />
-          <Route path="servers/:guildId/events/:eventId/audit" element={<EventAuditPage />} />
-          <Route path="servers/:guildId/events/:eventId/loot" element={<LootPage />} />
+          <Route path="servers/:guildId/events/new" element={<ModuleGate setting="eventBotEnabled"><EventCreatePage /></ModuleGate>} />
+          <Route path="servers/:guildId/events/:eventId/audit" element={<ModuleGate setting="eventBotEnabled"><EventAuditPage /></ModuleGate>} />
+          <Route path="servers/:guildId/events/:eventId/loot" element={<ModuleGate setting="lootEnabled"><LootPage /></ModuleGate>} />
           <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
           <Route path="servers/:guildId/settings/modules" element={<ModuleSettingsHubPage />} />
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleGate setting="eventBotEnabled"><ModuleEventBotPage /></ModuleGate>} />

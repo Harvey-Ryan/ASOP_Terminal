@@ -33,7 +33,6 @@ import { membersRouter } from './routes/members.js';
 import { jobsRouter } from './routes/jobs.js';
 import { roleCallRouter } from './routes/rolecall.js';
 import { heatmapRouter } from './routes/heatmap.js';
-import { trafficRouter } from './routes/traffic.js';
 import { tournamentRouter } from './routes/tournament.js';
 import { gameDataRouter } from './routes/gameData.js';
 import { catalogRouter } from './routes/catalog.js';
@@ -261,7 +260,6 @@ export function createServer(): express.Express {
   app.use('/api', calendarRouter);
   app.use('/api', roleCallRouter);
   app.use('/api/guilds', heatmapRouter);
-  app.use('/api/guilds', trafficRouter);
   app.use('/api/guilds', tournamentRouter);
   app.use('/api/guilds', memberPinsRouter);
   app.use('/api/guilds', membersRouter);

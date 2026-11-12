@@ -11,7 +11,7 @@ interface LogEntry {
 }
 
 /**
- * Request logging (RequestLog, the Traffic page) is switched off unless
+ * Request logging (RequestLog; its numbers show on the admin overview) is switched off unless
  * REQUEST_LOG=on (v1.21.1): it wrote a row for every API call. The table stays
  * modelled so `db push` keeps it, and old rows are still pruned after 90 days.
  */
@@ -71,7 +71,6 @@ export function deriveModule(path: string): string {
     if (sub.startsWith('/rsi'))                 return 'rsi';
     if (sub.startsWith('/images'))              return 'images';
     if (sub.startsWith('/heatmap'))             return 'activity';
-    if (sub.startsWith('/traffic'))             return 'traffic';
     if (sub === '' || sub === '/')              return 'guilds';
     return 'other';
   }

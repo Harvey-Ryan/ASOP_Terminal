@@ -242,8 +242,9 @@ Patch Notes — v1.1.0 — November 10
   (`routes/rolecall.ts` passes on only whitelisted parameters), the Member Map
   and Tournaments (one middleware on `/:guildId/tournaments`) were fixed here.
   A new route gets the same check.
-- Request logging (`RequestLog`, the Traffic page) is off unless
-  `REQUEST_LOG=on`; the table stays modelled and pruned. The admin overview's
+- Request logging (`RequestLog`) is off unless `REQUEST_LOG=on`; the table
+  stays modelled and pruned, and its numbers show on the admin overview (the
+  old Traffic page was removed in v1.28.3). The admin overview's
   "people signed in" counts live sessions.
 - Nominatim (member map search) goes through `nominatim()` in
   `routes/memberPins.ts`: one request at a time, ≥1.1 s apart, cached a day.
@@ -361,4 +362,6 @@ Patch Notes — v1.1.0 — November 10
   plus `hiddenModules`), the setup checklist (`withHiddenModules`), the
   bot's /help and job posts. The website hides its menu link and settings
   tile, and `ModuleGate` (in `App.tsx`) answers its routes with "isn't
-  available". A new module page or check gets the same treatment.
+  available" (event pages too since v1.28.3: new event and the audit page
+  by the Event Bot, an event's loot page by Loot). A new module page or
+  check gets the same treatment.

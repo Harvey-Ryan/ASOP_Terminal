@@ -19,7 +19,6 @@ const SERVER_PAGES: [RegExp, string][] = [
   [/^\/members\/me$/, 'My history'],
   [/^\/members(\/[^/]+)?$/, 'Members'],
   [/^\/activity$/, 'Activity'],
-  [/^\/traffic$/, 'Traffic'],
   [/^\/tournaments$/, 'Tournaments'],
   [/^\/map$/, 'Member Map'],
   [/^\/blueprints$/, 'Blueprints'],

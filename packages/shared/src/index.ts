@@ -809,22 +809,6 @@ export interface KanbanColumnDto {
 
 // ── UEX Corp Game Data ────────────────────────────────────────────────────────
 
-export interface UexCommodityDto {
-  id: number;
-  name: string;
-  code: string;
-  slug: string;
-  weightScu: number | null;
-  priceAvgBuy: number | null;
-  priceAvgSell: number | null;
-  isMineral: boolean;
-  isRaw: boolean;
-  isRefined: boolean;
-  isHarvestable: boolean;
-  isFuel: boolean;
-  isIllegal: boolean;
-}
-
 export interface UexSyncLogDto {
   id: string;
   trigger: string;
