@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from 'express';
-import type { ApiResponse, CatalogEntry, CatalogDetail, CatalogKind, InventoryLinkStatus } from '@dem/shared';
+import type { ApiResponse, CatalogEntry, CatalogDetail, CatalogKind } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { getCatalog, getCatalogDetail, inventoryLinkStatus } from '../../lib/catalog.js';
-import { getPlatformAdmin } from '../../lib/platformAdmin.js';
+import { getCatalog, getCatalogDetail } from '../../lib/catalog.js';
 
 // Game item catalog (sc-data): the item and commodity search behind every
 // item picker, and item details. Public like the UEX lookups it replaces.
@@ -39,12 +38,3 @@ catalogRouter.get('/catalog/item/:ref', safe(async (req, res) => {
   res.json({ success: true, data: detail } satisfies ApiResponse<CatalogDetail>);
 }));
 
-// GET /api/catalog/inventory-links: how many saved inventory entries (all servers)
-// are linked to game items. Platform admins only.
-catalogRouter.get('/catalog/inventory-links', requireAuth, safe(async (req, res) => {
-  if (!(await getPlatformAdmin(req.session.userId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
-    return;
-  }
-  res.json({ success: true, data: await inventoryLinkStatus() } satisfies ApiResponse<InventoryLinkStatus>);
-}));

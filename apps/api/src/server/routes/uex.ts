@@ -5,7 +5,6 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import type {
   ApiResponse,
-  UexCommodityDto,
   UexSyncStatusDto,
   UexSyncLogDto,
 } from '@dem/shared';
@@ -14,41 +13,6 @@ export const uexRouter = Router();
 
 // UEX Corp is only used for average commodity prices. Item names and details
 // come from the game item catalog (routes/catalog.ts).
-
-// ── GET /api/uex/commodities ──────────────────────────────────────────────────
-// Query params: q (name search), limit (default 50, max 200)
-
-uexRouter.get('/uex/commodities', async (req, res) => {
-  const q     = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
-  const limit = Math.min(parseInt(String(req.query.limit ?? '50'), 10) || 50, 200);
-
-  const rows = await prisma.uexCommodity.findMany({
-    where: {
-      isActive: true,
-      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-    },
-    orderBy: { name: 'asc' },
-    take: limit,
-  });
-
-  const data: UexCommodityDto[] = rows.map((c) => ({
-    id:           c.id,
-    name:         c.name,
-    code:         c.code,
-    slug:         c.slug,
-    weightScu:    c.weightScu,
-    priceAvgBuy:  c.priceAvgBuy,
-    priceAvgSell: c.priceAvgSell,
-    isMineral:    c.isMineral,
-    isRaw:        c.isRaw,
-    isRefined:    c.isRefined,
-    isHarvestable: c.isHarvestable,
-    isFuel:       c.isFuel,
-    isIllegal:    c.isIllegal,
-  }));
-
-  res.json({ success: true, data } satisfies ApiResponse<UexCommodityDto[]>);
-});
 
 // ── GET /api/uex/sync/status ──────────────────────────────────────────────────
 
