@@ -22,7 +22,7 @@ export function reportError(error: unknown, kind: string, ref?: string | null): 
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, stack: e.stack ?? null, kind, url: window.location.href, ref: r }),
+      body: JSON.stringify({ message, stack: e.stack ?? null, kind, url: window.location.href, ref: r, version: __APP_VERSION__ }),
       keepalive: true,
     }).catch(() => {});
   } catch { /* reporting must never cause more errors */ }

@@ -304,7 +304,14 @@ Patch Notes — v1.1.0 — November 10
   site's normal look.
 - Where materials are mined: `packages/shared/src/materialSources.ts`
   (from `scdata.resource_locations`; main ore of each rock only), shipped in
-  the crafting data as `materialSources`. When the crafting payload's shape
-  changes, bump `DATA_VERSION` in `apps/api/src/lib/craftingData.ts` so
+  the crafting data as `materialSources`. When the crafting payload's shape or contents
+  change, bump `DATA_VERSION` in `apps/api/src/lib/craftingData.ts` so
   browsers drop their cached copy.
+- Place names (v1.26.1): mining places come from the location records, with
+  Lagrange points named in full by body (`groupedPlaceName`, never "+N");
+  mission places go through `cleanMissionLocations` in `crafting.ts` (rooms
+  and sentences dropped, "the clinic inside X" → X, one name per place).
+- The website knows its own version (`__APP_VERSION__`, from the root
+  `package.json` via Vite) and sends it with error reports, so errors from a
+  tab opened before a release can be told apart.
 
