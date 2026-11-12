@@ -23,7 +23,8 @@ import { uexRouter } from './routes/uex.js';
 import { exchangeRouter } from './routes/exchange.js';
 import { marketplaceRouter } from './routes/marketplace.js';
 import { scRouter } from './routes/sc.js';
-import { fleetRouter, fleetyardsRouter } from './routes/fleet.js';
+import { fleetRouter } from './routes/fleet.js';
+import { rsiRosterRouter } from './routes/rsiRoster.js';
 import { rsiRouter } from './routes/rsi.js';
 import { kanbanRouter } from './routes/kanban.js';
 import { alliesRouter } from './routes/allies.js';
@@ -76,7 +77,7 @@ export function createServer(): express.Express {
           fontSrc: ["'self'", 'https:', 'data:'],
           formAction: ["'self'"],
           frameAncestors: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', 'https://media.fleetyards.net', 'https://unpkg.com'],
+          imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', 'https://media.robertsspaceindustries.com', 'https://robertsspaceindustries.com', 'https://unpkg.com'],
           objectSrc: ["'none'"],
           scriptSrc: ["'self'"],
           scriptSrcAttr: ["'none'"],
@@ -267,8 +268,8 @@ export function createServer(): express.Express {
   app.use('/api', catalogRouter);
   app.use('/api/guilds', exchangeRouter);
   app.use('/api', marketplaceRouter);
-  app.use('/api/guilds', fleetRouter);
-  app.use('/api', fleetyardsRouter);
+  app.use('/api/guilds', rsiRosterRouter);
+  app.use('/api', fleetRouter);
   app.use('/api/guilds', rsiRouter);
   app.use('/api', kanbanRouter);
   app.use('/api/guilds', alliesRouter);

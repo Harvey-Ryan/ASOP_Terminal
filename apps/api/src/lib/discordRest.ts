@@ -237,6 +237,24 @@ export async function cachedDiscordGet<T>(key: string, path: string, bucket: str
   });
 }
 
+/**
+ * Everyone in a server (id → display name), for views that list members'
+ * things (the fleet, v1.32.0). Up to 10,000 members, cached 10 minutes;
+ * null when Discord can't answer right now.
+ */
+export async function getGuildMemberList(guildId: string): Promise<Map<string, string> | null> {
+  const out = new Map<string, string>();
+  let after = '0';
+  for (let page = 0; page < 10; page++) {
+    const r = await cachedDiscordGet<DiscordMember[]>(`members:${guildId}:${after}`, `/guilds/${guildId}/members?limit=1000&after=${after}`, `members:${guildId}`, 10 * 60_000);
+    if (!r.ok) return page === 0 ? null : out;
+    for (const m of r.data) out.set(m.user.id, m.nick ?? m.user.global_name ?? m.user.username);
+    if (r.data.length < 1000) break;
+    after = r.data[r.data.length - 1]!.user.id;
+  }
+  return out;
+}
+
 /** Drops one cachedDiscordGet answer, e.g. a channel list right after creating a channel. */
 export function forgetCached(key: string): void {
   lists.delete(key);

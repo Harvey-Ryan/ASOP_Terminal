@@ -29,7 +29,7 @@ export async function exportMyData(userId: string) {
     rsvps, waitlists, comments, eventsCreated, attended,
     lootWon, draftQueues, lootSessionsOwned, dkpBalances, dkpLedger,
     lootAuctionBids, lootAuctionsWon, auctionBids, auctionsStarted, auctionsWon,
-    inventory, tradesAsBuyer, tradeMessages, fleet,
+    inventory, tradesAsBuyer, tradeMessages, fleet, fleetOwner, fleetShips,
     tournamentsCreated, tournamentEntries, teamSpots, ratings, standings,
     jobsPosted, jobCrew, errors, requests,
   ] = await Promise.all([
@@ -58,6 +58,8 @@ export async function exportMyData(userId: string) {
     prisma.trade.findMany({ where: { buyerId: d } }),
     prisma.tradeMessage.findMany({ where: { senderId: d }, orderBy: { createdAt: 'asc' } }),
     prisma.fleetEntry.findMany({ where: { userId: d } }),
+    prisma.fleetOwner.findUnique({ where: { discordId: d } }),
+    prisma.fleetShip.findMany({ where: { discordId: d }, include: { ship: { select: { name: true, manufacturer: true } } } }),
     prisma.tournament.findMany({ where: { createdById: d }, select: { id: true, guildId: true, name: true, createdAt: true } }),
     prisma.tournamentParticipant.findMany({ where: { discordId: d }, select: { tournamentId: true, displayName: true, seed: true, status: true, placement: true, createdAt: true } }),
     prisma.tournamentTeamMember.findMany({ where: { discordId: d }, select: { participantId: true, displayName: true } }),
@@ -114,7 +116,12 @@ export async function exportMyData(userId: string) {
       messagesYouSent: tradeMessages,
       conversations,
     },
-    fleet,
+    fleet: {
+      checkedAt: fleetOwner?.checkedAt ?? null,
+      hiddenInServers: fleetOwner ? JSON.parse(fleetOwner.hiddenGuildIds) : [],
+      ships: fleetShips.map(({ ship, ...f }) => ({ ...f, ship: ship?.name ?? null, manufacturer: ship?.manufacturer ?? null })),
+      olderPerServerEntries: fleet,
+    },
     tournaments: { created: tournamentsCreated, entries: tournamentEntries, teamSpots, ratings, seasonStandings: standings },
     jobs: { posted: jobsPosted, crew: jobCrew },
     problemsLogged: { errors, websiteRequestsLogged: requests },
@@ -204,6 +211,7 @@ export async function deleteMyData(userId: string): Promise<DeleteResult> {
 
     // ── Fleet, tournaments, jobs ──
     await tx.fleetEntry.deleteMany({ where: { userId: d } });
+    await tx.fleetOwner.deleteMany({ where: { discordId: d } }); // its ships go with it
     await tx.tournament.updateMany({ where: { createdById: d }, data: { createdById: ghost } });
     await tx.tournamentParticipant.updateMany({ where: { discordId: d }, data: { discordId: ghost, displayName: DELETED_NAME } });
     await tx.tournamentTeamMember.updateMany({ where: { discordId: d }, data: { discordId: ghost, displayName: DELETED_NAME } });

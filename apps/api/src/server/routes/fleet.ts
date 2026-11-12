@@ -1,472 +1,263 @@
-import { getMemberNames } from '../../lib/discordRest.js';
-import { Router } from 'express';
+// Fleets (v1.32.0): one per person, shown in every ASOP server they're in
+// (except ones they hide it from). Ships come from the ship list
+// (lib/shipCatalog.ts); rules and parsing in packages/shared/src/ships.ts.
+// The bot's /fleet commands write the same rows (apps/bot/src/commands/fleet.ts).
+
+import { Router, type Request } from 'express';
+import {
+  isShipSource, parseFleetImport, shipIndex, matchShip,
+  type ApiResponse, type FleetShipDto, type MyFleetDto, type GuildFleetDto, type GuildFleetShipDto, type FleetImportPreviewLine, type ShipCatalogEntry, type ShipSource,
+} from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
-import { assertGuildManager } from '../../lib/assertGuildManager.js';
-import { getFleetyardsModels } from '../../lib/fleetyardsCache.js';
-import { importHangar } from '../../lib/fleetyardsOAuth.js';
-import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetLinkStatusDto, FleetyardsLinkDto, RsiRosterDto } from '@dem/shared';
+import { assertEventViewer } from '../../lib/assertEventViewer.js';
+import { getGuildMemberList } from '../../lib/discordRest.js';
+import { listShips } from '../../lib/shipCatalog.js';
 
-// ── Guild-scoped fleet routes ─────────────────────────────────────────────────
 export const fleetRouter = Router();
 
-// ── FleetYards proxy (no guild scope) ────────────────────────────────────────
-export const fleetyardsRouter = Router();
+const MAX_SHIPS = 500;
+const MAX_IMPORT_CHARS = 2_000_000;
 
-// ── DTO helper ────────────────────────────────────────────────────────────────
+const fail = (res: import('express').Response, status: number, error: string) => {
+  res.status(status).json({ success: false, error } satisfies ApiResponse);
+};
 
-function toDto(row: {
-  id: string;
-  guildId: string;
-  userId: string;
-  username: string;
-  shipSlug: string;
-  shipName: string;
-  manufacturer: string;
-  quantity: number;
-  notes: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): FleetEntryDto {
+async function me(req: Request) {
+  const u = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true, username: true, globalName: true } });
+  return { discordId: u.discordId, name: u.globalName ?? u.username };
+}
+
+/** Their fleet row, made on first use; `touch` marks the fleet as just checked. */
+async function ownerFor(person: { discordId: string; name: string }, touch: boolean) {
+  return prisma.fleetOwner.upsert({
+    where: { discordId: person.discordId },
+    create: { discordId: person.discordId, username: person.name, checkedAt: touch ? new Date() : null },
+    update: { username: person.name, ...(touch ? { checkedAt: new Date() } : {}) },
+  });
+}
+
+async function shipMap(): Promise<Map<string, ShipCatalogEntry>> {
+  // Retired ships too, so an owner still sees one RSI stopped listing.
+  const rows = await prisma.ship.findMany();
+  return new Map(rows.map((r) => [r.id, {
+    id: r.id, name: r.name, manufacturer: r.manufacturer, manufacturerCode: r.manufacturerCode, type: r.type, focus: r.focus, size: r.size,
+    minCrew: r.minCrew, maxCrew: r.maxCrew, cargo: r.cargo, status: r.status, imageUrl: r.imageUrl, thumbUrl: r.thumbUrl, storeUrl: r.storeUrl,
+  }]));
+}
+
+type Row = { id: number; shipId: string | null; customName: string | null; quantity: number; nickname: string | null; source: string; available: boolean };
+const toDto = (r: Row, ships: Map<string, ShipCatalogEntry>): FleetShipDto => ({
+  id: r.id, ship: r.shipId ? ships.get(r.shipId) ?? null : null, customName: r.customName, quantity: r.quantity,
+  nickname: r.nickname, source: (isShipSource(r.source) ? r.source : 'PLEDGE') as ShipSource, available: r.available,
+});
+
+async function myFleet(discordId: string): Promise<MyFleetDto> {
+  const [owner, rows, ships] = await Promise.all([
+    prisma.fleetOwner.findUnique({ where: { discordId } }),
+    prisma.fleetShip.findMany({ where: { discordId }, orderBy: { id: 'asc' } }),
+    shipMap(),
+  ]);
+  const list = rows.map((r) => toDto(r, ships)).sort((a, b) => (a.ship?.name ?? a.customName ?? '').localeCompare(b.ship?.name ?? b.customName ?? ''));
   return {
-    id: row.id,
-    guildId: row.guildId,
-    userId: row.userId,
-    username: row.username,
-    shipSlug: row.shipSlug,
-    shipName: row.shipName,
-    manufacturer: row.manufacturer,
-    quantity: row.quantity,
-    notes: row.notes,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    ships: list,
+    checkedAt: owner?.checkedAt?.toISOString() ?? null,
+    nudges: owner?.nudges ?? true,
+    hiddenGuildIds: JSON.parse(owner?.hiddenGuildIds ?? '[]') as string[],
   };
 }
 
-// ── GET /api/fleetyards/models ────────────────────────────────────────────────
-// Public ship list proxied from FleetYards.net with a 6-hour server-side cache.
-// No guild scope — used by the ship combobox in the web app and the bot.
+const cleanText = (v: unknown, max: number): string | null | undefined => {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim().slice(0, max);
+  return t || null;
+};
+const cleanQty = (v: unknown): number | undefined => {
+  const n = typeof v === 'number' ? v : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : undefined;
+};
 
-fleetyardsRouter.get('/fleetyards/models', requireAuth, async (_req, res) => {
-  try {
-    const models = await getFleetyardsModels();
-    res.json({ success: true, data: models } satisfies ApiResponse);
-  } catch (err) {
-    console.error('[fleetyards/models]', err);
-    res.status(502).json({ success: false, error: 'Failed to fetch ship data from FleetYards' } satisfies ApiResponse);
-  }
+// ── The ship list ────────────────────────────────────────────────────────────
+
+fleetRouter.get('/ships', requireAuth, async (_req, res) => {
+  res.setHeader('Cache-Control', 'private, max-age=600');
+  res.json({ success: true, data: await listShips() } satisfies ApiResponse<ShipCatalogEntry[]>);
 });
 
-// ── GET /api/guilds/:guildId/fleet ────────────────────────────────────────────
-// Returns the authenticated user's fleet entries for this guild.
+// ── Your fleet ───────────────────────────────────────────────────────────────
 
-fleetRouter.get('/:guildId/fleet', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) {
-    res.status(403).json({ success: false, error: 'Fleet module is disabled' } satisfies ApiResponse); return;
-  }
-  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
-
-  const rows = await prisma.fleetEntry.findMany({
-    where: { guildId, userId: dbUser.discordId },
-    orderBy: [{ manufacturer: 'asc' }, { shipName: 'asc' }],
-  });
-
-  res.json({ success: true, data: rows.map(toDto) } satisfies ApiResponse<FleetEntryDto[]>);
+fleetRouter.get('/me/fleet', requireAuth, async (req, res) => {
+  const p = await me(req);
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
 });
 
-// ── PUT /api/guilds/:guildId/fleet ────────────────────────────────────────────
-// Upserts one fleet entry.
-//
-// body.id provided  → direct update by PK (inline editor path).
-// body.id absent    → upsert on unique key (guildId, userId, shipSlug).
+// Adds a ship (one more of it, if you already have one with the same nickname).
+fleetRouter.post('/me/fleet/ships', requireAuth, async (req, res) => {
+  const body = req.body as Record<string, unknown>;
+  const shipId = typeof body.shipId === 'string' ? body.shipId : '';
+  if (!(await prisma.ship.findUnique({ where: { id: shipId }, select: { id: true } }))) return fail(res, 400, 'Pick a ship from the list.');
+  const quantity = cleanQty(body.quantity ?? 1);
+  if (!quantity) return fail(res, 400, 'Quantity must be 1 to 99.');
+  const nickname = cleanText(body.nickname, 60) ?? null;
+  const source = isShipSource(body.source) ? body.source : 'PLEDGE';
+  const p = await me(req);
+  await ownerFor(p, true);
+  const same = await prisma.fleetShip.findFirst({ where: { discordId: p.discordId, shipId, nickname } });
+  if (same) await prisma.fleetShip.update({ where: { id: same.id }, data: { quantity: Math.min(99, same.quantity + quantity) } });
+  else {
+    if ((await prisma.fleetShip.count({ where: { discordId: p.discordId } })) >= MAX_SHIPS) return fail(res, 400, `A fleet can list up to ${MAX_SHIPS} ships.`);
+    await prisma.fleetShip.create({ data: { discordId: p.discordId, shipId, quantity, nickname, source } });
+  }
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
 
-fleetRouter.put('/:guildId/fleet', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) {
-    res.status(403).json({ success: false, error: 'Fleet module is disabled' } satisfies ApiResponse); return;
-  }
-  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
-  const userId = dbUser.discordId;
-  const username = dbUser.globalName ?? dbUser.username;
-  const body = req.body as UpsertFleetEntryBody;
-
-  if (!body.shipSlug?.trim()) {
-    res.status(400).json({ success: false, error: 'shipSlug is required' } satisfies ApiResponse); return;
-  }
-  if (!body.shipName?.trim()) {
-    res.status(400).json({ success: false, error: 'shipName is required' } satisfies ApiResponse); return;
-  }
-  if (!body.manufacturer?.trim()) {
-    res.status(400).json({ success: false, error: 'manufacturer is required' } satisfies ApiResponse); return;
-  }
-  if (typeof body.quantity !== 'number' || !Number.isInteger(body.quantity) || body.quantity < 1) {
-    res.status(400).json({ success: false, error: 'quantity must be a positive integer' } satisfies ApiResponse); return;
-  }
-
-  const notes = body.notes?.trim() || null;
-  const shipSlug = body.shipSlug.trim();
-
-  // ── Direct update by id (inline editor) ──────────────────────────────────
-  if (body.id) {
-    const entry = await prisma.fleetEntry.findUnique({ where: { id: body.id } });
-    if (!entry || entry.guildId !== guildId || entry.userId !== userId) {
-      res.status(404).json({ success: false, error: 'Entry not found' } satisfies ApiResponse); return;
+fleetRouter.patch('/me/fleet/ships/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const p = await me(req);
+  const row = Number.isInteger(id) ? await prisma.fleetShip.findFirst({ where: { id, discordId: p.discordId } }) : null;
+  if (!row) return fail(res, 404, 'Ship not found');
+  const body = req.body as Record<string, unknown>;
+  const data: Record<string, unknown> = {};
+  if (body.quantity !== undefined) { const q = cleanQty(body.quantity); if (!q) return fail(res, 400, 'Quantity must be 1 to 99.'); data.quantity = q; }
+  if (body.nickname !== undefined) data.nickname = cleanText(body.nickname, 60) ?? null;
+  if (body.source !== undefined) { if (!isShipSource(body.source)) return fail(res, 400, 'Unknown source'); data.source = body.source; }
+  if (body.available !== undefined) { if (typeof body.available !== 'boolean') return fail(res, 400, 'available must be true or false'); data.available = body.available; }
+  if (body.shipId !== undefined) {
+    // Fixing a ship the import couldn't place.
+    if (typeof body.shipId !== 'string' || !(await prisma.ship.findUnique({ where: { id: body.shipId }, select: { id: true } }))) return fail(res, 400, 'Pick a ship from the list.');
+    data.shipId = body.shipId; data.customName = null;
+    // Already listed (same ship, same nickname): one row with both counts.
+    const same = await prisma.fleetShip.findFirst({ where: { discordId: p.discordId, shipId: body.shipId, nickname: (data.nickname as string | null | undefined) ?? row.nickname, id: { not: row.id } } });
+    if (same) {
+      await prisma.$transaction([
+        prisma.fleetShip.update({ where: { id: same.id }, data: { quantity: Math.min(99, same.quantity + ((data.quantity as number | undefined) ?? row.quantity)) } }),
+        prisma.fleetShip.delete({ where: { id: row.id } }),
+      ]);
+      await ownerFor(p, true);
+      res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+      return;
     }
-    const row = await prisma.fleetEntry.update({
-      where: { id: body.id },
-      data: { username, quantity: body.quantity, notes },
-    });
-    res.json({ success: true, data: toDto(row) } satisfies ApiResponse<FleetEntryDto>);
-    return;
   }
+  await prisma.fleetShip.update({ where: { id: row.id }, data });
+  await ownerFor(p, true);
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
 
-  // ── Upsert on (guildId, userId, shipSlug) ─────────────────────────────────
-  const row = await prisma.fleetEntry.upsert({
-    where: { guildId_userId_shipSlug: { guildId, userId, shipSlug } },
-    update: { username, shipName: body.shipName.trim(), manufacturer: body.manufacturer.trim(), quantity: body.quantity, notes },
-    create: { guildId, userId, username, shipSlug, shipName: body.shipName.trim(), manufacturer: body.manufacturer.trim(), quantity: body.quantity, notes },
+fleetRouter.delete('/me/fleet/ships/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const p = await me(req);
+  const gone = Number.isInteger(id) ? await prisma.fleetShip.deleteMany({ where: { id, discordId: p.discordId } }) : { count: 0 };
+  if (!gone.count) return fail(res, 404, 'Ship not found');
+  await ownerFor(p, true);
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
+
+// "Still correct": nothing changed, but it's been checked.
+fleetRouter.post('/me/fleet/confirm', requireAuth, async (req, res) => {
+  const p = await me(req);
+  await ownerFor(p, true);
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
+
+// Servers to hide your fleet from.
+fleetRouter.put('/me/fleet/hidden', requireAuth, async (req, res) => {
+  const ids = (req.body as { guildIds?: unknown }).guildIds;
+  if (!Array.isArray(ids) || ids.length > 200 || !ids.every((g) => typeof g === 'string' && /^\d{5,25}$/.test(g))) return fail(res, 400, 'guildIds must be a list of server ids');
+  const p = await me(req);
+  await ownerFor(p, false);
+  await prisma.fleetOwner.update({ where: { discordId: p.discordId }, data: { hiddenGuildIds: JSON.stringify([...new Set(ids)]) } });
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
+
+// The quarterly "Still flying these?" DM, on or off.
+fleetRouter.put('/me/fleet/nudges', requireAuth, async (req, res) => {
+  const on = (req.body as { on?: unknown }).on;
+  if (typeof on !== 'boolean') return fail(res, 400, 'on must be true or false');
+  const p = await me(req);
+  await ownerFor(p, false);
+  await prisma.fleetOwner.update({ where: { discordId: p.discordId }, data: { nudges: on } });
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
+
+// ── Import: preview, then apply ──────────────────────────────────────────────
+
+fleetRouter.post('/me/fleet/import/preview', requireAuth, async (req, res) => {
+  const text = (req.body as { text?: unknown }).text;
+  if (typeof text !== 'string' || !text.trim()) return fail(res, 400, 'Paste a list of ships or choose a file.');
+  if (text.length > MAX_IMPORT_CHARS) return fail(res, 400, 'That file is too big.');
+  const parsed = parseFleetImport(text);
+  if (!parsed.lines.length) return fail(res, 400, 'No ships found in that.');
+  const index = shipIndex(await listShips());
+  const lines: FleetImportPreviewLine[] = parsed.lines.slice(0, MAX_SHIPS).map((l) => {
+    const m = matchShip(l.name, index, l.manufacturer);
+    return { ...l, match: m.status === 'matched' ? m : { status: m.status, suggestions: m.suggestions } };
   });
-
-  res.json({ success: true, data: toDto(row) } satisfies ApiResponse<FleetEntryDto>);
+  res.json({ success: true, data: { format: parsed.format, lines } } satisfies ApiResponse<{ format: string; lines: FleetImportPreviewLine[] }>);
 });
 
-// ── DELETE /api/guilds/:guildId/fleet/all ─────────────────────────────────────
-// Admin-only: wipes every FleetEntry for the guild.
-// IMPORTANT: must be registered before /:entryId to avoid shadowing.
-
-fleetRouter.delete('/:guildId/fleet/all', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+// `replace`: the import is the whole fleet (a hangar export), so ships not in it go.
+fleetRouter.post('/me/fleet/import', requireAuth, async (req, res) => {
+  const body = req.body as { lines?: unknown; replace?: unknown };
+  if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > MAX_SHIPS) return fail(res, 400, 'Nothing to import.');
+  const known = new Set((await listShips()).map((s) => s.id));
+  const lines: { shipId: string | null; customName: string | null; quantity: number; nickname: string | null }[] = [];
+  for (const raw of body.lines as Record<string, unknown>[]) {
+    const shipId = typeof raw?.shipId === 'string' && known.has(raw.shipId) ? raw.shipId : null;
+    const name = cleanText(raw?.name, 100) ?? null;
+    if (!shipId && !name) continue;
+    lines.push({ shipId, customName: shipId ? null : name, quantity: cleanQty(raw?.quantity) ?? 1, nickname: cleanText(raw?.nickname, 60) ?? null });
   }
-
-  const { count } = await prisma.fleetEntry.deleteMany({ where: { guildId } });
-  res.json({ success: true, data: { deleted: count } } satisfies ApiResponse<{ deleted: number }>);
-});
-
-// ── DELETE /api/guilds/:guildId/fleet/:entryId ────────────────────────────────
-// Deletes one entry; the authenticated user must own it.
-
-fleetRouter.delete('/:guildId/fleet/:entryId', requireAuth, async (req, res) => {
-  const { guildId, entryId } = req.params as { guildId: string; entryId: string };
-  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) {
-    res.status(403).json({ success: false, error: 'Fleet module is disabled' } satisfies ApiResponse); return;
-  }
-  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
-
-  const entry = await prisma.fleetEntry.findUnique({ where: { id: entryId } });
-  if (!entry || entry.guildId !== guildId) {
-    res.status(404).json({ success: false, error: 'Entry not found' } satisfies ApiResponse); return;
-  }
-  if (entry.userId !== dbUser.discordId) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
-  }
-
-  await prisma.fleetEntry.delete({ where: { id: entryId } });
-  res.json({ success: true } satisfies ApiResponse);
-});
-
-// ── GET /api/guilds/:guildId/fleet/search ─────────────────────────────────────
-// Returns all active guild members who have the specified ship.
-// Query params: slug (string — FleetYards slug)
-// Display names resolved live from Discord API; ex-members excluded.
-
-fleetRouter.get('/:guildId/fleet/search', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) {
-    res.status(403).json({ success: false, error: 'Fleet module is disabled' } satisfies ApiResponse); return;
-  }
-  const slug = (req.query.slug as string | undefined)?.trim();
-  if (!slug) {
-    res.status(400).json({ success: false, error: 'slug query parameter is required' } satisfies ApiResponse); return;
-  }
-
-  const rows = await prisma.fleetEntry.findMany({
-    where: { guildId, shipSlug: slug, memberActive: true },
-    orderBy: [{ username: 'asc' }],
-  });
-
-  // Resolve live display names from Discord; fall back to stored username on error.
-  const userIds = [...new Set(rows.map((r) => r.userId))];
-  // Cached and throttled (lib/discordRest.ts); names Discord can't give right now fall back to the stored one.
-  const nickMap = process.env['DISCORD_TOKEN'] && userIds.length > 0 ? await getMemberNames(guildId, userIds) : new Map<string, string>();
-
-  const entries: FleetSearchEntry[] = rows.map((r) => ({
-    userId: r.userId,
-    username: nickMap.get(r.userId) ?? r.username,
-    quantity: r.quantity,
-    notes: r.notes,
-  }));
-
-  res.json({ success: true, data: entries } satisfies ApiResponse<FleetSearchEntry[]>);
-});
-
-// ── POST /api/guilds/:guildId/fleet/sync ──────────────────────────────────────
-// Re-imports the authenticated user's FleetYards hangar into this guild
-// (and any other guilds where they are currently active).
-
-fleetRouter.post('/:guildId/fleet/sync', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) {
-    res.status(403).json({ success: false, error: 'Fleet module is disabled' } satisfies ApiResponse); return;
-  }
-
-  const dbUser = await prisma.user.findUniqueOrThrow({
-    where: { id: req.session.userId },
-    include: { fleetyardsLink: true },
-  });
-
-  if (!dbUser.fleetyardsLink) {
-    res.status(400).json({ success: false, error: 'No FleetYards account linked' } satisfies ApiResponse); return;
-  }
-
-  try {
-    await importHangar(
-      dbUser.id,
-      dbUser.discordId,
-      dbUser.globalName ?? dbUser.username,
-      dbUser.fleetyardsLink.accessToken,
-      guildId,
-    );
-    res.json({ success: true } satisfies ApiResponse);
-  } catch (err) {
-    console.error('[fleet/sync]', err);
-    res.status(502).json({ success: false, error: 'FleetYards hangar sync failed — your token may have expired' } satisfies ApiResponse);
-  }
-});
-
-// ── GET /api/fleet/link-status ────────────────────────────────────────────────
-// Returns the authenticated user's FleetYards connection state + RSI handle.
-
-fleetyardsRouter.get('/fleet/link-status', requireAuth, async (req, res) => {
-  const dbUser = await prisma.user.findUniqueOrThrow({
-    where: { id: req.session.userId },
-    include: { fleetyardsLink: true },
-  });
-
-  const link = dbUser.fleetyardsLink;
-  const fyLink: FleetyardsLinkDto | null = link
-    ? {
-        fyUserId: link.fyUserId,
-        fyUsername: link.fyUsername,
-        lastSyncAt: link.lastSyncAt?.toISOString() ?? null,
-        connectedAt: link.createdAt.toISOString(),
-      }
-    : null;
-
-  res.json({
-    success: true,
-    data: {
-      fleetyardsConfigured: !!process.env['FLEETYARDS_CLIENT_ID'],
-      fleetyardsLink: fyLink,
-      rsiHandle: dbUser.rsiHandle ?? null,
-    } satisfies FleetLinkStatusDto,
-  } satisfies ApiResponse<FleetLinkStatusDto>);
-});
-
-// ── DELETE /api/fleet/fleetyards ──────────────────────────────────────────────
-// Disconnects the user's FleetYards account (deletes stored tokens).
-
-fleetyardsRouter.delete('/fleet/fleetyards', requireAuth, async (req, res) => {
-  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
-  await prisma.fleetyardsLink.deleteMany({ where: { userId: dbUser.id } });
-  res.json({ success: true } satisfies ApiResponse);
-});
-
-// ── PATCH /api/fleet/rsi-handle ───────────────────────────────────────────────
-// Updates (or clears) the user's stored RSI handle.
-
-fleetyardsRouter.patch('/fleet/rsi-handle', requireAuth, async (req, res) => {
-  const body = req.body as { rsiHandle?: string | null };
-  const handle = typeof body.rsiHandle === 'string' ? body.rsiHandle.trim() || null : null;
-
-  await prisma.user.update({
-    where: { id: req.session.userId },
-    data: { rsiHandle: handle },
-  });
-
-  res.json({ success: true } satisfies ApiResponse);
-});
-
-// ── GET /api/guilds/:guildId/rsi/roster ───────────────────────────────────────
-// Fetches the RSI org roster and cross-references with app members' RSI handles.
-// Requires guild manager. Proxies to the RSI org members API to avoid CORS.
-
-fleetRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
-    return;
-  }
-
-  const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
-  if (!guild) {
-    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
-    return;
-  }
-
-  const orgTag = guild.settings?.rsiOrgTag ?? null;
-
-  if (!orgTag) {
-    res.json({ success: true, data: { orgTag: null, linked: [], orgOnly: [], total: 0 } satisfies RsiRosterDto } satisfies ApiResponse<RsiRosterDto>);
-    return;
-  }
-
-  // Fetch all app members for this guild — use per-guild rsiHandle (verified flow)
-  // falling back to the global User.rsiHandle for members who haven't re-linked
-  const members = await prisma.guildMember.findMany({
-    where: { guildId: guild.id },
-    include: { user: { select: { discordId: true, username: true, globalName: true, rsiHandle: true } } },
-  });
-
-  // Fetch RSI org roster (paginated, max 32 per page).
-  // The endpoint returns { success:1, data:{ totalrows:N, html:"...rendered li items..." } }
-  // — not a members array — so we parse handles and rank stars from the HTML.
-  const RSI_PAGE_SIZE = 32;
-  let page = 1;
-  let totalRows = Infinity;
-  const orgMembers: { handle: string; stars: number }[] = [];
-
-  function parseMembersHtml(html: string): { handle: string; stars: number }[] {
-    const out: { handle: string; stars: number }[] = [];
-    // Split on each member-item block boundary
-    const blocks = html.split(/<li[^>]+class="[^"]*member-item[^"]*"/);
-    for (const block of blocks.slice(1)) {
-      const handleMatch = block.match(/href="\/citizens\/([^"]+)"/);
-      if (!handleMatch?.[1]) continue;
-      const handle = handleMatch[1].trim();
-      // Count active star spans: icon-star followed or preceded by "active" somewhere in its class
-      const activeStars = (block.match(/class="[^"]*icon-star[^"]*"\s+style="[^"]*color/g) ?? []).length
-        || (block.match(/<span[^>]*class="[^"]*icon-star\s+active[^"]*"/g) ?? []).length
-        || (block.match(/active(?:[^"]*)?icon-star|icon-star(?:[^"]*)?active/g) ?? []).length;
-      out.push({ handle, stars: activeStars });
+  if (!lines.length) return fail(res, 400, 'Nothing to import.');
+  const p = await me(req);
+  const have = body.replace === true ? 0 : await prisma.fleetShip.count({ where: { discordId: p.discordId } });
+  if (have + lines.length > MAX_SHIPS) return fail(res, 400, `A fleet can list up to ${MAX_SHIPS} ships.`);
+  await ownerFor(p, true);
+  await prisma.$transaction(async (tx) => {
+    if (body.replace === true) await tx.fleetShip.deleteMany({ where: { discordId: p.discordId } });
+    for (const l of lines) {
+      const same = await tx.fleetShip.findFirst({ where: { discordId: p.discordId, shipId: l.shipId, customName: l.customName, nickname: l.nickname } });
+      if (same) await tx.fleetShip.update({ where: { id: same.id }, data: { quantity: body.replace === true ? l.quantity : Math.min(99, same.quantity + l.quantity) } });
+      else await tx.fleetShip.create({ data: { discordId: p.discordId, ...l } });
     }
-    return out;
+  }, { timeout: 30_000 });
+  res.json({ success: true, data: await myFleet(p.discordId) } satisfies ApiResponse<MyFleetDto>);
+});
+
+// ── A server's fleet ─────────────────────────────────────────────────────────
+
+fleetRouter.get('/guilds/:guildId/fleet', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertModuleEnabled(guildId, 'fleetEnabled'))) return fail(res, 403, 'The Fleet module is switched off in this server.');
+  if (!(await assertEventViewer(req, guildId))) return fail(res, 403, 'Forbidden');
+  const members = await getGuildMemberList(guildId);
+  if (!members) return fail(res, 503, 'Discord is busy, so the server\'s members couldn\'t be loaded. Try again in a minute.');
+
+  const owners = (await prisma.fleetOwner.findMany({ where: { discordId: { in: [...members.keys()] } } }))
+    .filter((o) => !(JSON.parse(o.hiddenGuildIds) as string[]).includes(guildId));
+  const ids = owners.map((o) => o.discordId);
+  const [rows, ships] = await Promise.all([
+    prisma.fleetShip.findMany({ where: { discordId: { in: ids }, available: true } }),
+    shipMap(),
+  ]);
+  const byShip = new Map<string, GuildFleetShipDto>();
+  let unmatched = 0;
+  for (const r of rows) {
+    const ship = r.shipId ? ships.get(r.shipId) : undefined;
+    if (!ship) { unmatched++; continue; }
+    const entry = byShip.get(ship.id) ?? { ship, owners: [], total: 0 };
+    entry.owners.push({ discordId: r.discordId, quantity: r.quantity, nickname: r.nickname, source: (isShipSource(r.source) ? r.source : 'PLEDGE') as ShipSource });
+    entry.total += r.quantity;
+    byShip.set(ship.id, entry);
   }
-
-  try {
-    while (orgMembers.length < totalRows) {
-      const response = await fetch('https://robertsspaceindustries.com/api/orgs/getOrgMembers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': 'https://robertsspaceindustries.com',
-          'Referer': `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
-        },
-        body: JSON.stringify({ symbol: orgTag, page, pagesize: RSI_PAGE_SIZE }),
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!response.ok) {
-        const body = await response.text().catch(() => '');
-        console.error(`[rsi/roster] HTTP ${response.status} from RSI:`, body.slice(0, 300));
-        res.status(502).json({ success: false, error: `RSI API returned HTTP ${response.status}` } satisfies ApiResponse);
-        return;
-      }
-
-      const rawText = await response.text();
-      let json: { success: number; data: { totalrows: number; html?: string; members?: unknown[] } };
-      try {
-        json = JSON.parse(rawText);
-      } catch {
-        console.error('[rsi/roster] Non-JSON response from RSI:', rawText.slice(0, 300));
-        res.status(502).json({ success: false, error: 'RSI returned an unexpected response' } satisfies ApiResponse);
-        return;
-      }
-
-      if (!json.success) {
-        console.error('[rsi/roster] RSI returned success=false:', rawText.slice(0, 300));
-        res.status(502).json({ success: false, error: 'RSI org not found or is private' } satisfies ApiResponse);
-        return;
-      }
-
-      totalRows = json.data?.totalrows ?? 0;
-      if (totalRows === 0) break;
-
-      const parsed = json.data?.html
-        ? parseMembersHtml(json.data.html)
-        : (json.data?.members as { handle: string; stars: number }[] | undefined) ?? [];
-
-      if (parsed.length === 0 && page === 1) {
-        console.error('[rsi/roster] Could not parse any members from RSI response. html length:', (json.data?.html ?? '').length);
-      }
-
-      for (const m of parsed) {
-        orgMembers.push(m);
-      }
-      if (parsed.length < RSI_PAGE_SIZE) break;
-      page++;
-    }
-  } catch (err) {
-    console.error('[rsi/roster] Fetch failed:', err);
-    res.status(502).json({ success: false, error: 'Failed to reach RSI' } satisfies ApiResponse);
-    return;
-  }
-
-  // Fetch affiliates — non-fatal, empty set if the call fails or returns nothing
-  const affiliateHandleSet = new Set<string>();
-  try {
-    let affiliatePage = 1;
-    let affiliateTotalRows = Infinity;
-    while (affiliateHandleSet.size < affiliateTotalRows) {
-      const affResponse = await fetch('https://robertsspaceindustries.com/api/orgs/getOrgMembers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': 'https://robertsspaceindustries.com',
-          'Referer': `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
-        },
-        body: JSON.stringify({ symbol: orgTag, page: affiliatePage, pagesize: RSI_PAGE_SIZE, role: 'affiliate' }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!affResponse.ok) break;
-      let affJson: { success: number; data: { totalrows: number; html?: string } };
-      try { affJson = JSON.parse(await affResponse.text()); } catch { break; }
-      if (!affJson.success) break;
-      affiliateTotalRows = affJson.data?.totalrows ?? 0;
-      if (affiliateTotalRows === 0) break;
-      const parsed = affJson.data?.html ? parseMembersHtml(affJson.data.html) : [];
-      for (const m of parsed) affiliateHandleSet.add(m.handle.toLowerCase());
-      if (parsed.length < RSI_PAGE_SIZE) break;
-      affiliatePage++;
-    }
-  } catch {
-    // Affiliate fetch is non-fatal
-  }
-
-  const orgHandleSet = new Set(orgMembers.map((m) => m.handle.toLowerCase()));
-  const orgRankMap = new Map(orgMembers.map((m) => [m.handle.toLowerCase(), m.stars]));
-
-  const linked = members
-    .filter((m) => m.rsiHandle || m.user.rsiHandle)
-    .map((m) => {
-      const handle = (m.rsiHandle || m.user.rsiHandle)!;
-      const handleLc = handle.toLowerCase();
-      return {
-        discordId: m.user.discordId,
-        discordUsername: m.user.globalName ?? m.user.username,
-        rsiHandle: handle,
-        verified: m.rsiVerified,
-        inOrg: orgHandleSet.has(handleLc) || affiliateHandleSet.has(handleLc),
-        isAffiliate: affiliateHandleSet.has(handleLc),
-        orgRank: orgRankMap.get(handleLc) ?? null,
-      };
-    });
-
-  const linkedHandles = new Set(linked.map((l) => l.rsiHandle.toLowerCase()));
-  const orgOnly = orgMembers
-    .filter((m) => !linkedHandles.has(m.handle.toLowerCase()))
-    .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars, isAffiliate: affiliateHandleSet.has(m.handle.toLowerCase()) }));
-
-  res.json({
-    success: true,
-    data: { orgTag, linked, orgOnly, total: orgMembers.length } satisfies RsiRosterDto,
-  } satisfies ApiResponse<RsiRosterDto>);
+  const data: GuildFleetDto = {
+    ships: [...byShip.values()].sort((a, b) => b.total - a.total || a.ship.name.localeCompare(b.ship.name)),
+    owners: owners
+      .map((o) => ({ discordId: o.discordId, name: members.get(o.discordId) ?? o.username, checkedAt: o.checkedAt?.toISOString() ?? null }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    unmatched,
+  };
+  res.json({ success: true, data } satisfies ApiResponse<GuildFleetDto>);
 });

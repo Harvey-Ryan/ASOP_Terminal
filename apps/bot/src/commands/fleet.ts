@@ -1,163 +1,206 @@
+// /fleet (v1.32.0): your fleet from Discord, and who in the server has a ship.
+// Fleets are per person (FleetOwner / FleetShip), the same rows the website's
+// Fleet page edits; ships come from the ship list (Ship, refreshed by the API).
+
 import {
   SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
   MessageFlags,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
+import { searchShips } from '@dem/shared';
 import { prisma } from '../db.js';
-import { client } from '../client.js';
-import { getFleetyardsModels } from '../fleetyardsCache.js';
+import { hiddenModules } from '../utils/hiddenModules.js';
+import { shipList, fleetOwner, fleetLines, confirmButton, editButton, FLEET_COLOR } from '../services/fleetService.js';
+
+const MAX_SHIPS = 500;
 
 export const data = new SlashCommandBuilder()
   .setName('fleet')
-  .setDescription('Fleet Registry commands')
-  .addSubcommand((sub) =>
-    sub
-      .setName('search')
-      .setDescription('Search guild member fleet registries for a ship')
-      .addStringOption((opt) =>
-        opt
-          .setName('ship')
-          .setDescription('Ship name')
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('link')
-      .setDescription('Manage your Fleet Registry on the web dashboard'),
-  );
+  .setDescription('Your ships, and who in the server has a ship')
+  .addSubcommand((sub) => sub
+    .setName('add')
+    .setDescription('Add a ship to your fleet')
+    .addStringOption((o) => o.setName('ship').setDescription('Start typing a ship name').setRequired(true).setAutocomplete(true))
+    .addIntegerOption((o) => o.setName('quantity').setDescription('How many (default 1)').setMinValue(1).setMaxValue(99))
+    .addStringOption((o) => o.setName('nickname').setDescription('Its name, if you gave it one').setMaxLength(60)))
+  .addSubcommand((sub) => sub
+    .setName('remove')
+    .setDescription('Remove a ship from your fleet')
+    .addStringOption((o) => o.setName('ship').setDescription('One of your ships').setRequired(true).setAutocomplete(true)))
+  .addSubcommand((sub) => sub
+    .setName('mine')
+    .setDescription('Show your fleet'))
+  .addSubcommand((sub) => sub
+    .setName('search')
+    .setDescription('Who in this server has a ship')
+    .addStringOption((o) => o.setName('ship').setDescription('Start typing a ship name').setRequired(true).setAutocomplete(true)));
+
+const displayName = (i: ChatInputCommandInteraction) =>
+  (i.member && 'displayName' in i.member ? i.member.displayName : null) ?? i.user.globalName ?? i.user.username;
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
 export async function autocomplete(interaction: AutocompleteInteraction) {
   const sub = interaction.options.getSubcommand(false);
-  if (sub !== 'search') { await interaction.respond([]); return; }
-
-  const focused = interaction.options.getFocused().toLowerCase();
+  const typed = interaction.options.getFocused();
   try {
-    const models = await getFleetyardsModels();
-    const matches = models
-      .filter(
-        (m) =>
-          m.name.toLowerCase().includes(focused) ||
-          m.manufacturer.toLowerCase().includes(focused),
-      )
-      .sort((a, b) => {
-        const aS = a.name.toLowerCase().startsWith(focused) ? 0 : 1;
-        const bS = b.name.toLowerCase().startsWith(focused) ? 0 : 1;
-        return aS - bS || a.name.localeCompare(b.name);
-      })
-      .slice(0, 25);
-
-    await interaction.respond(
-      matches.map((m) => ({
-        name: `${m.name} — ${m.manufacturer}`.slice(0, 100),
-        value: m.slug,
-      })),
-    );
+    if (sub === 'remove') {
+      const mine = await prisma.fleetShip.findMany({ where: { discordId: interaction.user.id }, include: { ship: true } });
+      const q = typed.toLowerCase();
+      await interaction.respond(mine
+        .map((r) => ({ name: `${r.ship?.name ?? r.customName ?? 'Unknown'}${r.quantity > 1 ? ` ×${r.quantity}` : ''}${r.nickname ? ` "${r.nickname}"` : ''}`.slice(0, 100), value: String(r.id) }))
+        .filter((c) => c.name.toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 25));
+      return;
+    }
+    const ships = searchShips(typed, await shipList(), 25);
+    await interaction.respond(ships.map((s) => ({ name: `${s.name} — ${s.manufacturer}`.slice(0, 100), value: s.id })));
   } catch {
-    await interaction.respond([]);
+    await interaction.respond([]).catch(() => null);
   }
 }
 
 // ── Execute ───────────────────────────────────────────────────────────────────
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  if (!interaction.guildId) {
-    await interaction.reply({ content: 'This command can only be used in a server.', flags: MessageFlags.Ephemeral });
-    return;
-  }
-
   const sub = interaction.options.getSubcommand();
-
-  if (sub === 'link') {
-    await executeLink(interaction);
-    return;
+  if (interaction.guildId && sub === 'search') {
+    const hidden = await hiddenModules();
+    const settings = await prisma.guildSettings.findFirst({ where: { guild: { guildId: interaction.guildId } }, select: { fleetEnabled: true } });
+    if (hidden.has('fleetEnabled') || settings?.fleetEnabled === false) {
+      await interaction.reply({ content: 'The Fleet module is switched off in this server.', flags: MessageFlags.Ephemeral });
+      return;
+    }
   }
-
-  await executeSearch(interaction);
+  if (sub === 'add') return add(interaction);
+  if (sub === 'remove') return remove(interaction);
+  if (sub === 'mine') return mine(interaction);
+  return search(interaction);
 }
 
-// ── /fleet link ───────────────────────────────────────────────────────────────
+/** Resolves what was picked or typed: an autocomplete id, else the best name match. */
+async function pickShip(value: string) {
+  const ships = await shipList();
+  return ships.find((s) => s.id === value) ?? searchShips(value, ships, 1)[0] ?? null;
+}
 
-async function executeLink(interaction: ChatInputCommandInteraction) {
-  const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
-  const fleetUrl = `${webUrl}/servers/${interaction.guildId}/fleet`;
+async function add(interaction: ChatInputCommandInteraction) {
+  const ship = await pickShip(interaction.options.getString('ship', true));
+  if (!ship) {
+    await interaction.reply({ content: 'I couldn\'t find that ship. Start typing its name and pick it from the list.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  const quantity = interaction.options.getInteger('quantity') ?? 1;
+  const nickname = interaction.options.getString('nickname')?.trim() || null;
+  const me = interaction.user.id;
+  await fleetOwner(me, displayName(interaction), true);
+  const same = await prisma.fleetShip.findFirst({ where: { discordId: me, shipId: ship.id, nickname } });
+  let total = quantity;
+  if (same) {
+    total = Math.min(99, same.quantity + quantity);
+    await prisma.fleetShip.update({ where: { id: same.id }, data: { quantity: total } });
+  } else {
+    if ((await prisma.fleetShip.count({ where: { discordId: me } })) >= MAX_SHIPS) {
+      await interaction.reply({ content: `A fleet can list up to ${MAX_SHIPS} ships.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await prisma.fleetShip.create({ data: { discordId: me, shipId: ship.id, quantity, nickname } });
+  }
+  const embed = new EmbedBuilder()
+    .setColor(FLEET_COLOR)
+    .setTitle(`Added ${ship.name}${quantity > 1 ? ` ×${quantity}` : ''}`)
+    .setDescription(`${ship.manufacturer}${ship.focus ? ` · ${ship.focus}` : ''}${same ? `\nYou now have ${total}.` : ''}${nickname ? `\nNamed "${nickname}".` : ''}`);
+  if (ship.thumbUrl ?? ship.imageUrl) embed.setThumbnail((ship.thumbUrl ?? ship.imageUrl)!);
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Manage Fleet')
-      .setStyle(ButtonStyle.Link)
-      .setURL(fleetUrl),
-  );
+async function remove(interaction: ChatInputCommandInteraction) {
+  const value = interaction.options.getString('ship', true);
+  const me = interaction.user.id;
+  const id = Number(value);
+  let row = Number.isInteger(id) ? await prisma.fleetShip.findFirst({ where: { id, discordId: me }, include: { ship: true } }) : null;
+  if (!row) {
+    // Typed instead of picked: the first of their ships with that name.
+    const q = value.toLowerCase();
+    const mine = await prisma.fleetShip.findMany({ where: { discordId: me }, include: { ship: true } });
+    row = mine.find((r) => (r.ship?.name ?? r.customName ?? '').toLowerCase() === q) ?? null;
+  }
+  if (!row) {
+    await interaction.reply({ content: 'That ship isn\'t in your fleet. Pick one from the list.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await prisma.fleetShip.delete({ where: { id: row.id } });
+  await fleetOwner(me, displayName(interaction), true);
+  await interaction.reply({ content: `Removed **${row.ship?.name ?? row.customName}**${row.quantity > 1 ? ` (all ${row.quantity})` : ''} from your fleet.`, flags: MessageFlags.Ephemeral });
+}
 
+async function mine(interaction: ChatInputCommandInteraction) {
+  const owner = await prisma.fleetOwner.findUnique({ where: { discordId: interaction.user.id } });
+  const lines = await fleetLines(interaction.user.id);
+  if (!lines.length) {
+    await interaction.reply({
+      content: 'Your fleet is empty. Add ships with `/fleet add`, or paste or import a whole list on the website.',
+      components: [new ActionRowBuilder<ButtonBuilder>().addComponents(editButton())],
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+  const shown = lines.slice(0, 40);
+  const embed = new EmbedBuilder()
+    .setColor(FLEET_COLOR)
+    .setTitle('🚀 Your fleet')
+    .setDescription([...shown, ...(lines.length > shown.length ? [`…and ${lines.length - shown.length} more on the website`] : [])].join('\n'))
+    .setFooter({ text: 'Shown in every ASOP server you\'re in. Hide it from a server on the website.' });
+  const checked = owner?.checkedAt ? `Last checked <t:${Math.floor(owner.checkedAt.getTime() / 1000)}:R>.` : '';
   await interaction.reply({
-    content: 'Open the Fleet Registry to connect your FleetYards account and manage your ships:',
-    components: [row],
+    content: checked || undefined,
+    embeds: [embed],
+    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton(), editButton())],
     flags: MessageFlags.Ephemeral,
   });
 }
 
-// ── /fleet search ─────────────────────────────────────────────────────────────
-
-async function executeSearch(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply();
-
-  const slug = interaction.options.getString('ship', true);
-
-  const entries = await prisma.fleetEntry.findMany({
-    where: { guildId: interaction.guildId!, shipSlug: slug, memberActive: true },
-    orderBy: { username: 'asc' },
-  });
-
-  const shipName = entries[0]?.shipName ?? slug;
-  const manufacturer = entries[0]?.manufacturer ?? '';
-
-  if (entries.length === 0) {
-    await interaction.editReply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle(`🚀 ${shipName}`)
-          .setDescription('No members currently have this ship registered.')
-          .setColor(0x747f8d),
-      ],
-    });
+async function search(interaction: ChatInputCommandInteraction) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: 'Use this in a server to see who there has the ship. For your own fleet, use `/fleet mine`.', flags: MessageFlags.Ephemeral });
     return;
   }
-
-  // Resolve server nicknames
-  const guild = interaction.guild ?? (await client.guilds.fetch(interaction.guildId!));
-  const userIds = [...new Set(entries.map((e) => e.userId))];
-  const nickMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    try {
-      const members = await guild.members.fetch({ user: userIds });
-      for (const [, member] of members) {
-        nickMap.set(member.user.id, member.displayName);
-      }
-    } catch {
-      // Non-fatal — fall back to stored username per entry
-    }
+  const ship = await pickShip(interaction.options.getString('ship', true));
+  if (!ship) {
+    await interaction.reply({ content: 'I couldn\'t find that ship. Start typing its name and pick it from the list.', flags: MessageFlags.Ephemeral });
+    return;
   }
-
-  const lines = entries.map((e) => {
-    const displayName = nickMap.get(e.userId) ?? e.username;
-    const qty = e.quantity > 1 ? ` ×${e.quantity}` : '';
-    const notes = e.notes ? ` — *${e.notes}*` : '';
-    return `**${displayName}**${qty}${notes}`;
-  });
-
-  const embed = new EmbedBuilder()
-    .setTitle(`🚀 Who has a ${shipName}?`)
-    .setDescription(lines.join('\n'))
-    .setFooter({ text: `${manufacturer} · ${entries.length} member${entries.length !== 1 ? 's' : ''} · Fleet Registry` })
-    .setColor(0x5865f2);
-
+  await interaction.deferReply();
+  const guildId = interaction.guild.id;
+  const rows = await prisma.fleetShip.findMany({ where: { shipId: ship.id, available: true }, include: { owner: true } });
+  const visible = rows.filter((r) => !(JSON.parse(r.owner.hiddenGuildIds) as string[]).includes(guildId));
+  // Only people in this server.
+  const members = visible.length ? await interaction.guild.members.fetch({ user: [...new Set(visible.map((r) => r.discordId))] }).catch(() => null) : null;
+  const here = visible.filter((r) => members?.has(r.discordId));
+  const embed = new EmbedBuilder().setColor(here.length ? FLEET_COLOR : 0x747f8d).setTitle(`🚀 Who has a ${ship.name}?`);
+  if (ship.imageUrl) embed.setThumbnail(ship.thumbUrl ?? ship.imageUrl);
+  if (!here.length) {
+    embed.setDescription('Nobody in this server has one in their fleet yet.\nAdd yours with `/fleet add`.');
+  } else {
+    const byPerson = new Map<string, { name: string; quantity: number; nicknames: string[]; checkedAt: Date | null }>();
+    for (const r of here) {
+      const p = byPerson.get(r.discordId) ?? { name: members!.get(r.discordId)!.displayName, quantity: 0, nicknames: [], checkedAt: r.owner.checkedAt };
+      p.quantity += r.quantity;
+      if (r.nickname) p.nicknames.push(`"${r.nickname}"`);
+      byPerson.set(r.discordId, p);
+    }
+    const lines = [...byPerson.values()]
+      .sort((a, b) => (b.checkedAt?.getTime() ?? 0) - (a.checkedAt?.getTime() ?? 0))
+      .map((p) => `**${p.name}**${p.quantity > 1 ? ` ×${p.quantity}` : ''}${p.nicknames.length ? ` — ${p.nicknames.join(', ')}` : ''}${p.checkedAt ? ` · checked <t:${Math.floor(p.checkedAt.getTime() / 1000)}:R>` : ''}`);
+    embed.setDescription(lines.slice(0, 30).join('\n') + (lines.length > 30 ? `\n…and ${lines.length - 30} more` : ''));
+  }
+  const crew = ship.maxCrew ? ` · crew ${ship.minCrew && ship.minCrew !== ship.maxCrew ? `${ship.minCrew}–` : ''}${ship.maxCrew}` : '';
+  embed.setFooter({ text: `${ship.manufacturer}${ship.focus ? ` · ${ship.focus}` : ''}${crew} · ${here.length} member${here.length === 1 ? '' : 's'}` });
   await interaction.editReply({ embeds: [embed] });
 }
+

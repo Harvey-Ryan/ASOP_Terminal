@@ -413,3 +413,35 @@ Patch Notes — v1.1.0 — November 10
   `exportMyData` and `deleteMyData`, and to `myData.test.ts`.
 - Not covered: messages already posted in Discord, and RoleCall's activity
   data (a separate service).
+
+## Fleets (v1.32.0)
+
+- One fleet per person (`FleetOwner` by Discord id, `FleetShip` rows), shown
+  in every ASOP server they're in (members from `getGuildMemberList()`),
+  except servers in `hiddenGuildIds`; ships marked `available: false` never
+  show to officers. Website: `routes/fleet.ts` (`/api/me/fleet…`,
+  `/api/guilds/:guildId/fleet`, `/api/ships`), `pages/FleetPage.tsx`
+  (`/dashboard/servers/:guildId/fleet` and `/dashboard/fleet`). Bot: `/fleet
+  add | remove | mine | search` (`commands/fleet.ts`, `services/fleetService.ts`).
+- The ship list is the `Ship` table: RSI's Ship Matrix (images, role, crew),
+  refreshed at API start-up and daily by `refreshShipCatalog()`
+  (`lib/shipCatalog.ts`); with RSI unreachable and no list, the game files
+  (`scdata.ships`, no images) stand in. Ships RSI drops are `retired`, never
+  deleted. After each refresh, `rematchFleetShips()` moves unmatched or
+  game-file ships to RSI's entries.
+- Names → ships, imports (Hangar Export / hangar.link JSON, FleetYards-style
+  JSON, plain text) and the check-in rule are in
+  `packages/shared/src/ships.ts` (`matchShip`, `parseFleetImport`,
+  `fleetCheckDue`). Unmatched imports are kept as `customName` for the owner
+  to fix; they don't count in a server's fleet.
+- Every change (or "Still correct") sets `checkedAt`. The bot DMs a
+  "Still flying these?" check-in at most every `FLEET_CHECK_DAYS`
+  (`checkFleetNudges`, posting loop, hourly); `FleetOwner.nudges` turns it
+  off (Notification Settings, or the DM's "Stop asking").
+- FleetYards linking is gone. `FleetEntry` (old per-server fleets) and
+  `FleetyardsLink` are converted / emptied at start-up by
+  `migrateOldFleets()` (`lib/fleetMigration.ts`); drop both models in the
+  next release.
+- Ship images load from `media.robertsspaceindustries.com` (allowed in the
+  CSP `imgSrc`), credited on the page.
+

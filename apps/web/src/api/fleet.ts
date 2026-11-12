@@ -1,45 +1,29 @@
 import { api } from './client';
-import type { ApiResponse, FleetEntryDto, FleetSearchEntry, UpsertFleetEntryBody, FleetyardsModelDto, FleetLinkStatusDto, RsiRosterDto } from '@dem/shared';
+import type {
+  ApiResponse, ShipCatalogEntry, MyFleetDto, GuildFleetDto, FleetImportPreviewLine, ShipSource, RsiRosterDto,
+} from '@dem/shared';
 
+const data = <T>(r: ApiResponse<T>) => r.data as T;
+
+/** Fleets (v1.32.0): yours, a server's, the ship list and imports. */
 export const fleetApi = {
-  getMyFleet: (guildId: string) =>
-    api
-      .get<ApiResponse<FleetEntryDto[]>>(`/guilds/${guildId}/fleet`)
-      .then((r) => r.data ?? []),
+  ships: () => api.get<ApiResponse<ShipCatalogEntry[]>>('/ships').then(data),
 
-  upsertEntry: (guildId: string, body: UpsertFleetEntryBody) =>
-    api
-      .put<ApiResponse<FleetEntryDto>>(`/guilds/${guildId}/fleet`, body)
-      .then((r) => r.data!),
+  mine: () => api.get<ApiResponse<MyFleetDto>>('/me/fleet').then(data),
+  add: (body: { shipId: string; quantity?: number; nickname?: string | null; source?: ShipSource }) =>
+    api.post<ApiResponse<MyFleetDto>>('/me/fleet/ships', body).then(data),
+  update: (id: number, body: Partial<{ quantity: number; nickname: string | null; source: ShipSource; available: boolean; shipId: string }>) =>
+    api.patch<ApiResponse<MyFleetDto>>(`/me/fleet/ships/${id}`, body).then(data),
+  remove: (id: number) => api.delete<ApiResponse<MyFleetDto>>(`/me/fleet/ships/${id}`).then(data),
+  confirm: () => api.post<ApiResponse<MyFleetDto>>('/me/fleet/confirm').then(data),
+  setHidden: (guildIds: string[]) => api.put<ApiResponse<MyFleetDto>>('/me/fleet/hidden', { guildIds }).then(data),
+  setNudges: (on: boolean) => api.put<ApiResponse<MyFleetDto>>('/me/fleet/nudges', { on }).then(data),
+  previewImport: (text: string) =>
+    api.post<ApiResponse<{ format: 'hangarexport' | 'json' | 'text'; lines: FleetImportPreviewLine[] }>>('/me/fleet/import/preview', { text }).then(data),
+  applyImport: (lines: { shipId: string | null; name: string; quantity: number; nickname?: string | null }[], replace: boolean) =>
+    api.post<ApiResponse<MyFleetDto>>('/me/fleet/import', { lines, replace }).then(data),
 
-  deleteEntry: (guildId: string, entryId: string) =>
-    api.delete<ApiResponse>(`/guilds/${guildId}/fleet/${entryId}`),
+  guild: (guildId: string) => api.get<ApiResponse<GuildFleetDto>>(`/guilds/${guildId}/fleet`).then(data),
 
-  wipeFleet: (guildId: string) =>
-    api.delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/fleet/all`).then((r) => r.data!),
-
-  search: (guildId: string, slug: string) =>
-    api
-      .get<ApiResponse<FleetSearchEntry[]>>(`/guilds/${guildId}/fleet/search?slug=${encodeURIComponent(slug)}`)
-      .then((r) => r.data ?? []),
-
-  getModels: () =>
-    api
-      .get<ApiResponse<FleetyardsModelDto[]>>('/fleetyards/models')
-      .then((r) => r.data ?? []),
-
-  getLinkStatus: () =>
-    api.get<ApiResponse<FleetLinkStatusDto>>('/fleet/link-status').then((r) => r.data!),
-
-  syncHangar: (guildId: string) =>
-    api.post<ApiResponse>(`/guilds/${guildId}/fleet/sync`),
-
-  disconnectFY: () =>
-    api.delete<ApiResponse>('/fleet/fleetyards'),
-
-  updateRsiHandle: (rsiHandle: string | null) =>
-    api.patch<ApiResponse>('/fleet/rsi-handle', { rsiHandle }),
-
-  getRsiRoster: (guildId: string) =>
-    api.get<ApiResponse<RsiRosterDto>>(`/guilds/${guildId}/rsi/roster`).then((r) => r.data!),
+  getRsiRoster: (guildId: string) => api.get<ApiResponse<RsiRosterDto>>(`/guilds/${guildId}/rsi/roster`).then(data),
 };

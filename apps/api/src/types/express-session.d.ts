@@ -9,12 +9,6 @@ declare module 'express-session' {
     oauthState?: string;
     /** Dashboard page to return to after Discord login (safeReturnPath), v1.12.0 */
     returnTo?: string;
-    /** CSRF state token for the FleetYards OAuth flow */
-    fyOAuthState?: string;
-    /** PKCE code_verifier generated at the start of the FleetYards OAuth flow */
-    fyCodeVerifier?: string;
-    /** Guild ID to redirect back to after FleetYards OAuth completes */
-    fyReturnGuildId?: string;
     /** Cached list of Discord guild IDs the user can manage */
     managedGuildIds?: string[];
     /** Unix ms timestamp of when managedGuildIds was last refreshed */
