@@ -1,4 +1,4 @@
-import { cachedDiscordGet } from '../../lib/discordRest.js';
+import { cachedDiscordGet, discordPost, forgetCached } from '../../lib/discordRest.js';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -13,7 +13,7 @@ import { ValidationError } from '../../lib/validate.js';
 import { applySettingsPatch, parseSettingsPatch, patchNeedsManager, readPermissionFields, type SettingsPatch } from '../../lib/guildSettings.js';
 import { activityAvailable } from '../../lib/activityAvailable.js';
 import { hiddenModules } from '../../lib/hiddenModules.js';
-import { setupChecklist, withHiddenModules, type ApiResponse, type ModuleSetting, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
+import { CREATABLE_CHANNELS, isCreatableChannel, setupChecklist, withHiddenModules, type ApiResponse, type ModuleSetting, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
 
 export const settingsRouter = Router();
 
@@ -322,6 +322,42 @@ settingsRouter.put('/:guildId/setup/hidden', requireAuth, async (req, res) => {
   }
   await prisma.guildSettings.upsert({ where: { guildId: guild.id }, update: { setupHidden: hidden }, create: { guildId: guild.id, setupHidden: hidden } });
   res.json({ success: true, data: { hidden } } satisfies ApiResponse);
+});
+
+// ── POST /api/guilds/:guildId/setup/create/:key (v1.29.0) ───────────────────
+// "Create it" on the setup checklist: makes the channel in Discord with the
+// bot's token and saves it, the same way choosing one in settings does.
+
+settingsRouter.post('/:guildId/setup/create/:key', requireAuth, async (req, res) => {
+  const { guildId, key } = req.params as { guildId: string; key: string };
+  if (!(await assertModuleEditor(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  if (!isCreatableChannel(key)) {
+    res.status(400).json({ success: false, error: 'That can\'t be created from here' } satisfies ApiResponse);
+    return;
+  }
+  const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
+  if (!guild) {
+    res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
+    return;
+  }
+  const spec = CREATABLE_CHANNELS[key];
+  const made = await discordPost<{ id: string; name: string }>(
+    `/guilds/${guildId}/channels`, { name: spec.name, type: spec.type }, `channels:${guildId}`, 'ASOP setup checklist',
+  );
+  if (!made.ok) {
+    const error = made.code === 50013 || made.status === 403
+      ? 'The bot doesn\'t have Manage Channels in this server. Give its role that permission, then try again.'
+      : made.unavailable ? 'Discord didn\'t answer. Try again in a moment.' : 'Discord refused to create the channel.';
+    if (!made.unavailable && made.status !== 403) console.warn(`[setup] Creating ${key} in ${guildId} failed: ${made.status} ${made.code ?? ''}`);
+    res.status(made.unavailable ? 503 : 400).json({ success: false, error } satisfies ApiResponse);
+    return;
+  }
+  forgetCached(`channels:${guildId}`); // the checklist's channel list must include it
+  await applySettingsPatch(guildId, { [spec.setting]: made.data.id });
+  res.json({ success: true, data: { id: made.data.id, name: made.data.name } } satisfies ApiResponse<{ id: string; name: string }>);
 });
 
 // ── POST /api/guilds/:guildId/settings/register-commands ─────────────────────

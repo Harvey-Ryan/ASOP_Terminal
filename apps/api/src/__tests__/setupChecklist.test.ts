@@ -81,4 +81,47 @@ describe('setup checklist', () => {
     expect((await member.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data).toBeNull();
     await member.put(`/api/guilds/${g.guildId}/setup/hidden`).send({ hidden: true }).expect(403);
   });
+
+  it('"Create it" makes the channel in Discord and saves it (v1.29.0)', async () => {
+    const g = await createGuild();
+    await createGuildSettings(g.id, { voiceCategoryId: 'cat', lootEnabled: false, dkpEnabled: false, tournamentsEnabled: false });
+    fakeDiscord(g.guildId);
+    const real = (globalThis.fetch as unknown as (u: string, init?: RequestInit) => Promise<Response>);
+    const created: { body: unknown; reason: string | null }[] = [];
+    const channels = [{ id: 'cat', name: 'Ops voice', type: 4, permission_overwrites: [] }];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const path = url.replace('https://discord.com/api/v10', '');
+      if (path === `/guilds/${g.guildId}/channels` && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { name: string; type: number };
+        created.push({ body, reason: new Headers(init.headers).get('X-Audit-Log-Reason') });
+        const ch = { id: 'new-forum', name: body.name, type: body.type, permission_overwrites: [] };
+        channels.push(ch);
+        return new Response(JSON.stringify(ch), { status: 201, headers: { 'content-type': 'application/json' } });
+      }
+      if (path === `/guilds/${g.guildId}/channels`) return new Response(JSON.stringify(channels), { status: 200, headers: { 'content-type': 'application/json' } });
+      return real(url, init);
+    }));
+    const agent = await officer(g.guildId);
+    const before = (await agent.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data;
+    expect(before.steps.find((s: { key: string }) => s.key === 'forum')).toMatchObject({ done: false, create: 'forum' });
+
+    const res = await agent.post(`/api/guilds/${g.guildId}/setup/create/forum`).expect(200);
+    expect(res.body.data).toEqual({ id: 'new-forum', name: 'events' });
+    expect(created).toEqual([{ body: { name: 'events', type: 15 }, reason: encodeURIComponent('ASOP setup checklist') }]);
+    expect((await prisma.guildSettings.findUnique({ where: { guildId: g.id } }))?.forumChannelId).toBe('new-forum');
+    // Shown straight away, not as "deleted" from a cached channel list.
+    const after = (await agent.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data;
+    expect(after.steps.find((s: { key: string }) => s.key === 'forum').detail).toBe('#events');
+  });
+
+  it('"Create it" explains a missing permission, refuses other keys, and is for officers only', async () => {
+    const g = await createGuild();
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), { status: 403, headers: { 'content-type': 'application/json' } })));
+    const agent = await officer(g.guildId);
+    const res = await agent.post(`/api/guilds/${g.guildId}/setup/create/voice`).expect(400);
+    expect(res.body.error).toMatch(/Manage Channels/);
+    await agent.post(`/api/guilds/${g.guildId}/setup/create/creators`).expect(400);
+    const member = await officer(g.guildId, false);
+    await member.post(`/api/guilds/${g.guildId}/setup/create/forum`).expect(403);
+  });
 });

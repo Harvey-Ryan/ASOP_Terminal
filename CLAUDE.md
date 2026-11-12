@@ -170,6 +170,17 @@ Patch Notes — v1.1.0 — November 10
   in the checklist too.
 - When the bot joins a server it DMs "Welcome to ASOP!" to whoever added it
   (`services/welcomeService.ts`).
+- Easier setup (v1.29.0):
+  - The invite asks for `BOT_PERMISSIONS` (`setup.ts`, `botInviteUrl()`),
+    not Administrator. A feature that needs a new Discord permission adds it
+    there (and to RAILWAY.md's invite table), and to the checklist if it can
+    be missing.
+  - A server new to ASOP starts with DKP and Tournaments off (bot
+    `GuildCreate` creates its settings row); existing rows are untouched.
+  - Channel steps in `CREATABLE_CHANNELS` get `create` and a "Create it"
+    button: `POST /api/guilds/:guildId/setup/create/:key` makes the channel
+    with the bot token (`discordPost`, never retried) and saves it through
+    `applySettingsPatch`.
 
 ## Calendar feed (v1.16.0)
 
