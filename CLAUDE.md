@@ -443,6 +443,12 @@ Patch Notes — v1.1.0 — November 10
   `FleetyardsLink` are converted / emptied at start-up by
   `migrateOldFleets()` (`lib/fleetMigration.ts`); drop both models in the
   next release.
+- Fleets for one event (v1.33.0): `GET /api/guilds/:guildId/fleet?eventId=`
+  (the event must be the server's own or shared into it) and `/fleet search
+  … event:` count the people signed up, allies included, never maybes, minus
+  fleets hidden from the server each signed up from (`eventFleetPeople` in
+  `ships.ts`). The website keeps the choice in `?event=`. Deliberately not on
+  the event page or its Discord posts (fleets are too long there).
 - Ship images load from `media.robertsspaceindustries.com` (allowed in the
   CSP `imgSrc`), credited on the page.
 

@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fleetApi } from '@/api/fleet';
+import { eventsApi } from '@/api/events';
 import { ApiError } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -403,7 +404,12 @@ function YourFleet() {
 // ── A server's fleet ──────────────────────────────────────────────────────────
 
 function ServerFleet({ guildId }: { guildId: string }) {
-  const q = useQuery({ queryKey: ['guild-fleet', guildId], queryFn: () => fleetApi.guild(guildId), staleTime: 60_000, retry: 1 });
+  // Narrow to one upcoming event's sign-ups (v1.33.0); kept in the URL.
+  const [params, setParams] = useSearchParams();
+  const eventId = params.get('event') ?? '';
+  const setEvent = (id: string) => setParams((p) => { const n = new URLSearchParams(p); if (id) n.set('event', id); else n.delete('event'); return n; }, { replace: true });
+  const events = useQuery({ queryKey: ['events', guildId, 'upcoming'], queryFn: () => eventsApi.list(guildId), staleTime: 60_000 });
+  const q = useQuery({ queryKey: ['guild-fleet', guildId, eventId], queryFn: () => fleetApi.guild(guildId, eventId || undefined), staleTime: 60_000, retry: 1 });
   const [filter, setFilter] = useState('');
   const [role, setRole] = useState<string>('all');
   const [showMembers, setShowMembers] = useState(false);
@@ -422,8 +428,22 @@ function ServerFleet({ guildId }: { guildId: string }) {
     return SHIP_ROLE_GROUPS.filter((g) => by.has(g)).map((g) => ({ group: g, ships: by.get(g)! }));
   }, [data, filter, names]);
 
-  if (q.isLoading) return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-56 rounded-lg" />)}</div>;
-  if (q.isError || !data) return <p role="alert" className="text-sm text-red-400">{errorText(q.error, 'The server\'s fleet couldn\'t be loaded.')}</p>;
+  const upcoming = [...(events.data ?? [])].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const eventPicker = (
+    <select aria-label="Whose ships" value={eventId} onChange={(e) => setEvent(e.target.value)}
+      className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm sm:w-[28rem]">
+      <option value="">Everyone in the server</option>
+      {upcoming.map((ev) => (
+        <option key={ev.id} value={ev.id}>
+          Signed up for: {ev.name} · {new Date(ev.startTime).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+        </option>
+      ))}
+      {eventId && !upcoming.some((ev) => ev.id === eventId) && <option value={eventId}>Signed up for: {data?.event?.name ?? 'this event'}</option>}
+    </select>
+  );
+
+  if (q.isLoading) return <div className="space-y-4">{eventPicker}<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-56 rounded-lg" />)}</div></div>;
+  if (q.isError || !data) return <div className="space-y-4">{eventPicker}<p role="alert" className="text-sm text-red-400">{errorText(q.error, 'The server\'s fleet couldn\'t be loaded.')}</p></div>;
 
   const totalShips = data.ships.reduce((n, s) => n + s.total, 0);
   const seats = data.ships.reduce((n, s) => n + (s.ship.maxCrew ?? 0) * s.total, 0);
@@ -432,21 +452,27 @@ function ServerFleet({ guildId }: { guildId: string }) {
 
   if (!data.owners.length) {
     return (
-      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-        <Users className="mx-auto mb-2 h-8 w-8" aria-hidden />
-        Nobody in this server has added their fleet yet. Members can add ships with <code>/fleet add</code> in Discord or on the &ldquo;Your fleet&rdquo; tab.
+      <div className="space-y-4">
+        {eventPicker}
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          <Users className="mx-auto mb-2 h-8 w-8" aria-hidden />
+          {data.event
+            ? <>None of the {data.event.signedUp} {data.event.signedUp === 1 ? 'person' : 'people'} signed up for {data.event.name} {data.event.signedUp === 1 ? 'has' : 'have'} added a fleet yet.</>
+            : <>Nobody in this server has added their fleet yet. Members can add ships with <code>/fleet add</code> in Discord or on the &ldquo;Your fleet&rdquo; tab.</>}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
+      {eventPicker}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ['Ships', totalShips.toLocaleString()],
           ['Different ships', data.ships.length.toLocaleString()],
           ['Crew seats', seats.toLocaleString()],
-          ['Members with a fleet', `${data.owners.length}`],
+          data.event ? ['Signed up with a fleet', `${data.owners.length} of ${data.event.signedUp}`] : ['Members with a fleet', `${data.owners.length}`],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-border bg-card p-3">
             <div className="text-xs text-muted-foreground">{label}</div>
@@ -456,7 +482,7 @@ function ServerFleet({ guildId }: { guildId: string }) {
       </div>
       <p className="text-xs text-muted-foreground">
         {fresh} of {data.owners.length} fleet{data.owners.length === 1 ? '' : 's'} checked in the last {Math.round(FLEET_CHECK_DAYS / 30)} months.
-        Ships members marked &ldquo;not for org ops&rdquo; aren&apos;t counted.
+        Ships members marked &ldquo;not for org ops&rdquo; aren&apos;t counted{data.event ? ', and neither are maybes' : ''}.
         {data.unmatched > 0 && ` ${data.unmatched} ship${data.unmatched === 1 ? '' : 's'} still waiting for their owner to match ${data.unmatched === 1 ? 'it' : 'them'}.`}
       </p>
 

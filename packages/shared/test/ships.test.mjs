@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseShipMatrix, shipsFromGameFiles, shipIndex, matchShip, searchShips, parseFleetImport, shipRoleGroup, fleetCheckDue,
+  eventFleetPeople, parseShipMatrix, shipsFromGameFiles, shipIndex, matchShip, searchShips, parseFleetImport, shipRoleGroup, fleetCheckDue,
 } from '../dist/index.js';
 
 const matrix = {
@@ -142,4 +142,21 @@ test('importing a FleetViewer layout (STARJUMP / fleetviewer.link): only its shi
 
 test('a JSON list never turns tags or stats into ships', () => {
   assert.deepEqual(parseFleetImport(JSON.stringify({ things: [{ kind: 'x', stats: ['LENGTH', 'MASS'] }] })).lines, []);
+});
+
+test("an event's fleets: signed up, not maybes, not hidden from the server they signed up from", () => {
+  const owners = [
+    { discordId: 'a', hiddenGuildIds: '[]' },
+    { discordId: 'b', hiddenGuildIds: '["host"]' },
+    { discordId: 'c', hiddenGuildIds: '["host"]' },
+    { discordId: 'd', hiddenGuildIds: '[]' },
+  ];
+  const rsvps = [
+    { userId: 'a', username: 'Rook', guildId: 'host', tentative: false },
+    { userId: 'b', username: 'Vex', guildId: null, tentative: false },     // hid it from the host
+    { userId: 'c', username: 'Ally', guildId: 'ally', tentative: false },  // hid it from the host, signed up from the ally
+    { userId: 'd', username: 'Maybe', guildId: 'host', tentative: true },
+    { userId: 'e', username: 'No fleet', guildId: 'host', tentative: false },
+  ];
+  assert.deepEqual([...eventFleetPeople({ guildId: 'host' }, rsvps, owners)], [['a', 'Rook'], ['c', 'Ally']]);
 });

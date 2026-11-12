@@ -118,7 +118,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       value: [
         '`/fleet add <ship>` — Add a ship to your fleet (shown in every ASOP server you\'re in)',
         '`/fleet remove <ship>` · `/fleet mine` — Change or see your fleet',
-        '`/fleet search <ship>` — Who in this server has a ship',
+        '`/fleet search <ship> [event]` — Who in this server has a ship, or who\'s bringing one to an event',
       ].join('\n'),
     });
   }

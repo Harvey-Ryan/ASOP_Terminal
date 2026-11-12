@@ -356,6 +356,29 @@ export interface GuildFleetDto {
   owners: GuildFleetOwnerDto[];
   /** Ships people own that couldn't be matched to the list, by name. */
   unmatched: number;
+  /** Set when narrowed to one event's sign-ups (v1.33.0). */
+  event?: { id: string; name: string; startTime: string; signedUp: number };
+}
+
+/**
+ * Whose fleets count for an event (v1.33.0): people signed up (not maybes),
+ * keyed by Discord id with the name they signed up under, minus anyone who
+ * hid their fleet from the server they signed up from (the host's, when a
+ * sign-up has no server).
+ */
+export function eventFleetPeople(
+  event: { guildId: string },
+  rsvps: { userId: string; username: string; guildId: string | null; tentative: boolean }[],
+  owners: { discordId: string; hiddenGuildIds: string }[],
+): Map<string, string> {
+  const hidden = new Map(owners.map((o) => [o.discordId, new Set(JSON.parse(o.hiddenGuildIds || '[]') as string[])]));
+  const out = new Map<string, string>();
+  for (const r of rsvps) {
+    if (r.tentative || !hidden.has(r.userId)) continue;
+    if (hidden.get(r.userId)!.has(r.guildId ?? event.guildId)) continue;
+    out.set(r.userId, r.username);
+  }
+  return out;
 }
 
 export interface FleetImportPreviewLine extends FleetImportLine {
