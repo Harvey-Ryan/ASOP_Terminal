@@ -122,3 +122,24 @@ test('when to ask "still flying these?"', () => {
   assert.equal(fleetCheckDue({ ...owner, lastNudgeAt: ago(5) }, 3, now), false); // asked recently, no answer: wait
   assert.equal(fleetCheckDue({ ...owner, checkedAt: null, createdAt: ago(30) }, 3, now), false);
 });
+
+test('importing a FleetViewer layout (STARJUMP / fleetviewer.link): only its ships', () => {
+  const text = (id, label) => ({ id: `t-${id}`, itemType: 'TEXTGROUP', text: label, childOfShip: id, stats: ['LENGTH'] });
+  const file = JSON.stringify({
+    type: 'starjumpFleetviewer', version: 1, backgroundImageUrl: 'https://example.invalid/bg.png',
+    canvasItems: [
+      { id: 'a', itemType: 'SHIP', shipSlug: 'galaxy', variantSlug: '', defaultText: 'Galaxy', parentOfGroup: 't-a' }, text('a', 'Galaxy'),
+      { id: 'b', itemType: 'SHIP', shipSlug: 'aurora-mk-ii', defaultText: 'Aurora Mk II' }, text('b', 'Aurora Mk II'),
+      { id: 'c', itemType: 'SHIP', shipSlug: 'dragonfly-black' },
+      { id: 'd', itemType: 'SHIP', shipSlug: 'galaxy', defaultText: 'Galaxy' },
+      { id: 'e', itemType: 'IMAGE', url: 'x.png' },
+    ],
+  });
+  const r = parseFleetImport(file);
+  assert.equal(r.format, 'fleetviewer');
+  assert.deepEqual(r.lines.map((l) => [l.name, l.quantity]), [['Galaxy', 2], ['Aurora Mk II', 1], ['dragonfly black', 1]]);
+});
+
+test('a JSON list never turns tags or stats into ships', () => {
+  assert.deepEqual(parseFleetImport(JSON.stringify({ things: [{ kind: 'x', stats: ['LENGTH', 'MASS'] }] })).lines, []);
+});

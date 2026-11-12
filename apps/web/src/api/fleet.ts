@@ -19,7 +19,7 @@ export const fleetApi = {
   setHidden: (guildIds: string[]) => api.put<ApiResponse<MyFleetDto>>('/me/fleet/hidden', { guildIds }).then(data),
   setNudges: (on: boolean) => api.put<ApiResponse<MyFleetDto>>('/me/fleet/nudges', { on }).then(data),
   previewImport: (text: string) =>
-    api.post<ApiResponse<{ format: 'hangarexport' | 'json' | 'text'; lines: FleetImportPreviewLine[] }>>('/me/fleet/import/preview', { text }).then(data),
+    api.post<ApiResponse<{ format: 'hangarexport' | 'fleetviewer' | 'json' | 'text'; lines: FleetImportPreviewLine[] }>>('/me/fleet/import/preview', { text }).then(data),
   applyImport: (lines: { shipId: string | null; name: string; quantity: number; nickname?: string | null }[], replace: boolean) =>
     api.post<ApiResponse<MyFleetDto>>('/me/fleet/import', { lines, replace }).then(data),
 

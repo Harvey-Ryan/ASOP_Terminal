@@ -213,7 +213,7 @@ function ImportPanel({ ships, onDone }: { ships: ShipCatalogEntry[]; onDone: (fl
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Paste one ship per line (&ldquo;2x Cutlass Black&rdquo; works), or choose an export file: <span className="text-foreground">Hangar Export / hangar.link</span> JSON, a FleetYards export, or any list.
+          Paste one ship per line (&ldquo;2x Cutlass Black&rdquo; works), or choose an export file: <span className="text-foreground">Hangar Export / hangar.link</span> JSON, a <span className="text-foreground">FleetViewer</span> layout, a FleetYards export, or any list.
         </p>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} aria-label="Ships to import"
           placeholder={'Carrack\n2x Cutlass Black\nProspector'}
@@ -234,7 +234,7 @@ function ImportPanel({ ships, onDone }: { ships: ShipCatalogEntry[]; onDone: (fl
     <div className="space-y-3">
       <p className="text-sm">
         Found <strong>{preview.lines.length}</strong> ship{preview.lines.length === 1 ? '' : 's'}
-        {preview.format === 'hangarexport' ? ' in your hangar export' : ''}. Check the matches, then add them.
+        {preview.format === 'hangarexport' ? ' in your hangar export' : preview.format === 'fleetviewer' ? ' in your FleetViewer layout' : ''}. Check the matches, then add them.
       </p>
       <ul className="divide-y divide-border rounded-md border border-border">
         {preview.lines.map((l, i) => {
