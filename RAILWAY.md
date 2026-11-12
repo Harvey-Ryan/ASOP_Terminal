@@ -298,3 +298,4 @@ BOT_INTERNAL_SECRET=<shared-secret>
 WEB_URL=https://<domain>
 API_URL=http://<api-web-service>.railway.internal:3001
 ```
+

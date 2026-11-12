@@ -1,0 +1,61 @@
+# Checks every push and pull request: the shared package builds and its tests
+# pass, every app type-checks, the API's tests pass against a real Postgres, and
+# the website builds. A red check on a pull request means don't merge yet.
+name: Checks
+
+on:
+  push:
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dem
+          POSTGRES_PASSWORD: dem_test_password
+          POSTGRES_DB: dem_test
+        # Same port the API tests expect (apps/api/vitest.config.ts).
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U dem -d dem_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build the shared package
+        run: npm run build -w @dem/shared
+
+      - name: Shared tests
+        run: node --test packages/shared/test/*.test.mjs
+
+      - name: Type-check every app
+        run: |
+          npm run lint -w @dem/api
+          npm run lint -w @dem/bot
+          npm run lint -w @dem/web
+          npm run lint -w @dem/sc-data
+
+      - name: API tests
+        run: npm test -w @dem/api
+
+      - name: Build the website
+        run: npm run build -w @dem/web
