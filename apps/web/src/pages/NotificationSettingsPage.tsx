@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { notificationsApi } from '@/api/notifications';
+import { fleetApi } from '@/api/fleet';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiError } from '@/api/client';
@@ -133,6 +134,27 @@ function CalendarCard() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ── Fleet check-in (v1.32.0): kept on the fleet, so it works for people who only use the bot ──
+
+function FleetCheckRow() {
+  const qc = useQueryClient();
+  const { data: fleet } = useQuery({ queryKey: ['my-fleet'], queryFn: fleetApi.mine });
+  const set = useMutation({
+    mutationFn: (on: boolean) => fleetApi.setNudges(on),
+    onSuccess: (f) => qc.setQueryData(['my-fleet'], f),
+  });
+  if (!fleet) return null;
+  return (
+    <PrefRow
+      label="Fleet check-in"
+      description="A DM about once a quarter asking if your fleet is still right, with a one-click “Still correct”. Only if you have ships listed."
+      checked={fleet.nudges}
+      onChange={() => set.mutate(!fleet.nudges)}
+      disabled={set.isPending}
+    />
   );
 }
 
@@ -312,6 +334,7 @@ export function NotificationSettingsPage() {
                 onChange={() => toggle('dmLootComplete')}
                 disabled={busy}
               />
+              <FleetCheckRow />
             </CardContent>
           </Card>
 

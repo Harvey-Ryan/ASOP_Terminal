@@ -1,5 +1,5 @@
 // v1.28.0: platform admins hide modules for every server.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 
 const { createServer } = await import('../server/app.js');
@@ -62,7 +62,9 @@ describe('hiding modules for every server', () => {
     const after = (await officer.agent.get(`/api/guilds/${guild.guildId}/my-permissions`).expect(200)).body.data;
     expect(after.fleetEnabled).toBe(true);
     expect(after.hiddenModules).toEqual(['jobsEnabled']);
-    await officer.agent.get(`/api/guilds/${guild.guildId}/fleet`).expect(200);
+    // The fleet view lists the server's members (from Discord, v1.32.0): none here.
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })));
+    try { await officer.agent.get(`/api/guilds/${guild.guildId}/fleet`).expect(200); } finally { vi.unstubAllGlobals(); }
 
     const log = await prisma.adminLog.findMany({ where: { kind: 'admin.modules' }, orderBy: { id: 'asc' } });
     expect(log.map((l) => l.summary)).toEqual(['Hid Fleet, Job Board for every server', 'Showed Fleet for every server']);

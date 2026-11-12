@@ -97,6 +97,7 @@ export default function App() {
           <Route path="servers/:guildId/exchange" element={<Navigate to="../marketplace" replace />} />
           <Route path="servers/:guildId/settings/modules/exchange" element={<ModuleGate setting="exchangeEnabled"><ExchangeSettingsPage /></ModuleGate>} />
           <Route path="servers/:guildId/fleet" element={<ModuleGate setting="fleetEnabled"><FleetPage /></ModuleGate>} />
+          <Route path="fleet" element={<FleetPage />} />
           <Route path="servers/:guildId/roster" element={<RosterPage />} />
           <Route path="servers/:guildId/members" element={<MembersPage />} />
           <Route path="servers/:guildId/members/:userId" element={<MemberHistoryPage />} />

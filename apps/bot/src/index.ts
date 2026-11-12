@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { handleFleetButton } from './services/fleetService.js';
 import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, type EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
@@ -217,6 +218,15 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     // ── /blueprint "Show missions" button ────────────────────────────────────
     if (interaction.customId.startsWith(`${blueprintCommand.MISSIONS_BUTTON}:`)) {
       await blueprintCommand.handleMissionsButton(interaction).catch((err) => console.error('[bot] Missions button error:', err));
+      return;
+    }
+
+    // ── Fleet check-in buttons (v1.32.0): fleet:confirm / fleet:stop ─────────
+    if (interaction.customId.startsWith('fleet:')) {
+      await handleFleetButton(interaction).catch(async (err) => {
+        console.error('[bot] Fleet button error:', err);
+        await interaction.reply({ content: withRef('Something went wrong. Try again, or check your fleet on the website.'), flags: MessageFlags.Ephemeral }).catch(() => {});
+      });
       return;
     }
 
