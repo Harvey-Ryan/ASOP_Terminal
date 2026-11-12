@@ -36,6 +36,10 @@ export interface RawMission {
   TimeToCompleteMinutes?: number;
   MinStanding?: RawStanding;
   Illegal?: boolean;
+  RewardItems?: { Name: string; Amount: number }[];
+  Enemies?: { Min: number; Max: number } | null;
+  Shareable?: boolean;
+  OnceOnly?: boolean;
 }
 
 export interface RawResource { UUID: string; Name: string }
@@ -128,6 +132,10 @@ export interface ScContractJson {
   TimeToComplete?: number | null;
   MinStanding?: { Name?: string; MinReputation?: number } | null;
   Illegal?: boolean;
+  Shareable?: boolean;
+  OnceOnly?: boolean;
+  RewardItems?: { Items?: { Name?: string; Amount?: number }[] }[] | null;
+  CombatSummary?: { Total?: { Min?: number; Max?: number } } | null;
   LocationPools?: Record<string, { Purpose?: string; ResolvedLocations?: { Name?: string }[] }>;
 }
 
@@ -267,6 +275,12 @@ export function adaptContract(c: ScContractJson): RawMission | null {
     TimeToCompleteMinutes: c.TimeToComplete ?? undefined,
     MinStanding: c.MinStanding ?? undefined,
     Illegal: c.Illegal ?? false,
+    RewardItems: (c.RewardItems ?? []).flatMap((r) => r.Items ?? [])
+      .filter((i) => i.Name && (i.Amount ?? 0) > 0)
+      .map((i) => ({ Name: i.Name!, Amount: i.Amount! })),
+    Enemies: c.CombatSummary?.Total?.Max ? { Min: c.CombatSummary.Total.Min ?? c.CombatSummary.Total.Max, Max: c.CombatSummary.Total.Max } : null,
+    Shareable: c.Shareable ?? false,
+    OnceOnly: c.OnceOnly ?? false,
   };
 }
 
@@ -352,6 +366,8 @@ export interface MissionDifficulty {
   profile: string | null;
 }
 export interface MissionStanding { name: string; minReputation: number }
+/** An item the mission gives on completion (scrip, gear…); aUEC isn't in the game files. */
+export interface MissionRewardItem { name: string; amount: number }
 export interface MissionContract {
   title: string;
   description: string;
@@ -365,6 +381,14 @@ export interface MissionContract {
   timeToCompleteMinutes: number | null;
   minStanding: MissionStanding | null;
   illegal: boolean;
+  /** v1.27.0 */
+  rewardItems: MissionRewardItem[];
+  /** Hostiles the mission spawns, across its variants */
+  enemies: { min: number; max: number } | null;
+  /** Can be shared with your party */
+  shareable: boolean;
+  /** Can only be done once */
+  onceOnly: boolean;
 }
 
 /** Everything the Blueprints and Crafting Calculator pages need, for one game build. */
@@ -455,7 +479,47 @@ function toBlueprint(b: RawLocalBlueprint, item: CraftedItemRow | undefined, res
 
 const items = (x: RawBpItem | RawBpItem[] | null | undefined): RawBpItem[] => (!x ? [] : Array.isArray(x) ? x : [x]);
 const diffScore = (raw: string | null | undefined) => { const m = raw?.match(/_(\d+)$/); return m ? parseInt(m[1]!, 10) : 0; };
-const diffLabel = (raw: string | null | undefined) => raw?.replace(/_\d+$/, '').replace(/_/g, ' ') ?? '';
+/** The game's difficulty keys, in words a player would use. */
+const DIFFICULTY_WORDS: Record<string, string> = {
+  Safe_and_sound_zzzz: 'Safe and sound',
+  Barely_even_breaking_a_sweat: 'Barely breaking a sweat',
+  Minimal_danger_FPS_NOT_ship_action: 'Minimal danger, on foot only',
+  Ship_could_get_damaged_Could_lose_cargo: 'Ship could be damaged, cargo lost',
+  Player_might_die_Ship_could_explode: 'You might die; your ship could explode',
+  Player_likely_to_die_Ship_too: "You'll likely die, and your ship too",
+  Without_help_Player_and_Ship_die: 'Without help, you and your ship die',
+  Requires_minimal_thought: 'Needs little thought',
+  Routine_light_work: 'Routine, light work',
+  Moments_of_concentration_required: 'Moments of concentration',
+  Like_spinning_10_plates_at_once: 'Like spinning 10 plates at once',
+  Extremely_hard_to_manage_alone: 'Very hard to manage alone',
+  Insane_complexity_NOT_soloable: 'Not soloable',
+  Zero_risk_of_action: 'No combat',
+  Easy_PvE_only_action: 'Easy PvE combat',
+  Normal_PvE_only_action: 'Normal PvE combat',
+  Hard_PvE_or_Easy_PvP_action: 'Hard PvE or easy PvP',
+  Multiplayer_PvE_or_Expert_PvP_action: 'Group PvE or expert PvP',
+  PvE_PvP_large_group_action_eg_warzone: 'Large-group fights (warzone)',
+  FPS_mechanics_walk_shoot_mobiGlass: 'On-foot basics: walk, shoot, mobiGlas',
+  Flight_mechanics_fly_dock_quantum: 'Flight basics: fly, dock, quantum',
+  Standard_understanding_FPS_flight_professions: 'Standard on-foot, flight and profession skills',
+  Expert_understanding_FPS_flight_professions: 'Expert on-foot, flight and profession skills',
+  Pro_understanding_of_optimal_tactics: 'Optimal tactics',
+  Basically_a_Dev: 'Basically a developer',
+};
+export function difficultyWords(raw: string | null | undefined): string {
+  const key = raw?.replace(/_\d+$/, '') ?? '';
+  if (!key) return '';
+  if (DIFFICULTY_WORDS[key]) return DIFFICULTY_WORDS[key]!;
+  const words = key.replace(/_/g, ' ').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+const diffLabel = difficultyWords;
+
+function enemyRange(group: readonly RawMission[]): { min: number; max: number } | null {
+  const e = group.map((m) => m.Enemies).filter((x): x is { Min: number; Max: number } => !!x);
+  return e.length ? { min: Math.min(...e.map((x) => x.Min)), max: Math.max(...e.map((x) => x.Max)) } : null;
+}
 
 /** Missions grouped by title (variants of one contract), pools de-duplicated with their locations merged. */
 export function buildMissionContracts(raw: readonly RawMission[]): MissionContract[] {
@@ -506,6 +570,10 @@ export function buildMissionContracts(raw: readonly RawMission[]): MissionContra
       timeToCompleteMinutes: first.TimeToCompleteMinutes ?? null,
       minStanding: rs?.Name && rs.MinReputation != null ? { name: rs.Name, minReputation: rs.MinReputation } : null,
       illegal: first.Illegal ?? false,
+      rewardItems: (first.RewardItems ?? []).map((r) => ({ name: r.Name, amount: r.Amount })),
+      enemies: enemyRange(group),
+      shareable: first.Shareable ?? false,
+      onceOnly: first.OnceOnly ?? false,
     });
   }
   return result.sort((a, b) => a.title.localeCompare(b.title));
