@@ -755,9 +755,9 @@ function PartRow({ comp, index, ql, onChange }: {
 }) {
   const id = `part-${index}`;
   return (
-    <li className="fab-part-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-3.5 py-3 sm:grid-cols-[9.5rem_minmax(0,1fr)_4.25rem] sm:gap-y-1">
+    <li className="fab-part-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-3.5 py-3 sm:grid-cols-[10.5rem_minmax(0,1fr)_4.25rem] sm:gap-y-1">
       <span className="flex min-w-0 flex-col gap-0.5 sm:row-span-2 sm:self-start">
-        <span className="fab-label !text-[11.5px] !tracking-[0.14em]">{comp.slot} · {String(index + 1).padStart(2, '0')}</span>
+        <span className="fab-label truncate !text-[11.5px] !tracking-[0.1em]" title={comp.slot}>{comp.slot} · {String(index + 1).padStart(2, '0')}</span>
         <span className="flex items-baseline gap-2">
           <span className="truncate text-[15px] font-semibold text-[var(--fab-bright)]">{comp.material.name}</span>
           <span className="fab-mono shrink-0 text-xs text-[var(--fab-gold-text)]">{amountOf(comp.material)}</span>
@@ -869,7 +869,7 @@ function ContractCard({ contract, onSelectBlueprint, onDetails }: { contract: Mi
   );
 }
 
-function Workspace({ bp, onPick, onBack, wide = false }: { bp: LocalBlueprint; onPick: (uuid: string) => void; onBack: () => void; wide?: boolean }) {
+function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: string) => void; onBack: () => void }) {
   const [qls, setQls] = useState<number[]>(() => bp.components.map(() => 500));
   const [contractModal, setContractModal] = useState<MissionContract | null>(null);
   const queue = useBuildList();
@@ -1151,7 +1151,7 @@ function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
           />
         )}
         <div className="fab-scroll min-w-0 flex-[999_1_480px] xl:min-h-0 xl:overflow-y-auto xl:pb-1">
-          {bp ? <Workspace key={bp.uuid} bp={bp} onPick={pick} onBack={back} wide={collapsed} /> : selectedUuid ? (
+          {bp ? <Workspace key={bp.uuid} bp={bp} onPick={pick} onBack={back} /> : selectedUuid ? (
             <section className="fab-plate px-6 py-10 text-center text-sm text-[var(--fab-muted)]">
               That blueprint isn't in the current game data. <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">Back to all blueprints</button>
             </section>
