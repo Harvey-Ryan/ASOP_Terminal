@@ -230,28 +230,20 @@ export function OrgHealthPage() {
     return (everyone ?? []).filter((m) => m.id !== me && (!q || m.name.toLowerCase().includes(q))).sort((a, b) => a.name.localeCompare(b.name));
   }, [everyone, memberSearch, me]);
 
-  // Server activity: combined for non-contour styles; text + voice for dual-layer contour.
-  const { data: guildHeatmap, isLoading: guildCombinedLoading } = useQuery({
-    queryKey: ['heatmap-guild', guildId, days, timezone, 'combined'],
-    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: 'combined' }),
+  // Server activity: combined for non-contour styles; text + voice for
+  // dual-layer contour. One request brings all three, so switching style
+  // doesn't ask again.
+  const { data: guildLayers, isLoading: guildLoading } = useQuery({
+    queryKey: ['heatmap-guild', guildId, days, timezone],
+    queryFn: () => roleCallApi.getGuildHeatmaps(guildId!, { days, timezone }),
     enabled: !!guildId && showServerMaps,
     retry: false,
   });
-  const { data: guildTextHeatmap, isLoading: guildTextLoading } = useQuery({
-    queryKey: ['heatmap-guild', guildId, days, timezone, 'message'],
-    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: 'message' }),
-    enabled: !!guildId && showServerMaps && guildStyle === 'contour',
-    retry: false,
-  });
-  const { data: guildVoiceHeatmap, isLoading: guildVoiceLoading } = useQuery({
-    queryKey: ['heatmap-guild', guildId, days, timezone, 'voice'],
-    queryFn: () => roleCallApi.getGuildHeatmap(guildId!, { days, timezone, type: 'voice' }),
-    enabled: !!guildId && showServerMaps && guildStyle === 'contour',
-    retry: false,
-  });
+  const guildHeatmap = guildLayers?.combined;
+  const guildTextHeatmap = guildLayers?.message;
+  const guildVoiceHeatmap = guildLayers?.voice;
 
   const isDualLayer = guildStyle === 'contour';
-  const guildLoading = isDualLayer ? (guildTextLoading || guildVoiceLoading) : guildCombinedLoading;
   const guildGrid    = isDualLayer ? guildTextHeatmap?.grid   : guildHeatmap?.grid;
   const guildMax     = isDualLayer ? (guildTextHeatmap?.max ?? 0) : (guildHeatmap?.max ?? 0);
   const guildOverlay = isDualLayer ? guildVoiceHeatmap?.grid  : undefined;
@@ -260,27 +252,17 @@ export function OrgHealthPage() {
   const effectiveMemberId = isPrivileged && selectedMemberId ? selectedMemberId : me;
   const viewingSelf = effectiveMemberId === me;
 
-  const { data: memberHeatmap, isLoading: memberCombinedLoading } = useQuery({
-    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'combined'],
-    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'combined' }),
+  const { data: memberLayers, isLoading: memberLoading } = useQuery({
+    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone],
+    queryFn: () => roleCallApi.getMemberHeatmaps(guildId!, effectiveMemberId, { days, timezone }),
     enabled: !!guildId && !!effectiveMemberId,
     retry: false,
   });
-  const { data: memberTextHeatmap, isLoading: memberTextLoading } = useQuery({
-    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'message'],
-    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'message' }),
-    enabled: !!guildId && !!effectiveMemberId && memberStyle === 'contour',
-    retry: false,
-  });
-  const { data: memberVoiceHeatmap, isLoading: memberVoiceLoading } = useQuery({
-    queryKey: ['heatmap-member', guildId, effectiveMemberId, days, timezone, 'voice'],
-    queryFn: () => roleCallApi.getMemberHeatmap(guildId!, effectiveMemberId, { days, timezone, type: 'voice' }),
-    enabled: !!guildId && !!effectiveMemberId && memberStyle === 'contour',
-    retry: false,
-  });
+  const memberHeatmap = memberLayers?.combined;
+  const memberTextHeatmap = memberLayers?.message;
+  const memberVoiceHeatmap = memberLayers?.voice;
 
   const isMemberDual    = memberStyle === 'contour';
-  const memberLoading   = isMemberDual ? (memberTextLoading || memberVoiceLoading) : memberCombinedLoading;
   const memberGrid      = isMemberDual ? memberTextHeatmap?.grid  : memberHeatmap?.grid;
   const memberMax       = isMemberDual ? (memberTextHeatmap?.max ?? 0) : (memberHeatmap?.max ?? 0);
   const memberOverlay   = isMemberDual ? memberVoiceHeatmap?.grid : undefined;
