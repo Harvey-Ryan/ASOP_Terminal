@@ -101,6 +101,18 @@ Patch Notes — v1.1.0 — November 10
   kinds of error, and a daily digest. A new kind of thing to report there
   goes into `AdminLog` with a new `kind` (add it to `ADMIN_LOG_KINDS`).
 
+## Checks and staging
+
+- `.github/workflows/ci.yml` runs on every push and pull request: shared
+  build and tests, `lint` (type-check) of api, bot, web and sc-data, the API
+  tests against Postgres, and the website build. Wait for it to pass before
+  merging a pull request.
+- The API tests build their database with `prisma db push` (like production),
+  not the migrations folder, which stopped being updated at v1.21.0.
+- Staging (RAILWAY.md, "Staging"): a Railway environment on the `staging`
+  branch with its own database and its own Discord application. Riskier
+  changes go to `staging` first, then `staging` → `master` is the release.
+
 ## Railway
 
 - Settings live in the Railway dashboard, not in the repo. Don't add a

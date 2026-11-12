@@ -298,3 +298,80 @@ BOT_INTERNAL_SECRET=<shared-secret>
 WEB_URL=https://<domain>
 API_URL=http://<api-web-service>.railway.internal:3001
 ```
+
+---
+
+## Staging (a safe copy to try changes on)
+
+Every merge to `master` deploys straight to the servers that use ASOP. A
+staging copy lets you try a change on a test Discord server first. It runs the
+same code with its own database and its own bot, so nothing you do there
+reaches production.
+
+### 1. Make a second Discord application
+
+Staging needs its own bot. Two processes logged in with the same token both
+receive every event and both answer commands, so reusing the production
+token would make the real bot double-post.
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications),
+   create an application called **ASOP Staging**.
+2. Under **Bot**, copy its token, and turn on the same privileged intents as
+   production (step 6 above).
+3. Under **OAuth2**, copy the Client ID and Client Secret. Add the redirect
+   `https://<staging-domain>/api/auth/callback` once you know the staging
+   domain (step 3 below).
+4. Make a small private Discord server for testing and invite the staging bot
+   to it (step 8 above, with the staging Client ID).
+
+### 2. Create the staging environment in Railway
+
+1. Create a `staging` branch in GitHub from `master`.
+2. In the Railway project, open the environment drop-down at the top and
+   choose **+ New Environment** → **Duplicate Environment** (from production),
+   and name it `staging`. Railway copies the services and their variables,
+   and stages them for you to approve before anything deploys.
+3. Before approving, in each staging service's **Settings → Source**, point it
+   at the `staging` branch.
+4. Make sure staging has **its own Postgres**. A duplicated database is a
+   separate one, but Railway doesn't promise to copy the data, so treat it as
+   empty. Don't copy production data into it: it holds members' Discord ids.
+
+### 3. Change the staging variables
+
+Everything that identifies production must change. Leave the rest as copied.
+
+| Variable | Staging value |
+|----------|---------------|
+| `DISCORD_TOKEN` | The staging bot's token |
+| `DISCORD_CLIENT_ID`, `VITE_DISCORD_CLIENT_ID` | The staging Client ID |
+| `DISCORD_CLIENT_SECRET` | The staging Client Secret |
+| `DISCORD_REDIRECT_URI` | `https://<staging-domain>/api/auth/callback` |
+| `WEB_URL` | `https://<staging-domain>` |
+| `SESSION_SECRET` | A new one (`openssl rand -hex 32`), so production sign-ins don't work on staging |
+| `BOT_INTERNAL_SECRET` | A new one |
+| `PLATFORM_ADMIN_DISCORD_IDS` | Your Discord id, to use the admin panel |
+| `ACTIVITY_SERVER_IDS` | Your test server's id, if you want to try Activity there |
+| `ROLECALL_API_URL`, `ROLECALL_API_KEY` | Remove them (Activity then says it isn't configured), unless you also run a staging RoleCall |
+| `UEX_KEY`, `FLEETYARDS_*` | Remove them unless you're testing those |
+
+The sc-data worker can be duplicated too, so the crafting pages have game
+data. Without it they're empty but everything else works.
+
+### 4. How to use it
+
+1. Open the pull request into `staging` instead of `master`. The Checks
+   workflow runs on it either way.
+2. Merge it: staging deploys. Try the change on the test server.
+3. When it's good, open a pull request from `staging` into `master`. Merging
+   that one is the release (bump the version there, as usual).
+
+Small, safe fixes can still go straight to `master`; staging is for anything
+that touches the database schema, the bot's Discord behaviour, or a lot of
+pages at once.
+
+Don't turn on Railway's **PR Environments** for this project unless they use
+the staging bot's variables: each PR environment would otherwise start
+another bot with the token it copied.
+
+To save cost, staging can be stopped while you're not using it.
