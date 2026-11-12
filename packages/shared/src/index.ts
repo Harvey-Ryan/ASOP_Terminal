@@ -1007,3 +1007,4 @@ export function safeReturnPath(value: unknown): string | null {
   if (/[\\\u0000-\u001f\u007f]/.test(value) || value.includes('//')) return null;
   return value;
 }
+export * from './modules.js';

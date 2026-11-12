@@ -1441,6 +1441,8 @@ model AdminConfig {
   /// Local hour (0–23) of the daily digest, in digestTimezone
   digestHour       Int       @default(8)
   digestTimezone   String    @default("America/Chicago")
+  /// JSON ModuleSetting[]: modules hidden for every server (v1.28.0; @dem/shared modules.ts)
+  hiddenModules    String    @default("[]")
   /// Bot-managed cursors
   lastDigestDate   String?
   alertCursor      Int       @default(0)

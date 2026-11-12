@@ -12,6 +12,7 @@
 //   GET   /log                          the admin activity log
 //   GET   /config, PUT /config          the admin Discord feed
 //   POST  /config/test                  send a test message to the feed
+//   GET   /modules, PUT /modules        modules hidden for every server (v1.28.0)
 
 import { Router, type Request, type Response } from 'express';
 import {
@@ -33,10 +34,17 @@ import {
   type ErrorGroupStatus,
   type ErrorLevel,
   type ErrorSource,
+  type AdminModuleDto,
+  type ModuleSetting,
+  isModuleSetting,
+  parseHiddenModules,
+  PLATFORM_MODULES,
+  withHiddenModules,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requirePlatformAdmin } from '../../lib/platformAdmin.js';
+import { forgetHiddenModules, hiddenModules } from '../../lib/hiddenModules.js';
 import { APP_COMMIT, APP_VERSION } from '../../lib/appVersion.js';
 import { readGameDataStatus } from './gameData.js';
 import { adminLog } from '../../lib/adminLog.js';
@@ -337,9 +345,9 @@ const MODULE_KEYS = ADMIN_SETTING_FIELDS.filter((f) => f.group === 'Modules').ma
 type SettingsRow = Record<string, unknown> | null;
 
 /** Plain-words problems with a server's setup: the officers' checklist without the Discord checks. */
-function setupIssues(s: SettingsRow): string[] {
+function setupIssues(s: SettingsRow, hidden: ReadonlySet<ModuleSetting>): string[] {
   if (!s) return ['Never set up: no settings saved yet.'];
-  return setupProblems(setupChecklist({ settings: s, hasEvents: true, discord: null }));
+  return setupProblems(setupChecklist({ settings: withHiddenModules(s as Record<string, unknown>, hidden), hasEvents: true, discord: null }));
 }
 
 function modulesOf(s: SettingsRow): Record<string, boolean> {
@@ -354,6 +362,7 @@ async function guildSummaries(guildIds?: string[]): Promise<AdminGuildDto[]> {
   });
   const ids = guilds.map((g) => g.guildId);
   const now = Date.now();
+  const hidden = await hiddenModules();
   const [upcoming, recent, last, errors] = await Promise.all([
     prisma.event.groupBy({ by: ['guildId'], where: { guildId: { in: ids }, status: { in: ['PENDING', 'ACTIVE'] } }, _count: { _all: true } }),
     prisma.event.groupBy({ by: ['guildId'], where: { guildId: { in: ids }, startTime: { gte: new Date(now - 30 * DAY), lte: new Date(now) } }, _count: { _all: true } }),
@@ -369,7 +378,7 @@ async function guildSummaries(guildIds?: string[]): Promise<AdminGuildDto[]> {
       iconUrl: getGuildIconUrl(g.guildId, g.icon),
       joinedAt: g.createdAt.toISOString(),
       modules: modulesOf(s),
-      setupIssues: setupIssues(s),
+      setupIssues: setupIssues(s, hidden),
       counts: {
         upcomingEvents: count(upcoming, g.guildId),
         events30d: count(recent, g.guildId),
@@ -529,4 +538,34 @@ adminRouter.post('/config/test', async (_req, res) => {
   await adminLog({ kind: 'admin.test', actor: adminOf(res), summary: 'Sent a test message to the admin feed' });
   triggerBot('/trigger/admin-feed');
   ok(res, { queued: true });
+});
+
+// ── Modules hidden for every server (v1.28.0) ───────────────────────────────
+
+async function moduleDtos(): Promise<AdminModuleDto[]> {
+  const hidden = await hiddenModules();
+  const total = await prisma.guild.count();
+  const off = await Promise.all(PLATFORM_MODULES.map((m) => prisma.guildSettings.count({ where: { [m.setting]: false } })));
+  return PLATFORM_MODULES.map((m, i) => ({ setting: m.setting, label: m.label, hidden: hidden.has(m.setting), serversOn: total - off[i]! }));
+}
+
+adminRouter.get('/modules', async (_req, res) => {
+  ok(res, await moduleDtos());
+});
+
+adminRouter.put('/modules', async (req, res) => {
+  const list = (req.body as { hidden?: unknown } | undefined)?.hidden;
+  if (!Array.isArray(list) || !list.every(isModuleSetting)) { fail(res, 400, 'hidden must be a list of modules'); return; }
+  const before = parseHiddenModules((await prisma.adminConfig.findUnique({ where: { id: 1 }, select: { hiddenModules: true } }))?.hiddenModules);
+  const next = PLATFORM_MODULES.map((m) => m.setting).filter((s) => list.includes(s));
+  await prisma.adminConfig.upsert({ where: { id: 1 }, create: { id: 1, hiddenModules: JSON.stringify(next) }, update: { hiddenModules: JSON.stringify(next) } });
+  forgetHiddenModules();
+  const label = (s: ModuleSetting) => PLATFORM_MODULES.find((m) => m.setting === s)!.label;
+  const nowHidden = next.filter((s) => !before.includes(s)).map(label);
+  const nowShown = before.filter((s) => !next.includes(s)).map(label);
+  if (nowHidden.length || nowShown.length) {
+    const parts = [nowHidden.length && `Hid ${nowHidden.join(', ')}`, nowShown.length && `Showed ${nowShown.join(', ')}`].filter(Boolean);
+    await adminLog({ kind: 'admin.modules', actor: adminOf(res), summary: `${parts.join('; ')} for every server`, details: { hidden: next } });
+  }
+  ok(res, await moduleDtos());
 });

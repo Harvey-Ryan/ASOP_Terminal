@@ -3,6 +3,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ServerPage } from './pages/ServerPage';
 import { CraftingDataGate } from './components/CraftingDataGate';
+import { ModuleGate } from './components/ModuleGate';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -56,6 +57,7 @@ const AdminServersPage = lazyPage(() => import('./pages/admin/AdminServersPage')
 const AdminServerPage = lazyPage(() => import('./pages/admin/AdminServerPage'), 'AdminServerPage');
 const AdminActivityPage = lazyPage(() => import('./pages/admin/AdminActivityPage'), 'AdminActivityPage');
 const AdminFeedPage = lazyPage(() => import('./pages/admin/AdminFeedPage'), 'AdminFeedPage');
+const AdminModulesPage = lazyPage(() => import('./pages/admin/AdminModulesPage'), 'AdminModulesPage');
 const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
@@ -82,39 +84,39 @@ export default function App() {
           <Route path="servers/:guildId/events/:eventId/loot" element={<LootPage />} />
           <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
           <Route path="servers/:guildId/settings/modules" element={<ModuleSettingsHubPage />} />
-          <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleEventBotPage />} />
-          <Route path="servers/:guildId/settings/modules/dkp" element={<DkpSettingsPage />} />
+          <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleGate setting="eventBotEnabled"><ModuleEventBotPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/dkp" element={<ModuleGate setting="dkpEnabled"><DkpSettingsPage /></ModuleGate>} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
           <Route path="servers/:guildId/settings/allies" element={<AlliesPage />} />
           <Route path="servers/:guildId/settings/game-data" element={<GameDataPage />} />
           <Route path="servers/:guildId/settings/sc-data" element={<ScDataPage />} />
-          <Route path="servers/:guildId/auctions" element={<AuctionsPage />} />
-          <Route path="servers/:guildId/dkp" element={<DkpPage />} />
-          <Route path="servers/:guildId/marketplace" element={<MarketplacePage />} />
+          <Route path="servers/:guildId/auctions" element={<ModuleGate setting="dkpEnabled"><AuctionsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/dkp" element={<ModuleGate setting="dkpEnabled"><DkpPage /></ModuleGate>} />
+          <Route path="servers/:guildId/marketplace" element={<ModuleGate setting="exchangeEnabled"><MarketplacePage /></ModuleGate>} />
           {/* Legacy redirect — keep until any bookmarks expire */}
           <Route path="servers/:guildId/exchange" element={<Navigate to="../marketplace" replace />} />
-          <Route path="servers/:guildId/settings/modules/exchange" element={<ExchangeSettingsPage />} />
-          <Route path="servers/:guildId/fleet" element={<FleetPage />} />
+          <Route path="servers/:guildId/settings/modules/exchange" element={<ModuleGate setting="exchangeEnabled"><ExchangeSettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/fleet" element={<ModuleGate setting="fleetEnabled"><FleetPage /></ModuleGate>} />
           <Route path="servers/:guildId/roster" element={<RosterPage />} />
           <Route path="servers/:guildId/members" element={<MembersPage />} />
           <Route path="servers/:guildId/members/:userId" element={<MemberHistoryPage />} />
-          <Route path="servers/:guildId/jobs" element={<JobsPage />} />
-          <Route path="servers/:guildId/settings/modules/jobs" element={<JobsSettingsPage />} />
-          <Route path="servers/:guildId/activity" element={<RoleCallPage />} />
-          <Route path="servers/:guildId/tournaments" element={<TournamentPage />} />
-          <Route path="servers/:guildId/settings/modules/fleet" element={<FleetSettingsPage />} />
-          <Route path="servers/:guildId/settings/modules/loot" element={<LootSettingsPage />} />
-          <Route path="servers/:guildId/loot" element={<LootModulePage />} />
-          <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
-          <Route path="servers/:guildId/blueprints" element={<CraftingDataGate><BlueprintsPage /></CraftingDataGate>} />
-          <Route path="servers/:guildId/blueprints/:blueprintUuid" element={<CraftingDataGate><BlueprintsPage /></CraftingDataGate>} />
-          <Route path="servers/:guildId/crafting-calculator" element={<CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate>} />
-          <Route path="servers/:guildId/crafting-calculator/:blueprintUuid" element={<CraftingDataGate><CraftingCalculatorDetailPage /></CraftingDataGate>} />
-          <Route path="servers/:guildId/settings/modules/blueprints" element={<BlueprintsSettingsPage />} />
-          <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<CraftingCalculatorSettingsPage />} />
+          <Route path="servers/:guildId/jobs" element={<ModuleGate setting="jobsEnabled"><JobsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/jobs" element={<ModuleGate setting="jobsEnabled"><JobsSettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/activity" element={<ModuleGate setting="activityEnabled"><RoleCallPage /></ModuleGate>} />
+          <Route path="servers/:guildId/tournaments" element={<ModuleGate setting="tournamentsEnabled"><TournamentPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/fleet" element={<ModuleGate setting="fleetEnabled"><FleetSettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/loot" element={<ModuleGate setting="lootEnabled"><LootSettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/loot" element={<ModuleGate setting="lootEnabled"><LootModulePage /></ModuleGate>} />
+          <Route path="servers/:guildId/loot/sessions/:sessionId" element={<ModuleGate setting="lootEnabled"><StandaloneLootSessionPage /></ModuleGate>} />
+          <Route path="servers/:guildId/blueprints" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
+          <Route path="servers/:guildId/blueprints/:blueprintUuid" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
+          <Route path="servers/:guildId/crafting-calculator" element={<ModuleGate setting="craftingEnabled"><CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate></ModuleGate>} />
+          <Route path="servers/:guildId/crafting-calculator/:blueprintUuid" element={<ModuleGate setting="craftingEnabled"><CraftingDataGate><CraftingCalculatorDetailPage /></CraftingDataGate></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/blueprints" element={<ModuleGate setting="blueprintsEnabled"><BlueprintsSettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<ModuleGate setting="craftingEnabled"><CraftingCalculatorSettingsPage /></ModuleGate>} />
 
-          <Route path="servers/:guildId/settings/modules/activity" element={<ActivitySettingsPage />} />
-          <Route path="servers/:guildId/settings/modules/tournaments" element={<TournamentSettingsPage />} />
+          <Route path="servers/:guildId/settings/modules/activity" element={<ModuleGate setting="activityEnabled"><ActivitySettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/tournaments" element={<ModuleGate setting="tournamentsEnabled"><TournamentSettingsPage /></ModuleGate>} />
           <Route path="servers/:guildId/map" element={<MemberMapPage />} />
           <Route path="kanban" element={<KanbanPage />} />
           {/* Admin panel (v1.13.0): platform admins only; AdminLayout shows "not found" to everyone else. */}
@@ -125,6 +127,7 @@ export default function App() {
             <Route path="servers" element={<AdminServersPage />} />
             <Route path="servers/:guildId" element={<AdminServerPage />} />
             <Route path="activity" element={<AdminActivityPage />} />
+            <Route path="modules" element={<AdminModulesPage />} />
             <Route path="feed" element={<AdminFeedPage />} />
           </Route>
           <Route path="settings/notifications" element={<NotificationSettingsPage />} />

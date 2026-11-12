@@ -7,6 +7,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { JOB_KINDS, JOB_TAKE_MESSAGES, JOB_VISIBILITY, jobTakeProblem, type JobKind, type JobVisibility } from '@dem/shared';
 import { prisma } from '../db.js';
+import { hiddenModules } from '../utils/hiddenModules.js';
 import { client } from '../client.js';
 
 interface JobPost { guildId: string; channelId: string; messageId: string }
@@ -27,6 +28,7 @@ async function alliesOf(discordGuildId: string): Promise<string[]> {
 
 /** The jobs channels a job goes in: its own server's, plus its allies' when shared. */
 async function targetChannels(job: { guildId: string; visibility: string }): Promise<Map<string, string>> {
+  if ((await hiddenModules()).has('jobsEnabled')) return new Map(); // the Job Board is hidden for every server (v1.28.0)
   const servers = [job.guildId, ...(job.visibility === 'SERVER' ? [] : await alliesOf(job.guildId))];
   const rows = await prisma.guild.findMany({
     where: { guildId: { in: servers } },

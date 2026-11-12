@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, GuildMember, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
+import { hiddenModules } from '../utils/hiddenModules.js';
 
 export const data = new SlashCommandBuilder()
   .setName('help')
@@ -29,12 +30,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   });
 
   const dkpLabel          = settings?.dkpLabel          ?? 'DKP';
-  const eventBotEnabled   = settings?.eventBotEnabled   ?? true;
-  const dkpEnabled        = settings?.dkpEnabled        ?? true;
-  const lootEnabled       = settings?.lootEnabled       ?? true;
-  const exchangeEnabled   = settings?.exchangeEnabled   ?? true;
-  const fleetEnabled      = settings?.fleetEnabled      ?? true;
-  const tournamentsEnabled = settings?.tournamentsEnabled ?? false;
+  // Modules hidden for every server (v1.28.0) are left out whatever this server chose.
+  const hidden = await hiddenModules();
+  const eventBotEnabled   = !hidden.has('eventBotEnabled') && (settings?.eventBotEnabled ?? true);
+  const dkpEnabled        = !hidden.has('dkpEnabled') && (settings?.dkpEnabled ?? true);
+  const lootEnabled       = !hidden.has('lootEnabled') && (settings?.lootEnabled ?? true);
+  const exchangeEnabled   = !hidden.has('exchangeEnabled') && (settings?.exchangeEnabled ?? true);
+  const fleetEnabled      = !hidden.has('fleetEnabled') && (settings?.fleetEnabled ?? true);
+  const tournamentsEnabled = !hidden.has('tournamentsEnabled') && (settings?.tournamentsEnabled ?? false);
 
   const eventCreatorRoles: string[]     = (() => { try { return JSON.parse(settings?.eventCreatorRoles    ?? '[]') as string[]; } catch { return []; } })();
   const lootDraftCreatorRoles: string[] = (() => { try { return JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[]; } catch { return []; } })();

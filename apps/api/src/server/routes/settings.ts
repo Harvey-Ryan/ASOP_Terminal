@@ -12,7 +12,8 @@ import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError } from '../../lib/validate.js';
 import { applySettingsPatch, parseSettingsPatch, patchNeedsManager, readPermissionFields, type SettingsPatch } from '../../lib/guildSettings.js';
 import { activityAvailable } from '../../lib/activityAvailable.js';
-import { setupChecklist, type ApiResponse, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
+import { hiddenModules } from '../../lib/hiddenModules.js';
+import { setupChecklist, withHiddenModules, type ApiResponse, type ModuleSetting, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
 
 export const settingsRouter = Router();
 
@@ -45,6 +46,9 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
     ]);
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
+    // A module a platform admin hid is off here too, whatever this server chose (v1.28.0).
+    const hidden = await hiddenModules();
+    const on = (m: ModuleSetting) => !hidden.has(m) && (s?.[m] ?? true) !== false;
 
     const orgRequired = !!(s?.rsiOrgTag);
     let rsiVerified = false;
@@ -63,18 +67,19 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         canViewEvents,
         canCreateLootDraft,
         canManageAllies,
-        eventBotEnabled:    s?.eventBotEnabled    ?? true,
-        dkpEnabled:         s?.dkpEnabled         ?? true,
-        lootEnabled:        s?.lootEnabled         ?? true,
-        exchangeEnabled:    s?.exchangeEnabled     ?? true,
-        fleetEnabled:       s?.fleetEnabled        ?? true,
-        blueprintsEnabled:  s?.blueprintsEnabled   ?? true,
-        craftingEnabled:    s?.craftingEnabled     ?? true,
-        activityEnabled:    activityAvailable(guildId) && (s?.activityEnabled ?? true),
-        activityAvailable:  activityAvailable(guildId),
+        eventBotEnabled:    on('eventBotEnabled'),
+        dkpEnabled:         on('dkpEnabled'),
+        lootEnabled:        on('lootEnabled'),
+        exchangeEnabled:    on('exchangeEnabled'),
+        fleetEnabled:       on('fleetEnabled'),
+        blueprintsEnabled:  on('blueprintsEnabled'),
+        craftingEnabled:    on('craftingEnabled'),
+        activityEnabled:    activityAvailable(guildId) && on('activityEnabled'),
+        activityAvailable:  activityAvailable(guildId) && !hidden.has('activityEnabled'),
         activityHeatmapPublic: s?.activityHeatmapPublic ?? true,
-        tournamentsEnabled: s?.tournamentsEnabled  ?? true,
-        jobsEnabled:        s?.jobsEnabled         ?? true,
+        tournamentsEnabled: on('tournamentsEnabled'),
+        jobsEnabled:        on('jobsEnabled'),
+        hiddenModules:      [...hidden],
         rsiOrgRequired:     orgRequired,
         rsiVerified,
       },
@@ -293,7 +298,9 @@ settingsRouter.get('/:guildId/setup', requireAuth, async (req, res) => {
     setupDiscord(guildId),
     prisma.event.findFirst({ where: { guildId }, select: { id: true } }),
   ]);
-  const steps = setupChecklist({ settings: (guild?.settings ?? null) as Record<string, unknown> | null, hasEvents: !!anyEvent, discord });
+  // Hidden modules (v1.28.0) don't ask for their channels.
+  const settings = withHiddenModules((guild?.settings ?? null) as Record<string, unknown> | null, await hiddenModules());
+  const steps = setupChecklist({ settings, hasEvents: !!anyEvent, discord });
   res.json({ success: true, data: { steps, hidden: guild?.settings?.setupHidden ?? false, discordChecked: !!discord } } satisfies ApiResponse<SetupChecklistDto>);
 });
 
