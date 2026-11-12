@@ -330,3 +330,20 @@ Patch Notes — v1.1.0 — November 10
   placeholders the game fills in ("[Location]") show as "‹location›".
 - Blueprint search (`searchBlueprints`) matches every word in any order
   across name, type, subtype and maker, ignoring quotes.
+
+## Modules hidden for every server (v1.28.0)
+
+- The module list is `PLATFORM_MODULES` in `packages/shared/src/modules.ts`
+  (each module's `GuildSettings` switch and its label). A new module goes
+  there.
+- Admin → Modules (`/dashboard/admin/modules`, `GET`/`PUT /api/admin/modules`)
+  hides a module for every server: `AdminConfig.hiddenModules` (JSON list),
+  logged as `admin.modules`. Servers keep their own switch, so showing it
+  again restores their choice.
+- Read it with `hiddenModules()`: API `lib/hiddenModules.ts` (15 s cache,
+  cleared on change), bot `utils/hiddenModules.ts` (1 min). A hidden module
+  is off in `assertModuleEnabled`, `my-permissions` (its `*Enabled` false,
+  plus `hiddenModules`), the setup checklist (`withHiddenModules`), the
+  bot's /help and job posts. The website hides its menu link and settings
+  tile, and `ModuleGate` (in `App.tsx`) answers its routes with "isn't
+  available". A new module page or check gets the same treatment.

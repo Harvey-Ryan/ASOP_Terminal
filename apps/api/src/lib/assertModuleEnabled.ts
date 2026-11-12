@@ -1,9 +1,10 @@
 import { prisma } from './prisma.js';
+import type { ModuleSetting } from '@dem/shared';
 import { activityAvailable } from './activityAvailable.js';
+import { hiddenModules } from './hiddenModules.js';
 
-type ModuleKey = 'eventBotEnabled' | 'dkpEnabled' | 'lootEnabled' | 'exchangeEnabled' | 'fleetEnabled' | 'activityEnabled' | 'jobsEnabled' | 'tournamentsEnabled';
-
-export async function assertModuleEnabled(guildId: string, module: ModuleKey): Promise<boolean> {
+export async function assertModuleEnabled(guildId: string, module: ModuleSetting): Promise<boolean> {
+  if ((await hiddenModules()).has(module)) return false; // hidden for every server by a platform admin (v1.28.0)
   if (module === 'activityEnabled' && !activityAvailable(guildId)) return false; // RoleCall only tracks some servers
   const guild = await prisma.guild.findUnique({
     where: { guildId },
@@ -18,6 +19,8 @@ export async function assertModuleEnabled(guildId: string, module: ModuleKey): P
           activityEnabled: true,
           jobsEnabled: true,
           tournamentsEnabled: true,
+          blueprintsEnabled: true,
+          craftingEnabled: true,
         },
       },
     },

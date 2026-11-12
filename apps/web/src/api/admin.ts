@@ -2,6 +2,8 @@
 import type {
   AdminConfigDto, AdminGuildDetailDto, AdminGuildDto, AdminLogDto, AdminOverviewDto, ApiResponse,
   ErrorDetailDto, ErrorEventDto, ErrorGroupDto, ErrorGroupStatus,
+  AdminModuleDto,
+  ModuleSetting,
 } from '@dem/shared';
 import { api } from './client';
 
@@ -33,5 +35,7 @@ export const adminApi = {
     api.get<ApiResponse<AdminLogDto[]>>(`/admin/log${qs({ ...f })}`).then((r) => r.data!),
   config: () => api.get<ApiResponse<AdminConfigDto>>('/admin/config').then((r) => r.data!),
   saveConfig: (c: Omit<AdminConfigDto, 'lastDigestDate'>) => api.put<ApiResponse<AdminConfigDto>>('/admin/config', c).then((r) => r.data!),
+  modules: () => api.get<ApiResponse<AdminModuleDto[]>>('/admin/modules').then((r) => r.data!),
+  saveModules: (hidden: ModuleSetting[]) => api.put<ApiResponse<AdminModuleDto[]>>('/admin/modules', { hidden }).then((r) => r.data!),
   testFeed: () => api.post<ApiResponse<{ queued: boolean }>>('/admin/config/test').then((r) => r.data!),
 };

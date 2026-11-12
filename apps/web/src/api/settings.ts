@@ -1,6 +1,6 @@
 import type { EventHeatmapDto } from '@dem/shared';
 import { api } from './client';
-import type { ApiResponse, DiscordRoleDto, SetupChecklistDto } from '@dem/shared';
+import type { ApiResponse, DiscordRoleDto, ModuleSetting, SetupChecklistDto } from '@dem/shared';
 
 export interface DiscordChannel {
   id: string;
@@ -72,6 +72,8 @@ export interface GuildMyPermissions {
   activityHeatmapPublic: boolean;
   tournamentsEnabled: boolean;
   jobsEnabled: boolean;
+  /** Modules a platform admin hid for every server (v1.28.0); their *Enabled flags are already false */
+  hiddenModules?: ModuleSetting[];
   rsiOrgRequired: boolean;
   rsiVerified: boolean;
 }

@@ -206,5 +206,6 @@ export const ADMIN_LOG_KINDS: Record<string, string> = {
   'admin.settings': 'Server settings changed by an admin',
   'admin.errors': 'Error kind marked',
   'admin.config': 'Admin feed settings changed',
+  'admin.modules': 'Modules hidden or shown for every server',
   'admin.test': 'Admin feed test',
 };

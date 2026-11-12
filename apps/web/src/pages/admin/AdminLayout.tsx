@@ -2,7 +2,7 @@
 // admins see it; for anyone else it's a plain "not found".
 
 import { NavLink, Outlet } from 'react-router-dom';
-import { Activity, AlertOctagon, LayoutDashboard, Radio, Server } from 'lucide-react';
+import { Activity, AlertOctagon, Blocks, LayoutDashboard, Radio, Server } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { ADMIN } from './adminUi';
@@ -12,6 +12,7 @@ const TABS = [
   { to: `${ADMIN}/errors`, label: 'Errors', icon: AlertOctagon },
   { to: `${ADMIN}/servers`, label: 'Servers', icon: Server },
   { to: `${ADMIN}/activity`, label: 'Activity', icon: Activity },
+  { to: `${ADMIN}/modules`, label: 'Modules', icon: Blocks },
   { to: `${ADMIN}/feed`, label: 'Discord feed', icon: Radio },
 ];
 
