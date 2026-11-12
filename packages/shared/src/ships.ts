@@ -219,11 +219,12 @@ export function searchShips(query: string, ships: ShipCatalogEntry[], limit = 25
 // ── Importing a list ─────────────────────────────────────────────────────────
 
 export interface FleetImportLine { name: string; quantity: number; manufacturer?: string | null; nickname?: string | null }
-export interface FleetImport { format: 'hangarexport' | 'json' | 'text'; lines: FleetImportLine[] }
+export interface FleetImport { format: 'hangarexport' | 'fleetviewer' | 'json' | 'text'; lines: FleetImportLine[] }
 
 /**
  * Reads what someone pasted or uploaded: Hangar Export / hangar.link JSON
- * (pledge items of kind Ship or Vehicle), a FleetYards or similar JSON list,
+ * (pledge items of kind Ship or Vehicle), a FleetViewer layout (STARJUMP /
+ * fleetviewer.link: its SHIP canvas items), a FleetYards or similar JSON list,
  * or plain text, one ship per line ("2x Carrack", "Cutlass Black, 2").
  * The same ship on several lines adds up.
  */
@@ -245,6 +246,17 @@ export function parseFleetImport(input: string): FleetImport {
         }
       }
       return { format: 'hangarexport', lines: mergeLines(lines) };
+    }
+    if (obj && !Array.isArray(obj) && Array.isArray(obj.canvasItems)) {
+      // A fleet picture: every SHIP item is one ship; text, images and the
+      // rest of the layout are ignored.
+      const lines: FleetImportLine[] = [];
+      for (const it of obj.canvasItems) {
+        if (String(it?.itemType ?? '').toUpperCase() !== 'SHIP') continue;
+        const name = text(it?.defaultText) ?? text(it?.shipSlug)?.replace(/[-_]+/g, ' ') ?? null;
+        if (name) lines.push({ name, quantity: 1 });
+      }
+      return { format: 'fleetviewer', lines: mergeLines(lines) };
     }
     return { format: 'json', lines: mergeLines(jsonShips(parsed)) };
   }
@@ -269,7 +281,10 @@ function jsonShips(v: unknown, depth = 0): FleetImportLine[] {
       const o = e as Record<string, any>;
       const model = o.model && typeof o.model === 'object' ? o.model : null;
       const name = text(model?.name) ?? text(o.modelName) ?? text(o.shipName) ?? text(o.title) ?? text(o.name) ?? (text(o.slug) ?? text(model?.slug))?.replace(/[-_]+/g, ' ') ?? null;
-      if (!name) return jsonShips(Object.values(o).find(Array.isArray), depth + 1);
+      if (!name) {
+        const nested = Object.values(o).find((x) => Array.isArray(x) && x.some((e) => e && typeof e === 'object'));
+        return nested ? jsonShips(nested, depth + 1) : [];
+      }
       const quantity = Math.max(1, Math.min(99, Math.floor(num(o.quantity) ?? num(o.count) ?? num(o.amount) ?? 1)));
       const manufacturer = text(model?.manufacturer?.name) ?? text(o.manufacturer?.name) ?? text(o.manufacturer) ?? text(o.manufacturerName) ?? text(o.manufacturer_name) ?? text(o.liner);
       const nickname = model ? text(o.name) : text(o.nickname) ?? text(o.customName);
