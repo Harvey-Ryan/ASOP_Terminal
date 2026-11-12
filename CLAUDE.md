@@ -395,3 +395,21 @@ Patch Notes — v1.1.0 — November 10
   a query extension instead.
 - Notices say what changed, never the data; the page fetches it through
   the normal, access-checked routes.
+
+## Your data (v1.31.0)
+
+- Notification Settings → Your data: `GET /api/me/data` downloads
+  everything about the signed-in person (every server, no tokens or calendar
+  secret); `POST /api/me/delete { confirm: <Discord username> }` deletes it
+  and signs them out everywhere (`routes/myData.ts`, `lib/myData.ts`).
+- Delete removes what is only theirs and anonymises what other people's
+  records rely on (loot handed out, DKP ledger, past attendance, auctions,
+  trades, tournaments, jobs) to a one-off `deleted-…` id and
+  "Deleted member". The User row stays as that tombstone (its discordId
+  becomes the `deleted-…` id), so a new sign-in is a new person. Upcoming
+  sign-ups are removed through the waitlist (`fillFromWaitlist`).
+- **A new model or column that stores a person** (Discord id, User id,
+  username, or ids inside a JSON column) must be added to both
+  `exportMyData` and `deleteMyData`, and to `myData.test.ts`.
+- Not covered: messages already posted in Discord, and RoleCall's activity
+  data (a separate service).
