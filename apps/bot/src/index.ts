@@ -233,7 +233,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     // ── Job board buttons (v1.21.0): job:take:<id> / job:leave:<id> ─────────
     if (interaction.customId.startsWith('job:')) {
       const [, action, jobId] = interaction.customId.split(':') as [string, 'take' | 'leave', string];
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const name = (interaction.member instanceof GuildMember) ? interaction.member.displayName : interaction.user.username;
         await interaction.editReply({ content: await clickJob(action, jobId, interaction.user.id, name, interaction.guildId) });
@@ -250,7 +250,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     // ── Role roster buttons ───────────────────────────────────────────────────
     if (prefix === 'role') {
       const roleKey = value === '__unassigned__' ? null : value;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
@@ -285,7 +285,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
 
     // ── Maybe button (v1.17.0): on the roster without a role ──────────────────
     if (prefix === 'maybe') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
@@ -310,7 +310,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
 
     // ── "· waitlist" buttons on full roles (v1.14.0) ─────────────────────────
     if (prefix === 'wait') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { in: ['PENDING', 'ACTIVE'] } },
@@ -343,7 +343,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
 
     // ── Leave Roster button ───────────────────────────────────────────────────
     if (prefix === 'leave') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const event = await prisma.event.findFirst({
           where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
@@ -365,7 +365,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
 
     // ── Loot / No-Loot decision prompt ────────────────────────────────────────
     if (prefix === 'event_loot_start' || prefix === 'event_loot_none') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const event = await prisma.event.findUnique({ where: { id: entityId } });
         if (!event) {
@@ -466,7 +466,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     if (prefix === 'bracket_ready') {
       const matchId = entityId;
       const side = value as 'A' | 'B';
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const match = await prisma.tournamentMatch.findUnique({
           where: { id: matchId },
@@ -514,7 +514,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     if (prefix === 'bracket_checkin') {
       const matchId = entityId;
       const side = value as 'A' | 'B';
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const match = await prisma.tournamentMatch.findUnique({
           where: { id: matchId },
@@ -558,7 +558,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     // ── Tournament: Self-register ─────────────────────────────────────────────
     if (prefix === 'bracket_register') {
       const tournamentId = entityId;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
         if (!tournament) {
@@ -615,7 +615,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     // ── Tournament: Self-unregister ───────────────────────────────────────────
     if (prefix === 'bracket_leave') {
       const tournamentId = entityId;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
         if (!tournament) {
@@ -652,7 +652,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
     if (prefix === 'bracket_autoforfeit') {
       const matchId  = entityId;
       const winnerId = value;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         // Only managers may click this button — check guild permissions
         const member = interaction.member;

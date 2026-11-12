@@ -104,6 +104,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     await interaction.editReply({ embeds: [embed] });
   } else {
     await interaction.editReply({ content: ' ' }); // dismiss the ephemeral defer
-    await interaction.followUp({ embeds: [embed], ephemeral: false });
+    await interaction.followUp({ embeds: [embed] });
   }
 }
