@@ -2,7 +2,7 @@
 // sliders, a build list with totals and where to mine everything).
 import { Fragment, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, X, ChevronLeft, ChevronRight, MapPin, FileText, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   chanceLabel,
@@ -13,12 +13,10 @@ import {
   MINING_METHOD_LABELS,
 } from '@dem/shared';
 import {
-  blueprintTypes,
   craftingSource,
   materialSources,
   missionContracts,
   obtainableBlueprints,
-  searchBlueprints,
   getBlueprintByUuid,
   getBaseStats,
   interpolateStat,
@@ -29,17 +27,11 @@ import {
 } from '@/lib/gameData';
 import { buildList, useBuildList, type BuildListItem } from '@/lib/buildList';
 import './crafting/fabrication.css';
+import { amountOf, BlueprintBrowser, fmtSecs, Rivets, typeLabel } from './crafting/browser';
+import { diffCls, fmtContractTitle, fmtMinutes, MissionModal } from './crafting/missions';
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmtSecs(s: number) {
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return s % 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${Math.floor(s / 60)}m`;
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
 
 function fmtPct(v: number, decimals = 2) {
   const sign = v >= 0 ? '+' : '';
@@ -55,251 +47,6 @@ function applyStatFormula(statKey: string, baseValue: number, mult: number): num
     return 1 - (1 - baseValue) * mult;
   }
   return baseValue * mult;
-}
-
-function fmtContractTitle(raw: string): string {
-  return raw
-    .replace(/~mission\([^|)]+\|([^)]+)\)/g, (_, inner: string) =>
-      inner.replace(/([A-Z])/g, ' $1').replace(/\bTitle\b/gi, '').trim()
-    )
-    .replace(/~mission\(([^)]+)\)/g, (_, inner: string) =>
-      inner.replace(/([A-Z])/g, ' $1').trim()
-    )
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-function fmtDescription(raw: string): string {
-  return raw
-    .replace(/<EM4>(.*?)<\/EM4>/g, '$1')
-    .replace(/~mission\([^|)]+\|([^)]+)\)/g, (_, inner: string) =>
-      inner.replace(/([A-Z])/g, ' $1').trim()
-    )
-    .replace(/~mission\(([^)]+)\)/g, '[...]')
-    .trim();
-}
-
-function fmtDiffLabel(raw: string): string {
-  return raw.replace(/_\d+$/, '').replace(/_/g, ' ');
-}
-
-function fmtMinutes(m: number): string {
-  if (m < 60) return `~${Math.round(m)}m`;
-  const h = Math.floor(m / 60);
-  const rem = Math.round(m % 60);
-  return rem > 0 ? `~${h}h ${rem}m` : `~${h}h`;
-}
-
-function diffCls(score: number): string {
-  if (score <= 3) return 'text-green-500 border-green-500/30 bg-green-500/10';
-  if (score <= 4) return 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10';
-  if (score <= 5) return 'text-orange-500 border-orange-500/30 bg-orange-500/10';
-  return 'text-red-500 border-red-500/30 bg-red-500/10';
-}
-
-import type { MissionDifficulty, MissionStanding } from '@/lib/gameData';
-
-function DifficultyBlock({ diff, time, standing, illegal }: {
-  diff: MissionDifficulty | null;
-  time: number | null;
-  standing: MissionStanding | null;
-  illegal: boolean;
-}) {
-  type DimDef = { label: string; score: number; detail: string };
-  const dims: DimDef[] = diff ? [
-    { label: 'Risk',       score: diff.riskOfLoss,      detail: diff.riskOfLossLabel },
-    { label: 'Mental',     score: diff.mentalLoad,       detail: diff.mentalLoadLabel },
-    { label: 'Mechanical', score: diff.mechanicalSkill,  detail: diff.mechanicalSkillLabel },
-    { label: 'Knowledge',  score: diff.gameKnowledge,    detail: diff.gameKnowledgeLabel },
-  ] : [];
-
-  return (
-    <div className="space-y-2">
-      {/* Meta row: time + profile + standing + illegal */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {time != null && (
-          <span className="text-[11px] font-mono bg-muted text-muted-foreground rounded px-2 py-0.5">
-            ⏱ {fmtMinutes(time)}
-          </span>
-        )}
-        {diff?.profile && (
-          <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5">{diff.profile}</span>
-        )}
-        {standing && standing.minReputation > 0 && (
-          <span className="text-[11px] bg-primary/10 text-primary rounded px-2 py-0.5 font-medium">
-            {standing.name} ({standing.minReputation.toLocaleString()}+ rep)
-          </span>
-        )}
-        {illegal && (
-          <span className="text-[11px] bg-red-500/10 text-red-500 border border-red-500/20 rounded px-2 py-0.5 font-semibold">
-            Illegal
-          </span>
-        )}
-      </div>
-
-      {/* Difficulty grid */}
-      {dims.length > 0 && (
-        <div className="grid grid-cols-2 gap-1.5">
-          {dims.map(({ label, score, detail }) => score > 0 ? (
-            <div key={label} className={cn('rounded border px-2 py-1.5', diffCls(score))}>
-              <p className="text-[9px] font-semibold uppercase tracking-wider opacity-70">{label}</p>
-              <p className="text-[11px] font-medium leading-tight mt-0.5">{score}/7</p>
-              {detail && <p className="text-[10px] opacity-60 leading-tight mt-0.5 capitalize">{detail.toLowerCase()}</p>}
-            </div>
-          ) : null)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Contract modal ────────────────────────────────────────────────────────────
-
-function ContractModal({
-  contract,
-  onClose,
-  onSelectBlueprint,
-}: {
-  contract: MissionContract;
-  onClose: () => void;
-  onSelectBlueprint: (uuid: string) => void;
-}) {
-  const multiPool = contract.pools.length > 1;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-border shrink-0">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-base font-bold leading-tight">{fmtContractTitle(contract.title)}</h2>
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {contract.missionType && (
-                  <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5 font-medium">
-                    {contract.missionType}
-                  </span>
-                )}
-                {contract.missionGiver && (
-                  <span className="text-[11px] bg-muted text-muted-foreground rounded px-2 py-0.5">
-                    {contract.missionGiver}
-                  </span>
-                )}
-                {contract.faction && contract.faction !== contract.missionGiver && (
-                  <span className="text-[11px] bg-primary/10 text-primary rounded px-2 py-0.5 font-mono">
-                    {contract.faction}
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-
-          {/* Difficulty + meta */}
-          <DifficultyBlock
-            diff={contract.difficulty}
-            time={contract.timeToCompleteMinutes}
-            standing={contract.minStanding}
-            illegal={contract.illegal}
-          />
-
-          {/* Reward row */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2 flex-wrap">
-            <span className="font-semibold text-foreground">aUEC:</span> Calculated (scales with difficulty &amp; distance)
-            {contract.reputation.length > 0 && (
-              <>
-                <span className="mx-1 opacity-30">·</span>
-                <span className="font-semibold text-foreground">Rep XP:</span>
-                {contract.reputation.map(r => `${r.xp.toLocaleString()} (${r.faction})`).join(' · ')}
-              </>
-            )}
-          </div>
-
-          {/* Locations */}
-          {contract.locations.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <MapPin className="h-3 w-3" /> Locations
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {contract.locations.map(loc => (
-                  <span key={loc} className="text-[11px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">
-                    {loc}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Description */}
-          {contract.description && (
-            <div className="space-y-1.5">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <FileText className="h-3 w-3" /> Description
-              </p>
-              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap rounded border border-border/50 bg-muted/20 px-3 py-2.5 max-h-40 overflow-y-auto">
-                {fmtDescription(contract.description)}
-              </p>
-            </div>
-          )}
-
-          {/* Blueprint pools */}
-          <div className="space-y-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              <Layers className="h-3 w-3" /> Blueprints
-            </p>
-            {contract.pools.map((pool, pi) => (
-              <div key={pi} className="rounded-md border border-border overflow-hidden">
-                {multiPool && (
-                  <div className="px-3 py-1.5 bg-muted/30 border-b border-border/60 flex items-center gap-2">
-                    <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className="text-[11px] text-muted-foreground">
-                      {pool.locations.length > 0 ? pool.locations.slice(0, 5).join(', ') + (pool.locations.length > 5 ? ` +${pool.locations.length - 5} more` : '') : 'Default (all locations)'}
-                    </span>
-                  </div>
-                )}
-                <div className="divide-y divide-border/40">
-                  {pool.blueprints.map(bp => {
-                    const found = getBlueprintByUuid(bp.blueprintUuid);
-                    return (
-                      <div key={bp.blueprintUuid} className="flex items-center justify-between px-3 py-2">
-                        <span className="text-sm text-foreground">{bp.name}</span>
-                        {found ? (
-                          <button
-                            onClick={() => { onSelectBlueprint(bp.blueprintUuid); onClose(); }}
-                            className="text-[11px] text-primary hover:underline shrink-0 ml-3"
-                          >
-                            View recipe →
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground/40 shrink-0 ml-3 italic">no recipe</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── Product Stats section ─────────────────────────────────────────────────────
@@ -633,117 +380,7 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
 // part's material quality and see the result, and collect what to craft in a
 // build list with total time, materials and where to mine them.
 
-/** "Char_Armor_Arms" → "Armor arms", "WeaponPersonal" → "Weapon personal" */
-function typeLabel(t: string): string {
-  const s = t.replace(/^Char_/, '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().toLowerCase();
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-const amountOf = (m: LocalBlueprint['components'][number]['material']) => formatMaterialAmount(m.quantityScu, m.quantity);
-const BROWSE_PAGE = 60;
 const PRESETS: [string, number][] = [['Min', 0], ['Base', 500], ['Max', 1000]];
-
-function Rivets() {
-  return (
-    <>
-      <span aria-hidden="true" className="fab-rivet" style={{ top: 10, left: 10 }} />
-      <span aria-hidden="true" className="fab-rivet" style={{ top: 10, right: 10 }} />
-      <span aria-hidden="true" className="fab-rivet" style={{ bottom: 10, left: 10 }} />
-      <span aria-hidden="true" className="fab-rivet" style={{ bottom: 10, right: 10 }} />
-    </>
-  );
-}
-
-// ── Left: find a blueprint ───────────────────────────────────────────────────
-
-function BlueprintBrowser({ selectedUuid, onPick, onCollapse, className }: {
-  selectedUuid: string | null;
-  onPick: (uuid: string) => void;
-  /** Wide screens, with a blueprint open: tuck the list away to give the parts room */
-  onCollapse?: () => void;
-  className?: string;
-}) {
-  const [q, setQ] = useState('');
-  const [type, setType] = useState('');
-  const [limit, setLimit] = useState(BROWSE_PAGE);
-  const list = useMemo(() => searchBlueprints(q, type || undefined).slice().sort((a, b) => a.name.localeCompare(b.name)), [q, type]);
-  const shown = list.slice(0, limit);
-  const queue = useBuildList();
-  const inList = new Set(queue.map((i) => i.uuid));
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && list[0]) { e.preventDefault(); onPick(list[0].uuid); }
-  }
-
-  return (
-    <section aria-label="Blueprints" className={cn('flex min-w-0 flex-col gap-3', className)}>
-      <div className="flex flex-col gap-1.5">
-        <span className="flex items-center justify-between gap-2">
-          <label htmlFor="bp-search" className="fab-label">Search</label>
-          {onCollapse && (
-            <button type="button" onClick={onCollapse} aria-label="Hide the blueprint list" aria-expanded="true" title="Hide the blueprint list"
-              className="fab-btn hidden h-8 items-center gap-1 px-2 text-xs lg:flex">
-              <ChevronLeft aria-hidden="true" className="h-4 w-4" /> Hide
-            </button>
-          )}
-        </span>
-        <span className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7a7a7a]" />
-          <input
-            id="bp-search"
-            type="search"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setLimit(BROWSE_PAGE); }}
-            onKeyDown={onKeyDown}
-            placeholder="Name, type…"
-            autoComplete="off"
-            className="fab-input h-11 w-full pl-9 pr-3 text-[15px] outline-none"
-          />
-        </span>
-      </div>
-      <label className="flex flex-col gap-1.5">
-        <span className="fab-label">Type</span>
-        <select value={type} onChange={(e) => { setType(e.target.value); setLimit(BROWSE_PAGE); }} className="fab-input h-10 w-full px-2 text-sm outline-none">
-          <option value="">All types</option>
-          {blueprintTypes().map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}
-        </select>
-      </label>
-
-      <p className="fab-mono text-xs text-[var(--fab-faint)]" aria-live="polite">{list.length} blueprint{list.length === 1 ? '' : 's'}</p>
-
-      <div className="fab-plate fab-scroll flex flex-col lg:max-h-[calc(100vh-17rem)] lg:overflow-y-auto xl:max-h-none xl:min-h-0 xl:flex-1">
-        {shown.map((bp) => (
-          <div key={bp.uuid} className="fab-row flex items-stretch" aria-current={bp.uuid === selectedUuid ? 'true' : undefined}>
-            <button type="button" onClick={() => onPick(bp.uuid)} className="flex min-w-0 flex-1 flex-col gap-1 px-3.5 py-2.5 text-left">
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="line-clamp-2 text-[15px] font-semibold leading-snug text-[var(--fab-bright)]">{bp.name}</span>
-                <span className="fab-mono shrink-0 text-xs text-[var(--fab-faint)]">{fmtSecs(bp.craftTimeSecs)}</span>
-              </span>
-              <span className="fab-mono line-clamp-2 text-[11.5px] leading-snug text-[var(--fab-muted)]">
-                {bp.components.map((c) => `${c.material.name} ${amountOf(c.material)}`).join(' · ')}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => buildList.add(bp.uuid)}
-              aria-label={`Add ${bp.name} to the build list`}
-              title="Add to build list"
-              className={cn('w-11 shrink-0 border-l border-[#262626] text-lg', inList.has(bp.uuid) ? 'text-[var(--fab-gold-text)]' : 'text-[var(--fab-faint)] hover:text-[var(--fab-bright)]')}
-            >
-              +
-            </button>
-          </div>
-        ))}
-        {list.length === 0 && <p className="px-4 py-6 text-sm text-[var(--fab-muted)]">No blueprint matches.</p>}
-        {list.length > shown.length && (
-          <button type="button" onClick={() => setLimit((l) => l + BROWSE_PAGE)} className="fab-btn m-3 h-10 text-sm">
-            Show {Math.min(BROWSE_PAGE, list.length - shown.length)} more
-          </button>
-        )}
-      </div>
-    </section>
-  );
-}
 
 // ── Centre: one blueprint ────────────────────────────────────────────────────
 
@@ -892,9 +529,7 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
     <section aria-label={bp.name} className="fab-plate flex min-w-0 flex-col gap-5 px-5 pb-4 pt-6 sm:px-7">
       <Rivets />
       {contractModal && (
-        <div className="fab-legacy">
-          <ContractModal contract={contractModal} onClose={() => setContractModal(null)} onSelectBlueprint={(uuid) => { setContractModal(null); onPick(uuid); }} />
-        </div>
+        <MissionModal contract={contractModal} currentUuid={bp.uuid} onClose={() => setContractModal(null)} onSelectBlueprint={(uuid) => { setContractModal(null); onPick(uuid); }} />
       )}
 
       <button type="button" onClick={onBack} className="fab-btn -mt-1 flex h-9 w-fit items-center gap-1 px-2.5 text-xs lg:hidden">

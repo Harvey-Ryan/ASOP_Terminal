@@ -315,3 +315,18 @@ Patch Notes — v1.1.0 — November 10
   `package.json` via Vite) and sends it with error reports, so errors from a
   tab opened before a release can be told apart.
 
+
+## Blueprints page (v1.27.0)
+
+- `pages/BlueprintsPage.tsx` (`/blueprints` and `/blueprints/:blueprintUuid`):
+  the calculator's blueprint list (`pages/crafting/browser.tsx`), then every
+  mission that can give the picked blueprint (`pages/crafting/missions.tsx`,
+  also the calculator's mission "Details"). Same `.fab` look.
+- Mission rewards are only what the game files hold: `rewardItems` (scrip,
+  gear), reputation, `enemies` (CombatSummary), `shareable`, `onceOnly`.
+  aUEC payouts aren't in the files (the game sets them on accept): never
+  estimate them.
+- Difficulty words come from `difficultyWords()` in `crafting.ts`; title
+  placeholders the game fills in ("[Location]") show as "‹location›".
+- Blueprint search (`searchBlueprints`) matches every word in any order
+  across name, type, subtype and maker, ignoring quotes.
