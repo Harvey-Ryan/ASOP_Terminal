@@ -30,7 +30,7 @@ let cached: CraftingPayload | null = null;
  * Bump when the payload's shape changes (v2: materialSources, v1.26.0), so
  * browsers holding the old copy for the same game build download it again.
  */
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 const etagFor = (commit: string) => `"crafting-v${DATA_VERSION}-${commit.slice(0, 16)}"`;
 let building: Promise<CraftingPayload | null> | null = null;
 

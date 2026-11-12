@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptBlueprint, adaptContract, buildMissionContracts, baseStatsFor, buildCraftingData, fillMissionTokens } from '../dist/crafting.js';
+import { adaptBlueprint, adaptContract, buildMissionContracts, baseStatsFor, buildCraftingData, fillMissionTokens, cleanMissionLocations } from '../dist/crafting.js';
 
 const BP = {
   UUID: 'bp-1', Key: 'BP_CRAFT_armor_torso',
@@ -106,4 +106,13 @@ test('buildCraftingData: pages\' shapes, obtainable blueprints, missions per blu
   assert.deepEqual(data.baseStats['item-2'], { kind: 'shield', maxHealth: 720 });
   assert.equal(data.baseStats['item-1'].kind, 'armor');
   assert.equal(data.missions[0].pools[0].blueprints[0].blueprintUuid, 'bp-1');
+});
+
+test('cleanMissionLocations keeps places a player can find, once each', () => {
+  assert.deepEqual(cleanMissionLocations([
+    'Lobby', 'Sector 1', 'The cave can only be accessed on foot.', 'Grim HEX',
+    'the clinic inside Checkmate at the L4 Lagrange of Pyro II', 'Checkmate', 'Checkmate at the L4 Lagrange of Pyro II',
+    'Cutlass', 'Cutlass wreck site', 'Starlight Service Station', 'Starlight Service Station Habs',
+    'Hangar 13 inside Ruin Station above Pyro VI', 'Ruin Station', 'a derelict outpost',
+  ]), ['A derelict outpost', 'Checkmate at the L4 Lagrange of Pyro II', 'Cutlass wreck site', 'Grim HEX', 'Ruin Station above Pyro VI', 'Starlight Service Station']);
 });

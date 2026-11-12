@@ -72,8 +72,38 @@ function placeOf(row: ResourceLocationRow): { place: string; kind: string; syste
   const kind = (locs[0]!.Type ?? '').toLowerCase();
   if (!system) return null;
   if (locs.length === 1) return { place: locs[0]!.Name!, kind, system };
-  const names = [...new Set(locs.map((l) => l.Name!))].sort();
-  return { place: names.length <= 4 ? names.join(', ') : `${names.slice(0, 3).join(', ')} +${names.length - 3}`, kind, system };
+  return { place: groupedPlaceName([...new Set(locs.map((l) => l.Name!))]), kind, system };
+}
+
+/** Stanton's planets in order from the star, for listing Lagrange points. */
+const BODY_ORDER = ['HUR', 'CRU', 'ARC', 'MIC'];
+
+/**
+ * Several places that share one set of rocks, named in full (never "+N"). Lagrange
+ * points are grouped by the body they belong to, and bodies with the same points
+ * share a label: "PYR1 & PYR2 L1–L5", "HUR L5 · CRU L3 · MIC L1, L2, L5".
+ */
+export function groupedPlaceName(names: readonly string[]): string {
+  const points = new Map<string, number[]>();
+  const other: string[] = [];
+  for (const n of names) {
+    const m = /^([A-Z]{3}\d?) L([1-5])$/.exec(n);
+    if (m) points.set(m[1]!, [...(points.get(m[1]!) ?? []), Number(m[2])]);
+    else other.push(n);
+  }
+  const rank = (body: string) => { const i = BODY_ORDER.indexOf(body); return i < 0 ? BODY_ORDER.length : i; };
+  const bodies = [...points.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true }));
+  const pointsLabel = (ls: number[]) => {
+    const sorted = [...new Set(ls)].sort((a, b) => a - b);
+    return sorted.length === 5 ? 'L1–L5' : `L${sorted.join(', L')}`;
+  };
+  const byLabel = new Map<string, string[]>();
+  for (const b of bodies) {
+    const label = pointsLabel(points.get(b)!);
+    byLabel.set(label, [...(byLabel.get(label) ?? []), b]);
+  }
+  const parts = [...byLabel].map(([label, bs]) => `${bs.join(' & ')} ${label}`);
+  return [...parts, ...other.sort()].join(' · ');
 }
 
 /** Every material's mining sources, best first. */

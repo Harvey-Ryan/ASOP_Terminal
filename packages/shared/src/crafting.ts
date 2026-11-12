@@ -203,16 +203,48 @@ export function fillMissionTokens(text: string, c: ScContractJson): string {
   return text.replace(/~mission\(([^|)]*)(?:\|[^)]*)?\)/g, (_m, key: string) => byPurpose.get(key.toLowerCase()) ?? 'the marked location');
 }
 
+/** Rooms and areas inside a place; on their own they don't say where to go. */
+const ROOM = /^(Lobby|Sector \d+|Security (Checkpoint|Compound)|Inventory Center|Exterior Zone \d+|Central Core & Power|(Engineering|Research) Wing|Abandoned Section|Maintenance Area-\d+|On-Call Area|Operations Office|Shipping Area|Storehouse|Storage Depot|Supply Room|Service Entrance|Staging Point|Hangar \d+|Trading Post|Site-B Lab|Outpost (Depot|Landing Area|Main Building|Storage Shed|Warehouse))$/;
+/** "Starlight Service Station Clinic" → "Starlight Service Station". */
+const PART_SUFFIX = / (Clinic|Entrance|Habs|Hangar|Exterior|Gas Cloud)$/;
+
+/**
+ * A mission's places as a player would look for them (v1.26.1): rooms and
+ * sentences dropped, "the clinic inside X" → X, and one name per place
+ * (the fuller "Checkmate at the L4 Lagrange of Pyro II" over "Checkmate",
+ * "Cutlass wreck site" over "Cutlass"). Every place is kept; the website
+ * shows the first few.
+ */
+export function cleanMissionLocations(names: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (let n of names) {
+    n = n.trim();
+    if (!n || n.endsWith('.') || hasToken(n)) continue;
+    n = n.replace(/^.+? inside (.+)$/, '$1');
+    if (ROOM.test(n.replace(/ inside .+$/, ''))) continue;
+    out.add(n.charAt(0).toUpperCase() + n.slice(1));
+  }
+  const all = [...out];
+  for (const n of all) {
+    const base = n.replace(PART_SUFFIX, '');
+    if (base !== n && out.has(base)) out.delete(n);
+  }
+  for (const n of [...out]) {
+    if (all.some((m) => m !== n && (m.startsWith(`${n} at the `) || m.startsWith(`${n} above `) || m === `${n} wreck site`))) out.delete(n);
+  }
+  return [...out].sort((a, b) => a.localeCompare(b));
+}
+
 export function adaptContract(c: ScContractJson): RawMission | null {
   const title = !isToken(c.DisplayTitle) ? c.DisplayTitle! : !isToken(c.Title) ? c.Title! : null;
   if (!title) return null; // no readable name (template/test missions)
   const description = !isToken(c.DisplayDescription) ? c.DisplayDescription! : c.Description ?? '';
-  const locations = [...new Set(
+  const locations = cleanMissionLocations(
     Object.values(c.LocationPools ?? {})
       .flatMap((p) => p.ResolvedLocations ?? [])
       .map((l) => l.Name)
       .filter((n): n is string => !!n && !hasToken(n)),
-  )].slice(0, 25);
+  );
   return {
     Title: title,
     Description: fillMissionTokens(description, c),
@@ -447,7 +479,7 @@ export function buildMissionContracts(raw: readonly RawMission[]): MissionContra
         else pools.set(fp, { locations: new Set(m.Locations ?? []), blueprints: contents.map((c) => ({ name: c.Name, blueprintUuid: c.BlueprintUUID })) });
       }
     }
-    const poolList: MissionPool[] = [...pools.values()].map((p) => ({ locations: [...p.locations].sort(), blueprints: p.blueprints }));
+    const poolList: MissionPool[] = [...pools.values()].map((p) => ({ locations: cleanMissionLocations([...p.locations]), blueprints: p.blueprints }));
     const first = group[0]!;
     const rd = first.Difficulty;
     const rs = first.MinStanding;
@@ -457,7 +489,7 @@ export function buildMissionContracts(raw: readonly RawMission[]): MissionContra
       missionType: clean(first.MissionType),
       missionGiver: clean(first.MissionGiver),
       faction: clean(first.Faction),
-      locations: [...new Set(poolList.flatMap((p) => p.locations))].sort(),
+      locations: cleanMissionLocations(poolList.flatMap((p) => p.locations)),
       pools: poolList,
       reputation: (first.Reputation ?? [])
         .filter((r) => !!clean(r.Faction) && r.XP != null)
