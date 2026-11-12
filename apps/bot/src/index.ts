@@ -112,6 +112,14 @@ async function upsertGuild(guildId: string, name: string, icon: string | null) {
 client.on(Events.GuildCreate, async (guild) => {
   try {
     await upsertGuild(guild.id, guild.name, guild.icon);
+    // A server new to ASOP starts with the modules that need no extra channels
+    // (v1.29.0): DKP auctions and Tournaments each need a channel of their own,
+    // so they start switched off and the setup checklist doesn't ask for them.
+    const row = await prisma.guild.findUnique({ where: { guildId: guild.id }, select: { id: true, settings: { select: { id: true } } } });
+    if (row && !row.settings) {
+      await prisma.guildSettings.create({ data: { guildId: row.id, dkpEnabled: false, tournamentsEnabled: false } })
+        .catch((err) => console.error(`[bot] Default settings for ${guild.id} failed:`, err));
+    }
     console.log(`[bot] Joined new guild: ${guild.name} (${guild.id}) — DB record created, ready to operate`);
     await prisma.adminLog.create({ data: {
       kind: 'guild.joined', guildId: guild.id, guildName: guild.name,
