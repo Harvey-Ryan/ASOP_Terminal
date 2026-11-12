@@ -36,6 +36,8 @@ const BlueprintsPage = lazyPage(() => import('./pages/BlueprintsPage'), 'Bluepri
 const CraftingCalculatorPage = lazyPage(() => import('./pages/CraftingCalculatorPage'), 'CraftingCalculatorPage');
 const CraftingCalculatorDetailPage = lazyPage(() => import('./pages/CraftingCalculatorPage'), 'CraftingCalculatorDetailPage');
 const BlueprintsSettingsPage = lazyPage(() => import('./pages/settings/BlueprintsSettingsPage'), 'BlueprintsSettingsPage');
+const WikeloPage = lazyPage(() => import('./pages/WikeloPage'), 'WikeloPage');
+const WikeloSettingsPage = lazyPage(() => import('./pages/settings/WikeloSettingsPage'), 'WikeloSettingsPage');
 const CraftingCalculatorSettingsPage = lazyPage(() => import('./pages/settings/CraftingCalculatorSettingsPage'), 'CraftingCalculatorSettingsPage');
 const RosterPage = lazyPage(() => import('./pages/RosterPage'), 'RosterPage');
 const RoleCallPage = lazyPage(() => import('./pages/RoleCallPage'), 'RoleCallPage');
@@ -114,6 +116,9 @@ export default function App() {
           <Route path="servers/:guildId/crafting-calculator" element={<ModuleGate setting="craftingEnabled"><CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/crafting-calculator/:blueprintUuid" element={<ModuleGate setting="craftingEnabled"><CraftingDataGate><CraftingCalculatorDetailPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/settings/modules/blueprints" element={<ModuleGate setting="blueprintsEnabled"><BlueprintsSettingsPage /></ModuleGate>} />
+          <Route path="servers/:guildId/wikelo" element={<ModuleGate setting="wikeloEnabled"><WikeloPage /></ModuleGate>} />
+          <Route path="servers/:guildId/wikelo/:missionId" element={<ModuleGate setting="wikeloEnabled"><WikeloPage /></ModuleGate>} />
+          <Route path="servers/:guildId/settings/modules/wikelo" element={<ModuleGate setting="wikeloEnabled"><WikeloSettingsPage /></ModuleGate>} />
           <Route path="servers/:guildId/settings/modules/crafting-calculator" element={<ModuleGate setting="craftingEnabled"><CraftingCalculatorSettingsPage /></ModuleGate>} />
 
           <Route path="servers/:guildId/settings/modules/activity" element={<ModuleGate setting="activityEnabled"><ActivitySettingsPage /></ModuleGate>} />

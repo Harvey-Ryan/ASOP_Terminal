@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight, Briefcase } from 'lucide-react';
+import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight, Briefcase, Palmtree } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ModuleSetting } from '@dem/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -63,6 +63,13 @@ const MODULES: ModuleTile[] = [
     icon: Calculator,
     slug: 'crafting-calculator',
     setting: 'craftingEnabled',
+  },
+  {
+    label: 'Wikelo',
+    description: 'Wikelo\'s missions and rewards, with a turn-in checklist for each member.',
+    icon: Palmtree,
+    slug: 'wikelo',
+    setting: 'wikeloEnabled',
   },
   {
     label: 'Activity',

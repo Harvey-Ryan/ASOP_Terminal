@@ -34,6 +34,7 @@ export interface GuildSettingsData {
   fleetEnabled: boolean;
   blueprintsEnabled: boolean;
   craftingEnabled: boolean;
+  wikeloEnabled: boolean;
   activityEnabled: boolean;
   /** Activity (RoleCall) exists for this server at all (v1.25.0) */
   activityAvailable?: boolean;
@@ -66,6 +67,7 @@ export interface GuildMyPermissions {
   fleetEnabled: boolean;
   blueprintsEnabled: boolean;
   craftingEnabled: boolean;
+  wikeloEnabled: boolean;
   activityEnabled: boolean;
   /** Activity (RoleCall) exists for this server at all (v1.25.0) */
   activityAvailable?: boolean;

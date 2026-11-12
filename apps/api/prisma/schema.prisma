@@ -139,6 +139,7 @@ model GuildSettings {
   blueprintsEnabled     Boolean  @default(true)
   /// Whether the Crafting Calculator module is enabled for this guild
   craftingEnabled       Boolean  @default(true)
+  wikeloEnabled       Boolean  @default(true)
   /// Whether the Activity (RoleCallBot) module is enabled for this guild
   activityEnabled       Boolean  @default(true)
   /// Default duration in hours for new standalone DKP auctions (1–168)
@@ -1546,4 +1547,17 @@ model JobCrew {
 
   @@unique([jobId, userId])
   @@index([userId])
+}
+
+/// A person's Wikelo turn-in checklist for one mission (v1.34.0). Private to
+/// them: nothing else reads it. Missions are scdata.contracts uuids; ticked
+/// is a JSON list of the turn-in keys (item uuids) they've collected.
+model WikeloProgress {
+  discordId   String
+  missionId   String
+  ticked      String    @default("[]")
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@id([discordId, missionId])
 }

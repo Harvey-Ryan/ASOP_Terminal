@@ -24,6 +24,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       exchangeEnabled: true,
       fleetEnabled: true,
       tournamentsEnabled: true,
+      wikeloEnabled: true,
       eventCreatorRoles: true,
       lootDraftCreatorRoles: true,
     },
@@ -38,6 +39,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const exchangeEnabled   = !hidden.has('exchangeEnabled') && (settings?.exchangeEnabled ?? true);
   const fleetEnabled      = !hidden.has('fleetEnabled') && (settings?.fleetEnabled ?? true);
   const tournamentsEnabled = !hidden.has('tournamentsEnabled') && (settings?.tournamentsEnabled ?? false);
+  const wikeloEnabled     = !hidden.has('wikeloEnabled') && (settings?.wikeloEnabled ?? true);
 
   const eventCreatorRoles: string[]     = (() => { try { return JSON.parse(settings?.eventCreatorRoles    ?? '[]') as string[]; } catch { return []; } })();
   const lootDraftCreatorRoles: string[] = (() => { try { return JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[]; } catch { return []; } })();
@@ -142,6 +144,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       '`/blueprint <name>` — Recipe, dismantle return and the missions that reward it',
       '`/material <name>` — Every blueprint that uses a crafting material',
       '`/item <name>` — Item details, or average prices for a commodity',
+      ...(wikeloEnabled ? ['`/wikelo <mission>` — What a Wikelo mission rewards and what you turn in'] : []),
     ].join('\n'),
   });
 

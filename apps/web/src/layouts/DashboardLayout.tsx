@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase, Palmtree } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -198,6 +198,7 @@ export function DashboardLayout() {
   const fleetEnabled      = myPerms?.fleetEnabled     ?? true;
   const blueprintsEnabled = myPerms?.blueprintsEnabled ?? true;
   const craftingEnabled   = myPerms?.craftingEnabled  ?? true;
+  const wikeloEnabled     = myPerms?.wikeloEnabled    ?? true;
   const activityEnabled   = myPerms?.activityEnabled  ?? true;
   const tournamentsEnabled = myPerms?.tournamentsEnabled ?? true;
 
@@ -575,7 +576,7 @@ export function DashboardLayout() {
                 {!navCollapsed && 'Member Map'}
               </NavLink>
 
-              {(blueprintsEnabled || craftingEnabled) && (
+              {(blueprintsEnabled || craftingEnabled || wikeloEnabled) && (
                 <>
                   {!navCollapsed && (
                     <button
@@ -607,6 +608,16 @@ export function DashboardLayout() {
                         >
                           <Calculator className="h-4 w-4 shrink-0" />
                           {!navCollapsed && 'Crafting Calc'}
+                        </NavLink>
+                      )}
+                      {wikeloEnabled && (
+                        <NavLink
+                          to={`/dashboard/servers/${activeGuild.id}/wikelo`}
+                          title={navCollapsed ? 'Wikelo' : undefined}
+                          className={serverNavCls}
+                        >
+                          <Palmtree className="h-4 w-4 shrink-0" />
+                          {!navCollapsed && 'Wikelo'}
                         </NavLink>
                       )}
                     </>

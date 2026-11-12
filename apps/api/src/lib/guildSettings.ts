@@ -27,6 +27,7 @@ export type SettingsPatch = {
     fleetEnabled?: boolean;
     blueprintsEnabled?: boolean;
     craftingEnabled?: boolean;
+    wikeloEnabled?: boolean;
     activityEnabled?: boolean;
     activityHeatmapPublic?: boolean;
     tournamentsEnabled?: boolean;
@@ -69,6 +70,7 @@ export function parseSettingsPatch(raw: Record<string, unknown>): SettingsPatch 
     fleetEnabled:              raw.fleetEnabled !== undefined ? optBool(raw.fleetEnabled, 'fleetEnabled') : undefined,
     blueprintsEnabled:         raw.blueprintsEnabled !== undefined ? optBool(raw.blueprintsEnabled, 'blueprintsEnabled') : undefined,
     craftingEnabled:           raw.craftingEnabled !== undefined ? optBool(raw.craftingEnabled, 'craftingEnabled') : undefined,
+    wikeloEnabled:           raw.wikeloEnabled !== undefined ? optBool(raw.wikeloEnabled, 'wikeloEnabled') : undefined,
     activityEnabled:           raw.activityEnabled !== undefined ? optBool(raw.activityEnabled, 'activityEnabled') : undefined,
     activityHeatmapPublic:     raw.activityHeatmapPublic !== undefined ? optBool(raw.activityHeatmapPublic, 'activityHeatmapPublic') : undefined,
     tournamentsEnabled:        raw.tournamentsEnabled !== undefined ? optBool(raw.tournamentsEnabled, 'tournamentsEnabled') : undefined,
@@ -101,6 +103,7 @@ export function patchNeedsManager(patch: SettingsPatch): boolean {
     patch.fleetEnabled !== undefined ||
     patch.blueprintsEnabled !== undefined ||
     patch.craftingEnabled !== undefined ||
+    patch.wikeloEnabled !== undefined ||
     patch.activityEnabled !== undefined ||
     patch.activityHeatmapPublic !== undefined ||
     patch.tournamentsEnabled !== undefined ||
@@ -156,6 +159,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       ...(patch.fleetEnabled !== undefined              ? { fleetEnabled: patch.fleetEnabled }                                       : {}),
       ...(patch.blueprintsEnabled !== undefined         ? { blueprintsEnabled: patch.blueprintsEnabled }                             : {}),
       ...(patch.craftingEnabled !== undefined           ? { craftingEnabled: patch.craftingEnabled }                                 : {}),
+      ...(patch.wikeloEnabled !== undefined           ? { wikeloEnabled: patch.wikeloEnabled }                                 : {}),
       ...(patch.activityEnabled !== undefined           ? { activityEnabled: patch.activityEnabled }                                 : {}),
       ...(patch.activityHeatmapPublic !== undefined     ? { activityHeatmapPublic: patch.activityHeatmapPublic }                     : {}),
       ...(patch.tournamentsEnabled !== undefined         ? { tournamentsEnabled: patch.tournamentsEnabled }                           : {}),
@@ -193,6 +197,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       fleetEnabled:               patch.fleetEnabled               ?? true,
       blueprintsEnabled:          patch.blueprintsEnabled          ?? true,
       craftingEnabled:            patch.craftingEnabled            ?? true,
+      wikeloEnabled:            patch.wikeloEnabled            ?? true,
       activityEnabled:            patch.activityEnabled            ?? true,
       activityHeatmapPublic:      patch.activityHeatmapPublic      ?? true,
       tournamentsEnabled:         patch.tournamentsEnabled          ?? true,
@@ -242,6 +247,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       fleetEnabled:               s.fleetEnabled               ?? true,
       blueprintsEnabled:          s.blueprintsEnabled          ?? true,
       craftingEnabled:            s.craftingEnabled            ?? true,
+      wikeloEnabled:            s.wikeloEnabled            ?? true,
       activityEnabled:            s.activityEnabled            ?? true,
       activityHeatmapPublic:      s.activityHeatmapPublic      ?? true,
       tournamentsEnabled:         s.tournamentsEnabled          ?? true,
