@@ -214,6 +214,8 @@ export interface LocalModifier {
   modifierAtMin: number;
   modifierAtMax: number;
   unitFormat:   string | null;
+  /** Adds a whole number (Power Pips…) instead of multiplying (v1.28.1) */
+  additive?: boolean;
 }
 
 export interface LocalBlueprint {
@@ -283,6 +285,7 @@ function buildBlueprints(raw: RawLocalBlueprint[], resources: RawResource[]): Lo
           qualityMax:   stat.QualityMax,
           modifierAtMin: stat.MultiplierAtMin,
           modifierAtMax: stat.MultiplierAtMax,
+          additive:     stat.Additive ?? false,
           unitFormat:   parseUnitFormat(stat.UnitFormat),
         });
       }

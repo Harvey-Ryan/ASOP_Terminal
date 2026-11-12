@@ -37,6 +37,7 @@ export type {
   MissionStanding,
   MissionContract,
 } from '@dem/shared';
+import { statAt } from '@dem/shared';
 
 // ── What CraftingDataGate loaded ─────────────────────────────────────────────
 
@@ -114,18 +115,21 @@ export function getBaseStats(itemUuid: string, _type: string): ItemBaseStats | n
 
 // ── Stat interpolation ───────────────────────────────────────────────────────
 
+/** A stat at a quality: a multiplier, or for an additive stat the whole number added (statAt in shared, v1.28.1). */
 export function interpolateStat(stat: CraftingStat, ql: number): number {
-  if (stat.segments && stat.segments.length > 0) {
-    const seg = stat.segments.find((s) => ql >= s.qMin && ql <= s.qMax) ?? stat.segments[stat.segments.length - 1]!;
-    const range = seg.qMax - seg.qMin;
-    if (range <= 0) return seg.mStart;
-    const t = Math.max(0, Math.min(1, (ql - seg.qMin) / range));
-    return seg.mStart + t * (seg.mEnd - seg.mStart);
-  }
-  const range = stat.qualityMax - stat.qualityMin;
-  if (range <= 0) return stat.multiplierAtMin;
-  const t = Math.max(0, Math.min(1, (ql - stat.qualityMin) / range));
-  return stat.multiplierAtMin + t * (stat.multiplierAtMax - stat.multiplierAtMin);
+  return statAt(stat, ql);
+}
+
+/** Adds a whole number per quality band (Power Pips…) instead of multiplying. */
+export const isAdditive = (stat: CraftingStat) => stat.curve === 'additive';
+
+/** The total added to a stat key by the parts' additive curves at their chosen quality. */
+export function combinedAdditive(bp: CraftingBlueprint, statKey: string, qls: number[]): number {
+  let sum = 0;
+  bp.components.forEach((comp, i) => {
+    for (const s of comp.stats) if (s.key === statKey && isAdditive(s)) sum += interpolateStat(s, qls[i] ?? 500);
+  });
+  return Math.round(sum);
 }
 
 /** The combined multiplier for a stat key given the quality chosen for each component slot. */
@@ -134,7 +138,7 @@ export function combinedMultiplier(bp: CraftingBlueprint, statKey: string, qls: 
   bp.components.forEach((comp, i) => {
     const ql = qls[i] ?? 500;
     for (const s of comp.stats) {
-      if (s.key === statKey) mult *= interpolateStat(s, ql);
+      if (s.key === statKey && !isAdditive(s)) mult *= interpolateStat(s, ql);
     }
   });
   return mult;
