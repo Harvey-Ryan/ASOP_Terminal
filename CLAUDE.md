@@ -376,3 +376,22 @@ Patch Notes — v1.1.0 — November 10
   available" (event pages too since v1.28.3: new event and the audit page
   by the Event Bot, an event's loot page by Loot). A new module page or
   check gets the same treatment.
+
+## Live updates (v1.30.0)
+
+- Pages that used to poll every few seconds (loot sessions, DKP auctions,
+  trade chat, the loot list and draft picks) keep one stream open instead:
+  `GET /api/live?topics=…` (`routes/live.ts`), and refetch when told a
+  topic changed (`useLiveQueries` in `apps/web/src/lib/live.ts`). While the
+  stream is up they poll only every `LIVE_SAFETY_MS`; without it, at their
+  old pace.
+- Topics come from writes, not from route code: `installLiveUpdates`
+  (`packages/shared/src/live.ts`) is a Prisma `$use` middleware in both the
+  API and the bot that turns writes to `LIVE_MODELS` into topics and sends
+  them with `pg_notify`; the API LISTENs on one extra Postgres connection
+  (`lib/live.ts`). A new live page adds its models/topics to `LIVE_MODELS`
+  (and `isLiveTopic`); server-wide topics (`liveTopicGuild`) are only given
+  to people in that server. `$use` is gone in Prisma 6: moving there means
+  a query extension instead.
+- Notices say what changed, never the data; the page fetches it through
+  the normal, access-checked routes.

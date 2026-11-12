@@ -15,6 +15,7 @@ import { AUTH_QUERY_KEY } from '@/hooks/useAuth';
 import { ApiError } from '@/api/client';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
+import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 import type {
   InventoryEntryDto,
   InventoryItemType,
@@ -772,11 +773,13 @@ function TradeChat({ trade, guildId, myDiscordId }: { trade: TradeDto; guildId: 
   const qc = useQueryClient();
   const [text, setText] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  // New messages arrive as they're sent (v1.30.0).
+  const live = useLiveQueries([`trade:${trade.id}`], [['trade-messages', guildId, trade.id]]);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['trade-messages', guildId, trade.id],
     queryFn: () => marketplaceApi.getMessages(guildId, trade.id),
-    refetchInterval: 3_000,
+    refetchInterval: live ? LIVE_SAFETY_MS : 3_000,
     staleTime: 0,
   });
 

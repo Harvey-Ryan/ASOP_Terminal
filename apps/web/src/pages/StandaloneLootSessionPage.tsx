@@ -18,6 +18,7 @@ import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
 import type { LootSessionDto, LootItemDto, LootMethod, LootQueueItemDto, LootParticipant } from '@dem/shared';
 import { showError } from '@/components/ErrorNotices';
+import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 
 const METHOD_LABELS: Record<LootMethod, string> = {
   RANDOM_ROLL: '🎲 Random Roll',
@@ -245,13 +246,13 @@ function StandaloneItemRow({
 
 // ── Draft queue card ──────────────────────────────────────────────────────────
 
-function StandaloneQueueCard({ session, guildId, sessionId }: { session: LootSessionDto; guildId: string; sessionId: string }) {
+function StandaloneQueueCard({ session, guildId, sessionId, live }: { session: LootSessionDto; guildId: string; sessionId: string; live: boolean }) {
   const queryClient = useQueryClient();
 
   const queueQuery = useQuery({
     queryKey: ['loot-queue-standalone', guildId, sessionId],
     queryFn: () => lootApi.getQueueStandalone(guildId, sessionId),
-    refetchInterval: session.status === 'OPEN' ? 4000 : false,
+    refetchInterval: session.status === 'OPEN' ? (live ? LIVE_SAFETY_MS : 4000) : false,
   });
 
   const [localIds, setLocalIds] = useState<string[]>([]);
@@ -571,13 +572,22 @@ export function StandaloneLootSessionPage() {
   const activeGuild = guilds.find((g) => g.id === guildId);
   const isManager = !!activeGuild && canManageGuild(activeGuild);
 
+  // Read by refetchInterval, which runs before useLiveQueries below.
+  const liveRef = useRef(false);
   const sessionQuery = useQuery({
     queryKey: ['loot-standalone', guildId, sessionId],
     queryFn: () => lootApi.getStandaloneSession(guildId!, sessionId!),
     enabled: !!guildId && !!sessionId,
-    // Every 4 s while the loot is live; once completed only every minute, in case it's re-opened (v1.12.0).
-    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' ? 60_000 : 4000),
+    // Every 4 s while the loot is open (unless live updates are on); once
+    // completed only every minute, in case it's re-opened (v1.12.0).
+    refetchInterval: (q) => (q.state.data?.status === 'COMPLETED' || liveRef.current ? LIVE_SAFETY_MS : 4000),
   });
+  // Picks and queue changes, from here or Discord, arrive as they happen (v1.30.0).
+  const live = useLiveQueries(
+    [sessionId && `loot:${sessionId}`],
+    [['loot-standalone', guildId, sessionId], ['loot-queue-standalone', guildId, sessionId]],
+  );
+  liveRef.current = live;
 
   const session = sessionQuery.data;
   const isOwner = !!session?.ownerId && session.ownerId === user?.id;
@@ -1240,7 +1250,7 @@ export function StandaloneLootSessionPage() {
         {/* Queue card — only shown to draft participants (now that Discord IDs are real) */}
         {isSnakeDraft && (canManage || isDraftParticipant) && (
           <div className="lg:sticky lg:top-4 lg:self-start lg:w-72">
-            <StandaloneQueueCard session={session} guildId={guildId!} sessionId={sessionId!} />
+            <StandaloneQueueCard session={session} guildId={guildId!} sessionId={sessionId!} live={live} />
           </div>
         )}
       </div>

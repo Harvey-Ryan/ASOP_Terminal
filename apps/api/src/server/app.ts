@@ -38,6 +38,7 @@ import { gameDataRouter } from './routes/gameData.js';
 import { catalogRouter } from './routes/catalog.js';
 import { APP_VERSION, APP_COMMIT } from '../lib/appVersion.js';
 import { memberPinsRouter } from './routes/memberPins.js';
+import { liveRouter } from './routes/live.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId, requestLoggingOn } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 import { discordBusyAsServiceUnavailable } from '../lib/memberRoles.js';
@@ -161,6 +162,20 @@ export function createServer(): express.Express {
       }),
     );
 
+    // Live update streams (v1.30.0): one per open tab, reconnecting after a
+    // deploy or a dropped connection.
+    app.use(
+      '/api/live',
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 300,
+        keyGenerator,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: rateLimitMessage,
+      }),
+    );
+
     // General API rate limit — high enough for active users with polling queries
     app.use(
       '/api/guilds',
@@ -266,6 +281,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', jobsRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', clientErrorsRouter);
+  app.use('/api', liveRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({
