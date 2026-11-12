@@ -116,8 +116,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     fields.push({
       name: '🚀 Fleet',
       value: [
-        '`/fleet search <ship>` — Search guild fleet registries for a ship',
-        '`/fleet link` — Manage your Fleet Registry on the web dashboard',
+        '`/fleet add <ship>` — Add a ship to your fleet (shown in every ASOP server you\'re in)',
+        '`/fleet remove <ship>` · `/fleet mine` — Change or see your fleet',
+        '`/fleet search <ship>` — Who in this server has a ship',
       ].join('\n'),
     });
   }

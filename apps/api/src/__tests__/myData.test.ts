@@ -31,7 +31,9 @@ async function world() {
   await prisma.lootAssignment.create({ data: { itemId: item.id, userId: d, username: 'Rook' } });
   const bal = await prisma.dkpBalance.create({ data: { guildId: guild.guildId, userId: d, username: 'Rook', balance: 40 } });
   await prisma.dkpTransaction.create({ data: { balanceId: bal.id, guildId: guild.guildId, userId: d, username: 'Rook', amount: 40, reason: 'Attendance' } });
-  await prisma.fleetEntry.create({ data: { guildId: guild.guildId, userId: d, username: 'Rook', shipSlug: 'carrack', shipName: 'Carrack', manufacturer: 'Anvil' } });
+  await prisma.ship.upsert({ where: { id: 'rsi-test-carrack' }, create: { id: 'rsi-test-carrack', name: 'Carrack', manufacturer: 'Anvil Aerospace', source: 'RSI' }, update: {} });
+  await prisma.fleetOwner.create({ data: { discordId: d, username: 'Rook', checkedAt: new Date() } });
+  await prisma.fleetShip.create({ data: { discordId: d, shipId: 'rsi-test-carrack', nickname: 'Wanderer' } });
   await prisma.memberPin.create({ data: { guildId: guild.id, userId: user.id, lat: 30, lng: -97, municipality: 'Austin, Texas, United States' } });
   const listing = await prisma.inventoryEntry.create({ data: { guildId: guild.guildId, userId: d, username: 'Rook', itemType: 'COMMODITY', itemName: 'Quantainium', quantity: 10, forSale: true } });
   await prisma.inventoryEntry.create({ data: { guildId: guild.guildId, userId: d, username: 'Rook', itemType: 'COMMODITY', itemName: 'Laranite', quantity: 5 } });
@@ -58,7 +60,7 @@ describe('your data', () => {
     expect(data.events.attended.map((e: { id: string }) => e.id)).toEqual([w.past.id]);
     expect(data.loot.won[0]).toMatchObject({ item: 'Gold' });
     expect(data.dkp.ledger[0]).toMatchObject({ amount: 40 });
-    expect(data.fleet[0].shipName).toBe('Carrack');
+    expect(data.fleet.ships[0]).toMatchObject({ ship: 'Carrack', nickname: 'Wanderer' });
     expect(data.memberMapPins[0].municipality).toMatch(/Austin/);
     expect(data.marketplace.conversations.map((m: { body: string }) => m.body)).toEqual(['Still have it?', 'Yes']);
     expect(data.jobs.posted[0].title).toBe('Need a hauler');
@@ -81,7 +83,8 @@ describe('your data', () => {
     expect(await prisma.account.count({ where: { userId: w.user.id } })).toBe(0);
     expect(await prisma.guildMember.count({ where: { userId: w.user.id } })).toBe(0);
     expect(await prisma.memberPin.count({ where: { userId: w.user.id } })).toBe(0);
-    expect(await prisma.fleetEntry.count({ where: { userId: d } })).toBe(0);
+    expect(await prisma.fleetShip.count({ where: { discordId: d } })).toBe(0);
+    expect(await prisma.fleetOwner.count({ where: { discordId: d } })).toBe(0);
     expect(await prisma.eventComment.count({ where: { userId: d } })).toBe(0);
 
     // The upcoming event: their slot went to the friend who was waiting.

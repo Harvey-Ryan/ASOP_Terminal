@@ -277,11 +277,13 @@ These environment variables enable optional features. The app starts and runs no
 
 ### API + Web service
 
+The ship list for fleets (v1.32.0) is fetched from RSI's public Ship Matrix
+(`robertsspaceindustries.com/ship-matrix/index`) at start-up and daily; no key
+is needed. `FLEETYARDS_CLIENT_ID` / `FLEETYARDS_CLIENT_SECRET` are no longer
+used and can be removed.
+
 | Variable | Feature |
 |----------|---------|
-| `FLEETYARDS_CLIENT_ID` | FleetYards OAuth app client ID |
-| `FLEETYARDS_CLIENT_SECRET` | FleetYards OAuth app client secret |
-| `API_URL` | Public URL of this service — used as the FleetYards OAuth callback base URL |
 | `UEX_KEY` | UEX Corp API key for weekly commodity price sync |
 | `PUBLIC_SITE_URL` | Additional CORS origin (if the dashboard is served from a different domain) |
 | `UPLOADS_DIR` | Override the default uploads directory path |

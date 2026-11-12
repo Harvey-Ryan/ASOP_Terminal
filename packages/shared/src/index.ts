@@ -687,69 +687,7 @@ export interface UserNotificationPrefsDto {
 
 export type UpdateNotificationPrefsBody = Partial<UserNotificationPrefsDto>;
 
-// ── Fleet Registry ────────────────────────────────────────────────────────────
-
-export interface FleetEntryDto {
-  id: string;
-  guildId: string;
-  userId: string;
-  username: string;
-  shipSlug: string;
-  shipName: string;
-  manufacturer: string;
-  quantity: number;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UpsertFleetEntryBody {
-  /** If provided, update this specific entry by id */
-  id?: string;
-  shipSlug: string;
-  shipName: string;
-  manufacturer: string;
-  quantity: number;
-  notes?: string | null;
-}
-
-/** Returned by the fleet search endpoint — who in the guild has a given ship */
-export interface FleetSearchEntry {
-  userId: string;
-  username: string;
-  quantity: number;
-  notes: string | null;
-}
-
-/** Slim ship model returned by the /api/fleetyards/models proxy */
-export interface FleetyardsModelDto {
-  slug: string;
-  name: string;
-  manufacturer: string;
-  manufacturerSlug: string;
-  classification: string | null;
-  focus: string | null;
-  productionStatus: string;
-  inGame: boolean;
-  playerOwnable: boolean;
-  imageUrl: string | null;
-}
-
-/** A linked FleetYards account */
-export interface FleetyardsLinkDto {
-  fyUserId: string;
-  fyUsername: string;
-  lastSyncAt: string | null;
-  connectedAt: string;
-}
-
-/** Returned by GET /api/fleet/link-status */
-export interface FleetLinkStatusDto {
-  /** True when FLEETYARDS_CLIENT_ID env var is set on the server */
-  fleetyardsConfigured: boolean;
-  fleetyardsLink: FleetyardsLinkDto | null;
-  rsiHandle: string | null;
-}
+// Fleets (v1.32.0): see ships.ts.
 
 // ── RSI Verification ─────────────────────────────────────────────────────────
 
@@ -977,6 +915,7 @@ export * from './heatmap.js';
 export * from './materialSources.js';
 export * from './jobs.js';
 export * from './live.js';
+export * from './ships.js';
 
 // ── Return after login (v1.12.0) ─────────────────────────────────────────────
 

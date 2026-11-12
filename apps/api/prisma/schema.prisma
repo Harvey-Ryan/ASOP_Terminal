@@ -923,6 +923,77 @@ model UserNotificationPrefs {
 
 // ── Fleet Registry ────────────────────────────────────────────────────────────
 
+/// The ship list (v1.32.0): RSI's Ship Matrix, refreshed daily by the API
+/// (lib/shipCatalog.ts), or the game files when RSI can't be reached.
+/// Ships that drop out of the source stay, marked retired, for their owners.
+model Ship {
+  id               String   @id // "rsi-<matrix id>" or "game-<uuid>"
+  name             String
+  manufacturer     String
+  manufacturerCode String?
+  type             String?
+  focus            String?
+  size             String?
+  minCrew          Int?
+  maxCrew          Int?
+  cargo            Int?
+  status           String?
+  imageUrl         String?
+  thumbUrl         String?
+  storeUrl         String?
+  /// RSI | GAME
+  source           String
+  retired          Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  owned FleetShip[]
+
+  @@index([name])
+}
+
+/// A person's fleet (v1.32.0): one per Discord account, shown in every ASOP
+/// server they're in except the ones they hide it from.
+model FleetOwner {
+  discordId      String    @id
+  username       String
+  /// When they last said the fleet is right (added, changed, or "Still correct")
+  checkedAt      DateTime?
+  lastNudgeAt    DateTime?
+  /// "Still flying these?" DM at most once a quarter (fleetCheckDue); off = never
+  nudges         Boolean   @default(true)
+  /// JSON list of Discord server ids where the fleet is hidden
+  hiddenGuildIds String    @default("[]")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  ships FleetShip[]
+}
+
+model FleetShip {
+  id         Int      @id @default(autoincrement())
+  discordId  String
+  /// null when the name couldn't be matched to a ship (customName holds it)
+  shipId     String?
+  customName String?
+  quantity   Int      @default(1)
+  nickname   String?
+  /// PLEDGE | INGAME | LOANER
+  source     String   @default("PLEDGE")
+  /// Willing to bring it to org ops
+  available  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  owner FleetOwner @relation(fields: [discordId], references: [discordId], onDelete: Cascade)
+  ship  Ship?      @relation(fields: [shipId], references: [id])
+
+  @@index([discordId])
+  @@index([shipId])
+}
+
+/// Before v1.32.0: one ship registration per member per server, from FleetYards.
+/// Converted to FleetOwner/FleetShip at start-up (lib/fleetMigration.ts) and no
+/// longer written; drop the model one release later.
 /// One ship registration per member per ship (uniqued on guildId + userId + shipSlug).
 /// Ship data is sourced live from FleetYards.net; slug, name, and manufacturer are
 /// denormalised here so the registry is self-contained without an external call.
@@ -986,6 +1057,8 @@ model KanbanCard {
   @@index([columnId, sortOrder])
 }
 
+/// FleetYards OAuth connection (before v1.32.0). No longer used: rows (tokens)
+/// are deleted at start-up by lib/fleetMigration.ts; drop the model one release later.
 /// FleetYards OAuth connection for a user — stores tokens for hangar import.
 /// One row per user (unique on userId). Deleted when the user disconnects.
 model FleetyardsLink {
