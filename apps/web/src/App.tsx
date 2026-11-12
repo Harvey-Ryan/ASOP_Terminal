@@ -107,6 +107,7 @@ export default function App() {
           <Route path="servers/:guildId/loot" element={<LootModulePage />} />
           <Route path="servers/:guildId/loot/sessions/:sessionId" element={<StandaloneLootSessionPage />} />
           <Route path="servers/:guildId/blueprints" element={<CraftingDataGate><BlueprintsPage /></CraftingDataGate>} />
+          <Route path="servers/:guildId/blueprints/:blueprintUuid" element={<CraftingDataGate><BlueprintsPage /></CraftingDataGate>} />
           <Route path="servers/:guildId/crafting-calculator" element={<CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate>} />
           <Route path="servers/:guildId/crafting-calculator/:blueprintUuid" element={<CraftingDataGate><CraftingCalculatorDetailPage /></CraftingDataGate>} />
           <Route path="servers/:guildId/settings/modules/blueprints" element={<BlueprintsSettingsPage />} />

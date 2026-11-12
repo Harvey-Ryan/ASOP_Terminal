@@ -90,13 +90,21 @@ export const blueprintTypes = (): string[] => current().types;
 /** Mission contracts that reward blueprints. */
 export const missionContracts = (): MissionContract[] => current().data.missions;
 
+const plain = (s: string) => s.toLowerCase().replace(/["'“”‘’]/g, '').replace(/[^a-z0-9.]+/g, ' ');
+const haystacks = new WeakMap<CraftingBlueprint, string>();
+function haystack(b: CraftingBlueprint): string {
+  let h = haystacks.get(b);
+  if (h == null) {
+    h = ` ${plain([b.name, b.type, b.type.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2'), b.subtype ?? '', b.manufacturer ?? ''].join(' '))} `;
+    haystacks.set(b, h);
+  }
+  return h;
+}
+
+/** Blueprints whose name, type or maker contain every word searched, in any order ("karna rager" finds Karna "Rager" Rifle). */
 export function searchBlueprints(q: string, type?: string): CraftingBlueprint[] {
-  const query = q.trim().toLowerCase();
-  return current().obtainable.filter((b) => {
-    const matchesType = !type || b.type === type;
-    const matchesQ = !query || b.name.toLowerCase().includes(query) || b.type.toLowerCase().includes(query);
-    return matchesType && matchesQ;
-  });
+  const words = plain(q).split(' ').filter(Boolean);
+  return current().obtainable.filter((b) => (!type || b.type === type) && words.every((w) => haystack(b).includes(w)));
 }
 
 /** Base stats of the crafted item (null when the game data has none for it). */

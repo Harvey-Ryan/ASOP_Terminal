@@ -116,3 +116,22 @@ test('cleanMissionLocations keeps places a player can find, once each', () => {
     'Hangar 13 inside Ruin Station above Pyro VI', 'Ruin Station', 'a derelict outpost',
   ]), ['A derelict outpost', 'Checkmate at the L4 Lagrange of Pyro II', 'Cutlass wreck site', 'Grim HEX', 'Ruin Station above Pyro VI', 'Starlight Service Station']);
 });
+
+test('missions carry their real rewards, enemy counts and readable difficulty', () => {
+  const base = {
+    Title: 'Security Sweep', Blueprints: [{ Chance: 1, PoolUUID: 'p', PoolContents: [{ ItemName: 'Karna Rifle', ItemUUID: 'i', BlueprintUUID: 'b' }] }],
+    Difficulty: { RiskOfLoss: 'Minimal_danger_FPS_NOT_ship_action_3', MentalLoad: 'Some_new_thing_4' },
+    RewardItems: [{ Items: [{ Name: 'MG Scrip', Amount: 6 }, { Name: 'Nothing', Amount: 0 }] }],
+    Shareable: true, OnceOnly: false,
+  };
+  const a = adaptContract({ ...base, CombatSummary: { Total: { Min: 19, Max: 28 } } });
+  const b = adaptContract({ ...base, CombatSummary: { Total: { Min: 12, Max: 30 } } });
+  const [m] = buildMissionContracts([a, b]);
+  assert.deepEqual(m.rewardItems, [{ name: 'MG Scrip', amount: 6 }]);
+  assert.deepEqual(m.enemies, { min: 12, max: 30 });
+  assert.equal(m.shareable, true);
+  assert.equal(m.onceOnly, false);
+  assert.equal(m.difficulty.riskOfLossLabel, 'Minimal danger, on foot only');
+  assert.equal(m.difficulty.riskOfLoss, 3);
+  assert.equal(m.difficulty.mentalLoadLabel, 'Some new thing');
+});
