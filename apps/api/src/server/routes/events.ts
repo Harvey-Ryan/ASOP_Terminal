@@ -1248,6 +1248,7 @@ function toDto(event: EventWithRsvpsAndShares | EventWithRsvps): EventDto {
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
     rsvpCounts: { total: event.rsvps.length },
+    briefingPublished: !!event.briefingPublishedAt,
     rsvps: event.rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative, guildId: r.guildId })),
     afterAction: event.aarOutcome || event.aarNotes
       ? { outcome: event.aarOutcome as AfterActionOutcome | null, notes: event.aarNotes ?? '', byName: event.aarByName, at: (event.aarAt ?? event.updatedAt).toISOString() }

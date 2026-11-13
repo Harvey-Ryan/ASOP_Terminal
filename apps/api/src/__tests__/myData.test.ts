@@ -34,6 +34,7 @@ async function world() {
   await prisma.ship.upsert({ where: { id: 'rsi-test-carrack' }, create: { id: 'rsi-test-carrack', name: 'Carrack', manufacturer: 'Anvil Aerospace', source: 'RSI' }, update: {} });
   await prisma.fleetOwner.create({ data: { discordId: d, username: 'Rook', checkedAt: new Date() } });
   await prisma.fleetShip.create({ data: { discordId: d, shipId: 'rsi-test-carrack', nickname: 'Wanderer' } });
+  await prisma.eventBriefing.create({ data: { eventId: coming.id, content: '{}', updatedBy: d } });
   await prisma.wikeloProgress.create({ data: { discordId: d, missionId: 'mission-f7', ticked: JSON.stringify(['favor']), completedAt: null } });
   await prisma.memberPin.create({ data: { guildId: guild.id, userId: user.id, lat: 30, lng: -97, municipality: 'Austin, Texas, United States' } });
   const listing = await prisma.inventoryEntry.create({ data: { guildId: guild.guildId, userId: d, username: 'Rook', itemType: 'COMMODITY', itemName: 'Quantainium', quantity: 10, forSale: true } });
@@ -66,6 +67,7 @@ describe('your data', () => {
     expect(data.marketplace.conversations.map((m: { body: string }) => m.body)).toEqual(['Still have it?', 'Yes']);
     expect(data.jobs.posted[0].title).toBe('Need a hauler');
     expect(data.wikeloChecklists[0]).toMatchObject({ missionId: 'mission-f7', ticked: ['favor'] });
+    expect(data.briefingsLastEditedByYou).toEqual([expect.objectContaining({ eventId: expect.any(String) })]);
     expect(res.text).not.toMatch(/SECRET-ACCESS|SECRET-REFRESH/);
     expect(res.text).not.toContain(w.user.calendarToken!);
   });
@@ -88,6 +90,8 @@ describe('your data', () => {
     expect(await prisma.fleetShip.count({ where: { discordId: d } })).toBe(0);
     expect(await prisma.fleetOwner.count({ where: { discordId: d } })).toBe(0);
     expect(await prisma.wikeloProgress.count({ where: { discordId: d } })).toBe(0);
+    expect(await prisma.eventBriefing.count({ where: { updatedBy: d } })).toBe(0);
+    expect(await prisma.eventBriefing.count()).toBeGreaterThan(0); // the server's briefing stays
     expect(await prisma.eventComment.count({ where: { userId: d } })).toBe(0);
 
     // The upcoming event: their slot went to the friend who was waiting.

@@ -485,3 +485,28 @@ Patch Notes — v1.1.0 — November 10
   channel the post is also crossposted. `/starstrings` shows the current build.
 - We only link to their GitHub (download, release notes); never re-host the
   files.
+
+## Mission briefings (v1.36.0)
+
+- One per event: `EventBriefing` (the whole briefing is one JSON document,
+  checked by `sanitizeBriefing` in `packages/shared/src/briefing.ts`; image
+  links must be our uploads or https, `safeImageUrl`). Routes in
+  `routes/briefings.ts`: the host's event creators edit, save, publish and
+  delete; anyone who can see the event in the host or an accepting ally, or is
+  on its roster, reads it once published. `GET /:guildId/briefings` lists the
+  server's past briefings to copy from.
+- Website: `pages/events/BriefingPage.tsx` at
+  `/dashboard/servers/:guildId/events/:eventId/briefing` (`?mode=edit`,
+  `?present=N`): read view, editor with slide preview, present mode (1280×720
+  slides scaled to the screen, arrow keys) and Print / PDF (`.brf-print`).
+  Slides use ASOP's charcoal and gold, scoped to `.brf-slide`
+  (`briefing.css`). The "Fleet" section fills itself from the event's fleet
+  (`GET /guilds/:guildId/fleet?eventId=`).
+- Logos: `GuildSettings.logoUrl` (Bot Settings → Org Logo, picked from the
+  server's image library, `components/ServerImagePicker.tsx`); a briefing can
+  use its own, and shows accepting allies' logos on joint ops.
+- Discord: publishing sets `Event.briefingPublishedAt` / `briefingSummary`
+  (the objective), so the roster shows "📋 Briefing ready" and a Briefing link
+  button (`buildRoleButtons(…, briefing)`, opened as the server viewing the
+  roster), and `/trigger/briefing/:eventId` posts a notice in the host and ally
+  threads (`services/briefingService.ts`).

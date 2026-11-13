@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2, ClipboardList } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -1030,6 +1030,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <p className="text-base text-primary-foreground/60 mr-auto">Discord sync pending…</p>
         )}
         <div className="flex gap-2 ml-auto">
+          {(ev.briefingPublished || canManage) && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/briefing${!ev.briefingPublished && canManage ? '?mode=edit' : ''}`}>
+                <ClipboardList className="h-3.5 w-3.5" />{ev.briefingPublished ? 'Briefing' : 'Write briefing'}
+              </Link>
+            </Button>
+          )}
           {canManage && ev.vcIds.length === 0 && (ev.vcNames.length > 0 || ev.briefingChannel) && (ev.status === 'PENDING' || ev.status === 'ACTIVE') && (
             <Button size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"

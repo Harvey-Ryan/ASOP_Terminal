@@ -166,6 +166,7 @@ export const ADMIN_SETTING_FIELDS: readonly AdminSettingField[] = [
   { key: 'dkpDefaultAuctionDuration', label: 'Default auction length (hours)', group: 'General', type: 'int', min: 1, max: 168 },
   { key: 'dkpMinBid', label: 'Minimum bid', group: 'General', type: 'int', min: 0 },
   { key: 'rsiOrgTag', label: 'RSI org tag', group: 'General', type: 'text', maxLength: 20 },
+  { key: 'logoUrl', label: 'Briefing logo (image link)', group: 'General', type: 'text', maxLength: 1000 },
   { key: 'allianceTag', label: 'Ally tag', group: 'General', type: 'text', maxLength: 4 },
   { key: 'activityHeatmapPublic', label: 'Members can see activity heat maps', group: 'General', type: 'boolean' },
   { key: 'tournamentHideElo', label: 'Hide tournament ELO', group: 'General', type: 'boolean' },

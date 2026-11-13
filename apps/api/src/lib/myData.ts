@@ -31,7 +31,7 @@ export async function exportMyData(userId: string) {
     lootAuctionBids, lootAuctionsWon, auctionBids, auctionsStarted, auctionsWon,
     inventory, tradesAsBuyer, tradeMessages, fleetOwner, fleetShips,
     tournamentsCreated, tournamentEntries, teamSpots, ratings, standings,
-    jobsPosted, jobCrew, wikelo, errors, requests,
+    jobsPosted, jobCrew, briefings, wikelo, errors, requests,
   ] = await Promise.all([
     prisma.account.findMany({ where: { userId }, select: { provider: true, providerAccountId: true, scope: true, createdAt: true } }),
     prisma.guildMember.findMany({ where: { userId }, select: { role: true, rsiHandle: true, rsiVerified: true, createdAt: true, guild: { select: { guildId: true, name: true } } } }),
@@ -65,6 +65,7 @@ export async function exportMyData(userId: string) {
     prisma.tournamentSeasonStanding.findMany({ where: { discordId: d } }),
     prisma.job.findMany({ where: { posterId: d }, select: { id: true, guildId: true, kind: true, title: true, details: true, reward: true, location: true, whenText: true, slots: true, visibility: true, status: true, createdAt: true } }),
     prisma.jobCrew.findMany({ where: { userId: d } }),
+    prisma.eventBriefing.findMany({ where: { updatedBy: d }, select: { eventId: true, updatedAt: true, event: { select: { name: true } } } }),
     prisma.wikeloProgress.findMany({ where: { discordId: d }, select: { missionId: true, ticked: true, completedAt: true, updatedAt: true } }),
     prisma.errorEvent.findMany({ where: { userId: d }, select: { createdAt: true, source: true, message: true } }),
     prisma.requestLog.count({ where: { userId } }),
@@ -122,6 +123,7 @@ export async function exportMyData(userId: string) {
     tournaments: { created: tournamentsCreated, entries: tournamentEntries, teamSpots, ratings, seasonStandings: standings },
     jobs: { posted: jobsPosted, crew: jobCrew },
     wikeloChecklists: wikelo.map((w) => ({ ...w, ticked: parseTicked(w.ticked) })),
+    briefingsLastEditedByYou: briefings.map((b) => ({ eventId: b.eventId, event: b.event.name, updatedAt: b.updatedAt })),
     problemsLogged: { errors, websiteRequestsLogged: requests },
   };
 }
@@ -210,6 +212,7 @@ export async function deleteMyData(userId: string): Promise<DeleteResult> {
     // ── Fleet, tournaments, jobs ──
     await tx.fleetOwner.deleteMany({ where: { discordId: d } }); // its ships go with it
     await tx.wikeloProgress.deleteMany({ where: { discordId: d } });
+    await tx.eventBriefing.updateMany({ where: { updatedBy: d }, data: { updatedBy: ghost } }); // the briefing is the server's
     await tx.tournament.updateMany({ where: { createdById: d }, data: { createdById: ghost } });
     await tx.tournamentParticipant.updateMany({ where: { discordId: d }, data: { discordId: ghost, displayName: DELETED_NAME } });
     await tx.tournamentTeamMember.updateMany({ where: { discordId: d }, data: { discordId: ghost, displayName: DELETED_NAME } });
