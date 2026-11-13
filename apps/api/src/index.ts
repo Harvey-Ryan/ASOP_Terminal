@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import { refreshShipCatalog } from './lib/shipCatalog.js';
-import { migrateOldFleets } from './lib/fleetMigration.js';
 import cron from 'node-cron';
 import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
@@ -95,12 +94,10 @@ app.listen(PORT, async () => {
   setInterval(beat, 60_000).unref();
   cron.schedule('15 4 * * *', () => { pruneOldErrors().catch((err) => console.error('[errorLog] Pruning failed:', err)); });
 
-  // Ship list from RSI (v1.32.0): now, then daily at 05:20 UTC. The first run
-  // also moves fleets kept the old way (per server, FleetYards) to personal fleets.
+  // Ship list from RSI (v1.32.0): now, then daily at 05:20 UTC.
   const ships = async () => {
     const r = await refreshShipCatalog();
     if (r.source !== 'none') console.log(`[ships] ship list refreshed from ${r.source}: ${r.count} ships`);
-    await migrateOldFleets();
   };
   void ships().catch((err) => console.error('[ships] Start-up refresh failed:', err));
   cron.schedule('20 5 * * *', () => { ships().catch((err) => console.error('[ships] Daily refresh failed:', err)); });

@@ -25,18 +25,17 @@ export async function exportMyData(userId: string) {
   const d = user.discordId;
 
   const [
-    accounts, memberships, prefs, fleetyards, pins, templates,
+    accounts, memberships, prefs, pins, templates,
     rsvps, waitlists, comments, eventsCreated, attended,
     lootWon, draftQueues, lootSessionsOwned, dkpBalances, dkpLedger,
     lootAuctionBids, lootAuctionsWon, auctionBids, auctionsStarted, auctionsWon,
-    inventory, tradesAsBuyer, tradeMessages, fleet, fleetOwner, fleetShips,
+    inventory, tradesAsBuyer, tradeMessages, fleetOwner, fleetShips,
     tournamentsCreated, tournamentEntries, teamSpots, ratings, standings,
     jobsPosted, jobCrew, wikelo, errors, requests,
   ] = await Promise.all([
     prisma.account.findMany({ where: { userId }, select: { provider: true, providerAccountId: true, scope: true, createdAt: true } }),
     prisma.guildMember.findMany({ where: { userId }, select: { role: true, rsiHandle: true, rsiVerified: true, createdAt: true, guild: { select: { guildId: true, name: true } } } }),
     prisma.userNotificationPrefs.findUnique({ where: { userId } }),
-    prisma.fleetyardsLink.findUnique({ where: { userId }, select: { fyUsername: true, lastSyncAt: true, createdAt: true } }),
     prisma.memberPin.findMany({ where: { userId }, select: { municipality: true, lat: true, lng: true, displayName: true, timezone: true, createdAt: true, guild: { select: { guildId: true, name: true } } } }),
     prisma.eventTemplate.findMany({ where: { createdById: userId } }),
     prisma.eventRsvp.findMany({ where: { userId: d }, include: { event: { select: { name: true, startTime: true, guildId: true } } } }),
@@ -57,7 +56,6 @@ export async function exportMyData(userId: string) {
     prisma.inventoryEntry.findMany({ where: { userId: d } }),
     prisma.trade.findMany({ where: { buyerId: d } }),
     prisma.tradeMessage.findMany({ where: { senderId: d }, orderBy: { createdAt: 'asc' } }),
-    prisma.fleetEntry.findMany({ where: { userId: d } }),
     prisma.fleetOwner.findUnique({ where: { discordId: d } }),
     prisma.fleetShip.findMany({ where: { discordId: d }, include: { ship: { select: { name: true, manufacturer: true } } } }),
     prisma.tournament.findMany({ where: { createdById: d }, select: { id: true, guildId: true, name: true, createdAt: true } }),
@@ -91,7 +89,6 @@ export async function exportMyData(userId: string) {
     logins: accounts,
     servers: memberships,
     notificationSettings: prefs,
-    fleetyards: fleetyards,
     memberMapPins: pins,
     eventTemplates: templates,
     events: {
@@ -121,7 +118,6 @@ export async function exportMyData(userId: string) {
       checkedAt: fleetOwner?.checkedAt ?? null,
       hiddenInServers: fleetOwner ? JSON.parse(fleetOwner.hiddenGuildIds) : [],
       ships: fleetShips.map(({ ship, ...f }) => ({ ...f, ship: ship?.name ?? null, manufacturer: ship?.manufacturer ?? null })),
-      olderPerServerEntries: fleet,
     },
     tournaments: { created: tournamentsCreated, entries: tournamentEntries, teamSpots, ratings, seasonStandings: standings },
     jobs: { posted: jobsPosted, crew: jobCrew },
@@ -212,7 +208,6 @@ export async function deleteMyData(userId: string): Promise<DeleteResult> {
     await tx.tradeMessageRead.deleteMany({ where: { userId: d } });
 
     // ── Fleet, tournaments, jobs ──
-    await tx.fleetEntry.deleteMany({ where: { userId: d } });
     await tx.fleetOwner.deleteMany({ where: { discordId: d } }); // its ships go with it
     await tx.wikeloProgress.deleteMany({ where: { discordId: d } });
     await tx.tournament.updateMany({ where: { createdById: d }, data: { createdById: ghost } });
@@ -237,7 +232,6 @@ export async function deleteMyData(userId: string): Promise<DeleteResult> {
     // ── The person ──
     await tx.account.deleteMany({ where: { userId } });
     await tx.guildMember.deleteMany({ where: { userId } });
-    await tx.fleetyardsLink.deleteMany({ where: { userId } });
     await tx.userNotificationPrefs.deleteMany({ where: { userId } });
     await tx.memberPin.deleteMany({ where: { userId } });
     await tx.user.update({

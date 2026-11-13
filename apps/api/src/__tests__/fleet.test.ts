@@ -5,7 +5,6 @@ import { PrismaClient } from '@prisma/client';
 import type { ShipCatalogEntry } from '@dem/shared';
 import { createServer } from '../server/app.js';
 import { refreshShipCatalog, forgetShipList } from '../lib/shipCatalog.js';
-import { migrateOldFleets } from '../lib/fleetMigration.js';
 import { resetDiscordRest } from '../lib/discordRest.js';
 import { createUser, createGuild, createGuildSettings, createEvent } from './factories.js';
 
@@ -111,29 +110,6 @@ describe('your fleet', () => {
     const rsiPreview = (await p.agent.post('/api/me/fleet/import/preview').send({ text: rsi }).expect(200)).body.data;
     expect(rsiPreview.lines.map((l: { name: string; nickname: string | null; match: { ship?: { name: string } } }) => [l.name, l.nickname, l.match.ship?.name ?? null]))
       .toEqual([['Prospector Mining Edition', 'Rock Muncher', 'Prospector'], ['Carrack', null, 'Carrack']]);
-  });
-});
-
-describe('old fleets move over', () => {
-  it('per-server FleetYards entries become one personal fleet; tokens are deleted', async () => {
-    const user = await createUser();
-    const d = user.discordId;
-    const [g1, g2] = [`g-${Date.now()}-a`, `g-${Date.now()}-b`];
-    await prisma.fleetEntry.createMany({ data: [
-      { guildId: g1, userId: d, username: 'Old Pilot', shipSlug: 'carrack', shipName: 'Carrack', manufacturer: 'Anvil Aerospace', quantity: 1, notes: 'Wanderer' },
-      { guildId: g2, userId: d, username: 'Old Pilot', shipSlug: 'carrack', shipName: 'Carrack', manufacturer: 'Anvil Aerospace', quantity: 2, notes: 'Wanderer' },
-      { guildId: g1, userId: d, username: 'Old Pilot', shipSlug: 'gone-ship', shipName: 'Retired Concept', manufacturer: 'Nobody', quantity: 1 },
-    ] });
-    await prisma.fleetyardsLink.create({ data: { userId: user.id, fyUserId: 'x', fyUsername: 'x', accessToken: 'SECRET' } });
-
-    const r = await migrateOldFleets();
-    expect(r.unmatched).toBeGreaterThanOrEqual(1);
-    expect(await prisma.fleetEntry.count({ where: { userId: d } })).toBe(0);
-    expect(await prisma.fleetyardsLink.count()).toBe(0);
-    const ships = await prisma.fleetShip.findMany({ where: { discordId: d }, orderBy: { id: 'asc' } });
-    expect(ships.map((s) => [s.shipId, s.customName, s.quantity, s.nickname])).toEqual([['rsi-9001', null, 2, 'Wanderer'], [null, 'Retired Concept', 1, null]]);
-    expect((await prisma.fleetOwner.findUniqueOrThrow({ where: { discordId: d } })).username).toBe('Old Pilot');
-    expect((await migrateOldFleets()).ships).toBe(0); // nothing left to move
   });
 });
 

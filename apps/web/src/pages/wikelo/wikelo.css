@@ -69,6 +69,10 @@
 .wk-item { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 11px 14px; border-top: 1px solid var(--wk-line); }
 .wk-item:hover { background: rgba(240, 180, 90, 0.05); }
 .wk-item[aria-current='true'] { background: rgba(240, 180, 90, 0.09); box-shadow: inset 2px 0 0 var(--wk-amber); }
+/* On phones the list shows alone until a mission is picked: nothing looks selected before that. */
+@media (max-width: 1023px) {
+  .wk-item[aria-current='true']:not([data-picked]) { background: none; box-shadow: none; }
+}
 .wk-item:focus-visible, .wk-btn:focus-visible, .wk-tab:focus-visible, .wk-ck:focus-within { outline: 2px solid var(--wk-amber); outline-offset: -2px; }
 .wk-once { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--wk-sand); border: 1px solid var(--wk-sand-dim); padding: 0 4px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
 .wk-mine { color: var(--wk-lime); }
