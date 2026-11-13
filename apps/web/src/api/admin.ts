@@ -3,6 +3,7 @@ import type {
   AdminConfigDto, AdminGuildDetailDto, AdminGuildDto, AdminLogDto, AdminOverviewDto, ApiResponse,
   ErrorDetailDto, ErrorEventDto, ErrorGroupDto, ErrorGroupStatus,
   AdminModuleDto,
+  AdminStorageDto,
   ModuleSetting,
 } from '@dem/shared';
 import { api } from './client';
@@ -21,6 +22,7 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 
 export const adminApi = {
   overview: () => api.get<ApiResponse<AdminOverviewDto>>('/admin/overview').then((r) => r.data!),
+  storage: () => api.get<ApiResponse<AdminStorageDto>>('/admin/storage').then((r) => r.data!),
   errors: (f: ErrorFilters & { after?: number; before?: number; limit?: number }) =>
     api.get<ApiResponse<ErrorEventDto[]>>(`/admin/errors${qs({ ...f })}`).then((r) => r.data!),
   groups: (f: ErrorFilters) => api.get<ApiResponse<ErrorGroupDto[]>>(`/admin/errors/groups${qs({ ...f })}`).then((r) => r.data!),

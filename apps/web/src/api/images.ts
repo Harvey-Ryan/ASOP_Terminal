@@ -1,7 +1,11 @@
 import { api, ApiError } from './client';
-import type { ApiResponse, ServerImageDto } from '@dem/shared';
+import type { ApiResponse, ServerImageDto, ImageUsageDto } from '@dem/shared';
 
 export const imagesApi = {
+  /** How much of the server's image space is used (v1.40.0) */
+  usage: (guildId: string) =>
+    api.get<ApiResponse<ImageUsageDto>>(`/guilds/${guildId}/images/usage`).then((r) => r.data!),
+
   list: (guildId: string) =>
     api.get<ApiResponse<ServerImageDto[]>>(`/guilds/${guildId}/images`).then((r) => r.data!),
 

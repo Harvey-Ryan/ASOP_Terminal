@@ -260,6 +260,11 @@ The current setup stores uploaded images in `apps/api/uploads/` inside the conta
 - Mount a Railway persistent volume at `/app/apps/api/uploads`, or
 - Migrate image storage to an S3-compatible bucket (Cloudflare R2, AWS S3).
 
+Since v1.40.0 every upload is shrunk to fit 2560 px and saved as WebP (camera
+data dropped, SVGs turned into pictures), each server has a limit
+(`UPLOADS_SERVER_CAP_MB`, default 200), and Admin → Overview → Image storage
+shows the disk and each server's usage.
+
 ---
 
 ## 10. Tournament module
@@ -290,6 +295,7 @@ used and can be removed.
 | `UEX_KEY` | UEX Corp API key for weekly commodity price sync |
 | `PUBLIC_SITE_URL` | Additional CORS origin (if the dashboard is served from a different domain) |
 | `UPLOADS_DIR` | Override the default uploads directory path |
+| `UPLOADS_SERVER_CAP_MB` | Optional. Each server's image space in MB (default 200). Uploads past it are refused with a clear message. |
 | `ROLECALL_API_URL` | RoleCall integration API base URL |
 | `ROLECALL_API_KEY` | RoleCall integration API key |
 | `ACTIVITY_SERVER_IDS` | Optional. Comma-separated Discord server ids that get Activity (RoleCall). Defaults to Fleet 919; every other server doesn't see the module. |

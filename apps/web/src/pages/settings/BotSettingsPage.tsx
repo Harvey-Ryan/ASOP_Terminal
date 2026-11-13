@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
+import { ImageUsage } from '@/components/ImageUsage';
 import { imagesApi } from '@/api/images';
 import { ServerImagePicker } from '@/components/ServerImagePicker';
 import { ChannelSelect } from '@/components/settings/SettingsControls';
@@ -91,8 +92,9 @@ function ImageBucket({ guildId }: { guildId: string }) {
             Image Bucket
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manage uploaded images available to event creators. Drag to reorder.
+            Manage uploaded images available to event creators. Drag to reorder. Uploads are shrunk and saved as WebP to save space.
           </p>
+          <ImageUsage guildId={guildId} className="mt-1.5" />
         </div>
         <Button
           variant="outline"

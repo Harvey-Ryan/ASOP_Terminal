@@ -29,6 +29,17 @@ export interface AdminOverviewDto {
   feed: { configured: boolean; alertsEnabled: boolean; digestEnabled: boolean };
 }
 
+/** Admin → Overview → Image storage (v1.40.0): uploaded images on disk, per server. */
+export interface AdminStorageDto {
+  totalBytes: number;
+  files: number;
+  /** Each server's limit */
+  capBytes: number;
+  /** The disk or volume holding the uploads, if it can be read */
+  disk: { sizeBytes: number; freeBytes: number } | null;
+  servers: { guildId: string; name: string | null; bytes: number; files: number }[];
+}
+
 // ── Errors ──────────────────────────────────────────────────────────────────
 
 export interface ErrorEventDto {
