@@ -163,7 +163,7 @@ async function _setupDiscordForEvent(eventId: string) {
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
           console.log(`[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
           const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
-          const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
+          const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt);
           const thread = await (ch as ForumChannel).threads.create({
             name: event.name,
             message: {
@@ -349,7 +349,7 @@ export async function syncDiscordEvent(eventId: string) {
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
         console.log(`[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
         const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
-        const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId);
+        const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt);
 
         const rosterMsg = event.rosterMessageId
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
@@ -425,7 +425,7 @@ export async function syncDiscordEvent(eventId: string) {
           await thread.setName(event.name).catch(() => null);
         }
         const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename, guildTagMap, serverTags);
-        const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId);
+        const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId, !!event.briefingPublishedAt);
         const rosterMsg = ag.rosterMessageId
           ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
@@ -550,14 +550,14 @@ export async function updateRosterEmbed(eventId: string) {
 
   // Host guild thread
   if (event.threadId) {
-    await refreshThread(event.threadId, event.rosterMessageId, buildRoleButtons(event.id, roles, event.rsvps, event.guildId), 'host thread');
+    await refreshThread(event.threadId, event.rosterMessageId, buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt), 'host thread');
   }
 
   // Alliance guild threads — one after another with a 1 s gap, skipping any already up to date
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
   let first = true;
   for (const ag of allianceGuilds.filter((ag) => ag.threadId)) {
-    const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId);
+    const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId, !!event.briefingPublishedAt);
     if (upToDate(ag.threadId!, components)) continue;
     if (!first) await sleep(1000);
     first = false;
@@ -1283,7 +1283,7 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
     const ch = await client.channels.fetch(forumChannelId).catch(() => null);
     if (ch?.type === ChannelType.GuildForum) {
       const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
-      const components = buildRoleButtons(event.id, roles, event.rsvps, receivingDiscordGuildId);
+      const components = buildRoleButtons(event.id, roles, event.rsvps, receivingDiscordGuildId, !!event.briefingPublishedAt);
       const thread = await (ch as ForumChannel).threads.create({
         name: event.name,
         message: {

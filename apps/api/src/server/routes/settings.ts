@@ -223,6 +223,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         dkpMinBid:                  s?.dkpMinBid                  ?? 0,
         lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
         rsiOrgTag:                  s?.rsiOrgTag                  ?? null,
+        logoUrl:                    s?.logoUrl                    ?? null,
         allianceTag:                s?.allianceTag                 ?? null,
       },
     } satisfies ApiResponse);

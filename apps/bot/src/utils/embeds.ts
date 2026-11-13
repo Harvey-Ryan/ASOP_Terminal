@@ -33,6 +33,9 @@ interface EventForRoster {
   rsvps: RsvpEntry[];
   /** In line order (v1.14.0) */
   waitlist?: { userId: string; role: string }[];
+  /** Mission briefing (v1.36.0) */
+  briefingPublishedAt?: Date | null;
+  briefingSummary?: string | null;
 }
 
 /** Discord's limit for an embed field's text. */
@@ -89,6 +92,10 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
 
   if (event.musterPoint) {
     embed.addFields({ name: '📍 Muster Point', value: event.musterPoint, inline: false });
+  }
+
+  if (event.briefingPublishedAt && !ended) {
+    embed.addFields({ name: '📋 Briefing ready', value: `${event.briefingSummary ? `${event.briefingSummary}\n` : ''}Open it with the **Briefing** button.`.slice(0, FIELD_MAX), inline: false });
   }
 
   if (joint) {
@@ -230,13 +237,15 @@ export function buildRoleButtons(
   roles: EventRole[],
   rsvps: { role: string | null }[],
   viewingGuildId?: string,
+  /** A published briefing (v1.36.0): adds a Briefing link to it, opened as the server viewing the roster */
+  briefing = false,
 ): ActionRowBuilder<ButtonBuilder>[] {
   const visibleRoles = viewingGuildId
     ? roles.filter((r) => !r.guildId || r.guildId === viewingGuildId)
     : roles;
 
   const allButtons: ButtonBuilder[] = [
-    ...visibleRoles.slice(0, 22).map((role) => {
+    ...visibleRoles.slice(0, briefing && viewingGuildId ? 21 : 22).map((role) => {
       const key = role.id ?? role.name;
       const full = rsvps.filter((r) => r.role === key).length >= role.count;
       return full
@@ -259,6 +268,11 @@ export function buildRoleButtons(
       .setEmoji('🚪')
       .setStyle(ButtonStyle.Danger),
   ];
+  if (briefing && viewingGuildId) {
+    const web = (process.env['WEB_URL'] ?? 'http://localhost:5173').replace(/\/$/, '');
+    allButtons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Briefing').setEmoji('📋')
+      .setURL(`${web}/dashboard/servers/${viewingGuildId}/events/${eventId}/briefing`));
+  }
 
   // Split into rows of 5
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];

@@ -5,7 +5,16 @@
 
 import { prisma } from './prisma.js';
 import { triggerBot } from './triggerBot.js';
-import { optStr, optStrArr, optBool, optNonNegInt, requireStr } from './validate.js';
+import { optStr, optStrArr, optBool, optNonNegInt, requireStr, ValidationError } from './validate.js';
+import { safeImageUrl } from '@dem/shared';
+
+/** The server's briefing logo (v1.36.0): an uploaded image or an https link; '' or null clears it. */
+function optLogo(v: unknown): string | null {
+  if (v === null || v === '') return null;
+  const url = safeImageUrl(v);
+  if (!url) throw new ValidationError('logoUrl must be an uploaded image or an https link');
+  return url;
+}
 
 export type SettingsPatch = {
     forumChannelId?: string | null;
@@ -43,6 +52,7 @@ export type SettingsPatch = {
     dkpMinBid?: number;
     lootDefaultMethod?: string;
     rsiOrgTag?: string | null;
+    logoUrl?: string | null;
     allianceTag?: string | null;
   };
 
@@ -87,6 +97,7 @@ export function parseSettingsPatch(raw: Record<string, unknown>): SettingsPatch 
     dkpMinBid:                 rawMin !== undefined ? Math.max(0, rawMin) : undefined,
     lootDefaultMethod:         raw.lootDefaultMethod !== undefined && LOOT_METHODS.includes(raw.lootDefaultMethod as typeof LOOT_METHODS[number]) ? raw.lootDefaultMethod as string : undefined,
     rsiOrgTag:                 raw.rsiOrgTag !== undefined ? optStr(raw.rsiOrgTag, 'rsiOrgTag', 20) : undefined,
+    logoUrl:                   raw.logoUrl !== undefined ? optLogo(raw.logoUrl) : undefined,
     allianceTag:               raw.allianceTag !== undefined ? optStr(raw.allianceTag, 'allianceTag', 4) : undefined,
   };
 }
@@ -177,6 +188,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       ...(patch.dkpMinBid !== undefined                 ? { dkpMinBid: patch.dkpMinBid }                                             : {}),
       ...(patch.lootDefaultMethod !== undefined         ? { lootDefaultMethod: patch.lootDefaultMethod }                             : {}),
       ...(patch.rsiOrgTag !== undefined                 ? { rsiOrgTag: patch.rsiOrgTag }                                             : {}),
+      ...(patch.logoUrl !== undefined                   ? { logoUrl: patch.logoUrl }                                                 : {}),
       ...(patch.allianceTag !== undefined               ? { allianceTag: patch.allianceTag }                                         : {}),
     },
     create: {
@@ -216,6 +228,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       dkpMinBid:                  patch.dkpMinBid                  ?? 0,
       lootDefaultMethod:          patch.lootDefaultMethod          ?? 'RANDOM_ROLL',
       rsiOrgTag:                  patch.rsiOrgTag                  ?? null,
+      logoUrl:                    patch.logoUrl                    ?? null,
       allianceTag:                patch.allianceTag                ?? null,
     },
   });
@@ -267,6 +280,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       dkpMinBid:                  s.dkpMinBid                  ?? 0,
       lootDefaultMethod:          s.lootDefaultMethod          ?? 'RANDOM_ROLL',
       rsiOrgTag:                  s.rsiOrgTag                  ?? null,
+      logoUrl:                    s.logoUrl                    ?? null,
       allianceTag:                s.allianceTag                ?? null,
     };
 }

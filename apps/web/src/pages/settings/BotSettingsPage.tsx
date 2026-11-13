@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { settingsApi } from '@/api/settings';
 import type { GuildSettingsData } from '@/api/settings';
 import { imagesApi } from '@/api/images';
+import { ServerImagePicker } from '@/components/ServerImagePicker';
 import { ChannelSelect } from '@/components/settings/SettingsControls';
 import type { DiscordRoleDto, ServerImageDto } from '@dem/shared';
 
@@ -240,6 +241,7 @@ export function BotSettingsPage() {
   const [rsiOrgTag, setRsiOrgTag] = useState<string | null>(null);
   const [statusChannelId, setStatusChannelId] = useState<string | null>(null);
   const [starStringsChannelId, setStarStringsChannelId] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -250,6 +252,7 @@ export function BotSettingsPage() {
       setRsiOrgTag(saved.rsiOrgTag ?? null);
       setStatusChannelId(saved.statusChannelId ?? null);
       setStarStringsChannelId(saved.starStringsChannelId ?? null);
+      setLogoUrl(saved.logoUrl ?? null);
       setDirty(false);
     }
   }, [saved]);
@@ -283,7 +286,7 @@ export function BotSettingsPage() {
   const mutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId, starStringsChannelId } as Partial<GuildSettingsData>),
+      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId, starStringsChannelId, logoUrl } as Partial<GuildSettingsData>),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
@@ -381,6 +384,20 @@ export function BotSettingsPage() {
               The bot needs <span className="font-medium">View Channel</span>, <span className="font-medium">Send Messages</span> and{' '}
               <span className="font-medium">Embed Links</span> there. A read-only channel for members works best.
             </p>
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Org logo for briefings (v1.36.0) */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Org Logo <span className="font-normal text-muted-foreground">(optional)</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shown on your mission briefings and their slides (and as a faint watermark), and next to yours on
+                allies' briefings for joint ops. A square PNG with a transparent background works best.
+              </p>
+            </div>
+            <ServerImagePicker guildId={guildId!} value={logoUrl} onChange={(v) => { setLogoUrl(v); setDirty(true); setSavedFlash(false); }} emptyLabel="Remove logo" />
           </div>
 
           <div className="border-t border-border" />

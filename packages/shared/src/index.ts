@@ -268,6 +268,8 @@ export interface EventDto {
   createdAt: string;
   updatedAt: string;
   rsvpCounts: { total: number };
+  /** A mission briefing is published (v1.36.0) */
+  briefingPublished: boolean;
   rsvps: RsvpDto[];
   /** In line order (v1.14.0) */
   waitlist: WaitlistDto[];
@@ -934,3 +936,4 @@ export function safeReturnPath(value: unknown): string | null {
 export * from './modules.js';
 export * from './wikelo.js';
 export * from './starStrings.js';
+export * from './briefing.js';

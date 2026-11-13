@@ -149,6 +149,8 @@ model GuildSettings {
   lootDefaultMethod     String   @default("RANDOM_ROLL")
   /// RSI org tag for roster sync (e.g. "ASOP")
   rsiOrgTag             String?
+  /// The server's logo for briefings (v1.36.0): an uploaded image (/uploads/…) or https link
+  logoUrl               String?
   /// Short 4-char alphanumeric tag identifying this guild in alliance context (e.g. "ASOP")
   allianceTag           String?
   /// JSON: string[] — Discord role snowflake IDs allowed to manage alliances (empty = guild-manager-only)
@@ -245,6 +247,9 @@ model Event {
   /// After-action notes (v1.19.0): SUCCESS | PARTIAL | FAILED, the officer's write-up, who (Discord id, name) and when
   aarOutcome      String?
   aarNotes        String?
+  /// Mission briefing published (v1.36.0); the roster shows briefingSummary and a Briefing button
+  briefingPublishedAt DateTime?
+  briefingSummary     String?
   aarById         String?
   aarByName       String?
   aarAt           DateTime?
@@ -276,6 +281,7 @@ model Event {
   reminders      EventReminder[]
   allianceGuilds EventAllianceGuild[]
   guildShares    EventGuildShare[]
+  briefing       EventBriefing?
 
   @@index([guildId])
   @@index([startTime])
@@ -1505,4 +1511,18 @@ model WikeloProgress {
   updatedAt   DateTime  @updatedAt
 
   @@id([discordId, missionId])
+}
+
+/// An event's mission briefing (v1.36.0): one JSON document (packages/shared
+/// src/briefing.ts), edited by the host's event creators, shown as a page and
+/// as slides. Drafts are seen only by editors until publishedAt is set.
+model EventBriefing {
+  eventId     String    @id
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  content     String
+  publishedAt DateTime?
+  /// Discord id of who saved it last
+  updatedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

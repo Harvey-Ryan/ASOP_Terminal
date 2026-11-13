@@ -52,6 +52,8 @@ export interface GuildSettingsData {
   dkpMinBid: number;
   lootDefaultMethod: string;
   rsiOrgTag: string | null;
+  /** Logo for briefings (v1.36.0) */
+  logoUrl: string | null;
   allianceTag: string | null;
 }
 
