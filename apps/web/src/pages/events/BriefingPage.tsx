@@ -80,7 +80,7 @@ function RosterBlock({ groups, roles }: { groups: BriefingGroup[]; roles: Briefi
   const cols = Math.ceil(groups.length / rows);
   const max = rows === 2 ? 4 : cols <= 2 ? 10 : 7;
   return (
-    <div className={cn('roster', rows === 2 && 'two')} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+    <div className={cn('roster', rows === 2 && 'two')} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${cols <= 2 ? '400px' : '1fr'}))` }}>
       {groups.map((g) => {
         const { people, slots } = groupPeople(g, roles);
         return (
@@ -477,6 +477,7 @@ function GroupPicture({ guildId, value, onChange }: { guildId: string; value: st
   const hits = words.length ? (allQ.data ?? []).filter((e) => (e.imageUrl || e.thumbUrl) && words.every((w) => `${e.name} ${e.manufacturer}`.toLowerCase().includes(w))).slice(0, 8) : [];
   return (
     <div className="w-full space-y-2 sm:w-44">
+      <div className="text-sm">Card picture</div>
       <ServerImagePicker guildId={guildId} value={value} onChange={onChange} emptyLabel="No picture" />
       <button type="button" className="text-xs text-[#e2bd5b] hover:underline" onClick={() => setShipSearch((o) => !o)}>{shipSearch ? 'Close ship search' : "Use a ship's picture"}</button>
       {shipSearch && (
@@ -619,6 +620,18 @@ function Editor({ guildId, view, c, setC, onPreview }: {
                 <input className={cn(inputCls, 'font-condensed text-lg font-bold uppercase tracking-wide')} maxLength={BRIEFING_LIMITS.sectionTitle} value={section.title} onChange={(e) => setSection({ title: e.target.value })} aria-label="Section title" />
                 <Button variant="ghost" size="sm" onClick={() => { setC({ ...c, sections: c.sections.filter((s) => s.id !== section.id) }); setSel('title'); }}><Trash2 className="mr-1 h-4 w-4" />Remove</Button>
               </div>
+              <div className="rounded-md border border-border p-3 text-sm">
+                <div className="mb-2 font-medium">Slide background <span className="font-normal text-muted-foreground">(optional: fills the whole slide, behind everything)</span></div>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                  <ServerImagePicker guildId={guildId} value={section.bgUrl} onChange={(bgUrl) => setSection({ bgUrl })} emptyLabel="No background" />
+                  {section.bgUrl && (
+                    <label className="flex items-center gap-3">Opacity
+                      <input type="range" min={5} max={100} value={section.bgOpacity} onChange={(e) => setSection({ bgOpacity: Number(e.target.value) })} className="accent-[#b98a13]" aria-label="Background opacity" />
+                      <span className="w-10 text-muted-foreground">{section.bgOpacity}%</span>
+                    </label>
+                  )}
+                </div>
+              </div>
               {section.kind === 'fleet' && <ShipChooser guildId={guildId} eventId={view.event.id} ships={section.ships} onChange={(ships) => setSection({ ships })} />}
               {section.kind === 'roster' && <GroupsEditor guildId={guildId} roles={view.event.roles} groups={section.groups} onChange={(groups) => setSection({ groups })} />}
               {section.kind === 'image' && (
@@ -630,18 +643,6 @@ function Editor({ guildId, view, c, setC, onPreview }: {
               <label className="block text-sm">{section.kind === 'text' ? 'Text' : 'Notes'} <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
                 <textarea className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={section.body} onChange={(e) => setSection({ body: e.target.value })} />
               </label>
-              <details className="rounded-md border border-border p-3 text-sm" open={!!section.bgUrl}>
-                <summary className="cursor-pointer select-none">Background picture <span className="text-muted-foreground">(optional, behind this slide)</span></summary>
-                <div className="mt-3 space-y-3">
-                  <ServerImagePicker guildId={guildId} value={section.bgUrl} onChange={(bgUrl) => setSection({ bgUrl })} emptyLabel="No background" />
-                  {section.bgUrl && (
-                    <label className="flex items-center gap-3">Opacity
-                      <input type="range" min={5} max={100} value={section.bgOpacity} onChange={(e) => setSection({ bgOpacity: Number(e.target.value) })} className="accent-[#b98a13]" />
-                      <span className="w-10 text-muted-foreground">{section.bgOpacity}%</span>
-                    </label>
-                  )}
-                </div>
-              </details>
               {section.kind !== 'fleet' && section.kind !== 'roster' && !sectionHasContent(section) && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
             </div>
           )}
