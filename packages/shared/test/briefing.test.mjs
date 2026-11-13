@@ -1,12 +1,12 @@
 // v1.36.0: mission briefings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeBriefing, parseBriefing, defaultBriefing, briefingSlides, bodyBlocks, briefingSummary, safeImageUrl, BRIEFING_LIMITS } from '../dist/index.js';
+import { sanitizeBriefing, parseBriefing, defaultBriefing, briefingSlides, bodyBlocks, briefingSummary, safeImageUrl, forceTotals, BRIEFING_LIMITS } from '../dist/index.js';
 
-test('a new briefing has the usual sections, all empty except the fleet one shows', () => {
+test('a new briefing has the usual sections, all empty and so not shown', () => {
   const d = defaultBriefing();
   assert.deepEqual(d.sections.map((s) => s.title), ['Situation', 'Area of operations', 'Phases', 'Force', 'Comms & callsigns', 'Rules of engagement']);
-  assert.deepEqual(briefingSlides(d).map((s) => s.kind === 'title' ? 'title' : s.section.title), ['title', 'Force']);
+  assert.deepEqual(briefingSlides(d).map((s) => s.kind === 'title' ? 'title' : s.section.title), ['title']);
 });
 
 test('whatever comes in is cut down to a valid briefing', () => {
@@ -35,4 +35,23 @@ test('bodies: paragraphs and bullet lists; the roster summary is the objective',
   assert.deepEqual(bodyBlocks('Intro\n- one\n* two\n\nOutro'), [{ kind: 'p', text: 'Intro' }, { kind: 'ul', items: ['one', 'two'] }, { kind: 'p', text: 'Outro' }]);
   assert.equal(briefingSummary({ ...defaultBriefing(), objective: ' Retake\n the hangars. ' }), 'Retake the hangars.');
   assert.equal(briefingSummary({ ...defaultBriefing(), objective: 'y'.repeat(400) }).length, 300);
+});
+
+test('ship sections hold only what the organisers picked', () => {
+  const c = sanitizeBriefing({ sections: [
+    { id: 'f', kind: 'fleet', title: 'Force', ships: [
+      { shipId: 'rsi-1', name: 'Idris-P', count: 1, crew: 28, focus: 'Frigate', note: 'Flagship' },
+      { shipId: 'rsi-2', name: 'Cutlass Black', count: '3', crew: 2, note: 'x'.repeat(200) },
+      { shipId: 'rsi-1', name: 'dupe' }, { name: 'no id' }, { shipId: 'rsi-3', name: 'Gladius', count: 0, crew: -1 },
+    ] },
+    { id: 't', kind: 'text', title: 'T', body: 'b', ships: [{ shipId: 'rsi-1', name: 'x' }] },
+  ] });
+  const [f, t] = c.sections;
+  assert.deepEqual(f.ships.map((s) => [s.name, s.count, s.crew]), [['Idris-P', 1, 28], ['Cutlass Black', 3, 2], ['Gladius', 1, null]]);
+  assert.equal(f.ships[1].note.length, BRIEFING_LIMITS.shipNote);
+  assert.deepEqual(t.ships, []);
+  assert.deepEqual(forceTotals(f.ships), { ships: 5, seats: 35 });
+  // an empty ship section isn't a slide; one with ships is
+  assert.equal(briefingSlides(sanitizeBriefing({ sections: [{ id: 'f', kind: 'fleet', title: 'Force' }] })).length, 1);
+  assert.equal(briefingSlides(c).length, 3);
 });

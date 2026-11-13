@@ -500,8 +500,13 @@ Patch Notes — v1.1.0 — November 10
   `?present=N`): read view, editor with slide preview, present mode (1280×720
   slides scaled to the screen, arrow keys) and Print / PDF (`.brf-print`).
   Slides use ASOP's charcoal and gold, scoped to `.brf-slide`
-  (`briefing.css`). The "Fleet" section fills itself from the event's fleet
-  (`GET /guilds/:guildId/fleet?eventId=`).
+  (`briefing.css`).
+- Ship sections (v1.36.1) hold only the ships the organisers picked
+  (`BriefingSection.ships`: a copy of name, crew, count and a note). Never
+  fill them in automatically, and don't load the fleet until the organiser
+  asks (`ShipChooser`: the signed-up fleets via
+  `GET /guilds/:guildId/fleet?eventId=`, or any ship from `/ships`). Readers
+  never load the fleet.
 - Logos: `GuildSettings.logoUrl` (Bot Settings → Org Logo, picked from the
   server's image library, `components/ServerImagePicker.tsx`); a briefing can
   use its own, and shows accepting allies' logos on joint ops.
