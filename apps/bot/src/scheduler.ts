@@ -12,6 +12,7 @@ import { formatMinutes } from './utils/time.js';
 import { SETUP_MAX_ATTEMPTS, afterSetupAttempt } from './utils/setupRetry.js';
 import { recordDeployment, refreshStatusEmbeds } from './services/statusService.js';
 import { checkFleetNudges } from './services/fleetService.js';
+import { announceStarStrings } from './services/starStringsService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -78,6 +79,7 @@ const POSTING_CHECKS: [string, () => Promise<void>][] = [
   ['checkTournamentReminders', checkTournamentReminders],
   ['refreshStatusEmbeds',      () => refreshStatusEmbeds()],
   ['checkFleetNudges',         () => checkFleetNudges()],
+  ['announceStarStrings',      () => announceStarStrings()],
 ];
 
 // Runs a named scheduler check, logs its duration, and swallows errors so one

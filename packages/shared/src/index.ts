@@ -933,3 +933,4 @@ export function safeReturnPath(value: unknown): string | null {
 }
 export * from './modules.js';
 export * from './wikelo.js';
+export * from './starStrings.js';

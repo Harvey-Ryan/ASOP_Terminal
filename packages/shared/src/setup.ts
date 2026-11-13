@@ -196,6 +196,7 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
       ['allyNoticeChannelId', 'allies', 'Ally notices channel', 'allies'],
       ['h2hChannelId', 'h2h', 'Head-to-head results channel', 'tournaments'],
       ['jobsChannelId', 'jobs', 'Job board channel', 'jobs'],
+      ['starStringsChannelId', 'starstrings', 'StarStrings updates channel', 'bot'],
     ] as const) {
       if (!str(setting)) continue;
       const before = steps.length;

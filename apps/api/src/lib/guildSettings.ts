@@ -35,6 +35,7 @@ export type SettingsPatch = {
     tournamentChannelId?: string | null;
     h2hChannelId?: string | null;
     statusChannelId?: string | null;
+    starStringsChannelId?: string | null;
     allyNoticeChannelId?: string | null;
     jobsEnabled?: boolean;
     jobsChannelId?: string | null;
@@ -78,6 +79,7 @@ export function parseSettingsPatch(raw: Record<string, unknown>): SettingsPatch 
     tournamentChannelId:       raw.tournamentChannelId !== undefined ? optStr(raw.tournamentChannelId, 'tournamentChannelId', 30) : undefined,
     h2hChannelId:              raw.h2hChannelId !== undefined ? optStr(raw.h2hChannelId, 'h2hChannelId', 30) : undefined,
     statusChannelId:           raw.statusChannelId !== undefined ? optStr(raw.statusChannelId, 'statusChannelId', 30) : undefined,
+    starStringsChannelId:           raw.starStringsChannelId !== undefined ? optStr(raw.starStringsChannelId, 'starStringsChannelId', 30) : undefined,
     allyNoticeChannelId:       raw.allyNoticeChannelId !== undefined ? optStr(raw.allyNoticeChannelId, 'allyNoticeChannelId', 30) : undefined,
     jobsEnabled:               raw.jobsEnabled !== undefined ? optBool(raw.jobsEnabled, 'jobsEnabled') : undefined,
     jobsChannelId:             raw.jobsChannelId !== undefined ? optStr(raw.jobsChannelId, 'jobsChannelId', 30) : undefined,
@@ -167,6 +169,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       ...(patch.tournamentChannelId !== undefined        ? { tournamentChannelId: patch.tournamentChannelId }                         : {}),
       ...(patch.h2hChannelId !== undefined               ? { h2hChannelId: patch.h2hChannelId }                                       : {}),
       ...(patch.statusChannelId !== undefined            ? { statusChannelId: patch.statusChannelId }                                 : {}),
+      ...(patch.starStringsChannelId !== undefined       ? { starStringsChannelId: patch.starStringsChannelId }                       : {}),
       ...(patch.allyNoticeChannelId !== undefined        ? { allyNoticeChannelId: patch.allyNoticeChannelId }                         : {}),
       ...(patch.jobsEnabled !== undefined                ? { jobsEnabled: patch.jobsEnabled }                                         : {}),
       ...(patch.jobsChannelId !== undefined              ? { jobsChannelId: patch.jobsChannelId }                                     : {}),
@@ -205,6 +208,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       tournamentChannelId:        patch.tournamentChannelId         ?? null,
       h2hChannelId:               patch.h2hChannelId                ?? null,
       statusChannelId:            patch.statusChannelId             ?? null,
+      starStringsChannelId:       patch.starStringsChannelId        ?? null,
       allyNoticeChannelId:        patch.allyNoticeChannelId         ?? null,
       jobsEnabled:                patch.jobsEnabled                 ?? true,
       jobsChannelId:              patch.jobsChannelId               ?? null,
@@ -219,6 +223,8 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
   const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } = await readPermissionFields(s.id);
   // The bot keeps the status channel settings in memory; tell it when one changes.
   if (patch.statusChannelId !== undefined) triggerBot('/trigger/status');
+  // A StarStrings channel was chosen: the bot posts the current build there now (v1.35.0).
+  if (patch.starStringsChannelId) triggerBot('/trigger/starstrings');
   // A new forum channel: events still waiting for their thread get a fresh set of setup attempts (v1.11.1).
   if (patch.forumChannelId !== undefined) {
     await prisma.event.updateMany({
@@ -255,6 +261,7 @@ export async function applySettingsPatch(guildId: string, patch: SettingsPatch) 
       tournamentChannelId:        s.tournamentChannelId         ?? null,
       h2hChannelId:               s.h2hChannelId                ?? null,
       statusChannelId:            s.statusChannelId             ?? null,
+      starStringsChannelId:            s.starStringsChannelId             ?? null,
       allyNoticeChannelId:        s.allyNoticeChannelId         ?? null,
       dkpDefaultAuctionDuration:  s.dkpDefaultAuctionDuration  ?? 24,
       dkpMinBid:                  s.dkpMinBid                  ?? 0,

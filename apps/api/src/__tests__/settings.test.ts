@@ -218,6 +218,16 @@ describe('PATCH /:guildId/settings', () => {
     expect(res.body.data.voiceCategoryId).toBe('100000000000000002');
   });
 
+  it('writes and reads back the StarStrings channel (v1.35.0)', async () => {
+    const guild = await createGuild();
+    const [agent] = await makeManagerAgent(guild.guildId);
+    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ starStringsChannelId: '100000000000000003' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.starStringsChannelId).toBe('100000000000000003');
+    const cleared = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ starStringsChannelId: null });
+    expect(cleared.body.data.starStringsChannelId).toBeNull();
+  });
+
   it('patches all five fields in a single request — all round-trip correctly', async () => {
     const guild = await createGuild();
     const [agent] = await makeManagerAgent(guild.guildId);

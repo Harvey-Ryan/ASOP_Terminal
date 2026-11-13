@@ -67,6 +67,10 @@ test('missing Manage Events and broken optional channels show up; working option
   assert.equal(s['events-perm'].done, false);
   assert.equal(s.status, undefined);
   assert.match(s.allies.detail, /missing View Channel/);
+  // v1.35.0: a StarStrings channel the bot can't see shows up too.
+  const ss = byKey(setupChecklist({ settings: { ...allOff, lootEnabled: false, starStringsChannelId: 'allies' }, hasEvents: false, discord: d }));
+  assert.match(ss.starstrings.detail, /missing View Channel/);
+  assert.equal(ss.starstrings.page, 'bot');
 });
 
 test('switched-off modules add no steps; without Discord, chosen channels count as done', () => {
