@@ -2,8 +2,11 @@
 // creators, shown as a page and as slides (present mode). The whole briefing
 // is one JSON document (EventBriefing.content), checked here on the way in.
 
+import type { EventRole } from './index.js';
+import { roleKeyOf } from './roster.js';
 
-export type BriefingSectionKind = 'text' | 'image' | 'fleet';
+
+export type BriefingSectionKind = 'text' | 'image' | 'fleet' | 'roster';
 export type BriefingLogoPosition = 'TOP_LEFT' | 'TOP_RIGHT';
 export type BriefingWatermark = 'CORNER' | 'CENTER' | 'TILED' | 'NONE';
 
@@ -17,6 +20,30 @@ export interface BriefingSection {
   imageUrl: string | null;
   /** Ships the organisers picked, for ship sections (v1.36.1). Nothing is filled in for them. */
   ships: BriefingShip[];
+  /** Role groups, for roster sections (v1.37.0): several rosters on one slide. */
+  groups: BriefingGroup[];
+  /** A picture behind the slide (v1.37.0), any kind of section. */
+  bgUrl: string | null;
+  /** 0–100 (%) */
+  bgOpacity: number;
+}
+
+/**
+ * One group on a roster slide: "Ironclad crew", "Miners (Geo)", "Ground
+ * defence". People come from an event role's sign-ups (roleId), plus any
+ * names typed in.
+ */
+export interface BriefingGroup {
+  id: string;
+  title: string;
+  /** EventRole.id (or a role's name on old events); null = names only */
+  roleId: string | null;
+  /** One per line */
+  names: string;
+  /** A ship's picture or an upload */
+  imageUrl: string | null;
+  /** "Ironclad Assault", "Lead: …" */
+  note: string;
 }
 
 /** A ship picked for the op: a copy of its name and crew, so readers needn't load the fleet. */
@@ -72,6 +99,8 @@ export interface BriefingViewDto {
     hostGuildId: string;
     signedUp: number;
     maybe: number;
+    /** The event's roles and who's signed up for each (not maybes), for roster slides. */
+    roles: { id: string; name: string; count: number; people: string[] }[];
   };
   /** null when there's no briefing yet (or, for people who can't edit, none published) */
   briefing: BriefingDto | null;
@@ -94,12 +123,17 @@ export const BRIEFING_LIMITS = {
   shipCount: 99,
   shipName: 60,
   shipNote: 60,
+  groups: 8,
+  groupTitle: 40,
+  groupNames: 600,
+  groupNote: 60,
 } as const;
 
 export const BRIEFING_SECTION_KINDS: { kind: BriefingSectionKind; label: string }[] = [
   { kind: 'text', label: 'Text' },
   { kind: 'image', label: 'Map or image' },
   { kind: 'fleet', label: 'Ships (picked by you)' },
+  { kind: 'roster', label: 'Role rosters' },
 ];
 
 let seq = 0;
@@ -108,7 +142,7 @@ export const newSectionId = () => `s${Date.now().toString(36)}${(seq++).toString
 
 /** A fresh briefing: the usual sections, empty. Empty sections are left out of the slides. */
 export function defaultBriefing(): BriefingContent {
-  const s = (title: string, kind: BriefingSectionKind = 'text'): BriefingSection => ({ id: newSectionId(), kind, title, body: '', imageUrl: null, ships: [] });
+  const s = (title: string, kind: BriefingSectionKind = 'text'): BriefingSection => ({ id: newSectionId(), kind, title, body: '', imageUrl: null, ships: [], groups: [], bgUrl: null, bgOpacity: 35 });
   return {
     objective: '',
     facts: [{ label: 'Form up', value: '' }, { label: 'Comms', value: '' }],
@@ -149,6 +183,46 @@ function sanitizeShips(v: unknown): BriefingShip[] {
   return out;
 }
 
+function sanitizeGroups(v: unknown): BriefingGroup[] {
+  const ids = new Set<string>();
+  return (Array.isArray(v) ? v : []).slice(0, BRIEFING_LIMITS.groups).map((raw) => {
+    const g = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    let id = oneLine(g['id'], 40).replace(/[^\w-]/g, '') || newSectionId();
+    while (ids.has(id)) id = newSectionId();
+    ids.add(id);
+    return {
+      id,
+      title: oneLine(g['title'], BRIEFING_LIMITS.groupTitle),
+      roleId: oneLine(g['roleId'], 80) || null,
+      names: str(g['names'], BRIEFING_LIMITS.groupNames),
+      imageUrl: safeImageUrl(g['imageUrl']),
+      note: oneLine(g['note'], BRIEFING_LIMITS.groupNote),
+    };
+  });
+}
+
+/** The event's roles with who signed up for each (yeses only, in sign-up order). */
+export function briefingRoles(rolesJson: string, rsvps: { role: string | null; username: string; tentative: boolean }[]): BriefingViewDto['event']['roles'] {
+  let roles: EventRole[] = [];
+  try { roles = JSON.parse(rolesJson || '[]') as EventRole[]; } catch { roles = []; }
+  return (Array.isArray(roles) ? roles : []).filter((r) => r && r.name).map((r) => {
+    const key = roleKeyOf(r);
+    return { id: key, name: r.name, count: r.count ?? 0, people: rsvps.filter((x) => !x.tentative && x.role === key).map((x) => x.username) };
+  });
+}
+
+/** Who's in a group: the role's sign-ups, then typed names (no repeats). */
+export function groupPeople(g: BriefingGroup, roles: BriefingViewDto['event']['roles']): { people: string[]; slots: number | null } {
+  const role = g.roleId ? roles.find((r) => r.id === g.roleId) : undefined;
+  const people = [...(role?.people ?? [])];
+  for (const line of g.names.split(/\n|,/)) {
+    const n = line.trim();
+    if (n && !people.some((p) => p.toLowerCase() === n.toLowerCase())) people.push(n);
+  }
+  // Typed names can take a group past its role's slots: then the slots stop meaning anything.
+  return { people, slots: role && role.count > 0 && people.length <= role.count ? role.count : null };
+}
+
 /** Anything sent by a browser → a valid briefing (unknown fields dropped, lengths capped). */
 export function sanitizeBriefing(input: unknown): BriefingContent {
   const d = defaultBriefing();
@@ -160,7 +234,8 @@ export function sanitizeBriefing(input: unknown): BriefingContent {
     let id = oneLine(s['id'], 40).replace(/[^\w-]/g, '') || newSectionId();
     while (ids.has(id)) id = newSectionId();
     ids.add(id);
-    const kind: BriefingSectionKind = s['kind'] === 'image' || s['kind'] === 'fleet' ? s['kind'] : 'text';
+    const kind: BriefingSectionKind = s['kind'] === 'image' || s['kind'] === 'fleet' || s['kind'] === 'roster' ? s['kind'] : 'text';
+    const bgOpacity = Number(s['bgOpacity']);
     return {
       id,
       kind,
@@ -168,6 +243,9 @@ export function sanitizeBriefing(input: unknown): BriefingContent {
       body: str(s['body'], BRIEFING_LIMITS.sectionBody),
       imageUrl: kind === 'image' ? safeImageUrl(s['imageUrl']) : null,
       ships: kind === 'fleet' ? sanitizeShips(s['ships']) : [],
+      groups: kind === 'roster' ? sanitizeGroups(s['groups']) : [],
+      bgUrl: safeImageUrl(s['bgUrl']),
+      bgOpacity: Number.isFinite(bgOpacity) ? Math.max(0, Math.min(100, Math.round(bgOpacity))) : 35,
     };
   });
   const facts = (Array.isArray(o['facts']) ? o['facts'] : []).slice(0, BRIEFING_LIMITS.facts).map((raw) => {
@@ -201,7 +279,7 @@ export function parseBriefing(raw: string | null | undefined): BriefingContent {
 
 /** A section with nothing in it isn't shown (a ship section until someone picks ships or writes something). */
 export const sectionHasContent = (s: BriefingSection) =>
-  !!s.body.trim() || (s.kind === 'image' && !!s.imageUrl) || (s.kind === 'fleet' && s.ships.length > 0);
+  !!s.body.trim() || (s.kind === 'image' && !!s.imageUrl) || (s.kind === 'fleet' && s.ships.length > 0) || (s.kind === 'roster' && s.groups.length > 0);
 
 /** The slides, in order: the title slide, then each section with something in it. */
 export function briefingSlides(c: BriefingContent): ({ kind: 'title' } | { kind: 'section'; section: BriefingSection })[] {

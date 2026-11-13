@@ -6,8 +6,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, MonitorPlay, Pencil, Plus, Printer, Save, Trash2, X } from 'lucide-react';
 import {
-  bodyBlocks, briefingSlides, forceTotals, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
-  type BriefingContent, type BriefingShip, type ShipCatalogEntry, type BriefingLogo, type BriefingSection, type BriefingViewDto,
+  bodyBlocks, briefingSlides, forceTotals, groupPeople, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
+  type BriefingContent, type BriefingGroup, type BriefingShip, type ShipCatalogEntry, type BriefingLogo, type BriefingSection, type BriefingViewDto,
 } from '@dem/shared';
 import { briefingsApi, type PastBriefing } from '@/api/briefings';
 import { fleetApi } from '@/api/fleet';
@@ -73,6 +73,35 @@ function FleetBlock({ ships }: { ships: BriefingShip[] }) {
   );
 }
 
+/** A roster slide (v1.37.0): every group side by side, picture on top, then who's in it. */
+function RosterBlock({ groups, roles }: { groups: BriefingGroup[]; roles: BriefingViewDto['event']['roles'] }) {
+  if (!groups.length) return null;
+  const rows = groups.length > 4 ? 2 : 1;
+  const cols = Math.ceil(groups.length / rows);
+  const max = rows === 2 ? 4 : cols <= 2 ? 10 : 7;
+  return (
+    <div className={cn('roster', rows === 2 && 'two')} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      {groups.map((g) => {
+        const { people, slots } = groupPeople(g, roles);
+        return (
+          <div key={g.id} className="grp">
+            {g.imageUrl ? <img src={g.imageUrl} alt="" referrerPolicy="no-referrer" /> : <div className="noimg" />}
+            <div className="gb">
+              <div className="gh"><b>{g.title || 'Group'}</b><span>{slots ? `${people.length}/${slots}` : people.length || ''}</span></div>
+              {g.note && <div className="gn">{g.note}</div>}
+              <ul>
+                {people.slice(0, max).map((n) => <li key={n}>{n}</li>)}
+                {people.length > max && <li className="more">+ {people.length - max} more</li>}
+                {!people.length && <li className="open">{slots ? `${slots} open` : 'Open'}</li>}
+              </ul>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Body({ text }: { text: string }) {
   return (
     <>
@@ -100,7 +129,10 @@ function Slide({ view, c, index, total }: {
   const len = s.kind === 'section' ? s.section.body.length : 0;
 
   return (
-    <div className="brf-slide">
+    <div className={cn('brf-slide', s.kind === 'section' && s.section.kind === 'roster' && 'is-roster')}>
+      {s.kind === 'section' && s.section.bgUrl && s.section.bgOpacity > 0 && (
+        <img className="bgimg" src={s.section.bgUrl} alt="" style={{ opacity: s.section.bgOpacity / 100 }} />
+      )}
       {wmUrl && a.watermark !== 'NONE' && opacity > 0 && (a.watermark === 'TILED'
         ? <div className="wm-tiled" style={{ backgroundImage: `url("${wmUrl}")`, opacity }} />
         : <img className={cn('wm', a.watermark === 'CENTER' ? 'center' : 'corner')} src={wmUrl} alt="" style={{ opacity }} />)}
@@ -129,7 +161,9 @@ function Slide({ view, c, index, total }: {
         <>
           <div className="sec-head"><h2>{s.section.title || 'Untitled'}</h2><div className="rule" /></div>
           <div className={cn('sec-body', len > 900 ? 'tiny' : len > 500 && 'small')}>
-            {s.section.kind === 'fleet' ? (
+            {s.section.kind === 'roster' ? (
+              <>{s.section.body.trim() && <div className="roster-note"><Body text={s.section.body} /></div>}<RosterBlock groups={s.section.groups} roles={view.event.roles} /></>
+            ) : s.section.kind === 'fleet' ? (
               <>{s.section.body && <Body text={s.section.body} />}<FleetBlock ships={s.section.ships} /></>
             ) : s.section.kind === 'image' && s.section.imageUrl ? (
               <div className={cn('split', !s.section.body.trim() && 'full')}>
@@ -250,9 +284,32 @@ function ReadView({ view, c }: { view: BriefingViewDto; c: BriefingContent }) {
             </div>
           )}
           {s.kind === 'fleet' && <ReadFleet ships={s.ships} />}
+          {s.kind === 'roster' && <ReadRoster groups={s.groups} roles={view.event.roles} />}
         </section>
       ))}
     </article>
+  );
+}
+
+function ReadRoster({ groups, roles }: { groups: BriefingGroup[]; roles: BriefingViewDto['event']['roles'] }) {
+  if (!groups.length) return null;
+  return (
+    <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {groups.map((g) => {
+        const { people, slots } = groupPeople(g, roles);
+        return (
+          <li key={g.id} className="overflow-hidden rounded border border-border bg-black/20">
+            {g.imageUrl && <img src={g.imageUrl} alt="" referrerPolicy="no-referrer" className="h-28 w-full object-cover" />}
+            <div className="p-3 text-sm">
+              <div className="flex items-baseline justify-between gap-2"><b className="font-semibold">{g.title || 'Group'}</b>
+                <span className="shrink-0 text-xs text-muted-foreground">{slots ? `${people.length}/${slots}` : people.length ? `${people.length}` : ''}</span></div>
+              {g.note && <div className="text-xs text-[#e2bd5b]">{g.note}</div>}
+              <div className="mt-1.5 text-muted-foreground">{people.length ? people.join(' · ') : slots ? `${slots} open` : 'Open'}</div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -359,6 +416,90 @@ function ShipChooser({ guildId, eventId, ships, onChange }: {
   );
 }
 
+/** Roster groups (v1.37.0): a title, an event role and/or names, a picture. */
+function GroupsEditor({ guildId, roles, groups, onChange }: {
+  guildId: string; roles: BriefingViewDto['event']['roles']; groups: BriefingGroup[]; onChange: (groups: BriefingGroup[]) => void;
+}) {
+  const set = (id: string, patch: Partial<BriefingGroup>) => onChange(groups.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+  const move = (i: number, d: number) => {
+    const j = i + d;
+    if (j < 0 || j >= groups.length) return;
+    const n = [...groups]; [n[i], n[j]] = [n[j]!, n[i]!]; onChange(n);
+  };
+  const add = () => groups.length < BRIEFING_LIMITS.groups
+    && onChange([...groups, { id: newSectionId(), title: '', roleId: null, names: '', imageUrl: null, note: '' }]);
+  return (
+    <div className="space-y-3">
+      {!groups.length && <p className="text-sm text-muted-foreground">Add a group for each team (for example the Ironclad crew, miners, ground defence). They all share one slide.</p>}
+      {groups.map((g, i) => {
+        const { people, slots } = groupPeople(g, roles);
+        return (
+          <div key={g.id} className="rounded-md border border-border bg-black/20 p-3">
+            <div className="flex items-center gap-2">
+              <input className={cn(inputCls, 'font-semibold')} placeholder="Group name (e.g. Ironclad crew)" maxLength={BRIEFING_LIMITS.groupTitle}
+                value={g.title} onChange={(e) => set(g.id, { title: e.target.value })} aria-label="Group name" />
+              <button type="button" aria-label="Move left" disabled={i === 0} onClick={() => move(i, -1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
+              <button type="button" aria-label="Move right" disabled={i === groups.length - 1} onClick={() => move(i, 1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-4 w-4" /></button>
+              <button type="button" aria-label={`Remove ${g.title || 'group'}`} onClick={() => onChange(groups.filter((x) => x.id !== g.id))} className="p-1 text-muted-foreground hover:text-red-400"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
+              <GroupPicture guildId={guildId} value={g.imageUrl} onChange={(imageUrl) => set(g.id, { imageUrl })} />
+              <div className="space-y-2 text-sm">
+                <label className="block">People from a role
+                  <select className={cn(inputCls, 'mt-1')} value={g.roleId ?? ''} onChange={(e) => set(g.id, { roleId: e.target.value || null })}>
+                    <option value="">None (names below only)</option>
+                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.people.length}{r.count ? `/${r.count}` : ''} signed up)</option>)}
+                  </select>
+                </label>
+                <label className="block">Other names <span className="text-muted-foreground">(one per line)</span>
+                  <textarea className={cn(inputCls, 'mt-1 min-h-[64px]')} maxLength={BRIEFING_LIMITS.groupNames} value={g.names} onChange={(e) => set(g.id, { names: e.target.value })} />
+                </label>
+                <input className={inputCls} placeholder="Note (ship, lead…)" maxLength={BRIEFING_LIMITS.groupNote} value={g.note} onChange={(e) => set(g.id, { note: e.target.value })} aria-label="Note" />
+                <p className="text-xs text-muted-foreground">{people.length ? `${people.length}${slots ? ` of ${slots}` : ''}: ${people.join(', ')}` : 'Nobody yet.'}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {groups.length < BRIEFING_LIMITS.groups
+        ? <Button variant="outline" size="sm" onClick={add}><Plus className="mr-1 h-4 w-4" />Add a group</Button>
+        : <p className="text-xs text-muted-foreground">{BRIEFING_LIMITS.groups} groups is the most that fit on one slide.</p>}
+    </div>
+  );
+}
+
+/** A group's picture: upload / pick from the server's images, or a ship's picture (the ship list loads only when asked). */
+function GroupPicture({ guildId, value, onChange }: { guildId: string; value: string | null; onChange: (url: string | null) => void }) {
+  const [shipSearch, setShipSearch] = useState(false);
+  const [q, setQ] = useState('');
+  const allQ = useQuery({ queryKey: ['ships'], queryFn: fleetApi.ships, enabled: shipSearch, staleTime: 60 * 60_000 });
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = words.length ? (allQ.data ?? []).filter((e) => (e.imageUrl || e.thumbUrl) && words.every((w) => `${e.name} ${e.manufacturer}`.toLowerCase().includes(w))).slice(0, 8) : [];
+  return (
+    <div className="w-full space-y-2 sm:w-44">
+      <ServerImagePicker guildId={guildId} value={value} onChange={onChange} emptyLabel="No picture" />
+      <button type="button" className="text-xs text-[#e2bd5b] hover:underline" onClick={() => setShipSearch((o) => !o)}>{shipSearch ? 'Close ship search' : "Use a ship's picture"}</button>
+      {shipSearch && (
+        <div>
+          <input className={inputCls} placeholder="Ship name…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+          <ul className="mt-1 max-h-48 overflow-auto">
+            {allQ.isLoading && <li className="text-xs text-muted-foreground">Loading ships…</li>}
+            {hits.map((e) => (
+              <li key={e.id}>
+                <button type="button" onClick={() => { onChange(e.imageUrl ?? e.thumbUrl); setShipSearch(false); setQ(''); }}
+                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-secondary">
+                  <img src={e.thumbUrl ?? e.imageUrl ?? ''} alt="" referrerPolicy="no-referrer" className="h-6 w-10 shrink-0 rounded object-cover" />
+                  <span className="truncate">{e.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Editor ────────────────────────────────────────────────────────────────────
 
 const inputCls = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-brand focus:outline-none';
@@ -381,7 +522,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
   };
   const add = (kind: BriefingSection['kind']) => {
     if (c.sections.length >= BRIEFING_LIMITS.sections) return;
-    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : 'New section', body: '', imageUrl: null, ships: [] };
+    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : kind === 'roster' ? 'Teams' : 'New section', body: '', imageUrl: null, ships: [], groups: [], bgUrl: null, bgOpacity: 35 };
     setC({ ...c, sections: [...c.sections, s] });
     setSel(s.id);
   };
@@ -479,6 +620,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
                 <Button variant="ghost" size="sm" onClick={() => { setC({ ...c, sections: c.sections.filter((s) => s.id !== section.id) }); setSel('title'); }}><Trash2 className="mr-1 h-4 w-4" />Remove</Button>
               </div>
               {section.kind === 'fleet' && <ShipChooser guildId={guildId} eventId={view.event.id} ships={section.ships} onChange={(ships) => setSection({ ships })} />}
+              {section.kind === 'roster' && <GroupsEditor guildId={guildId} roles={view.event.roles} groups={section.groups} onChange={(groups) => setSection({ groups })} />}
               {section.kind === 'image' && (
                 <div>
                   <div className="mb-1 text-sm">Map or image</div>
@@ -488,7 +630,19 @@ function Editor({ guildId, view, c, setC, onPreview }: {
               <label className="block text-sm">{section.kind === 'text' ? 'Text' : 'Notes'} <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
                 <textarea className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={section.body} onChange={(e) => setSection({ body: e.target.value })} />
               </label>
-              {section.kind !== 'fleet' && !sectionHasContent(section) && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
+              <details className="rounded-md border border-border p-3 text-sm" open={!!section.bgUrl}>
+                <summary className="cursor-pointer select-none">Background picture <span className="text-muted-foreground">(optional, behind this slide)</span></summary>
+                <div className="mt-3 space-y-3">
+                  <ServerImagePicker guildId={guildId} value={section.bgUrl} onChange={(bgUrl) => setSection({ bgUrl })} emptyLabel="No background" />
+                  {section.bgUrl && (
+                    <label className="flex items-center gap-3">Opacity
+                      <input type="range" min={5} max={100} value={section.bgOpacity} onChange={(e) => setSection({ bgOpacity: Number(e.target.value) })} className="accent-[#b98a13]" />
+                      <span className="w-10 text-muted-foreground">{section.bgOpacity}%</span>
+                    </label>
+                  )}
+                </div>
+              </details>
+              {section.kind !== 'fleet' && section.kind !== 'roster' && !sectionHasContent(section) && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
             </div>
           )}
         </div>
