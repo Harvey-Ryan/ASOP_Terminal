@@ -297,7 +297,7 @@ function ShipChooser({ guildId, eventId, ships, onChange }: {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const match = (e: ShipCatalogEntry) => words.every((w) => `${e.name} ${e.manufacturer} ${e.focus ?? ''}`.toLowerCase().includes(w));
   const fleetRows = (fleetQ.data?.ships ?? []).filter((r) => r.total > 0 && match(r.ship)).sort((a, b) => (b.ship.maxCrew ?? 1) - (a.ship.maxCrew ?? 1) || a.ship.name.localeCompare(b.ship.name));
-  const anyRows = words.length ? (allQ.data ?? []).filter((e) => !e.retired && match(e)).slice(0, 30) : [];
+  const anyRows = words.length ? (allQ.data ?? []).filter(match).slice(0, 30) : [];
   const tab = (k: 'fleet' | 'any', label: string) => (
     <button type="button" onClick={() => setSource(source === k ? 'none' : k)}
       className={cn('rounded-md border px-3 py-1.5 text-sm', source === k ? 'border-[#b98a13] bg-[#b98a13]/15 text-[#e2bd5b]' : 'border-border text-muted-foreground hover:text-foreground')}>{label}</button>
