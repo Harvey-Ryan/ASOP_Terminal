@@ -239,6 +239,7 @@ export function BotSettingsPage() {
   const [viewerRoles, setViewerRoles] = useState<string[]>([]);
   const [rsiOrgTag, setRsiOrgTag] = useState<string | null>(null);
   const [statusChannelId, setStatusChannelId] = useState<string | null>(null);
+  const [starStringsChannelId, setStarStringsChannelId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -248,6 +249,7 @@ export function BotSettingsPage() {
       setViewerRoles(saved.viewerRoles ?? []);
       setRsiOrgTag(saved.rsiOrgTag ?? null);
       setStatusChannelId(saved.statusChannelId ?? null);
+      setStarStringsChannelId(saved.starStringsChannelId ?? null);
       setDirty(false);
     }
   }, [saved]);
@@ -281,7 +283,7 @@ export function BotSettingsPage() {
   const mutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId } as Partial<GuildSettingsData>),
+      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId, starStringsChannelId } as Partial<GuildSettingsData>),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
@@ -378,6 +380,32 @@ export function BotSettingsPage() {
             <p className="text-xs text-muted-foreground">
               The bot needs <span className="font-medium">View Channel</span>, <span className="font-medium">Send Messages</span> and{' '}
               <span className="font-medium">Embed Links</span> there. A read-only channel for members works best.
+            </p>
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* StarStrings updates (v1.35.0) */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">StarStrings Updates <span className="font-normal text-muted-foreground">(optional)</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                When MrKraken publishes a new LIVE build of StarStrings (community text fixes for Star Citizen,
+                updated every patch), the bot posts it here with the download link. The current build is posted
+                as soon as you choose a channel. Anyone can also use <span className="font-mono">/starstrings</span>.
+              </p>
+            </div>
+            <ChannelSelect
+              id="starstrings-channel"
+              channels={channels}
+              value={starStringsChannelId}
+              onChange={(v) => { setStarStringsChannelId(v); setDirty(true); setSavedFlash(false); }}
+              types={[0, 5]}
+            />
+            <p className="text-xs text-muted-foreground">
+              The bot needs <span className="font-medium">View Channel</span>, <span className="font-medium">Send Messages</span> and{' '}
+              <span className="font-medium">Embed Links</span> there. In an announcement channel, posts are also published
+              to servers that follow it.
             </p>
           </div>
 

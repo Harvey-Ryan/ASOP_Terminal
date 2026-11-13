@@ -22,6 +22,7 @@ import * as itemCommand from './commands/item.js';
 import * as whohasCommand from './commands/whohas.js';
 import * as blueprintCommand from './commands/blueprint.js';
 import * as wikeloCommand from './commands/wikelo.js';
+import * as starstringsCommand from './commands/starstrings.js';
 import * as materialCommand from './commands/material.js';
 import * as lootCommand from './commands/loot.js';
 import * as fleetCommand from './commands/fleet.js';
@@ -52,6 +53,7 @@ const commands = new Map<string, Command>([
   ['material', materialCommand],
   ['fleet', fleetCommand],
   ['wikelo', wikeloCommand],
+  ['starstrings', starstringsCommand],
   ['help', helpCommand],
   ['marketplace', marketplaceCommand],
 ]);

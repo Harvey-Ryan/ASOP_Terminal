@@ -11,6 +11,7 @@ import { invalidateStatusTargets, refreshStatusEmbeds } from './services/statusS
 import { adminFeedTick } from './services/adminFeedService.js';
 import { isWaitlistMoves, notifyWaitlistMoves } from './services/waitlistService.js';
 import { notifyJobTaken, syncJobMessages } from './services/jobService.js';
+import { announceStarStrings } from './services/starStringsService.js';
 import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
 
 const TOO_BIG = Symbol('too big');
@@ -54,6 +55,13 @@ export function startInternalServer() {
     if (req.url === '/trigger/admin-feed') {
       res.writeHead(202).end();
       await adminFeedTick();
+      return;
+    }
+
+    // A StarStrings channel was chosen on the website (v1.35.0): post the current build there.
+    if (req.url === '/trigger/starstrings') {
+      res.writeHead(202).end();
+      await announceStarStrings(true).catch((err) => console.error('[bot:internal] announceStarStrings failed:', err));
       return;
     }
 

@@ -94,6 +94,7 @@ The bot service does **not** need a public domain — it communicates with the A
 | `BOT_INTERNAL_SECRET` | Same value set in the API service |
 | `WEB_URL` | `https://<your-api-web-domain>` (dashboard links in all bot embeds — required) |
 | `API_URL` | `http://<api-web-service-name>.railway.internal:3001` (internal image fetching — required) |
+| `GITHUB_TOKEN` | Optional. A read-only token for checking StarStrings releases; without it the bot uses GitHub's public limit, which is plenty |
 
 > **Why both URL vars?** `WEB_URL` is used throughout the bot to build clickable dashboard links in Discord embeds (event cards, tournament announcements, etc.). `API_URL` is used to fetch event images from the API service at runtime. Without these, links resolve to `localhost` and image embeds fail in production.
 

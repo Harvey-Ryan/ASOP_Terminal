@@ -215,6 +215,7 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
         tournamentChannelId:        s?.tournamentChannelId         ?? null,
         h2hChannelId:               s?.h2hChannelId                ?? null,
         statusChannelId:            s?.statusChannelId             ?? null,
+        starStringsChannelId:            s?.starStringsChannelId             ?? null,
         allyNoticeChannelId:        s?.allyNoticeChannelId         ?? null,
         jobsEnabled:                s?.jobsEnabled                 ?? true,
         jobsChannelId:              s?.jobsChannelId               ?? null,

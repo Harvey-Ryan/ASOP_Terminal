@@ -157,6 +157,7 @@ export const ADMIN_SETTING_FIELDS: readonly AdminSettingField[] = [
   { key: 'h2hChannelId', label: 'Head-to-head results', group: 'Channels', type: 'channel' },
   { key: 'allyNoticeChannelId', label: 'Ally notices', group: 'Channels', type: 'channel' },
   { key: 'statusChannelId', label: 'ASOP status message', group: 'Channels', type: 'channel' },
+  { key: 'starStringsChannelId', label: 'StarStrings updates', group: 'Channels', type: 'channel', help: 'Optional. New LIVE builds of StarStrings are announced here.' },
   { key: 'jobsChannelId', label: 'Job board posts', group: 'Channels', type: 'channel', help: 'Optional. Jobs are always on the website.' },
 
   { key: 'timezone', label: 'Time zone', group: 'General', type: 'timezone' },

@@ -43,6 +43,7 @@ export interface GuildSettingsData {
   tournamentChannelId: string | null;
   h2hChannelId: string | null;
   statusChannelId: string | null;
+  starStringsChannelId: string | null;
   allyNoticeChannelId: string | null;
   jobsEnabled: boolean;
   jobsChannelId: string | null;
