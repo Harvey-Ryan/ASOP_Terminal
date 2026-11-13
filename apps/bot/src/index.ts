@@ -159,16 +159,10 @@ client.on(Events.GuildDelete, async (guild) => {
 
 client.on(Events.GuildMemberRemove, async (member) => {
   try {
-    await Promise.all([
-      prisma.inventoryEntry.updateMany({
-        where: { guildId: member.guild.id, userId: member.user.id },
-        data: { memberActive: false },
-      }),
-      prisma.fleetEntry.updateMany({
-        where: { guildId: member.guild.id, userId: member.user.id },
-        data: { memberActive: false },
-      }),
-    ]);
+    await prisma.inventoryEntry.updateMany({
+      where: { guildId: member.guild.id, userId: member.user.id },
+      data: { memberActive: false },
+    });
   } catch (err) {
     console.error('[bot] GuildMemberRemove update error:', err);
   }
@@ -176,16 +170,10 @@ client.on(Events.GuildMemberRemove, async (member) => {
 
 client.on(Events.GuildMemberAdd, async (member) => {
   try {
-    await Promise.all([
-      prisma.inventoryEntry.updateMany({
-        where: { guildId: member.guild.id, userId: member.user.id },
-        data: { memberActive: true },
-      }),
-      prisma.fleetEntry.updateMany({
-        where: { guildId: member.guild.id, userId: member.user.id },
-        data: { memberActive: true },
-      }),
-    ]);
+    await prisma.inventoryEntry.updateMany({
+      where: { guildId: member.guild.id, userId: member.user.id },
+      data: { memberActive: true },
+    });
   } catch (err) {
     console.error('[bot] GuildMemberAdd update error:', err);
   }

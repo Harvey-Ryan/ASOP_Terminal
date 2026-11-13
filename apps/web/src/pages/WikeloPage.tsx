@@ -109,8 +109,10 @@ function useMyChecklists() {
 
 // ── The list ──────────────────────────────────────────────────────────────────
 
-function MissionList({ missions, all, selectedId, onPick, query, setQuery, tab, setTab, mine }: {
+function MissionList({ missions, all, selectedId, picked, onPick, query, setQuery, tab, setTab, mine }: {
   missions: WikeloMission[];
+  /** Chosen by the person (in the URL), not just the first one shown beside the list */
+  picked: boolean;
   all: WikeloMission[];
   selectedId: string | null;
   onPick: (id: string) => void;
@@ -156,7 +158,7 @@ function MissionList({ missions, all, selectedId, onPick, query, setQuery, tab, 
             const n = p ? tickedCount(m, p.ticked) : 0;
             return (
               <li key={m.id}>
-                <button type="button" className="wk-item" aria-current={m.id === selectedId} onClick={() => onPick(m.id)}>
+                <button type="button" className="wk-item" aria-current={m.id === selectedId} data-picked={picked ? 'true' : undefined} onClick={() => onPick(m.id)}>
                   <span className="min-w-0 flex-1">
                     <span className="font-semibold">{m.title}</span>
                     {m.onceOnly && <span className="wk-once">once</span>}
@@ -320,7 +322,7 @@ export function WikeloPage() {
             </p>
             <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
               <div className={cn('min-w-0', selected && 'hidden lg:block')}>
-                <MissionList missions={shown} all={all} selectedId={showing?.id ?? null} onPick={pick} query={query} setQuery={setQuery} tab={tab} setTab={setTab} mine={byMission} />
+                <MissionList missions={shown} all={all} selectedId={showing?.id ?? null} picked={!!selected} onPick={pick} query={query} setQuery={setQuery} tab={tab} setTab={setTab} mine={byMission} />
               </div>
               <div className={cn('min-w-0', !selected && 'hidden lg:block')}>
                 {showing && (

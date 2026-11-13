@@ -30,7 +30,6 @@ model User {
   accounts           Account[]
   guildMembers       GuildMember[]
   templates          EventTemplate[]
-  fleetyardsLink     FleetyardsLink?
   notificationPrefs  UserNotificationPrefs?
   memberPins         MemberPin[]
 }
@@ -995,40 +994,6 @@ model FleetShip {
   @@index([shipId])
 }
 
-/// Before v1.32.0: one ship registration per member per server, from FleetYards.
-/// Converted to FleetOwner/FleetShip at start-up (lib/fleetMigration.ts) and no
-/// longer written; drop the model one release later.
-/// One ship registration per member per ship (uniqued on guildId + userId + shipSlug).
-/// Ship data is sourced live from FleetYards.net; slug, name, and manufacturer are
-/// denormalised here so the registry is self-contained without an external call.
-model FleetEntry {
-  id           String   @id @default(cuid())
-  guildId      String
-  /// Discord user snowflake
-  userId       String
-  /// Display name at last update
-  username     String
-  /// FleetYards slug, e.g. "orig-100i"
-  shipSlug     String
-  /// Denormalised ship display name
-  shipName     String
-  /// Denormalised manufacturer name
-  manufacturer String
-  /// How many of this ship the member owns
-  quantity     Int      @default(1)
-  /// Optional free-text notes (loadout, status, etc.)
-  notes        String?
-  /// False when member has left the guild; restored on rejoin
-  memberActive Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([guildId, userId, shipSlug])
-  @@index([guildId, shipSlug])
-  @@index([guildId, userId])
-  @@index([guildId, memberActive])
-}
-
 // ── Kanban Board ──────────────────────────────────────────────────────────────
 
 /// A column on the Development Milestones Kanban board.
@@ -1059,29 +1024,6 @@ model KanbanCard {
   column KanbanColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
 
   @@index([columnId, sortOrder])
-}
-
-/// FleetYards OAuth connection (before v1.32.0). No longer used: rows (tokens)
-/// are deleted at start-up by lib/fleetMigration.ts; drop the model one release later.
-/// FleetYards OAuth connection for a user — stores tokens for hangar import.
-/// One row per user (unique on userId). Deleted when the user disconnects.
-model FleetyardsLink {
-  id           String    @id @default(cuid())
-  /// FleetYards username (their canonical identifier)
-  fyUserId     String
-  fyUsername   String
-  accessToken  String
-  refreshToken String?
-  /// Unix timestamp seconds — when the access token expires
-  expiresAt    Int?
-  lastSyncAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([fyUserId])
 }
 
 /// Immutable audit log — one row per sync run (scheduled or manual).

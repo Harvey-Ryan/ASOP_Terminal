@@ -440,10 +440,8 @@ Patch Notes — v1.1.0 — November 10
   "Still flying these?" check-in at most every `FLEET_CHECK_DAYS`
   (`checkFleetNudges`, posting loop, hourly); `FleetOwner.nudges` turns it
   off (Notification Settings, or the DM's "Stop asking").
-- FleetYards linking is gone. `FleetEntry` (old per-server fleets) and
-  `FleetyardsLink` are converted / emptied at start-up by
-  `migrateOldFleets()` (`lib/fleetMigration.ts`); drop both models in the
-  next release.
+- FleetYards linking is gone. The old per-server `FleetEntry` and
+  `FleetyardsLink` tables were converted in v1.32.0 and dropped in v1.35.1.
 - Fleets for one event (v1.33.0): `GET /api/guilds/:guildId/fleet?eventId=`
   (the event must be the server's own or shared into it) and `/fleet search
   … event:` count the people signed up, allies included, never maybes, minus
