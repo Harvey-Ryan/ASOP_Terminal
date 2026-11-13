@@ -1,11 +1,13 @@
 // Admin → Overview (v1.13.0): is everything up, how many errors, what's going on.
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { adminApi } from '@/api/admin';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ADMIN, LoadFailed, Section, Stat, ago } from './adminUi';
+import { formatBytes } from '@/components/ImageUsage';
 
 export function AdminOverviewPage() {
   const q = useQuery({ queryKey: ['admin', 'overview'], queryFn: adminApi.overview, refetchInterval: 30_000 });
@@ -65,6 +67,8 @@ export function AdminOverviewPage() {
         <Stat label="People signed in, 7 days" value={o.activity.activeUsers7d} sub={`${o.activity.openLootSessions} loot sessions open`} />
       </div>
 
+      <StorageSection />
+
       {!o.feed.configured && (
         <p className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">
           The admin Discord feed isn't set up yet. <Link to={`${ADMIN}/feed`} className="text-primary underline">Choose a channel</Link> to get error alerts and a daily digest.
@@ -72,5 +76,61 @@ export function AdminOverviewPage() {
       )}
       <p className="text-xs text-muted-foreground">Live: v{o.release.version}{o.release.commit && ` (${o.release.commit})`}. Refreshes every 30 seconds.</p>
     </div>
+  );
+}
+
+/** Uploaded images on disk, per server (v1.40.0). */
+function StorageSection() {
+  const q = useQuery({ queryKey: ['admin', 'storage'], queryFn: adminApi.storage, refetchInterval: 5 * 60_000 });
+  const st = q.data;
+  const [showAll, setShowAll] = useState(false);
+  if (q.isError) return <Section title="Image storage"><p className="p-4 text-sm text-red-400">Couldn't read the uploads folder.</p></Section>;
+  if (!st) return <Skeleton className="h-40" />;
+  const shown = showAll ? st.servers : st.servers.slice(0, 10);
+  const disk = st.disk;
+  return (
+    <Section title="Image storage">
+      <div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
+        <Stat label="Images, all servers" value={formatBytes(st.totalBytes)} sub={`${st.files.toLocaleString()} files · ${st.servers.length} servers`} />
+        <Stat label="Disk" value={disk ? `${formatBytes(disk.freeBytes)} free` : 'Unknown'}
+          tone={disk && disk.freeBytes / disk.sizeBytes < 0.1 ? 'bad' : disk && disk.freeBytes / disk.sizeBytes < 0.25 ? 'warn' : undefined}
+          sub={disk ? `of ${formatBytes(disk.sizeBytes)} (the volume holding uploads)` : 'Can\'t read the disk size'} />
+        <Stat label="Per-server limit" value={formatBytes(st.capBytes)} sub="UPLOADS_SERVER_CAP_MB" />
+        <Stat label="Largest server" value={st.servers[0] ? formatBytes(st.servers[0].bytes) : '—'}
+          sub={st.servers[0] ? `${st.servers[0].name ?? st.servers[0].guildId} · ${Math.round((st.servers[0].bytes / st.capBytes) * 100)}% of its limit` : undefined} />
+      </div>
+      {st.servers.length > 0 && (
+        <div className="overflow-x-auto border-t">
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr><th className="px-4 py-2 font-medium">Server</th><th className="px-4 py-2 text-right font-medium">Files</th><th className="px-4 py-2 text-right font-medium">Size</th><th className="px-4 py-2 font-medium">Of its limit</th></tr>
+            </thead>
+            <tbody>
+              {shown.map((s) => {
+                const share = s.bytes / st.capBytes;
+                return (
+                  <tr key={s.guildId} className="border-t">
+                    <td className="px-4 py-2"><Link to={`${ADMIN}/servers/${s.guildId}`} className="hover:text-primary hover:underline">{s.name ?? <span className="font-mono text-xs">{s.guildId}</span>}</Link></td>
+                    <td className="px-4 py-2 text-right tabular-nums">{s.files}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{formatBytes(s.bytes)}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted"><div className={cn('h-full', share >= 0.9 ? 'bg-red-500' : share >= 0.75 ? 'bg-amber-500' : 'bg-primary')} style={{ width: `${Math.min(100, share * 100)}%` }} /></div>
+                        <span className="text-xs text-muted-foreground tabular-nums">{Math.round(share * 100)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {st.servers.length > 10 && (
+            <button type="button" className="w-full border-t px-4 py-2 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? 'Show the top 10' : `Show all ${st.servers.length} servers`}
+            </button>
+          )}
+        </div>
+      )}
+    </Section>
   );
 }

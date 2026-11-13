@@ -5,15 +5,14 @@ import fs from 'node:fs';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
-import type { ApiResponse, ServerImageDto } from '@dem/shared';
+import type { ApiResponse, ServerImageDto, ImageUsageDto } from '@dem/shared';
+import {
+  guildUploadDir, guildUsage, optimiseUpload, serverCapBytes, forgetStorageReport, ImageRejected, UPLOAD_MAX_INPUT_BYTES,
+} from '../../lib/uploads.js';
 
 export const imagesRouter = Router();
 
-const UPLOADS_BASE = process.env['UPLOADS_DIR'] ?? path.resolve('uploads');
-
-function guildUploadDir(guildId: string): string {
-  return path.join(UPLOADS_BASE, guildId);
-}
+const mb = (b: number) => `${(b / 1024 / 1024).toFixed(b < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 
 function toDto(img: { id: string; guildId: string; filename: string; url: string; sortOrder: number; createdAt: Date }): ServerImageDto {
   return { id: img.id, guildId: img.guildId, filename: img.filename, url: img.url, sortOrder: img.sortOrder, createdAt: img.createdAt.toISOString() };
@@ -33,7 +32,7 @@ function uploadsFor(guildId: string) {
 
   return multer({
     storage,
-    limits: { fileSize: 8 * 1024 * 1024 },
+    limits: { fileSize: UPLOAD_MAX_INPUT_BYTES },
     fileFilter: (_req, file, cb) => {
       if (file.mimetype.startsWith('image/')) cb(null, true);
       else cb(new Error('Only image files are allowed'));
@@ -60,6 +59,19 @@ imagesRouter.get('/:guildId/images', requireAuth, async (req, res) => {
   res.json({ success: true, data: images.map(toDto) } satisfies ApiResponse<ServerImageDto[]>);
 });
 
+// ── GET /api/guilds/:guildId/images/usage ─────────────────────────────────────
+// How much of the server's image space is used (v1.40.0).
+
+imagesRouter.get('/:guildId/images/usage', requireAuth, async (req, res) => {
+  const { guildId } = req.params as { guildId: string };
+  if (!(await assertEventCreator(req, guildId))) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  const used = await guildUsage(guildId);
+  res.json({ success: true, data: { bytes: used.bytes, files: used.files, capBytes: serverCapBytes() } } satisfies ApiResponse<ImageUsageDto>);
+});
+
 // ── POST /api/guilds/:guildId/images ──────────────────────────────────────────
 
 imagesRouter.post('/:guildId/images', requireAuth, (req, res, next) => {
@@ -74,7 +86,9 @@ imagesRouter.post('/:guildId/images', requireAuth, (req, res, next) => {
     const upload = uploadsFor(guildId);
     upload.single('image')(req, res, async (err) => {
       if (err) {
-        const message = err instanceof multer.MulterError ? err.message : 'Upload failed';
+        const message = err instanceof multer.MulterError
+          ? (err.code === 'LIMIT_FILE_SIZE' ? `That file is too big (the most is ${mb(UPLOAD_MAX_INPUT_BYTES)}).` : err.message)
+          : err instanceof Error && err.message === 'Only image files are allowed' ? err.message : 'Upload failed';
         res.status(400).json({ success: false, error: message } satisfies ApiResponse);
         return;
       }
@@ -82,6 +96,28 @@ imagesRouter.post('/:guildId/images', requireAuth, (req, res, next) => {
       const file = req.file;
       if (!file) {
         res.status(400).json({ success: false, error: 'No file uploaded' } satisfies ApiResponse);
+        return;
+      }
+
+      // Shrink and re-encode it, then check the server's cap (v1.40.0).
+      let saved: Awaited<ReturnType<typeof optimiseUpload>>;
+      try {
+        saved = await optimiseUpload(file.path);
+      } catch (e) {
+        if (e instanceof ImageRejected) { res.status(400).json({ success: false, error: e.message } satisfies ApiResponse); return; }
+        console.error('[images] upload:', e);
+        res.status(500).json({ success: false, error: 'Upload failed' } satisfies ApiResponse);
+        return;
+      }
+      forgetStorageReport();
+      const cap = serverCapBytes();
+      const used = await guildUsage(guildId);
+      if (used.bytes > cap) {
+        fs.unlink(path.join(guildUploadDir(guildId), saved.filename), () => {});
+        res.status(413).json({
+          success: false,
+          error: `This server's image library is full (${mb(used.bytes - saved.bytes)} of ${mb(cap)} used). Delete some images to make room.`,
+        } satisfies ApiResponse);
         return;
       }
 
@@ -93,9 +129,9 @@ imagesRouter.post('/:guildId/images', requireAuth, (req, res, next) => {
       });
       const sortOrder = (maxRow?.sortOrder ?? -1) + 1;
 
-      const url = `/uploads/${guildId}/${file.filename}`;
+      const url = `/uploads/${guildId}/${saved.filename}`;
       const image = await prisma.serverImage.create({
-        data: { guildId, filename: file.filename, url, sortOrder },
+        data: { guildId, filename: saved.filename, url, sortOrder },
       });
 
       res.status(201).json({ success: true, data: toDto(image) } satisfies ApiResponse<ServerImageDto>);
@@ -123,6 +159,7 @@ imagesRouter.delete('/:guildId/images/:imageId', requireAuth, async (req, res) =
 
   const filePath = path.join(guildUploadDir(guildId), image.filename);
   fs.unlink(filePath, () => { /* ignore if already gone */ });
+  forgetStorageReport();
 
   res.json({ success: true } satisfies ApiResponse);
 });

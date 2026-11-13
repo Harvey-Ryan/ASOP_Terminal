@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ImagePlus, X } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { cn } from '@/lib/utils';
+import { ImageUsage } from '@/components/ImageUsage';
 
 export function ServerImagePicker({ guildId, value, onChange, emptyLabel = 'None' }: {
   guildId: string;
@@ -60,6 +61,7 @@ export function ServerImagePicker({ guildId, value, onChange, emptyLabel = 'None
             ))}
           </div>
           {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+          <ImageUsage guildId={guildId} className="mt-2" />
           <input ref={file} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }} />
         </div>
       )}

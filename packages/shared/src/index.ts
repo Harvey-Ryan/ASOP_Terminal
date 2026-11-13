@@ -432,6 +432,13 @@ export interface ServerImageDto {
   createdAt: string;
 }
 
+/** How much of a server's image space is used (v1.40.0) */
+export interface ImageUsageDto {
+  bytes: number;
+  files: number;
+  capBytes: number;
+}
+
 
 // ── Snake draft my-pick ───────────────────────────────────────────────────────
 

@@ -27,6 +27,7 @@ import {
   type AdminGuildDto,
   type AdminLogDto,
   type AdminOverviewDto,
+  type AdminStorageDto,
   type ApiResponse,
   type ErrorDetailDto,
   type ErrorEventDto,
@@ -53,6 +54,7 @@ import { applySettingsPatch, parseSettingsPatch } from '../../lib/guildSettings.
 import { cachedDiscordGet } from '../../lib/discordRest.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { requestLoggingOn } from '../../lib/requestLogger.js';
+import { storageReport } from '../../lib/uploads.js';
 import type { ErrorEvent, Prisma } from '@prisma/client';
 
 export const adminRouter = Router();
@@ -192,6 +194,17 @@ adminRouter.get('/overview', async (_req, res) => {
     errorsByHour,
     feed: { configured: !!config?.feedChannelId, alertsEnabled: config?.alertsEnabled ?? true, digestEnabled: config?.digestEnabled ?? true },
   });
+});
+
+// ── Image storage (v1.40.0) ──────────────────────────────────────────────────
+
+adminRouter.get('/storage', async (_req, res) => {
+  try {
+    ok<AdminStorageDto>(res, await storageReport());
+  } catch (err) {
+    console.error('[admin] storage:', err);
+    res.status(500).json({ success: false, error: 'Could not read the uploads folder' });
+  }
 });
 
 // ── Errors ──────────────────────────────────────────────────────────────────
