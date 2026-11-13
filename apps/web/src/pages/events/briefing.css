@@ -77,9 +77,10 @@
 .brf-slide .more { margin-top: 12px; color: var(--m); font-size: 15px; }
 
 /* roster slide (v1.37.0) */
-.brf-slide.is-roster .sec-head { top: 112px; gap: 10px; }
-.brf-slide.is-roster .sec-head h2 { font-size: 44px; }
-.brf-slide.is-roster .sec-body { top: 196px; bottom: 64px; display: flex; flex-direction: column; gap: 12px; font-size: 18px; }
+.brf-slide.is-compact .sec-head { top: 112px; gap: 10px; }
+.brf-slide.is-compact .sec-head h2 { font-size: 44px; }
+.brf-slide.is-compact .sec-body { top: 196px; bottom: 64px; }
+.brf-slide.is-roster .sec-body { display: flex; flex-direction: column; gap: 12px; font-size: 18px; }
 .brf-slide .roster-note p, .brf-slide .roster-note li { margin-bottom: 4px; }
 .brf-slide .roster { flex: 1; min-height: 0; display: grid; grid-auto-rows: minmax(0, 1fr); gap: 14px; }
 .brf-slide .grp { display: flex; flex-direction: column; min-height: 0; overflow: hidden; border: 1px solid #333; border-top: 2px solid var(--g); border-radius: 8px; background: rgba(24, 24, 24, 0.9); }
@@ -97,6 +98,18 @@
 .brf-slide .grp li.more, .brf-slide .grp li.open { color: var(--m); font-style: italic; }
 .brf-slide .grp li.more::before, .brf-slide .grp li.open::before { display: none; }
 .brf-slide .roster.two .grp ul { font-size: 14px; margin-top: 4px; }
+
+/* image slide with two pictures (v1.39.0): picture | text, then text | picture */
+.brf-slide .rows { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 18px; height: 100%; }
+.brf-slide .irow { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 100%; gap: 32px; min-height: 0; }
+.brf-slide .irow.right { grid-template-columns: minmax(0, 1fr) auto; }
+.brf-slide .irow.solo { grid-template-columns: minmax(0, 1fr); }
+.brf-slide .irow img { width: auto; height: auto; max-width: 720px; max-height: 100%; min-height: 0; justify-self: start; align-self: center; border-radius: 6px; border: 1px solid #333; }
+.brf-slide .irow.right img { justify-self: end; }
+.brf-slide .irow.right .txt { justify-self: end; text-align: left; }
+.brf-slide .irow.solo img { max-width: 100%; }
+.brf-slide .irow .txt { min-height: 0; overflow: hidden; align-self: center; font-size: 19px; line-height: 1.45; }
+.brf-slide .irow .txt.small { font-size: 16px; }
 
 /* present mode */
 .brf-present { position: fixed; inset: 0; z-index: 2147483000; background: #050505; display: flex; align-items: center; justify-content: center; }

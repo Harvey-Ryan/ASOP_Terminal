@@ -1,7 +1,7 @@
 // v1.36.0: mission briefings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeBriefing, parseBriefing, defaultBriefing, briefingSlides, bodyBlocks, briefingSummary, safeImageUrl, forceTotals, groupPeople, briefingRoles, BRIEFING_LIMITS } from '../dist/index.js';
+import { sanitizeBriefing, parseBriefing, defaultBriefing, briefingSlides, bodyBlocks, briefingSummary, safeImageUrl, forceTotals, groupPeople, briefingRoles, imageRows, BRIEFING_LIMITS } from '../dist/index.js';
 
 test('a new briefing has the usual sections, all empty and so not shown', () => {
   const d = defaultBriefing();
@@ -84,4 +84,20 @@ test('roster sections: groups are cleaned, people come from the role plus typed 
   assert.deepEqual(groupPeople({ ...r.groups[0], roleId: null, names: '' }, roles), { people: [], slots: null });
   assert.equal(groupPeople({ ...r.groups[0], names: 'a\nb\nc\nd' }, roles).slots, null);
   assert.deepEqual(briefingRoles('not json', []), []);
+});
+
+test('image sections: a second picture and text, on the other side', () => {
+  const c = sanitizeBriefing({ sections: [
+    { id: 'a', kind: 'image', title: 'Map', imageUrl: '/uploads/g/a.png', body: 'Left text', imageUrl2: 'https://x/b.png', body2: 'Right text' },
+    { id: 'b', kind: 'image', title: 'Only 2nd', imageUrl2: 'http://bad', body2: 'Just text' },
+    { id: 'c', kind: 'text', title: 'T', body: 'x', imageUrl2: '/uploads/g/c.png', body2: 'no' },
+  ] });
+  const [a, b, t] = c.sections;
+  assert.deepEqual(imageRows(a).map((r) => [r.imageUrl, r.body, r.side]), [['/uploads/g/a.png', 'Left text', 'left'], ['https://x/b.png', 'Right text', 'right']]);
+  assert.equal(b.imageUrl2, null);
+  assert.deepEqual(imageRows(b).map((r) => r.side), ['right']);
+  assert.equal(t.imageUrl2, null);
+  assert.equal(t.body2, '');
+  assert.deepEqual(imageRows(t), []);
+  assert.equal(briefingSlides(c).length, 4);
 });
