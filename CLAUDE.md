@@ -507,6 +507,12 @@ Patch Notes — v1.1.0 — November 10
   asks (`ShipChooser`: the signed-up fleets via
   `GET /guilds/:guildId/fleet?eventId=`, or any ship from `/ships`). Readers
   never load the fleet.
+- Roster sections (v1.37.0): up to 8 groups on one slide
+  (`BriefingSection.groups`), each with a title, an event role (`roleId`;
+  the view's `event.roles`, built by `briefingRoles`, lists each role's
+  sign-ups, never maybes), typed names, a note and a picture (an upload, or a
+  ship's RSI picture). `groupPeople` merges the two lists. Any section can
+  have a background picture (`bgUrl`, `bgOpacity`).
 - Logos: `GuildSettings.logoUrl` (Bot Settings → Org Logo, picked from the
   server's image library, `components/ServerImagePicker.tsx`); a briefing can
   use its own, and shows accepting allies' logos on joint ops.

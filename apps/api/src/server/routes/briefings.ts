@@ -10,7 +10,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import {
-  briefingSummary, parseBriefing, sanitizeBriefing, serverLabel,
+  briefingRoles, briefingSummary, parseBriefing, sanitizeBriefing, serverLabel,
   type ApiResponse, type BriefingDto, type BriefingLogo, type BriefingViewDto,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
@@ -78,7 +78,7 @@ briefingsRouter.get('/:guildId/events/:eventId/briefing', requireAuth, async (re
       where: { id: eventId },
       select: {
         id: true, name: true, startTime: true, endTime: true, musterPoint: true, guildId: true,
-        rsvps: { select: { tentative: true } }, briefing: true,
+        roles: true, rsvps: { select: { tentative: true, role: true, username: true }, orderBy: { id: 'asc' } }, briefing: true,
       },
     });
     if (!event) { fail(res, 404, 'Event not found'); return; }
@@ -89,6 +89,7 @@ briefingsRouter.get('/:guildId/events/:eventId/briefing', requireAuth, async (re
         id: event.id, name: event.name, startTime: event.startTime.toISOString(), endTime: event.endTime?.toISOString() ?? null,
         musterPoint: event.musterPoint, hostGuildId: event.guildId,
         signedUp: event.rsvps.filter((r) => !r.tentative).length, maybe: event.rsvps.filter((r) => r.tentative).length,
+        roles: briefingRoles(event.roles, event.rsvps),
       },
       briefing: b,
       logos: await logosFor(event.id, event.guildId),
