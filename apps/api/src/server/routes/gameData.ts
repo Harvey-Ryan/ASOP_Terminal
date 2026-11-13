@@ -1,5 +1,5 @@
 // Status of the sc-data worker (our copy of the Star Citizen game data) and
-// "Sync now" requests. The worker owns the scdata / scdata_raw schemas; the API
+// "Sync now" requests (plus "Check now" and cancelling a queued re-sync, v1.38.0). The worker owns the scdata / scdata_raw schemas; the API
 // only reads its status and drops a row into scdata_raw.sync_request.
 
 import { Router } from 'express';
@@ -15,6 +15,7 @@ import { prisma } from '../../lib/prisma.js';
 import { getCraftingPayload } from '../../lib/craftingData.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { getPlatformAdmin } from '../../lib/platformAdmin.js';
+import { checkUpstreamNow, type GameDataCheckResult } from '../../lib/gameDataCheck.js';
 
 export const gameDataRouter = Router();
 
@@ -100,5 +101,49 @@ gameDataRouter.post('/game-data/sync', requireAuth, async (req, res) => {
     }
     console.error('[game-data/sync]', err);
     res.status(500).json({ success: false, error: 'Could not queue the sync' } satisfies ApiResponse);
+  }
+});
+
+// ── POST /api/game-data/check ─────────────────────────────────────────────────
+// Platform admins only (v1.38.0). Asks GitHub now whether there's newer game
+// data than we hold. Downloads and writes nothing: new data is synced by the
+// worker's next scheduled run.
+
+gameDataRouter.post('/game-data/check', requireAuth, async (req, res) => {
+  const admin = await getPlatformAdmin(req.session.userId);
+  if (!admin) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  try {
+    const result = await checkUpstreamNow();
+    res.json({ success: true, data: result } satisfies ApiResponse<GameDataCheckResult>);
+  } catch (err) {
+    if (isGameDataMissingError(err)) {
+      res.status(409).json({ success: false, error: 'The game data worker has not run yet. Set up the sc-data service first.' } satisfies ApiResponse);
+      return;
+    }
+    console.error('[game-data/check]', err);
+    res.status(502).json({ success: false, error: 'Could not reach GitHub to check. Try again in a minute.' } satisfies ApiResponse);
+  }
+});
+
+// ── DELETE /api/game-data/sync ────────────────────────────────────────────────
+// Platform admins only (v1.38.0). Cancels a queued full re-sync that hasn't
+// started yet.
+
+gameDataRouter.delete('/game-data/sync', requireAuth, async (req, res) => {
+  const admin = await getPlatformAdmin(req.session.userId);
+  if (!admin) {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
+  }
+  try {
+    await prisma.$executeRawUnsafe('DELETE FROM scdata_raw.sync_request WHERE handled_at IS NULL');
+    const status = await readGameDataStatus();
+    res.json({ success: true, data: { ...status, canRequestSync: true } } satisfies ApiResponse<GameDataStatusResponse>);
+  } catch (err) {
+    console.error('[game-data/sync] cancel:', err);
+    res.status(500).json({ success: false, error: 'Could not cancel the re-sync' } satisfies ApiResponse);
   }
 });

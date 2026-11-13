@@ -11,7 +11,10 @@ Railway runs it on the cron schedule set in the service's dashboard settings
 we don't own, so it can't send us a webhook; a run where nothing changed is one
 tiny request. The web status card and the Discord status embed work out the
 schedule from the gaps between recent runs, so changing it needs no code change.
-A "Sync now" request is picked up by the next scheduled run.
+"Check now" (SC Database page, platform admins) asks GitHub straight away
+whether there's newer data, without downloading anything (`apps/api/src/lib/gameDataCheck.ts`);
+a "Full re-sync" request (`scdata_raw.sync_request`, cancellable until it
+starts) is picked up by the next scheduled run.
 
 1. Applies its own schema migrations (`src/migrations.ts`).
 2. Picks up any "Sync now" request from the web app (`scdata_raw.sync_request`);

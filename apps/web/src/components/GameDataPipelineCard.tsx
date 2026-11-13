@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { gameDataApi } from '@/api/gameData';
 import { ApiError } from '@/api/client';
@@ -34,10 +34,19 @@ export function GameDataPipelineCard() {
     mutationFn: gameDataApi.requestSync,
     onSuccess: (data) => queryClient.setQueryData(['game-data-status'], data),
   });
+  const cancel = useMutation({
+    meta: { quietErrors: true },
+    mutationFn: gameDataApi.cancelSync,
+    onSuccess: (data) => queryClient.setQueryData(['game-data-status'], data),
+  });
+  const check = useMutation({ meta: { quietErrors: true }, mutationFn: gameDataApi.check });
 
   const s = status.data;
   if (status.isLoading || !s) return null;
   const h = HEALTH[s.health];
+  const nextCheck = s.lastCheckAt && s.checkIntervalMin
+    ? new Date(new Date(s.lastCheckAt).getTime() + s.checkIntervalMin * 60_000).toLocaleString()
+    : null;
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -52,16 +61,20 @@ export function GameDataPipelineCard() {
           </p>
         </div>
         {s.canRequestSync && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => sync.mutate()}
-            disabled={sync.isPending || !!s.pendingRequest || !!s.running}
-            title="Re-check every file now, even if upstream hasn't changed"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${s.running ? 'animate-spin' : ''}`} />
-            {s.running ? 'Syncing…' : s.pendingRequest ? 'Sync queued' : 'Sync now'}
-          </Button>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => check.mutate()} disabled={check.isPending || !!s.running}
+              title="Ask GitHub now whether there's newer game data. Downloads nothing.">
+              <Search className={`h-3.5 w-3.5 mr-1.5 ${check.isPending ? 'animate-pulse' : ''}`} />
+              {s.running ? 'Syncing…' : check.isPending ? 'Checking…' : 'Check now'}
+            </Button>
+            {!s.running && !s.pendingRequest && (
+              <button type="button" className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                onClick={() => sync.mutate()} disabled={sync.isPending}
+                title="Re-check every file at the next scheduled run, even if upstream hasn't changed">
+                <RefreshCw className="mr-1 inline h-3 w-3" />Full re-sync
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -90,19 +103,31 @@ export function GameDataPipelineCard() {
         )}
       </dl>
 
+      {check.data && (
+        <p className={`text-xs ${check.data.upToDate ? 'text-green-500' : 'text-amber-500'}`}>
+          {check.data.upToDate
+            ? `Checked GitHub at ${new Date(check.data.checkedAt).toLocaleTimeString()}: nothing newer than what we hold.`
+            : `New data on GitHub${check.data.upstreamBuild ? `: ${check.data.upstreamBuild}` : ''}${check.data.upstreamCommittedAt ? `, published ${when(check.data.upstreamCommittedAt)}` : ''}. It will be synced at the next scheduled check${nextCheck ? ` (around ${nextCheck})` : ''}.`}
+        </p>
+      )}
       {s.pendingRequest && (
         <p className="text-xs text-muted-foreground">
-          Full re-sync requested{ s.pendingRequest.requestedBy ? ` by ${s.pendingRequest.requestedBy}` : ''}; it runs at the next scheduled check{s.lastCheckAt && s.checkIntervalMin ? ` (around ${new Date(new Date(s.lastCheckAt).getTime() + s.checkIntervalMin * 60_000).toLocaleString()})` : ''}.
+          Full re-sync requested{ s.pendingRequest.requestedBy ? ` by ${s.pendingRequest.requestedBy}` : ''}; it runs at the next scheduled check{nextCheck ? ` (around ${nextCheck})` : ''}.
+          {s.canRequestSync && (
+            <button type="button" className="ml-2 text-[#e2bd5b] hover:underline" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
+              {cancel.isPending ? 'Cancelling…' : 'Cancel'}
+            </button>
+          )}
         </p>
       )}
       {s.health === 'failed' && s.lastRun?.error && (
         <p className="text-xs text-red-400 break-words">Last error: {s.lastRun.error}</p>
       )}
-      {sync.isError && (
-        <p className="text-xs text-red-400">
-          {sync.error instanceof ApiError ? sync.error.message : 'Could not queue the sync.'}
+      {[sync, cancel, check].map((m, i) => m.isError && (
+        <p key={i} className="text-xs text-red-400">
+          {m.error instanceof ApiError ? m.error.message : ['Could not queue the sync.', 'Could not cancel the re-sync.', 'Could not check GitHub.'][i]}
         </p>
-      )}
+      ))}
     </div>
   );
 }
