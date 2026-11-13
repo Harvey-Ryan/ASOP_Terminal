@@ -142,7 +142,9 @@ it to every service from this repo and it overrides the settings below.
    ≈ 790 MB to the database (have ≈ 2 GB free).
 6. **Settings → Deploy**: Cron Schedule (e.g. daily `0 9 * * *`; anything from
    every 5 minutes up works, and a run with nothing new costs one request),
-   Restart Policy **Never**. "Sync now" waits for the next scheduled run.
+   Restart Policy **Never**. "Check now" on the SC Database page asks GitHub
+   straight away (it downloads nothing); new data, and a "Full re-sync", wait
+   for the next scheduled run.
 
 If a deployment of `sc-data` ever shows `[bot]`, `[gamedata]` or
 `Prisma schema loaded`, it's building the main app's Dockerfile: remove the
