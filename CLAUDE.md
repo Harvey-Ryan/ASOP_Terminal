@@ -519,6 +519,9 @@ Patch Notes — v1.1.0 — November 10
   sign-ups, never maybes), typed names, a note and a picture (an upload, or a
   ship's RSI picture). `groupPeople` merges the two lists. Any section can
   have a background picture (`bgUrl`, `bgOpacity`).
+- Image sections (v1.39.0) can have a second picture with its own text
+  (`imageUrl2`, `body2`): the slide shows picture | text, then text | picture
+  (`imageRows`). With one picture the old split layout stays.
 - Logos: `GuildSettings.logoUrl` (Bot Settings → Org Logo, picked from the
   server's image library, `components/ServerImagePicker.tsx`); a briefing can
   use its own, and shows accepting allies' logos on joint ops.

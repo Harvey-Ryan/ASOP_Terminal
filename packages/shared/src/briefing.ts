@@ -18,6 +18,9 @@ export interface BriefingSection {
   body: string;
   /** An image (map, screenshot) for image sections */
   imageUrl: string | null;
+  /** Image sections (v1.39.0): a second picture with its own text, on the other side */
+  imageUrl2: string | null;
+  body2: string;
   /** Ships the organisers picked, for ship sections (v1.36.1). Nothing is filled in for them. */
   ships: BriefingShip[];
   /** Role groups, for roster sections (v1.37.0): several rosters on one slide. */
@@ -142,7 +145,7 @@ export const newSectionId = () => `s${Date.now().toString(36)}${(seq++).toString
 
 /** A fresh briefing: the usual sections, empty. Empty sections are left out of the slides. */
 export function defaultBriefing(): BriefingContent {
-  const s = (title: string, kind: BriefingSectionKind = 'text'): BriefingSection => ({ id: newSectionId(), kind, title, body: '', imageUrl: null, ships: [], groups: [], bgUrl: null, bgOpacity: 35 });
+  const s = (title: string, kind: BriefingSectionKind = 'text'): BriefingSection => ({ id: newSectionId(), kind, title, body: '', imageUrl: null, imageUrl2: null, body2: '', ships: [], groups: [], bgUrl: null, bgOpacity: 35 });
   return {
     objective: '',
     facts: [{ label: 'Form up', value: '' }, { label: 'Comms', value: '' }],
@@ -242,6 +245,8 @@ export function sanitizeBriefing(input: unknown): BriefingContent {
       title: oneLine(s['title'], BRIEFING_LIMITS.sectionTitle),
       body: str(s['body'], BRIEFING_LIMITS.sectionBody),
       imageUrl: kind === 'image' ? safeImageUrl(s['imageUrl']) : null,
+      imageUrl2: kind === 'image' ? safeImageUrl(s['imageUrl2']) : null,
+      body2: kind === 'image' ? str(s['body2'], BRIEFING_LIMITS.sectionBody) : '',
       ships: kind === 'fleet' ? sanitizeShips(s['ships']) : [],
       groups: kind === 'roster' ? sanitizeGroups(s['groups']) : [],
       bgUrl: safeImageUrl(s['bgUrl']),
@@ -277,9 +282,22 @@ export function parseBriefing(raw: string | null | undefined): BriefingContent {
   }
 }
 
+/**
+ * The picture-and-text rows of an image section (v1.39.0): the first with the
+ * picture on the left, the second (if any) with it on the right. Rows with
+ * neither picture nor text are left out.
+ */
+export function imageRows(s: BriefingSection): { imageUrl: string | null; body: string; side: 'left' | 'right' }[] {
+  if (s.kind !== 'image') return [];
+  return [
+    { imageUrl: s.imageUrl, body: s.body, side: 'left' as const },
+    { imageUrl: s.imageUrl2, body: s.body2, side: 'right' as const },
+  ].filter((r) => r.imageUrl || r.body.trim());
+}
+
 /** A section with nothing in it isn't shown (a ship section until someone picks ships or writes something). */
 export const sectionHasContent = (s: BriefingSection) =>
-  !!s.body.trim() || (s.kind === 'image' && !!s.imageUrl) || (s.kind === 'fleet' && s.ships.length > 0) || (s.kind === 'roster' && s.groups.length > 0);
+  !!s.body.trim() || (s.kind === 'image' && (!!s.imageUrl || !!s.imageUrl2 || !!s.body2.trim())) || (s.kind === 'fleet' && s.ships.length > 0) || (s.kind === 'roster' && s.groups.length > 0);
 
 /** The slides, in order: the title slide, then each section with something in it. */
 export function briefingSlides(c: BriefingContent): ({ kind: 'title' } | { kind: 'section'; section: BriefingSection })[] {

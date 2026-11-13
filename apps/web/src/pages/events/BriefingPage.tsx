@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, MonitorPlay, Pencil, Plus, Printer, Save, Trash2, X } from 'lucide-react';
 import {
-  bodyBlocks, briefingSlides, forceTotals, groupPeople, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
+  bodyBlocks, briefingSlides, forceTotals, groupPeople, imageRows, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
   type BriefingContent, type BriefingGroup, type BriefingShip, type ShipCatalogEntry, type BriefingLogo, type BriefingSection, type BriefingViewDto,
 } from '@dem/shared';
 import { briefingsApi, type PastBriefing } from '@/api/briefings';
@@ -127,9 +127,12 @@ function Slide({ view, c, index, total }: {
   const logoSide = a.logoPosition === 'TOP_RIGHT' ? 'right' : 'left';
   const allies = view.logos.slice(1).map((l) => l.tag ?? l.name);
   const len = s.kind === 'section' ? s.section.body.length : 0;
+  const isRoster = s.kind === 'section' && s.section.kind === 'roster';
+  const rows = s.kind === 'section' ? imageRows(s.section) : [];
+  const twoRows = rows.length === 2;
 
   return (
-    <div className={cn('brf-slide', s.kind === 'section' && s.section.kind === 'roster' && 'is-roster')}>
+    <div className={cn('brf-slide', isRoster && 'is-roster is-compact', twoRows && 'is-compact')}>
       {s.kind === 'section' && s.section.bgUrl && s.section.bgOpacity > 0 && (
         <img className="bgimg" src={s.section.bgUrl} alt="" style={{ opacity: s.section.bgOpacity / 100 }} />
       )}
@@ -165,6 +168,16 @@ function Slide({ view, c, index, total }: {
               <>{s.section.body.trim() && <div className="roster-note"><Body text={s.section.body} /></div>}<RosterBlock groups={s.section.groups} roles={view.event.roles} /></>
             ) : s.section.kind === 'fleet' ? (
               <>{s.section.body && <Body text={s.section.body} />}<FleetBlock ships={s.section.ships} /></>
+            ) : s.section.kind === 'image' && (twoRows || rows.some((r) => r.side === 'right')) ? (
+              <div className="rows" style={twoRows ? undefined : { gridTemplateRows: 'minmax(0, 1fr)' }}>
+                {rows.map((r) => (
+                  <div key={r.side} className={cn('irow', r.side, (!r.imageUrl || !r.body.trim()) && 'solo')}>
+                    {r.side === 'left' && r.imageUrl && <img src={r.imageUrl} alt="" />}
+                    {r.body.trim() && <div className={cn('txt', r.body.length > 280 && 'small')}><Body text={r.body} /></div>}
+                    {r.side === 'right' && r.imageUrl && <img src={r.imageUrl} alt="" />}
+                  </div>
+                ))}
+              </div>
             ) : s.section.kind === 'image' && s.section.imageUrl ? (
               <div className={cn('split', !s.section.body.trim() && 'full')}>
                 <img src={s.section.imageUrl} alt="" />
@@ -277,8 +290,16 @@ function ReadView({ view, c }: { view: BriefingViewDto; c: BriefingContent }) {
         <section key={s.id} className="rounded-lg border border-border bg-card p-5">
           <h3 className="font-condensed text-xl font-bold uppercase tracking-wide text-foreground">{s.title || 'Untitled'}</h3>
           <div className="mt-1 h-[2px] w-12 bg-brand" />
-          {s.kind === 'image' && s.imageUrl && <img src={s.imageUrl} alt="" className="mt-3 max-h-[480px] w-full rounded border border-border object-contain bg-black/40" />}
-          {s.body.trim() && (
+          {s.kind === 'image' ? imageRows(s).map((r) => (
+            <div key={r.side} className="mt-3 grid gap-4 md:grid-cols-2 md:items-center">
+              {r.imageUrl && <img src={r.imageUrl} alt="" className={cn('max-h-[420px] w-full rounded border border-border object-contain bg-black/40', r.side === 'right' && 'md:order-2', !r.body.trim() && 'md:col-span-2')} />}
+              {r.body.trim() && (
+                <div className={cn('space-y-2 text-sm leading-relaxed text-foreground/90 [&_li]:ml-5 [&_li]:list-disc', !r.imageUrl && 'md:col-span-2')}>
+                  <Body text={r.body} />
+                </div>
+              )}
+            </div>
+          )) : s.body.trim() && (
             <div className="mt-3 space-y-2 text-sm leading-relaxed text-foreground/90 [&_li]:ml-5 [&_li]:list-disc">
               <Body text={s.body} />
             </div>
@@ -523,7 +544,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
   };
   const add = (kind: BriefingSection['kind']) => {
     if (c.sections.length >= BRIEFING_LIMITS.sections) return;
-    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : kind === 'roster' ? 'Teams' : 'New section', body: '', imageUrl: null, ships: [], groups: [], bgUrl: null, bgOpacity: 35 };
+    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : kind === 'roster' ? 'Teams' : 'New section', body: '', imageUrl: null, imageUrl2: null, body2: '', ships: [], groups: [], bgUrl: null, bgOpacity: 35 };
     setC({ ...c, sections: [...c.sections, s] });
     setSel(s.id);
   };
@@ -634,15 +655,31 @@ function Editor({ guildId, view, c, setC, onPreview }: {
               </div>
               {section.kind === 'fleet' && <ShipChooser guildId={guildId} eventId={view.event.id} ships={section.ships} onChange={(ships) => setSection({ ships })} />}
               {section.kind === 'roster' && <GroupsEditor guildId={guildId} roles={view.event.roles} groups={section.groups} onChange={(groups) => setSection({ groups })} />}
-              {section.kind === 'image' && (
-                <div>
-                  <div className="mb-1 text-sm">Map or image</div>
-                  <ServerImagePicker guildId={guildId} value={section.imageUrl} onChange={(imageUrl) => setSection({ imageUrl })} emptyLabel="Remove image" />
-                </div>
+              {section.kind === 'image' ? (
+                <>
+                  {([1, 2] as const).map((n) => {
+                    const url = n === 1 ? section.imageUrl : section.imageUrl2;
+                    const body = n === 1 ? section.body : section.body2;
+                    return (
+                      <div key={n} className="rounded-md border border-border p-3">
+                        <div className="mb-2 text-sm font-medium">{n === 1 ? 'Picture 1 (left), text on the right' : 'Picture 2 (right), text on the left'}
+                          {n === 2 && <span className="font-normal text-muted-foreground"> (optional: adds a second row)</span>}</div>
+                        <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
+                          <ServerImagePicker guildId={guildId} value={url} onChange={(v) => setSection(n === 1 ? { imageUrl: v } : { imageUrl2: v })} emptyLabel="Remove image" />
+                          <label className="block text-sm">Text <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
+                            <textarea className={cn(inputCls, 'mt-1 min-h-[120px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={body}
+                              onChange={(e) => setSection(n === 1 ? { body: e.target.value } : { body2: e.target.value })} />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <label className="block text-sm">{section.kind === 'text' ? 'Text' : 'Notes'} <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
+                  <textarea className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={section.body} onChange={(e) => setSection({ body: e.target.value })} />
+                </label>
               )}
-              <label className="block text-sm">{section.kind === 'text' ? 'Text' : 'Notes'} <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
-                <textarea className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={section.body} onChange={(e) => setSection({ body: e.target.value })} />
-              </label>
               {section.kind !== 'fleet' && section.kind !== 'roster' && !sectionHasContent(section) && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
             </div>
           )}
