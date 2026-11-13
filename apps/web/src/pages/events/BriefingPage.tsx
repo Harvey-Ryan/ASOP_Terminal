@@ -6,8 +6,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, MonitorPlay, Pencil, Plus, Printer, Save, Trash2, X } from 'lucide-react';
 import {
-  bodyBlocks, briefingSlides, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
-  type BriefingContent, type BriefingLogo, type BriefingSection, type BriefingViewDto, type GuildFleetDto,
+  bodyBlocks, briefingSlides, forceTotals, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
+  type BriefingContent, type BriefingShip, type ShipCatalogEntry, type BriefingLogo, type BriefingSection, type BriefingViewDto,
 } from '@dem/shared';
 import { briefingsApi, type PastBriefing } from '@/api/briefings';
 import { fleetApi } from '@/api/fleet';
@@ -45,36 +45,30 @@ function shownLogos(c: BriefingContent, logos: BriefingLogo[]): { key: string; u
   return [first, ...allies].filter((l) => l.url || l.label);
 }
 
-function FleetBlock({ fleet, error }: { fleet: GuildFleetDto | undefined; error: boolean }) {
-  if (error) return <p className="more">The fleet isn't available here (the Fleet module may be off, or you can't see this server's fleet).</p>;
-  if (!fleet) return <p className="more">Loading the fleet…</p>;
-  const ships = fleet.ships.filter((s) => s.total > 0);
-  if (!ships.length) return <p className="more">Nobody signed up has added ships to their fleet yet.</p>;
-  const names = new Map(fleet.owners.map((o) => [o.discordId, o.name]));
-  const count = ships.reduce((n, s) => n + s.total, 0);
-  const seats = ships.reduce((n, s) => n + (s.ship.maxCrew ?? s.ship.minCrew ?? 1) * s.total, 0);
-  const cargo = ships.reduce((n, s) => n + (s.ship.cargo ?? 0) * s.total, 0);
-  const owners = new Set(ships.flatMap((s) => s.owners.map((o) => o.discordId))).size;
-  const sorted = [...ships].sort((a, b) => (b.ship.maxCrew ?? 1) - (a.ship.maxCrew ?? 1) || b.total - a.total);
-  const shown = sorted.slice(0, 9);
+function shipCrew(s: BriefingShip) {
+  return s.crew ? `Crew ${s.crew}` : '';
+}
+
+/** A ship section on a slide: only the ships the organisers picked. */
+function FleetBlock({ ships }: { ships: BriefingShip[] }) {
+  if (!ships.length) return null;
+  const t = forceTotals(ships);
+  const shown = ships.slice(0, 9);
   return (
     <>
       <div className="sum">
-        <div>Ships &amp; vehicles<b>{count}</b></div>
-        <div>Pilots bringing ships<b>{owners}</b></div>
-        <div>Crew seats<b>{seats}</b></div>
-        {cargo > 0 && <div>Cargo<b>{cargo.toLocaleString()} SCU</b></div>}
+        <div>Ships &amp; vehicles<b>{t.ships}</b></div>
+        <div>Crew seats<b>{t.seats}</b></div>
       </div>
       <div className="ships">
         {shown.map((s) => (
-          <div key={s.ship.id} className="ship">
-            <div className="hd"><b>{s.ship.name}{s.total > 1 ? ` ×${s.total}` : ''}</b><span>{s.ship.focus ?? s.ship.type ?? ''}</span></div>
-            <div className="own">{s.owners.map((o) => names.get(o.discordId) ?? 'Member').join(' · ')}</div>
-            <div className="crew">{s.ship.maxCrew ? `Crew ${s.ship.minCrew && s.ship.minCrew !== s.ship.maxCrew ? `${s.ship.minCrew}–` : ''}${s.ship.maxCrew}` : ''}{s.ship.cargo ? `${s.ship.maxCrew ? ' · ' : ''}${s.ship.cargo.toLocaleString()} SCU` : ''}</div>
+          <div key={s.shipId} className="ship">
+            <div className="hd"><b>{s.name}{s.count > 1 ? ` ×${s.count}` : ''}</b><span>{shipCrew(s)}</span></div>
+            {(s.note || s.focus) && <div className="own">{s.note || s.focus}</div>}
           </div>
         ))}
       </div>
-      {sorted.length > shown.length && <p className="more">+ {sorted.length - shown.length} more kinds of ship on the Fleet page</p>}
+      {ships.length > shown.length && <p className="more">+ {ships.length - shown.length} more on the briefing page</p>}
     </>
   );
 }
@@ -89,13 +83,11 @@ function Body({ text }: { text: string }) {
   );
 }
 
-function Slide({ view, c, index, total, fleet, fleetError }: {
+function Slide({ view, c, index, total }: {
   view: BriefingViewDto;
   c: BriefingContent;
   index: number;
   total: number;
-  fleet?: GuildFleetDto;
-  fleetError?: boolean;
 }) {
   const slides = briefingSlides(c);
   const s = slides[index] ?? slides[0]!;
@@ -138,7 +130,7 @@ function Slide({ view, c, index, total, fleet, fleetError }: {
           <div className="sec-head"><h2>{s.section.title || 'Untitled'}</h2><div className="rule" /></div>
           <div className={cn('sec-body', len > 900 ? 'tiny' : len > 500 && 'small')}>
             {s.section.kind === 'fleet' ? (
-              <>{s.section.body && <Body text={s.section.body} />}<FleetBlock fleet={fleet} error={!!fleetError} /></>
+              <>{s.section.body && <Body text={s.section.body} />}<FleetBlock ships={s.section.ships} /></>
             ) : s.section.kind === 'image' && s.section.imageUrl ? (
               <div className={cn('split', !s.section.body.trim() && 'full')}>
                 <img src={s.section.imageUrl} alt="" />
@@ -177,8 +169,8 @@ function ScaledSlide(props: Parameters<typeof Slide>[0] & { className?: string }
 
 // ── Present mode ──────────────────────────────────────────────────────────────
 
-function Present({ view, c, start, onClose, fleet, fleetError }: {
-  view: BriefingViewDto; c: BriefingContent; start: number; onClose: (at: number) => void; fleet?: GuildFleetDto; fleetError?: boolean;
+function Present({ view, c, start, onClose }: {
+  view: BriefingViewDto; c: BriefingContent; start: number; onClose: (at: number) => void;
 }) {
   const total = briefingSlides(c).length;
   const [i, setI] = useState(Math.min(start, total - 1));
@@ -211,7 +203,7 @@ function Present({ view, c, start, onClose, fleet, fleetError }: {
     <div ref={ref} className="brf-present" role="dialog" aria-label={`Briefing slides: ${view.event.name}`} tabIndex={-1}>
       <div className="stage" style={{ width: W * scale, height: H * scale }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: W, height: H }}>
-          <Slide view={view} c={c} index={i} total={total} fleet={fleet} fleetError={fleetError} />
+          <Slide view={view} c={c} index={i} total={total} />
         </div>
       </div>
       <button type="button" className="nav prev" aria-label="Previous slide" onClick={() => go(-1)} />
@@ -228,7 +220,7 @@ function Present({ view, c, start, onClose, fleet, fleetError }: {
 
 // ── Read mode ─────────────────────────────────────────────────────────────────
 
-function ReadView({ view, c, fleet, fleetError }: { view: BriefingViewDto; c: BriefingContent; fleet?: GuildFleetDto; fleetError?: boolean }) {
+function ReadView({ view, c }: { view: BriefingViewDto; c: BriefingContent }) {
   const sections = briefingSlides(c).flatMap((s) => (s.kind === 'section' ? [s.section] : []));
   const logos = shownLogos(c, view.logos);
   return (
@@ -257,28 +249,113 @@ function ReadView({ view, c, fleet, fleetError }: { view: BriefingViewDto; c: Br
               <Body text={s.body} />
             </div>
           )}
-          {s.kind === 'fleet' && <ReadFleet fleet={fleet} error={!!fleetError} />}
+          {s.kind === 'fleet' && <ReadFleet ships={s.ships} />}
         </section>
       ))}
     </article>
   );
 }
 
-function ReadFleet({ fleet, error }: { fleet?: GuildFleetDto; error: boolean }) {
-  if (error) return <p className="mt-3 text-sm text-muted-foreground">The fleet isn't available here.</p>;
-  if (!fleet) return <p className="mt-3 text-sm text-muted-foreground">Loading the fleet…</p>;
-  const ships = fleet.ships.filter((s) => s.total > 0).sort((a, b) => (b.ship.maxCrew ?? 1) - (a.ship.maxCrew ?? 1));
-  if (!ships.length) return <p className="mt-3 text-sm text-muted-foreground">Nobody signed up has added ships to their fleet yet.</p>;
-  const names = new Map(fleet.owners.map((o) => [o.discordId, o.name]));
+function ReadFleet({ ships }: { ships: BriefingShip[] }) {
+  if (!ships.length) return null;
+  const t = forceTotals(ships);
   return (
-    <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-      {ships.map((s) => (
-        <li key={s.ship.id} className="rounded border border-border bg-black/20 px-3 py-2 text-sm">
-          <div className="flex justify-between gap-2"><b className="font-semibold">{s.ship.name}{s.total > 1 ? ` ×${s.total}` : ''}</b><span className="text-xs text-muted-foreground">{s.ship.maxCrew ? `Crew ${s.ship.maxCrew}` : ''}</span></div>
-          <div className="truncate text-xs text-muted-foreground">{s.owners.map((o) => names.get(o.discordId) ?? 'Member').join(' · ')}</div>
-        </li>
-      ))}
-    </ul>
+    <div className="mt-3 space-y-2">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{t.ships} ship{t.ships === 1 ? '' : 's'} · {t.seats} crew seats</p>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {ships.map((s) => (
+          <li key={s.shipId} className="rounded border border-border bg-black/20 px-3 py-2 text-sm">
+            <div className="flex justify-between gap-2"><b className="truncate font-semibold">{s.name}{s.count > 1 ? ` ×${s.count}` : ''}</b><span className="shrink-0 text-xs text-muted-foreground">{shipCrew(s)}</span></div>
+            {(s.note || s.focus) && <div className="truncate text-xs text-muted-foreground">{s.note || s.focus}</div>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Picking ships for a ship section. Nothing is loaded until the organiser
+ * asks: the signed-up fleets (allies included, never maybes) or the whole
+ * ship list.
+ */
+function ShipChooser({ guildId, eventId, ships, onChange }: {
+  guildId: string; eventId: string; ships: BriefingShip[]; onChange: (ships: BriefingShip[]) => void;
+}) {
+  const [source, setSource] = useState<'none' | 'fleet' | 'any'>('none');
+  const [q, setQ] = useState('');
+  const fleetQ = useQuery({ queryKey: ['fleet', guildId, eventId], queryFn: () => fleetApi.guild(guildId, eventId), enabled: source === 'fleet', retry: false, staleTime: 60_000 });
+  const allQ = useQuery({ queryKey: ['ships'], queryFn: fleetApi.ships, enabled: source === 'any', staleTime: 60 * 60_000 });
+  const picked = new Map(ships.map((s) => [s.shipId, s]));
+  const set = (shipId: string, patch: Partial<BriefingShip>) => onChange(ships.map((s) => (s.shipId === shipId ? { ...s, ...patch } : s)));
+  const add = (e: ShipCatalogEntry) => {
+    const have = picked.get(e.id);
+    if (have) return set(e.id, { count: Math.min(BRIEFING_LIMITS.shipCount, have.count + 1) });
+    if (ships.length >= BRIEFING_LIMITS.ships) return;
+    onChange([...ships, { shipId: e.id, name: e.name, count: 1, crew: e.maxCrew ?? e.minCrew ?? null, focus: e.focus ?? e.type ?? null, note: '' }]);
+  };
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const match = (e: ShipCatalogEntry) => words.every((w) => `${e.name} ${e.manufacturer} ${e.focus ?? ''}`.toLowerCase().includes(w));
+  const fleetRows = (fleetQ.data?.ships ?? []).filter((r) => r.total > 0 && match(r.ship)).sort((a, b) => (b.ship.maxCrew ?? 1) - (a.ship.maxCrew ?? 1) || a.ship.name.localeCompare(b.ship.name));
+  const anyRows = words.length ? (allQ.data ?? []).filter(match).slice(0, 30) : [];
+  const tab = (k: 'fleet' | 'any', label: string) => (
+    <button type="button" onClick={() => setSource(source === k ? 'none' : k)}
+      className={cn('rounded-md border px-3 py-1.5 text-sm', source === k ? 'border-[#b98a13] bg-[#b98a13]/15 text-[#e2bd5b]' : 'border-border text-muted-foreground hover:text-foreground')}>{label}</button>
+  );
+
+  return (
+    <div className="space-y-3">
+      {ships.length > 0 ? (
+        <ul className="space-y-2">
+          {ships.map((s, i) => (
+            <li key={s.shipId} className="flex flex-wrap items-center gap-2 rounded border border-border bg-black/20 px-3 py-2 text-sm">
+              <div className="min-w-0 flex-1"><b className="font-semibold">{s.name}</b> <span className="text-xs text-muted-foreground">{shipCrew(s)}</span></div>
+              <label className="flex items-center gap-1 text-xs text-muted-foreground">×
+                <input type="number" min={1} max={BRIEFING_LIMITS.shipCount} value={s.count} aria-label={`How many ${s.name}`}
+                  onChange={(e) => set(s.shipId, { count: Math.max(1, Math.min(BRIEFING_LIMITS.shipCount, Number(e.target.value) || 1)) })}
+                  className="w-14 rounded border border-border bg-background px-2 py-1 text-sm text-foreground" />
+              </label>
+              <input placeholder="Note (lead, role…)" maxLength={BRIEFING_LIMITS.shipNote} value={s.note} onChange={(e) => set(s.shipId, { note: e.target.value })}
+                className="w-full rounded border border-border bg-background px-2 py-1 text-sm sm:w-48" aria-label={`Note for ${s.name}`} />
+              <div className="flex">
+                <button type="button" aria-label="Move up" disabled={i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  onClick={() => { const n = [...ships]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; onChange(n); }}><ArrowUp className="h-4 w-4" /></button>
+                <button type="button" aria-label={`Remove ${s.name}`} className="p-1 text-muted-foreground hover:text-red-400"
+                  onClick={() => onChange(ships.filter((x) => x.shipId !== s.shipId))}><X className="h-4 w-4" /></button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-sm text-muted-foreground">No ships picked yet. This section isn't shown until you pick some (or write something).</p>}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm">Add ships:</span>
+        {tab('fleet', 'From the signed-up fleets')}
+        {tab('any', 'Any ship')}
+      </div>
+
+      {source !== 'none' && (
+        <div className="rounded-md border border-border p-3">
+          <input className={inputCls} placeholder={source === 'fleet' ? 'Filter…' : 'Search ships…'} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+          <ul className="mt-2 max-h-72 space-y-1 overflow-auto">
+            {source === 'fleet' && fleetQ.isError && <li className="text-sm text-muted-foreground">The fleet isn't available here (the Fleet module may be off).</li>}
+            {source === 'fleet' && fleetQ.isLoading && <li className="text-sm text-muted-foreground">Loading the fleet…</li>}
+            {source === 'fleet' && fleetQ.data && !fleetRows.length && <li className="text-sm text-muted-foreground">{q ? 'No match.' : "Nobody signed up has added ships to their fleet yet."}</li>}
+            {source === 'any' && !words.length && <li className="text-sm text-muted-foreground">Type a ship's name.</li>}
+            {(source === 'fleet' ? fleetRows.map((r) => ({ e: r.ship, extra: `${r.total} available · ${r.owners.length} ${r.owners.length === 1 ? 'owner' : 'owners'}` })) : anyRows.map((e) => ({ e, extra: e.manufacturer })))
+              .map(({ e, extra }) => (
+                <li key={e.id}>
+                  <button type="button" onClick={() => add(e)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-secondary">
+                    <Plus className="h-4 w-4 shrink-0 text-[#e2bd5b]" />
+                    <span className="min-w-0 flex-1 truncate">{e.name}{picked.has(e.id) ? <span className="ml-2 text-xs text-[#e2bd5b]">×{picked.get(e.id)!.count} picked</span> : null}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{e.maxCrew ? `Crew ${e.maxCrew} · ` : ''}{extra}</span>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -304,7 +381,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
   };
   const add = (kind: BriefingSection['kind']) => {
     if (c.sections.length >= BRIEFING_LIMITS.sections) return;
-    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : 'New section', body: '', imageUrl: null };
+    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : 'New section', body: '', imageUrl: null, ships: [] };
     setC({ ...c, sections: [...c.sections, s] });
     setSel(s.id);
   };
@@ -325,7 +402,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
         <div className="my-2 border-t border-border" />
         {c.sections.map((s, i) => (
           <div key={s.id} className="group flex items-center">
-            <div className="min-w-0 flex-1">{item(s.id, s.title || 'Untitled', <span className={cn('ml-auto h-1.5 w-1.5 shrink-0 rounded-full', s.kind === 'fleet' || s.body.trim() || s.imageUrl ? 'bg-brand' : 'bg-border')} />)}</div>
+            <div className="min-w-0 flex-1">{item(s.id, s.title || 'Untitled', <span className={cn('ml-auto h-1.5 w-1.5 shrink-0 rounded-full', sectionHasContent(s) ? 'bg-brand' : 'bg-border')} />)}</div>
             <div className="flex shrink-0 flex-col opacity-40 group-hover:opacity-100">
               <button type="button" aria-label={`Move ${s.title} up`} disabled={i === 0} onClick={() => move(s.id, -1)} className="p-0.5 disabled:opacity-20"><ArrowUp className="h-3 w-3" /></button>
               <button type="button" aria-label={`Move ${s.title} down`} disabled={i === c.sections.length - 1} onClick={() => move(s.id, 1)} className="p-0.5 disabled:opacity-20"><ArrowDown className="h-3 w-3" /></button>
@@ -401,7 +478,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
                 <input className={cn(inputCls, 'font-condensed text-lg font-bold uppercase tracking-wide')} maxLength={BRIEFING_LIMITS.sectionTitle} value={section.title} onChange={(e) => setSection({ title: e.target.value })} aria-label="Section title" />
                 <Button variant="ghost" size="sm" onClick={() => { setC({ ...c, sections: c.sections.filter((s) => s.id !== section.id) }); setSel('title'); }}><Trash2 className="mr-1 h-4 w-4" />Remove</Button>
               </div>
-              {section.kind === 'fleet' && <p className="text-xs text-muted-foreground">Fills itself from the fleets of the people signed up (allies included, never maybes). Add notes below if you like.</p>}
+              {section.kind === 'fleet' && <ShipChooser guildId={guildId} eventId={view.event.id} ships={section.ships} onChange={(ships) => setSection({ ships })} />}
               {section.kind === 'image' && (
                 <div>
                   <div className="mb-1 text-sm">Map or image</div>
@@ -411,7 +488,7 @@ function Editor({ guildId, view, c, setC, onPreview }: {
               <label className="block text-sm">{section.kind === 'text' ? 'Text' : 'Notes'} <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
                 <textarea className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={section.body} onChange={(e) => setSection({ body: e.target.value })} />
               </label>
-              {section.kind !== 'fleet' && !section.body.trim() && !section.imageUrl && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
+              {section.kind !== 'fleet' && !sectionHasContent(section) && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
             </div>
           )}
         </div>
@@ -487,14 +564,6 @@ export function BriefingPage() {
   }, [view, dirty]);
 
   const content = editing ? draft : view?.briefing?.content ?? null;
-  const hasFleet = !!content?.sections.some((s) => s.kind === 'fleet');
-  const fleetQ = useQuery({
-    queryKey: ['fleet', guildId, eventId],
-    queryFn: () => fleetApi.guild(guildId, eventId),
-    enabled: hasFleet,
-    retry: false,
-    staleTime: 60_000,
-  });
 
   const save = useMutation({
     mutationFn: (c: BriefingContent) => briefingsApi.save(guildId, eventId, c),
@@ -582,7 +651,7 @@ export function BriefingPage() {
           )}
         </>
       ) : content ? (
-        <ReadView view={view} c={content} fleet={fleetQ.data} fleetError={fleetQ.isError} />
+        <ReadView view={view} c={content} />
       ) : (
         <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
           {view.canEdit ? 'No briefing yet.' : 'There\'s no briefing for this event yet.'}
@@ -590,12 +659,12 @@ export function BriefingPage() {
       )}
 
       {presenting && content && (
-        <Present view={view} c={content} start={Number(params.get('present')) || 0} onClose={stopPresenting} fleet={fleetQ.data} fleetError={fleetQ.isError} />
+        <Present view={view} c={content} start={Number(params.get('present')) || 0} onClose={stopPresenting} />
       )}
       {content && (
         <div className="brf-print" aria-hidden="true">
           {briefingSlides(content).map((_, i) => (
-            <Slide key={i} view={view} c={content} index={i} total={slidesTotal} fleet={fleetQ.data} fleetError={fleetQ.isError} />
+            <Slide key={i} view={view} c={content} index={i} total={slidesTotal} />
           ))}
         </div>
       )}

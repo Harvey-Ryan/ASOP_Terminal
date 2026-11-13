@@ -2,6 +2,7 @@
 // creators, shown as a page and as slides (present mode). The whole briefing
 // is one JSON document (EventBriefing.content), checked here on the way in.
 
+
 export type BriefingSectionKind = 'text' | 'image' | 'fleet';
 export type BriefingLogoPosition = 'TOP_LEFT' | 'TOP_RIGHT';
 export type BriefingWatermark = 'CORNER' | 'CENTER' | 'TILED' | 'NONE';
@@ -14,6 +15,19 @@ export interface BriefingSection {
   body: string;
   /** An image (map, screenshot) for image sections */
   imageUrl: string | null;
+  /** Ships the organisers picked, for ship sections (v1.36.1). Nothing is filled in for them. */
+  ships: BriefingShip[];
+}
+
+/** A ship picked for the op: a copy of its name and crew, so readers needn't load the fleet. */
+export interface BriefingShip {
+  shipId: string;
+  name: string;
+  count: number;
+  crew: number | null;
+  focus: string | null;
+  /** "Lead: …", "Medevac", … */
+  note: string;
 }
 
 export interface BriefingFact { label: string; value: string }
@@ -76,12 +90,16 @@ export const BRIEFING_LIMITS = {
   sectionBody: 3000,
   banner: 24,
   url: 1000,
+  ships: 40,
+  shipCount: 99,
+  shipName: 60,
+  shipNote: 60,
 } as const;
 
 export const BRIEFING_SECTION_KINDS: { kind: BriefingSectionKind; label: string }[] = [
   { kind: 'text', label: 'Text' },
   { kind: 'image', label: 'Map or image' },
-  { kind: 'fleet', label: 'Fleet (ships signed up)' },
+  { kind: 'fleet', label: 'Ships (picked by you)' },
 ];
 
 let seq = 0;
@@ -90,7 +108,7 @@ export const newSectionId = () => `s${Date.now().toString(36)}${(seq++).toString
 
 /** A fresh briefing: the usual sections, empty. Empty sections are left out of the slides. */
 export function defaultBriefing(): BriefingContent {
-  const s = (title: string, kind: BriefingSectionKind = 'text'): BriefingSection => ({ id: newSectionId(), kind, title, body: '', imageUrl: null });
+  const s = (title: string, kind: BriefingSectionKind = 'text'): BriefingSection => ({ id: newSectionId(), kind, title, body: '', imageUrl: null, ships: [] });
   return {
     objective: '',
     facts: [{ label: 'Form up', value: '' }, { label: 'Comms', value: '' }],
@@ -108,6 +126,27 @@ export function safeImageUrl(v: unknown): string | null {
   if (!u || u.length > BRIEFING_LIMITS.url) return null;
   if (u.startsWith('/uploads/') && !u.includes('..')) return u;
   return /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : null;
+}
+
+function sanitizeShips(v: unknown): BriefingShip[] {
+  const out: BriefingShip[] = [];
+  for (const raw of Array.isArray(v) ? v : []) {
+    if (out.length >= BRIEFING_LIMITS.ships) break;
+    const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const shipId = oneLine(r['shipId'], 80);
+    const name = oneLine(r['name'], BRIEFING_LIMITS.shipName);
+    if (!shipId || !name || out.some((x) => x.shipId === shipId)) continue;
+    const n = (x: unknown, max: number) => (Number.isFinite(Number(x)) && Number(x) >= 1 ? Math.min(max, Math.round(Number(x))) : null);
+    out.push({
+      shipId,
+      name,
+      count: n(r['count'], BRIEFING_LIMITS.shipCount) ?? 1,
+      crew: n(r['crew'], 999),
+      focus: oneLine(r['focus'], BRIEFING_LIMITS.shipName) || null,
+      note: oneLine(r['note'], BRIEFING_LIMITS.shipNote),
+    });
+  }
+  return out;
 }
 
 /** Anything sent by a browser → a valid briefing (unknown fields dropped, lengths capped). */
@@ -128,6 +167,7 @@ export function sanitizeBriefing(input: unknown): BriefingContent {
       title: oneLine(s['title'], BRIEFING_LIMITS.sectionTitle),
       body: str(s['body'], BRIEFING_LIMITS.sectionBody),
       imageUrl: kind === 'image' ? safeImageUrl(s['imageUrl']) : null,
+      ships: kind === 'fleet' ? sanitizeShips(s['ships']) : [],
     };
   });
   const facts = (Array.isArray(o['facts']) ? o['facts'] : []).slice(0, BRIEFING_LIMITS.facts).map((raw) => {
@@ -159,9 +199,9 @@ export function parseBriefing(raw: string | null | undefined): BriefingContent {
   }
 }
 
-/** A section with nothing in it isn't shown (the fleet section always is: it fills itself). */
+/** A section with nothing in it isn't shown (a ship section until someone picks ships or writes something). */
 export const sectionHasContent = (s: BriefingSection) =>
-  s.kind === 'fleet' || !!s.body.trim() || (s.kind === 'image' && !!s.imageUrl);
+  !!s.body.trim() || (s.kind === 'image' && !!s.imageUrl) || (s.kind === 'fleet' && s.ships.length > 0);
 
 /** The slides, in order: the title slide, then each section with something in it. */
 export function briefingSlides(c: BriefingContent): ({ kind: 'title' } | { kind: 'section'; section: BriefingSection })[] {
@@ -190,4 +230,12 @@ export function bodyBlocks(body: string): ({ kind: 'p'; text: string } | { kind:
 export function briefingSummary(c: BriefingContent): string {
   const objective = c.objective.replace(/\s+/g, ' ').trim();
   return objective.length > 300 ? `${objective.slice(0, 299)}…` : objective;
+}
+
+/** Totals for a ship section: hulls and crew seats. */
+export function forceTotals(ships: BriefingShip[]): { ships: number; seats: number } {
+  return {
+    ships: ships.reduce((n, s) => n + s.count, 0),
+    seats: ships.reduce((n, s) => n + (s.crew ?? 1) * s.count, 0),
+  };
 }
