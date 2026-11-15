@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roleSignupProblem, waitlistProblem, planWaitlistMoves, findRole } from '../dist/index.js';
+import { roleSignupProblem, waitlistProblem, planWaitlistMoves, findRole, canRunEventFromDiscord } from '../dist/index.js';
 
 const roles = [
   { id: 'pilot', name: 'Pilot', count: 1 },
@@ -80,4 +80,18 @@ test('joint ops: server labels, tags and headcount', async () => {
   assert.equal(serverTagOf({ guildId: null }, 'host', tags), 'ASOP');
   assert.equal(serverTagOf({ guildId: 'ally' }, 'host', tags), 'NC');
   assert.equal(serverTagOf({ guildId: 'gone' }, 'host', tags), 'ASOP');
+});
+
+test('who can answer the loot prompt in Discord: the same people who can create events', () => {
+  const base = { isCreator: false, inHostServer: true, isOwner: false, manageGuild: false, administrator: false, memberRoleIds: ['r-member'], eventCreatorRoles: '["r-officer"]' };
+  assert.equal(canRunEventFromDiscord(base), false);
+  assert.equal(canRunEventFromDiscord({ ...base, isCreator: true, inHostServer: false }), true);
+  assert.equal(canRunEventFromDiscord({ ...base, isOwner: true }), true);
+  assert.equal(canRunEventFromDiscord({ ...base, manageGuild: true }), true);
+  assert.equal(canRunEventFromDiscord({ ...base, administrator: true }), true);
+  assert.equal(canRunEventFromDiscord({ ...base, memberRoleIds: ['r-member', 'r-officer'] }), true);
+  // another server's managers and officers don't count
+  assert.equal(canRunEventFromDiscord({ ...base, inHostServer: false, manageGuild: true, memberRoleIds: ['r-officer'] }), false);
+  assert.equal(canRunEventFromDiscord({ ...base, eventCreatorRoles: 'not json', memberRoleIds: ['r-officer'] }), false);
+  assert.equal(canRunEventFromDiscord({ ...base, eventCreatorRoles: null }), false);
 });

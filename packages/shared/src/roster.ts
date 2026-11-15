@@ -139,3 +139,29 @@ export function serverHeadcount(
 export function serverTagOf(rsvp: { guildId: string | null }, hostGuildId: string, tags: Readonly<Record<string, string>>): string | undefined {
   return tags[rsvp.guildId ?? hostGuildId] ?? tags[hostGuildId];
 }
+
+/**
+ * Who may run an event from Discord (the loot prompt's Start Loot / No Loot,
+ * v1.40.1): the person who created it, or, in the event's own server, anyone
+ * who could create events there: the owner, Manage Server or Administrator,
+ * or a holder of one of the server's event creator roles. The same rule as
+ * the website's assertEventCreator.
+ */
+export function canRunEventFromDiscord(p: {
+  isCreator: boolean;
+  /** The button was pressed in the event's own server */
+  inHostServer: boolean;
+  isOwner: boolean;
+  manageGuild: boolean;
+  administrator: boolean;
+  memberRoleIds: readonly string[];
+  /** GuildSettings.eventCreatorRoles (JSON list of role ids) */
+  eventCreatorRoles: string | null | undefined;
+}): boolean {
+  if (p.isCreator) return true;
+  if (!p.inHostServer) return false;
+  if (p.isOwner || p.manageGuild || p.administrator) return true;
+  let allowed: string[] = [];
+  try { allowed = JSON.parse(p.eventCreatorRoles || '[]') as string[]; } catch { allowed = []; }
+  return Array.isArray(allowed) && allowed.some((r) => p.memberRoleIds.includes(r));
+}

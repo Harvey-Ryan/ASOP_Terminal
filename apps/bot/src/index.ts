@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { handleFleetButton } from './services/fleetService.js';
-import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
-import { ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, type EventRole } from '@dem/shared';
+import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import { ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, canRunEventFromDiscord, type EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
 import { prisma } from './db.js';
@@ -387,21 +387,32 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
           return;
         }
 
-        // Permission: event creator OR OWNER / ADMIN / ORGANIZER in the host guild
-        const dbUser = await prisma.user.findUnique({ where: { discordId: interaction.user.id } });
-        const guild  = await prisma.guild.findUnique({ where: { guildId: event.guildId } });
-        const member = dbUser && guild
-          ? await prisma.guildMember.findUnique({
-              where: { userId_guildId: { userId: dbUser.id, guildId: guild.id } },
-            })
-          : null;
+        // Permission (v1.40.1): the event's creator, or anyone who can create
+        // events in the host server (owner, Manage Server / Administrator, or an
+        // event creator role) — the website's rule. Previously this read the old
+        // GuildMember table, which refused most real managers.
+        const dbUser = await prisma.user.findUnique({ where: { discordId: interaction.user.id }, select: { id: true } });
+        const hostSettings = await prisma.guildSettings.findFirst({
+          where: { guild: { guildId: event.guildId } },
+          select: { eventCreatorRoles: true },
+        });
+        const roles = interaction.member?.roles;
+        const memberRoleIds: string[] = !roles ? [] : Array.isArray(roles) ? roles : [...roles.cache.keys()];
+        const allowed = canRunEventFromDiscord({
+          isCreator: !!dbUser && dbUser.id === event.createdById,
+          inHostServer: interaction.guildId === event.guildId,
+          isOwner: !!interaction.guild && interaction.guild.ownerId === interaction.user.id,
+          manageGuild: !!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),
+          administrator: !!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator),
+          memberRoleIds,
+          eventCreatorRoles: hostSettings?.eventCreatorRoles,
+        });
 
-        const isCreator = dbUser?.id === event.createdById;
-        const isManager = ['OWNER', 'ADMIN', 'ORGANIZER'].includes(member?.role ?? '');
-
-        if (!isCreator && !isManager) {
+        if (!allowed) {
           await interaction.editReply({
-            content: '❌ Only the event creator or guild managers can make the loot decision.',
+            content: interaction.guildId === event.guildId
+              ? '❌ Only the event creator, or someone who can create events in this server (Manage Server or an event creator role), can make the loot decision.'
+              : '❌ Only the event creator, or someone who can create events in the host server, can make the loot decision.',
           });
           return;
         }
