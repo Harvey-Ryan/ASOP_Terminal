@@ -308,6 +308,11 @@ Patch Notes — v1.1.0 — November 10
   archive an event thread while that hold is running (see `checkAutoComplete`).
 - Standalone sessions post in `GuildSettings.lootChannelId`, which is
   optional and not a setup step.
+- The end-of-event "Start Loot / No Loot" buttons (bot `event_loot_*`) follow
+  the website's event-creator rule via `canRunEventFromDiscord` (`roster.ts`,
+  v1.40.1): the event's creator, or in the host server the owner, Manage
+  Server / Administrator, or an event creator role. Don't use the old
+  `GuildMember.role` for permissions.
 
 ## Activity heat maps (v1.24.0)
 

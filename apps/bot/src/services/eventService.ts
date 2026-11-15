@@ -716,7 +716,7 @@ export async function endEvent(eventId: string) {
           .setTitle(`🏁 ${event.name} has ended`)
           .setDescription(
             '**Will this event have loot to distribute?**\n' +
-            `*Only the event creator or guild managers can respond. ` +
+            `*Only the event creator or officers who can create events can respond. ` +
             `This prompt expires in 2 hours — no response defaults to No Loot.*\n\n` +
             `📋 [Loot dashboard](${lootUrl})`,
           )
