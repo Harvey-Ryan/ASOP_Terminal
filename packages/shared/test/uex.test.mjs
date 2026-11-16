@@ -81,3 +81,59 @@ test('only live, public commodities and trade terminals are offered', () => {
     { name: 'T4', type: 'commodity', is_available_live: 0, is_visible: 1 },
   ]).map((t) => t.name), ['T1', 'T3']);
 });
+
+test('best runs: profit for your load, one per commodity, jumps and stale or empty places left out', async () => {
+  const { uexBestRuns, uexTerminalPlace } = await import('../dist/index.js');
+  const T = (id, sys, name = `T${id}`) => ({ id, name, star_system_name: sys, planet_name: sys === 'Stanton' ? 'ArcCorp' : null, moon_name: null, space_station_name: null, city_name: null });
+  const terminals = [T(1, 'Stanton'), T(2, 'Stanton'), T(3, 'Pyro'), T(4, 'Stanton'), T(5, 'Stanton')];
+  const p = (o) => ({ price_buy: 0, price_sell: 0, scu_buy: null, scu_sell: null, status_buy: 4, status_sell: 3, date_modified: sec(1), commodity_name: `C${o.id_commodity}`, terminal_name: `T${o.id_terminal}`, ...o });
+  const rows = [
+    // Gold: big margin, but only 10 SCU in stock
+    p({ id_commodity: 1, id_terminal: 1, price_buy: 5000, scu_buy: 10 }),
+    p({ id_commodity: 1, id_terminal: 2, price_sell: 9000, scu_sell: 5000 }),
+    // Agricium: small margin, lots of stock and demand
+    p({ id_commodity: 2, id_terminal: 1, price_buy: 2000, scu_buy: 5000 }),
+    p({ id_commodity: 2, id_terminal: 4, price_sell: 2600, scu_sell: 3000 }),
+    p({ id_commodity: 2, id_terminal: 5, price_sell: 2500, scu_sell: 9000 }),
+    // Laranite: best sale is in Pyro (a jump); in Stanton only a small margin
+    p({ id_commodity: 3, id_terminal: 1, price_buy: 2500, scu_buy: 2000 }),
+    p({ id_commodity: 3, id_terminal: 3, price_sell: 4000, scu_sell: 2000 }),
+    p({ id_commodity: 3, id_terminal: 2, price_sell: 2700, scu_sell: 2000 }),
+    // Waste: buy is out of stock, so nothing
+    p({ id_commodity: 4, id_terminal: 1, price_buy: 10, status_buy: 1 }),
+    p({ id_commodity: 4, id_terminal: 2, price_sell: 500 }),
+    // Old report: ignored
+    p({ id_commodity: 5, id_terminal: 1, price_buy: 1, date_modified: sec(60) }),
+    p({ id_commodity: 5, id_terminal: 2, price_sell: 99999 }),
+    // Selling terminal full (status 7): ignored
+    p({ id_commodity: 6, id_terminal: 1, price_buy: 100 }),
+    p({ id_commodity: 6, id_terminal: 2, price_sell: 9000, status_sell: 7 }),
+  ];
+  const commodities = [{ id: 1, is_illegal: 0 }, { id: 2, is_illegal: 1 }, { id: 3, is_illegal: 0 }];
+
+  // No hold size: by margin per SCU, one run per commodity, no jumps
+  const byMargin = uexBestRuns(rows, terminals, commodities, { now: NOW });
+  assert.deepEqual(byMargin.map((r) => [r.commodityName, r.margin, r.units]), [['C1', 4000, null], ['C2', 600, null], ['C3', 200, null]]);
+
+  // A 696 SCU hold: Gold only fills 10 SCU, Agricium fills the hold
+  const hold = uexBestRuns(rows, terminals, commodities, { now: NOW, scu: 696 });
+  assert.deepEqual(hold.map((r) => [r.commodityName, r.units, r.limitedBy, r.profit]), [['C2', 696, 'hold', 417600], ['C3', 696, 'hold', 139200], ['C1', 10, 'stock', 40000]]);
+  assert.equal(hold[0].illegal, true);
+  assert.equal(hold[0].investment, 696 * 2000);
+
+  // A budget can be the limit
+  const poor = uexBestRuns(rows, terminals, commodities, { now: NOW, scu: 696, budget: 100_000 });
+  assert.deepEqual(poor.find((r) => r.commodityName === 'C2').units, 50);
+  assert.equal(poor.find((r) => r.commodityName === 'C2').limitedBy, 'budget');
+
+  // Allowing jumps finds the Pyro sale
+  const jumps = uexBestRuns(rows, terminals, commodities, { now: NOW, scu: 696, crossSystem: true });
+  const lara = jumps.find((r) => r.commodityName === 'C3');
+  assert.equal(lara.sell.id_terminal, 3);
+  assert.equal(lara.crossSystem, true);
+
+  // Only one system
+  assert.deepEqual(uexBestRuns(rows, terminals, commodities, { now: NOW, system: 'Pyro' }), []);
+  assert.equal(uexTerminalPlace(terminals[0], 'x'), 'T1 · ArcCorp, Stanton');
+  assert.equal(uexTerminalPlace(null, 'Fallback'), 'Fallback');
+});
