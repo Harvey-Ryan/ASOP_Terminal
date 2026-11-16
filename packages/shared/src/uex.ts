@@ -216,3 +216,127 @@ export const uexLiveCommodities = (list: readonly UexCommodity[]) =>
 /** Terminals that trade commodities, in the live game. */
 export const uexTradeTerminals = (list: readonly UexTerminal[]) =>
   list.filter((t) => t.is_available_live === 1 && t.is_visible === 1 && (t.type === 'commodity' || t.type === 'commodity_raw'));
+
+// ── Best runs across everything (v1.43.0, /route best) ───────────────────────
+
+/** A row of commodities_prices_all: every commodity at every terminal in one request. */
+export interface UexPriceAllRow {
+  id_commodity: number;
+  id_terminal: number;
+  price_buy: number;
+  price_sell: number;
+  /** SCU for sale at the terminal (last report) */
+  scu_buy?: number | null;
+  /** SCU the terminal will take (forecast demand) */
+  scu_sell?: number | null;
+  status_buy?: number | null;
+  status_sell?: number | null;
+  date_modified: number;
+  commodity_name: string;
+  terminal_name: string;
+}
+
+export type UexRunLimit = 'hold' | 'stock' | 'demand' | 'budget';
+
+export interface UexRun {
+  commodityId: number;
+  commodityName: string;
+  illegal: boolean;
+  buy: UexPriceAllRow;
+  sell: UexPriceAllRow;
+  buyTerminal: UexTerminal | null;
+  sellTerminal: UexTerminal | null;
+  /** aUEC per SCU */
+  margin: number;
+  /** SCU you can actually fill, and what limits it (null without a hold size or budget) */
+  units: number | null;
+  limitedBy: UexRunLimit | null;
+  profit: number | null;
+  investment: number | null;
+  crossSystem: boolean;
+  /** The older of the two reports (unix seconds) */
+  reportedAt: number;
+}
+
+/**
+ * The most profitable buy-here-sell-there runs right now, one per commodity.
+ * With a hold size (scu) or budget, ranked by profit for that load: margin ×
+ * the least of the hold, the stock for sale, the selling terminal's demand
+ * and what the budget buys. Without either, ranked by margin per SCU.
+ * Leaves out old reports, empty stock, full terminals, and (unless
+ * crossSystem) runs that need a jump between systems.
+ */
+export function uexBestRuns(
+  rows: readonly UexPriceAllRow[],
+  terminals: readonly UexTerminal[],
+  commodities: readonly Pick<UexCommodity, 'id' | 'is_illegal'>[],
+  opts: { scu?: number | null; budget?: number | null; system?: string | null; crossSystem?: boolean; limit?: number; now?: number } = {},
+): UexRun[] {
+  const now = opts.now ?? Date.now();
+  const byId = new Map(terminals.map((t) => [t.id, t]));
+  const illegal = new Set(commodities.filter((c) => c.is_illegal === 1).map((c) => c.id));
+  const sys = opts.system?.trim().toLowerCase() || null;
+  const systemOf = (r: UexPriceAllRow) => (byId.get(r.id_terminal)?.star_system_name ?? '').toLowerCase();
+  const usable = rows.filter((r) => fresh(r, now) && (!sys || systemOf(r) === sys));
+  const scu = opts.scu && opts.scu > 0 ? opts.scu : null;
+  const budget = opts.budget && opts.budget > 0 ? opts.budget : null;
+
+  const groups = new Map<number, UexPriceAllRow[]>();
+  for (const r of usable) groups.set(r.id_commodity, [...(groups.get(r.id_commodity) ?? []), r]);
+
+  const best: UexRun[] = [];
+  for (const [commodityId, list] of groups) {
+    const buys = list.filter((r) => r.price_buy > 0 && r.status_buy !== 1 && (r.scu_buy == null || r.scu_buy > 0));
+    const sells = list.filter((r) => r.price_sell > 0 && r.status_sell !== 7);
+    let top: UexRun | null = null;
+    for (const b of buys) {
+      for (const s of sells) {
+        if (s.id_terminal === b.id_terminal) continue;
+        const margin = s.price_sell - b.price_buy;
+        if (margin <= 0) continue;
+        const cross = systemOf(b) !== systemOf(s);
+        if (cross && !opts.crossSystem) continue;
+        const caps: [UexRunLimit, number][] = [];
+        if (scu) caps.push(['hold', scu]);
+        if (b.scu_buy && b.scu_buy > 0) caps.push(['stock', Math.floor(b.scu_buy)]);
+        if (s.scu_sell && s.scu_sell > 0) caps.push(['demand', Math.floor(s.scu_sell)]);
+        if (budget) caps.push(['budget', Math.floor(budget / b.price_buy)]);
+        const sized = !!(scu || budget);
+        const cap = sized ? caps.reduce((m, c) => (c[1] < m[1] ? c : m)) : null;
+        const units = cap ? Math.max(0, cap[1]) : null;
+        if (units === 0) continue;
+        const run: UexRun = {
+          commodityId,
+          commodityName: b.commodity_name,
+          illegal: illegal.has(commodityId),
+          buy: b,
+          sell: s,
+          buyTerminal: byId.get(b.id_terminal) ?? null,
+          sellTerminal: byId.get(s.id_terminal) ?? null,
+          margin,
+          units,
+          limitedBy: cap ? cap[0] : null,
+          profit: units !== null ? margin * units : null,
+          investment: units !== null ? b.price_buy * units : null,
+          crossSystem: cross,
+          reportedAt: Math.min(b.date_modified, s.date_modified),
+        };
+        const better = (a: UexRun, z: UexRun) => (sized ? (a.profit ?? 0) - (z.profit ?? 0) : a.margin - z.margin) || a.margin - z.margin;
+        if (!top || better(run, top) > 0) top = run;
+      }
+    }
+    if (top) best.push(top);
+  }
+  const sized = !!(scu || budget);
+  return best
+    .sort((a, b) => (sized ? (b.profit ?? 0) - (a.profit ?? 0) : b.margin - a.margin) || b.margin - a.margin || a.commodityName.localeCompare(b.commodityName))
+    .slice(0, opts.limit ?? 5);
+}
+
+/** "TDD · ArcCorp, Stanton" from a terminal in the cached list. */
+export function uexTerminalPlace(t: UexTerminal | null, fallback: string): string {
+  if (!t) return fallback;
+  const body = t.moon_name ?? t.planet_name ?? t.space_station_name ?? t.city_name;
+  const where = [body, t.star_system_name].filter((x, i, a): x is string => !!x && a.indexOf(x) === i && !t.name.includes(x));
+  return where.length ? `${t.name} · ${where.join(', ')}` : t.name;
+}

@@ -588,7 +588,13 @@ Patch Notes — v1.1.0 — November 10
   busy or failing. Autocomplete only reads the cache (`peek…`); the lists are
   warmed when the bot starts.
 - Commands: `/price <commodity> [system]` (raw ores use
-  `commodities_raw_prices`) and `/route [commodity] [from] [budget]`.
+  `commodities_raw_prices`), `/route find [commodity] [from] [budget]`
+  (UEX's routes) and `/route best [scu] [budget] [system] [cross_system]`
+  (v1.43.0): every price at every terminal in one request
+  (`commodities_prices_all`), ranked by `uexBestRuns`: one run per
+  commodity, profit for the load = margin × the least of hold, stock for
+  sale, the buyer's demand and what the budget buys (margin per SCU without
+  a hold or budget); same system unless `cross_system`.
 - Earmarked, not built: mining/briefing data (refinery yields, ore prices,
   routes for ops) and importing a player's UEX fleet with their own UEX
   secret key (which would need storing encrypted and covering in Your data).

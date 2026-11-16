@@ -11,7 +11,7 @@
 
 import {
   UEX_API, uexLiveCommodities, uexTradeTerminals,
-  type UexCommodity, type UexPriceRow, type UexResponse, type UexRoute, type UexStarSystem, type UexTerminal,
+  type UexCommodity, type UexPriceAllRow, type UexPriceRow, type UexResponse, type UexRoute, type UexStarSystem, type UexTerminal,
 } from '@dem/shared';
 
 const MIN = 60_000;
@@ -103,6 +103,9 @@ export async function uexRoutes(q: { commodityId?: number; originTerminalId?: nu
   if (q.investment) params.set('investment', String(Math.round(q.investment)));
   return get<UexRoute[]>(`commodities_routes?${params.toString()}`, TTL.routes);
 }
+
+/** Every commodity's price at every terminal, one request (v1.43.0, /route best). */
+export const uexPricesAll = () => get<UexPriceAllRow[]>('commodities_prices_all', TTL.prices);
 
 /** Loads the lists autocomplete needs, so the first suggestions aren't empty. */
 export function warmUexLists(): void {
