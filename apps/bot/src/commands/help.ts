@@ -144,6 +144,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       '`/blueprint <name>` — Recipe, dismantle return and the missions that reward it',
       '`/material <name>` — Every blueprint that uses a crafting material',
       '`/item <name>` — Item details, or average prices for a commodity',
+      '`/price <commodity> [system]` — Best places to sell and buy right now (live, from UEX)',
+      '`/route [commodity] [from] [budget]` — Best trade routes (live, from UEX)',
       ...(wikeloEnabled ? ['`/wikelo <mission>` — What a Wikelo mission rewards and what you turn in'] : []),
       '`/starstrings` — Download link for the current StarStrings LIVE build',
     ].join('\n'),

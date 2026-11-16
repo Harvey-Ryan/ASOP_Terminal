@@ -22,6 +22,9 @@ import * as itemCommand from './commands/item.js';
 import * as whohasCommand from './commands/whohas.js';
 import * as blueprintCommand from './commands/blueprint.js';
 import * as wikeloCommand from './commands/wikelo.js';
+import * as priceCommand from './commands/price.js';
+import { warmUexLists } from './services/uexService.js';
+import * as routeCommand from './commands/route.js';
 import * as starstringsCommand from './commands/starstrings.js';
 import * as materialCommand from './commands/material.js';
 import * as lootCommand from './commands/loot.js';
@@ -53,6 +56,8 @@ const commands = new Map<string, Command>([
   ['material', materialCommand],
   ['fleet', fleetCommand],
   ['wikelo', wikeloCommand],
+  ['price', priceCommand],
+  ['route', routeCommand],
   ['starstrings', starstringsCommand],
   ['help', helpCommand],
   ['marketplace', marketplaceCommand],
@@ -77,6 +82,7 @@ client.on(Events.Error, (err) => console.error('[bot] Discord client error:', er
 client.on(Events.ShardError, (err, shard) => console.error(`[bot] Discord connection error (shard ${shard}):`, err));
 
 client.once(Events.ClientReady, async (c) => {
+  warmUexLists(); // UEX lists for /price and /route autocomplete (v1.42.0)
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   // Admin panel (v1.13.0): "bot is up" every minute with gateway numbers, and the admin Discord feed.
   const startedAt = new Date();

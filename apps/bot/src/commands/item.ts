@@ -50,7 +50,7 @@ export function buildItemEmbed(d: CatalogDetail): EmbedBuilder {
     .setTitle(d.name)
     .setColor(d.kind === 'COMMODITY' ? 0xf59e0b : 0x5865f2)
     .setFooter({ text: d.commodity && (d.commodity.avgBuy != null || d.commodity.avgSell != null)
-      ? 'Game data: Star Citizen Wiki · Prices: UEX Corp (player reported)'
+      ? 'Game data: Star Citizen Wiki · Prices: UEX Corp (player reported) · /price for where to trade'
       : 'Game data: Star Citizen Wiki' });
 
   if (d.description) embed.setDescription(clip(d.description, 1000));
