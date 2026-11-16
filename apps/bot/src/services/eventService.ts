@@ -18,7 +18,7 @@ import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../util
 import { WAITLIST_ORDER } from './waitlistService.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
-import { nextOccurrence, isRecurType, isValidTimeZone, planShares, serverLabel } from '@dem/shared';
+import { nextOccurrence, isRecurType, isValidTimeZone, planShares, serverLabel, parseBriefing, remapBriefingRoles, sanitizeBriefing } from '@dem/shared';
 import { handleShareNotice } from './shareNoticeService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -927,6 +927,19 @@ async function guildTimezone(discordGuildId: string): Promise<string> {
   return tz && isValidTimeZone(tz) ? tz : 'UTC';
 }
 
+/** A template's briefing → an unpublished draft on a new event (roster groups re-linked by role). */
+async function copyTemplateBriefing(templateId: string, eventId: string, eventRoles: string, byDiscordId: string): Promise<void> {
+  const tmpl = await prisma.eventTemplate.findUnique({ where: { id: templateId }, select: { briefing: true, roles: true, isActive: true } });
+  if (!tmpl?.isActive || !tmpl.briefing) return;
+  const roles = (json: string) => { try { return JSON.parse(json || '[]') as { id: string; name: string }[]; } catch { return []; } };
+  const content = sanitizeBriefing(remapBriefingRoles(parseBriefing(tmpl.briefing), roles(tmpl.roles), roles(eventRoles)));
+  await prisma.eventBriefing.upsert({
+    where: { eventId },
+    create: { eventId, content: JSON.stringify(content), updatedBy: byDiscordId },
+    update: {},
+  });
+}
+
 export async function spawnNextRecurrence(eventId: string) {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   if (!event.recurType) return;
@@ -971,9 +984,18 @@ export async function spawnNextRecurrence(eventId: string) {
       recurAnchor: anchor,
       recurTimezone: timeZone,
       createdById: event.createdById,
+      templateId: event.templateId ?? null,
       status: 'PENDING',
     },
   });
+
+  // Made from a template with a briefing (v1.41.0): the next occurrence gets
+  // it as a draft too, like any event made from the template.
+  if (event.templateId) {
+    await copyTemplateBriefing(event.templateId, next.id, next.roles, event.createdById).catch((err) =>
+      console.error(`[bot] spawnNextRecurrence: copying the template's briefing to ${next.id} failed:`, err),
+    );
+  }
 
   // The next occurrence goes to the servers that accepted this one, if they're
   // still allies (v1.11.0). Each ally's own setting decides: posted straight

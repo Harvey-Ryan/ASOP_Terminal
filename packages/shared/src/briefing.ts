@@ -2,7 +2,7 @@
 // creators, shown as a page and as slides (present mode). The whole briefing
 // is one JSON document (EventBriefing.content), checked here on the way in.
 
-import type { EventRole } from './index.js';
+import type { EventRole, EventTemplateDto } from './index.js';
 import { roleKeyOf } from './roster.js';
 
 
@@ -104,6 +104,8 @@ export interface BriefingViewDto {
     maybe: number;
     /** The event's roles and who's signed up for each (not maybes), for roster slides. */
     roles: { id: string; name: string; count: number; people: string[] }[];
+    /** The template it was made from (v1.41.0), for "Save to template" (editors only) */
+    templateId?: string | null;
   };
   /** null when there's no briefing yet (or, for people who can't edit, none published) */
   briefing: BriefingDto | null;
@@ -333,5 +335,41 @@ export function forceTotals(ships: BriefingShip[]): { ships: number; seats: numb
   return {
     ships: ships.reduce((n, s) => n + s.count, 0),
     seats: ships.reduce((n, s) => n + (s.crew ?? 1) * s.count, 0),
+  };
+}
+
+/** A template's briefing, for the Templates page's editor (v1.41.0). */
+export interface EventTemplateBriefingDto {
+  template: EventTemplateDto;
+  content: BriefingContent | null;
+  updatedAt: string | null;
+  /** The server's own logo (a template has no allies) */
+  logos: BriefingLogo[];
+}
+
+/**
+ * Moving a briefing between a template and an event (v1.41.0): roster groups
+ * point at roles by id, so each group's role is found in the old list (by id),
+ * then matched in the new list by id, else by name (case-insensitive). Groups
+ * whose role isn't in the new list lose the link but keep their typed names.
+ */
+export function remapBriefingRoles(
+  c: BriefingContent,
+  from: readonly { id: string; name: string }[],
+  to: readonly { id: string; name: string }[],
+): BriefingContent {
+  const key = (n: string) => n.trim().toLowerCase();
+  const link = (roleId: string | null): string | null => {
+    if (!roleId) return null;
+    if (to.some((r) => r.id === roleId)) return roleId;
+    const old = from.find((r) => r.id === roleId);
+    if (!old) return null;
+    return to.find((r) => key(r.name) === key(old.name))?.id ?? null;
+  };
+  return {
+    ...c,
+    sections: c.sections.map((s) => (s.kind === 'roster'
+      ? { ...s, groups: s.groups.map((g) => ({ ...g, roleId: link(g.roleId) })) }
+      : s)),
   };
 }

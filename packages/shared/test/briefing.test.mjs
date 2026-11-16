@@ -1,7 +1,7 @@
 // v1.36.0: mission briefings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeBriefing, parseBriefing, defaultBriefing, briefingSlides, bodyBlocks, briefingSummary, safeImageUrl, forceTotals, groupPeople, briefingRoles, imageRows, BRIEFING_LIMITS } from '../dist/index.js';
+import { sanitizeBriefing, parseBriefing, defaultBriefing, briefingSlides, bodyBlocks, briefingSummary, safeImageUrl, forceTotals, groupPeople, briefingRoles, imageRows, remapBriefingRoles, BRIEFING_LIMITS } from '../dist/index.js';
 
 test('a new briefing has the usual sections, all empty and so not shown', () => {
   const d = defaultBriefing();
@@ -100,4 +100,22 @@ test('image sections: a second picture and text, on the other side', () => {
   assert.equal(t.body2, '');
   assert.deepEqual(imageRows(t), []);
   assert.equal(briefingSlides(c).length, 4);
+});
+
+test('moving a briefing between a template and an event keeps roster groups on their roles', () => {
+  const c = sanitizeBriefing({ sections: [{ id: 'r', kind: 'roster', title: 'Teams', groups: [
+    { id: 'a', title: 'Ironclad', roleId: 'tmpl-ic', names: 'Extra' },
+    { id: 'b', title: 'Miners', roleId: 'tmpl-geo' },
+    { id: 'c', title: 'Gone', roleId: 'tmpl-old' },
+    { id: 'd', title: 'Same id', roleId: 'shared-id' },
+    { id: 'e', title: 'None', roleId: null },
+  ] }, { id: 't', kind: 'text', title: 'T', body: 'x' }] });
+  const from = [{ id: 'tmpl-ic', name: 'Ironclad Crew' }, { id: 'tmpl-geo', name: 'Geo miners' }, { id: 'tmpl-old', name: 'Escort' }, { id: 'shared-id', name: 'Medic' }];
+  const to = [{ id: 'ev-ic', name: 'ironclad crew ' }, { id: 'ev-geo', name: 'Geo Miners' }, { id: 'shared-id', name: 'Medic' }];
+  const out = remapBriefingRoles(c, from, to);
+  assert.deepEqual(out.sections[0].groups.map((g) => g.roleId), ['ev-ic', 'ev-geo', null, 'shared-id', null]);
+  assert.equal(out.sections[0].groups[0].names, 'Extra');
+  assert.deepEqual(out.sections[1], c.sections[1]);
+  // the original is untouched
+  assert.equal(c.sections[0].groups[0].roleId, 'tmpl-ic');
 });

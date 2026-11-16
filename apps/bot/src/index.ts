@@ -391,7 +391,6 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
         // events in the host server (owner, Manage Server / Administrator, or an
         // event creator role) — the website's rule. Previously this read the old
         // GuildMember table, which refused most real managers.
-        const dbUser = await prisma.user.findUnique({ where: { discordId: interaction.user.id }, select: { id: true } });
         const hostSettings = await prisma.guildSettings.findFirst({
           where: { guild: { guildId: event.guildId } },
           select: { eventCreatorRoles: true },
@@ -399,7 +398,7 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
         const roles = interaction.member?.roles;
         const memberRoleIds: string[] = !roles ? [] : Array.isArray(roles) ? roles : [...roles.cache.keys()];
         const allowed = canRunEventFromDiscord({
-          isCreator: !!dbUser && dbUser.id === event.createdById,
+          isCreator: event.createdById === interaction.user.id, // Event.createdById is a Discord id
           inHostServer: interaction.guildId === event.guildId,
           isOwner: !!interaction.guild && interaction.guild.ownerId === interaction.user.id,
           manageGuild: !!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),

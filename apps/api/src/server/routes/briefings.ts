@@ -77,7 +77,7 @@ briefingsRouter.get('/:guildId/events/:eventId/briefing', requireAuth, async (re
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       select: {
-        id: true, name: true, startTime: true, endTime: true, musterPoint: true, guildId: true,
+        id: true, name: true, startTime: true, endTime: true, musterPoint: true, guildId: true, templateId: true,
         roles: true, rsvps: { select: { tentative: true, role: true, username: true }, orderBy: { id: 'asc' } }, briefing: true,
       },
     });
@@ -90,6 +90,7 @@ briefingsRouter.get('/:guildId/events/:eventId/briefing', requireAuth, async (re
         musterPoint: event.musterPoint, hostGuildId: event.guildId,
         signedUp: event.rsvps.filter((r) => !r.tentative).length, maybe: event.rsvps.filter((r) => r.tentative).length,
         roles: briefingRoles(event.roles, event.rsvps),
+        templateId: editor ? event.templateId : null,
       },
       briefing: b,
       logos: await logosFor(event.id, event.guildId),

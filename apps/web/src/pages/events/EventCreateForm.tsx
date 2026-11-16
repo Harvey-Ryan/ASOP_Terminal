@@ -112,7 +112,7 @@ function TemplatesPanel({
     <div className="bg-primary border-b border-background/40">
       <div className="flex items-center justify-between px-5 py-2 border-b border-background/20">
         <span className="font-condensed text-sm font-extrabold uppercase tracking-widest text-primary-foreground/80">
-          Top Templates (last 6 months)
+          Templates
         </span>
         <button type="button" onClick={onClose}
           className="text-primary-foreground/60 hover:text-primary-foreground text-xs uppercase tracking-wide">
@@ -123,7 +123,8 @@ function TemplatesPanel({
         <p className="px-5 py-3 text-sm text-primary-foreground/60">Loading…</p>
       ) : templates.length === 0 ? (
         <p className="px-5 py-3 text-sm text-primary-foreground/60 italic">
-          No repeated events yet. Use the Repeat button on completed events to build your list.
+          No templates yet. Make them on the{' '}
+          <Link to={`/dashboard/servers/${guildId}/templates`} className="underline">Templates page</Link>, or with Save as template on an event.
         </p>
       ) : (
         <ul>
@@ -137,8 +138,9 @@ function TemplatesPanel({
                     <p className="text-sm text-primary-foreground/60 truncate max-w-xs">{t.description}</p>
                   )}
                 </div>
-                <span className="shrink-0 text-sm font-bold text-primary-foreground/60">
-                  ×{t.useCount}
+                <span className="shrink-0 flex items-center gap-2 text-sm font-bold text-primary-foreground/60">
+                  {t.hasBriefing && <span className="rounded-full border border-primary-foreground/40 px-2 py-0.5 text-[11px] font-semibold">Briefing</span>}
+                  {t.useCount > 0 && `×${t.useCount}`}
                 </span>
               </button>
             </li>
@@ -155,6 +157,7 @@ export function EventCreateForm({
   onCancel,
   repeatSource,
   fromTemplateId: fromTemplateIdProp,
+  startTemplate,
   isManager,
 }: {
   guildId: string;
@@ -163,6 +166,8 @@ export function EventCreateForm({
   repeatSource?: EventDto;
   /** Stable EventTemplate ID resolved before the form opened — carries through regardless of name changes. */
   fromTemplateId?: string;
+  /** "Use" on the Templates page (v1.41.0): the form starts filled from this template */
+  startTemplate?: EventTemplateDto;
   isManager?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -182,6 +187,8 @@ export function EventCreateForm({
   // fromTemplateIdProp is set when Repeat is clicked (stable, resolved before form opens).
   // Selecting from the Templates list overwrites it with the chosen template's ID.
   const [fromTemplateId, setFromTemplateId] = useState<string | undefined>(fromTemplateIdProp);
+  // The chosen template, to say that its briefing comes along (v1.41.0).
+  const [chosenTemplate, setChosenTemplate] = useState<EventTemplateDto | null>(null);
   const [recurType, setRecurType] = useState<string>(repeatSource?.recurType ?? '');
   // Repeat options are labelled from the chosen start ("Monthly on the 2nd Tuesday")
   // and scheduled in the organiser's own time zone, so they keep the same local time.
@@ -271,9 +278,21 @@ export function EventCreateForm({
     setVcNames(t.vcNames);
     setBriefingChannel(t.briefingChannel);
     setSelectedImageUrl(t.imageUrl ?? null);
+    if (t.defaultDuration) setDuration(String(t.defaultDuration));
     setFromTemplateId(t.id);
+    setChosenTemplate(t);
     setFormError(null);
   }
+
+  // Opened from the Templates page: fill the form from that template once.
+  const startedFrom = useRef<string | null>(null);
+  useEffect(() => {
+    if (startTemplate && startedFrom.current !== startTemplate.id) {
+      startedFrom.current = startTemplate.id;
+      applyTemplate(startTemplate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startTemplate]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -710,6 +729,12 @@ export function EventCreateForm({
             </label>
           </div>
         </div>
+      )}
+
+      {chosenTemplate?.hasBriefing && chosenTemplate.id === fromTemplateId && (
+        <p className="bg-primary px-5 pt-3 text-sm text-primary-foreground/80">
+          The “{chosenTemplate.name}” template has a briefing: it's added to this event as an unpublished draft for you to adjust and publish.
+        </p>
       )}
 
       {/* Actions */}

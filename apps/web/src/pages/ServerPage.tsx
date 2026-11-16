@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2, ClipboardList } from 'lucide-react';
+import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2, ClipboardList, LayoutTemplate } from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { eventTemplatesApi } from '@/api/eventTemplates';
 import { eventsApi } from '@/api/events';
 import { alliesApi } from '@/api/allies';
 import { applyShade, loadShade, saveShade } from '@/lib/shade';
@@ -14,7 +15,7 @@ import { lootApi } from '@/api/loot';
 import { auctionsApi } from '@/api/auctions';
 import { settingsApi } from '@/api/settings';
 import { canManageGuild, serverHeadcount, serverTagOf } from '@dem/shared';
-import type { EventDto, EventRole, CreateEventBody, MyPickDto, RsvpDto } from '@dem/shared';
+import type { EventDto, EventRole, CreateEventBody, EventTemplateDto, MyPickDto, RsvpDto } from '@dem/shared';
 import { resolveUsername } from '@/lib/displayName';
 import { SetupChecklist } from '@/components/SetupChecklist';
 import { AfterActionSection } from '@/components/AfterAction';
@@ -448,6 +449,16 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   const dkpLabel = useDkpLabel(guildId);
   const [sharePickerOpen, setSharePickerOpen] = useState(false);
   const [selectedGuildId, setSelectedGuildId] = useState('');
+  // "Save as template" (v1.41.0): the event's details and briefing become a template.
+  const [templateName, setTemplateName] = useState<string | null>(null);
+  const saveTemplate = useMutation({
+    mutationFn: (name: string) => eventTemplatesApi.create(guildId, { fromEventId: event.id, name }),
+    onSuccess: () => {
+      setTemplateName(null);
+      queryClient.invalidateQueries({ queryKey: ['event-templates', guildId] });
+      queryClient.invalidateQueries({ queryKey: ['event-templates-all', guildId] });
+    },
+  });
 
   const eventQuery = useQuery({
     queryKey: ['events', guildId, event.id],
@@ -1024,6 +1035,19 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         </div>
       ) : null}
 
+      {templateName !== null && (
+        <form className="flex flex-wrap items-center gap-2 bg-primary px-5 pt-4 text-primary-foreground"
+          onSubmit={(e) => { e.preventDefault(); if (templateName.trim()) saveTemplate.mutate(templateName.trim()); }}>
+          <span className="text-sm">Template name</span>
+          <input autoFocus maxLength={200} value={templateName} onChange={(e) => setTemplateName(e.target.value)}
+            className="min-w-0 flex-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground border-2 border-primary-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40" />
+          <Button type="submit" size="sm" disabled={saveTemplate.isPending || !templateName.trim()}>{saveTemplate.isPending ? 'Saving…' : 'Save template'}</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setTemplateName(null)}>Cancel</Button>
+          <p className="w-full text-xs text-primary-foreground/60">Copies the roles, voice channels and details{ev.briefingPublished ? ', and the briefing' : ' (and the briefing, if there is one)'}. New events made from the template get its briefing as a draft.</p>
+          {saveTemplate.isError && <p className="w-full text-xs text-red-400">{saveTemplate.error instanceof Error ? saveTemplate.error.message : 'Could not save the template'}</p>}
+        </form>
+      )}
+
       {/* Footer actions */}
       <div className="flex items-center gap-2 bg-primary px-5 py-4">
         {ev.discordEventId == null && ev.status === 'PENDING' && (
@@ -1085,6 +1109,19 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
                 <Package className="h-3.5 w-3.5" />Loot
               </Link>
+            </Button>
+          )}
+          {canManage && templateName === null && !saveTemplate.isSuccess && (
+            <Button size="sm"
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => setTemplateName(ev.name)} title="Save this event's details and briefing as a template">
+              <LayoutTemplate className="h-3.5 w-3.5" />Save as template
+            </Button>
+          )}
+          {saveTemplate.isSuccess && (
+            <Button size="sm" asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+              <Link to={`/dashboard/servers/${guildId}/templates`}><Check className="h-3.5 w-3.5" />Saved: open templates</Link>
             </Button>
           )}
           {isManager && (ev.status === 'ENDED' || ev.status === 'COMPLETED') && (
@@ -1421,6 +1458,19 @@ export function ServerPage() {
   const [detailEvent, setDetailEvent] = useState<EventDto | null>(null);
   const [repeatSource, setRepeatSource] = useState<EventDto | null>(null);
   const [repeatTemplateId, setRepeatTemplateId] = useState<string | null>(null);
+  // "Use" on the Templates page lands here with ?newFrom=<template id> (v1.41.0).
+  const [startTemplate, setStartTemplate] = useState<EventTemplateDto | null>(null);
+  const [, setSearchParams] = useSearchParams();
+  const newFrom = searchParams.get('newFrom');
+  const openedFrom = useRef<string | null>(null);
+  useEffect(() => {
+    if (!newFrom || !guildId || openedFrom.current === newFrom) return;
+    openedFrom.current = newFrom;
+    eventTemplatesApi.get(guildId, newFrom)
+      .then((t) => { setRepeatSource(null); setRepeatTemplateId(null); setStartTemplate(t); setView('create'); })
+      .catch(() => { /* gone or not allowed: just show the events */ })
+      .finally(() => setSearchParams((p) => { const n = new URLSearchParams(p); n.delete('newFrom'); return n; }, { replace: true }));
+  }, [newFrom, guildId, setSearchParams]);
 
   const upcomingQuery = useQuery({
     queryKey: ['events', guildId, 'upcoming'],
@@ -1478,6 +1528,7 @@ export function ServerPage() {
     setDetailEvent(null);
     setRepeatSource(null);
     setRepeatTemplateId(null);
+    setStartTemplate(null);
   }
 
   async function openRepeat(event: EventDto) {
@@ -1575,6 +1626,14 @@ export function ServerPage() {
                 />
               </div>
               {isManager && view === 'table' && (
+                <Button size="sm" variant="secondary" asChild>
+                  <Link to={`/dashboard/servers/${guildId}/templates`}>
+                    <LayoutTemplate className="h-3.5 w-3.5" />
+                    Templates
+                  </Link>
+                </Button>
+              )}
+              {isManager && view === 'table' && (
                 <Button size="sm" onClick={() => setView('create')}>
                   <Plus className="h-3.5 w-3.5" />
                   Create Event
@@ -1603,11 +1662,13 @@ export function ServerPage() {
                   queryClient.invalidateQueries({ queryKey: ['events', guildId, 'upcoming'] });
                   setRepeatSource(null);
                   setRepeatTemplateId(null);
+                  setStartTemplate(null);
                   setView('table');
                 }}
                 onCancel={closePanel}
                 repeatSource={repeatSource ?? undefined}
                 fromTemplateId={repeatTemplateId ?? undefined}
+                startTemplate={startTemplate ?? undefined}
                 isManager={isManager}
               />
             </div>

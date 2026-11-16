@@ -26,6 +26,7 @@ import { scRouter } from './routes/sc.js';
 import { fleetRouter } from './routes/fleet.js';
 import { wikeloRouter } from './routes/wikelo.js';
 import { briefingsRouter } from './routes/briefings.js';
+import { eventTemplatesRouter } from './routes/eventTemplates.js';
 import { rsiRosterRouter } from './routes/rsiRoster.js';
 import { rsiRouter } from './routes/rsi.js';
 import { kanbanRouter } from './routes/kanban.js';
@@ -263,6 +264,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', settingsRouter);
   app.use('/api/guilds', lootRouter);
   app.use('/api/guilds', briefingsRouter);
+  app.use('/api/guilds', eventTemplatesRouter);
   app.use('/api/guilds', auctionRouter);
   app.use('/api/guilds', standaloneAuctionRouter);
   app.use('/api', uexRouter);

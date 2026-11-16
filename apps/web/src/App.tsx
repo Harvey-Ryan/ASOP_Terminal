@@ -16,6 +16,8 @@ const EventCreatePage = lazyPage(() => import('./pages/events/EventCreatePage'),
 const EventAuditPage = lazyPage(() => import('./pages/events/EventAuditPage'), 'EventAuditPage');
 const LootPage = lazyPage(() => import('./pages/events/LootPage'), 'LootPage');
 const BriefingPage = lazyPage(() => import('./pages/events/BriefingPage'), 'BriefingPage');
+const EventTemplatesPage = lazyPage(() => import('./pages/events/EventTemplatesPage'), 'EventTemplatesPage');
+const TemplateBriefingPage = lazyPage(() => import('./pages/events/EventTemplatesPage'), 'TemplateBriefingPage');
 const MembersPage = lazyPage(() => import('./pages/MembersPage'), 'MembersPage');
 const JobsPage = lazyPage(() => import('./pages/JobsPage'), 'JobsPage');
 const JobsSettingsPage = lazyPage(() => import('./pages/settings/JobsSettingsPage'), 'JobsSettingsPage');
@@ -86,6 +88,8 @@ export default function App() {
           <Route path="servers/:guildId/events/:eventId/audit" element={<ModuleGate setting="eventBotEnabled"><EventAuditPage /></ModuleGate>} />
           <Route path="servers/:guildId/events/:eventId/loot" element={<ModuleGate setting="lootEnabled"><LootPage /></ModuleGate>} />
           <Route path="servers/:guildId/events/:eventId/briefing" element={<ModuleGate setting="eventBotEnabled"><BriefingPage /></ModuleGate>} />
+          <Route path="servers/:guildId/templates" element={<ModuleGate setting="eventBotEnabled"><EventTemplatesPage /></ModuleGate>} />
+          <Route path="servers/:guildId/templates/:templateId/briefing" element={<ModuleGate setting="eventBotEnabled"><TemplateBriefingPage /></ModuleGate>} />
           <Route path="servers/:guildId/settings/permissions" element={<PermissionsPage />} />
           <Route path="servers/:guildId/settings/modules" element={<ModuleSettingsHubPage />} />
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleGate setting="eventBotEnabled"><ModuleEventBotPage /></ModuleGate>} />
