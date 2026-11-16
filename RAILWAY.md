@@ -75,6 +75,11 @@ https://<your-api-web-domain>/api/auth/callback
 
 ## 4. Bot service
 
+> **Note:** the main `Dockerfile` already starts the bot in the same container as
+> the API (`BOT_INTERNAL_URL=http://localhost:3002`), which is how ASOP runs today:
+> one service. A separate bot service from `apps/bot/Dockerfile` is only needed if
+> you split them; then the bot's variables below go on that service instead.
+
 ### 4a. Create the service
 
 Same as above but set:
@@ -95,6 +100,7 @@ The bot service does **not** need a public domain — it communicates with the A
 | `WEB_URL` | `https://<your-api-web-domain>` (dashboard links in all bot embeds — required) |
 | `API_URL` | `http://<api-web-service-name>.railway.internal:3001` (internal image fetching — required) |
 | `GITHUB_TOKEN` | Optional. A read-only token for checking StarStrings releases; without it the bot uses GitHub's public limit, which is plenty |
+| `UEX_KEY` | A UEX Corp app token (uexcorp.space → My Apps) for `/price` and `/route`, sent as a Bearer token. Put it wherever the bot runs: with the main Dockerfile (bot and API in one container) that's the main ASOP service. Without it the bot calls UEX anonymously and logs a warning |
 
 > **Why both URL vars?** `WEB_URL` is used throughout the bot to build clickable dashboard links in Discord embeds (event cards, tournament announcements, etc.). `API_URL` is used to fetch event images from the API service at runtime. Without these, links resolve to `localhost` and image embeds fail in production.
 
