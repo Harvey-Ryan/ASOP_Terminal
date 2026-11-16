@@ -250,6 +250,8 @@ model Event {
   /// Mission briefing published (v1.36.0); the roster shows briefingSummary and a Briefing button
   briefingPublishedAt DateTime?
   briefingSummary     String?
+  /// The EventTemplate this event was made from (v1.41.0); no relation, templates are soft-deleted
+  templateId          String?
   aarById         String?
   aarByName       String?
   aarAt           DateTime?
@@ -532,6 +534,12 @@ model EventTemplate {
 
   defaultDuration Int?
   isActive        Boolean @default(true)
+  /// Made or edited on the Templates page / "Save as template" (v1.41.0).
+  /// Curated templates are never overwritten by Repeat or by the events made from them.
+  curated         Boolean @default(false)
+  /// A briefing (BriefingContent JSON, sanitizeBriefing) copied into each new event as a draft
+  briefing          String?
+  briefingUpdatedAt DateTime?
   /// Stable link to the source Event.id — used as the upsert key so template
   /// identity never changes even when the event name is edited.
   sourceEventId   String? @unique

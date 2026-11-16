@@ -11,6 +11,7 @@ import { hasAnyRole } from '../../lib/memberRoles.js';
 import { getGuildMember } from '../../lib/discordRest.js';
 import { createPlannedShares, notAllyError, notifyShare, planEventShares } from '../../lib/allyShares.js';
 import { ValidationError, requireStr, optStr, optEnum, optStrArr } from '../../lib/validate.js';
+import { applyTemplateToNewEvent } from '../../lib/eventTemplates.js';
 import type { AfterActionOutcome, ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventPoll, EventRole, EventTemplateDto } from '@dem/shared';
 import { RECUR_TYPES, isValidTimeZone, describeRecurrence, roleSignupProblem, ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, canComment, findRole, roleKeyOf, serverLabel, waitlistProblem } from '@dem/shared';
 
@@ -330,29 +331,11 @@ eventsRouter.post('/:guildId/events', requireAuth, async (req, res) => {
     ].filter((r) => r.sendAt > now);
     if (reminders.length > 0) await prisma.eventReminder.createMany({ data: reminders });
 
-    // Track event template usage — template ID is resolved before the form opens via
-    // the from-event endpoint, so name changes in the form never affect attribution.
-    if (body.repeatFromTemplateId) {
-      const tmpl = await prisma.eventTemplate.findFirst({
-        where: { id: body.repeatFromTemplateId, guild: { guildId } },
-      });
-      if (tmpl) {
-        // Propagate structural tweaks the user made back to the template so the
-        // next repeat picks them up. Name is excluded — template identity is
-        // anchored to sourceEventId, not the name.
-        await prisma.eventTemplate.update({
-          where: { id: tmpl.id },
-          data: {
-            description: event.description,
-            musterPoint: event.musterPoint,
-            roles: event.roles,
-            vcNames: event.vcNames,
-            briefingChannel: event.briefingChannel,
-            imageUrl: event.imageUrl,
-          },
-        });
-        await prisma.eventTemplateUse.create({ data: { templateId: tmpl.id } });
-      }
+    // Made from a template (Repeat or the form's Templates list): record it,
+    // copy its briefing in as a draft, refresh Repeat's own templates.
+    // Rules: lib/eventTemplates.ts (v1.41.0).
+    if (body.repeatFromTemplateId && hostRecord) {
+      await applyTemplateToNewEvent({ templateId: body.repeatFromTemplateId, hostGuildDbId: hostRecord.id, event, byDiscordId: dbUser.discordId });
     }
 
     triggerBot(`/trigger/event/${event.id}`);
@@ -1070,135 +1053,6 @@ eventsRouter.post('/:guildId/events/:eventId/reopen', requireAuth, async (req, r
   triggerBot(`/trigger/sync/${eventId}`);
 
   res.json({ success: true, message: 'Event re-opened' } satisfies ApiResponse);
-});
-
-// ── POST /api/guilds/:guildId/event-templates/from-event ─────────────────────
-// Called when the Repeat button is clicked (before the create form opens).
-// Upserts an EventTemplate keyed on sourceEventId (the source event's stable
-// cuid) so the template ID never changes even if the event name is edited.
-
-eventsRouter.post('/:guildId/event-templates/from-event', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-  const { eventId } = req.body as { eventId?: string };
-
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
-    return;
-  }
-
-  if (!eventId) {
-    res.status(400).json({ success: false, error: 'eventId is required' } satisfies ApiResponse);
-    return;
-  }
-
-  const event = await prisma.event.findFirst({ where: { id: eventId, guildId } });
-  if (!event) {
-    res.status(404).json({ success: false, error: 'Event not found' } satisfies ApiResponse);
-    return;
-  }
-
-  const guild = await prisma.guild.findUniqueOrThrow({ where: { guildId } });
-  const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
-
-  // Upsert by sourceEventId — always refresh the blueprint with current event data
-  // so the next repeat starts from the latest version, not the first one ever created.
-  const template = await prisma.eventTemplate.upsert({
-    where: { sourceEventId: eventId },
-    create: {
-      guildId: guild.id,
-      name: event.name,
-      description: event.description,
-      musterPoint: event.musterPoint,
-      roles: event.roles,
-      vcNames: event.vcNames,
-      briefingChannel: event.briefingChannel,
-      imageUrl: event.imageUrl,
-      sourceEventId: eventId,
-      createdById: dbUser.id,
-    },
-    update: {
-      name: event.name,
-      description: event.description,
-      musterPoint: event.musterPoint,
-      roles: event.roles,
-      vcNames: event.vcNames,
-      briefingChannel: event.briefingChannel,
-      imageUrl: event.imageUrl,
-    },
-    include: { uses: { select: { id: true } } },
-  });
-
-  const dto: EventTemplateDto = {
-    id: template.id,
-    guildId,
-    name: template.name,
-    description: template.description,
-    musterPoint: template.musterPoint,
-    roles: JSON.parse(template.roles) as EventRole[],
-    vcNames: JSON.parse(template.vcNames) as string[],
-    briefingChannel: template.briefingChannel,
-    imageUrl: template.imageUrl,
-    rosterSlots: JSON.parse(template.rosterSlots),
-    reminderMinutes: JSON.parse(template.reminderMinutes),
-    defaultDuration: template.defaultDuration,
-    isActive: template.isActive,
-    createdById: template.createdById,
-    useCount: template.uses.length,
-    createdAt: template.createdAt.toISOString(),
-    updatedAt: template.updatedAt.toISOString(),
-  };
-
-  res.json({ success: true, data: dto } satisfies ApiResponse<EventTemplateDto>);
-});
-
-// ── GET /api/guilds/:guildId/event-templates ──────────────────────────────────
-// Returns the top 5 most-used templates (last 6 months) for the Templates panel.
-
-eventsRouter.get('/:guildId/event-templates', requireAuth, async (req, res) => {
-  const { guildId } = req.params as { guildId: string };
-
-  if (!(await assertGuildManager(req, guildId))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
-    return;
-  }
-
-  const guild = await prisma.guild.findUniqueOrThrow({ where: { guildId } });
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-  const templates = await prisma.eventTemplate.findMany({
-    where: { guildId: guild.id, isActive: true },
-    include: {
-      uses: { where: { usedAt: { gte: sixMonthsAgo } }, select: { id: true } },
-    },
-  });
-
-  const ranked = templates
-    .map((t) => ({ ...t, useCount: t.uses.length }))
-    .filter((t) => t.useCount > 0)
-    .sort((a, b) => b.useCount - a.useCount)
-    .slice(0, 5)
-    .map((t): EventTemplateDto => ({
-      id: t.id,
-      guildId,
-      name: t.name,
-      description: t.description,
-      musterPoint: t.musterPoint,
-      roles: JSON.parse(t.roles) as EventRole[],
-      vcNames: JSON.parse(t.vcNames) as string[],
-      briefingChannel: t.briefingChannel,
-      imageUrl: t.imageUrl,
-      rosterSlots: JSON.parse(t.rosterSlots),
-      reminderMinutes: JSON.parse(t.reminderMinutes),
-      defaultDuration: t.defaultDuration,
-      isActive: t.isActive,
-      createdById: t.createdById,
-      useCount: t.useCount,
-      createdAt: t.createdAt.toISOString(),
-      updatedAt: t.updatedAt.toISOString(),
-    }));
-
-  res.json({ success: true, data: ranked } satisfies ApiResponse<EventTemplateDto[]>);
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

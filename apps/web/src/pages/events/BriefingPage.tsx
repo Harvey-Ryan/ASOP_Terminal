@@ -4,13 +4,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, MonitorPlay, Pencil, Plus, Printer, Save, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, LayoutTemplate, MonitorPlay, Pencil, Plus, Printer, Save, Trash2, X } from 'lucide-react';
 import {
   bodyBlocks, briefingSlides, forceTotals, groupPeople, imageRows, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
   type BriefingContent, type BriefingGroup, type BriefingShip, type ShipCatalogEntry, type BriefingLogo, type BriefingSection, type BriefingViewDto,
 } from '@dem/shared';
 import { briefingsApi, type PastBriefing } from '@/api/briefings';
 import { fleetApi } from '@/api/fleet';
+import { eventTemplatesApi } from '@/api/eventTemplates';
 import { Button } from '@/components/ui/button';
 import { ServerImagePicker } from '@/components/ServerImagePicker';
 import { cn } from '@/lib/utils';
@@ -20,7 +21,8 @@ const W = 1280;
 const H = 720;
 
 const when = (iso: string, opts: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleString(undefined, opts);
-const stepOff = (iso: string) => when(iso, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+// A template's briefing has no date yet (startTime '').
+const stepOff = (iso: string) => (iso ? when(iso, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Set per event');
 
 // ── One slide ─────────────────────────────────────────────────────────────────
 
@@ -112,7 +114,7 @@ function Body({ text }: { text: string }) {
   );
 }
 
-function Slide({ view, c, index, total }: {
+export function Slide({ view, c, index, total }: {
   view: BriefingViewDto;
   c: BriefingContent;
   index: number;
@@ -216,7 +218,7 @@ function ScaledSlide(props: Parameters<typeof Slide>[0] & { className?: string }
 
 // ── Present mode ──────────────────────────────────────────────────────────────
 
-function Present({ view, c, start, onClose }: {
+export function Present({ view, c, start, onClose }: {
   view: BriefingViewDto; c: BriefingContent; start: number; onClose: (at: number) => void;
 }) {
   const total = briefingSlides(c).length;
@@ -408,7 +410,7 @@ function ShipChooser({ guildId, eventId, ships, onChange }: {
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm">Add ships:</span>
-        {tab('fleet', 'From the signed-up fleets')}
+        {eventId && tab('fleet', 'From the signed-up fleets')}
         {tab('any', 'Any ship')}
       </div>
 
@@ -526,7 +528,7 @@ function GroupPicture({ guildId, value, onChange }: { guildId: string; value: st
 
 const inputCls = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-brand focus:outline-none';
 
-function Editor({ guildId, view, c, setC, onPreview }: {
+export function Editor({ guildId, view, c, setC, onPreview }: {
   guildId: string; view: BriefingViewDto; c: BriefingContent; setC: (c: BriefingContent) => void; onPreview: (index: number) => void;
 }) {
   const [sel, setSel] = useState<string>('title');
@@ -733,6 +735,59 @@ function CopyFrom({ guildId, eventId, onPick, onClose }: { guildId: string; even
   );
 }
 
+/**
+ * "Save to template" (v1.41.0): this briefing becomes a template's briefing
+ * (roster groups re-linked to the template's roles), or a new template is made
+ * from the event and its briefing. The event's own template comes first.
+ */
+function SaveToTemplate({ guildId, eventId, eventName, templateId, content, saveFirst, onDone, onClose }: {
+  guildId: string; eventId: string; eventName: string; templateId: string | null | undefined; content: BriefingContent;
+  saveFirst: () => Promise<void>; onDone: (msg: string) => void; onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ['event-templates-all', guildId], queryFn: () => eventTemplatesApi.all(guildId) });
+  const [name, setName] = useState(eventName);
+  const [error, setError] = useState<string | null>(null);
+  const list = [...(data ?? [])].sort((a, b) => Number(b.id === templateId) - Number(a.id === templateId));
+  const toExisting = useMutation({
+    mutationFn: (id: string) => eventTemplatesApi.saveBriefing(guildId, id, content, eventId),
+    onSuccess: (r) => { void qc.invalidateQueries({ queryKey: ['event-templates-all', guildId] }); onDone(`Saved as the briefing of the "${r.template.name}" template. New events made from it get it as a draft.`); },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Could not save'),
+  });
+  const toNew = useMutation({
+    mutationFn: async () => { await saveFirst(); return eventTemplatesApi.create(guildId, { fromEventId: eventId, name: name.trim() }); },
+    onSuccess: (t) => { void qc.invalidateQueries({ queryKey: ['event-templates-all', guildId] }); onDone(`Made the "${t.name}" template from this event and its briefing.`); },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Could not make the template'),
+  });
+  const busy = toExisting.isPending || toNew.isPending;
+  return (
+    <div className="rounded-lg border border-brand/40 bg-card p-4">
+      <div className="flex items-center justify-between"><h3 className="font-semibold">Save to a template</h3><button type="button" aria-label="Close" onClick={onClose}><X className="h-4 w-4" /></button></div>
+      <p className="mt-1 text-xs text-muted-foreground">The template keeps a copy of this briefing; each new event made from it gets the copy as an unpublished draft. This event's briefing isn't changed.</p>
+      {isLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading…</p> : list.length > 0 && (
+        <ul className="mt-3 max-h-60 divide-y divide-border overflow-y-auto">
+          {list.map((t) => (
+            <li key={t.id} className="flex items-center gap-3 py-2 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{t.name}{t.id === templateId && <span className="ml-2 rounded-full border border-brand/60 px-2 py-0.5 text-[11px] text-[#e2bd5b]">This event's template</span>}</div>
+                <div className="truncate text-xs text-muted-foreground">{t.hasBriefing ? 'Has a briefing: saving replaces it' : 'No briefing yet'} · {t.roles.length} roles</div>
+              </div>
+              <Button size="sm" variant="secondary" disabled={busy}
+                onClick={() => { if (!t.hasBriefing || window.confirm(`Replace the "${t.name}" template's briefing with this one?`)) toExisting.mutate(t.id); }}>Save here</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        <span className="text-sm">Or a new template:</span>
+        <input className={cn(inputCls, 'w-auto min-w-[14rem] flex-1')} value={name} maxLength={200} onChange={(e) => setName(e.target.value)} aria-label="New template name" />
+        <Button size="sm" disabled={busy || !name.trim()} onClick={() => toNew.mutate()}><Plus className="mr-1 h-4 w-4" />Make template</Button>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function BriefingPage() {
@@ -748,6 +803,7 @@ export function BriefingPage() {
   const [draft, setDraft] = useState<BriefingContent | null>(null);
   const [dirty, setDirty] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [toTemplateOpen, setToTemplateOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // The editor works on a copy; a fresh briefing starts from the usual sections.
@@ -818,7 +874,8 @@ export function BriefingPage() {
           {view.canEdit && !editing && <Button size="sm" onClick={() => setMode('edit')}><Pencil className="mr-1 h-4 w-4" />{view.briefing ? 'Edit' : 'Write the briefing'}</Button>}
           {editing && (
             <>
-              <Button variant="ghost" size="sm" onClick={() => setCopyOpen((o) => !o)}><Copy className="mr-1 h-4 w-4" />From a past op</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setCopyOpen((o) => !o); setToTemplateOpen(false); }}><Copy className="mr-1 h-4 w-4" />From a past op</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setToTemplateOpen((o) => !o); setCopyOpen(false); }}><LayoutTemplate className="mr-1 h-4 w-4" />Save to template</Button>
               <Button variant="secondary" size="sm" onClick={() => setMode(null)}><Eye className="mr-1 h-4 w-4" />View</Button>
               <Button variant="secondary" size="sm" disabled={!dirty || save.isPending} onClick={() => draft && save.mutate(draft)}><Save className="mr-1 h-4 w-4" />{save.isPending ? 'Saving…' : dirty ? 'Save' : 'Saved'}</Button>
               <Button size="sm" disabled={publish.isPending || (!view.briefing && !dirty)} onClick={() => publish.mutate(!published)}>{published ? 'Unpublish' : 'Publish'}</Button>
@@ -827,6 +884,11 @@ export function BriefingPage() {
         </div>
       </div>
       {msg && <p className="text-sm text-[#e2bd5b]" role="status">{msg}</p>}
+      {editing && toTemplateOpen && draft && (
+        <SaveToTemplate guildId={guildId} eventId={eventId} eventName={view.event.name} templateId={view.event.templateId} content={draft}
+          saveFirst={async () => { if (dirty) await save.mutateAsync(draft); }}
+          onClose={() => setToTemplateOpen(false)} onDone={(m) => { setToTemplateOpen(false); setMsg(m); }} />
+      )}
       {editing && copyOpen && (
         <CopyFrom guildId={guildId} eventId={eventId} onClose={() => setCopyOpen(false)}
           onPick={(b) => { setC(b.content); setCopyOpen(false); setMsg(`Copied from ${b.eventName}. Save to keep it.`); }} />

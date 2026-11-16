@@ -797,8 +797,28 @@ export interface EventTemplateDto {
   createdById: string;
   /** Number of times used to create an event in the last 6 months. */
   useCount: number;
+  /** Made or edited on the Templates page (v1.41.0); Repeat never overwrites these */
+  curated: boolean;
+  /** Has a briefing that new events get as a draft (v1.41.0) */
+  hasBriefing: boolean;
+  lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Create or edit a template on the Templates page (v1.41.0). */
+export interface UpsertEventTemplateBody {
+  name: string;
+  description?: string | null;
+  musterPoint?: string | null;
+  imageUrl?: string | null;
+  roles?: EventRole[];
+  vcNames?: string[];
+  briefingChannel?: boolean;
+  /** Minutes */
+  defaultDuration?: number | null;
+  /** "Save as template": copy this event's details (and its briefing, if any) */
+  fromEventId?: string;
 }
 
 // ── Tournament BYE-round helpers ──────────────────────────────────────────────
