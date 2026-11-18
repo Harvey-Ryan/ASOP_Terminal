@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -70,7 +70,8 @@ const ToolsShipsHomePage = lazyPage(() => import('./pages/tools/ShipsPage'), 'Sh
 const ToolsShipPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipPage');
 // v1.46.0: Ships inside each server's dashboard, and the other tools on the public site.
 const DashboardToolsFrame = lazyPage(() => import('./pages/tools/ToolsLayout'), 'DashboardToolsFrame');
-const SignInForTool = lazyPage(() => import('./pages/tools/ToolsLayout'), 'SignInForTool');
+// lazyPage drops props, so this one says what it takes.
+const SignInForTool = lazyPage(() => import('./pages/tools/ToolsLayout'), 'SignInForTool') as unknown as ComponentType<{ name: string; children: ReactNode }>;
 const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
