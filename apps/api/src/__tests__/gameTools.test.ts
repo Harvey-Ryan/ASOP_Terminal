@@ -94,6 +94,12 @@ describe('Game Tools data', () => {
     expect(Array.isArray(res.body.data.hidden)).toBe(true);
   });
 
+  it('mining data is public (v1.49.0)', async () => {
+    const res = await request(app).get('/api/game-tools/mining');
+    expect(res.status).not.toBe(401);
+    expect([200, 503]).toContain(res.status);
+  });
+
   it('no game data yet: nothing to build', async () => {
     const built = await buildGameToolsData((async (sql: string) => (sql.includes('source') ? [] : [])) as never, async () => []);
     expect(built).toBeNull();

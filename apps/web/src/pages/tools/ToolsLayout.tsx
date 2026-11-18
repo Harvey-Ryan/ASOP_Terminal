@@ -42,6 +42,7 @@ export function ToolsLayout() {
   const p = PUBLIC_TOOLS_PATHS;
   const tabs = [
     { to: p.ships, label: 'Ships', on: location.pathname === '/tools' || location.pathname.startsWith('/tools/ships') },
+    { to: p.mining, label: 'Mining', on: location.pathname.startsWith(p.mining) },
     { to: p.crafting, label: 'Crafting', on: location.pathname.startsWith(p.crafting), module: 'craftingEnabled' },
     { to: p.blueprints, label: 'Blueprints', on: location.pathname.startsWith(p.blueprints), module: 'blueprintsEnabled' },
     { to: p.wikelo, label: 'Wikelo', on: location.pathname.startsWith(p.wikelo), module: 'wikeloEnabled' },
@@ -121,15 +122,17 @@ export function DashboardToolsFrame() {
   const paths = useToolsPaths();
   const location = useLocation();
   const { data } = useGameTools();
-  // The same page on the public site, loadout and all.
-  const prefix = paths.ships;
+  // Ships or Mining (v1.49.0); "Open on its own page" goes to the same page on the public site.
+  const mining = location.pathname.startsWith(paths.mining);
+  const prefix = mining ? paths.mining : paths.ships;
   const rest = location.pathname.startsWith(prefix) ? location.pathname.slice(prefix.length) : '';
-  const standalone = `${rest ? `/tools/ships${rest}` : '/tools'}${location.search}`;
+  const standalone = mining ? `/tools/mining${location.search}` : `${rest ? `/tools/ships${rest}` : '/tools'}${location.search}`;
+  const title = mining ? 'Mining' : 'Ships & Loadouts';
   return (
     <ThemeProvider>{(theme) => (
       <div className="gt -m-6" data-theme={theme} style={{ minHeight: 'calc(100% + 3rem)' }}>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 52 }}>
-          <Link to={paths.ships} className="no-underline py-2.5"><span className="gt-label gt-label-acc">Ships &amp; Loadouts</span></Link>
+          <Link to={prefix} className="no-underline py-2.5"><span className="gt-label gt-label-acc">{title}</span></Link>
           <div className="flex items-center gap-4">
             <a href={standalone} className="text-sm gt-dim">Open on its own page</a>
             <ThemeMenu />

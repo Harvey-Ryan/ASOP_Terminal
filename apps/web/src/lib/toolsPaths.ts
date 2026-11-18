@@ -13,6 +13,8 @@ export interface ToolsPaths {
   standalone: boolean;
   ships: string;
   ship: (className: string) => string;
+  /** Mining (v1.49.0). */
+  mining: string;
   crafting: string;
   blueprints: string;
   wikelo: string;
@@ -24,6 +26,7 @@ export const PUBLIC_TOOLS_PATHS: ToolsPaths = {
   standalone: true,
   ships: '/tools',
   ship: (c) => `/tools/ships/${lower(c)}`,
+  mining: '/tools/mining',
   crafting: '/tools/crafting',
   blueprints: '/tools/blueprints',
   wikelo: '/tools/wikelo',
@@ -35,6 +38,7 @@ export function serverToolsPaths(guildId: string): ToolsPaths {
     standalone: false,
     ships: `${base}/ships`,
     ship: (c) => `${base}/ships/${lower(c)}`,
+    mining: `${base}/mining`,
     crafting: `${base}/crafting-calculator`,
     blueprints: `${base}/blueprints`,
     wikelo: `${base}/wikelo`,

@@ -11,6 +11,8 @@ import {
   combatGunFromItem, combatShipFromRow, dedupeGuns, gunGroupKey, isUnavailableGun, isGameDataMissingError, shipIndex, matchShip,
   shipComponentFromItem, dedupeComponents, componentGroupKey,
   missileFromItem, dedupeMissiles, missileGroupKey,
+  buildOreSpots, miningLaserFromItem, miningModuleFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL,
+  type MiningDataDto, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
   GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
   type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type MissileItem, type ShipComponent,
 } from '@dem/shared';
@@ -173,4 +175,68 @@ gameToolsRouter.get('/game-tools/hidden', async (_req, res) => {
   const hidden = await hiddenModules();
   res.setHeader('Cache-Control', 'public, max-age=60');
   res.json({ success: true, data: { hidden: TOOL_MODULES.filter((m) => hidden.has(m)) } } satisfies ApiResponse<{ hidden: string[] }>);
+});
+
+// ── Mining (v1.49.0) ─────────────────────────────────────────────────────────
+// GET /api/game-tools/mining: the ore finder's places, rock signatures, mining
+// lasers and modules. Public; built once per game build, sent gzipped.
+
+type MiningBuilt = { commit: string; at: number; gz: Buffer; etag: string; data: MiningDataDto };
+let miningCached: MiningBuilt | null = null;
+let miningBuilding: Promise<MiningBuilt | null> | null = null;
+
+export function resetMiningCache(): void { miningCached = null; miningBuilding = null; }
+
+export async function buildMiningData(query: Query = prismaQuery): Promise<MiningBuilt | null> {
+  let source: { commit: string | null; build: string | null } | undefined;
+  try {
+    source = (await query<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1'))[0];
+  } catch (err) {
+    if (isGameDataMissingError(err)) return null;
+    throw err;
+  }
+  if (!source?.commit) return null;
+  const [locations, resources, laserRows, moduleRows] = await Promise.all([
+    query<ResourceLocationRow[]>('SELECT provider_name, data FROM scdata.resource_locations'),
+    query<ResourceRow[]>('SELECT data FROM scdata.resources'),
+    query<Row[]>(MINING_LASERS_SQL),
+    query<Row[]>(MINING_MODULES_SQL),
+  ]);
+  const { spots, signatures } = buildOreSpots(locations, resources);
+  const lasers = dedupeMining(laserRows.map(miningLaserFromItem).filter((l): l is MiningLaser => !!l), (l) => [l.name, l.power, l.extraction, l.modifiers])
+    .sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
+  const modules = dedupeMining(moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m), (m) => [m.name, m.power, m.modifiers])
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  const ores = [...new Set(spots.map((s) => s.ore))].sort().map((key) => ({ key, name: oreName(key) }));
+  const data: MiningDataDto = { build: source.build, ores, spots, signatures, lasers, modules };
+  const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<MiningDataDto>));
+  return {
+    commit: source.commit, at: Date.now(), data,
+    gz: gzipSync(body, { level: 9 }),
+    etag: `"gm-${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`,
+  };
+}
+
+gameToolsRouter.get('/game-tools/mining', async (req, res) => {
+  if (!miningCached || Date.now() - miningCached.at > REBUILD_MS) {
+    miningBuilding ??= buildMiningData().finally(() => { miningBuilding = null; });
+    const b = await miningBuilding.catch((err: unknown) => { console.error('[game-tools] mining data:', err); return null; });
+    if (b) miningCached = b;
+  }
+  const b = miningCached;
+  if (!b) {
+    res.status(503).json({ success: false, error: 'Game data isn’t loaded yet. Try again in a few minutes.' } satisfies ApiResponse);
+    return;
+  }
+  res.setHeader('ETag', b.etag);
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.setHeader('Vary', 'Accept-Encoding');
+  if (req.headers['if-none-match'] === b.etag) { res.status(304).end(); return; }
+  res.type('application/json');
+  if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+    res.setHeader('Content-Encoding', 'gzip');
+    res.send(b.gz);
+  } else {
+    res.json({ success: true, data: b.data } satisfies ApiResponse<MiningDataDto>);
+  }
 });
