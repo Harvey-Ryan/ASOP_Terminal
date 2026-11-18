@@ -1,6 +1,7 @@
 // Game Tools (v1.44.0): every flying ship's guns and defences, and every
 // ship gun, for the public Loadout, Optimizer and Ships pages. No sign-in:
-// it's all game-file data. Built once per sc-data commit and sent gzipped;
+// it's all game-file data. Components (shields, power, coolers, quantum,
+// radar) since v1.46.0. Built once per sc-data commit and sent gzipped;
 // the website does the maths (packages/shared/src/combat.ts).
 
 import { Router } from 'express';
@@ -8,11 +9,13 @@ import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import {
   combatGunFromItem, combatShipFromRow, dedupeGuns, gunGroupKey, isUnavailableGun, isGameDataMissingError, shipIndex, matchShip,
-  GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL,
-  type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip,
+  shipComponentFromItem, dedupeComponents, componentGroupKey,
+  GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL,
+  type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type ShipComponent,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { listShips } from '../../lib/shipCatalog.js';
+import { hiddenModules } from '../../lib/hiddenModules.js';
 
 export const gameToolsRouter = Router();
 
@@ -41,9 +44,10 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   }
   if (!source?.commit) return null;
 
-  const [shipRows, gunRows] = await Promise.all([
+  const [shipRows, gunRows, componentRows] = await Promise.all([
     query<Row[]>(GAME_TOOLS_SHIPS_SQL),
     query<Row[]>(GAME_TOOLS_GUNS_SQL),
+    query<Row[]>(GAME_TOOLS_COMPONENTS_SQL),
   ]);
   const allGuns = gunRows.map(combatGunFromItem).filter((g): g is CombatGun => !!g && !isUnavailableGun(g));
   const guns = dedupeGuns(allGuns);
@@ -51,6 +55,13 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const key = gunGroupKey;
   const repByKey = new Map(guns.map((g) => [key(g), g.uuid]));
   const rep = new Map(allGuns.map((g) => [g.uuid, repByKey.get(key(g)) ?? g.uuid]));
+
+  // Components (v1.46.0): identical copies grouped like the guns.
+  const allComponents = componentRows.map(shipComponentFromItem).filter((c): c is ShipComponent => !!c);
+  const componentGroups = dedupeComponents(allComponents);
+  const compRepByKey = new Map(componentGroups.map((c) => [componentGroupKey(c), c.uuid]));
+  const compRep = new Map(allComponents.map((c) => [c.uuid, compRepByKey.get(componentGroupKey(c)) ?? c.uuid]));
+  const stockComponents = new Set<string>();
 
   const catalog = await catalogFn().catch((err: unknown) => { console.warn('[game-tools] No ship pictures:', err); return []; });
   const index = catalog.length ? shipIndex(catalog) : null;
@@ -60,6 +71,11 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
     const s = combatShipFromRow(row);
     if (!s) continue;
     for (const slot of s.gunSlots) if (slot.stockGunUuid) slot.stockGunUuid = rep.get(slot.stockGunUuid) ?? null;
+    for (const slot of s.componentSlots) {
+      if (!slot.stockUuid) continue;
+      slot.stockUuid = compRep.get(slot.stockUuid) ?? null;
+      if (slot.stockUuid) stockComponents.add(slot.stockUuid);
+    }
     const shortName = s.maker && s.name.startsWith(s.maker) ? s.name.slice(s.maker.length).trim() : s.name;
     const m = index ? matchShip(shortName, index, s.maker) : null;
     const pic = m?.status === 'matched' ? m.ship : null;
@@ -67,7 +83,9 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   }
   ships.sort((a, b) => a.name.localeCompare(b.name));
 
-  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns };
+  // Parts players can't get (no class or grade: bespoke and placeholder records) only where a ship comes with them.
+  const components = componentGroups.filter((c) => c.available || stockComponents.has(c.uuid));
+  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<GameToolsDataDto>));
   return {
     commit: source.commit, at: Date.now(), data,
@@ -110,4 +128,13 @@ gameToolsRouter.get('/game-tools/data', async (req, res) => {
   } else {
     res.json({ success: true, data: b.data } satisfies ApiResponse<GameToolsDataDto>);
   }
+});
+
+// v1.46.0: which of the tools the public site links to a platform admin hid for
+// every server (Admin → Modules), so its tabs match the sidebar. Public.
+const TOOL_MODULES = ['craftingEnabled', 'blueprintsEnabled', 'wikeloEnabled'] as const;
+gameToolsRouter.get('/game-tools/hidden', async (_req, res) => {
+  const hidden = await hiddenModules();
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  res.json({ success: true, data: { hidden: TOOL_MODULES.filter((m) => hidden.has(m)) } } satisfies ApiResponse<{ hidden: string[] }>);
 });

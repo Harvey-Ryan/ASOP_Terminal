@@ -599,26 +599,35 @@ Patch Notes — v1.1.0 — November 10
   routes for ops) and importing a player's UEX fleet with their own UEX
   secret key (which would need storing encrypted and covering in Your data).
 
-## Game Tools (v1.44.0, ship-first since v1.45.0)
+## Game Tools (v1.44.0, ship-first since v1.45.0, in the dashboard since v1.46.0)
 
-- Public pages at `/tools` (no sign-in, outside the dashboard), all about
-  ships (`apps/web/src/pages/tools/`, their own look scoped to `.gt` in
-  `tools.css`, maker-inspired themes in a header menu, saved in the browser):
-  - `/tools`: the ship picker (`ShipSearch`), recently viewed (this browser),
+- The tools (Ships, Crafting, Blueprints, Wikelo) live in two places, and
+  every page builds its links with `useToolsPaths()` (`lib/toolsPaths.ts`) so
+  people stay where they are:
+  - Inside a server's dashboard, under the sidebar's Tools group: Ships at
+    `/dashboard/servers/:guildId/ships[/:className]` (wrapped in
+    `DashboardToolsFrame`: theme menu, "Open on its own page"), and the
+    existing module pages for Crafting, Blueprints and Wikelo.
+  - The public site at `/tools` (`ToolsLayout`): Ships needs no sign-in;
+    `/tools/crafting`, `/tools/blueprints`, `/tools/wikelo` ask people to sign
+    in (`SignInForTool`; sign-in may return to `/tools…`, `safeReturnPath`).
+    Their tabs hide when a platform admin hid the module for every server
+    (`GET /api/game-tools/hidden`, public).
+- Ship pages (`apps/web/src/pages/tools/`, their own look scoped to `.gt` in
+  `tools.css`, maker-inspired themes in a menu, saved in the browser):
+  - Home: the ship picker (`ShipSearch`), recently viewed (this browser),
     common ships and a sortable list of every ship (`ShipsHomePage`).
-  - `/tools/ships/:className`: one ship's numbers, its editable loadout
-    (`ShipLoadout.tsx`: `useLoadout`, `SlotList`, `GunPicker`, `Totals`) and
-    what it can kill (`KillTable`), on one page. The loadout is in the address
-    (`?s0=<gun uuid>…`). Compare (`?vs=<className>`, its loadout `?c0=…`) puts
-    a second ship beside it, both editable, with one kill table that has a
-    column per ship.
+  - One ship (`ShipPage`): its numbers, its editable loadout
+    (`ShipLoadout.tsx`: `useLoadout`, `SlotList`, `GunPicker`,
+    `ComponentPicker`, `Totals`) and what it can kill (`KillTable`). The
+    loadout is in the address (`?s0=<gun uuid>…`). Compare
+    (`?vs=<className>`, its loadout `?c0=…`) puts a second ship beside it,
+    both editable, with one kill table that has a column per ship. The
+    expert numbers (RPM, speed, range…) are always shown (v1.46.0).
   - Old `/tools/loadout/:c` and `/tools/optimizer/:c` links open the ship page.
     The Optimizer page is hidden until its scoring accounts for rate of fire,
     projectile speed and ammo; `bestGunFits` stays in `combat.ts` with tests.
   - No "Add ASOP to your server" pitch until we go public.
-- The sidebar's Tools group is one "Game Tools" link (`/tools?server=<id>`);
-  Crafting, Blueprints and Wikelo show as tabs there for the remembered
-  server, linking to their dashboard pages.
 - Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
   and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
   an ETag, rate-limited per IP. Skins with identical numbers are grouped
@@ -638,4 +647,15 @@ Patch Notes — v1.1.0 — November 10
   Slayer Cannon). There's no reliable automatic rule: many real guns aren't
   stock on any ship, so wait for shop data (UEX) before filtering on that.
 - Pilot guns only so far (turret guns are listed, not counted). Missiles,
-  components, mining and prices (UEX items/vehicles) are next.
+  mining and prices (UEX items/vehicles) are next.
+- Components (v1.46.0): shields, power plants, coolers, quantum drives and
+  radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
+  `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats
+  only (= crafted quality 500). Only parts with a class and an A–D grade can
+  be swapped in; bespoke and placeholder parts show only where a ship comes
+  with them, and `Editable: false` slots are fixed. Rules checked against
+  Erkul: only the two strongest shields are up (every ship's shield pool is
+  2; `ACTIVE_SHIELDS`); quantum range = tank (mSCU) ÷ the drive's
+  `FuelRequirement10GM` × 100 (the ships file's own `Range` uses an older
+  formula); a power plant's output depends on pips, so there's no ship
+  "total power" figure.

@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -68,6 +68,10 @@ const AdminModulesPage = lazyPage(() => import('./pages/admin/AdminModulesPage')
 const ToolsLayout = lazyPage(() => import('./pages/tools/ToolsLayout'), 'ToolsLayout');
 const ToolsShipsHomePage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipsHomePage');
 const ToolsShipPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipPage');
+// v1.46.0: Ships inside each server's dashboard, and the other tools on the public site.
+const DashboardToolsFrame = lazyPage(() => import('./pages/tools/ToolsLayout'), 'DashboardToolsFrame');
+// lazyPage drops props, so this one says what it takes.
+const SignInForTool = lazyPage(() => import('./pages/tools/ToolsLayout'), 'SignInForTool') as unknown as ComponentType<{ name: string; children: ReactNode }>;
 const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
@@ -84,6 +88,12 @@ export default function App() {
           {/* v1.45.0: Loadout lives on the ship page; the Optimizer is hidden for now. */}
           <Route path="loadout/:className" element={<ToolsLegacyRedirect />} />
           <Route path="optimizer/:className" element={<ToolsLegacyRedirect />} />
+          <Route path="crafting" element={<SignInForTool name="Crafting"><CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate></SignInForTool>} />
+          <Route path="crafting/:blueprintUuid" element={<SignInForTool name="Crafting"><CraftingDataGate><CraftingCalculatorDetailPage /></CraftingDataGate></SignInForTool>} />
+          <Route path="blueprints" element={<SignInForTool name="Blueprints"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></SignInForTool>} />
+          <Route path="blueprints/:blueprintUuid" element={<SignInForTool name="Blueprints"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></SignInForTool>} />
+          <Route path="wikelo" element={<SignInForTool name="Wikelo"><WikeloPage /></SignInForTool>} />
+          <Route path="wikelo/:missionId" element={<SignInForTool name="Wikelo"><WikeloPage /></SignInForTool>} />
           <Route path="*" element={<Navigate to="/tools" replace />} />
         </Route>
 
@@ -131,6 +141,10 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/loot" element={<ModuleGate setting="lootEnabled"><LootSettingsPage /></ModuleGate>} />
           <Route path="servers/:guildId/loot" element={<ModuleGate setting="lootEnabled"><LootModulePage /></ModuleGate>} />
           <Route path="servers/:guildId/loot/sessions/:sessionId" element={<ModuleGate setting="lootEnabled"><StandaloneLootSessionPage /></ModuleGate>} />
+          <Route path="servers/:guildId/ships" element={<DashboardToolsFrame />}>
+            <Route index element={<ToolsShipsHomePage />} />
+            <Route path=":className" element={<ToolsShipPage />} />
+          </Route>
           <Route path="servers/:guildId/blueprints" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/blueprints/:blueprintUuid" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/crafting-calculator" element={<ModuleGate setting="craftingEnabled"><CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate></ModuleGate>} />

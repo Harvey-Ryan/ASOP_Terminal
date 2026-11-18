@@ -6,10 +6,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { CombatGun, GameToolsShip } from '@dem/shared';
-import { fmt, pilotSlots, readRecentShips, rememberShip, shipPath, shortShipName, useGameTools } from '../../lib/gameTools';
+import { fmt, pilotSlots, readRecentShips, rememberShip, shortShipName, useGameTools } from '../../lib/gameTools';
+import { useToolsPaths } from '../../lib/toolsPaths';
 import { ToolsDataState } from './ToolsLayout';
 import { COMMON_TARGETS, KillTable } from './KillTable';
-import { GunPicker, KeyNumbers, SlotList, Totals, useLoadout } from './ShipLoadout';
+import { GunPicker, ComponentPicker, KeyNumbers, SlotList, Totals, useLoadout } from './ShipLoadout';
 
 const pilotAlpha = (s: GameToolsShip, gunsByUuid: Map<string, CombatGun>) =>
   pilotSlots(s).reduce((sum, slot) => sum + (slot.stockGunUuid ? gunsByUuid.get(slot.stockGunUuid)?.alpha ?? 0 : 0), 0);
@@ -68,6 +69,8 @@ export function ShipSearch({ ships, onPick, placeholder = 'Find a ship: gladius,
 type SortKey = 'name' | 'size' | 'shieldHp' | 'hullHp' | 'alpha' | 'cargo';
 
 export function ShipsHomePage() {
+  const paths = useToolsPaths();
+  const shipPath = (s: Pick<GameToolsShip, 'className'>) => paths.ship(s.className);
   const { data, index, isLoading, error } = useGameTools();
   const navigate = useNavigate();
   const [browse, setBrowse] = useState(false);
@@ -149,6 +152,8 @@ export function ShipsHomePage() {
 // ── /tools/ships/:className: one ship, or two side by side ──────────────────
 
 export function ShipPage() {
+  const paths = useToolsPaths();
+  const shipPath = (s: Pick<GameToolsShip, 'className'>) => paths.ship(s.className);
   const { className = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -156,25 +161,26 @@ export function ShipPage() {
   const ship = index?.shipsByClass.get(className.toLowerCase()) ?? null;
   const vs = params.get('vs');
   const other = vs ? index?.shipsByClass.get(vs.toLowerCase()) ?? null : null;
-  const a = useLoadout(ship, 's', index?.gunsByUuid ?? new Map());
-  const b = useLoadout(other, 'c', index?.gunsByUuid ?? new Map());
-  const [active, setActive] = useState<{ side: 'a' | 'b'; slot: number } | null>({ side: 'a', slot: 0 });
-  const [expert, setExpert] = useState(false);
+  const a = useLoadout(ship, 's', index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map());
+  const b = useLoadout(other, 'c', index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map());
+  const [active, setActive] = useState<{ side: 'a' | 'b'; slot: number; comp: boolean } | null>({ side: 'a', slot: 0, comp: false });
+  // Expert numbers are always shown (v1.46.0).
+  const expert = true;
   const [copied, setCopied] = useState(false);
   const [choosing, setChoosing] = useState(false);
 
   useEffect(() => { if (ship) rememberShip(ship.className); }, [ship]);
-  useEffect(() => { setActive(other ? null : { side: 'a', slot: 0 }); }, [ship?.uuid, other?.uuid]);
+  useEffect(() => { setActive(other ? null : { side: 'a', slot: 0, comp: false }); }, [ship?.uuid, other?.uuid]);
 
   if (!data || !index) return <ToolsDataState isLoading={isLoading} error={error} />;
-  if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to="/tools">Pick another</Link></p>;
+  if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to={paths.ships}>Pick another</Link></p>;
 
   const setParam = (k: string, v: string | null) => {
     const n = new URLSearchParams(params);
-    if (v) n.set(k, v); else { n.delete(k); if (k === 'vs') for (const key of [...n.keys()]) if (/^c\d+$/.test(key)) n.delete(key); }
+    if (v) n.set(k, v); else { n.delete(k); if (k === 'vs') for (const key of [...n.keys()]) if (/^ck?\d+$/.test(key)) n.delete(key); }
     setParams(n, { replace: true });
   };
-  const compareWith = (s: GameToolsShip) => { setChoosing(false); const n = new URLSearchParams(params); for (const k of [...n.keys()]) if (/^c\d+$/.test(k)) n.delete(k); n.set('vs', s.className.toLowerCase()); setParams(n, { replace: true }); };
+  const compareWith = (s: GameToolsShip) => { setChoosing(false); const n = new URLSearchParams(params); for (const k of [...n.keys()]) if (/^ck?\d+$/.test(k)) n.delete(k); n.set('vs', s.className.toLowerCase()); setParams(n, { replace: true }); };
   const copy = async () => {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* no clipboard */ }
   };
@@ -184,6 +190,8 @@ export function ShipPage() {
     n.set('vs', ship.className.toLowerCase());
     b.equipped.forEach((g, i) => { if (g && g.uuid !== b.stock[i]?.uuid) n.set(`s${i}`, g.uuid); });
     a.equipped.forEach((g, i) => { if (g && g.uuid !== a.stock[i]?.uuid) n.set(`c${i}`, g.uuid); });
+    b.compFitted.forEach((c, i) => { if (c && c.uuid !== b.compStock[i]?.uuid) n.set(`sk${i}`, c.uuid); });
+    a.compFitted.forEach((c, i) => { if (c && c.uuid !== a.compStock[i]?.uuid) n.set(`ck${i}`, c.uuid); });
     navigate(`${shipPath(other)}?${n.toString()}`, { replace: true });
   };
 
@@ -194,7 +202,6 @@ export function ShipPage() {
         ? <div className="min-w-[280px]"><ShipSearch ships={data.ships.filter((s) => s.uuid !== ship.uuid)} onPick={compareWith} placeholder="Compare with…" autoFocus /></div>
         : <button type="button" className="gt-btn gt-btn-primary" onClick={() => setChoosing(true)}>Compare</button>)}
       {other && <button type="button" className="gt-btn" onClick={swap}>Swap sides</button>}
-      <button type="button" className="gt-btn" aria-pressed={expert} onClick={() => setExpert(!expert)}>Expert view</button>
       <button type="button" className="gt-btn" onClick={copy}>{copied ? 'Link copied' : 'Copy link'}</button>
     </div>
   );
@@ -217,8 +224,8 @@ export function ShipPage() {
             </span>
           </div>
         </div>
-        <KeyNumbers ship={lo.ship} guns={lo.guns} compact />
-        <SlotList lo={lo} active={active?.side === key ? active.slot : null} onPick={(i) => setActive(active?.side === key && active.slot === i ? null : { side: key, slot: i })} />
+        <KeyNumbers lo={lo} compact />
+        <SlotList lo={lo} active={active?.side === key ? active : null} onPick={(comp, i) => setActive(active?.side === key && active.slot === i && active.comp === comp ? null : { side: key, slot: i, comp })} />
         <Totals lo={lo} expert={expert} />
       </section>
     );
@@ -233,7 +240,9 @@ export function ShipPage() {
         {active && (
           <div className="px-5 sm:px-10 py-6 border-t" style={{ borderColor: 'var(--gt-line)' }}>
             <p className="gt-label gt-label-acc m-0 pb-2">{shortShipName(pickerLo.ship)}</p>
-            <GunPicker key={`${active.side}-${active.slot}`} lo={pickerLo} slotIndex={active.slot} allGuns={data.guns} expert={expert} />
+            {active.comp
+              ? <ComponentPicker key={`${active.side}-k${active.slot}`} lo={pickerLo} slotIndex={active.slot} all={data.components ?? []} expert={expert} />
+              : <GunPicker key={`${active.side}-${active.slot}`} lo={pickerLo} slotIndex={active.slot} allGuns={data.guns} expert={expert} />}
           </div>
         )}
         <div className="px-5 sm:px-10 py-8 border-t" style={{ borderColor: 'var(--gt-line)' }}>
@@ -264,13 +273,14 @@ export function ShipPage() {
         </div>
         {toolbar}
       </div>
-      <div className="px-5 sm:px-10 pt-6"><KeyNumbers ship={ship} guns={a.guns} /></div>
+      <div className="px-5 sm:px-10 pt-6"><KeyNumbers lo={a} /></div>
       <div className="flex flex-wrap">
         <section aria-label="Loadout" className="flex-[1_1_300px] max-w-[380px] box-border px-5 sm:pl-10 sm:pr-7 py-6" style={{ borderRight: '1px solid var(--gt-line)' }}>
-          <SlotList lo={a} active={active?.slot ?? null} onPick={(i) => setActive({ side: 'a', slot: i })} />
+          <SlotList lo={a} active={active} onPick={(comp, i) => setActive({ side: 'a', slot: i, comp })} />
         </section>
         <section className="flex-[999_1_520px] min-w-0 box-border px-5 sm:px-7 py-6 flex flex-col gap-8">
-          {active && a.slots.length > 0 && <GunPicker key={active.slot} lo={a} slotIndex={active.slot} allGuns={data.guns} expert={expert} />}
+          {active?.comp && <ComponentPicker key={`k${active.slot}`} lo={a} slotIndex={active.slot} all={data.components ?? []} expert={expert} />}
+          {active && !active.comp && a.slots.length > 0 && <GunPicker key={active.slot} lo={a} slotIndex={active.slot} allGuns={data.guns} expert={expert} />}
           <KillTable loadouts={[{ name: shortShipName(ship), guns: a.guns }]} ships={data.ships} />
         </section>
         <aside aria-label="Totals" className="flex-[1_1_280px] max-w-[380px] box-border px-5 sm:pl-7 sm:pr-10 py-6" style={{ borderLeft: '1px solid var(--gt-line)' }}>

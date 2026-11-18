@@ -15,6 +15,8 @@
 // - the ship dies when its main body (the part named "body", else the
 //   biggest part) is gone.
 
+import { shipComponentSlots, type ComponentSlot, type ShipComponent } from './components.js';
+
 export type DamageType = 'physical' | 'energy';
 export interface DamagePair { physical: number; energy: number }
 
@@ -86,6 +88,10 @@ export interface CombatShip {
   qtSpool: number | null;
   insuranceClaimMin: number | null;
   gunSlots: GunSlot[];
+  /** Shields, power plants, coolers, quantum drive and radar (v1.46.0). */
+  componentSlots: ComponentSlot[];
+  /** Quantum fuel tank, for the drive's range. */
+  qtFuelCapacity: number | null;
 }
 
 // ── Reading scdata ────────────────────────────────────────────────────────────
@@ -271,6 +277,8 @@ export function combatShipFromRow(row: { uuid: string; class_name?: string | nul
     qtSpool: num(s.QuantumTravel?.SpoolTime),
     insuranceClaimMin: num(s.Insurance?.StandardClaimTime),
     gunSlots: shipGunSlots(s),
+    componentSlots: shipComponentSlots(s),
+    qtFuelCapacity: num(s.QuantumTravel?.FuelCapacity),
   };
 }
 
@@ -500,6 +508,8 @@ export interface GameToolsDataDto {
   ships: GameToolsShip[];
   /** Ship guns, skins grouped (`variants`). Includes every stock gun, grouped or not. */
   guns: CombatGun[];
+  /** Ship components players can fit, plus every stock one (v1.46.0). */
+  components: ShipComponent[];
 }
 
 /** SQL for the rows `combatShipFromRow` reads: flying ships only. */

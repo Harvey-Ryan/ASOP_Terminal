@@ -2,6 +2,7 @@
 // sliders, a build list with totals and where to mine everything).
 import { Fragment, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useToolsPaths } from '@/lib/toolsPaths';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -756,11 +757,11 @@ function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
 const LIST_HIDDEN_KEY = 'asop-crafting-list-hidden';
 
 function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
-  const { guildId } = useParams<{ guildId: string }>();
+  const paths = useToolsPaths();
   const navigate = useNavigate();
   const bp = selectedUuid ? getBlueprintByUuid(selectedUuid) ?? null : null;
-  const pick = (uuid: string) => navigate(`/dashboard/servers/${guildId}/crafting-calculator/${uuid}`);
-  const back = () => navigate(`/dashboard/servers/${guildId}/crafting-calculator`);
+  const pick = (uuid: string) => navigate(`${paths.crafting}/${uuid}`);
+  const back = () => navigate(paths.crafting);
   const src = craftingSource();
   const [listHidden, setListHidden] = useState(() => { try { return localStorage.getItem(LIST_HIDDEN_KEY) === '1'; } catch { return false; } });
   const hideList = (v: boolean) => { setListHidden(v); try { localStorage.setItem(LIST_HIDDEN_KEY, v ? '1' : '0'); } catch { /* this visit only */ } };

@@ -20,6 +20,7 @@ export function useGameTools() {
     if (!d) return null;
     return {
       gunsByUuid: new Map(d.guns.map((g) => [g.uuid, g])),
+      componentsByUuid: new Map((d.components ?? []).map((c) => [c.uuid, c])),
       shipsByClass: new Map(d.ships.map((s) => [s.className.toLowerCase(), s])),
     };
   }, [q.data]);
@@ -44,9 +45,6 @@ export function shortShipName(ship: Pick<GameToolsShip, 'name' | 'maker'>): stri
   return first && ship.name.startsWith(first + ' ') ? ship.name.slice(first.length + 1) : ship.name;
 }
 
-export function shipPath(ship: Pick<GameToolsShip, 'className'>): string {
-  return `/tools/ships/${encodeURIComponent(ship.className.toLowerCase())}`;
-}
 
 export const fmt = (n: number | null | undefined, digits = 0): string =>
   n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });
@@ -82,16 +80,6 @@ export function readTheme(): GameToolsTheme {
 }
 export function saveTheme(t: GameToolsTheme): void {
   try { localStorage.setItem(THEME_KEY, t); } catch { /* private window */ }
-}
-
-// The server the person came from, for the tabs that belong to a server
-// (Crafting, Blueprints, Wikelo).
-const SERVER_KEY = 'gt-server';
-export function readToolsServer(): string | null {
-  try { return localStorage.getItem(SERVER_KEY); } catch { return null; }
-}
-export function saveToolsServer(id: string): void {
-  try { localStorage.setItem(SERVER_KEY, id); } catch { /* private window */ }
 }
 
 // Ships looked at recently, newest first (this browser only).

@@ -5,6 +5,7 @@
 // works the same whatever you've ticked.
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useToolsPaths } from '@/lib/toolsPaths';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Search } from 'lucide-react';
 import {
@@ -287,7 +288,8 @@ function MissionDetail({ m, progress, onSave, saveFailed, onBack }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function WikeloPage() {
-  const { guildId, missionId } = useParams<{ guildId: string; missionId?: string }>();
+  const { missionId } = useParams<{ missionId?: string }>();
+  const paths = useToolsPaths();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<Tab>('all');
@@ -302,7 +304,7 @@ export function WikeloPage() {
 
   const selected = all.find((m) => m.id === missionId) ?? null;
   const showing = selected ?? shown[0] ?? null;
-  const base = `/dashboard/servers/${guildId}/wikelo`;
+  const base = paths.wikelo;
   const pick = (id: string) => navigate(`${base}/${id}`);
 
   return (

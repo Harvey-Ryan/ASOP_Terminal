@@ -9,6 +9,11 @@ test('dashboard pages, with their query and hash, are kept', () => {
   }
 });
 
+test('Game Tools pages (v1.46.0) are kept too', () => {
+  for (const p of ['/tools', '/tools/crafting', '/tools/wikelo/abc?x=1']) assert.equal(safeReturnPath(p), p);
+  for (const p of ['/toolsx', '//tools', '/tools//evil.example']) assert.equal(safeReturnPath(p), null, p);
+});
+
 test('anything that could leave the site, or isn\'t a dashboard page, is refused', () => {
   for (const p of ['https://evil.example/dashboard', '//evil.example/dashboard', '/dashboard//evil.example', '/\\evil.example',
     '/dashboard\\..\\x', '/dashboardx', '/login', '/', '', 'dashboard', '/dashboard/\nSet-Cookie:x', '/dashboard/' + 'a'.repeat(600), null, 42, ['/dashboard']]) {
