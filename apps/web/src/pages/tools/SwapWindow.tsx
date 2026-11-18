@@ -174,12 +174,13 @@ export function SwapWindow<T>({ eyebrow, title, items, columns, filters, searchT
                   } else diff = <span className="gt-dim">–</span>;
                 }
                 return (
-                  <tr key={id} className={on ? 'is-on' : ''}>
+                  // The whole row picks the item (v1.48.1); the name stays a button for the keyboard.
+                  <tr key={id} className={`${on ? 'is-on' : ''}${locked ? '' : ' gt-pickrow'}`} onClick={locked ? undefined : () => onPick(x)}>
                     {columns.map((c, i) => {
                       if (i === 0) {
                         return (
                           <td key={c.key} style={{ paddingLeft: 24, minWidth: 210 }}>
-                            <button type="button" className="gt-cellbtn" disabled={!!locked} onClick={() => onPick(x)}>{nameOf(x)}</button>
+                            <button type="button" className="gt-cellbtn" disabled={!!locked} onClick={(e) => { e.stopPropagation(); onPick(x); }}>{nameOf(x)}</button>
                             <span className="block text-xs gt-dim">{subOf(x)}{id === stockId ? ' · stock' : ''}{on ? ' · fitted' : ''}</span>
                           </td>
                         );
