@@ -171,7 +171,7 @@ export function ShipPage() {
   const ship = index?.shipsByClass.get(className.toLowerCase()) ?? null;
   const vs = params.get('vs');
   const other = vs ? index?.shipsByClass.get(vs.toLowerCase()) ?? null : null;
-  const maps = [index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map(), index?.missilesByUuid ?? new Map()] as const;
+  const maps = [index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map(), index?.missilesByUuid ?? new Map(), index?.lasersByUuid ?? new Map(), index?.modulesByUuid ?? new Map()] as const;
   const a = useLoadout(ship, 's', ...maps);
   const b = useLoadout(other, 'c', ...maps);
   const [open, setOpen] = useState<{ side: 'a' | 'b'; target: SwapTarget } | null>(null);
@@ -186,7 +186,7 @@ export function ShipPage() {
   if (!data || !index) return <ToolsDataState isLoading={isLoading} error={error} />;
   if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to={paths.ships}>Pick another</Link></p>;
 
-  const COMPARE_KEYS = /^c[km]?\d+$/;
+  const COMPARE_KEYS = /^c(?:[kml]?\d+|d\d+_\d+)$/;
   const setParam = (k: string, v: string | null) => {
     const n = new URLSearchParams(params);
     if (v) n.set(k, v); else { n.delete(k); if (k === 'vs') for (const key of [...n.keys()]) if (COMPARE_KEYS.test(key)) n.delete(key); }
@@ -232,7 +232,7 @@ export function ShipPage() {
   );
   const openLo = open?.side === 'b' ? b : a;
   const swapWindow = open && openLo && (
-    <Swap key={JSON.stringify(open)} lo={openLo} target={open.target} guns={data.guns} components={data.components ?? []} missiles={data.missiles ?? []} onClose={() => setOpen(null)} />
+    <Swap key={JSON.stringify(open)} lo={openLo} target={open.target} guns={data.guns} components={data.components ?? []} missiles={data.missiles ?? []} lasers={data.miningLasers ?? []} modules={data.miningModules ?? []} onClose={() => setOpen(null)} />
   );
   const changeLine = (lo: LoadoutState) => (
     <>

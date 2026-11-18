@@ -45,6 +45,8 @@ export interface MiningLaser {
   optimalRange: number | null;
   maxRange: number | null;
   moduleSlots: number;
+  /** A ship this laser is made for (it needs that ship's tag), e.g. the Golem's Pitman; null for lasers sold for any ship. */
+  bespokeFor?: string | null;
   /** Percent changes: Resistance, Instability, OptimalChargeWindow, OptimalChargeRate, AllChargeRates, InertMaterials… */
   modifiers: Record<string, number>;
 }
@@ -145,10 +147,11 @@ export function miningLaserFromItem(row: { uuid: string; class_name?: string | n
   if (!name || size < 1 || NOT_A_LASER.test(row.class_name ?? '')) return null;
   const modifiers: Record<string, number> = {};
   for (const [k, v] of Object.entries((l.Modifiers ?? {}) as Json)) if (num(v)) modifiers[k] = v as number;
+  const needs = ((s.RequiredTags ?? []) as unknown[]).map(String).filter((t) => t !== 'miningMount');
   return {
     uuid: row.uuid, name, maker: str(row.manufacturer_name) ?? str(s.Manufacturer?.Name), size,
     power: num(l.PowerTransfer), minPower: num(l.MinPowerTransfer), extraction: num(l.ExtractionThroughput),
-    optimalRange: num(l.OptimalRange), maxRange: num(l.MaximumRange), moduleSlots: num(l.ModuleSlots) ?? 0, modifiers,
+    optimalRange: num(l.OptimalRange), maxRange: num(l.MaximumRange), moduleSlots: num(l.ModuleSlots) ?? 0, bespokeFor: needs[0] ?? null, modifiers,
   };
 }
 
@@ -195,3 +198,103 @@ export const MINING_MODULES_SQL = `
   SELECT uuid, class_name, name, manufacturer_name, size, data FROM scdata.items
   WHERE type = 'MiningModifier' AND NOT is_placeholder
 `;
+
+// ── Mining heads on ships (v1.50.0) ──────────────────────────────────────────
+
+/** One mining laser mount on a ship: a crew turret (Mole) or the pilot's arm (Prospector, Golem). */
+export interface MiningHead {
+  /** Hardpoint path, unique on the ship. */
+  id: string;
+  /** "Front turret", "Mining arm"… */
+  label: string;
+  size: number;
+  stockLaserUuid: string | null;
+  /** A crew member runs it (manned turret), not the pilot. */
+  crewed: boolean;
+  /** The ship's own mount can't take another laser (the Golem). Modules still swap. */
+  locked: boolean;
+}
+
+const PLACE_WORDS: [RegExp, string][] = [[/front/i, 'Front'], [/left/i, 'Left'], [/right/i, 'Right'], [/rear|back/i, 'Rear'], [/top/i, 'Top']];
+
+/**
+ * Every mining laser mount on a ship (size 1 and up: the ROC's and hand
+ * lasers are size 0). A mount is a port holding a WeaponMining item, or an
+ * empty port that takes one. It's locked when a port between the ship's
+ * own hardpoint and the laser can't be changed (the Golem's arm); the
+ * hardpoint itself is never changeable (the Mole's cabs) and doesn't count.
+ */
+export function shipMiningHeads(ship: Json): MiningHead[] {
+  const out: (MiningHead & { root: string })[] = [];
+  const isLaser = (p: Json) => String(p.Type ?? '').startsWith('WeaponMining');
+  const takesLaser = (p: Json) => ((p.CompatibleTypes ?? []) as Json[]).some((t) => t.Type === 'WeaponMining');
+  const laserBelow = (p: Json): boolean => ((p.Loadout ?? []) as Json[]).some((q) => isLaser(q) || laserBelow(q));
+  const walk = (ports: Json[] | undefined, path: Json[]) => {
+    for (const p of ports ?? []) {
+      const here = [...path, p];
+      if (isLaser(p) || (takesLaser(p) && !laserBelow(p))) {
+        const size = num(p.MaxSize) ?? 0;
+        if (size < 1) continue;
+        const root = here[0]!;
+        out.push({
+          id: here.map((x) => String(x.HardpointName ?? '')).join('/'),
+          label: '', root: String(root.HardpointName ?? ''), size,
+          stockLaserUuid: isLaser(p) ? str(p.UUID) : null,
+          crewed: /MannedTurret/i.test(String(root.Type ?? '')),
+          locked: here.slice(1).some((x) => x.Editable === false),
+        });
+        continue;
+      }
+      walk(p.Loadout, here);
+    }
+  };
+  walk(ship.Loadout, []);
+  return out.map(({ root, ...h }, i) => {
+    const place = PLACE_WORDS.find(([re]) => re.test(root))?.[1];
+    const what = h.crewed ? 'turret' : 'mining arm';
+    const label = place ? `${place} ${what}` : out.length > 1 ? `Mining head ${i + 1}` : what[0]!.toUpperCase() + what.slice(1);
+    return { ...h, label };
+  });
+}
+
+/** Whether a laser can go on a head: same size, sold for any ship (the stock laser always fits). */
+export function laserFitsHead(l: MiningLaser, head: MiningHead): boolean {
+  if (l.uuid === head.stockLaserUuid) return true;
+  if (head.locked || l.bespokeFor) return false;
+  return l.size === head.size;
+}
+
+export interface MiningHeadTotals {
+  power: number | null;
+  minPower: number | null;
+  extraction: number | null;
+  /** Percent changes from the laser and its modules together. */
+  modifiers: Record<string, number>;
+  modules: number;
+}
+
+/**
+ * One head's numbers with its modules (active modules counted as switched
+ * on). Laser power is multiplied by each module's power multiplier; percent
+ * changes are combined by multiplying (1 + a)(1 + b) − 1. How the game
+ * combines them still has to be checked against Regolith.
+ */
+export function miningHeadTotals(laser: MiningLaser | null, modules: readonly (MiningModule | null)[]): MiningHeadTotals {
+  const fitted = modules.filter((m): m is MiningModule => !!m);
+  const mult = fitted.reduce((t, m) => t * (m.power ?? 1), 1);
+  const pct: Record<string, number> = { ...(laser?.modifiers ?? {}) };
+  for (const m of fitted) {
+    for (const [k, v] of Object.entries(m.modifiers)) pct[k] = ((1 + (pct[k] ?? 0) / 100) * (1 + v / 100) - 1) * 100;
+  }
+  for (const k of Object.keys(pct)) {
+    pct[k] = Math.round(pct[k]! * 10) / 10;
+    if (!pct[k]) delete pct[k];
+  }
+  return {
+    power: laser?.power != null ? laser.power * mult : null,
+    minPower: laser?.minPower != null ? laser.minPower * mult : null,
+    extraction: laser?.extraction ?? null,
+    modifiers: pct,
+    modules: fitted.length,
+  };
+}

@@ -681,9 +681,20 @@ Patch Notes — v1.1.0 — November 10
   `Mining_Modules_(Active|Passive)_…` (Deluge, Overrun and Clearcut have no
   item type in the files: may not be sold). Lower resistance, instability,
   inert, overcharge and shatter are good for the miner.
-- Next: mining/salvage/refuel loadouts on ship pages (lasers + modules per
-  head, "what can it break" once checked against Regolith), UEX prices and
-  refinery yields. Power pips are on hold.
+- Mining loadouts on ship pages (v1.50.0): `shipMiningHeads` (`mining.ts`)
+  finds each laser mount of size 1+ (Mole crew turrets, Prospector/Golem
+  arm); a head is `locked` when a port between the ship's hardpoint and the
+  laser can't change (the Golem). Lasers needing a ship tag (`bespokeFor`,
+  the Pitman) fit only where they're stock (`laserFitsHead`). Lasers and
+  modules ride in the game-tools data (`miningLasers`, `miningModules`).
+  Address: `?sl0=<laser>`, `?sd0_1=<module>` (`cl`/`cd` when compared); no
+  ship comes with modules, so empty = stock. `miningHeadTotals` multiplies
+  laser power by module power and combines percent changes as
+  (1+a)(1+b)−1 with active modules on: still to be checked against
+  Regolith, and the page says so. "What this loadout can break" is a
+  placeholder until that check.
+- Next: salvage and refuel loadouts, UEX prices and refinery yields. Power
+  pips are on hold.
 - Components (v1.46.0): shields, power plants, coolers, quantum drives and
   radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
   `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats

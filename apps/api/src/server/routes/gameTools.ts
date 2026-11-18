@@ -47,12 +47,14 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   }
   if (!source?.commit) return null;
 
-  const [shipRows, gunRows, componentRows, missileRows, launcherRows] = await Promise.all([
+  const [shipRows, gunRows, componentRows, missileRows, launcherRows, laserRows, moduleRows] = await Promise.all([
     query<Row[]>(GAME_TOOLS_SHIPS_SQL),
     query<Row[]>(GAME_TOOLS_GUNS_SQL),
     query<Row[]>(GAME_TOOLS_COMPONENTS_SQL),
     query<Row[]>(GAME_TOOLS_MISSILES_SQL),
     query<Row[]>(COUNTERMEASURE_SQL),
+    query<Row[]>(MINING_LASERS_SQL),
+    query<Row[]>(MINING_MODULES_SQL),
   ]);
   const allGuns = gunRows.map(combatGunFromItem).filter((g): g is CombatGun => !!g && !isUnavailableGun(g));
   const guns = dedupeGuns(allGuns);
@@ -78,6 +80,16 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
     return [r.uuid, { type: wd?.Type ?? '', capacity: wd?.Capacity ?? 0 }];
   }));
 
+  // Mining lasers and modules (v1.50.0), grouped like the Mining page's.
+  const allLasers = laserRows.map(miningLaserFromItem).filter((l): l is MiningLaser => !!l);
+  const laserKey = (l: MiningLaser) => JSON.stringify([l.name, l.power, l.extraction, l.modifiers]);
+  const laserGroups = dedupeMining(allLasers, (l) => [laserKey(l)]);
+  const laserRepByKey = new Map(laserGroups.map((l) => [laserKey(l), l.uuid]));
+  const laserRep = new Map(allLasers.map((l) => [l.uuid, laserRepByKey.get(laserKey(l)) ?? l.uuid]));
+  const stockLasers = new Set<string>();
+  const miningModules = dedupeMining(moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m), (m) => [m.name, m.power, m.modifiers])
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+
   const catalog = await catalogFn().catch((err: unknown) => { console.warn('[game-tools] No ship pictures:', err); return []; });
   const index = catalog.length ? shipIndex(catalog) : null;
 
@@ -88,6 +100,11 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
     for (const slot of s.gunSlots) if (slot.stockGunUuid) slot.stockGunUuid = rep.get(slot.stockGunUuid) ?? null;
     for (const rack of s.missileRacks ?? []) if (rack.stockMissileUuid) rack.stockMissileUuid = misRep.get(rack.stockMissileUuid) ?? null;
     s.countermeasures = countermeasures((row.data as { Loadout?: unknown[] }).Loadout, launchers);
+    for (const head of s.miningHeads ?? []) {
+      if (!head.stockLaserUuid) continue;
+      head.stockLaserUuid = laserRep.get(head.stockLaserUuid) ?? null;
+      if (head.stockLaserUuid) stockLasers.add(head.stockLaserUuid);
+    }
     for (const slot of s.componentSlots) {
       if (!slot.stockUuid) continue;
       slot.stockUuid = compRep.get(slot.stockUuid) ?? null;
@@ -102,7 +119,9 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
 
   // Parts players can't get (no class or grade: bespoke and placeholder records) only where a ship comes with them.
   const components = componentGroups.filter((c) => c.available || stockComponents.has(c.uuid));
-  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles };
+  // Lasers made for one ship only where that ship comes with them.
+  const miningLasers = laserGroups.filter((l) => !l.bespokeFor || stockLasers.has(l.uuid)).sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
+  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles, miningLasers, miningModules };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<GameToolsDataDto>));
   return {
     commit: source.commit, at: Date.now(), data,

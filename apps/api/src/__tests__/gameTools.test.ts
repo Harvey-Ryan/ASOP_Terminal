@@ -28,6 +28,10 @@ const shipRow = {
         { HardpointName: 'missile_02_attach', Type: 'Missile.Missile', UUID: 'tb-copy', MaxSize: 3 },
       ] },
       { HardpointName: 'hardpoint_cm', Type: 'WeaponDefensive.CountermeasureLauncher', UUID: 'decoys' },
+      // v1.50.0: a crew mining turret with a copy of a size 2 laser.
+      { HardpointName: 'hardpoint_mining_cab_front', Type: 'UtilityTurret.MannedTurret', Editable: false, Loadout: [
+        { HardpointName: 'hardpoint_weapon_mining', Type: 'WeaponMining.Gun', UUID: 'mh2-copy', MaxSize: 2, MinSize: 2, Editable: true, CompatibleTypes: [{ Type: 'WeaponMining' }] },
+      ] },
     ],
   },
 };
@@ -50,6 +54,13 @@ function fakeQuery(sql: string): Promise<unknown> {
   if (sql.includes("'Missile'")) return Promise.resolve(['tb', 'tb-copy'].map((uuid) => ({ uuid, class_name: uuid, name: 'Thunderbolt III Missile', manufacturer_name: 'FireStorm Kinetics', size: 3,
     data: { stdItem: { Missile: { DamageTotal: 2900, Damage: { Physical: 2900 }, Targeting: { LockTime: 1, TrackingSignalType: 'Electromagnetic' } } } } })));
   if (sql.includes("'WeaponDefensive'")) return Promise.resolve([{ uuid: 'decoys', class_name: 'cml', name: 'Decoy Launcher', manufacturer_name: null, size: 1, data: { stdItem: { WeaponDefensive: { Type: 'Flare', Capacity: 48 } } } }]);
+  if (sql.includes("'WeaponMining'")) {
+    const laser = (uuid: string, name: string, size: number, power: number, tags: string[] = ['miningMount']) => ({ uuid, class_name: `Mining_Laser_${uuid}`, name, manufacturer_name: 'Maker', size,
+      data: { stdItem: { RequiredTags: tags, MiningLaser: { PowerTransfer: power, ModuleSlots: 2, Modifiers: { Resistance: 25 } } } } });
+    return Promise.resolve([laser('mh2', 'Arbor MH2', 2, 2900), laser('mh2-copy', 'Arbor MH2', 2, 2900), laser('pitman', 'Pitman', 1, 3900, ['DRAK_Golem', 'miningMount'])]);
+  }
+  if (sql.includes("'MiningModifier'")) return Promise.resolve([{ uuid: 'surge', class_name: 'Mining_Modules_Active_Surge', name: 'Surge Module', manufacturer_name: null, size: 1,
+    data: { stdItem: { MiningModule: { Type: 'Active', Charges: 7, Lifetime: 15, Modifiers: { DamageMultiplier: 1.5, Resistance: -15.5 } } } } }]);
   // A gun and its skin with the same numbers, plus one that's different.
   return Promise.resolve([gunRow('plain', 'Laser', 40), gunRow('skin', 'Laser Hazard-Zone', 40), gunRow('other', 'Cannon', 400)]);
 }
@@ -82,6 +93,10 @@ describe('Game Tools data', () => {
     expect(data.missiles!.map((m) => m.name)).toEqual(['Thunderbolt III']);
     expect(ship.missileRacks!.map((r) => [r.name, r.missileSize, r.count, r.stockMissileUuid])).toEqual([['MSD-423 Missile Rack', 3, 2, 'tb']]);
     expect(ship.countermeasures).toEqual({ decoy: 48, noise: 0 });
+    // Mining (v1.50.0): the head points at the shown laser; a laser made for another ship is left out.
+    expect(ship.miningHeads).toEqual([{ id: 'hardpoint_mining_cab_front/hardpoint_weapon_mining', label: 'Front turret', size: 2, stockLaserUuid: 'mh2', crewed: true, locked: false }]);
+    expect(data.miningLasers!.map((l) => l.name)).toEqual(['Arbor MH2']);
+    expect(data.miningModules!.map((m) => [m.name, m.power])).toEqual([['Surge Module', 1.5]]);
     // Sent gzipped as the same JSON.
     const body = JSON.parse(gunzipSync(built!.gz).toString());
     expect(body.data.ships[0].name).toBe('Test Fighter');
