@@ -598,3 +598,30 @@ Patch Notes — v1.1.0 — November 10
 - Earmarked, not built: mining/briefing data (refinery yields, ore prices,
   routes for ops) and importing a player's UEX fleet with their own UEX
   secret key (which would need storing encrypted and covering in Your data).
+
+## Game Tools (v1.44.0)
+
+- Public pages at `/tools` (no sign-in, outside the dashboard): Home (search),
+  Ships, a ship's page, Loadout and Optimizer (`apps/web/src/pages/tools/`,
+  their own look scoped to `.gt` in `tools.css`, with maker-inspired themes
+  saved in the browser). The sidebar's Tools group is now one "Game Tools"
+  link (`/tools?server=<id>`); Crafting, Blueprints and Wikelo show as tabs
+  there for the remembered server, linking to their dashboard pages.
+- Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
+  and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
+  an ETag, rate-limited per IP. Skins with identical numbers are grouped
+  (`dedupeGuns`, `variants`) and stock guns point at the shown gun.
+- The maths is `packages/shared/src/combat.ts`, run in the browser:
+  `killTime` (shields absorb/resist per damage type, ballistic passes through,
+  armour multiplier, a pellet at or below the armour's deflection does no hull
+  damage, main body = the part named "body", else the biggest), `killVerdict`,
+  `bestGunFits` (slots taking the same guns are filled as a group; candidates
+  are narrowed so the search stays under `maxEvaluations`). Every page that
+  shows a kill time states the assumptions (every shot hits, no shield regen,
+  the deflection reading still to be confirmed in game). Comparisons on the
+  Optimizer are computed from numbers, never written by AI.
+- Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
+  RequiredTags against the gun's tags, and the gun's RequiredTags against the
+  PortTags of the port, its mounts and the ship. Use it for every "what fits".
+- Pilot guns only so far (turret guns are listed, not counted). Missiles,
+  components, mining and prices (UEX items/vehicles) are next.

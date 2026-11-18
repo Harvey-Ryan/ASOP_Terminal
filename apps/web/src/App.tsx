@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -63,6 +64,13 @@ const AdminServerPage = lazyPage(() => import('./pages/admin/AdminServerPage'), 
 const AdminActivityPage = lazyPage(() => import('./pages/admin/AdminActivityPage'), 'AdminActivityPage');
 const AdminFeedPage = lazyPage(() => import('./pages/admin/AdminFeedPage'), 'AdminFeedPage');
 const AdminModulesPage = lazyPage(() => import('./pages/admin/AdminModulesPage'), 'AdminModulesPage');
+// Game Tools (v1.44.0): public, outside the dashboard.
+const ToolsLayout = lazyPage(() => import('./pages/tools/ToolsLayout'), 'ToolsLayout');
+const ToolsHomePage = lazyPage(() => import('./pages/tools/ToolsHomePage'), 'ToolsHomePage');
+const ToolsShipsPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipsPage');
+const ToolsShipPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipPage');
+const ToolsLoadoutPage = lazyPage(() => import('./pages/tools/LoadoutPage'), 'LoadoutPage');
+const ToolsOptimizerPage = lazyPage(() => import('./pages/tools/OptimizerPage'), 'OptimizerPage');
 const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
@@ -72,6 +80,15 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/tools" element={<Suspense fallback={null}><ToolsLayout /></Suspense>}>
+          <Route index element={<ToolsHomePage />} />
+          <Route path="ships" element={<ToolsShipsPage />} />
+          <Route path="ships/:className" element={<ToolsShipPage />} />
+          <Route path="loadout" element={<ToolsLoadoutPage />} />
+          <Route path="loadout/:className" element={<ToolsLoadoutPage />} />
+          <Route path="optimizer" element={<ToolsOptimizerPage />} />
+          <Route path="optimizer/:className" element={<ToolsOptimizerPage />} />
+        </Route>
 
         {/* Protected – all dashboard routes share the sidebar layout */}
         <Route
