@@ -623,5 +623,9 @@ Patch Notes — v1.1.0 — November 10
 - Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
   RequiredTags against the gun's tags, and the gun's RequiredTags against the
   PortTags of the port, its mounts and the ship. Use it for every "what fits".
+- Records players can't get are left out by `UNAVAILABLE_GUNS` / `isUnavailableGun`
+  (`combat.ts`, each with its reason; e.g. the untagged copy of the Nova's
+  Slayer Cannon). There's no reliable automatic rule: many real guns aren't
+  stock on any ship, so wait for shop data (UEX) before filtering on that.
 - Pilot guns only so far (turret guns are listed, not counted). Missiles,
   components, mining and prices (UEX items/vehicles) are next.

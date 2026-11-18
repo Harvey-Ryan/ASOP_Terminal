@@ -112,7 +112,8 @@ export function combatGunFromItem(row: { uuid: string; class_name?: string | nul
   if (!burst || !alpha || !sustained) return null;
   const a: Json = d.Alpha ?? {};
   const split = { physical: num(a.Physical) ?? 0, energy: num(a.Energy) ?? 0, distortion: num(a.Distortion) ?? 0 };
-  const parts = (['physical', 'energy', 'distortion'] as const).filter((k) => split[k] > 0);
+  // Ignore token amounts (the Absolution has 720 distortion and 0.001 energy).
+  const parts = (['physical', 'energy', 'distortion'] as const).filter((k) => split[k] > alpha * 0.01);
   const kind: GunKind = parts.length > 1 ? 'Mixed' : parts[0] === 'physical' ? 'Ballistic' : parts[0] === 'distortion' ? 'Distortion' : 'Energy';
   const mode: Json = Array.isArray(w.Modes) && w.Modes.length ? w.Modes[0] : {};
   return {
@@ -157,6 +158,21 @@ export function gunFitsSlot(g: CombatGun, slot: GunSlot): boolean {
   return g.requiredTags.every((t) => offered.has(t.toLowerCase()));
 }
 
+/**
+ * Gun records in the game files that players can't get. Each entry is a
+ * record that some other record already covers properly, so leaving it out
+ * loses nothing; keep the reason next to it.
+ */
+export const UNAVAILABLE_GUNS: { name: string; when: (g: CombatGun) => boolean; why: string }[] = [
+  // The real Slayer is the Tumbril Nova's cannon (requires TMBL_Nova). This
+  // copy has no ship tag and no maker tag, isn't stock anywhere and isn't sold.
+  { name: 'Slayer Cannon', when: (g) => g.requiredTags.length === 0, why: 'Untagged copy of the Nova tank\u2019s cannon; not obtainable.' },
+];
+
+export function isUnavailableGun(g: CombatGun): boolean {
+  return UNAVAILABLE_GUNS.some((u) => u.name === g.name && u.when(g));
+}
+
 /** Same numbers, different paint: keep one per group, the plainest name, and count the rest. */
 export function dedupeGuns(guns: CombatGun[]): CombatGun[] {
   const key = gunGroupKey;
@@ -176,7 +192,9 @@ export function dedupeGuns(guns: CombatGun[]): CombatGun[] {
 
 /** "hardpoint_weapon_gun_class1_left_wing" → "Left wing"; "hardpoint_gun_nose" → "Nose". */
 export function humanHardpoint(name: string): string {
-  const words = name.toLowerCase().split(/[_\s]+/).filter((w) => w && !/^(hardpoint|weapon|weapons|gun|guns|class\d*|s\d|size\d*|hp|mount|\d+)$/.test(w));
+  const words = name.toLowerCase()
+    .replace(/(front|rear|top|bottom|upper|lower|nose|tail)(left|right|center|centre)/g, '$1 $2')
+    .split(/[_\s]+/).filter((w) => w && !/^(hardpoint|weapon|weapons|gun|guns|class\d*|s\d|size\d*|hp|mount|\d+)$/.test(w));
   const s = words.join(' ').trim();
   return s ? s[0]!.toUpperCase() + s.slice(1) : 'Gun';
 }
