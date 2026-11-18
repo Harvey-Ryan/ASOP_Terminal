@@ -113,3 +113,8 @@
 .gt[data-theme='origin'] .gt-kind-energy { color: #1d5f9e; }
 .gt[data-theme='origin'] .gt-kind-ballistic { color: #8a5a00; }
 .gt[data-theme='origin'] .gt-kind-distortion { color: #6b3fb0; }
+/* Swap window rows (v1.48.1): the whole row picks, and lights up on hover. */
+.gt-swap-table tbody tr.gt-pickrow { cursor: pointer; }
+.gt-swap-table tbody tr.gt-pickrow:hover td { background: var(--gt-line); }
+.gt-swap-table tbody tr.gt-pickrow:hover .gt-cellbtn { color: var(--gt-acc); }
+.gt-swap-table tbody tr.gt-pickrow.is-on:hover td { background: var(--gt-tint); }
