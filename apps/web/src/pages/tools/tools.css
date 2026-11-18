@@ -1,0 +1,83 @@
+/* Game Tools (v1.44.0): its own look, scoped to .gt. Thin rules, aligned
+   mono numbers and small-caps labels instead of card grids; colour only
+   for what changed. Themes are palettes inspired by each maker's cockpit
+   displays (not copies of their artwork). */
+
+.gt {
+  --gt-bg: #111111;
+  --gt-line: #2c2c2c;
+  --gt-faint: #1d1d1d;
+  --gt-fg: #d8d8d8;
+  --gt-dim: #8f8f8f;
+  --gt-hi: #f2f2f2;
+  --gt-acc: #d4a32a;
+  --gt-acc-fg: #111111;
+  --gt-tint: #2a2312;
+  --gt-good: #7fc77f;
+  --gt-bad: #e88b7a;
+  min-height: 100vh;
+  background: var(--gt-bg);
+  color: var(--gt-fg);
+  font-family: Barlow, system-ui, sans-serif;
+  font-size: 15px;
+}
+.gt[data-theme='drake']  { --gt-bg: #15110d; --gt-line: #3b2f24; --gt-faint: #211a14; --gt-fg: #e8dccd; --gt-dim: #a08f7c; --gt-hi: #fff3e4; --gt-acc: #ff8a1f; --gt-acc-fg: #15110d; --gt-tint: #2d1d0e; --gt-good: #a8d17a; --gt-bad: #ff9b85; }
+.gt[data-theme='origin'] { --gt-bg: #f3f4f2; --gt-line: #d3d6d2; --gt-faint: #e6e8e5; --gt-fg: #2a2f33; --gt-dim: #5d656b; --gt-hi: #0f1417; --gt-acc: #1f7a72; --gt-acc-fg: #ffffff; --gt-tint: #dcebe8; --gt-good: #2f7a3a; --gt-bad: #b4432f; }
+.gt[data-theme='rsi']    { --gt-bg: #0b111c; --gt-line: #1f2b40; --gt-faint: #121b2a; --gt-fg: #d3deec; --gt-dim: #8193ab; --gt-hi: #f2f7ff; --gt-acc: #5cb0ff; --gt-acc-fg: #0b111c; --gt-tint: #13253d; --gt-good: #7fd0a0; --gt-bad: #f0907f; }
+.gt[data-theme='aegis']  { --gt-bg: #121417; --gt-line: #2d3238; --gt-faint: #1a1d21; --gt-fg: #dde2e7; --gt-dim: #8e969f; --gt-hi: #ffffff; --gt-acc: #e2554f; --gt-acc-fg: #121417; --gt-tint: #2a1819; --gt-good: #82cf8f; --gt-bad: #f0a07a; }
+.gt[data-theme='anvil']  { --gt-bg: #0f130f; --gt-line: #283128; --gt-faint: #161c16; --gt-fg: #d6dfd2; --gt-dim: #8b9787; --gt-hi: #f3fbef; --gt-acc: #9ad25a; --gt-acc-fg: #0f130f; --gt-tint: #1c2a14; --gt-good: #9ad25a; --gt-bad: #ec8f7c; }
+.gt[data-theme='misc']   { --gt-bg: #0e1415; --gt-line: #243234; --gt-faint: #141c1d; --gt-fg: #d2e2e2; --gt-dim: #85999a; --gt-hi: #effcfc; --gt-acc: #3cc9c1; --gt-acc-fg: #0e1415; --gt-tint: #11292a; --gt-good: #8fd68f; --gt-bad: #f09a86; }
+
+.gt a { color: inherit; }
+.gt :focus-visible { outline: 2px solid var(--gt-acc); outline-offset: 2px; }
+.gt ::selection { background: var(--gt-acc); color: var(--gt-acc-fg); }
+
+.gt-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gt-dim); }
+.gt-label-acc { color: var(--gt-acc); }
+.gt-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.gt-hi { color: var(--gt-hi); }
+.gt-dim { color: var(--gt-dim); }
+.gt-acc { color: var(--gt-acc); }
+.gt-good { color: var(--gt-good); }
+.gt-bad { color: var(--gt-bad); }
+
+.gt-rule { border-top: 1px solid var(--gt-line); }
+.gt-row { border-bottom: 1px solid var(--gt-faint); }
+.gt-tint { background: var(--gt-tint); }
+
+.gt-tab { padding: 20px 0 18px; color: var(--gt-dim); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.gt-tab:hover { color: var(--gt-hi); }
+.gt-tab[aria-current='page'] { color: var(--gt-hi); font-weight: 600; border-bottom-color: var(--gt-acc); }
+
+.gt-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--gt-line); background: transparent; color: var(--gt-fg); font: inherit; cursor: pointer; text-decoration: none; }
+.gt-btn:hover { border-color: var(--gt-dim); }
+.gt-btn[aria-pressed='true'] { border-color: var(--gt-acc); color: var(--gt-acc); background: var(--gt-tint); }
+.gt-btn-primary { background: var(--gt-acc); border-color: var(--gt-acc); color: var(--gt-acc-fg); font-weight: 600; }
+.gt-btn-primary:hover { filter: brightness(1.08); border-color: var(--gt-acc); }
+.gt-link { color: var(--gt-acc); font-weight: 600; text-decoration: none; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.gt-link:hover { text-decoration: underline; }
+
+.gt-input { background: transparent; border: 0; border-bottom: 1px solid var(--gt-line); color: var(--gt-hi); font: inherit; padding: 8px 0; outline: none; min-width: 0; }
+.gt-input:focus { border-bottom-color: var(--gt-acc); }
+.gt-input::placeholder { color: var(--gt-dim); }
+.gt select.gt-input { background: var(--gt-bg); cursor: pointer; }
+.gt select.gt-input option { background: var(--gt-bg); color: var(--gt-fg); }
+
+.gt-table { width: 100%; border-collapse: collapse; }
+.gt-table th { text-align: left; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gt-dim); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--gt-line); white-space: nowrap; }
+.gt-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--gt-faint); vertical-align: middle; }
+.gt-table .num { text-align: right; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.gt-table tr.is-on td { background: var(--gt-tint); }
+.gt-table button.gt-cellbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--gt-hi); cursor: pointer; text-align: left; font-weight: 500; }
+.gt-table tr.is-on button.gt-cellbtn { color: var(--gt-acc); }
+.gt-table th button { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer; }
+.gt-table th button[aria-pressed='true'] { color: var(--gt-acc); }
+
+.gt-bar { height: 5px; background: var(--gt-line); position: relative; overflow: hidden; }
+.gt-bar > span { position: absolute; inset: 0 auto 0 0; background: var(--gt-acc); }
+
+.gt-slot { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 8px; border: 0; border-bottom: 1px solid var(--gt-faint); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.gt-slot:hover { background: var(--gt-faint); }
+.gt-slot[aria-pressed='true'] { background: var(--gt-tint); }
+
+.gt-scroll { overflow-x: auto; }

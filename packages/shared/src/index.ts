@@ -965,3 +965,4 @@ export * from './wikelo.js';
 export * from './starStrings.js';
 export * from './briefing.js';
 export * from './uex.js';
+export * from './combat.js';

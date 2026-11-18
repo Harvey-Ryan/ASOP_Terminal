@@ -25,6 +25,7 @@ import { marketplaceRouter } from './routes/marketplace.js';
 import { scRouter } from './routes/sc.js';
 import { fleetRouter } from './routes/fleet.js';
 import { wikeloRouter } from './routes/wikelo.js';
+import { gameToolsRouter } from './routes/gameTools.js';
 import { briefingsRouter } from './routes/briefings.js';
 import { eventTemplatesRouter } from './routes/eventTemplates.js';
 import { rsiRosterRouter } from './routes/rsiRoster.js';
@@ -181,6 +182,19 @@ export function createServer(): express.Express {
       }),
     );
 
+    // Game Tools data (v1.44.0): public, one cached file per game build.
+    app.use(
+      '/api/game-tools',
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 120,
+        keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: rateLimitMessage,
+      }),
+    );
+
     // General API rate limit — high enough for active users with polling queries
     app.use(
       '/api/guilds',
@@ -276,6 +290,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', rsiRosterRouter);
   app.use('/api', fleetRouter);
   app.use('/api', wikeloRouter);
+  app.use('/api', gameToolsRouter);
   app.use('/api/guilds', rsiRouter);
   app.use('/api', kanbanRouter);
   app.use('/api/guilds', alliesRouter);

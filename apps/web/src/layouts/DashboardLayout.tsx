@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, BookOpen, Calculator, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase, Palmtree } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, Crosshair, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -196,9 +196,6 @@ export function DashboardLayout() {
   });
   const lootEnabled       = myPerms?.lootEnabled      ?? true;
   const fleetEnabled      = myPerms?.fleetEnabled     ?? true;
-  const blueprintsEnabled = myPerms?.blueprintsEnabled ?? true;
-  const craftingEnabled   = myPerms?.craftingEnabled  ?? true;
-  const wikeloEnabled     = myPerms?.wikeloEnabled    ?? true;
   const activityEnabled   = myPerms?.activityEnabled  ?? true;
   const tournamentsEnabled = myPerms?.tournamentsEnabled ?? true;
 
@@ -206,9 +203,6 @@ export function DashboardLayout() {
   const [profileOpen,      setProfileOpen]      = useState(false);
   const [navCollapsed,     setNavCollapsed]     = useState(() =>
     localStorage.getItem('nav-collapsed') === 'true',
-  );
-  const [toolsOpen,        setToolsOpen]        = useState(() =>
-    localStorage.getItem('nav-tools-open') !== 'false',
   );
   const [orgSettingsOpen,  setOrgSettingsOpen]  = useState(() =>
     localStorage.getItem('nav-orgsettings-open') !== 'false',
@@ -218,13 +212,6 @@ export function DashboardLayout() {
     setNavCollapsed(prev => {
       const next = !prev;
       localStorage.setItem('nav-collapsed', String(next));
-      return next;
-    });
-  }
-  function toggleTools() {
-    setToolsOpen(prev => {
-      const next = !prev;
-      localStorage.setItem('nav-tools-open', String(next));
       return next;
     });
   }
@@ -576,54 +563,15 @@ export function DashboardLayout() {
                 {!navCollapsed && 'Member Map'}
               </NavLink>
 
-              {(blueprintsEnabled || craftingEnabled || wikeloEnabled) && (
-                <>
-                  {!navCollapsed && (
-                    <button
-                      type="button"
-                      onClick={toggleTools}
-                      className="w-full flex items-center justify-between px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <span>Tools</span>
-                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${toolsOpen ? '' : '-rotate-90'}`} />
-                    </button>
-                  )}
-                  {(navCollapsed || toolsOpen) && (
-                    <>
-                      {blueprintsEnabled && (
-                        <NavLink
-                          to={`/dashboard/servers/${activeGuild.id}/blueprints`}
-                          title={navCollapsed ? 'Blueprints' : undefined}
-                          className={serverNavCls}
-                        >
-                          <BookOpen className="h-4 w-4 shrink-0" />
-                          {!navCollapsed && 'Blueprints'}
-                        </NavLink>
-                      )}
-                      {craftingEnabled && (
-                        <NavLink
-                          to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
-                          title={navCollapsed ? 'Crafting Calc' : undefined}
-                          className={serverNavCls}
-                        >
-                          <Calculator className="h-4 w-4 shrink-0" />
-                          {!navCollapsed && 'Crafting Calc'}
-                        </NavLink>
-                      )}
-                      {wikeloEnabled && (
-                        <NavLink
-                          to={`/dashboard/servers/${activeGuild.id}/wikelo`}
-                          title={navCollapsed ? 'Wikelo' : undefined}
-                          className={serverNavCls}
-                        >
-                          <Palmtree className="h-4 w-4 shrink-0" />
-                          {!navCollapsed && 'Wikelo'}
-                        </NavLink>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
+              {/* Game Tools (v1.44.0): one link; Crafting, Blueprints and Wikelo are tabs there. */}
+              <NavLink
+                to={`/tools?server=${activeGuild.id}`}
+                title={navCollapsed ? 'Game Tools' : undefined}
+                className={serverNavCls}
+              >
+                <Crosshair className="h-4 w-4 shrink-0" />
+                {!navCollapsed && 'Game Tools'}
+              </NavLink>
 
             </>
           ) : (
