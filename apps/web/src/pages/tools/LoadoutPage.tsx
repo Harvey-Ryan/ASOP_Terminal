@@ -50,7 +50,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
   const [params, setParams] = useSearchParams();
   const slots = pilotSlots(ship);
   const [active, setActive] = useState(0);
-  const [sort, setSort] = useState<SortKey>('sustainedDps');
+  const [sort, setSort] = useState<SortKey>('alpha');
   const [expert, setExpert] = useState(false);
   const [copied, setCopied] = useState(false);
   const [allGuns, setAllGuns] = useState(false);
@@ -149,7 +149,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
             <>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <h2 id="gt-pick-h" className="gt-label gt-label-acc m-0">{slot.label} · size {slot.minSize === slot.maxSize ? slot.maxSize : `${slot.minSize}–${slot.maxSize}`} gun</h2>
-                <span className="text-sm gt-dim">{candidates.length} guns fit · click a name to fit it</span>
+                <span className="text-sm gt-dim">{candidates.length} guns fit · sorted by {sort === 'alpha' ? 'alpha' : sort === 'burstDps' ? 'burst' : 'sustained'} · click a column to re-sort, a name to fit it</span>
               </div>
               <div className="gt-scroll">
                 <table className="gt-table min-w-[640px]">
@@ -160,13 +160,13 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
                       <th className="num"><button type="button" aria-pressed={sort === 'burstDps'} onClick={() => setSort('burstDps')}>Burst</button></th>
                       <th className="num"><button type="button" aria-pressed={sort === 'alpha'} onClick={() => setSort('alpha')}>Alpha</button></th>
                       {expert && <><th className="num">Rate</th><th className="num">Range</th><th className="num">Speed</th></>}
-                      <th className="num">vs fitted</th>
+                      <th className="num">{sort === 'alpha' ? 'Alpha' : sort === 'burstDps' ? 'Burst' : 'Sustained'} vs fitted</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(allGuns ? candidates : candidates.slice(0, 12).concat(current && !candidates.slice(0, 12).includes(current) ? [current] : [])).map((g) => {
                       const on = g.uuid === current?.uuid;
-                      const d = current ? g.sustainedDps - current.sustainedDps : 0;
+                      const d = current ? g[sort] - current[sort] : 0;
                       return (
                         <tr key={g.uuid} className={on ? 'is-on' : ''}>
                           <td>
