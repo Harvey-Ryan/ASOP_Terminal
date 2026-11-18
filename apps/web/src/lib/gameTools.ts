@@ -21,6 +21,7 @@ export function useGameTools() {
     return {
       gunsByUuid: new Map(d.guns.map((g) => [g.uuid, g])),
       componentsByUuid: new Map((d.components ?? []).map((c) => [c.uuid, c])),
+      missilesByUuid: new Map((d.missiles ?? []).map((m) => [m.uuid, m])),
       shipsByClass: new Map(d.ships.map((s) => [s.className.toLowerCase(), s])),
     };
   }, [q.data]);

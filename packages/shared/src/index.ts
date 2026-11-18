@@ -935,6 +935,7 @@ export * from './catalog.js';
 export * from './allies.js';
 export * from './crafting.js';
 export * from './components.js';
+export * from './missiles.js';
 export * from './errorLog.js';
 export * from './admin.js';
 export * from './roster.js';
