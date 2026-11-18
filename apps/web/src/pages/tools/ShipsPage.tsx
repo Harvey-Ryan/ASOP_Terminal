@@ -28,7 +28,15 @@ export function ShipSearch({ ships, onPick, placeholder = 'Find a ship: gladius,
   const results = useMemo(() => {
     const w = q.toLowerCase().split(/\s+/).filter(Boolean);
     if (!w.length) return [];
-    return ships.filter((s) => w.every((x) => `${s.name} ${s.role ?? ''} ${s.career ?? ''}`.toLowerCase().includes(x))).slice(0, 10);
+    // Best first (v1.48.0): the name itself, then names that start with what was typed, then the shortest names.
+    const typed = w.join(' ');
+    const rank = (s: GameToolsShip) => {
+      const n = shortShipName(s).toLowerCase();
+      return n === typed ? 0 : n.startsWith(typed) ? 1 : s.name.toLowerCase().includes(typed) ? 2 : 3;
+    };
+    return ships.filter((s) => w.every((x) => `${s.name} ${s.role ?? ''} ${s.career ?? ''}`.toLowerCase().includes(x)))
+      .sort((a, b) => rank(a) - rank(b) || a.name.length - b.name.length || a.name.localeCompare(b.name))
+      .slice(0, 10);
   }, [ships, q]);
   const choose = (s: GameToolsShip) => { setQ(''); setHi(0); onPick(s); };
   return (
@@ -169,9 +177,11 @@ export function ShipPage() {
   const [open, setOpen] = useState<{ side: 'a' | 'b'; target: SwapTarget } | null>(null);
   const [copied, setCopied] = useState(false);
   const [choosing, setChoosing] = useState(false);
+  // v1.48.0: which compare side is picking another ship.
+  const [changing, setChanging] = useState<'a' | 'b' | null>(null);
 
   useEffect(() => { if (ship) rememberShip(ship.className); }, [ship]);
-  useEffect(() => { setOpen(null); }, [ship?.uuid, other?.uuid]);
+  useEffect(() => { setOpen(null); setChanging(null); }, [ship?.uuid, other?.uuid]);
 
   if (!data || !index) return <ToolsDataState isLoading={isLoading} error={error} />;
   if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to={paths.ships}>Pick another</Link></p>;
@@ -183,6 +193,15 @@ export function ShipPage() {
     setParams(n, { replace: true });
   };
   const compareWith = (s: GameToolsShip) => { setChoosing(false); const n = new URLSearchParams(params); for (const k of [...n.keys()]) if (COMPARE_KEYS.test(k)) n.delete(k); n.set('vs', s.className.toLowerCase()); setParams(n, { replace: true }); };
+  // Another ship on the left: a fresh loadout for it; the compared ship and its loadout stay.
+  const switchShip = (side: 'a' | 'b', s: GameToolsShip) => {
+    setChanging(null);
+    if (side === 'b') { compareWith(s); return; }
+    const n = new URLSearchParams();
+    for (const [k, v] of params) if (k === 'vs' || COMPARE_KEYS.test(k)) n.set(k, v);
+    const q = n.toString();
+    navigate(`${shipPath(s)}${q ? `?${q}` : ''}`);
+  };
   const copy = async () => {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* no clipboard */ }
   };
@@ -235,10 +254,14 @@ export function ShipPage() {
             <h2 className="m-0 text-2xl font-bold gt-hi"><Link to={shipPath(lo.ship)} className="no-underline">{shortShipName(lo.ship)}</Link></h2>
             <span className="text-sm gt-dim">
               {changeLine(lo)}
+              {' · '}<button type="button" className="gt-link" onClick={() => setChanging(changing === key ? null : key)}>{changing === key ? 'Keep this ship' : 'Change ship'}</button>
               {key === 'b' && <> · <button type="button" className="gt-link" onClick={() => setParam('vs', null)}>Stop comparing</button></>}
             </span>
           </div>
         </div>
+        {changing === key && (
+          <ShipSearch ships={data.ships.filter((s) => s.uuid !== lo.ship.uuid)} onPick={(s) => switchShip(key, s)} placeholder={`Instead of the ${shortShipName(lo.ship)}…`} autoFocus />
+        )}
         <SummaryGrid lo={lo} />
         <LoadoutCards lo={lo} narrow active={open?.side === key ? open.target : null} onOpen={(target) => setOpen({ side: key, target })} />
         <ShipPanels lo={lo} />
@@ -262,6 +285,11 @@ export function ShipPage() {
   // ── One ship ──
   return (
     <>
+      <div className="px-5 sm:px-10 py-3 border-b" style={{ borderColor: 'var(--gt-line)' }}>
+        <div className="max-w-[720px]">
+          <ShipSearch ships={data.ships.filter((s) => s.uuid !== ship.uuid)} onPick={(s) => switchShip('a', s)} placeholder={`${shortShipName(ship)} · type to switch ship: gladius, cutlass…`} />
+        </div>
+      </div>
       <div
         className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 px-5 sm:px-10 pb-6 border-b"
         style={{
