@@ -2,7 +2,7 @@
 // in only adds the server-bound tools (Crafting, Blueprints, Wikelo) and a
 // way back to the dashboard. Its own look (tools.css), with themes.
 
-import { createContext, Suspense, useContext, useEffect, useState } from 'react';
+import { createContext, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,11 +13,9 @@ import './tools.css';
 const ThemeContext = createContext<{ theme: GameToolsTheme; setTheme: (t: GameToolsTheme) => void }>({ theme: 'asop', setTheme: () => {} });
 export const useToolsTheme = () => useContext(ThemeContext);
 
+// v1.45.0: one ship-first tab (search, loadout and compare all live there).
 const TABS = [
-  { to: '/tools', label: 'Home', end: true },
-  { to: '/tools/ships', label: 'Ships' },
-  { to: '/tools/loadout', label: 'Loadout' },
-  { to: '/tools/optimizer', label: 'Optimizer' },
+  { to: '/tools', label: 'Ships', end: false },
 ];
 
 export function ToolsLayout() {
@@ -58,7 +56,7 @@ export function ToolsLayout() {
           </Link>
           <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0">
             {TABS.map((t) => (
-              <NavLink key={t.to} to={t.to} end={t.end} className="gt-tab">{t.label}</NavLink>
+              <NavLink key={t.to} to={t.to} end={t.end} className="gt-tab" aria-current={location.pathname === '/tools' || location.pathname.startsWith('/tools/ships') ? 'page' : undefined}>{t.label}</NavLink>
             ))}
             {server && (
               <>
@@ -68,13 +66,14 @@ export function ToolsLayout() {
               </>
             )}
           </nav>
+          <ThemeMenu />
           {user ? (
             <span className="text-sm gt-dim py-3">
               {server ? <>{server.name} · </> : null}
               <a href={server ? `/dashboard/servers/${server.id}` : '/dashboard'} className="gt-hi">Dashboard</a>
             </span>
           ) : (
-            <a href="/login" className="gt-btn gt-btn-primary">Sign in<span className="hidden sm:inline">&nbsp;with Discord</span></a>
+            <a href="/login" className="gt-btn gt-btn-primary">Sign in<span className="hidden sm:inline"> with Discord</span></a>
           )}
         </header>
 
@@ -90,18 +89,29 @@ export function ToolsLayout() {
   );
 }
 
-export function ThemePicker() {
+/** Theme choice in the header: a small menu of maker-inspired palettes. */
+function ThemeMenu() {
   const { theme, setTheme } = useToolsTheme();
+  const ref = useRef<HTMLDetailsElement>(null);
+  const current = GAME_TOOLS_THEMES.find((t) => t.id === theme) ?? GAME_TOOLS_THEMES[0];
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="gt-label">Theme</span>
-      {GAME_TOOLS_THEMES.map((t) => (
-        <button key={t.id} type="button" className="gt-btn" aria-pressed={theme === t.id} onClick={() => setTheme(t.id)} style={{ minHeight: 36 }}>
-          <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: t.swatch }} />
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <details ref={ref} className="relative py-3">
+      <summary className="gt-btn list-none cursor-pointer" style={{ minHeight: 36 }} aria-label="Colour theme">
+        <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: current.swatch }} />
+        <span className="hidden sm:inline">Theme</span>
+      </summary>
+      <div className="absolute right-0 z-30 mt-2 flex flex-col p-1 min-w-[170px]" style={{ background: 'var(--gt-bg)', border: '1px solid var(--gt-line)' }}>
+        {GAME_TOOLS_THEMES.map((t) => (
+          <button key={t.id} type="button" aria-pressed={theme === t.id}
+            onClick={() => { setTheme(t.id); ref.current?.removeAttribute('open'); }}
+            className="gt-slot" style={{ minHeight: 40 }}>
+            <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: t.swatch }} />
+            <span>{t.label}</span>
+          </button>
+        ))}
+        <span className="text-[11px] gt-dim px-2 py-1.5">Inspired by each maker&rsquo;s cockpit displays</span>
+      </div>
+    </details>
   );
 }
 

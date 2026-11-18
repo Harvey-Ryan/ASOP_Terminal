@@ -599,14 +599,26 @@ Patch Notes — v1.1.0 — November 10
   routes for ops) and importing a player's UEX fleet with their own UEX
   secret key (which would need storing encrypted and covering in Your data).
 
-## Game Tools (v1.44.0)
+## Game Tools (v1.44.0, ship-first since v1.45.0)
 
-- Public pages at `/tools` (no sign-in, outside the dashboard): Home (search),
-  Ships, a ship's page, Loadout and Optimizer (`apps/web/src/pages/tools/`,
-  their own look scoped to `.gt` in `tools.css`, with maker-inspired themes
-  saved in the browser). The sidebar's Tools group is now one "Game Tools"
-  link (`/tools?server=<id>`); Crafting, Blueprints and Wikelo show as tabs
-  there for the remembered server, linking to their dashboard pages.
+- Public pages at `/tools` (no sign-in, outside the dashboard), all about
+  ships (`apps/web/src/pages/tools/`, their own look scoped to `.gt` in
+  `tools.css`, maker-inspired themes in a header menu, saved in the browser):
+  - `/tools`: the ship picker (`ShipSearch`), recently viewed (this browser),
+    common ships and a sortable list of every ship (`ShipsHomePage`).
+  - `/tools/ships/:className`: one ship's numbers, its editable loadout
+    (`ShipLoadout.tsx`: `useLoadout`, `SlotList`, `GunPicker`, `Totals`) and
+    what it can kill (`KillTable`), on one page. The loadout is in the address
+    (`?s0=<gun uuid>…`). Compare (`?vs=<className>`, its loadout `?c0=…`) puts
+    a second ship beside it, both editable, with one kill table that has a
+    column per ship.
+  - Old `/tools/loadout/:c` and `/tools/optimizer/:c` links open the ship page.
+    The Optimizer page is hidden until its scoring accounts for rate of fire,
+    projectile speed and ammo; `bestGunFits` stays in `combat.ts` with tests.
+  - No "Add ASOP to your server" pitch until we go public.
+- The sidebar's Tools group is one "Game Tools" link (`/tools?server=<id>`);
+  Crafting, Blueprints and Wikelo show as tabs there for the remembered
+  server, linking to their dashboard pages.
 - Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
   and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
   an ETag, rate-limited per IP. Skins with identical numbers are grouped
@@ -615,11 +627,9 @@ Patch Notes — v1.1.0 — November 10
   `killTime` (shields absorb/resist per damage type, ballistic passes through,
   armour multiplier, a pellet at or below the armour's deflection does no hull
   damage, main body = the part named "body", else the biggest), `killVerdict`,
-  `bestGunFits` (slots taking the same guns are filled as a group; candidates
-  are narrowed so the search stays under `maxEvaluations`). Every page that
-  shows a kill time states the assumptions (every shot hits, no shield regen,
-  the deflection reading still to be confirmed in game). Comparisons on the
-  Optimizer are computed from numbers, never written by AI.
+  `bestGunFits`. Every page that shows a kill time states the assumptions
+  (every shot hits, no shield regen, the deflection reading still to be
+  confirmed in game). Comparisons are computed from numbers, never written by AI.
 - Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
   RequiredTags against the gun's tags, and the gun's RequiredTags against the
   PortTags of the port, its mounts and the ship. Use it for every "what fits".
