@@ -2,6 +2,8 @@
 // picker (search, recently viewed, common ships, browse all). A ship's page
 // has its numbers, an editable loadout and what it can kill, all together;
 // Compare puts a second ship beside it (?vs=<class>), with one kill table.
+// v1.47.0: Erkul-style page: summary bar, cards by system, a swap window per
+// slot (guns, components, missiles) and the ship's panels.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -10,7 +12,7 @@ import { fmt, pilotSlots, readRecentShips, rememberShip, shortShipName, useGameT
 import { useToolsPaths } from '../../lib/toolsPaths';
 import { ToolsDataState } from './ToolsLayout';
 import { COMMON_TARGETS, KillTable } from './KillTable';
-import { GunPicker, ComponentPicker, KeyNumbers, SlotList, Totals, useLoadout } from './ShipLoadout';
+import { LoadoutCards, ShipPanels, SummaryBar, SummaryGrid, Swap, useLoadout, type LoadoutState, type SwapTarget } from './ShipLoadout';
 
 const pilotAlpha = (s: GameToolsShip, gunsByUuid: Map<string, CombatGun>) =>
   pilotSlots(s).reduce((sum, slot) => sum + (slot.stockGunUuid ? gunsByUuid.get(slot.stockGunUuid)?.alpha ?? 0 : 0), 0);
@@ -161,37 +163,41 @@ export function ShipPage() {
   const ship = index?.shipsByClass.get(className.toLowerCase()) ?? null;
   const vs = params.get('vs');
   const other = vs ? index?.shipsByClass.get(vs.toLowerCase()) ?? null : null;
-  const a = useLoadout(ship, 's', index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map());
-  const b = useLoadout(other, 'c', index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map());
-  const [active, setActive] = useState<{ side: 'a' | 'b'; slot: number; comp: boolean } | null>({ side: 'a', slot: 0, comp: false });
-  // Expert numbers are always shown (v1.46.0).
-  const expert = true;
+  const maps = [index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map(), index?.missilesByUuid ?? new Map()] as const;
+  const a = useLoadout(ship, 's', ...maps);
+  const b = useLoadout(other, 'c', ...maps);
+  const [open, setOpen] = useState<{ side: 'a' | 'b'; target: SwapTarget } | null>(null);
   const [copied, setCopied] = useState(false);
   const [choosing, setChoosing] = useState(false);
 
   useEffect(() => { if (ship) rememberShip(ship.className); }, [ship]);
-  useEffect(() => { setActive(other ? null : { side: 'a', slot: 0, comp: false }); }, [ship?.uuid, other?.uuid]);
+  useEffect(() => { setOpen(null); }, [ship?.uuid, other?.uuid]);
 
   if (!data || !index) return <ToolsDataState isLoading={isLoading} error={error} />;
   if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to={paths.ships}>Pick another</Link></p>;
 
+  const COMPARE_KEYS = /^c[km]?\d+$/;
   const setParam = (k: string, v: string | null) => {
     const n = new URLSearchParams(params);
-    if (v) n.set(k, v); else { n.delete(k); if (k === 'vs') for (const key of [...n.keys()]) if (/^ck?\d+$/.test(key)) n.delete(key); }
+    if (v) n.set(k, v); else { n.delete(k); if (k === 'vs') for (const key of [...n.keys()]) if (COMPARE_KEYS.test(key)) n.delete(key); }
     setParams(n, { replace: true });
   };
-  const compareWith = (s: GameToolsShip) => { setChoosing(false); const n = new URLSearchParams(params); for (const k of [...n.keys()]) if (/^ck?\d+$/.test(k)) n.delete(k); n.set('vs', s.className.toLowerCase()); setParams(n, { replace: true }); };
+  const compareWith = (s: GameToolsShip) => { setChoosing(false); const n = new URLSearchParams(params); for (const k of [...n.keys()]) if (COMPARE_KEYS.test(k)) n.delete(k); n.set('vs', s.className.toLowerCase()); setParams(n, { replace: true }); };
   const copy = async () => {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* no clipboard */ }
+  };
+  // Swap sides: each loadout moves with its ship.
+  const changesOf = (lo: LoadoutState, prefix: string, n: URLSearchParams) => {
+    lo.equipped.forEach((g, i) => { if (g && g.uuid !== lo.stock[i]?.uuid) n.set(`${prefix}${i}`, g.uuid); });
+    lo.compFitted.forEach((c, i) => { if (c && c.uuid !== lo.compStock[i]?.uuid) n.set(`${prefix}k${i}`, c.uuid); });
+    lo.misFitted.forEach((m, i) => { if (m && m.uuid !== lo.misStock[i]?.uuid) n.set(`${prefix}m${i}`, m.uuid); });
   };
   const swap = () => {
     if (!other || !b) return;
     const n = new URLSearchParams();
     n.set('vs', ship.className.toLowerCase());
-    b.equipped.forEach((g, i) => { if (g && g.uuid !== b.stock[i]?.uuid) n.set(`s${i}`, g.uuid); });
-    a.equipped.forEach((g, i) => { if (g && g.uuid !== a.stock[i]?.uuid) n.set(`c${i}`, g.uuid); });
-    b.compFitted.forEach((c, i) => { if (c && c.uuid !== b.compStock[i]?.uuid) n.set(`sk${i}`, c.uuid); });
-    a.compFitted.forEach((c, i) => { if (c && c.uuid !== a.compStock[i]?.uuid) n.set(`ck${i}`, c.uuid); });
+    changesOf(b, 's', n);
+    changesOf(a, 'c', n);
     navigate(`${shipPath(other)}?${n.toString()}`, { replace: true });
   };
 
@@ -205,11 +211,21 @@ export function ShipPage() {
       <button type="button" className="gt-btn" onClick={copy}>{copied ? 'Link copied' : 'Copy link'}</button>
     </div>
   );
+  const openLo = open?.side === 'b' ? b : a;
+  const swapWindow = open && openLo && (
+    <Swap key={JSON.stringify(open)} lo={openLo} target={open.target} guns={data.guns} components={data.components ?? []} missiles={data.missiles ?? []} onClose={() => setOpen(null)} />
+  );
+  const changeLine = (lo: LoadoutState) => (
+    <>
+      {lo.changes ? `${lo.changes} change${lo.changes === 1 ? '' : 's'} from stock` : 'Stock loadout'}
+      {lo.changes > 0 && <> · <button type="button" className="gt-link" onClick={lo.reset}>Back to stock</button></>}
+    </>
+  );
 
   // ── Two ships ──
   if (other && b) {
-    const side = (lo: typeof a, key: 'a' | 'b') => (
-      <section aria-label={lo.ship.name} className="flex-[1_1_420px] min-w-0 flex flex-col gap-5 px-5 sm:px-8 py-6" style={key === 'a' ? { borderRight: '1px solid var(--gt-line)' } : undefined}>
+    const side = (lo: LoadoutState, key: 'a' | 'b') => (
+      <section aria-label={lo.ship.name} className="flex-[1_1_440px] min-w-0 flex flex-col gap-6 px-5 sm:px-8 py-6" style={key === 'a' ? { borderRight: '1px solid var(--gt-line)' } : undefined}>
         <div className="flex items-start gap-4">
           {lo.ship.thumbUrl || lo.ship.imageUrl
             ? <img src={lo.ship.thumbUrl ?? lo.ship.imageUrl ?? ''} alt="" className="w-28 h-16 object-cover rounded-sm shrink-0" />
@@ -218,18 +234,16 @@ export function ShipPage() {
             <span className="gt-label">{meta(lo.ship)}</span>
             <h2 className="m-0 text-2xl font-bold gt-hi"><Link to={shipPath(lo.ship)} className="no-underline">{shortShipName(lo.ship)}</Link></h2>
             <span className="text-sm gt-dim">
-              {lo.changes ? `${lo.changes} change${lo.changes === 1 ? '' : 's'} from stock` : 'Stock loadout'}
-              {lo.changes > 0 && <> · <button type="button" className="gt-link" onClick={lo.reset}>Back to stock</button></>}
+              {changeLine(lo)}
               {key === 'b' && <> · <button type="button" className="gt-link" onClick={() => setParam('vs', null)}>Stop comparing</button></>}
             </span>
           </div>
         </div>
-        <KeyNumbers lo={lo} compact />
-        <SlotList lo={lo} active={active?.side === key ? active : null} onPick={(comp, i) => setActive(active?.side === key && active.slot === i && active.comp === comp ? null : { side: key, slot: i, comp })} />
-        <Totals lo={lo} expert={expert} />
+        <SummaryGrid lo={lo} />
+        <LoadoutCards lo={lo} narrow active={open?.side === key ? open.target : null} onOpen={(target) => setOpen({ side: key, target })} />
+        <ShipPanels lo={lo} />
       </section>
     );
-    const pickerLo = active?.side === 'b' ? b : a;
     return (
       <>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-10 py-4 border-b" style={{ borderColor: 'var(--gt-line)' }}>
@@ -237,17 +251,10 @@ export function ShipPage() {
           {toolbar}
         </div>
         <div className="flex flex-wrap">{side(a, 'a')}{side(b, 'b')}</div>
-        {active && (
-          <div className="px-5 sm:px-10 py-6 border-t" style={{ borderColor: 'var(--gt-line)' }}>
-            <p className="gt-label gt-label-acc m-0 pb-2">{shortShipName(pickerLo.ship)}</p>
-            {active.comp
-              ? <ComponentPicker key={`${active.side}-k${active.slot}`} lo={pickerLo} slotIndex={active.slot} all={data.components ?? []} expert={expert} />
-              : <GunPicker key={`${active.side}-${active.slot}`} lo={pickerLo} slotIndex={active.slot} allGuns={data.guns} expert={expert} />}
-          </div>
-        )}
         <div className="px-5 sm:px-10 py-8 border-t" style={{ borderColor: 'var(--gt-line)' }}>
           <KillTable loadouts={[{ name: shortShipName(ship), guns: a.guns }, { name: shortShipName(other), guns: b.guns }]} ships={data.ships} />
         </div>
+        {swapWindow}
       </>
     );
   }
@@ -263,30 +270,26 @@ export function ShipPage() {
         }}
       >
         <div className="flex flex-col gap-1.5">
-          <span className="gt-label">{meta(ship)}</span>
+          <span className="gt-label">{meta(ship)}{ship.cargo ? ` · ${fmt(ship.cargo)} SCU` : ''}</span>
           <h1 className="m-0 text-4xl sm:text-5xl font-bold gt-hi">{shortShipName(ship)}</h1>
           <span className="text-sm gt-dim">
-            {a.changes ? `${a.changes} change${a.changes === 1 ? '' : 's'} from stock` : 'Stock loadout'}
-            {a.changes > 0 && <> · <button type="button" className="gt-link" onClick={a.reset}>Back to stock</button></>}
+            {changeLine(a)}
             {ship.imageUrl && <> · Picture: Roberts Space Industries</>}
           </span>
         </div>
         {toolbar}
       </div>
-      <div className="px-5 sm:px-10 pt-6"><KeyNumbers lo={a} /></div>
+      <SummaryBar lo={a} />
       <div className="flex flex-wrap">
-        <section aria-label="Loadout" className="flex-[1_1_300px] max-w-[380px] box-border px-5 sm:pl-10 sm:pr-7 py-6" style={{ borderRight: '1px solid var(--gt-line)' }}>
-          <SlotList lo={a} active={active} onPick={(comp, i) => setActive({ side: 'a', slot: i, comp })} />
-        </section>
-        <section className="flex-[999_1_520px] min-w-0 box-border px-5 sm:px-7 py-6 flex flex-col gap-8">
-          {active?.comp && <ComponentPicker key={`k${active.slot}`} lo={a} slotIndex={active.slot} all={data.components ?? []} expert={expert} />}
-          {active && !active.comp && a.slots.length > 0 && <GunPicker key={active.slot} lo={a} slotIndex={active.slot} allGuns={data.guns} expert={expert} />}
+        <div className="flex-[999_1_620px] min-w-0 box-border px-5 sm:pl-10 sm:pr-8 py-7 flex flex-col gap-10">
+          <LoadoutCards lo={a} active={open?.target ?? null} onOpen={(target) => setOpen({ side: 'a', target })} />
           <KillTable loadouts={[{ name: shortShipName(ship), guns: a.guns }]} ships={data.ships} />
-        </section>
-        <aside aria-label="Totals" className="flex-[1_1_280px] max-w-[380px] box-border px-5 sm:pl-7 sm:pr-10 py-6" style={{ borderLeft: '1px solid var(--gt-line)' }}>
-          <Totals lo={a} expert={expert} />
+        </div>
+        <aside aria-label="Ship stats" className="flex-[1_1_380px] lg:max-w-[460px] box-border px-5 sm:pl-7 sm:pr-10 py-7" style={{ borderLeft: '1px solid var(--gt-line)' }}>
+          <ShipPanels lo={a} />
         </aside>
       </div>
+      {swapWindow}
     </>
   );
 }

@@ -16,6 +16,7 @@
 //   biggest part) is gone.
 
 import { shipComponentSlots, type ComponentSlot, type ShipComponent } from './components.js';
+import { shipMissileRacks, type MissileItem, type MissileRack } from './missiles.js';
 
 export type DamageType = 'physical' | 'energy';
 export interface DamagePair { physical: number; energy: number }
@@ -41,6 +42,20 @@ export interface CombatGun {
   speed: number | null;
   /** Other items with exactly these numbers (skins, variants), grouped under this one. */
   variants?: number;
+  // v1.47.0: the rest of what the swap window shows (all from the game files).
+  /** "Repeater", "Cannon", "Gatling", "Scattergun", "Mass Driver"… (null when the file doesn't say). */
+  family?: string | null;
+  /** Penetration distance of a shot (m). */
+  pen?: number | null;
+  /** Spread (degrees, the mode's maximum). */
+  spread?: number | null;
+  /** Power it draws (segments) and its EM signature. */
+  powerDraw?: number | null;
+  em?: number | null;
+  /** Ballistic magazine (rounds); energy guns have a capacitor instead. */
+  ammo?: number | null;
+  capacitor?: number | null;
+  hp?: number | null;
   /** The item's tags, and the tags a port (or the ship around it) must offer for it to fit: bespoke guns like the Wolf's. */
   tags: string[];
   requiredTags: string[];
@@ -92,6 +107,30 @@ export interface CombatShip {
   componentSlots: ComponentSlot[];
   /** Quantum fuel tank, for the drive's range. */
   qtFuelCapacity: number | null;
+  // v1.47.0: the panels and missiles on the ship page.
+  missileRacks?: MissileRack[];
+  flight?: ShipFlight | null;
+  hull?: { parts: number; total: number } | null;
+  armourHp?: number | null;
+  /** Shield resistance and absorption of distortion damage. */
+  distortion?: { resistance: number; absorption: number } | null;
+  /** Decoys and noise (filled in by the API from the launchers' items). */
+  countermeasures?: { decoy: number; noise: number } | null;
+}
+
+export interface ShipFlight {
+  scm: number | null;
+  boostForward: number | null;
+  boostBackward: number | null;
+  max: number | null;
+  pitch: number | null;
+  yaw: number | null;
+  roll: number | null;
+  /** Seconds from a standstill. */
+  zeroToScm: number | null;
+  zeroToMax: number | null;
+  /** Hydrogen tank, SCU. */
+  hydrogen: number | null;
 }
 
 // ── Reading scdata ────────────────────────────────────────────────────────────
@@ -138,9 +177,24 @@ export function combatGunFromItem(row: { uuid: string; class_name?: string | nul
     fireRate: num(w.RateOfFire) ?? num(mode.RoundsPerMinute),
     range: num(w.EffectiveRange) ?? num(w.Range),
     speed: num(std.Ammunition?.Speed),
+    family: gunFamily(str(std.DescriptionData?.['Item Type']) ?? name as string),
+    pen: num(std.Ammunition?.Penetration?.BasePenetrationDistance),
+    spread: num(mode.Spread?.Maximum),
+    powerDraw: num(std.ResourceNetwork?.Usage?.Power?.Maximum),
+    em: num(std.Emission?.Em?.Maximum),
+    ammo: num(std.Ammunition?.Capacity) || null,
+    capacitor: num(w.Capacitor?.MaxAmmoLoad) || null,
+    hp: num(std.Durability?.Health),
     tags: tagList(row.data?.tags ?? std.Tags),
     requiredTags: tagList(std.RequiredTags),
   };
+}
+
+const GUN_FAMILIES = ['Mass Driver', 'Scattergun', 'Repeater', 'Cannon', 'Gatling', 'Railgun', 'Neutron', 'Tachyon', 'Rocket Pod', 'Laser Beam'];
+/** "Laser Repeater" → "Repeater"; "Distortion Scattergun" → "Scattergun". */
+export function gunFamily(text: string): string | null {
+  const t = text.toLowerCase();
+  return GUN_FAMILIES.find((f) => t.includes(f.toLowerCase())) ?? null;
 }
 
 /** Guns with the same group key are the same gun for every purpose here (skins, paint). */
@@ -158,6 +212,8 @@ export function gunGroupKey(g: CombatGun): string {
 export function gunFitsSlot(g: CombatGun, slot: GunSlot): boolean {
   if (g.uuid === slot.stockGunUuid) return true;
   if (g.size < slot.minSize || g.size > slot.maxSize) return false;
+  // Turret-only copies ("…_Turret", e.g. the Attrition-4 at 875 burst) aren't pilot guns (v1.47.0).
+  if (!slot.turret && /_turret$/i.test(g.className)) return false;
   const have = new Set(g.tags.map((t) => t.toLowerCase()));
   if (!slot.requiredTags.every((t) => have.has(t.toLowerCase()))) return false;
   const offered = new Set(slot.offeredTags.map((t) => t.toLowerCase()));
@@ -237,6 +293,37 @@ export function shipGunSlots(ship: Json): GunSlot[] {
   return slots;
 }
 
+function shipFlight(s: Json): ShipFlight | null {
+  const fc: Json = s.FlightCharacteristics ?? {};
+  const ifcs: Json = fc.IFCS ?? {};
+  const out: ShipFlight = {
+    scm: num(fc.Speeds?.Scm) ?? num(ifcs.ScmSpeed),
+    boostForward: num(fc.Speeds?.BoostForward) ?? num(ifcs.BoostSpeedForward),
+    boostBackward: num(fc.Speeds?.BoostBackward) ?? num(ifcs.BoostSpeedBackward),
+    max: num(fc.Speeds?.Max) ?? num(ifcs.MaxSpeed),
+    pitch: num(ifcs.Pitch) ?? num(s.Agility?.Pitch),
+    yaw: num(ifcs.Yaw) ?? num(s.Agility?.Yaw),
+    roll: num(ifcs.Roll) ?? num(s.Agility?.Roll),
+    zeroToScm: num(fc.Timing?.ZeroToScm),
+    zeroToMax: num(fc.Timing?.ZeroToMax),
+    hydrogen: num(s.Propulsion?.FuelCapacity) != null ? num(s.Propulsion?.FuelCapacity)! / 1000 : null,
+  };
+  return Object.values(out).some((v) => v != null) ? out : null;
+}
+
+/** Every damageable part of the hull: how many, and their HP added up (Erkul's "hull"). */
+function hullParts(parts: unknown): { parts: number; total: number } | null {
+  let count = 0;
+  let total = 0;
+  const walk = (p: Json) => {
+    const hp = num(p.DamageMax);
+    if (hp) { count++; total += hp; }
+    for (const c of Array.isArray(p.Children) ? p.Children : []) walk(c);
+  };
+  for (const p of Array.isArray(parts) ? parts : parts && typeof parts === 'object' ? [parts] : []) walk(p as Json);
+  return count ? { parts: count, total } : null;
+}
+
 /** A ship's defences and headline numbers from `scdata.ships` (ships.json record). */
 export function combatShipFromRow(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; career?: string | null; role?: string | null; size?: number | null; crew?: number | null; data: Json }): CombatShip | null {
   const s = row.data ?? {};
@@ -279,6 +366,15 @@ export function combatShipFromRow(row: { uuid: string; class_name?: string | nul
     gunSlots: shipGunSlots(s),
     componentSlots: shipComponentSlots(s),
     qtFuelCapacity: num(s.QuantumTravel?.FuelCapacity),
+    missileRacks: shipMissileRacks(s),
+    flight: shipFlight(s),
+    hull: hullParts(s.Parts),
+    armourHp: num(ar.Health),
+    distortion: {
+      resistance: num(max(sh.Resistance?.Distortion ?? {})) ?? 0,
+      absorption: num(max(sh.Absorption?.Distortion ?? {})) ?? 1,
+    },
+    countermeasures: null,
   };
 }
 
@@ -510,6 +606,8 @@ export interface GameToolsDataDto {
   guns: CombatGun[];
   /** Ship components players can fit, plus every stock one (v1.46.0). */
   components: ShipComponent[];
+  /** Missiles, copies grouped (v1.47.0). */
+  missiles?: MissileItem[];
 }
 
 /** SQL for the rows `combatShipFromRow` reads: flying ships only. */
