@@ -638,4 +638,15 @@ Patch Notes — v1.1.0 — November 10
   Slayer Cannon). There's no reliable automatic rule: many real guns aren't
   stock on any ship, so wait for shop data (UEX) before filtering on that.
 - Pilot guns only so far (turret guns are listed, not counted). Missiles,
-  components, mining and prices (UEX items/vehicles) are next.
+  mining and prices (UEX items/vehicles) are next.
+- Components (v1.46.0): shields, power plants, coolers, quantum drives and
+  radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
+  `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats
+  only (= crafted quality 500). Only parts with a class and an A–D grade can
+  be swapped in; bespoke and placeholder parts show only where a ship comes
+  with them, and `Editable: false` slots are fixed. Rules checked against
+  Erkul: only the two strongest shields are up (every ship's shield pool is
+  2; `ACTIVE_SHIELDS`); quantum range = tank (mSCU) ÷ the drive's
+  `FuelRequirement10GM` × 100 (the ships file's own `Range` uses an older
+  formula); a power plant's output depends on pips, so there's no ship
+  "total power" figure.

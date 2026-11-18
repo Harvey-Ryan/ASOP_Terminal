@@ -20,6 +20,7 @@ export function useGameTools() {
     if (!d) return null;
     return {
       gunsByUuid: new Map(d.guns.map((g) => [g.uuid, g])),
+      componentsByUuid: new Map((d.components ?? []).map((c) => [c.uuid, c])),
       shipsByClass: new Map(d.ships.map((s) => [s.className.toLowerCase(), s])),
     };
   }, [q.data]);
