@@ -9,6 +9,7 @@ import { useSearchParams } from 'react-router-dom';
 import { matchSignature, MINING_METHOD_LABELS, oreName, type MiningLaser, type MiningMethod, type MiningModule, type OreSpot, type RockSignature } from '@dem/shared';
 import { fmt, useMiningData } from '../../lib/gameTools';
 import { ToolsDataState } from './ToolsLayout';
+import { MOD_COLUMNS, ModCell, pctText } from './miningBits';
 
 type View = 'ores' | 'signatures' | 'lasers' | 'modules';
 const VIEWS: { id: View; label: string }[] = [
@@ -19,22 +20,6 @@ const VIEWS: { id: View; label: string }[] = [
 ];
 
 const METHOD_WORD: Record<MiningMethod, string> = { ship: 'Ship', roc: 'ROC', hand: 'By hand' };
-
-// Mining modifiers: which way is good for the miner.
-const MOD_COLUMNS: { key: string; label: string; lowerIsBetter: boolean }[] = [
-  { key: 'Resistance', label: 'Resistance', lowerIsBetter: true },
-  { key: 'Instability', label: 'Instability', lowerIsBetter: true },
-  { key: 'OptimalChargeWindow', label: 'Opt. window', lowerIsBetter: false },
-  { key: 'OptimalChargeRate', label: 'Opt. rate', lowerIsBetter: false },
-  { key: 'AllChargeRates', label: 'All rates', lowerIsBetter: false },
-  { key: 'InertMaterials', label: 'Inert', lowerIsBetter: true },
-  { key: 'OverchargeRate', label: 'Overcharge', lowerIsBetter: true },
-  { key: 'ShatterDamage', label: 'Shatter', lowerIsBetter: true },
-];
-
-const pctText = (v: number) => `${v > 0 ? '+' : '−'}${fmt(Math.abs(v), Math.abs(v) % 1 ? 1 : 0)}%`;
-const ModCell = ({ v, lowerIsBetter }: { v: number | undefined; lowerIsBetter: boolean }) =>
-  v == null ? <span className="gt-dim">–</span> : <span className={(lowerIsBetter ? v < 0 : v > 0) ? 'gt-good' : 'gt-bad'}>{pctText(v)}</span>;
 
 export function MiningPage() {
   const { data, isLoading, error } = useMiningData();

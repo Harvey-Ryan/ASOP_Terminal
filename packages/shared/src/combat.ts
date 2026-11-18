@@ -17,6 +17,7 @@
 
 import { shipComponentSlots, type ComponentSlot, type ShipComponent } from './components.js';
 import { shipMissileRacks, type MissileItem, type MissileRack } from './missiles.js';
+import { shipMiningHeads, type MiningHead, type MiningLaser, type MiningModule } from './mining.js';
 
 export type DamageType = 'physical' | 'energy';
 export interface DamagePair { physical: number; energy: number }
@@ -116,6 +117,8 @@ export interface CombatShip {
   distortion?: { resistance: number; absorption: number } | null;
   /** Decoys and noise (filled in by the API from the launchers' items). */
   countermeasures?: { decoy: number; noise: number } | null;
+  /** Mining laser mounts (v1.50.0); left out on ships without any. */
+  miningHeads?: MiningHead[];
 }
 
 export interface ShipFlight {
@@ -375,6 +378,7 @@ export function combatShipFromRow(row: { uuid: string; class_name?: string | nul
       absorption: num(max(sh.Absorption?.Distortion ?? {})) ?? 1,
     },
     countermeasures: null,
+    ...(() => { const heads = shipMiningHeads(s); return heads.length ? { miningHeads: heads } : {}; })(),
   };
 }
 
@@ -608,6 +612,9 @@ export interface GameToolsDataDto {
   components: ShipComponent[];
   /** Missiles, copies grouped (v1.47.0). */
   missiles?: MissileItem[];
+  /** Mining lasers players can fit plus every stock one, and mining modules (v1.50.0). */
+  miningLasers?: MiningLaser[];
+  miningModules?: MiningModule[];
 }
 
 /** SQL for the rows `combatShipFromRow` reads: flying ships only. */

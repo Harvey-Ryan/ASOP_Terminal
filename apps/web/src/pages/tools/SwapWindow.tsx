@@ -1,7 +1,7 @@
 // The swap window (v1.47.0): one window per slot, Erkul-style. Every item
 // that fits, every stat as a sortable column (click; shift-click adds a
 // second sort), filters, search, and the difference from what's fitted.
-// Used for guns, components and missiles.
+// Used for guns, components, missiles, mining lasers and modules.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { fmt } from '../../lib/gameTools';
@@ -27,7 +27,7 @@ export interface SwapFilter<T> {
 
 interface Sort { key: string; dir: 1 | -1 }
 
-export function SwapWindow<T>({ eyebrow, title, items, columns, filters, searchText, idOf, nameOf, subOf, fittedId, stockId, defaultSort, onPick, onStock, onClose, note, locked }: {
+export function SwapWindow<T>({ eyebrow, title, items, columns, filters, searchText, idOf, nameOf, subOf, fittedId, stockId, defaultSort, onPick, onStock, onClose, note, locked, extra }: {
   eyebrow: string;
   title: string;
   items: T[];
@@ -46,6 +46,8 @@ export function SwapWindow<T>({ eyebrow, title, items, columns, filters, searchT
   note?: ReactNode;
   /** Shown instead of the list's "click to fit" when the slot can't change. */
   locked?: string;
+  /** Another button beside "Back to stock" (v1.50.0: "Empty this slot" for mining modules). */
+  extra?: { label: string; onClick: () => void };
 }) {
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState<Record<string, string>>({});
@@ -209,6 +211,7 @@ export function SwapWindow<T>({ eyebrow, title, items, columns, filters, searchT
           </span>
           <div className="flex flex-wrap gap-2">
             {onStock && !locked && fittedId !== stockId && <button type="button" className="gt-btn" onClick={onStock}>Back to stock</button>}
+            {extra && <button type="button" className="gt-btn" onClick={extra.onClick}>{extra.label}</button>}
             <button type="button" className="gt-btn" onClick={onClose}>Close</button>
           </div>
         </div>

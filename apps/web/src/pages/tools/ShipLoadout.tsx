@@ -3,17 +3,19 @@
 // stays on screen, the ship's panels, and a swap window for every slot.
 // The loadout lives in the address so a link shares it: ?s0=<gun>…,
 // ?sk0=<component>…, ?sm0=<missile>… for the ship, c0/ck0/cm0 for the one it's
-// compared with.
+// compared with. Mining ships (v1.50.0): each mining head's laser and
+// modules, ?sl0=<laser>, ?sd0_1=<module> (cl0/cd0_1 when compared).
 
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  gunFitsSlot, componentFitsSlot, componentTotals, missileFitsRack, COMPONENT_KINDS,
+  gunFitsSlot, componentFitsSlot, componentTotals, missileFitsRack, laserFitsHead, miningHeadTotals, COMPONENT_KINDS,
   type CombatGun, type GameToolsShip, type GunSlot, type ShipComponent, type ComponentSlot, type ComponentTotals,
-  type MissileItem, type MissileRack,
+  type MissileItem, type MissileRack, type MiningHead, type MiningHeadTotals, type MiningLaser, type MiningModule,
 } from '@dem/shared';
 import { fmt, pctChange, pilotSlots } from '../../lib/gameTools';
 import { SwapWindow, type SwapColumn } from './SwapWindow';
+import { MOD_COLUMNS, ModCell, modIsGood, modLabel, pctText } from './miningBits';
 
 export interface LoadoutState {
   ship: GameToolsShip;
@@ -34,15 +36,25 @@ export interface LoadoutState {
   missileDamage: number;
   stockMissileDamage: number;
   missileCount: number;
+  heads: MiningHead[];
+  headStock: (MiningLaser | null)[];
+  headLaser: (MiningLaser | null)[];
+  /** Per head, one entry per module slot of the fitted laser. */
+  headModules: (MiningModule | null)[][];
+  headTotals: MiningHeadTotals[];
+  stockHeadTotals: MiningHeadTotals[];
   changes: number;
   pick: (slot: number, g: CombatGun) => void;
   pickComponent: (slot: number, c: ShipComponent) => void;
   /** Loads the same missile into every rack listed. */
   pickMissiles: (racks: number[], m: MissileItem) => void;
+  pickLaser: (head: number, l: MiningLaser) => void;
+  pickModule: (head: number, slot: number, m: MiningModule | null) => void;
   reset: () => void;
 }
 
-export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUuid: Map<string, CombatGun>, componentsByUuid: Map<string, ShipComponent>, missilesByUuid: Map<string, MissileItem>): LoadoutState | null {
+export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUuid: Map<string, CombatGun>, componentsByUuid: Map<string, ShipComponent>, missilesByUuid: Map<string, MissileItem>,
+  lasersByUuid: Map<string, MiningLaser> = new Map(), modulesByUuid: Map<string, MiningModule> = new Map()): LoadoutState | null {
   const [params, setParams] = useSearchParams();
   if (!ship) return null;
   const slots = pilotSlots(ship);
@@ -66,6 +78,15 @@ export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUui
     const m = id ? missilesByUuid.get(id) : undefined;
     return m && missileFitsRack(m, r) ? m : misStock[i] ?? null;
   });
+  const heads = ship.miningHeads ?? [];
+  const headStock = heads.map((h) => (h.stockLaserUuid ? lasersByUuid.get(h.stockLaserUuid) ?? null : null));
+  const headLaser = heads.map((h, i) => {
+    const id = params.get(`${prefix}l${i}`);
+    const l = id ? lasersByUuid.get(id) : undefined;
+    return l && laserFitsHead(l, h) ? l : headStock[i] ?? null;
+  });
+  // No ship comes with modules fitted, so an empty slot is stock.
+  const headModules = headLaser.map((l, i) => Array.from({ length: l?.moduleSlots ?? 0 }, (_, j) => modulesByUuid.get(params.get(`${prefix}d${i}_${j}`) ?? '') ?? null));
   const rackDamage = (list: (MissileItem | null)[]) => list.reduce((t, m, i) => t + (m ? m.damage * racks[i]!.count : 0), 0);
   const set = (mutate: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params);
@@ -84,18 +105,30 @@ export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUui
     missileDamage: rackDamage(misFitted),
     stockMissileDamage: rackDamage(misStock),
     missileCount: racks.reduce((t, r, i) => t + (misFitted[i] ? r.count : 0), 0),
+    heads, headStock, headLaser, headModules,
+    headTotals: headLaser.map((l, i) => miningHeadTotals(l, headModules[i]!)),
+    stockHeadTotals: headStock.map((l) => miningHeadTotals(l, [])),
     changes: equipped.filter((g, i) => g?.uuid !== stock[i]?.uuid).length
       + compFitted.filter((c, i) => c?.uuid !== compStock[i]?.uuid).length
-      + misFitted.filter((m, i) => m?.uuid !== misStock[i]?.uuid).length,
+      + misFitted.filter((m, i) => m?.uuid !== misStock[i]?.uuid).length
+      + headLaser.filter((l, i) => l?.uuid !== headStock[i]?.uuid).length
+      + headModules.flat().filter(Boolean).length,
     pick: (slot, g) => set((n) => put(n, `${prefix}${slot}`, g.uuid, stock[slot]?.uuid)),
     pickComponent: (slot, c) => set((n) => put(n, `${prefix}k${slot}`, c.uuid, compStock[slot]?.uuid)),
     pickMissiles: (list, m) => set((n) => list.forEach((i) => { if (missileFitsRack(m, racks[i]!)) put(n, `${prefix}m${i}`, m.uuid, misStock[i]?.uuid); })),
-    reset: () => set((n) => { for (const k of [...n.keys()]) if (new RegExp(`^${prefix}[km]?\\d+$`).test(k)) n.delete(k); }),
+    pickLaser: (head, l) => set((n) => {
+      put(n, `${prefix}l${head}`, l.uuid, headStock[head]?.uuid);
+      // Modules past the new laser's slots fall off.
+      for (const k of [...n.keys()]) { const m = new RegExp(`^${prefix}d${head}_(\\d+)$`).exec(k); if (m && Number(m[1]) >= l.moduleSlots) n.delete(k); }
+    }),
+    pickModule: (head, slot, m) => set((n) => { if (m) n.set(`${prefix}d${head}_${slot}`, m.uuid); else n.delete(`${prefix}d${head}_${slot}`); }),
+    reset: () => set((n) => { for (const k of [...n.keys()]) if (new RegExp(`^${prefix}(?:[kml]?\\d+|d\\d+_\\d+)$`).test(k)) n.delete(k); }),
   };
 }
 
 /** What a click on a card opens. */
-export type SwapTarget = { kind: 'gun'; slot: number } | { kind: 'comp'; slot: number } | { kind: 'missile'; racks: number[] };
+export type SwapTarget = { kind: 'gun'; slot: number } | { kind: 'comp'; slot: number } | { kind: 'missile'; racks: number[] }
+  | { kind: 'laser'; head: number } | { kind: 'module'; head: number; slot: number };
 
 const sameTarget = (a: SwapTarget | null | undefined, b: SwapTarget) => !!a && JSON.stringify(a) === JSON.stringify(b);
 
@@ -110,6 +143,20 @@ export function summaryOf(lo: LoadoutState) {
     const text = pctChange(now, before);
     return text ? { text, good: text.startsWith('+') !== low } : null;
   };
+  if (lo.heads.length) {
+    const total = (list: MiningHeadTotals[], k: 'power' | 'extraction') => list.reduce((t, h) => t + (h[k] ?? 0), 0);
+    const slots = lo.headModules.reduce((t, m) => t + m.length, 0);
+    const fitted = lo.headModules.reduce((t, m) => t + m.filter(Boolean).length, 0);
+    return [
+      { label: lo.heads.length === 1 ? 'mining head' : 'mining heads', value: String(lo.heads.length), delta: null, acc: false },
+      { label: 'laser power', value: fmt(total(lo.headTotals, 'power')), delta: d(total(lo.headTotals, 'power'), total(lo.stockHeadTotals, 'power')), acc: true },
+      { label: 'extraction', value: fmt(total(lo.headTotals, 'extraction')), delta: d(total(lo.headTotals, 'extraction'), total(lo.stockHeadTotals, 'extraction')), acc: false },
+      { label: 'modules', value: `${fitted} / ${slots}`, delta: null, acc: false },
+      ...(lo.ship.cargo != null ? [{ label: 'cargo', value: `${fmt(lo.ship.cargo)} SCU`, delta: null, acc: false }] : []),
+      { label: 'shield HP', value: fmt(shields ? sys.shieldHp : lo.ship.shieldHp), delta: shields ? d(sys.shieldHp, was.shieldHp) : null, acc: false },
+      { label: 'quantum range', value: sys.qtRangeGm != null ? `${fmt(sys.qtRangeGm, 1)} Gm` : '–', delta: d(sys.qtRangeGm, was.qtRangeGm), acc: false },
+    ];
+  }
   return [
     { label: 'alpha', value: fmt(sum(lo.guns, 'alpha')), delta: d(sum(lo.guns, 'alpha'), sum(lo.stockGuns, 'alpha')), acc: false },
     { label: 'sustained', value: fmt(sum(lo.guns, 'sustainedDps')), delta: d(sum(lo.guns, 'sustainedDps'), sum(lo.stockGuns, 'sustainedDps')), acc: true },
@@ -187,6 +234,8 @@ export function LoadoutCards({ lo, onOpen, active, narrow = false }: { lo: Loado
 
   return (
     <div className="flex flex-col gap-8">
+      {lo.heads.length > 0 && <MiningHeads lo={lo} onOpen={onOpen} active={active} narrow={narrow} />}
+
       <Section title={`Armament · ${lo.slots.length} pilot gun${lo.slots.length === 1 ? '' : 's'}`} aside={lo.slots.length ? 'Click a gun to swap it' : undefined}>
         {lo.slots.map((s, i) => {
           const g = lo.equipped[i];
@@ -230,7 +279,7 @@ export function LoadoutCards({ lo, onOpen, active, narrow = false }: { lo: Loado
             </div>
           );
         })}
-        {!lo.slots.length && <p className="gt-dim text-sm m-0">This ship has no pilot guns.</p>}
+        {!lo.slots.length && <p className="gt-dim text-sm m-0">{lo.heads.length ? 'No pilot guns.' : 'This ship has no pilot guns.'}</p>}
         {lo.ship.gunSlots.some((s) => s.turret) && <p className="text-xs gt-dim m-0">Turret guns (for crew) aren&rsquo;t counted.</p>}
       </Section>
 
@@ -316,6 +365,109 @@ export function LoadoutCards({ lo, onOpen, active, narrow = false }: { lo: Loado
   );
 }
 
+// ── Mining heads (v1.50.0) ───────────────────────────────────────────────────
+
+const modEffects = (m: MiningModule) => [
+  m.power != null && m.power !== 1 ? `power ×${fmt(m.power, 2)}` : null,
+  ...Object.entries(m.modifiers).map(([k, v]) => `${modLabel(k).toLowerCase()} ${pctText(v)}`),
+].filter(Boolean).join(' · ');
+
+const usesText = (m: MiningModule) => (m.kind === 'Active' && m.charges ? `${fmt(m.charges)} × ${fmt(m.lifetime)} s` : null);
+
+function MiningHeads({ lo, onOpen, active, narrow }: { lo: LoadoutState; onOpen: (t: SwapTarget) => void; active?: SwapTarget | null; narrow: boolean }) {
+  const crewed = lo.heads.filter((h) => h.crewed).length;
+  const title = `Mining heads · ${lo.heads.length}${crewed ? ` crew turret${crewed === 1 ? '' : 's'}` : lo.heads.length === 1 ? ' laser' : ' lasers'}`;
+  return (
+    <>
+      <Section title={title} aside="Click a laser or a module slot to swap it">
+        {lo.heads.map((h, i) => {
+          const l = lo.headLaser[i] ?? null;
+          const changed = l?.uuid !== lo.headStock[i]?.uuid;
+          const t = lo.headTotals[i]!;
+          const mods = lo.headModules[i] ?? [];
+          const totals: [string, string, string][] = [
+            ['power', fmt(t.power), 'gt-hi'],
+            ...['Resistance', 'Instability', 'OptimalChargeWindow', 'AllChargeRates', 'InertMaterials']
+              .filter((k) => k !== 'InertMaterials' || t.modifiers[k] != null)
+              .map((k): [string, string, string] => {
+                const v = t.modifiers[k];
+                return [modLabel(k).toLowerCase(), v != null ? pctText(v) : '0%', v == null ? 'gt-hi' : modIsGood(k, v) ? 'gt-good' : 'gt-bad'];
+              }),
+          ];
+          return (
+            <div key={h.id} className="flex flex-col gap-2 p-3 rounded-md" style={{ border: '1px solid var(--gt-line)' }}>
+              <div className={narrow ? 'grid gap-2' : 'grid gap-2.5 grid-cols-1 sm:grid-cols-[minmax(150px,200px)_minmax(0,1fr)]'}>
+                {!narrow && (
+                  <div className="gt-box flex flex-col justify-center gap-0.5 px-3 py-2.5">
+                    <span className="text-xs gt-dim">{h.label}</span>
+                    <span className="font-semibold">{h.crewed ? 'Manned turret' : 'Pilot laser'}</span>
+                    <span className="text-xs gt-dim">Size {h.size} laser · {l?.moduleSlots ?? 0} module slot{l?.moduleSlots === 1 ? '' : 's'}{h.locked ? ' · fixed' : ''}</span>
+                  </div>
+                )}
+                <button type="button" className={`gt-card ${narrow ? '' : 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_auto] md:items-center'}`}
+                  data-changed={changed || sameTarget(active, { kind: 'laser', head: i })} onClick={() => onOpen({ kind: 'laser', head: i })}>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="gt-tag">S{l?.size ?? h.size}</span>
+                    <span className="flex flex-col min-w-0">
+                      {narrow && <span className="text-xs gt-dim">{h.label}{h.locked ? ' · fixed' : ''}</span>}
+                      <span className={`font-semibold text-base leading-tight ${changed ? 'gt-acc' : 'gt-hi'}`}>{l?.name ?? 'Empty'}</span>
+                      <span className="text-xs gt-dim truncate">{l ? `${l.maker ?? ''}${changed ? '' : ' · stock'}` : 'Nothing fitted'}</span>
+                    </span>
+                  </span>
+                  {l && (
+                    <span className="flex flex-wrap gap-1.5">
+                      {Object.entries(l.modifiers).map(([k, v]) => (
+                        <span key={k} className={`text-xs px-2 py-0.5 rounded whitespace-nowrap ${modIsGood(k, v) ? 'gt-good' : 'gt-bad'}`} style={{ border: '1px solid var(--gt-line)' }}>{modLabel(k)} {pctText(v)}</span>
+                      ))}
+                      {!Object.keys(l.modifiers).length && <span className="text-[13px] gt-dim">No modifiers</span>}
+                    </span>
+                  )}
+                  {l && (
+                    <span className="flex flex-col md:items-end">
+                      <span className="gt-mono text-xl font-semibold gt-hi">{fmt(l.power)}</span>
+                      <span className="text-xs gt-dim whitespace-nowrap">power · min {fmt(l.minPower)}</span>
+                      <span className="text-xs gt-dim whitespace-nowrap">extract {fmt(l.extraction)} · {fmt(l.optimalRange)}–{fmt(l.maxRange)} m</span>
+                    </span>
+                  )}
+                </button>
+              </div>
+              {mods.length > 0 && (
+                <div className={`grid gap-2 ${narrow ? '' : 'sm:grid-cols-2'}`}>
+                  {mods.map((m, j) => {
+                    const on = sameTarget(active, { kind: 'module', head: i, slot: j });
+                    return (
+                      <button key={j} type="button" className="gt-card" data-changed={!!m || on} style={m ? undefined : { borderStyle: 'dashed', background: 'transparent' }}
+                        onClick={() => onOpen({ kind: 'module', head: i, slot: j })}>
+                        <span className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-xs gt-dim">Module slot {j + 1}{m ? ` · ${m.kind.toLowerCase()}` : ''}</span>
+                          <span className={`font-semibold ${m ? 'gt-acc' : 'gt-dim'}`}>{m?.name ?? '+ Add a module'}</span>
+                          <span className="text-[13px] gt-dim">{m ? [modEffects(m), usesText(m) ? `${usesText(m)} uses` : null].filter(Boolean).join(' · ') : 'Empty'}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-x-5 gap-y-1 px-1 pt-1 text-[13px] gt-dim">
+                <span className="gt-label gt-label-acc">This head</span>
+                {totals.map(([k, v, cls]) => <span key={k}>{k} <b className={`gt-mono font-medium ${cls}`}>{v}</b></span>)}
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-xs gt-dim m-0">Active modules are counted as switched on. How laser and module bonuses combine (added or multiplied) is still to be checked against Regolith; here they are multiplied.</p>
+      </Section>
+
+      <Section title="What this loadout can break">
+        <div className="flex flex-col gap-1.5 p-4 rounded-md" style={{ border: '1px dashed var(--gt-line)' }}>
+          <span className="font-semibold gt-hi">Coming after a check against Regolith</span>
+          <span className="text-sm gt-dim">Pick a rock (or type its scanner mass and resistance) and see whether {lo.heads.length === 1 ? 'this head' : `these ${lo.heads.length} heads`} can crack it, with how much power to spare. The rule isn&rsquo;t written out in the game files, so we&rsquo;ll match it to Regolith&rsquo;s numbers before showing it.</span>
+        </div>
+      </Section>
+    </>
+  );
+}
+
 /** Whether slot `i`'s shield is one of the two that are up (the strongest; ties go to the earlier slot). */
 function isActiveShield(lo: LoadoutState, i: number): boolean {
   const ranked = lo.compSlots.map((s, j) => ({ j, hp: s.kind === 'shield' ? lo.compFitted[j]?.shieldHp ?? -1 : -1 }))
@@ -347,7 +499,15 @@ export function ShipPanels({ lo }: { lo: LoadoutState }) {
   const f = s.flight;
   const sys = lo.systems;
   const qt = sys.quantum;
+  const headPower = lo.headTotals.reduce((t, h) => t + (h.power ?? 0), 0);
   const panels: { title: string; rows: Row[] }[] = [
+    ...(lo.heads.length ? [{ title: 'Mining', rows: [
+      ['Laser power, all heads', fmt(headPower)],
+      ['Extraction, all heads', fmt(lo.headTotals.reduce((t, h) => t + (h.extraction ?? 0), 0))],
+      ['Modules fitted', `${lo.headModules.reduce((t, m) => t + m.filter(Boolean).length, 0)} of ${lo.headModules.reduce((t, m) => t + m.length, 0)}`],
+      ...(lo.heads.some((h) => h.crewed) ? [['Crew to run every head', fmt(lo.heads.filter((h) => h.crewed).length + 1)] as Row] : []),
+      ...(s.crew != null ? [['Crew seats', fmt(s.crew)] as Row] : []),
+    ] as Row[] }] : []),
     { title: 'Defense', rows: [
       ['Shield resistance', `phys ${pct(s.resistance.physical)} · energy ${pct(s.resistance.energy)}${s.distortion ? ` · dist ${pct(s.distortion.resistance)}` : ''}`],
       ['Shield absorption', `phys ${pct(s.absorption.physical)} · energy ${pct(s.absorption.energy)}`],
@@ -396,10 +556,73 @@ export function ShipPanels({ lo }: { lo: LoadoutState }) {
 
 // ── Swap windows ─────────────────────────────────────────────────────────────
 
-export function Swap({ lo, target, guns, components, missiles, onClose }: {
-  lo: LoadoutState; target: SwapTarget; guns: CombatGun[]; components: ShipComponent[]; missiles: MissileItem[]; onClose: () => void;
+export function Swap({ lo, target, guns, components, missiles, lasers = [], modules = [], onClose }: {
+  lo: LoadoutState; target: SwapTarget; guns: CombatGun[]; components: ShipComponent[]; missiles: MissileItem[];
+  lasers?: MiningLaser[]; modules?: MiningModule[]; onClose: () => void;
 }) {
   const shipName = lo.ship.name;
+  if (target.kind === 'laser') {
+    const head = lo.heads[target.head];
+    if (!head) return null;
+    const cols: SwapColumn<MiningLaser>[] = [
+      { key: 'name', label: 'Laser', get: (l) => l.name, text: true },
+      { key: 'power', label: 'Power', get: (l) => l.power },
+      { key: 'min', label: 'Min power', get: (l) => l.minPower },
+      { key: 'ext', label: 'Extraction', get: (l) => l.extraction },
+      { key: 'opt', label: 'Optimal m', get: (l) => l.optimalRange },
+      { key: 'max', label: 'Max m', get: (l) => l.maxRange },
+      { key: 'slots', label: 'Modules', get: (l) => l.moduleSlots },
+      ...MOD_COLUMNS.slice(0, 6).map((m): SwapColumn<MiningLaser> => ({
+        key: m.key, label: m.label, get: (l) => l.modifiers[m.key] ?? 0, low: m.lowerIsBetter, digits: 1,
+        render: (l) => <ModCell v={l.modifiers[m.key]} lowerIsBetter={m.lowerIsBetter} />,
+      })),
+    ];
+    const fits = lasers.filter((l) => laserFitsHead(l, head));
+    return (
+      <SwapWindow eyebrow={`${shipName} · ${head.label} · size ${head.size}`} title="Swap mining laser"
+        items={fits} columns={cols} defaultSort="power"
+        filters={[{ label: 'Maker', get: (l) => l.maker }]}
+        searchText={(l) => `${l.name} ${l.maker ?? ''}`}
+        idOf={(l) => l.uuid} nameOf={(l) => l.name} subOf={(l) => `${l.maker ?? ''}${l.bespokeFor ? ' · made for this ship' : ''}`}
+        fittedId={lo.headLaser[target.head]?.uuid ?? null} stockId={lo.headStock[target.head]?.uuid ?? null}
+        onPick={(l) => { lo.pickLaser(target.head, l); onClose(); }}
+        onStock={() => { const st = lo.headStock[target.head]; if (st) lo.pickLaser(target.head, st); onClose(); }}
+        onClose={onClose}
+        locked={head.locked ? 'this ship’s laser can’t be swapped; its modules can' : undefined}
+        note="green helps the miner, red hurts · modules past a laser’s slots come off" />
+    );
+  }
+
+  if (target.kind === 'module') {
+    const laser = lo.headLaser[target.head];
+    const head = lo.heads[target.head];
+    if (!head || !laser) return null;
+    const fitted = lo.headModules[target.head]?.[target.slot] ?? null;
+    const cols: SwapColumn<MiningModule>[] = [
+      { key: 'name', label: 'Module', get: (m) => m.name, text: true },
+      { key: 'kind', label: 'Kind', get: (m) => m.kind, text: true },
+      { key: 'uses', label: 'Uses', get: (m) => (m.charges ?? 0) * (m.lifetime ?? 0) || null, render: (m) => usesText(m) ?? <span className="gt-dim">always on</span> },
+      { key: 'power', label: 'Power', get: (m) => m.power ?? 1, digits: 2, render: (m) => (m.power != null && m.power !== 1 ? <span className={m.power > 1 ? 'gt-good' : 'gt-bad'}>×{fmt(m.power, 2)}</span> : <span className="gt-dim">–</span>) },
+      ...MOD_COLUMNS.map((c): SwapColumn<MiningModule> => ({
+        key: c.key, label: c.label, get: (m) => m.modifiers[c.key] ?? 0, low: c.lowerIsBetter, digits: 1,
+        render: (m) => <ModCell v={m.modifiers[c.key]} lowerIsBetter={c.lowerIsBetter} />,
+      })),
+      { key: 'rarity', label: 'Rarity', get: (m) => m.rarity, text: true },
+    ];
+    return (
+      <SwapWindow eyebrow={`${shipName} · ${head.label} · ${laser.name} · module slot ${target.slot + 1}`} title="Swap module"
+        items={modules} columns={cols} defaultSort="power"
+        filters={[{ label: 'Kind', get: (m) => m.kind }]}
+        searchText={(m) => `${m.name} ${m.maker ?? ''} ${m.kind} ${Object.keys(m.modifiers).join(' ')}`}
+        idOf={(m) => m.uuid} nameOf={(m) => m.name} subOf={(m) => m.maker ?? ''}
+        fittedId={fitted?.uuid ?? null} stockId={null}
+        onPick={(m) => { lo.pickModule(target.head, target.slot, m); onClose(); }}
+        extra={fitted ? { label: 'Empty this slot', onClick: () => { lo.pickModule(target.head, target.slot, null); onClose(); } } : undefined}
+        onClose={onClose}
+        note="active modules are used up: charges × seconds each" />
+    );
+  }
+
   if (target.kind === 'gun') {
     const slot = lo.slots[target.slot];
     if (!slot) return null;
