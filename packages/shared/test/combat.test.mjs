@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   combatGunFromItem, combatShipFromRow, shipGunSlots, dedupeGuns, killTime, killVerdict, formatKillTime,
-  bestGunFits, describeGuns, humanHardpoint,
+  bestGunFits, describeGuns, humanHardpoint, gunFitsSlot,
 } from '../dist/index.js';
 
 // Numbers from scunpacked 4.10.3-LIVE.
@@ -116,4 +116,22 @@ test('hardpoint names read as places on the ship', () => {
   assert.equal(humanHardpoint('hardpoint_weapon_gun_class1_left_wing'), 'Left wing');
   assert.equal(humanHardpoint('hardpoint_gun_nose'), 'Nose');
   assert.equal(humanHardpoint('hardpoint_class_2'), 'Gun');
+});
+
+test('bespoke guns fit only their own ships, and locked ports take only them', () => {
+  const bespoke = combatGunFromItem({ uuid: 'l22', name: 'Axiom L-22 Repeater', size: 4, data: {
+    tags: 'LaserRepeater flightReady Wolf_Gun',
+    stdItem: { RequiredTags: ['Wolf_Gun'], Weapon: { Damage: { Burst: 1000, Sustained: 700, AlphaTotal: 100, Alpha: { Energy: 100 } } } } } });
+  const generic = combatGunFromItem({ uuid: 'g4', name: 'Generic S4', size: 4, data: {
+    tags: 'LaserRepeater flightReady',
+    stdItem: { Weapon: { Damage: { Burst: 900, Sustained: 600, AlphaTotal: 90, Alpha: { Energy: 90 } } } } } });
+  const [wolf] = shipGunSlots({ PortTags: ['KRIG_Wolf'], Loadout: [
+    { HardpointName: 'hardpoint_weapon_left', Type: 'Turret.GunTurret', Name: 'VariPuck S4 Gimbal Mount', PortTags: ['Wolf_Gun'], RequiredTags: ['Wolf_Gun'], CompatibleTypes: [{ Type: 'Turret' }, { Type: 'WeaponGun' }], Loadout: [
+      { HardpointName: 'hardpoint_class_2', Type: 'WeaponGun.Gun', UUID: 'l21', MaxSize: 4, MinSize: 4, RequiredTags: ['Wolf_Gun'], CompatibleTypes: [{ Type: 'WeaponGun' }] }] }] });
+  const [other] = shipGunSlots({ Loadout: [
+    { HardpointName: 'hardpoint_gun_nose', Type: 'WeaponGun.Gun', UUID: 'x', MaxSize: 4, MinSize: 4, CompatibleTypes: [{ Type: 'WeaponGun' }] }] });
+  assert.equal(gunFitsSlot(bespoke, wolf), true);
+  assert.equal(gunFitsSlot(generic, wolf), false);
+  assert.equal(gunFitsSlot(bespoke, other), false);
+  assert.equal(gunFitsSlot(generic, other), true);
 });

@@ -620,5 +620,8 @@ Patch Notes — v1.1.0 — November 10
   shows a kill time states the assumptions (every shot hits, no shield regen,
   the deflection reading still to be confirmed in game). Comparisons on the
   Optimizer are computed from numbers, never written by AI.
+- Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
+  RequiredTags against the gun's tags, and the gun's RequiredTags against the
+  PortTags of the port, its mounts and the ship. Use it for every "what fits".
 - Pilot guns only so far (turret guns are listed, not counted). Missiles,
   components, mining and prices (UEX items/vehicles) are next.

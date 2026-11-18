@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { CombatGun, GameToolsShip } from '@dem/shared';
+import { gunFitsSlot, type CombatGun, type GameToolsShip } from '@dem/shared';
 import { fmt, gunsForSlot, pctChange, pilotSlots, shipPath, shortShipName, useGameTools } from '../../lib/gameTools';
 import { ToolsDataState } from './ToolsLayout';
 import { KillTable } from './KillTable';
@@ -59,7 +59,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
   const fitted = slots.map((s, i) => {
     const id = params.get(`s${i}`);
     const g = id ? gunsByUuid.get(id) : undefined;
-    return g && g.size >= s.minSize && g.size <= s.maxSize ? g : stock[i] ?? null;
+    return g && gunFitsSlot(g, s) ? g : stock[i] ?? null;
   });
   const fit = fitted.filter((g): g is CombatGun => !!g);
   const stockFit = stock.filter((g): g is CombatGun => !!g);
@@ -73,7 +73,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
   const fillAll = (g: CombatGun) => {
     const next = new URLSearchParams(params);
     slots.forEach((s, i) => {
-      if (g.size < s.minSize || g.size > s.maxSize) return;
+      if (!gunFitsSlot(g, s)) return;
       if (g.uuid === stock[i]?.uuid) next.delete(`s${i}`); else next.set(`s${i}`, g.uuid);
     });
     setParams(next, { replace: true });

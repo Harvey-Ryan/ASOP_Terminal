@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import {
-  combatGunFromItem, combatShipFromRow, dedupeGuns, isGameDataMissingError, shipIndex, matchShip,
+  combatGunFromItem, combatShipFromRow, dedupeGuns, gunGroupKey, isGameDataMissingError, shipIndex, matchShip,
   GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL,
   type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip,
 } from '@dem/shared';
@@ -48,7 +48,7 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const allGuns = gunRows.map(combatGunFromItem).filter((g): g is CombatGun => !!g);
   const guns = dedupeGuns(allGuns);
   // Point every gun at the one its group is shown as.
-  const key = (g: CombatGun) => [g.size, g.kind, Math.round(g.burstDps), Math.round(g.sustainedDps), Math.round(g.alpha), g.pellets].join('|');
+  const key = gunGroupKey;
   const repByKey = new Map(guns.map((g) => [key(g), g.uuid]));
   const rep = new Map(allGuns.map((g) => [g.uuid, repByKey.get(key(g)) ?? g.uuid]));
 

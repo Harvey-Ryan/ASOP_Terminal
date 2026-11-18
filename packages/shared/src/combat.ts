@@ -39,6 +39,9 @@ export interface CombatGun {
   speed: number | null;
   /** Other items with exactly these numbers (skins, variants), grouped under this one. */
   variants?: number;
+  /** The item's tags, and the tags a port (or the ship around it) must offer for it to fit: bespoke guns like the Wolf's. */
+  tags: string[];
+  requiredTags: string[];
 }
 
 export interface GunSlot {
@@ -52,6 +55,10 @@ export interface GunSlot {
   /** The mount the gun sits in (a gimbal), if any. */
   mount: string | null;
   stockGunUuid: string | null;
+  /** Tags a gun must carry to go here (the port's RequiredTags). */
+  requiredTags: string[];
+  /** Tags this port and everything around it offer (PortTags of the port, its mount and the ship). */
+  offeredTags: string[];
 }
 
 export interface CombatShip {
@@ -87,6 +94,9 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+const tagList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map(String).filter(Boolean) : typeof v === 'string' ? v.split(/\s+/).filter(Boolean) : [];
+
 const isPlaceholderName = (name: string | null) => !name || /PLACEHOLDER|<=|=>/.test(name);
 
 /** Ship guns from `scdata.items` (type WeaponGun). Null when the record has no usable damage numbers. */
@@ -121,12 +131,35 @@ export function combatGunFromItem(row: { uuid: string; class_name?: string | nul
     fireRate: num(w.RateOfFire) ?? num(mode.RoundsPerMinute),
     range: num(w.EffectiveRange) ?? num(w.Range),
     speed: num(std.Ammunition?.Speed),
+    tags: tagList(row.data?.tags ?? std.Tags),
+    requiredTags: tagList(std.RequiredTags),
   };
+}
+
+/** Guns with the same group key are the same gun for every purpose here (skins, paint). */
+export function gunGroupKey(g: CombatGun): string {
+  return [g.size, g.kind, Math.round(g.burstDps), Math.round(g.sustainedDps), Math.round(g.alpha), g.pellets, [...g.requiredTags].sort().join(',')].join('|');
+}
+
+/**
+ * Whether a gun can go in a slot: the right size, carrying every tag the port
+ * asks for, and finding every tag it needs on the port, its mount or the ship.
+ * Bespoke guns (the Wolf's L-21/L-22, the Vanguard's nose guns…) only fit
+ * their own ships, and those ships' locked ports take only them. The stock
+ * gun always fits its own slot.
+ */
+export function gunFitsSlot(g: CombatGun, slot: GunSlot): boolean {
+  if (g.uuid === slot.stockGunUuid) return true;
+  if (g.size < slot.minSize || g.size > slot.maxSize) return false;
+  const have = new Set(g.tags.map((t) => t.toLowerCase()));
+  if (!slot.requiredTags.every((t) => have.has(t.toLowerCase()))) return false;
+  const offered = new Set(slot.offeredTags.map((t) => t.toLowerCase()));
+  return g.requiredTags.every((t) => offered.has(t.toLowerCase()));
 }
 
 /** Same numbers, different paint: keep one per group, the plainest name, and count the rest. */
 export function dedupeGuns(guns: CombatGun[]): CombatGun[] {
-  const key = (g: CombatGun) => [g.size, g.kind, Math.round(g.burstDps), Math.round(g.sustainedDps), Math.round(g.alpha), g.pellets].join('|');
+  const key = gunGroupKey;
   const groups = new Map<string, CombatGun[]>();
   for (const g of guns) {
     const k = key(g);
@@ -151,7 +184,7 @@ export function humanHardpoint(name: string): string {
 /** Every gun port on a ship (pilot and turrets), with the stock gun in it. */
 export function shipGunSlots(ship: Json): GunSlot[] {
   const slots: GunSlot[] = [];
-  const walk = (ports: Json[] | undefined, path: string[], inTurret: boolean, mount: Json | null) => {
+  const walk = (ports: Json[] | undefined, path: string[], inTurret: boolean, mount: Json | null, offered: string[]) => {
     for (const p of ports ?? []) {
       const type = String(p.Type ?? '');
       const types: string[] = (p.CompatibleTypes ?? []).map((t: Json) => String(t.Type ?? ''));
@@ -167,14 +200,16 @@ export function shipGunSlots(ship: Json): GunSlot[] {
           turret: turretHere,
           mount: mount ? str(mount.Name) : null,
           stockGunUuid: type.startsWith('WeaponGun') ? str(p.UUID) : null,
+          requiredTags: tagList(p.RequiredTags),
+          offeredTags: [...new Set([...offered, ...tagList(p.PortTags)])],
         });
         continue;
       }
       const isMount = type.startsWith('Turret.') && types.includes('WeaponGun');
-      walk(p.Loadout, here, turretHere && !isMount ? true : turretHere, isMount ? p : mount);
+      walk(p.Loadout, here, turretHere && !isMount ? true : turretHere, isMount ? p : mount, [...offered, ...tagList(p.PortTags)]);
     }
   };
-  walk(ship.Loadout, [], false, null);
+  walk(ship.Loadout, [], false, null, tagList(ship.PortTags));
   return slots;
 }
 

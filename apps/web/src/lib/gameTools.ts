@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { ApiResponse, CombatGun, GameToolsDataDto, GameToolsShip, GunSlot } from '@dem/shared';
+import { gunFitsSlot, type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type GunSlot } from '@dem/shared';
 import { api } from '../api/client';
 
 export function useGameTools() {
@@ -26,9 +26,9 @@ export function useGameTools() {
   return { ...q, index };
 }
 
-/** Guns that fit a slot, best sustained first. */
+/** Guns that fit a slot: size and the port's tags (bespoke guns fit only their own ships). */
 export function gunsForSlot(guns: CombatGun[], slot: GunSlot): CombatGun[] {
-  return guns.filter((g) => g.size >= slot.minSize && g.size <= slot.maxSize);
+  return guns.filter((g) => gunFitsSlot(g, slot));
 }
 
 /** The ship's pilot-flown gun slots (crewed and remote turrets are left out of the maths). */
