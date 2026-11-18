@@ -11,7 +11,9 @@ import { api } from '../api/client';
 export function useGameTools() {
   const q = useQuery({
     queryKey: ['game-tools', 'data'],
-    queryFn: async () => (await api.get<ApiResponse<GameToolsDataDto>>('/game-tools/data')).data!,
+    // The site's version in the address (v1.46.1): a new release never reuses the
+    // browser's cached copy (cached for 5 minutes), whose shape may be older.
+    queryFn: async () => (await api.get<ApiResponse<GameToolsDataDto>>(`/game-tools/data?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
   });
