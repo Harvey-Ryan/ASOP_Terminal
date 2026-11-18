@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   combatGunFromItem, combatShipFromRow, shipGunSlots, dedupeGuns, killTime, killVerdict, formatKillTime,
-  bestGunFits, describeGuns, humanHardpoint, gunFitsSlot,
+  bestGunFits, describeGuns, humanHardpoint, gunFitsSlot, isUnavailableGun,
 } from '../dist/index.js';
 
 // Numbers from scunpacked 4.10.3-LIVE.
@@ -134,4 +134,16 @@ test('bespoke guns fit only their own ships, and locked ports take only them', (
   assert.equal(gunFitsSlot(generic, wolf), false);
   assert.equal(gunFitsSlot(bespoke, other), false);
   assert.equal(gunFitsSlot(generic, other), true);
+});
+
+test('M80 cross-check: labels, distortion guns and the untagged Slayer', () => {
+  assert.equal(humanHardpoint('hardpoint_weapon_frontright'), 'Front right');
+  assert.equal(humanHardpoint('hardpoint_weapon_rearleft'), 'Rear left');
+  const absolution = combatGunFromItem({ uuid: 'a', name: 'Absolution Distortion Scattergun', size: 5, data: { stdItem: { Weapon: { Damage: {
+    Burst: 600, Sustained: 500, AlphaTotal: 720, Alpha: { Distortion: 720, Energy: 0.001 } } } } } });
+  assert.equal(absolution.kind, 'Distortion');
+  const slayerCopy = combatGunFromItem({ uuid: 's1', name: 'Slayer Cannon', size: 5, data: { tags: 'flightReady weaponMountUsable', stdItem: { Weapon: { Damage: { Burst: 6400, Sustained: 5, AlphaTotal: 32000, Alpha: { Physical: 32000 } } } } } });
+  const slayerNova = combatGunFromItem({ uuid: 's2', name: 'Slayer Cannon', size: 5, data: { tags: 'HRST $TMBL_Nova', stdItem: { RequiredTags: ['TMBL_Nova'], Weapon: { Damage: { Burst: 6400, Sustained: 5, AlphaTotal: 32000, Alpha: { Physical: 32000 } } } } } });
+  assert.equal(isUnavailableGun(slayerCopy), true);
+  assert.equal(isUnavailableGun(slayerNova), false);
 });
