@@ -6,7 +6,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { killTime, killVerdict, formatKillTime, KILL_VERDICT_WORDS, type CombatGun, type GameToolsShip, type KillResult, type KillVerdict } from '@dem/shared';
-import { fmt, shipPath, shortShipName } from '../../lib/gameTools';
+import { fmt, shortShipName } from '../../lib/gameTools';
+import { useToolsPaths } from '../../lib/toolsPaths';
 
 /** Ships people run into most, small to huge. */
 export const COMMON_TARGETS = [
@@ -26,6 +27,7 @@ const shortGun = (name: string) => name.replace(/^CF-\d+ /, '').replace(/ (GT|T)
 export interface KillTableLoadout { name: string; guns: CombatGun[] }
 
 export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; ships: GameToolsShip[] }) {
+  const paths = useToolsPaths();
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const targets = useMemo(() => {
@@ -108,7 +110,7 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
 
       {sel && (
         <div className="mt-4 pt-3.5 flex flex-col gap-4" style={{ borderTop: '2px solid var(--gt-acc)' }}>
-          <span className="font-semibold gt-hi">vs {sel.t.name} <Link className="gt-link text-sm font-normal ml-3" to={shipPath(sel.t)}>Open {shortShipName(sel.t)}</Link></span>
+          <span className="font-semibold gt-hi">vs {sel.t.name} <Link className="gt-link text-sm font-normal ml-3" to={paths.ship(sel.t.className)}>Open {shortShipName(sel.t)}</Link></span>
           <div className={`grid gap-6 ${two ? 'sm:grid-cols-2' : ''}`}>
             {sel.per.map((p, i) => <Breakdown key={i} title={two ? loadouts[i]!.name : null} t={sel.t} r={p.burst} />)}
           </div>

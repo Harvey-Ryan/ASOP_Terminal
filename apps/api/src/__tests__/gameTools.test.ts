@@ -75,6 +75,12 @@ describe('Game Tools data', () => {
     expect(built!.etag).toMatch(/^"gt-/);
   });
 
+  it('says which tools are hidden for every server, without sign-in (v1.46.0)', async () => {
+    const res = await request(app).get('/api/game-tools/hidden');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data.hidden)).toBe(true);
+  });
+
   it('no game data yet: nothing to build', async () => {
     const built = await buildGameToolsData((async (sql: string) => (sql.includes('source') ? [] : [])) as never, async () => []);
     expect(built).toBeNull();

@@ -15,6 +15,7 @@ import {
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { listShips } from '../../lib/shipCatalog.js';
+import { hiddenModules } from '../../lib/hiddenModules.js';
 
 export const gameToolsRouter = Router();
 
@@ -127,4 +128,13 @@ gameToolsRouter.get('/game-tools/data', async (req, res) => {
   } else {
     res.json({ success: true, data: b.data } satisfies ApiResponse<GameToolsDataDto>);
   }
+});
+
+// v1.46.0: which of the tools the public site links to a platform admin hid for
+// every server (Admin → Modules), so its tabs match the sidebar. Public.
+const TOOL_MODULES = ['craftingEnabled', 'blueprintsEnabled', 'wikeloEnabled'] as const;
+gameToolsRouter.get('/game-tools/hidden', async (_req, res) => {
+  const hidden = await hiddenModules();
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  res.json({ success: true, data: { hidden: TOOL_MODULES.filter((m) => hidden.has(m)) } } satisfies ApiResponse<{ hidden: string[] }>);
 });

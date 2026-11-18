@@ -1,43 +1,51 @@
-// Game Tools (v1.44.0): the public /tools pages. No sign-in needed; signing
-// in only adds the server-bound tools (Crafting, Blueprints, Wikelo) and a
-// way back to the dashboard. Its own look (tools.css), with themes.
+// Game Tools (v1.44.0): the public /tools site. Ships needs no sign-in;
+// Crafting, Blueprints and Wikelo (v1.46.0) ask people to sign in first. Its
+// own look (tools.css), with themes. The same tools also live inside each
+// server's dashboard (Ships through `DashboardToolsFrame` below); links follow
+// whichever place the person is in (`lib/toolsPaths.ts`).
 
-import { createContext, Suspense, useContext, useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
+import { createContext, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import type { ApiResponse } from '@dem/shared';
+import { api } from '../../api/client';
+import { authApi } from '../../api/auth';
 import { useAuth } from '../../hooks/useAuth';
-import { settingsApi } from '../../api/settings';
-import { GAME_TOOLS_THEMES, readTheme, readToolsServer, saveTheme, saveToolsServer, useGameTools, type GameToolsTheme } from '../../lib/gameTools';
+import { GAME_TOOLS_THEMES, readTheme, saveTheme, useGameTools, type GameToolsTheme } from '../../lib/gameTools';
+import { PUBLIC_TOOLS_PATHS, ToolsPathsContext, useToolsPaths } from '../../lib/toolsPaths';
 import './tools.css';
 
 const ThemeContext = createContext<{ theme: GameToolsTheme; setTheme: (t: GameToolsTheme) => void }>({ theme: 'asop', setTheme: () => {} });
 export const useToolsTheme = () => useContext(ThemeContext);
 
-// v1.45.0: one ship-first tab (search, loadout and compare all live there).
-const TABS = [
-  { to: '/tools', label: 'Ships', end: false },
-];
-
-export function ToolsLayout() {
+function ThemeProvider({ children }: { children: (theme: GameToolsTheme) => ReactNode }) {
   const [theme, setThemeState] = useState<GameToolsTheme>(readTheme);
   const setTheme = (t: GameToolsTheme) => { setThemeState(t); saveTheme(t); };
-  const { user, guilds } = useAuth();
-  const [params] = useSearchParams();
-  const location = useLocation();
-  const { data } = useGameTools();
+  return <ThemeContext.Provider value={{ theme, setTheme }}>{children(theme)}</ThemeContext.Provider>;
+}
 
-  // Arriving from a server's sidebar remembers that server for the server tabs.
-  const fromServer = params.get('server');
-  useEffect(() => { if (fromServer) saveToolsServer(fromServer); }, [fromServer]);
-  const serverId = fromServer ?? readToolsServer();
-  const server = user ? guilds.find((g) => g.id === serverId) ?? null : null;
-  // The same module switches the sidebar uses (hidden modules included).
-  const { data: perms } = useQuery({
-    queryKey: ['my-permissions', server?.id],
-    queryFn: () => settingsApi.getMyPermissions(server!.id),
-    enabled: !!server,
+/** Tools an admin hid for every server (Admin → Modules) get no tab. */
+function useHiddenTools(): Set<string> {
+  const { data } = useQuery({
+    queryKey: ['game-tools', 'hidden'],
+    queryFn: async () => (await api.get<ApiResponse<{ hidden: string[] }>>('/game-tools/hidden')).data!,
     staleTime: 5 * 60_000,
   });
+  return new Set(data?.hidden ?? []);
+}
+
+export function ToolsLayout() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const { data } = useGameTools();
+  const hidden = useHiddenTools();
+  const p = PUBLIC_TOOLS_PATHS;
+  const tabs = [
+    { to: p.ships, label: 'Ships', on: location.pathname === '/tools' || location.pathname.startsWith('/tools/ships') },
+    { to: p.crafting, label: 'Crafting', on: location.pathname.startsWith(p.crafting), module: 'craftingEnabled' },
+    { to: p.blueprints, label: 'Blueprints', on: location.pathname.startsWith(p.blueprints), module: 'blueprintsEnabled' },
+    { to: p.wikelo, label: 'Wikelo', on: location.pathname.startsWith(p.wikelo), module: 'wikeloEnabled' },
+  ].filter((t) => !t.module || !hidden.has(t.module));
 
   useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
   useEffect(() => {
@@ -47,45 +55,92 @@ export function ToolsLayout() {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      <div className="gt" data-theme={theme}>
-        <header className="flex flex-wrap items-center justify-between gap-x-7 gap-y-0 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 60 }}>
-          <Link to="/tools" className="flex items-baseline gap-2.5 no-underline py-3">
-            <span className="font-bold tracking-[0.12em] gt-hi">ASOP</span>
-            <span className="gt-label gt-label-acc">Game Tools</span>
-          </Link>
-          <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0">
-            {TABS.map((t) => (
-              <NavLink key={t.to} to={t.to} end={t.end} className="gt-tab" aria-current={location.pathname === '/tools' || location.pathname.startsWith('/tools/ships') ? 'page' : undefined}>{t.label}</NavLink>
-            ))}
-            {server && (
-              <>
-                {perms?.craftingEnabled !== false && <a className="gt-tab" href={`/dashboard/servers/${server.id}/crafting-calculator`}>Crafting</a>}
-                {perms?.blueprintsEnabled !== false && <a className="gt-tab" href={`/dashboard/servers/${server.id}/blueprints`}>Blueprints</a>}
-                {perms?.wikeloEnabled !== false && <a className="gt-tab" href={`/dashboard/servers/${server.id}/wikelo`}>Wikelo</a>}
-              </>
-            )}
-          </nav>
-          <ThemeMenu />
-          {user ? (
-            <span className="text-sm gt-dim py-3">
-              {server ? <>{server.name} · </> : null}
-              <a href={server ? `/dashboard/servers/${server.id}` : '/dashboard'} className="gt-hi">Dashboard</a>
-            </span>
-          ) : (
-            <a href="/login" className="gt-btn gt-btn-primary">Sign in<span className="hidden sm:inline"> with Discord</span></a>
-          )}
-        </header>
+    <ToolsPathsContext.Provider value={PUBLIC_TOOLS_PATHS}>
+      <ThemeProvider>{(theme) => (
+        <div className="gt" data-theme={theme}>
+          <header className="flex flex-wrap items-center justify-between gap-x-7 gap-y-0 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 60 }}>
+            <Link to="/tools" className="flex items-baseline gap-2.5 no-underline py-3">
+              <span className="font-bold tracking-[0.12em] gt-hi">ASOP</span>
+              <span className="gt-label gt-label-acc">Game Tools</span>
+            </Link>
+            <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0">
+              {tabs.map((t) => <Link key={t.to} to={t.to} className="gt-tab" aria-current={t.on ? 'page' : undefined}>{t.label}</Link>)}
+            </nav>
+            <ThemeMenu />
+            {user
+              ? <a href="/dashboard" className="text-sm gt-hi py-3">Dashboard</a>
+              : <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">Sign in<span className="hidden sm:inline"> with Discord</span></a>}
+          </header>
 
+          <Suspense fallback={<p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>}>
+            <Outlet />
+          </Suspense>
+
+          <ToolsFooter build={data?.build ?? null} />
+        </div>
+      )}</ThemeProvider>
+    </ToolsPathsContext.Provider>
+  );
+}
+
+function ToolsFooter({ build }: { build: string | null }) {
+  return (
+    <footer className="px-5 sm:px-10 py-5 text-xs gt-dim border-t" style={{ borderColor: 'var(--gt-line)' }}>
+      Game data: Star Citizen Wiki (scunpacked){build ? <> · build <span className="gt-mono">{build}</span></> : null} · Prices: UEX Corp, player-reported · Not affiliated with Cloud Imperium Games
+    </footer>
+  );
+}
+
+/**
+ * Crafting, Blueprints and Wikelo on the public site (v1.46.0): signed-in
+ * people get the page (in a padded frame, as in the dashboard); everyone
+ * else a sign-in prompt that brings them back here.
+ */
+export function SignInForTool({ name, children }: { name: string; children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+  if (isLoading) return <p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>;
+  if (!user) {
+    return (
+      <section className="px-5 sm:px-10 py-16 flex flex-col items-start gap-4 max-w-[560px]">
+        <span className="gt-label gt-label-acc">{name}</span>
+        <h1 className="m-0 text-3xl font-bold gt-hi">Sign in to use {name}</h1>
+        <p className="m-0 gt-dim leading-relaxed">{name} is part of ASOP Terminal. Sign in with your Discord account to open it. Ships and loadouts stay open to everyone.</p>
+        <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">Sign in with Discord</a>
+      </section>
+    );
+  }
+  return <div className="p-6">{children}</div>;
+}
+
+/**
+ * Ships inside a server's dashboard (v1.46.0): the same pages as /tools, in the
+ * Game Tools look, with the theme menu and a link to the page on its own.
+ */
+export function DashboardToolsFrame() {
+  const paths = useToolsPaths();
+  const location = useLocation();
+  const { data } = useGameTools();
+  // The same page on the public site, loadout and all.
+  const prefix = paths.ships;
+  const rest = location.pathname.startsWith(prefix) ? location.pathname.slice(prefix.length) : '';
+  const standalone = `${rest ? `/tools/ships${rest}` : '/tools'}${location.search}`;
+  return (
+    <ThemeProvider>{(theme) => (
+      <div className="gt -m-6" data-theme={theme} style={{ minHeight: 'calc(100% + 3rem)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 52 }}>
+          <Link to={paths.ships} className="no-underline py-2.5"><span className="gt-label gt-label-acc">Ships &amp; Loadouts</span></Link>
+          <div className="flex items-center gap-4">
+            <a href={standalone} className="text-sm gt-dim">Open on its own page</a>
+            <ThemeMenu />
+          </div>
+        </div>
         <Suspense fallback={<p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>}>
           <Outlet />
         </Suspense>
-
-        <footer className="px-5 sm:px-10 py-5 text-xs gt-dim border-t" style={{ borderColor: 'var(--gt-line)' }}>
-          Game data: Star Citizen Wiki (scunpacked){data?.build ? <> · build <span className="gt-mono">{data.build}</span></> : null} · Prices: UEX Corp, player-reported · Not affiliated with Cloud Imperium Games
-        </footer>
+        <ToolsFooter build={data?.build ?? null} />
       </div>
-    </ThemeContext.Provider>
+    )}</ThemeProvider>
   );
 }
 

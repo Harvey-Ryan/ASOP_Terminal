@@ -6,7 +6,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { CombatGun, GameToolsShip } from '@dem/shared';
-import { fmt, pilotSlots, readRecentShips, rememberShip, shipPath, shortShipName, useGameTools } from '../../lib/gameTools';
+import { fmt, pilotSlots, readRecentShips, rememberShip, shortShipName, useGameTools } from '../../lib/gameTools';
+import { useToolsPaths } from '../../lib/toolsPaths';
 import { ToolsDataState } from './ToolsLayout';
 import { COMMON_TARGETS, KillTable } from './KillTable';
 import { GunPicker, ComponentPicker, KeyNumbers, SlotList, Totals, useLoadout } from './ShipLoadout';
@@ -68,6 +69,8 @@ export function ShipSearch({ ships, onPick, placeholder = 'Find a ship: gladius,
 type SortKey = 'name' | 'size' | 'shieldHp' | 'hullHp' | 'alpha' | 'cargo';
 
 export function ShipsHomePage() {
+  const paths = useToolsPaths();
+  const shipPath = (s: Pick<GameToolsShip, 'className'>) => paths.ship(s.className);
   const { data, index, isLoading, error } = useGameTools();
   const navigate = useNavigate();
   const [browse, setBrowse] = useState(false);
@@ -149,6 +152,8 @@ export function ShipsHomePage() {
 // ── /tools/ships/:className: one ship, or two side by side ──────────────────
 
 export function ShipPage() {
+  const paths = useToolsPaths();
+  const shipPath = (s: Pick<GameToolsShip, 'className'>) => paths.ship(s.className);
   const { className = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -159,7 +164,8 @@ export function ShipPage() {
   const a = useLoadout(ship, 's', index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map());
   const b = useLoadout(other, 'c', index?.gunsByUuid ?? new Map(), index?.componentsByUuid ?? new Map());
   const [active, setActive] = useState<{ side: 'a' | 'b'; slot: number; comp: boolean } | null>({ side: 'a', slot: 0, comp: false });
-  const [expert, setExpert] = useState(false);
+  // Expert numbers are always shown (v1.46.0).
+  const expert = true;
   const [copied, setCopied] = useState(false);
   const [choosing, setChoosing] = useState(false);
 
@@ -167,7 +173,7 @@ export function ShipPage() {
   useEffect(() => { setActive(other ? null : { side: 'a', slot: 0, comp: false }); }, [ship?.uuid, other?.uuid]);
 
   if (!data || !index) return <ToolsDataState isLoading={isLoading} error={error} />;
-  if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to="/tools">Pick another</Link></p>;
+  if (!ship || !a) return <p className="gt-dim px-5 sm:px-10 py-16">That ship isn&rsquo;t in this game build. <Link className="gt-link" to={paths.ships}>Pick another</Link></p>;
 
   const setParam = (k: string, v: string | null) => {
     const n = new URLSearchParams(params);
@@ -196,7 +202,6 @@ export function ShipPage() {
         ? <div className="min-w-[280px]"><ShipSearch ships={data.ships.filter((s) => s.uuid !== ship.uuid)} onPick={compareWith} placeholder="Compare with…" autoFocus /></div>
         : <button type="button" className="gt-btn gt-btn-primary" onClick={() => setChoosing(true)}>Compare</button>)}
       {other && <button type="button" className="gt-btn" onClick={swap}>Swap sides</button>}
-      <button type="button" className="gt-btn" aria-pressed={expert} onClick={() => setExpert(!expert)}>Expert view</button>
       <button type="button" className="gt-btn" onClick={copy}>{copied ? 'Link copied' : 'Copy link'}</button>
     </div>
   );

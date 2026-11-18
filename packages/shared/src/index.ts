@@ -957,7 +957,8 @@ export * from './ships.js';
  */
 export function safeReturnPath(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 512) return null;
-  if (!/^\/dashboard(?:[/?#]|$)/.test(value)) return null;
+  // The dashboard, or the public Game Tools pages (v1.46.0: Crafting, Blueprints, Wikelo ask to sign in there).
+  if (!/^\/(?:dashboard|tools)(?:[/?#]|$)/.test(value)) return null;
   if (/[\\\u0000-\u001f\u007f]/.test(value) || value.includes('//')) return null;
   return value;
 }

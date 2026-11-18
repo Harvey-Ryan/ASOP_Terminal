@@ -4,6 +4,7 @@
 // Crafting Calculator.
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useToolsPaths } from '@/lib/toolsPaths';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { craftingSource, getBlueprintByUuid, missionContracts, obtainableBlueprints, type LocalBlueprint } from '@/lib/gameData';
@@ -71,13 +72,13 @@ function EmptyState() {
 }
 
 export function BlueprintsPage() {
-  const { guildId, blueprintUuid } = useParams<{ guildId: string; blueprintUuid?: string }>();
+  const { blueprintUuid } = useParams<{ blueprintUuid?: string }>();
+  const paths = useToolsPaths();
   const navigate = useNavigate();
   const bp = blueprintUuid ? getBlueprintByUuid(blueprintUuid) ?? null : null;
-  const base = `/dashboard/servers/${guildId}`;
-  const pick = (uuid: string) => navigate(`${base}/blueprints/${uuid}`);
-  const back = () => navigate(`${base}/blueprints`);
-  const toCalculator = (uuid: string) => navigate(`${base}/crafting-calculator/${uuid}`);
+  const pick = (uuid: string) => navigate(`${paths.blueprints}/${uuid}`);
+  const back = () => navigate(paths.blueprints);
+  const toCalculator = (uuid: string) => navigate(`${paths.crafting}/${uuid}`);
   const src = craftingSource();
 
   return (
