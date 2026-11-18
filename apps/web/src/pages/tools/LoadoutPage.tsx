@@ -1,5 +1,5 @@
 // Loadout (v1.44.0): swap any pilot gun on a ship and see damage, alpha and
-// what the fit can kill, live. The fit lives in the address (?s0=<gun>…),
+// what the loadout can kill, live. The loadout lives in the address (?s0=<gun>…),
 // so it can be shared.
 
 import { useMemo, useState } from 'react';
@@ -38,7 +38,7 @@ export function LoadoutPage() {
     return (
       <main className="mx-auto w-full max-w-[1200px] px-5 sm:px-10 pt-10 pb-16 flex flex-col gap-6">
         <h1 className="m-0 text-3xl font-bold gt-hi">Loadout</h1>
-        <p className="m-0 gt-dim max-w-[620px]">Pick a ship to change its guns and see what the fit can kill.</p>
+        <p className="m-0 gt-dim max-w-[620px]">Pick a ship to change its guns and see what the loadout can kill.</p>
         <ShipChooser ships={data.ships} current={null} page="loadout" />
       </main>
     );
@@ -149,7 +149,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
             <>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <h2 id="gt-pick-h" className="gt-label gt-label-acc m-0">{slot.label} · size {slot.minSize === slot.maxSize ? slot.maxSize : `${slot.minSize}–${slot.maxSize}`} gun</h2>
-                <span className="text-sm gt-dim">{candidates.length} guns fit · sorted by {sort === 'alpha' ? 'alpha' : sort === 'burstDps' ? 'burst' : 'sustained'} · click a column to re-sort, a name to fit it</span>
+                <span className="text-sm gt-dim">{candidates.length} guns for this slot · sorted by {sort === 'alpha' ? 'alpha' : sort === 'burstDps' ? 'burst' : 'sustained'} · click a column to re-sort, a name to equip it</span>
               </div>
               <div className="gt-scroll">
                 <table className="gt-table min-w-[640px]">
@@ -160,7 +160,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
                       <th className="num"><button type="button" aria-pressed={sort === 'burstDps'} onClick={() => setSort('burstDps')}>Burst</button></th>
                       <th className="num"><button type="button" aria-pressed={sort === 'alpha'} onClick={() => setSort('alpha')}>Alpha</button></th>
                       {expert && <><th className="num">Rate</th><th className="num">Range</th><th className="num">Speed</th></>}
-                      <th className="num">{sort === 'alpha' ? 'Alpha' : sort === 'burstDps' ? 'Burst' : 'Sustained'} vs fitted</th>
+                      <th className="num">{sort === 'alpha' ? 'Alpha' : sort === 'burstDps' ? 'Burst' : 'Sustained'} vs equipped</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -178,7 +178,7 @@ function Loadout({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; ships
                           <td className="num">{fmt(g.burstDps)}</td>
                           <td className="num">{fmt(g.alpha)}</td>
                           {expert && <><td className="num">{fmt(g.fireRate)}</td><td className="num">{fmt(g.range)}</td><td className="num">{fmt(g.speed)}</td></>}
-                          <td className={`num ${on ? 'gt-acc' : d > 0.5 ? 'gt-good' : d < -0.5 ? 'gt-bad' : 'gt-dim'}`}>{on ? 'fitted' : `${d > 0 ? '+' : d < 0 ? '−' : ''}${fmt(Math.abs(d))}`}</td>
+                          <td className={`num ${on ? 'gt-acc' : d > 0.5 ? 'gt-good' : d < -0.5 ? 'gt-bad' : 'gt-dim'}`}>{on ? 'equipped' : `${d > 0 ? '+' : d < 0 ? '−' : ''}${fmt(Math.abs(d))}`}</td>
                         </tr>
                       );
                     })}

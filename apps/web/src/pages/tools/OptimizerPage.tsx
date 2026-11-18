@@ -26,7 +26,7 @@ export function OptimizerPage() {
     return (
       <main className="mx-auto w-full max-w-[1200px] px-5 sm:px-10 pt-10 pb-16 flex flex-col gap-6">
         <h1 className="m-0 text-3xl font-bold gt-hi">Optimizer</h1>
-        <p className="m-0 gt-dim max-w-[620px]">Pick your ship, then a goal: the fastest kill on a particular ship, or the most damage overall. ASOP tries every set of guns that fits and shows the best three.</p>
+        <p className="m-0 gt-dim max-w-[620px]">Pick your ship, then a goal: the fastest kill on a particular ship, or the most damage overall. ASOP tries every loadout of guns that will mount and shows the best three.</p>
         <ShipChooser ships={data.ships} current={null} page="optimizer" />
       </main>
     );
@@ -147,10 +147,10 @@ function Optimizer({ ship, ships, guns, gunsByUuid }: { ship: GameToolsShip; shi
 
       <section aria-labelledby="gt-res-h" className="flex-[999_1_560px] min-w-0 box-border px-5 sm:px-10 py-7 flex flex-col">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pb-3">
-          <h2 id="gt-res-h" className="gt-label gt-label-acc m-0">Best fits · {goal === 'target' ? `vs ${shortShipName(target)}` : GOALS.find((g) => g.id === goal)!.name.toLowerCase()}</h2>
+          <h2 id="gt-res-h" className="gt-label gt-label-acc m-0">Best loadouts · {goal === 'target' ? `vs ${shortShipName(target)}` : GOALS.find((g) => g.id === goal)!.name.toLowerCase()}</h2>
           <span className="text-sm gt-dim">Stock: {stockLine}</span>
         </div>
-        {!results.length && <p className="gt-dim">No set of guns fits these limits.</p>}
+        {!results.length && <p className="gt-dim">No loadout meets these limits.</p>}
         {results.map((r, i) => {
           const first = results[0]!;
           const vs = r.vsTarget;

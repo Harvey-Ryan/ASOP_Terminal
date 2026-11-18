@@ -107,6 +107,12 @@ export function ShipPage() {
           <span className="gt-label">{[ship.maker, ship.role ?? ship.career, ship.size != null ? `size ${ship.size}` : null, ship.crew != null ? `${ship.crew} crew` : null].filter(Boolean).join(' · ')}</span>
           <h1 className="m-0 text-4xl sm:text-5xl font-bold gt-hi">{shortShipName(ship)}</h1>
           {ship.imageUrl && <span className="text-xs gt-dim">Picture: Roberts Space Industries</span>}
+          {slots.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-3">
+              <Link className="gt-btn gt-btn-primary" to={shipPath(ship, 'loadout')}>Open Loadout</Link>
+              <Link className="gt-btn" style={{ background: 'var(--gt-bg)' }} to={shipPath(ship, 'optimizer')}>Optimize</Link>
+            </div>
+          )}
         </div>
       </div>
       <main className="mx-auto w-full max-w-[1200px] px-5 sm:px-10 pt-8 pb-12 flex flex-col gap-10">
@@ -124,7 +130,7 @@ export function ShipPage() {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="gt-guns-h" className="gt-label gt-label-acc m-0">Stock pilot guns</h2>
             <span className="flex gap-5">
-              <Link className="gt-link" to={shipPath(ship, 'loadout')}>Fit this ship &rarr;</Link>
+              <Link className="gt-link" to={shipPath(ship, 'loadout')}>Loadout &rarr;</Link>
               <Link className="gt-link" to={shipPath(ship, 'optimizer')}>Optimize &rarr;</Link>
             </span>
           </div>

@@ -12,8 +12,8 @@ const INVITE_URL = botInviteUrl(import.meta.env.VITE_DISCORD_CLIENT_ID ?? '');
 
 const TOOLS = [
   { to: '/tools/ships', name: 'Ships', desc: 'Every ship’s shields, hull, guns, speed and quantum drive. Pick one to see what it can kill.' },
-  { to: '/tools/loadout', name: 'Loadout', desc: 'Swap every gun on a ship and see damage, alpha and what the fit can kill, live.' },
-  { to: '/tools/optimizer', name: 'Optimizer', desc: 'Pick a target and a goal; ASOP tries every legal fit and shows the best ones.' },
+  { to: '/tools/loadout', name: 'Loadout', desc: 'Swap every gun on a ship and see damage, alpha and what the loadout can kill, live.' },
+  { to: '/tools/optimizer', name: 'Optimizer', desc: 'Pick a target and a goal; ASOP tries every legal loadout and shows the best ones.' },
 ];
 
 const words = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);

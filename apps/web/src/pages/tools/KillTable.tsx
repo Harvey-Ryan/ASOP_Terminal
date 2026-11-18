@@ -1,4 +1,4 @@
-// "What this fit can kill" (v1.44.0): kill times against a list of ships,
+// "What this loadout can kill" (v1.44.0): kill times against a list of ships,
 // with the verdict and the guns each one's armour stops. Click a ship for the
 // breakdown. Shared by the ship page and Loadout.
 
@@ -48,7 +48,7 @@ export function KillTable({ guns, ships, optimizeFor }: {
   return (
     <section aria-labelledby="gt-kill-h" className="flex flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2">
-        <h2 id="gt-kill-h" className="gt-label gt-label-acc m-0">What this fit can kill</h2>
+        <h2 id="gt-kill-h" className="gt-label gt-label-acc m-0">What this loadout can kill</h2>
         <button type="button" className="gt-link text-sm" onClick={() => setShowAll(!showAll)}>{showAll ? 'Common ships only' : `All ${ships.length} ships`}</button>
       </div>
       <div className="gt-scroll">
@@ -90,7 +90,7 @@ export function KillTable({ guns, ships, optimizeFor }: {
           <span>Main hull ({fmt(sel.t.hullHp)}) gone after <span className="gt-mono gt-hi">{formatKillTime(sel.burst.seconds)}</span>.</span>
           <span className="flex flex-wrap gap-x-5 pt-1">
             <Link className="gt-link" to={shipPath(sel.t)}>{shortShipName(sel.t)} stats</Link>
-            {optimizeFor && <Link className="gt-link" to={`${shipPath(optimizeFor, 'optimizer')}?target=${encodeURIComponent(sel.t.className.toLowerCase())}`}>Best fit vs {shortShipName(sel.t)} &rarr;</Link>}
+            {optimizeFor && <Link className="gt-link" to={`${shipPath(optimizeFor, 'optimizer')}?target=${encodeURIComponent(sel.t.className.toLowerCase())}`}>Best loadout vs {shortShipName(sel.t)} &rarr;</Link>}
           </span>
         </div>
       )}
