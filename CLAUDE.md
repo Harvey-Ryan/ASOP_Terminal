@@ -629,6 +629,10 @@ Patch Notes — v1.1.0 — November 10
     (`?vs=<className>`, its loadout `c0`/`ck0`/`cm0`) puts a second ship
     beside it (narrow cards, `SummaryGrid`), with one kill table that has a
     column per ship.
+  - Switching ships (v1.48.0): a `ShipSearch` bar at the top of the ship
+    page, and "Change ship" on each side when comparing (`switchShip`; the
+    compared ship and its loadout stay). Search results rank the exact name,
+    then names starting with what was typed, then shorter names.
   - Old `/tools/loadout/:c` and `/tools/optimizer/:c` links open the ship page.
     The Optimizer page is hidden until its scoring accounts for rate of fire,
     projectile speed and ammo; `bestGunFits` stays in `combat.ts` with tests.
