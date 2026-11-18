@@ -44,8 +44,8 @@ export function shortShipName(ship: Pick<GameToolsShip, 'name' | 'maker'>): stri
   return first && ship.name.startsWith(first + ' ') ? ship.name.slice(first.length + 1) : ship.name;
 }
 
-export function shipPath(ship: Pick<GameToolsShip, 'className'>, page: 'ships' | 'loadout' | 'optimizer' = 'ships'): string {
-  return `/tools/${page}/${encodeURIComponent(ship.className.toLowerCase())}`;
+export function shipPath(ship: Pick<GameToolsShip, 'className'>): string {
+  return `/tools/ships/${encodeURIComponent(ship.className.toLowerCase())}`;
 }
 
 export const fmt = (n: number | null | undefined, digits = 0): string =>
@@ -92,4 +92,19 @@ export function readToolsServer(): string | null {
 }
 export function saveToolsServer(id: string): void {
   try { localStorage.setItem(SERVER_KEY, id); } catch { /* private window */ }
+}
+
+// Ships looked at recently, newest first (this browser only).
+const RECENT_KEY = 'gt-recent';
+export function readRecentShips(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 8) : [];
+  } catch { return []; }
+}
+export function rememberShip(className: string): void {
+  try {
+    const key = className.toLowerCase();
+    localStorage.setItem(RECENT_KEY, JSON.stringify([key, ...readRecentShips().filter((c) => c !== key)].slice(0, 8)));
+  } catch { /* private window */ }
 }

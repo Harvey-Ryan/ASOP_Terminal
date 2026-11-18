@@ -1,10 +1,11 @@
-// "What this loadout can kill" (v1.44.0): kill times against a list of ships,
-// with the verdict and the guns each one's armour stops. Click a ship for the
-// breakdown. Shared by the ship page and Loadout.
+// "What this loadout can kill" (v1.44.0; side by side in v1.45.0): kill
+// times against a list of ships, with the verdict and the guns each one's
+// armour stops. With two loadouts it's one table with a column per ship.
+// Click a target for the breakdown.
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { killTime, killVerdict, formatKillTime, KILL_VERDICT_WORDS, type CombatGun, type GameToolsShip, type KillVerdict } from '@dem/shared';
+import { killTime, killVerdict, formatKillTime, KILL_VERDICT_WORDS, type CombatGun, type GameToolsShip, type KillResult, type KillVerdict } from '@dem/shared';
 import { fmt, shipPath, shortShipName } from '../../lib/gameTools';
 
 /** Ships people run into most, small to huge. */
@@ -22,12 +23,9 @@ const VERDICT_CLASS: Record<KillVerdict, string> = {
 
 const shortGun = (name: string) => name.replace(/^CF-\d+ /, '').replace(/ (GT|T)-\d+/, '').replace(/ (Repeater|Gatling|Scattergun|Cannon|Mass Driver|Laser Repeater|Laser Cannon).*$/, '');
 
-export function KillTable({ guns, ships, optimizeFor }: {
-  guns: CombatGun[];
-  ships: GameToolsShip[];
-  /** Ship (class name) whose Optimizer link to show, if any. */
-  optimizeFor?: GameToolsShip | null;
-}) {
+export interface KillTableLoadout { name: string; guns: CombatGun[] }
+
+export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; ships: GameToolsShip[] }) {
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const targets = useMemo(() => {
@@ -36,39 +34,70 @@ export function KillTable({ guns, ships, optimizeFor }: {
     return COMMON_TARGETS.map((c) => by.get(c)).filter((s): s is GameToolsShip => !!s);
   }, [ships, showAll]);
 
-  const rows = useMemo(() => targets.map((t) => {
-    const burst = killTime(guns, t, 'burst');
-    const sustained = killTime(guns, t, 'sustained');
-    return { t, burst, sustained, verdict: killVerdict(burst) };
-  }), [guns, targets]);
+  const rows = useMemo(() => targets.map((t) => ({
+    t,
+    per: loadouts.map((lo) => {
+      const burst = killTime(lo.guns, t, 'burst');
+      return { burst, sustained: killTime(lo.guns, t, 'sustained'), verdict: killVerdict(burst) };
+    }),
+  })), [loadouts, targets]);
   const sel = rows.find((r) => r.t.className === picked) ?? null;
+  const two = loadouts.length > 1;
 
-  if (!guns.length) return <p className="gt-dim m-0">This ship has no pilot guns.</p>;
+  if (loadouts.every((l) => !l.guns.length)) return <p className="gt-dim m-0">No pilot guns to compare.</p>;
 
   return (
     <section aria-labelledby="gt-kill-h" className="flex flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2">
-        <h2 id="gt-kill-h" className="gt-label gt-label-acc m-0">What this loadout can kill</h2>
+        <h2 id="gt-kill-h" className="gt-label gt-label-acc m-0">{two ? 'What each loadout can kill' : 'What this loadout can kill'}</h2>
         <button type="button" className="gt-link text-sm" onClick={() => setShowAll(!showAll)}>{showAll ? 'Common ships only' : `All ${ships.length} ships`}</button>
       </div>
       <div className="gt-scroll">
-        <table className="gt-table min-w-[640px]">
+        <table className="gt-table min-w-[620px]">
           <thead>
-            <tr><th>Target</th><th>Verdict</th><th className="num">Burst</th><th className="num">Sustained</th><th>Armour stops</th></tr>
+            {two ? (
+              <tr>
+                <th>Target</th>
+                {loadouts.map((l) => <th key={l.name} className="num">{l.name}<span className="block normal-case tracking-normal font-normal text-[11px]">burst · verdict</span></th>)}
+                <th>Faster</th>
+              </tr>
+            ) : (
+              <tr><th>Target</th><th>Verdict</th><th className="num">Burst</th><th className="num">Sustained</th><th>Armour stops</th></tr>
+            )}
           </thead>
           <tbody>
             {rows.map((r) => {
               const on = r.t.className === picked;
-              const stopped = [...new Set(r.burst.stopped.map(shortGun))];
+              const nameCell = (
+                <td>
+                  <button type="button" className="gt-cellbtn" aria-pressed={on} onClick={() => setPicked(on ? null : r.t.className)}>{shortShipName(r.t)}</button>
+                  <span className="block text-xs gt-dim">{r.t.role ?? r.t.career ?? ''}</span>
+                </td>
+              );
+              if (two) {
+                const [a, b] = r.per as [typeof r.per[0], typeof r.per[0]];
+                const winner = a.burst.seconds === b.burst.seconds ? null : (isFinite(a.burst.seconds) ? a.burst.seconds : Infinity) < (isFinite(b.burst.seconds) ? b.burst.seconds : Infinity) ? 0 : 1;
+                return (
+                  <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
+                    {nameCell}
+                    {r.per.map((p, i) => (
+                      <td key={i} className="num">
+                        <span className={i === winner ? 'gt-hi font-semibold' : ''}>{formatKillTime(p.burst.seconds)}</span>
+                        <span className={`block text-xs font-sans ${VERDICT_CLASS[p.verdict]}`}>{KILL_VERDICT_WORDS[p.verdict]}</span>
+                      </td>
+                    ))}
+                    <td className="text-sm">{winner == null ? <span className="gt-dim">Same</span> : <span className="gt-acc">{loadouts[winner]!.name}</span>}</td>
+                  </tr>
+                );
+              }
+              const p = r.per[0]!;
+              const stopped = [...new Set(p.burst.stopped.map(shortGun))];
               return (
                 <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
-                  <td>
-                    <button type="button" className="gt-cellbtn" aria-pressed={on} onClick={() => setPicked(on ? null : r.t.className)}>{shortShipName(r.t)}</button>
-                    <span className="block text-xs gt-dim">{r.t.role ?? r.t.career ?? ''}</span>
-                  </td>
-                  <td className={`font-semibold ${VERDICT_CLASS[r.verdict]}`}>{KILL_VERDICT_WORDS[r.verdict]}</td>
-                  <td className="num gt-hi">{formatKillTime(r.burst.seconds)}</td>
-                  <td className="num">{formatKillTime(r.sustained.seconds)}</td>
+                  {nameCell}
+                  <td className={`font-semibold ${VERDICT_CLASS[p.verdict]}`}>{KILL_VERDICT_WORDS[p.verdict]}</td>
+                  <td className="num gt-hi">{formatKillTime(p.burst.seconds)}</td>
+                  <td className="num">{formatKillTime(p.sustained.seconds)}</td>
                   <td className="text-sm gt-dim">{stopped.length ? stopped.join(', ') : '–'}</td>
                 </tr>
               );
@@ -78,25 +107,32 @@ export function KillTable({ guns, ships, optimizeFor }: {
       </div>
 
       {sel && (
-        <div className="mt-4 pt-3.5 flex flex-col gap-1.5" style={{ borderTop: '2px solid var(--gt-acc)' }}>
-          <span className="font-semibold gt-hi">vs {sel.t.name}</span>
-          <span>Shields ({fmt(sel.t.shieldHp)}) {isFinite(sel.burst.shieldSeconds)
-            ? sel.burst.seconds < sel.burst.shieldSeconds ? 'never need to drop: ballistic damage through them kills it first.' : <>down in <span className="gt-mono gt-hi">{formatKillTime(sel.burst.shieldSeconds)}</span> of burst fire.</>
-            : 'never drop.'}</span>
-          <span>Each volley: <span className="gt-mono gt-hi">{fmt(sel.burst.volleyShield)}</span> to shields, <span className="gt-mono gt-hi">{fmt(sel.burst.volleyThrough)}</span> to the hull through them, <span className="gt-mono gt-hi">{fmt(sel.burst.volleyHull)}</span> to the hull once they&rsquo;re down.</span>
-          <span>{sel.burst.stopped.length
-            ? <>Its armour stops {[...new Set(sel.burst.stopped)].join(', ')}: shots at or below {fmt(sel.t.deflection.physical)} ballistic / {fmt(sel.t.deflection.energy)} energy damage.</>
-            : 'Its armour doesn’t stop any of your guns.'}</span>
-          <span>Main hull ({fmt(sel.t.hullHp)}) gone after <span className="gt-mono gt-hi">{formatKillTime(sel.burst.seconds)}</span>.</span>
-          <span className="flex flex-wrap gap-x-5 pt-1">
-            <Link className="gt-link" to={shipPath(sel.t)}>{shortShipName(sel.t)} stats</Link>
-            {optimizeFor && <Link className="gt-link" to={`${shipPath(optimizeFor, 'optimizer')}?target=${encodeURIComponent(sel.t.className.toLowerCase())}`}>Best loadout vs {shortShipName(sel.t)} &rarr;</Link>}
-          </span>
+        <div className="mt-4 pt-3.5 flex flex-col gap-4" style={{ borderTop: '2px solid var(--gt-acc)' }}>
+          <span className="font-semibold gt-hi">vs {sel.t.name} <Link className="gt-link text-sm font-normal ml-3" to={shipPath(sel.t)}>Open {shortShipName(sel.t)}</Link></span>
+          <div className={`grid gap-6 ${two ? 'sm:grid-cols-2' : ''}`}>
+            {sel.per.map((p, i) => <Breakdown key={i} title={two ? loadouts[i]!.name : null} t={sel.t} r={p.burst} />)}
+          </div>
         </div>
       )}
       <p className="text-xs gt-dim leading-relaxed mt-3 mb-0">
         Every shot hits, full power, no shield regen while under fire. Assumes shots at or below a ship&rsquo;s armour deflection value do no hull damage; to be confirmed in game. A comparison, not a fight prediction.
       </p>
     </section>
+  );
+}
+
+function Breakdown({ title, t, r }: { title: string | null; t: GameToolsShip; r: KillResult }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {title && <span className="gt-label gt-label-acc">{title}</span>}
+      <span>Shields ({fmt(t.shieldHp)}) {isFinite(r.shieldSeconds)
+        ? r.seconds < r.shieldSeconds ? 'never need to drop: ballistic damage through them kills it first.' : <>down in <span className="gt-mono gt-hi">{formatKillTime(r.shieldSeconds)}</span> of burst fire.</>
+        : 'never drop.'}</span>
+      <span>Each volley: <span className="gt-mono gt-hi">{fmt(r.volleyShield)}</span> to shields, <span className="gt-mono gt-hi">{fmt(r.volleyThrough)}</span> to the hull through them, <span className="gt-mono gt-hi">{fmt(r.volleyHull)}</span> to the hull once they&rsquo;re down.</span>
+      <span>{r.stopped.length
+        ? <>Its armour stops {[...new Set(r.stopped)].join(', ')}: shots at or below {fmt(t.deflection.physical)} ballistic / {fmt(t.deflection.energy)} energy damage.</>
+        : 'Its armour doesn’t stop any of these guns.'}</span>
+      <span>Main hull ({fmt(t.hullHp)}) gone after <span className="gt-mono gt-hi">{formatKillTime(r.seconds)}</span>.</span>
+    </div>
   );
 }

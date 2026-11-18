@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ServerPage } from './pages/ServerPage';
@@ -66,11 +66,8 @@ const AdminFeedPage = lazyPage(() => import('./pages/admin/AdminFeedPage'), 'Adm
 const AdminModulesPage = lazyPage(() => import('./pages/admin/AdminModulesPage'), 'AdminModulesPage');
 // Game Tools (v1.44.0): public, outside the dashboard.
 const ToolsLayout = lazyPage(() => import('./pages/tools/ToolsLayout'), 'ToolsLayout');
-const ToolsHomePage = lazyPage(() => import('./pages/tools/ToolsHomePage'), 'ToolsHomePage');
-const ToolsShipsPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipsPage');
+const ToolsShipsHomePage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipsHomePage');
 const ToolsShipPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipPage');
-const ToolsLoadoutPage = lazyPage(() => import('./pages/tools/LoadoutPage'), 'LoadoutPage');
-const ToolsOptimizerPage = lazyPage(() => import('./pages/tools/OptimizerPage'), 'OptimizerPage');
 const MemberMapPage = lazyPage(() => import('./pages/MemberMapPage'), 'MemberMapPage');
 
 export default function App() {
@@ -81,13 +78,13 @@ export default function App() {
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/tools" element={<Suspense fallback={null}><ToolsLayout /></Suspense>}>
-          <Route index element={<ToolsHomePage />} />
-          <Route path="ships" element={<ToolsShipsPage />} />
+          <Route index element={<ToolsShipsHomePage />} />
+          <Route path="ships" element={<Navigate to="/tools" replace />} />
           <Route path="ships/:className" element={<ToolsShipPage />} />
-          <Route path="loadout" element={<ToolsLoadoutPage />} />
-          <Route path="loadout/:className" element={<ToolsLoadoutPage />} />
-          <Route path="optimizer" element={<ToolsOptimizerPage />} />
-          <Route path="optimizer/:className" element={<ToolsOptimizerPage />} />
+          {/* v1.45.0: Loadout lives on the ship page; the Optimizer is hidden for now. */}
+          <Route path="loadout/:className" element={<ToolsLegacyRedirect />} />
+          <Route path="optimizer/:className" element={<ToolsLegacyRedirect />} />
+          <Route path="*" element={<Navigate to="/tools" replace />} />
         </Route>
 
         {/* Protected – all dashboard routes share the sidebar layout */}
@@ -168,4 +165,12 @@ export default function App() {
     </BrowserRouter>
     </TooltipProvider>
   );
+}
+
+/** Old Loadout and Optimizer links open the ship's page (keeping a shared loadout). */
+function ToolsLegacyRedirect() {
+  const { className = '' } = useParams();
+  const { search, pathname } = useLocation();
+  const keep = pathname.startsWith('/tools/loadout') ? search : '';
+  return <Navigate to={`/tools/ships/${encodeURIComponent(className)}${keep}`} replace />;
 }

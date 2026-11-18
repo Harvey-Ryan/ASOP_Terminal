@@ -81,3 +81,8 @@
 .gt-slot[aria-pressed='true'] { background: var(--gt-tint); }
 
 .gt-scroll { overflow-x: auto; }
+
+/* Search boxes are underlined, not boxed (v1.45.0). */
+.gt input[type='search']:focus-visible { outline: none; }
+.gt input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.gt details > summary::-webkit-details-marker { display: none; }
