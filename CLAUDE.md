@@ -617,13 +617,18 @@ Patch Notes — v1.1.0 — November 10
   `tools.css`, maker-inspired themes in a menu, saved in the browser):
   - Home: the ship picker (`ShipSearch`), recently viewed (this browser),
     common ships and a sortable list of every ship (`ShipsHomePage`).
-  - One ship (`ShipPage`): its numbers, its editable loadout
-    (`ShipLoadout.tsx`: `useLoadout`, `SlotList`, `GunPicker`,
-    `ComponentPicker`, `Totals`) and what it can kill (`KillTable`). The
-    loadout is in the address (`?s0=<gun uuid>…`). Compare
-    (`?vs=<className>`, its loadout `?c0=…`) puts a second ship beside it,
-    both editable, with one kill table that has a column per ship. The
-    expert numbers (RPM, speed, range…) are always shown (v1.46.0).
+  - One ship (`ShipPage`), Erkul-style since v1.47.0: a summary bar that
+    stays on screen (`SummaryBar`), cards grouped by system (`LoadoutCards`:
+    Armament with each gun's mount, Ordnance, Components), the ship's
+    Defense / Flight / Hull / Quantum panels (`ShipPanels`) and what it can
+    kill (`KillTable`). Clicking a card opens the swap window for that slot
+    (`SwapWindow.tsx`, wrapped per kind by `Swap` in `ShipLoadout.tsx`):
+    every stat as a sortable column (shift-click adds a second sort),
+    filters, search and "vs fitted". The loadout is in the address
+    (`?s0=<gun>`, `?sk0=<component>`, `?sm0=<missile>`). Compare
+    (`?vs=<className>`, its loadout `c0`/`ck0`/`cm0`) puts a second ship
+    beside it (narrow cards, `SummaryGrid`), with one kill table that has a
+    column per ship.
   - Old `/tools/loadout/:c` and `/tools/optimizer/:c` links open the ship page.
     The Optimizer page is hidden until its scoring accounts for rate of fire,
     projectile speed and ammo; `bestGunFits` stays in `combat.ts` with tests.
@@ -646,8 +651,20 @@ Patch Notes — v1.1.0 — November 10
   (`combat.ts`, each with its reason; e.g. the untagged copy of the Nova's
   Slayer Cannon). There's no reliable automatic rule: many real guns aren't
   stock on any ship, so wait for shop data (UEX) before filtering on that.
-- Pilot guns only so far (turret guns are listed, not counted). Missiles,
-  mining and prices (UEX items/vehicles) are next.
+- Pilot guns only (turret guns are listed, not counted). Turret-only copies
+  of guns (class name ending `_Turret`, e.g. a second Attrition-4) never fit
+  pilot slots (`gunFitsSlot`). Gun extras for the swap window (family,
+  penetration, spread, power, EM, ammo/capacitor, HP) are on `CombatGun`.
+- Missiles (v1.47.0, `packages/shared/src/missiles.ts`): every missile
+  (grouped like guns) and each ship's racks (`missileRacks`). Racks stay as
+  the ship comes with them (rack names are reused across racks that hold
+  different missiles, so swapping racks would mislead); the missiles in a
+  rack swap for any missile of its size, and identical racks show as one
+  card and swap together. Countermeasures are counted from the launchers'
+  items (Flare = decoy, Chaff = noise). Ship panels: `flight` (speeds,
+  turn rates, 0→SCM/top, hydrogen), `hull` (every part's HP added up:
+  Erkul's "hull"), `armourHp`, `distortion`. Checked against Erkul's M80.
+- Mining and prices (UEX items/vehicles) are next; power pips are on hold.
 - Components (v1.46.0): shields, power plants, coolers, quantum drives and
   radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
   `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats

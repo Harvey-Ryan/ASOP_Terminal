@@ -22,6 +22,12 @@ const shipRow = {
       { HardpointName: 'hardpoint_gun_nose', Type: 'WeaponGun.Gun', UUID: 'skin', MaxSize: 3, MinSize: 3, CompatibleTypes: [{ Type: 'WeaponGun' }] },
       { HardpointName: 'hardpoint_shield_left', Type: 'Shield.UNDEFINED', UUID: 'shield-copy', MaxSize: 1, MinSize: 1, Editable: true, CompatibleTypes: [{ Type: 'Shield' }] },
       { HardpointName: 'hardpoint_power_plant', Type: 'PowerPlant.Power', UUID: 'bespoke-power', MaxSize: 1, MinSize: 1, Editable: false, CompatibleTypes: [{ Type: 'PowerPlant' }] },
+      // v1.47.0: a rack of two size 3 missiles (a skin copy), and a decoy launcher.
+      { HardpointName: 'hardpoint_missile_rack', Type: 'MissileLauncher.MissileRack', Name: 'MSD-423 Missile Rack', MaxSize: 4, Loadout: [
+        { HardpointName: 'missile_01_attach', Type: 'Missile.Missile', UUID: 'tb-copy', MaxSize: 3 },
+        { HardpointName: 'missile_02_attach', Type: 'Missile.Missile', UUID: 'tb-copy', MaxSize: 3 },
+      ] },
+      { HardpointName: 'hardpoint_cm', Type: 'WeaponDefensive.CountermeasureLauncher', UUID: 'decoys' },
     ],
   },
 };
@@ -41,6 +47,9 @@ function fakeQuery(sql: string): Promise<unknown> {
   if (sql.includes('scdata.source')) return Promise.resolve([{ commit: 'abc', build: '4.x-TEST' }]);
   if (sql.includes('scdata.ships')) return Promise.resolve([shipRow]);
   if (sql.includes("'Shield'")) return Promise.resolve(componentRows);
+  if (sql.includes("'Missile'")) return Promise.resolve(['tb', 'tb-copy'].map((uuid) => ({ uuid, class_name: uuid, name: 'Thunderbolt III Missile', manufacturer_name: 'FireStorm Kinetics', size: 3,
+    data: { stdItem: { Missile: { DamageTotal: 2900, Damage: { Physical: 2900 }, Targeting: { LockTime: 1, TrackingSignalType: 'Electromagnetic' } } } } })));
+  if (sql.includes("'WeaponDefensive'")) return Promise.resolve([{ uuid: 'decoys', class_name: 'cml', name: 'Decoy Launcher', manufacturer_name: null, size: 1, data: { stdItem: { WeaponDefensive: { Type: 'Flare', Capacity: 48 } } } }]);
   // A gun and its skin with the same numbers, plus one that's different.
   return Promise.resolve([gunRow('plain', 'Laser', 40), gunRow('skin', 'Laser Hazard-Zone', 40), gunRow('other', 'Cannon', 400)]);
 }
@@ -69,6 +78,10 @@ describe('Game Tools data', () => {
     expect(data.components.map((c) => c.name).sort()).toEqual(['Main Powerplant', 'Wall']);
     expect(ship.componentSlots.map((s) => [s.kind, s.stockUuid, s.locked])).toEqual([['shield', 'shield', false], ['power', 'bespoke-power', true]]);
     expect(ship.qtFuelCapacity).toBe(600);
+    // Missiles: copies grouped, the rack pointed at the shown one; countermeasures counted.
+    expect(data.missiles!.map((m) => m.name)).toEqual(['Thunderbolt III']);
+    expect(ship.missileRacks!.map((r) => [r.name, r.missileSize, r.count, r.stockMissileUuid])).toEqual([['MSD-423 Missile Rack', 3, 2, 'tb']]);
+    expect(ship.countermeasures).toEqual({ decoy: 48, noise: 0 });
     // Sent gzipped as the same JSON.
     const body = JSON.parse(gunzipSync(built!.gz).toString());
     expect(body.data.ships[0].name).toBe('Test Fighter');

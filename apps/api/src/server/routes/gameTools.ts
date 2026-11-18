@@ -10,8 +10,9 @@ import { createHash } from 'node:crypto';
 import {
   combatGunFromItem, combatShipFromRow, dedupeGuns, gunGroupKey, isUnavailableGun, isGameDataMissingError, shipIndex, matchShip,
   shipComponentFromItem, dedupeComponents, componentGroupKey,
-  GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL,
-  type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type ShipComponent,
+  missileFromItem, dedupeMissiles, missileGroupKey,
+  GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
+  type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type MissileItem, type ShipComponent,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { listShips } from '../../lib/shipCatalog.js';
@@ -44,10 +45,12 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   }
   if (!source?.commit) return null;
 
-  const [shipRows, gunRows, componentRows] = await Promise.all([
+  const [shipRows, gunRows, componentRows, missileRows, launcherRows] = await Promise.all([
     query<Row[]>(GAME_TOOLS_SHIPS_SQL),
     query<Row[]>(GAME_TOOLS_GUNS_SQL),
     query<Row[]>(GAME_TOOLS_COMPONENTS_SQL),
+    query<Row[]>(GAME_TOOLS_MISSILES_SQL),
+    query<Row[]>(COUNTERMEASURE_SQL),
   ]);
   const allGuns = gunRows.map(combatGunFromItem).filter((g): g is CombatGun => !!g && !isUnavailableGun(g));
   const guns = dedupeGuns(allGuns);
@@ -63,6 +66,16 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const compRep = new Map(allComponents.map((c) => [c.uuid, compRepByKey.get(componentGroupKey(c)) ?? c.uuid]));
   const stockComponents = new Set<string>();
 
+  // Missiles (v1.47.0), grouped the same way; countermeasure launchers by what they fire.
+  const allMissiles = missileRows.map(missileFromItem).filter((m): m is MissileItem => !!m);
+  const missiles = dedupeMissiles(allMissiles);
+  const misRepByKey = new Map(missiles.map((m) => [missileGroupKey(m), m.uuid]));
+  const misRep = new Map(allMissiles.map((m) => [m.uuid, misRepByKey.get(missileGroupKey(m)) ?? m.uuid]));
+  const launchers = new Map(launcherRows.map((r) => {
+    const wd = (r.data as { stdItem?: { WeaponDefensive?: { Type?: string; Capacity?: number } } }).stdItem?.WeaponDefensive;
+    return [r.uuid, { type: wd?.Type ?? '', capacity: wd?.Capacity ?? 0 }];
+  }));
+
   const catalog = await catalogFn().catch((err: unknown) => { console.warn('[game-tools] No ship pictures:', err); return []; });
   const index = catalog.length ? shipIndex(catalog) : null;
 
@@ -71,6 +84,8 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
     const s = combatShipFromRow(row);
     if (!s) continue;
     for (const slot of s.gunSlots) if (slot.stockGunUuid) slot.stockGunUuid = rep.get(slot.stockGunUuid) ?? null;
+    for (const rack of s.missileRacks ?? []) if (rack.stockMissileUuid) rack.stockMissileUuid = misRep.get(rack.stockMissileUuid) ?? null;
+    s.countermeasures = countermeasures((row.data as { Loadout?: unknown[] }).Loadout, launchers);
     for (const slot of s.componentSlots) {
       if (!slot.stockUuid) continue;
       slot.stockUuid = compRep.get(slot.stockUuid) ?? null;
@@ -85,13 +100,34 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
 
   // Parts players can't get (no class or grade: bespoke and placeholder records) only where a ship comes with them.
   const components = componentGroups.filter((c) => c.available || stockComponents.has(c.uuid));
-  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components };
+  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<GameToolsDataDto>));
   return {
     commit: source.commit, at: Date.now(), data,
     gz: gzipSync(body, { level: 9 }),
     etag: `"gt-${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`,
   };
+}
+
+const COUNTERMEASURE_SQL = `
+  SELECT uuid, class_name, name, manufacturer_name, size, data
+  FROM scdata.items WHERE type = 'WeaponDefensive' AND NOT is_placeholder
+`;
+
+/** Decoys (flares) and noise (chaff) a ship carries, from its launchers. */
+function countermeasures(loadout: unknown[] | undefined, launchers: Map<string, { type: string; capacity: number }>): { decoy: number; noise: number } | null {
+  let decoy = 0;
+  let noise = 0;
+  const walk = (ports: unknown[] | undefined) => {
+    for (const p of (ports ?? []) as { UUID?: string; Type?: string; Loadout?: unknown[] }[]) {
+      const l = p.UUID && String(p.Type ?? '').startsWith('WeaponDefensive') ? launchers.get(p.UUID) : undefined;
+      if (l?.type === 'Flare') decoy += l.capacity;
+      else if (l?.type === 'Chaff') noise += l.capacity;
+      walk(p.Loadout);
+    }
+  };
+  walk(loadout);
+  return decoy || noise ? { decoy, noise } : null;
 }
 
 async function getBuilt(): Promise<Built | null> {
