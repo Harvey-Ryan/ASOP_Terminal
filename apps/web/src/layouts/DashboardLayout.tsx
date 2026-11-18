@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, Crosshair, BookOpen, Calculator, Palmtree, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, Crosshair, BookOpen, Calculator, Palmtree, Pickaxe, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -596,6 +596,14 @@ export function DashboardLayout() {
                   >
                     <Crosshair className="h-4 w-4 shrink-0" />
                     {!navCollapsed && 'Ships & Loadouts'}
+                  </NavLink>
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/mining`}
+                    title={navCollapsed ? 'Mining' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Pickaxe className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Mining'}
                   </NavLink>
                   {craftingEnabled && (
                     <NavLink

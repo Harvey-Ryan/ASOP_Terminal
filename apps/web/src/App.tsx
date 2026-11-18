@@ -69,6 +69,7 @@ const ToolsLayout = lazyPage(() => import('./pages/tools/ToolsLayout'), 'ToolsLa
 const ToolsShipsHomePage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipsHomePage');
 const ToolsShipPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipPage');
 // v1.46.0: Ships inside each server's dashboard, and the other tools on the public site.
+const MiningPage = lazyPage(() => import('./pages/tools/MiningPage'), 'MiningPage');
 const DashboardToolsFrame = lazyPage(() => import('./pages/tools/ToolsLayout'), 'DashboardToolsFrame');
 // lazyPage drops props, so this one says what it takes.
 const SignInForTool = lazyPage(() => import('./pages/tools/ToolsLayout'), 'SignInForTool') as unknown as ComponentType<{ name: string; children: ReactNode }>;
@@ -85,6 +86,7 @@ export default function App() {
           <Route index element={<ToolsShipsHomePage />} />
           <Route path="ships" element={<Navigate to="/tools" replace />} />
           <Route path="ships/:className" element={<ToolsShipPage />} />
+          <Route path="mining" element={<MiningPage />} />
           {/* v1.45.0: Loadout lives on the ship page; the Optimizer is hidden for now. */}
           <Route path="loadout/:className" element={<ToolsLegacyRedirect />} />
           <Route path="optimizer/:className" element={<ToolsLegacyRedirect />} />
@@ -144,6 +146,9 @@ export default function App() {
           <Route path="servers/:guildId/ships" element={<DashboardToolsFrame />}>
             <Route index element={<ToolsShipsHomePage />} />
             <Route path=":className" element={<ToolsShipPage />} />
+          </Route>
+          <Route path="servers/:guildId/mining" element={<DashboardToolsFrame />}>
+            <Route index element={<MiningPage />} />
           </Route>
           <Route path="servers/:guildId/blueprints" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/blueprints/:blueprintUuid" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />

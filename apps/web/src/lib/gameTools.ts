@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { gunFitsSlot, type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type GunSlot } from '@dem/shared';
+import { gunFitsSlot, type ApiResponse, type MiningDataDto, type CombatGun, type GameToolsDataDto, type GameToolsShip, type GunSlot } from '@dem/shared';
 import { api } from '../api/client';
 
 export function useGameTools() {
@@ -28,6 +28,16 @@ export function useGameTools() {
     };
   }, [q.data]);
   return { ...q, index };
+}
+
+/** Mining data (v1.49.0): ore finder, rock signatures, lasers and modules. Public, one copy per site version. */
+export function useMiningData() {
+  return useQuery({
+    queryKey: ['game-tools', 'mining'],
+    queryFn: async () => (await api.get<ApiResponse<MiningDataDto>>(`/game-tools/mining?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+  });
 }
 
 /** Guns that fit a slot: size and the port's tags (bespoke guns fit only their own ships). */

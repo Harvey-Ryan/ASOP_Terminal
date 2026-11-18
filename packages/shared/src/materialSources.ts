@@ -62,7 +62,8 @@ export function materialKey(resourceKeyOrName: string): string {
   return k === 'ice' ? 'pressurized ice' : k;
 }
 
-function placeOf(row: ResourceLocationRow): { place: string; kind: string; system: string } | null {
+/** Where a resource_locations row is, named for players (null for events, loot and vague clusters). */
+export function resourcePlace(row: ResourceLocationRow): { place: string; kind: string; system: string } | null {
   const provider = row.provider_name ?? '';
   if (!provider || SKIP.test(provider)) return null;
   if (PLACE_OVERRIDES[provider]) return PLACE_OVERRIDES[provider]!;
@@ -110,7 +111,7 @@ export function groupedPlaceName(names: readonly string[]): string {
 export function buildMaterialSources(rows: readonly ResourceLocationRow[]): MaterialSources {
   const out: MaterialSources = {};
   for (const row of rows) {
-    const where = placeOf(row);
+    const where = resourcePlace(row);
     if (!where) continue;
     for (const g of row.data.Groups ?? []) {
       const method = METHOD_BY_GROUP[(g.GroupName ?? '').toLowerCase()];

@@ -668,7 +668,22 @@ Patch Notes — v1.1.0 — November 10
   items (Flare = decoy, Chaff = noise). Ship panels: `flight` (speeds,
   turn rates, 0→SCM/top, hydrogen), `hull` (every part's HP added up:
   Erkul's "hull"), `armourHp`, `distortion`. Checked against Erkul's M80.
-- Mining and prices (UEX items/vehicles) are next; power pips are on hold.
+- Mining tab (v1.49.0): `/tools/mining` and `/dashboard/servers/:id/mining`
+  (sidebar Tools → Mining), `pages/tools/MiningPage.tsx`, data from public
+  `GET /api/game-tools/mining` (built per game build, gzipped). Rules in
+  `packages/shared/src/mining.ts`: the ore finder lists only rocks where the
+  ore is the main ore (side ores are left out, as asked), with both quality
+  bands (small share at high quality, large share at low), the rock's spawn
+  chance, signature and cluster size; places are named by `resourcePlace`
+  (`materialSources.ts`). Scanner lookup: signature = one rock × cluster
+  size (`matchSignature`). Lasers leave out template/test copies and the
+  MPUV arm; size 0 (ROC/hand) lasers aren't listed yet. Modules are
+  `Mining_Modules_(Active|Passive)_…` (Deluge, Overrun and Clearcut have no
+  item type in the files: may not be sold). Lower resistance, instability,
+  inert, overcharge and shatter are good for the miner.
+- Next: mining/salvage/refuel loadouts on ship pages (lasers + modules per
+  head, "what can it break" once checked against Regolith), UEX prices and
+  refinery yields. Power pips are on hold.
 - Components (v1.46.0): shields, power plants, coolers, quantum drives and
   radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
   `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats
