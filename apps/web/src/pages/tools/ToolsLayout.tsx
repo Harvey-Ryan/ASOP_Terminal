@@ -66,7 +66,7 @@ export function ToolsLayout() {
               <span className="font-bold tracking-[0.12em] gt-hi">ASOP</span>
               <span className="gt-label gt-label-acc">Game Tools</span>
             </Link>
-            <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0">
+            <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full xl:order-none xl:w-auto xl:flex-1 min-w-0">
               {tabs.map((t) => <Link key={t.to} to={t.to} className="gt-tab" aria-current={t.on ? 'page' : undefined}>{t.label}</Link>)}
             </nav>
             <div className="flex items-center gap-3 py-2">

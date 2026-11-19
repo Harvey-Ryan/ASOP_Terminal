@@ -272,14 +272,14 @@ function Signatures({ signatures, spots, place, setPlace }: { signatures: RockSi
       render: (s: RockSignature) => (k > s.maxCluster ? <span className="gt-dim" title="Never this many in one cluster">–</span>
         : k === 1 ? <Fix kind="rock-signature" recordKey={rockRecordKey(s)} recordName={s.rock} field="signature" value={s.signature}><span className="gt-hi">{fmt(s.signature)}</span></Fix>
         : <span>{fmt(s.signature * k)}</span>) })),
-    { key: 'max', label: 'Most in a cluster', num: true, sort: (s) => s.maxCluster, render: (s) => <Fix kind="rock-signature" recordKey={rockRecordKey(s)} recordName={s.rock} field="maxCluster" value={s.maxCluster}>{s.maxCluster}</Fix> },
+    { key: 'max', label: 'Max', num: true, sort: (s) => s.maxCluster, render: (s) => <Fix kind="rock-signature" recordKey={rockRecordKey(s)} recordName={s.rock} field="maxCluster" value={s.maxCluster}>{s.maxCluster}</Fix> },
   ];
   return (
     <div className="flex flex-wrap">
       <div className="flex-[999_1_620px] min-w-0 box-border px-5 sm:pl-10 sm:pr-8 py-6 flex flex-col gap-4">
         <Chips label="Scanned by" options={methods} value={method} onChange={setMethod} />
-        <SortTable rows={rows} cols={cols} initial="x1" rowKey={(s) => `${s.rock}|${s.method}`} minWidth={820} />
-        <p className="text-xs gt-dim m-0">What the scanner shows for a cluster of 1 to 6 rocks of each type. A dash means that rock never clusters that big, so the number can&rsquo;t be it. ROC and hand-mining gems all share one signature, so the scanner can&rsquo;t tell them apart.</p>
+        <SortTable rows={rows} cols={cols} initial="x1" rowKey={(s) => `${s.rock}|${s.method}`} minWidth={640} />
+        <p className="text-xs gt-dim m-0">What the scanner shows for a cluster of 1 to 6 rocks of each type. A dash means that rock never clusters that big, so the number can&rsquo;t be it; Max is the most it ever clusters in. ROC and hand-mining gems all share one signature, so the scanner can&rsquo;t tell them apart.</p>
       </div>
       <aside className="flex-[1_1_340px] lg:max-w-[440px] box-border px-5 sm:pl-7 sm:pr-10 py-6" style={{ borderLeft: '1px solid var(--gt-line)' }}>
         <Scanner signatures={signatures} spots={spots} place={place} setPlace={setPlace} />
