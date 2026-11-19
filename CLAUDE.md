@@ -15,7 +15,15 @@ whole app (web, API, bot, workers).
   - `MAJOR` (1.2.0 → 2.0.0): big overhauls, or anything that needs server
     admins to do something (re-invite the bot, reconfigure channels…).
   - Internal-only PRs (`Patch notes: none` throughout) don't bump.
-- **Tag** the merge commit `vX.Y.Z` after it deploys, and push the tag.
+- **Tags and Releases are automatic** (after v1.55.0): `.github/workflows/release.yml`
+  runs `scripts/release.mjs` on every push to `master`. Each version from
+  v1.28.1 on that lacks its tag or its GitHub Release gets both: the tag on
+  the merge commit where the version first appeared, the Release titled
+  "Patch Notes — vX.Y.Z — <date>" with the commits' patch notes collected by
+  the batching rules below (`scripts/releaseNotes.mjs`, tested in
+  `scripts/test/`). Commits with no block are listed for checking. Don't tag
+  by hand; `node scripts/release.mjs --dry-run` shows what it would do, and
+  re-running the workflow from the Actions tab finishes a partial run.
 - History: v1.0.0 = PR #15 (loot fixes, draft queue), the first versioned
   release. Everything before it is unversioned.
 
@@ -80,8 +88,9 @@ Patch Notes — v1.1.0 — November 10
 * …
 ```
 
-5. Versions are tagged when released (see Versioning), so no extra tag is
-   needed for announcements.
+5. Each version's GitHub Release already holds these notes (see
+   Versioning), so a single release can be copied from there; batch by hand
+   only when several releases go out in one announcement.
 
 ## Errors and the admin panel (v1.13.0)
 
