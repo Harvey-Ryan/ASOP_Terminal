@@ -116,3 +116,50 @@ test('a head multiplies its laser by the modules', () => {
   assert.deepEqual(t.modifiers, { Resistance: 5.6, Instability: 48.5 });
   assert.equal(miningHeadTotals(null, []).power, null);
 });
+
+// ── Salvage and fuel pods (v1.51.0), shaped like the 4.10.3 Vulture and Starfarer ──
+import { shipSalvageHeads, salvageModuleFromItem, salvageModuleFitsSlot, shipFuelPodSlots, fuelPodFromItem, fuelPodFitsSlot } from '../dist/index.js';
+
+const salvageHead = (uuidA, typeB, uuidB) => ({ HardpointName: 'hardpoint_salvage_laser', Type: 'SalvageHead.UNDEFINED', Name: 'Baler Salvage Head', MaxSize: 2, Editable: true, Loadout: [
+  { HardpointName: 'hardpoint_salvage_subItem01', Type: 'SalvageModifier.UNDEFINED', UUID: uuidA, CompatibleTypes: [{ Type: 'SalvageModifier' }] },
+  { HardpointName: 'hardpoint_salvage_subItem02', Type: typeB, UUID: uuidB, CompatibleTypes: [{ Type: 'SalvageModifier' }] },
+] });
+const vulture = { Loadout: [
+  { HardpointName: 'hardpoint_salvage_arm_right', Type: 'ToolArm', Loadout: [salvageHead('cinch', 'SalvageModifier.UNDEFINED', 'abrade')] },
+  { HardpointName: 'hardpoint_salvage_arm_left', Type: 'ToolArm', Loadout: [salvageHead('cinch', 'SalvageModifier.SalvageModifier_TractorBeam', 'readygrip')] },
+] };
+
+test('finds salvage heads and which slot is the tractor module', () => {
+  const heads = shipSalvageHeads(vulture);
+  assert.deepEqual(heads.map((h) => [h.label, h.head, h.crewed, h.slots.map((s) => `${s.kind}:${s.stockUuid}`)]), [
+    ['Right arm', 'Baler Salvage Head', false, ['scraper:cinch', 'scraper:abrade']],
+    ['Left arm', 'Baler Salvage Head', false, ['scraper:cinch', 'tractor:readygrip']],
+  ]);
+});
+
+test('scraper modules swap for scraper modules; the tractor module stays', () => {
+  const row = (uuid, cls, mods) => ({ uuid, class_name: cls, name: uuid, manufacturer_name: 'Greycat Industrial', data: { stdItem: { Type: cls.includes('Tractor') ? 'SalvageModifier.SalvageModifier_TractorBeam' : 'SalvageModifier.UNDEFINED', SalvageModifier: mods } } });
+  const trawler = salvageModuleFromItem(row('trawler', 'Salvage_Modifier_Scraper_Large', { RadiusMultiplier: 6, ExtractionEfficiency: 0.6, SalvageSpeedMultiplier: 0.05 }));
+  const grip = salvageModuleFromItem(row('readygrip', 'Salvage_Modifier_Tractor_Small', { RadiusMultiplier: 1, ExtractionEfficiency: 1, SalvageSpeedMultiplier: 1 }));
+  assert.deepEqual([trawler.kind, trawler.radius, trawler.speed, trawler.efficiency], ['scraper', 6, 0.05, 0.6]);
+  assert.equal(grip.kind, 'tractor');
+  assert.equal(salvageModuleFromItem(row('t', 'Salvage_Modifier_Tractor_Template', {})), null);
+  const [, left] = shipSalvageHeads(vulture);
+  assert.equal(salvageModuleFitsSlot(trawler, left.slots[0]), true);
+  assert.equal(salvageModuleFitsSlot(trawler, left.slots[1]), false);
+  assert.equal(salvageModuleFitsSlot(grip, left.slots[0]), false);
+  assert.equal(salvageModuleFitsSlot(grip, left.slots[1]), true);
+});
+
+test('fuel pods: slots by side, figures from the pod description, filled copies left out', () => {
+  const starfarer = { Loadout: ['L1', 'R1'].map((s) => ({ HardpointName: `hardpoint_fuel_pod_${s}`, Type: 'ExternalFuelTank.UNDEFINED', UUID: 'cr60', MinSize: 2, MaxSize: 3, CompatibleTypes: [{ Type: 'ExternalFuelTank' }] })) };
+  assert.deepEqual(shipFuelPodSlots(starfarer).map((s) => [s.label, s.minSize, s.maxSize, s.stockUuid]), [['Left 1', 2, 3, 'cr60'], ['Right 1', 2, 3, 'cr60']]);
+  const desc = 'Manufacturer: MISC\nItem Type: Fuel Pod\nHydrogen Flow Modifier: 1.16\nQuantum Flow Modifier: 1.16\nMax. Integrity: 22800\nCapacity: 20 SCU\n\nThe standard fuel pod.';
+  const pod = (cls) => fuelPodFromItem({ uuid: cls, class_name: cls, name: 'CR-60', manufacturer_name: 'MISC', size: 2, data: { stdItem: { Description: desc, ResourceContainer: { Capacity: { SCU: 12 } } } } });
+  const cr60 = pod('FuelPod_MISC_Standard');
+  assert.deepEqual([cr60.capacity, cr60.hydrogenFlow, cr60.quantumFlow, cr60.integrity], [20, 1.16, 1.16, 22800]);
+  assert.equal(pod('FuelPod_MISC_Standard_HydrogenPrefilled'), null);
+  assert.equal(pod('FuelPod_AI_STOR_Big'), null);
+  assert.equal(pod('CargoPod_MISC_Eriesium_a'), null);
+  assert.equal(fuelPodFitsSlot(cr60, shipFuelPodSlots(starfarer)[0]), true);
+});

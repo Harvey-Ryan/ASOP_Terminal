@@ -937,6 +937,7 @@ export * from './crafting.js';
 export * from './components.js';
 export * from './missiles.js';
 export * from './mining.js';
+export * from './industry.js';
 export * from './errorLog.js';
 export * from './admin.js';
 export * from './roster.js';

@@ -18,6 +18,7 @@
 import { shipComponentSlots, type ComponentSlot, type ShipComponent } from './components.js';
 import { shipMissileRacks, type MissileItem, type MissileRack } from './missiles.js';
 import { shipMiningHeads, type MiningHead, type MiningLaser, type MiningModule } from './mining.js';
+import { shipFuelPodSlots, shipSalvageHeads, type FuelPod, type FuelPodSlot, type SalvageHeadMount, type SalvageModule } from './industry.js';
 
 export type DamageType = 'physical' | 'energy';
 export interface DamagePair { physical: number; energy: number }
@@ -119,6 +120,9 @@ export interface CombatShip {
   countermeasures?: { decoy: number; noise: number } | null;
   /** Mining laser mounts (v1.50.0); left out on ships without any. */
   miningHeads?: MiningHead[];
+  /** Salvage heads and fuel pod slots (v1.51.0); left out on ships without any. */
+  salvageHeads?: SalvageHeadMount[];
+  fuelPodSlots?: FuelPodSlot[];
 }
 
 export interface ShipFlight {
@@ -379,6 +383,8 @@ export function combatShipFromRow(row: { uuid: string; class_name?: string | nul
     },
     countermeasures: null,
     ...(() => { const heads = shipMiningHeads(s); return heads.length ? { miningHeads: heads } : {}; })(),
+    ...(() => { const heads = shipSalvageHeads(s); return heads.length ? { salvageHeads: heads } : {}; })(),
+    ...(() => { const pods = shipFuelPodSlots(s); return pods.length ? { fuelPodSlots: pods } : {}; })(),
   };
 }
 
@@ -615,6 +621,9 @@ export interface GameToolsDataDto {
   /** Mining lasers players can fit plus every stock one, and mining modules (v1.50.0). */
   miningLasers?: MiningLaser[];
   miningModules?: MiningModule[];
+  /** Salvage modules and fuel pods (v1.51.0). */
+  salvageModules?: SalvageModule[];
+  fuelPods?: FuelPod[];
 }
 
 /** SQL for the rows `combatShipFromRow` reads: flying ships only. */
