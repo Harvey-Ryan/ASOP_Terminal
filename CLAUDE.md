@@ -794,9 +794,25 @@ Patch Notes — v1.1.0 — November 10
 - Admin → Modules has the emergency switch (`AdminConfig.aiDisabled`,
   `PUT /api/admin/ai`, needs "TURN OFF AI" typed); each server keeps its own
   setting and key.
-- Lookups only for now. Self-service sign-ups and officer actions (each with
-  Confirm/Cancel) are next; loot, DKP changes, roles and settings stay out.
-  A new tool goes into `ASSISTANT_TOOLS` (with its topic) and `TOOL_RUNNERS`.
+- Changes (v1.57.0): `sign_up`, `leave_event` (anyone) and `create_event`
+  (from a template), `edit_event`, `cancel_event`, `share_event` (event
+  creators: `isEventOfficer` = `canRunEventFromDiscord`; officer tools aren't
+  even offered to others). Specs have `action`; runners are
+  `ACTION_RUNNERS` in `services/assistantActions.ts`. A runner only checks
+  and *prepares* (`prepare()`: one per question, a bot-written preview,
+  kept `ACTION_CONFIRM_MS` in memory); the reply shows the preview with
+  Confirm/Cancel (`ai:ok:<id>` / `ai:no:<id>`), only the asker can press
+  them, and Confirm re-checks permission and runs the same code as the
+  buttons and website (`setRosterRole`, `clickWaitlist`, `leaveRoster`,
+  `setupDiscordForEvent`, `syncDiscordEvent`, `cancelEvent`,
+  `setupDiscordForShare` / `handleShareNotice`). Times the model gives are
+  the asker's local time (`parseLocalDateTime`; their member-map pin's zone,
+  else the server's) and previews show `<t:…>` timestamps. Cancelling works
+  for one-off events too (the website only cancels repeating ones). Loot,
+  DKP changes, roles and settings stay out (auction/loot start: next).
+  A new lookup goes into `ASSISTANT_TOOLS` (with its topic) and
+  `TOOL_RUNNERS`; a new change also gets `action` and an `ACTION_RUNNERS`
+  entry that only prepares.
 - The model guide on the settings page is general guidance only: no model
   names, prices or recommendations.
 

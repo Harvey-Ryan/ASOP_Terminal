@@ -17,6 +17,7 @@ export interface ToolContext {
   guild: Guild;
   userId: string;
 }
+// (Changes have their own context and runners: assistantActions.ts.)
 
 const web = () => process.env['WEB_URL'] ?? 'http://localhost:5173';
 const ts = (d: Date, style = 'F') => `<t:${Math.floor(d.getTime() / 1000)}:${style}>`;

@@ -104,8 +104,10 @@ export function AssistantSettingsPage() {
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Bot className="h-6 w-6" /> AI Assistant</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Members tag ASOP Terminal in Discord with a plain question (“when's the next op?”, “where do I mine Quantanium?”) and it answers from your server's
-          events, DKP and fleet, and the game data. It uses your own AI provider and key, so your server pays the provider directly. For now it looks things up only;
-          it can't sign people up or change anything.
+          events, DKP and fleet, and the game data. It uses your own AI provider and key, so your server pays the provider directly.
+          Members can also sign up for events, and officers can create events from templates and edit, cancel or share them. Every change is shown first
+          with Confirm and Cancel buttons that only the person who asked can press, and it uses the same permissions as the website. It never hands out loot
+          or changes DKP, roles or settings.
         </p>
       </div>
 

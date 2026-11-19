@@ -798,7 +798,8 @@ export async function cancelEvent(eventId: string): Promise<void> {
   if (claim.count === 0) return;
 
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
-  const notice = `❌ **${event.name}** has been cancelled and will not repeat.`;
+  // A one-off event can be cancelled too (the AI assistant, v1.57.0); only a series "will not repeat".
+  const notice = `❌ **${event.name}** has been cancelled${event.recurAnchor ? ' and will not repeat' : ''}.`;
 
   async function takeDownThread(threadId: string | null, rosterMessageId: string | null) {
     if (!threadId) return;
@@ -918,7 +919,7 @@ export async function updatePostEventEmbed(eventId: string) {
 
 // ── Recurring event spawning ──────────────────────────────────────────────────
 
-async function guildTimezone(discordGuildId: string): Promise<string> {
+export async function guildTimezone(discordGuildId: string): Promise<string> {
   const g = await prisma.guild.findUnique({
     where: { guildId: discordGuildId },
     select: { settings: { select: { timezone: true } } },
@@ -928,7 +929,7 @@ async function guildTimezone(discordGuildId: string): Promise<string> {
 }
 
 /** A template's briefing → an unpublished draft on a new event (roster groups re-linked by role). */
-async function copyTemplateBriefing(templateId: string, eventId: string, eventRoles: string, byDiscordId: string): Promise<void> {
+export async function copyTemplateBriefing(templateId: string, eventId: string, eventRoles: string, byDiscordId: string): Promise<void> {
   const tmpl = await prisma.eventTemplate.findUnique({ where: { id: templateId }, select: { briefing: true, roles: true, isActive: true } });
   if (!tmpl?.isActive || !tmpl.briefing) return;
   const roles = (json: string) => { try { return JSON.parse(json || '[]') as { id: string; name: string }[]; } catch { return []; } };

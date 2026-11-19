@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_ASSISTANT_SETTINGS, mergeAssistantSettings, safeBaseUrl, cleanApiKey, keyLast4,
   assistantLimitHit, limitMessage, estimateCost, trimAnswer, defuseMentions, questionText,
-  pickTools, buildModelRequest, parseModelResponse, modelErrorKind, callModel, ModelCallError, answerTokenCap,
+  pickTools, parseLocalDateTime, localNowText, assistantSystemPrompt, buildModelRequest, parseModelResponse, modelErrorKind, callModel, ModelCallError, answerTokenCap,
 } from '../dist/index.js';
 
 test('provider addresses: https on the open internet only', () => {
@@ -70,7 +70,17 @@ test('tools: by topic, everything when unsure, flag always offered', () => {
   assert.ok(names('how many Credits do I have', 'Credits').includes('my_dkp'));
   assert.ok(names('who has a Carrack for the Hathor op?').includes('who_has_ship'));
   assert.ok(names('who has a Carrack for the Hathor op?').includes('find_event'));
-  assert.equal(names('hello there').length, 9);
+  // Everything when unsure; officer changes only for officers.
+  assert.equal(names('hello there').length, 11);
+  assert.ok(!names('hello there').includes('create_event'));
+  assert.ok(pickTools('hello there', 'DKP', { officer: true }).some((t) => t.name === 'create_event'));
+  assert.ok(names('sign me up for the hathor op as pilot').includes('sign_up'));
+  assert.ok(pickTools('cancel the mining op', 'DKP', { officer: true }).some((t) => t.name === 'cancel_event'));
+  // Every change is marked as one, so the bot never runs it without Confirm.
+  for (const n of ['sign_up', 'leave_event', 'create_event', 'edit_event', 'cancel_event', 'share_event']) {
+    const t = pickTools('hello', 'DKP', { officer: true }).find((x) => x.name === n);
+    assert.ok(t?.action && t.personal, n);
+  }
 });
 
 const tools = [{ name: 'find_event', description: 'd', parameters: { type: 'object', properties: { name: { type: 'string', description: 'n' } }, required: ['name'] } }];
@@ -134,4 +144,15 @@ test('errors: what a failure means for the key, and the key never in the message
   const down = async () => { throw new Error('ECONNREFUSED'); };
   await assert.rejects(callModel({ provider: 'anthropic', baseUrl: null, model: 'm', apiKey: 'k' }, { system: 's', messages: [], tools: [], maxTokens: 5 }, down),
     (err) => err.kind === 'unreachable');
+});
+
+test('local times for changes: read in the asker\'s zone, impossible dates refused', () => {
+  assert.equal(parseLocalDateTime('2026-11-21T20:00', 'America/Chicago').toISOString(), '2026-11-22T02:00:00.000Z');
+  assert.equal(parseLocalDateTime('2026-07-04 9:30', 'America/Chicago').toISOString(), '2026-07-04T14:30:00.000Z');
+  assert.equal(parseLocalDateTime('2026-11-21T20:00', 'UTC').toISOString(), '2026-11-21T20:00:00.000Z');
+  for (const bad of ['2026-02-30T20:00', '2026-13-01T10:00', 'next saturday', '2026-11-21', 42]) assert.equal(parseLocalDateTime(bad, 'UTC'), null, String(bad));
+  assert.equal(localNowText(new Date('2026-11-19T22:45:00Z'), 'America/Chicago'), '2026-11-19 16:45 (Thursday)');
+  const p = assistantSystemPrompt({ serverName: 'S', answerChars: 500, today: '2026-11-19', dkpLabel: 'DKP', timeZone: 'America/Chicago', localNow: '2026-11-19 16:45 (Thursday)' });
+  assert.match(p, /America\/Chicago; it is now 2026-11-19 16:45/);
+  assert.match(p, /Never say a change is done/);
 });

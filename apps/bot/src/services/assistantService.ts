@@ -10,11 +10,11 @@
 // Only counts are stored (AiUsage); a question the model flags is kept for
 // that server's admins (AiFlag, 90 days).
 
-import { PermissionFlagsBits, type Message } from 'discord.js';
+import { PermissionFlagsBits, type ActionRowBuilder, type ButtonBuilder, type Message } from 'discord.js';
 import {
   ASSISTANT_PROVIDERS, CONTEXT_EXCHANGES, MAX_MODEL_ROUNDS, MAX_TOOL_CALLS,
   answerTokenCap, assistantLimitHit, assistantSystemPrompt, callModel, defuseMentions, isAssistantProvider,
-  limitMessage, ModelCallError, pickTools, privacyNotice, questionText, trimAnswer, usageDay, usageMonthStart,
+  limitMessage, localNowText, ModelCallError, pickTools, privacyNotice, questionText, trimAnswer, usageDay, usageMonthStart,
   type AssistantMessage, type AssistantProvider, type FetchLike,
 } from '@dem/shared';
 import type { AiAssistant } from '@prisma/client';
@@ -24,6 +24,7 @@ import { decryptAiKey } from '../utils/aiKeys.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import { withMessage, withRef } from '../utils/errorLog.js';
 import { runTool } from './assistantTools.js';
+import { ACTION_RUNNERS, askerTimeZone, isEventOfficer, offerAction, previewLine, type ActionContext } from './assistantActions.js';
 
 const web = () => process.env['WEB_URL'] ?? 'http://localhost:5173';
 const settingsUrl = (guildId: string) => `${web()}/dashboard/servers/${guildId}/settings/assistant`;
@@ -113,8 +114,8 @@ async function count(guildId: string, discordId: string, tokensIn: number, token
 
 // ── The handler ──────────────────────────────────────────────────────────────
 
-const replyTo = (message: Message, content: string) =>
-  message.reply({ content: defuseMentions(content).slice(0, 2000), allowedMentions: { parse: [], repliedUser: true } }).catch((err) => {
+const replyTo = (message: Message, content: string, components: ActionRowBuilder<ButtonBuilder>[] = []) =>
+  message.reply({ content: defuseMentions(content).slice(0, 2000), components, allowedMentions: { parse: [], repliedUser: true } }).catch((err) => {
     console.warn('[assistant] reply failed:', err instanceof Error ? err.message : err);
     return null;
   });
@@ -208,11 +209,13 @@ async function answer(message: Message): Promise<void> {
   let tokensIn = 0, tokensOut = 0;
   try {
     const dkpLabel = await getGuildDkpLabel(guild.id);
-    const tools = pickTools(question, dkpLabel);
-    const system = assistantSystemPrompt({ serverName: guild.name, answerChars: row.answerChars, today: usageDay(now), dkpLabel });
+    // Officer changes are offered only to officers (v1.57.0); times for changes are in the asker's zone.
+    const [officer, timeZone] = await Promise.all([isEventOfficer(member), askerTimeZone(guild.id, message.author.id)]);
+    const tools = pickTools(question, dkpLabel, { officer });
+    const system = assistantSystemPrompt({ serverName: guild.name, answerChars: row.answerChars, today: usageDay(now), dkpLabel, timeZone, localNow: localNowText(now, timeZone) });
     const messages: AssistantMessage[] = [...context, { role: 'user', text: question }];
     const cfg = { provider, baseUrl: row.baseUrl, model: row.model, apiKey };
-    const ctx = { guild, userId: message.author.id };
+    const ctx: ActionContext = { guild, member, userId: message.author.id, prepared: null };
     let personal = false;
     let toolCalls = 0;
     let text = '';
@@ -227,6 +230,7 @@ async function answer(message: Message): Promise<void> {
           question: question.slice(0, 1000), reason: String(flag.args['reason'] ?? 'flagged').slice(0, 200),
         } });
         text = "I can't help with that one.";
+        ctx.prepared = null; // nothing is offered for a flagged question
         break;
       }
       if (!reply.toolCalls.length) { text = reply.text; break; }
@@ -235,13 +239,19 @@ async function answer(message: Message): Promise<void> {
       for (const call of reply.toolCalls) {
         const spec = tools.find((t) => t.name === call.name);
         if (spec?.personal) personal = true;
-        results.push({ id: call.id, name: call.name, content: ++toolCalls > MAX_TOOL_CALLS || !spec ? 'Not available.' : await runTool(ctx, call.name, call.args) });
+        const run = spec?.action ? ACTION_RUNNERS[call.name] : null;
+        const content = ++toolCalls > MAX_TOOL_CALLS || !spec ? 'Not available.'
+          : run ? await run(ctx, call.args).catch((err) => { console.error(`[assistant] preparing ${call.name} failed:`, err); return 'Preparing that failed. Nothing was prepared.'; })
+          : await runTool(ctx, call.name, call.args);
+        results.push({ id: call.id, name: call.name, content });
       }
       messages.push({ role: 'tool', results });
     }
-    if (!text) text = "I couldn't put an answer together for that. Try asking it more simply.";
+    if (!text) text = ctx.prepared ? 'Here it is, ready for you to confirm.' : "I couldn't put an answer together for that. Try asking it more simply.";
     const answerText = trimAnswer(text, row.answerChars);
-    await replyTo(message, notice + answerText);
+    // A prepared change: the bot's own preview (not the model's words) and Confirm / Cancel for the asker.
+    if (ctx.prepared) await replyTo(message, notice + answerText + previewLine(ctx.prepared), [offerAction(ctx.prepared)]);
+    else await replyTo(message, notice + answerText);
     await markSeen();
     if (!personal && !context.length && toolCalls > 0) remember(key, answerText);
   } catch (err) {
