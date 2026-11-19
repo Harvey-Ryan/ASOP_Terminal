@@ -639,7 +639,12 @@ Patch Notes — v1.1.0 — November 10
   - No "Add ASOP to your server" pitch until we go public.
 - Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
   and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
-  an ETag, rate-limited per IP. Skins with identical numbers are grouped
+  an ETag, rate-limited per IP. Building it (and the Mining data) takes
+  several seconds, so nobody waits on it (v1.51.1): `warmGameTools()` builds
+  both at start-up and after each ship-list refresh, and a moved sc-data
+  commit (checked at most once a minute) or a day-old copy is rebuilt in
+  the background while the old copy is served. Only a request before the
+  very first build waits. Skins with identical numbers are grouped
   (`dedupeGuns`, `variants`) and stock guns point at the shown gun.
 - The maths is `packages/shared/src/combat.ts`, run in the browser:
   `killTime` (shields absorb/resist per damage type, ballistic passes through,
