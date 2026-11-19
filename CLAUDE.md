@@ -640,7 +640,7 @@ Patch Notes — v1.1.0 — November 10
 - Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
   and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
   an ETag, rate-limited per IP. Building it (and the Mining data) takes
-  several seconds, so nobody waits on it (v1.51.1): `warmGameTools()` builds
+  several seconds, so nobody waits on it (v1.50.1): `warmGameTools()` builds
   both at start-up and after each ship-list refresh, and a moved sc-data
   commit (checked at most once a minute) or a day-old copy is rebuilt in
   the background while the old copy is served. Only a request before the
