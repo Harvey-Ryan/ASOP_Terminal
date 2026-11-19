@@ -13,6 +13,7 @@ import { authApi } from '../../api/auth';
 import { useAuth } from '../../hooks/useAuth';
 import { GAME_TOOLS_THEMES, readTheme, saveTheme, useGameTools, type GameToolsTheme } from '../../lib/gameTools';
 import { PUBLIC_TOOLS_PATHS, ToolsPathsContext, useToolsPaths } from '../../lib/toolsPaths';
+import { BuildBadge, DataViewToggle } from './corrections';
 import './tools.css';
 
 const ThemeContext = createContext<{ theme: GameToolsTheme; setTheme: (t: GameToolsTheme) => void }>({ theme: 'asop', setTheme: () => {} });
@@ -46,6 +47,7 @@ export function ToolsLayout() {
     { to: p.crafting, label: 'Crafting', on: location.pathname.startsWith(p.crafting), module: 'craftingEnabled' },
     { to: p.blueprints, label: 'Blueprints', on: location.pathname.startsWith(p.blueprints), module: 'blueprintsEnabled' },
     { to: p.wikelo, label: 'Wikelo', on: location.pathname.startsWith(p.wikelo), module: 'wikeloEnabled' },
+    { to: '/tools/corrections', label: 'Corrections', on: location.pathname.startsWith('/tools/corrections') },
   ].filter((t) => !t.module || !hidden.has(t.module));
 
   useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
@@ -67,6 +69,10 @@ export function ToolsLayout() {
             <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0">
               {tabs.map((t) => <Link key={t.to} to={t.to} className="gt-tab" aria-current={t.on ? 'page' : undefined}>{t.label}</Link>)}
             </nav>
+            <div className="flex items-center gap-3 py-2">
+              <BuildBadge />
+              <DataViewToggle />
+            </div>
             <ThemeMenu />
             {user
               ? <a href="/dashboard" className="text-sm gt-hi py-3">Dashboard</a>
@@ -133,7 +139,9 @@ export function DashboardToolsFrame() {
       <div className="gt -m-6" data-theme={theme} style={{ minHeight: 'calc(100% + 3rem)' }}>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 52 }}>
           <Link to={prefix} className="no-underline py-2.5"><span className="gt-label gt-label-acc">{title}</span></Link>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <BuildBadge />
+            <DataViewToggle />
             <a href={standalone} className="text-sm gt-dim">Open on its own page</a>
             <ThemeMenu />
           </div>

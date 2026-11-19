@@ -15,11 +15,12 @@ import {
   buildOreSpots, miningLaserFromItem, miningModuleFromItem, miningGadgetFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL, MINING_GADGETS_SQL,
   type MiningDataDto, type MiningGadget, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
   GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
-  type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type MissileItem, type ShipComponent,
+  type ApiResponse, type CombatGun, type GameBuildDto, type GameToolsDataDto, type GameToolsShip, type MissileItem, type ShipComponent,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { listShips } from '../../lib/shipCatalog.js';
 import { hiddenModules } from '../../lib/hiddenModules.js';
+import { checkUpstreamNow } from '../../lib/gameDataCheck.js';
 
 export const gameToolsRouter = Router();
 
@@ -236,6 +237,17 @@ let miningBuilding: Promise<MiningBuilt | null> | null = null;
 
 export function resetMiningCache(): void { miningCached = null; miningBuilding = null; }
 
+/** For tests: mining data to use instead of scdata (null = back to scdata). */
+let testMining: MiningDataDto | null = null;
+export function useMiningDataForTests(data: MiningDataDto | null): void { testMining = data; }
+
+/** The mining data, built if need be (corrections read game values from it, v1.53.0). */
+export async function getMiningData(): Promise<MiningDataDto | null> {
+  if (testMining) return testMining;
+  if (!miningCached) await rebuildMining();
+  return miningCached?.data ?? null;
+}
+
 export async function buildMiningData(query: Query = prismaQuery): Promise<MiningBuilt | null> {
   let source: { commit: string | null; build: string | null } | undefined;
   try {
@@ -296,4 +308,34 @@ gameToolsRouter.get('/game-tools/mining', async (req, res) => {
   } else {
     res.json({ success: true, data: b.data } satisfies ApiResponse<MiningDataDto>);
   }
+});
+
+// ── Build badge (v1.53.0) ────────────────────────────────────────────────────
+// GET /api/game-tools/build: which game build the tools show, when we last
+// synced, and whether newer data is waiting upstream (asked at most every
+// 30 minutes; null when GitHub can't be reached). Public.
+
+let buildCache: { at: number; data: GameBuildDto } | null = null;
+const BUILD_CACHE_MS = 30 * 60_000;
+export function resetBuildCache(): void { buildCache = null; }
+
+gameToolsRouter.get('/game-tools/build', async (_req, res) => {
+  if (!buildCache || Date.now() - buildCache.at > BUILD_CACHE_MS) {
+    let state: { build: string | null; synced_at: Date | null; commit: string | null } | undefined;
+    try {
+      state = (await prismaQuery<{ build: string | null; synced_at: Date | null; commit: string | null }[]>('SELECT build, synced_at, commit FROM scdata_raw.state'))[0];
+    } catch (err) {
+      if (!isGameDataMissingError(err)) console.warn('[game-tools/build]', (err as Error).message);
+    }
+    let newerAvailable: boolean | null = null;
+    if (state?.commit) {
+      try { newerAvailable = !(await checkUpstreamNow()).upToDate; } catch (err) { console.warn('[game-tools/build] upstream check:', (err as Error).message); }
+    }
+    buildCache = {
+      at: Date.now(),
+      data: { build: state?.build ?? null, syncedAt: state?.synced_at ? new Date(state.synced_at).toISOString() : null, newerAvailable },
+    };
+  }
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ success: true, data: buildCache.data } satisfies ApiResponse<GameBuildDto>);
 });

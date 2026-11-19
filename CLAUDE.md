@@ -733,6 +733,43 @@ Patch Notes — v1.1.0 — November 10
   `?sv0_1=<scraper>`, `?sf0=<pod>` (`cv`/`cf` when compared).
 - Next: tractor beams, UEX prices and refinery yields. Power pips are on
   hold.
+
+## Community corrections (v1.53.0)
+
+- Members fix numbers the game files get wrong; corrections never change
+  `scdata`. Rules and the lifecycle are in `packages/shared/src/corrections.ts`
+  (`CORRECTION_KINDS` = the only stats that can be corrected, with ranges;
+  `correctionActions` = who may do what; `recheckOnNewBuild`). Models:
+  `DataCorrection`, `CorrectionConfirmation`, `CorrectionEvent` (every
+  action, in order), `DataReviewer`. API: `routes/corrections.ts`, helpers in
+  `lib/corrections.ts`; reviewers in `routes/admin.ts` (`/api/admin/reviewers`).
+- Checks and balances: submit needs ASOP membership, an uploaded screenshot
+  (`/uploads/corrections/…`, re-encoded like every upload) and a note; the
+  game value is read by the server (`gameDataFor`), never sent by the
+  browser; `CONFIRMATIONS_NEEDED` (2) other members confirm; then a data
+  reviewer (or platform admin) who is neither the submitter nor a confirmer
+  approves (big changes, `isBigChange`, need `acknowledgeBigChange`). Reject,
+  dispute and revert need a reason. One applied correction per stat (approving
+  supersedes the old one). Daily limits per person. Each action holds the row
+  (`FOR UPDATE`). Ready / approved / disputed / reverted / re-check / retired
+  go to the admin Discord feed.
+- New game build: `recheckForBuild()` (run by `GET /api/corrections/live`)
+  retires a correction the files now agree with (credit kept) and sends one
+  whose game value moved to RECHECK (not shown until re-approved, which makes
+  the new game value the baseline).
+- Website: `pages/tools/corrections.tsx` — `<Fix>` wraps a correctable stat
+  (dotted underline + credit when corrected, a hover ✎ to submit),
+  `CorrectionsProvider`, `DataViewToggle` ("Corrected · Game files", kept in
+  the browser, default Corrected; `useDataView`) and `BuildBadge` (`GET
+  /api/game-tools/build`, amber when newer data is waiting upstream) in the
+  tools header. Pages apply corrections with `applyCorrections` before sorting
+  or matching. Queue: `/tools/corrections` (`CorrectionsPage.tsx`), with the
+  reviewer list for platform admins. Wired into Mining (lasers, modules,
+  gadgets, rock signatures); a new correctable stat goes into
+  `CORRECTION_KINDS` and `findGameRecord` (`lib/corrections.ts`).
+- Credit is the submitter's Discord display name unless they untick it.
+  Corrections are in Your data: export lists them; delete keeps the
+  corrections but drops who sent, confirmed or reviewed them.
 - Components (v1.46.0): shields, power plants, coolers, quantum drives and
   radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
   `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats

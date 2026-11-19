@@ -3,14 +3,17 @@
 // signature, and the mining lasers, modules and gadgets. Exact numbers from
 // the game files; nothing estimated. Lives at /tools/mining and in each
 // server's dashboard. The view and ore are in the address (?view=, ?ore=),
-// and the scanner's place too (?at=, v1.52.0).
+// and the scanner's place too (?at=, v1.52.0). Community corrections
+// (v1.53.0) are applied on top unless the viewer picks "Game files"; every
+// correctable stat has a subtle ✎ to submit one (pages/tools/corrections.tsx).
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { matchSignature, scanHitLabel, MINING_METHOD_LABELS, SCAN_METHOD_LABELS, oreName, type MiningGadget, type MiningLaser, type MiningMethod, type MiningModule, type OreSpot, type RockSignature, type ScanMethod } from '@dem/shared';
+import { applyCorrections, rockRecordKey, matchSignature, scanHitLabel, MINING_METHOD_LABELS, SCAN_METHOD_LABELS, oreName, type MiningGadget, type MiningLaser, type MiningMethod, type MiningModule, type OreSpot, type RockSignature, type ScanMethod } from '@dem/shared';
 import { fmt, useMiningData } from '../../lib/gameTools';
 import { ToolsDataState } from './ToolsLayout';
 import { GADGET_MOD_COLUMNS, LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell } from './miningBits';
+import { CorrectionsProvider, Fix, useCorrections } from './corrections';
 
 type View = 'ores' | 'signatures' | 'lasers' | 'modules' | 'gadgets';
 const VIEWS: { id: View; label: string }[] = [
@@ -24,7 +27,16 @@ const VIEWS: { id: View; label: string }[] = [
 const METHOD_WORD: Record<MiningMethod, string> = { ship: 'Ship', roc: 'ROC', hand: 'By hand' };
 
 export function MiningPage() {
-  const { data, isLoading, error } = useMiningData();
+  const { data: files, isLoading, error } = useMiningData();
+  const { index } = useCorrections();
+  // Corrections (when the viewer uses them) go in before anything sorts, matches or adds up.
+  const data = useMemo(() => files && {
+    ...files,
+    signatures: applyCorrections(files.signatures, 'rock-signature', rockRecordKey, index),
+    lasers: applyCorrections(files.lasers, 'mining-laser', (l) => l.uuid, index),
+    modules: applyCorrections(files.modules, 'mining-module', (m) => m.uuid, index),
+    gadgets: applyCorrections(files.gadgets ?? [], 'mining-gadget', (g) => g.uuid, index),
+  }, [files, index]);
   const [params, setParams] = useSearchParams();
   const view = (VIEWS.find((v) => v.id === params.get('view'))?.id ?? 'ores') as View;
   const set = (k: string, v: string | null) => {
@@ -35,7 +47,7 @@ export function MiningPage() {
 
   if (!data) return <ToolsDataState isLoading={isLoading} error={error} />;
   return (
-    <>
+    <CorrectionsProvider build={data.build}>
       <nav aria-label="Mining tools" className="flex flex-wrap gap-x-6 px-5 sm:px-10" style={{ borderBottom: '1px solid var(--gt-line)', background: 'var(--gt-faint)' }}>
         {VIEWS.map((v) => (
           <button key={v.id} type="button" className="gt-tab" style={{ padding: '14px 0 12px', background: 'none', border: 0, borderBottom: `2px solid ${view === v.id ? 'var(--gt-acc)' : 'transparent'}`, font: 'inherit', cursor: 'pointer' }}
@@ -47,8 +59,8 @@ export function MiningPage() {
       {view === 'lasers' && <Lasers lasers={data.lasers} />}
       {view === 'modules' && <Modules modules={data.modules} />}
       {view === 'gadgets' && <Gadgets gadgets={data.gadgets ?? []} />}
-      <p className="text-xs gt-dim px-5 sm:px-10 pb-6 m-0">From the game files{data.build ? <>, build <span className="gt-mono">{data.build}</span></> : null}. Prices and refinery yields are coming.</p>
-    </>
+      <p className="text-xs gt-dim px-5 sm:px-10 pb-6 m-0">From the game files{data.build ? <>, build <span className="gt-mono">{data.build}</span></> : null}, with members&rsquo; corrections where they found the files wrong (dotted underline; hover for who). Prices and refinery yields are coming.</p>
+    </CorrectionsProvider>
   );
 }
 
@@ -257,8 +269,10 @@ function Signatures({ signatures, spots, place, setPlace }: { signatures: RockSi
   const cols: Col<RockSignature>[] = [
     { key: 'rock', label: 'Rock', sort: (s) => s.rock, render: (s) => <><span className="font-semibold gt-hi">{s.rock}</span><span className="block text-xs gt-dim">{s.ore === 'salvage' ? 'Salvage' : `${oreName(s.ore)} · ${MINING_METHOD_LABELS[s.method as MiningMethod]}`}</span></> },
     ...[1, 2, 3, 4, 5, 6].map((k) => ({ key: `x${k}`, label: k === 1 ? 'One rock' : `× ${k}`, num: true, sort: k === 1 ? (s: RockSignature) => s.signature : undefined,
-      render: (s: RockSignature) => (k <= s.maxCluster ? <span className={k === 1 ? 'gt-hi' : ''}>{fmt(s.signature * k)}</span> : <span className="gt-dim" title="Never this many in one cluster">–</span>) })),
-    { key: 'max', label: 'Most in a cluster', num: true, sort: (s) => s.maxCluster, render: (s) => s.maxCluster },
+      render: (s: RockSignature) => (k > s.maxCluster ? <span className="gt-dim" title="Never this many in one cluster">–</span>
+        : k === 1 ? <Fix kind="rock-signature" recordKey={rockRecordKey(s)} recordName={s.rock} field="signature" value={s.signature}><span className="gt-hi">{fmt(s.signature)}</span></Fix>
+        : <span>{fmt(s.signature * k)}</span>) })),
+    { key: 'max', label: 'Most in a cluster', num: true, sort: (s) => s.maxCluster, render: (s) => <Fix kind="rock-signature" recordKey={rockRecordKey(s)} recordName={s.rock} field="maxCluster" value={s.maxCluster}>{s.maxCluster}</Fix> },
   ];
   return (
     <div className="flex flex-wrap">
@@ -283,13 +297,13 @@ function Lasers({ lasers }: { lasers: MiningLaser[] }) {
   const rows = lasers.filter((l) => size === 'All' || sizeLabel(l.size) === size);
   const cols: Col<MiningLaser>[] = [
     { key: 'name', label: 'Laser', sort: (l) => l.name, render: (l) => <><span className="font-semibold gt-hi">{l.name.replace(/ Mining Laser$/, '')}</span><span className="block text-xs gt-dim">{l.maker} · {l.size === 0 ? 'ROC / multi-tool' : `size ${l.size}`}</span></> },
-    { key: 'power', label: 'Power', num: true, sort: (l) => l.power, render: (l) => <span className="gt-hi">{fmt(l.power)}</span> },
-    { key: 'min', label: 'Min power', num: true, sort: (l) => l.minPower, render: (l) => fmt(l.minPower, l.minPower != null && l.minPower % 1 ? 1 : 0) },
-    { key: 'ext', label: 'Extraction', num: true, sort: (l) => l.extraction, render: (l) => fmt(l.extraction) },
-    { key: 'opt', label: 'Optimal m', num: true, sort: (l) => l.optimalRange, render: (l) => fmt(l.optimalRange) },
-    { key: 'max', label: 'Max m', num: true, sort: (l) => l.maxRange, render: (l) => fmt(l.maxRange) },
-    { key: 'slots', label: 'Modules', num: true, sort: (l) => l.moduleSlots, render: (l) => l.moduleSlots },
-    ...LASER_MOD_COLUMNS.map((m) => ({ key: m.key, label: m.label, num: true, low: m.lowerIsBetter, sort: (l: MiningLaser) => l.modifiers[m.key] ?? 0, render: (l: MiningLaser) => <ModCell v={l.modifiers[m.key]} lowerIsBetter={m.lowerIsBetter} /> })),
+    { key: 'power', label: 'Power', num: true, sort: (l) => l.power, render: (l) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field="power" value={l.power}><span className="gt-hi">{fmt(l.power)}</span></Fix> },
+    { key: 'min', label: 'Min power', num: true, sort: (l) => l.minPower, render: (l) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field="minPower" value={l.minPower}>{fmt(l.minPower, l.minPower != null && l.minPower % 1 ? 1 : 0)}</Fix> },
+    { key: 'ext', label: 'Extraction', num: true, sort: (l) => l.extraction, render: (l) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field="extraction" value={l.extraction}>{fmt(l.extraction)}</Fix> },
+    { key: 'opt', label: 'Optimal m', num: true, sort: (l) => l.optimalRange, render: (l) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field="optimalRange" value={l.optimalRange}>{fmt(l.optimalRange)}</Fix> },
+    { key: 'max', label: 'Max m', num: true, sort: (l) => l.maxRange, render: (l) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field="maxRange" value={l.maxRange}>{fmt(l.maxRange)}</Fix> },
+    { key: 'slots', label: 'Modules', num: true, sort: (l) => l.moduleSlots, render: (l) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field="moduleSlots" value={l.moduleSlots}>{l.moduleSlots}</Fix> },
+    ...LASER_MOD_COLUMNS.map((m) => ({ key: m.key, label: m.label, num: true, low: m.lowerIsBetter, sort: (l: MiningLaser) => l.modifiers[m.key] ?? 0, render: (l: MiningLaser) => <Fix kind="mining-laser" recordKey={l.uuid} recordName={l.name} field={`modifiers.${m.key}`} value={l.modifiers[m.key] ?? 0}><ModCell v={l.modifiers[m.key]} lowerIsBetter={m.lowerIsBetter} /></Fix> })),
   ];
   return (
     <div className="px-5 sm:px-10 py-6 flex flex-col gap-4">
@@ -306,9 +320,11 @@ function Modules({ modules }: { modules: MiningModule[] }) {
   const cols: Col<MiningModule>[] = [
     { key: 'name', label: 'Module', sort: (m) => m.name, render: (m) => <><span className="font-semibold gt-hi">{m.name.replace(/ Module$/, '')}</span><span className="block text-xs gt-dim">{m.maker ?? ''}{m.rarity ? ` · ${m.rarity}` : ''}</span></> },
     { key: 'kind', label: 'Kind', sort: (m) => m.kind, render: (m) => <span className="text-sm">{m.kind}</span> },
-    { key: 'uses', label: 'Uses', num: true, sort: (m) => m.charges, render: (m) => (m.kind === 'Active' ? `${m.charges ?? '–'} × ${m.lifetime ?? '–'} s` : '–') },
-    { key: 'power', label: 'Power', num: true, sort: (m) => m.power ?? 1, render: (m) => (m.power == null || m.power === 1 ? <span className="gt-dim">–</span> : <span className={m.power > 1 ? 'gt-good' : 'gt-bad'}>×{fmt(m.power, 2)}</span>) },
-    ...MOD_COLUMNS.map((c) => ({ key: c.key, label: c.label, num: true, low: c.lowerIsBetter, sort: (m: MiningModule) => m.modifiers[c.key] ?? 0, render: (m: MiningModule) => <ModCell v={m.modifiers[c.key]} lowerIsBetter={c.lowerIsBetter} /> })),
+    { key: 'uses', label: 'Uses', num: true, sort: (m) => m.charges, render: (m) => (m.kind === 'Active'
+      ? <><Fix kind="mining-module" recordKey={m.uuid} recordName={m.name} field="charges" value={m.charges}>{m.charges ?? '–'}</Fix> × <Fix kind="mining-module" recordKey={m.uuid} recordName={m.name} field="lifetime" value={m.lifetime}>{m.lifetime ?? '–'}</Fix> s</>
+      : '–') },
+    { key: 'power', label: 'Power', num: true, sort: (m) => m.power ?? 1, render: (m) => <Fix kind="mining-module" recordKey={m.uuid} recordName={m.name} field="power" value={m.power ?? 1}>{m.power == null || m.power === 1 ? <span className="gt-dim">–</span> : <span className={m.power > 1 ? 'gt-good' : 'gt-bad'}>×{fmt(m.power, 2)}</span>}</Fix> },
+    ...MOD_COLUMNS.map((c) => ({ key: c.key, label: c.label, num: true, low: c.lowerIsBetter, sort: (m: MiningModule) => m.modifiers[c.key] ?? 0, render: (m: MiningModule) => <Fix kind="mining-module" recordKey={m.uuid} recordName={m.name} field={`modifiers.${c.key}`} value={m.modifiers[c.key] ?? 0}><ModCell v={m.modifiers[c.key]} lowerIsBetter={c.lowerIsBetter} /></Fix> })),
   ];
   return (
     <div className="px-5 sm:px-10 py-6 flex flex-col gap-4">
@@ -322,7 +338,7 @@ function Modules({ modules }: { modules: MiningModule[] }) {
 function Gadgets({ gadgets }: { gadgets: MiningGadget[] }) {
   const cols: Col<MiningGadget>[] = [
     { key: 'name', label: 'Gadget', sort: (g) => g.name, render: (g) => <><span className="font-semibold gt-hi">{g.name}</span><span className="block text-xs gt-dim">{g.maker ?? ''}{g.rarity ? ` · ${g.rarity}` : ''}</span></> },
-    ...GADGET_MOD_COLUMNS.map((c) => ({ key: c.key, label: c.label, num: true, low: c.lowerIsBetter, sort: (g: MiningGadget) => g.modifiers[c.key] ?? 0, render: (g: MiningGadget) => <ModCell v={g.modifiers[c.key]} lowerIsBetter={c.lowerIsBetter} /> })),
+    ...GADGET_MOD_COLUMNS.map((c) => ({ key: c.key, label: c.label, num: true, low: c.lowerIsBetter, sort: (g: MiningGadget) => g.modifiers[c.key] ?? 0, render: (g: MiningGadget) => <Fix kind="mining-gadget" recordKey={g.uuid} recordName={g.name} field={`modifiers.${c.key}`} value={g.modifiers[c.key] ?? 0}><ModCell v={g.modifiers[c.key]} lowerIsBetter={c.lowerIsBetter} /></Fix> })),
   ];
   return (
     <div className="px-5 sm:px-10 py-6 flex flex-col gap-4">
