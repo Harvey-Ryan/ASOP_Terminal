@@ -350,6 +350,13 @@ Patch Notes — v1.1.0 — November 10
   (`lib/buildList.ts`, localStorage). Theme B "fabrication bay", scoped to
   `.fab` in `pages/crafting/fabrication.css`; keep other pages on the
   site's normal look.
+- One workbench (v1.54.0): Crafting, Blueprints and Mining share the bay
+  frame (hazard strip, lettered badge F/B/M, stencil title, count stamp) and
+  three columns: a list (search + filter) · the picked item on a riveted
+  plate · a working panel. The panel is the build list on Crafting and on
+  Blueprints (`BuildListPanel`, exported from `CraftingCalculatorPage.tsx`;
+  one shared list) and the scanner on Mining. Keep the three in step; Wikelo
+  and Ships keep their own looks.
 - Where materials are mined: `packages/shared/src/materialSources.ts`
   (from `scdata.resource_locations`; main ore of each rock only), shipped in
   the crafting data as `materialSources`. When the crafting payload's shape or contents
@@ -683,6 +690,14 @@ Patch Notes — v1.1.0 — November 10
   (`materialSources.ts`). Scanner lookup: signature = one rock × cluster
   size (`matchSignature`). Lasers leave out template/test copies and the
   MPUV arm.
+- Mining in the bay (v1.54.0): `MiningPage` renders its own `.fab.gt`
+  frame (no `DashboardToolsFrame`; in the dashboard it carries the build
+  badge, the Corrected/Game files toggle and "Open on its own page").
+  `.fab.gt` in `fabrication.css` maps the `--gt-*` colours to the bay so the
+  sortable tables, the scanner and `<Fix>` keep working. Ore finder = ore
+  list (`OreList`) · ore plate · scanner panel (on a phone a picked `?ore=`
+  hides the list, "All ores" brings it back); the other views are plates
+  around their sortable tables.
 - Scanner accuracy (v1.52.0): each `RockSignature` carries `maxCluster` (the
   biggest `Clustering.MaxSize` of that rock anywhere: ship ores 2–6 by
   rarity, ROC/hand gems 21–25) and `places`. `matchSignature` never counts

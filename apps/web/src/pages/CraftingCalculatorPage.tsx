@@ -660,7 +660,7 @@ function EmptyWorkspace() {
 
 const SYSTEM_KEY = 'asop-crafting-system';
 
-function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
+export function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
   const queue = useBuildList();
   const entries = queue.map((i) => ({ item: i, bp: getBlueprintByUuid(i.uuid) })).filter((e): e is { item: BuildListItem; bp: LocalBlueprint } => !!e.bp);
   const totals = useMemo(() => buildListTotals(entries.map((e) => ({ bp: e.bp, qty: e.item.qty }))), [queue]); // eslint-disable-line react-hooks/exhaustive-deps
