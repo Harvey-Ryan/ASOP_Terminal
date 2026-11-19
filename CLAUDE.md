@@ -682,7 +682,27 @@ Patch Notes — v1.1.0 — November 10
   chance, signature and cluster size; places are named by `resourcePlace`
   (`materialSources.ts`). Scanner lookup: signature = one rock × cluster
   size (`matchSignature`). Lasers leave out template/test copies and the
-  MPUV arm; size 0 (ROC/hand) lasers aren't listed yet. Modules are
+  MPUV arm.
+- Scanner accuracy (v1.52.0): each `RockSignature` carries `maxCluster` (the
+  biggest `Clustering.MaxSize` of that rock anywhere: ship ores 2–6 by
+  rarity, ROC/hand gems 21–25) and `places`. `matchSignature` never counts
+  more rocks than `maxCluster`, which leaves exactly one answer for every
+  ship-ore reading; rock types sharing a signature (ROC gems, hand gems) are
+  one `ScanHit`. With a place (`?at=` on the Mining page) rocks not found
+  there are dropped and the rest ranked by spawn chance. Salvage signatures
+  (`method: 'salvage'`) come from every provider's `Salvage_*` groups.
+  ASOP RockCrawler (the desktop overlay) reads `maxCluster` and `places`
+  from `/api/game-tools/mining` and must keep the same rule (its `core.py`).
+- Inert filter (v1.52.0): the game files have one `filterModifier` per laser
+  or module; scunpacked writes it twice (`AllChargeRates` and
+  `InertMaterials`, with opposite signs for lasers and modules). `filterFix`
+  turns the pair into one `InertMaterials` change (negative = less inert
+  collected). There is no all-charge-rates stat; don't bring it back.
+- Size 0 (ROC/hand) lasers and gadgets (`miningGadgetFromItem`,
+  `Mining_Gadget_*`, numbers from `MiningModule.Modifiers`, which can differ
+  from the item's description text) are on the Mining page (v1.52.0); ship
+  pages still only take size 1+ lasers. `OreSpot.groupChance` is the
+  group's `GroupProbability` (how often a place spawns that method's rocks). Modules are
   `Mining_Modules_(Active|Passive)_…` (Deluge, Overrun and Clearcut have no
   item type in the files: may not be sold). Lower resistance, instability,
   inert, overcharge and shatter are good for the miner.

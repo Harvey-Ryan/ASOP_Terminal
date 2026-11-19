@@ -25,6 +25,8 @@ export interface OreSpot {
   rock: string;
   /** Share of this method's rocks at the place that are this rock (0–1). */
   chance: number;
+  /** How likely the place spawns this method's rocks at all, as the files give it (0–1; null if not given). */
+  groupChance: number | null;
   /** The ore's quality bands in the rock, best quality first. */
   bands: OreBand[];
   signature: number | null;
@@ -32,7 +34,35 @@ export interface OreSpot {
   clusterMax: number | null;
 }
 
-export interface RockSignature { rock: string; ore: string; method: MiningMethod; signature: number }
+/** What a scanner can see: rocks by mining method, plus salvage (wrecks and debris). */
+export type ScanMethod = MiningMethod | 'salvage';
+
+export const SCAN_METHOD_LABELS: Record<ScanMethod, string> = { ship: 'Ship', roc: 'ROC', hand: 'By hand', salvage: 'Salvage' };
+
+export interface RockSignature {
+  rock: string;
+  /** Ore key; 'salvage' for wrecks and debris. */
+  ore: string;
+  method: ScanMethod;
+  /** One rock's (or panel's) signature. */
+  signature: number;
+  /**
+   * Most rocks of this type in one cluster anywhere (the files' cluster sizes).
+   * A scan never adds up more than this, so bigger multiples aren't matches (v1.52.0).
+   */
+  maxCluster: number;
+  /** Places this rock spawns (empty for salvage, which turns up at wrecks anywhere). */
+  places: string[];
+}
+
+/** One scanner reading explained: `count` rocks of `each`, of any of `rocks` (they share that signature). */
+export interface ScanHit {
+  count: number;
+  each: number;
+  method: ScanMethod;
+  /** Rock types with this signature, most likely first when a place is given. `chance` = its spawn chance there. */
+  rocks: { rock: string; ore: string; chance: number | null }[];
+}
 
 export interface MiningLaser {
   uuid: string;
@@ -74,6 +104,17 @@ export interface MiningDataDto {
   signatures: RockSignature[];
   lasers: MiningLaser[];
   modules: MiningModule[];
+  /** Mining gadgets (OptiMax, BoreMax…): placed on a rock, one per rock (v1.52.0). */
+  gadgets: MiningGadget[];
+}
+
+export interface MiningGadget {
+  uuid: string;
+  name: string;
+  maker: string | null;
+  /** Percent changes to the rock, as for modules, plus ClusterFactor. */
+  modifiers: Record<string, number>;
+  rarity: string | null;
 }
 
 const METHOD_BY_GROUP: Record<string, MiningMethod> = { spaceship_mineables: 'ship', groundvehicle_mineables: 'roc', fps_mineables: 'hand', 'fps mineables': 'hand' };
@@ -94,12 +135,32 @@ export function buildOreSpots(locations: readonly ResourceLocationRow[], resourc
   for (const r of resources) if (r.data?.UUID) rocks.set(String(r.data.UUID), r.data);
   const spots: OreSpot[] = [];
   const sigs = new Map<string, RockSignature>();
+  const addSig = (rock: string, ore: string, method: ScanMethod, signature: number, cluster: number | null, place: string | null) => {
+    const k = `${rock}|${method}`;
+    const s = sigs.get(k) ?? { rock, ore, method, signature, maxCluster: 1, places: [] };
+    s.maxCluster = Math.max(s.maxCluster, cluster ?? 1);
+    if (place && !s.places.includes(place)) s.places.push(place);
+    sigs.set(k, s);
+  };
   for (const row of locations) {
+    // Salvage (wrecks, debris) can be scanned too: its signatures come from every
+    // provider, the ones the ore finder skips (graveyards, derelicts) included.
+    for (const g of (row.data.Groups ?? []) as Json[]) {
+      if (!/^salvage_/i.test(String(g.GroupName ?? ''))) continue;
+      for (const d of (g.Deposits ?? []) as Json[]) {
+        const r = rocks.get(String(d.ResourceUUID ?? ''));
+        const sig = num(r?.Signature);
+        const name = str(r?.Name);
+        if (r?.Kind !== 'salvageable' || !sig || !name) continue;
+        addSig(name, 'salvage', 'salvage', sig, num(d.Clustering?.MaxSize), null);
+      }
+    }
     const where = resourcePlace(row);
     if (!where) continue;
     for (const g of (row.data.Groups ?? []) as Json[]) {
       const method = METHOD_BY_GROUP[String(g.GroupName ?? '').toLowerCase()];
       if (!method) continue;
+      const groupChance = num(g.GroupProbability);
       const deposits: Json[] = g.Deposits ?? [];
       const total = deposits.reduce((t, d) => t + (num(d.RelativeProbability) ?? 0), 0) || 1;
       for (const d of deposits) {
@@ -122,10 +183,10 @@ export function buildOreSpots(locations: readonly ResourceLocationRow[], resourc
         spots.push({
           ore: main[0], ...where, method, rock: rockName,
           chance: Math.round(((num(d.RelativeProbability) ?? 0) / total) * 1000) / 1000,
-          bands, signature,
+          groupChance, bands, signature,
           clusterMin: num(d.Clustering?.MinSize), clusterMax: num(d.Clustering?.MaxSize),
         });
-        if (signature) sigs.set(`${rockName}|${method}`, { rock: rockName, ore: main[0], method, signature });
+        if (signature) addSig(rockName, main[0], method, signature, num(d.Clustering?.MaxSize), where.place);
       }
     }
   }
@@ -133,7 +194,9 @@ export function buildOreSpots(locations: readonly ResourceLocationRow[], resourc
   const seen = new Set<string>();
   const unique = spots.filter((s) => { const k = `${s.ore}|${s.place}|${s.system}|${s.method}|${s.rock}`; if (seen.has(k)) return false; seen.add(k); return true; });
   unique.sort((a, b) => b.chance - a.chance || a.place.localeCompare(b.place));
-  return { spots: unique, signatures: [...sigs.values()].sort((a, b) => a.signature - b.signature) };
+  const signatures = [...sigs.values()].sort((a, b) => a.signature - b.signature || a.rock.localeCompare(b.rock));
+  for (const s of signatures) s.places.sort();
+  return { spots: unique, signatures };
 }
 
 /** Copies players can't fit: templates, tests and ship-built-in arms. */
@@ -144,9 +207,8 @@ export function miningLaserFromItem(row: { uuid: string; class_name?: string | n
   const l: Json = s.MiningLaser ?? {};
   const name = str(row.name) ?? str(s.Name);
   const size = num(row.size) ?? num(s.Size) ?? 0;
-  if (!name || size < 1 || NOT_A_LASER.test(row.class_name ?? '')) return null;
-  const modifiers: Record<string, number> = {};
-  for (const [k, v] of Object.entries((l.Modifiers ?? {}) as Json)) if (num(v)) modifiers[k] = v as number;
+  if (!name || NOT_A_LASER.test(row.class_name ?? '')) return null;
+  const modifiers = filterFix((l.Modifiers ?? {}) as Json);
   const needs = ((s.RequiredTags ?? []) as unknown[]).map(String).filter((t) => t !== 'miningMount');
   return {
     uuid: row.uuid, name, maker: str(row.manufacturer_name) ?? str(s.Manufacturer?.Name), size,
@@ -163,8 +225,7 @@ export function miningModuleFromItem(row: { uuid: string; class_name?: string | 
   // Player modules are "Mining_Modules_Active_…" / "…_Passive_…" (the ROC's built-in one and the bare template are left out).
   if (!name || !/^Mining_Modules_(Active|Passive)_/i.test(row.class_name ?? '')) return null;
   const mods: Json = m.Modifiers ?? {};
-  const modifiers: Record<string, number> = {};
-  for (const [k, v] of Object.entries(mods)) if (k !== 'DamageMultiplier' && k !== 'DamageMultiplierChange' && num(v)) modifiers[k] = v as number;
+  const modifiers = filterFix(mods);
   const active = /active/i.test(String(m.Type ?? type));
   return {
     uuid: row.uuid, name, maker: str(row.manufacturer_name) ?? str(s.Manufacturer?.Name),
@@ -174,25 +235,89 @@ export function miningModuleFromItem(row: { uuid: string; class_name?: string | 
   };
 }
 
+/**
+ * Percent changes, without the damage multiplier (that's `power`). The game
+ * has one inert-material filter value (`filterModifier`: Arbor MH1 30, FLTR 20),
+ * which scunpacked writes twice: as "AllChargeRates" and as "InertMaterials"
+ * (negative for lasers, positive for modules). There is no all-charge-rates
+ * stat in the game files, so the pair becomes one InertMaterials change,
+ * negative = less inert material collected (good for the miner). v1.52.0.
+ */
+export function filterFix(mods: Json): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(mods)) if (k !== 'DamageMultiplier' && k !== 'DamageMultiplierChange' && num(v)) out[k] = v as number;
+  const all = out.AllChargeRates, inert = out.InertMaterials;
+  if (all != null && (inert == null || Math.abs(inert) === Math.abs(all))) {
+    out.InertMaterials = -Math.abs(all);
+    delete out.AllChargeRates;
+  }
+  return out;
+}
+
+/** Mining gadgets: "Mining_Gadget_<maker>_<name>", placed on a rock. Their numbers live in MiningModule. */
+export function miningGadgetFromItem(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; data: Json }): MiningGadget | null {
+  const s: Json = row.data?.stdItem ?? row.data ?? {};
+  const name = str(row.name) ?? str(s.Name);
+  if (!name || !/^Mining_Gadget_/i.test(row.class_name ?? '')) return null;
+  return { uuid: row.uuid, name, maker: str(row.manufacturer_name) ?? str(s.Manufacturer?.Name), modifiers: filterFix(s.MiningModule?.Modifiers ?? {}), rarity: str(s.Rarity) };
+}
+
 /** Lasers and modules with identical numbers are one choice. */
 export function dedupeMining<T extends { name: string }>(list: T[], key: (x: T) => unknown[]): T[] {
   const seen = new Set<string>();
   return list.filter((x) => { const k = JSON.stringify(key(x)); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
-/** Rock types whose signature, times a cluster size, matches what the scanner shows. */
-export function matchSignature(value: number, signatures: readonly RockSignature[], maxCount = 8): { count: number; rock: string; ore: string; method: MiningMethod; each: number }[] {
+/**
+ * What a scanner reading can be: one rock's signature times the number of
+ * rocks, never more rocks than that type ever clusters in (`maxCluster`, from
+ * the files: legendary ores 2, epic 3, rare 4, uncommon 5, common 6; ROC and
+ * hand gems up to about 25). Rock types sharing a signature (the ROC gems,
+ * the hand gems) are one hit. With a place, rocks that don't spawn there are
+ * dropped and the rest are ordered by their spawn chance there. v1.52.0.
+ */
+export function matchSignature(
+  value: number,
+  signatures: readonly RockSignature[],
+  opts: { place?: string | null; spots?: readonly OreSpot[]; maxCount?: number } = {},
+): ScanHit[] {
   if (!(value > 0)) return [];
-  const out: { count: number; rock: string; ore: string; method: MiningMethod; each: number }[] = [];
+  const place = opts.place || null;
+  const chanceAt = (s: RockSignature): number | null => {
+    if (!place || !opts.spots) return null;
+    const hit = opts.spots.find((p) => p.place === place && p.rock === s.rock && p.method === s.method);
+    return hit ? hit.chance : null;
+  };
+  const hits = new Map<string, ScanHit>();
   for (const s of signatures) {
-    for (let n = 1; n <= maxCount; n++) if (s.signature * n === value) out.push({ count: n, rock: s.rock, ore: s.ore, method: s.method, each: s.signature });
+    if (!(s.signature > 0) || value % s.signature !== 0) continue;
+    const count = value / s.signature;
+    if (count < 1 || count > (s.maxCluster || opts.maxCount || 8)) continue;
+    if (place && s.method !== 'salvage' && !s.places.includes(place)) continue;
+    const k = `${s.method}|${s.signature}|${count}`;
+    const h = hits.get(k) ?? { count, each: s.signature, method: s.method, rocks: [] };
+    h.rocks.push({ rock: s.rock, ore: s.ore, chance: chanceAt(s) });
+    hits.set(k, h);
   }
-  return out.sort((a, b) => a.count - b.count);
+  const best = (h: ScanHit) => Math.max(...h.rocks.map((r) => r.chance ?? 0));
+  for (const h of hits.values()) h.rocks.sort((a, b) => (b.chance ?? 0) - (a.chance ?? 0) || a.rock.localeCompare(b.rock));
+  return [...hits.values()].sort((a, b) => best(b) - best(a) || a.count - b.count);
+}
+
+/** Words for a hit: "2 × Laranite (Raw)", "4 × ROC gem (Beradom, Feynmaline, Glacosite)". */
+export function scanHitLabel(h: ScanHit): string {
+  if (h.rocks.length === 1) return `${h.count} × ${h.rocks[0]!.rock}`;
+  const kind = h.method === 'roc' ? 'ROC gem' : h.method === 'hand' ? 'hand-mining gem' : h.method === 'salvage' ? 'salvage' : 'rock';
+  return `${h.count} × ${kind} (${h.rocks.map((r) => r.rock).join(', ')})`;
 }
 
 export const MINING_LASERS_SQL = `
   SELECT uuid, class_name, name, manufacturer_name, size, data FROM scdata.items
   WHERE type = 'WeaponMining' AND NOT is_placeholder
+`;
+export const MINING_GADGETS_SQL = `
+  SELECT uuid, class_name, name, manufacturer_name, size, data FROM scdata.items
+  WHERE class_name ILIKE 'Mining\\_Gadget\\_%' AND NOT is_placeholder
 `;
 export const MINING_MODULES_SQL = `
   SELECT uuid, class_name, name, manufacturer_name, size, data FROM scdata.items

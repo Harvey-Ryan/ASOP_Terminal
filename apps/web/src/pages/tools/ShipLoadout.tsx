@@ -17,7 +17,7 @@ import {
 } from '@dem/shared';
 import { fmt, pctChange, pilotSlots } from '../../lib/gameTools';
 import { SwapWindow, type SwapColumn } from './SwapWindow';
-import { MOD_COLUMNS, ModCell, modIsGood, modLabel, pctText } from './miningBits';
+import { LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell, modIsGood, modLabel, pctText } from './miningBits';
 
 export interface LoadoutState {
   ship: GameToolsShip;
@@ -442,7 +442,7 @@ function MiningHeads({ lo, onOpen, active, narrow }: { lo: LoadoutState; onOpen:
           const mods = lo.headModules[i] ?? [];
           const totals: [string, string, string][] = [
             ['power', fmt(t.power), 'gt-hi'],
-            ...['Resistance', 'Instability', 'OptimalChargeWindow', 'AllChargeRates', 'InertMaterials']
+            ...['Resistance', 'Instability', 'OptimalChargeWindow', 'InertMaterials']
               .filter((k) => k !== 'InertMaterials' || t.modifiers[k] != null)
               .map((k): [string, string, string] => {
                 const v = t.modifiers[k];
@@ -764,7 +764,7 @@ export function Swap({ lo, target, guns, components, missiles, lasers = [], modu
       { key: 'opt', label: 'Optimal m', get: (l) => l.optimalRange },
       { key: 'max', label: 'Max m', get: (l) => l.maxRange },
       { key: 'slots', label: 'Modules', get: (l) => l.moduleSlots },
-      ...MOD_COLUMNS.slice(0, 6).map((m): SwapColumn<MiningLaser> => ({
+      ...LASER_MOD_COLUMNS.map((m): SwapColumn<MiningLaser> => ({
         key: m.key, label: m.label, get: (l) => l.modifiers[m.key] ?? 0, low: m.lowerIsBetter, digits: 1,
         render: (l) => <ModCell v={l.modifiers[m.key]} lowerIsBetter={m.lowerIsBetter} />,
       })),

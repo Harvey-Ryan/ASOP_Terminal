@@ -12,8 +12,8 @@ import {
   shipComponentFromItem, dedupeComponents, componentGroupKey,
   missileFromItem, dedupeMissiles, missileGroupKey,
   salvageModuleFromItem, fuelPodFromItem, SALVAGE_MODULES_SQL, FUEL_PODS_SQL, type FuelPod, type SalvageModule,
-  buildOreSpots, miningLaserFromItem, miningModuleFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL,
-  type MiningDataDto, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
+  buildOreSpots, miningLaserFromItem, miningModuleFromItem, miningGadgetFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL, MINING_GADGETS_SQL,
+  type MiningDataDto, type MiningGadget, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
   GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
   type ApiResponse, type CombatGun, type GameToolsDataDto, type GameToolsShip, type MissileItem, type ShipComponent,
 } from '@dem/shared';
@@ -138,7 +138,7 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   // Parts players can't get (no class or grade: bespoke and placeholder records) only where a ship comes with them.
   const components = componentGroups.filter((c) => c.available || stockComponents.has(c.uuid));
   // Lasers made for one ship only where that ship comes with them.
-  const miningLasers = laserGroups.filter((l) => !l.bespokeFor || stockLasers.has(l.uuid)).sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
+  const miningLasers = laserGroups.filter((l) => l.size >= 1 && (!l.bespokeFor || stockLasers.has(l.uuid))).sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
   const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles, miningLasers, miningModules, salvageModules, fuelPods };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<GameToolsDataDto>));
   return {
@@ -228,7 +228,7 @@ gameToolsRouter.get('/game-tools/hidden', async (_req, res) => {
 
 // ── Mining (v1.49.0) ─────────────────────────────────────────────────────────
 // GET /api/game-tools/mining: the ore finder's places, rock signatures, mining
-// lasers and modules. Public; built once per game build, sent gzipped.
+// lasers, modules and gadgets (v1.52.0). Public; built once per game build, sent gzipped.
 
 type MiningBuilt = { commit: string; at: number; gz: Buffer; etag: string; data: MiningDataDto };
 let miningCached: MiningBuilt | null = null;
@@ -245,19 +245,22 @@ export async function buildMiningData(query: Query = prismaQuery): Promise<Minin
     throw err;
   }
   if (!source?.commit) return null;
-  const [locations, resources, laserRows, moduleRows] = await Promise.all([
+  const [locations, resources, laserRows, moduleRows, gadgetRows] = await Promise.all([
     query<ResourceLocationRow[]>('SELECT provider_name, data FROM scdata.resource_locations'),
     query<ResourceRow[]>('SELECT data FROM scdata.resources'),
     query<Row[]>(MINING_LASERS_SQL),
     query<Row[]>(MINING_MODULES_SQL),
+    query<Row[]>(MINING_GADGETS_SQL),
   ]);
   const { spots, signatures } = buildOreSpots(locations, resources);
   const lasers = dedupeMining(laserRows.map(miningLaserFromItem).filter((l): l is MiningLaser => !!l), (l) => [l.name, l.power, l.extraction, l.modifiers])
     .sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
   const modules = dedupeMining(moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m), (m) => [m.name, m.power, m.modifiers])
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  const gadgets = dedupeMining(gadgetRows.map(miningGadgetFromItem).filter((g): g is MiningGadget => !!g), (g) => [g.name, g.modifiers])
+    .sort((a, b) => a.name.localeCompare(b.name));
   const ores = [...new Set(spots.map((s) => s.ore))].sort().map((key) => ({ key, name: oreName(key) }));
-  const data: MiningDataDto = { build: source.build, ores, spots, signatures, lasers, modules };
+  const data: MiningDataDto = { build: source.build, ores, spots, signatures, lasers, modules, gadgets };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<MiningDataDto>));
   return {
     commit: source.commit, at: Date.now(), data,

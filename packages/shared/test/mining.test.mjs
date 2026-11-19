@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOreSpots, laserFitsHead, matchSignature, miningHeadTotals, miningLaserFromItem, miningModuleFromItem, oreName, shipMiningHeads } from '../dist/index.js';
+import { buildOreSpots, filterFix, laserFitsHead, matchSignature, miningGadgetFromItem, miningHeadTotals, miningLaserFromItem, miningModuleFromItem, oreName, scanHitLabel, shipMiningHeads } from '../dist/index.js';
 
 // Numbers from scunpacked 4.10.3-LIVE (Wala, a Laranite rock and a Tungsten rock).
 const locations = [{ provider_name: 'HPP_Stanton3b', data: {
@@ -36,10 +36,54 @@ test('ore finder: only rocks where the ore is the main ore, both quality bands, 
 
 test('scanner: a signature is one rock type times the cluster size', () => {
   const { signatures } = buildOreSpots(locations, resources);
-  assert.deepEqual(matchSignature(7650, signatures).map((h) => [h.count, h.rock]), [[2, 'Laranite (Raw)']]);
-  assert.deepEqual(matchSignature(3870, signatures).map((h) => [h.count, h.rock]), [[1, 'Tungsten (Ore)']]);
+  const rocks = (hits) => hits.map((h) => [h.count, h.rocks.map((r) => r.rock).join('/')]);
+  assert.deepEqual(rocks(matchSignature(7650, signatures)), [[2, 'Laranite (Raw)']]);
+  assert.deepEqual(rocks(matchSignature(3870, signatures)), [[1, 'Tungsten (Ore)']]);
   assert.deepEqual(matchSignature(1234, signatures), []);
   assert.equal(oreName('pressurized ice'), 'Pressurized Ice');
+});
+
+test('scanner: never more rocks than that type clusters in (v1.52.0)', () => {
+  const { signatures } = buildOreSpots(locations, resources);
+  const lar = signatures.find((s) => s.rock === 'Laranite (Raw)');
+  assert.equal(lar.maxCluster, 5, 'Laranite clusters in 3 to 5');
+  assert.deepEqual(lar.places, ['Wala']);
+  assert.equal(matchSignature(3825 * 5, signatures).length, 1);
+  assert.deepEqual(matchSignature(3825 * 6, signatures), [], '6 Laranite never cluster together');
+  // No clustering in the files: a single rock only.
+  assert.equal(signatures.find((s) => s.rock === 'Tungsten (Ore)').maxCluster, 1);
+  assert.deepEqual(matchSignature(3870 * 2, signatures), []);
+});
+
+// 4.10.3: 19,200 is 6 Savrilium or 5 Aslarite, but Savrilium clusters at most 2.
+const sig = (rock, ore, method, signature, maxCluster, places = []) => ({ rock, ore, method, signature, maxCluster, places });
+const table = [
+  sig('Savrilium (Ore)', 'savrilium', 'ship', 3200, 2, ['Glaciem Ring']),
+  sig('Aslarite (Raw)', 'aslarite', 'ship', 3840, 5, ['Ita', 'Magda']),
+  sig('Aluminum (Ore)', 'aluminum', 'ship', 4285, 6, ['Hurston', 'Ita']),
+  sig('Beradom', 'beradom', 'roc', 4000, 21, ['Daymar']),
+  sig('Glacosite', 'glacosite', 'roc', 4000, 21, ['Daymar', 'Ita']),
+  sig('Aphorite', 'aphorite', 'hand', 3000, 21, ['Daymar']),
+  sig('Wreckage', 'salvage', 'salvage', 2000, 15),
+];
+
+test('scanner: impossible cluster sizes are not offered', () => {
+  assert.deepEqual(matchSignature(19200, table).map(scanHitLabel), ['5 × Aslarite (Raw)']);
+  // 16,000 = 4 ROC gems or 8 wreck panels; 5 Savrilium can't happen.
+  assert.deepEqual(matchSignature(16000, table).map(scanHitLabel), ['4 × ROC gem (Beradom, Glacosite)', '8 × Wreckage']);
+  // Big gem clusters read past 8 rocks.
+  assert.deepEqual(matchSignature(40000, table).map(scanHitLabel), ['10 × ROC gem (Beradom, Glacosite)']);
+});
+
+test('scanner: a place drops rocks that don\'t spawn there and ranks by chance', () => {
+  const spots = [
+    { place: 'Ita', rock: 'Aluminum (Ore)', method: 'ship', chance: 0.347 },
+    { place: 'Ita', rock: 'Glacosite', method: 'roc', chance: 0.692 },
+  ];
+  const at = (v, place) => matchSignature(v, table, { place, spots });
+  assert.deepEqual(at(8000, 'Ita').map((h) => [h.count, h.rocks.map((r) => [r.rock, r.chance])]), [[2, [['Glacosite', 0.692]]], [4, [['Wreckage', null]]]]);
+  assert.deepEqual(at(19200, 'Hurston'), [], 'no Aslarite on Hurston');
+  assert.equal(at(8570, 'Ita')[0].rocks[0].chance, 0.347);
 });
 
 test('lasers and modules: test and template copies are left out', () => {
@@ -50,6 +94,9 @@ test('lasers and modules: test and template copies are left out', () => {
   assert.equal(laser('Mining_Laser_S1_Template', 1890), null);
   assert.equal(laser('Mining_Laser_GRIN_Arbor_S1_Test_Active_1', 2340), null);
   assert.equal(laser('Mining_Laser_MPUV_Arm', 1850), null);
+  // Size 0 (ROC and multi-tool) lasers are listed too (v1.52.0).
+  const mhv = miningLaserFromItem({ uuid: 'mhv', class_name: 'Mining_Laser_GRIN_Arbor_S0', name: 'Arbor MHV Mining Laser', size: 0, data: { stdItem: { MiningLaser: { Modifiers: { Instability: -40 } } } } });
+  assert.equal(mhv.size, 0);
   const mod = (cls, m) => miningModuleFromItem({ uuid: cls, class_name: cls, name: 'Brandt Module', data: { stdItem: { MiningModule: m } } });
   const brandt = mod('Mining_Modules_Active_Brandt', { Type: 'Active', Charges: 5, Lifetime: 60, Modifiers: { Resistance: 15.5, ShatterDamage: -30, DamageMultiplier: 1.35, DamageMultiplierChange: 0.35 } });
   assert.deepEqual([brandt.kind, brandt.charges, brandt.lifetime, brandt.power, brandt.modifiers], ['Active', 5, 60, 1.35, { Resistance: 15.5, ShatterDamage: -30 }]);
@@ -162,4 +209,28 @@ test('fuel pods: slots by side, figures from the pod description, filled copies 
   assert.equal(pod('FuelPod_AI_STOR_Big'), null);
   assert.equal(pod('CargoPod_MISC_Eriesium_a'), null);
   assert.equal(fuelPodFitsSlot(cr60, shipFuelPodSlots(starfarer)[0]), true);
+});
+
+test('the inert filter is one change, not an extra "all charge rates" bonus (v1.52.0)', () => {
+  // scunpacked writes the game's one filterModifier twice, with opposite signs for lasers and modules.
+  assert.deepEqual(filterFix({ AllChargeRates: 30, InertMaterials: -30, Instability: -35 }), { InertMaterials: -30, Instability: -35 });
+  assert.deepEqual(filterFix({ AllChargeRates: 20, InertMaterials: 20, DamageMultiplier: 0.85, DamageMultiplierChange: -0.15 }), { InertMaterials: -20 });
+  assert.deepEqual(filterFix({ Resistance: 15.5 }), { Resistance: 15.5 });
+  const fltr = miningModuleFromItem({ uuid: 'f', class_name: 'Mining_Modules_Passive_FLTR_Mk1', name: 'FLTR Module', data: { stdItem: { MiningModule: { Type: 'Passive', Modifiers: { AllChargeRates: 20, InertMaterials: 20, DamageMultiplier: 0.85 } } } } });
+  assert.deepEqual([fltr.power, fltr.modifiers], [0.85, { InertMaterials: -20 }]);
+});
+
+test('gadgets come from their MiningModule numbers', () => {
+  const g = miningGadgetFromItem({ uuid: 'o', class_name: 'Mining_Gadget_GRIN_OptiMax', name: 'OptiMax', data: { stdItem: { Rarity: 'Rare', Manufacturer: { Name: 'Greycat Industrial' }, MiningModule: { Type: 'Passive', Modifiers: { ClusterFactor: 60, OptimalChargeWindow: -30, Resistance: -25 } } } } });
+  assert.deepEqual([g.name, g.maker, g.rarity, g.modifiers], ['OptiMax', 'Greycat Industrial', 'Rare', { ClusterFactor: 60, OptimalChargeWindow: -30, Resistance: -25 }]);
+  assert.equal(miningGadgetFromItem({ uuid: 'x', class_name: 'Gadget_Fire_Extinguisher', name: 'Extinguisher', data: {} }), null);
+});
+
+test('salvage signatures come from salvage groups, any provider', () => {
+  const locs = [{ provider_name: 'HPP_ShipGraveyard_001', data: { Locations: [{ Name: 'Ship Graveyard', System: 'Stanton' }], Groups: [
+    { GroupName: 'Salvage_FreshDerelicts', GroupProbability: 0.04, Deposits: [{ ResourceUUID: 'scrap', RelativeProbability: 1, Clustering: { MinSize: 3, MaxSize: 15 } }] },
+  ] } }];
+  const res = [{ data: { UUID: 'scrap', Kind: 'salvageable', Name: 'Wreckage', Signature: 2000 } }];
+  const { signatures } = buildOreSpots(locs, res);
+  assert.deepEqual(signatures, [{ rock: 'Wreckage', ore: 'salvage', method: 'salvage', signature: 2000, maxCluster: 15, places: [] }]);
 });
