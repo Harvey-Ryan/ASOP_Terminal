@@ -32,9 +32,11 @@ beforeEach(() => {
   calls.length = 0;
   vi.stubGlobal('fetch', async (url: string, init: { headers: Record<string, string>; body: string }) => {
     calls.push({ url, headers: init.headers, body: init.body });
-    const body = providerStatus === 200
-      ? JSON.stringify({ choices: [{ message: { content: 'OK' } }], usage: { prompt_tokens: 5, completion_tokens: 1 } })
-      : JSON.stringify({ error: { message: 'Incorrect API key provided' } });
+    // Each provider answers in its own format.
+    const ok = url.includes('anthropic.com')
+      ? { content: [{ type: 'text', text: 'OK' }], usage: { input_tokens: 5, output_tokens: 1 } }
+      : { choices: [{ message: { content: 'OK' } }], usage: { prompt_tokens: 5, completion_tokens: 1 } };
+    const body = JSON.stringify(providerStatus === 200 ? ok : { error: { message: 'Incorrect API key provided' } });
     return { ok: providerStatus === 200, status: providerStatus, text: async () => body };
   });
 });
