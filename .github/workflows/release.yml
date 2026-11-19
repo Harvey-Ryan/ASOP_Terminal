@@ -1,0 +1,41 @@
+# Releases (CLAUDE.md, "Versioning"): after every push to master, tag each
+# version that hasn't been tagged yet (on the merge commit where it first
+# appeared) and publish a GitHub Release with the patch notes of its commits.
+# Nothing to do when the version didn't change. Run it by hand from the
+# Actions tab to finish a release that stopped half-way.
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Who tags
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Tag and release new versions
+        run: node scripts/release.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}

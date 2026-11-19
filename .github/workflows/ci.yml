@@ -47,6 +47,9 @@ jobs:
       - name: Shared tests
         run: node --test packages/shared/test/*.test.mjs
 
+      - name: Release-notes tests
+        run: node --test scripts/test/*.test.mjs
+
       - name: Type-check every app
         run: |
           npm run lint -w @dem/api
