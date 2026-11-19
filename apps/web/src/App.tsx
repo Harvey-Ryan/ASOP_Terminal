@@ -150,9 +150,8 @@ export default function App() {
             <Route index element={<ToolsShipsHomePage />} />
             <Route path=":className" element={<ToolsShipPage />} />
           </Route>
-          <Route path="servers/:guildId/mining" element={<DashboardToolsFrame />}>
-            <Route index element={<MiningPage />} />
-          </Route>
+          {/* v1.54.0: Mining has the Crafting Calculator's own frame, so it sits in the dashboard like Crafting and Blueprints. */}
+          <Route path="servers/:guildId/mining" element={<MiningPage />} />
           <Route path="servers/:guildId/blueprints" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/blueprints/:blueprintUuid" element={<ModuleGate setting="blueprintsEnabled"><CraftingDataGate><BlueprintsPage /></CraftingDataGate></ModuleGate>} />
           <Route path="servers/:guildId/crafting-calculator" element={<ModuleGate setting="craftingEnabled"><CraftingDataGate><CraftingCalculatorPage /></CraftingDataGate></ModuleGate>} />

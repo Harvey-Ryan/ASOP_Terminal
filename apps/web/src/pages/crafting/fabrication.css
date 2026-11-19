@@ -81,3 +81,33 @@
 /* One part per row: sliders line up down the list. */
 .fab-part-row { border-left: 3px solid var(--fab-gold); }
 .fab-part-row + .fab-part-row { border-top: 1px solid #262626; }
+
+/* Mining (v1.54.0) lives in the bay too but keeps the Game Tools widgets
+   (sortable tables, the scanner, community corrections). On a .fab.gt root
+   those widgets take the bay's colours instead of the Ships palette. */
+.fab.gt {
+  --gt-bg: #171717;
+  --gt-line: #2e2e2e;
+  --gt-faint: #262626;
+  --gt-fg: #cccccc;
+  --gt-dim: #a6a6a6;
+  --gt-hi: #e6e6e6;
+  --gt-acc: #d4a53a;
+  --gt-acc-fg: #141414;
+  --gt-tint: rgba(185, 138, 19, 0.12);
+  --gt-good: #7fc77f;
+  --gt-bad: #e88b7a;
+  min-height: 0;
+  color: var(--fab-text);
+  background-color: #171717;
+  background-image:
+    radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.045), transparent 45%),
+    radial-gradient(ellipse at 82% 88%, rgba(185, 138, 19, 0.06), transparent 50%),
+    radial-gradient(ellipse at 60% 30%, rgba(0, 0, 0, 0.35), transparent 40%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(25deg, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 19px);
+}
+.fab.gt .gt-input { padding: 8px 10px; background: #0f0f0f; border: 1px solid #3a3a3a; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6); color: var(--fab-bright); }
+.fab-view { padding: 14px 0 11px; background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
+.fab-view:hover { color: var(--fab-bright); }
+.fab-view[aria-current='page'] { border-bottom-color: var(--fab-gold); color: var(--fab-gold-text); }

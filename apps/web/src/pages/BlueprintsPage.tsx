@@ -1,7 +1,8 @@
 // Blueprints (v1.27.0): find an item's blueprint, then every mission that can
 // give it, with its real rewards, difficulty, places and the other blueprints
 // it can give. Same "fabrication bay" look and blueprint list as the
-// Crafting Calculator.
+// Crafting Calculator. Since v1.54.0 the build list sits on the right as it
+// does in the calculator (the same list), so blueprints can be queued here.
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToolsPaths } from '@/lib/toolsPaths';
@@ -9,8 +10,10 @@ import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { craftingSource, getBlueprintByUuid, missionContracts, obtainableBlueprints, type LocalBlueprint } from '@/lib/gameData';
 import './crafting/fabrication.css';
+import { buildList, useBuildList } from '@/lib/buildList';
 import { BlueprintBrowser, fmtSecs, Rivets, typeLabel } from './crafting/browser';
 import { MissionCard } from './crafting/missions';
+import { BuildListPanel } from './CraftingCalculatorPage';
 
 function BlueprintMissions({ bp, onPick, onCalculator, onBack }: {
   bp: LocalBlueprint;
@@ -22,6 +25,7 @@ function BlueprintMissions({ bp, onPick, onCalculator, onBack }: {
     () => missionContracts().filter((mc) => mc.pools.some((p) => p.blueprints.some((e) => e.blueprintUuid === bp.uuid))),
     [bp.uuid],
   );
+  const queued = useBuildList().find((i) => i.uuid === bp.uuid)?.qty ?? 0;
   const kind = [typeLabel(bp.type), bp.subtype && !typeLabel(bp.type).toLowerCase().includes(bp.subtype.toLowerCase()) && bp.subtype, bp.grade && `Grade ${bp.grade}`].filter(Boolean).join(' · ');
 
   return (
@@ -40,9 +44,14 @@ function BlueprintMissions({ bp, onPick, onCalculator, onBack }: {
             </span>
             <span className="text-xs text-[var(--fab-muted)]">{bp.components.map((c) => c.material.name).join(' · ')}</span>
           </div>
-          <button type="button" onClick={() => onCalculator(bp.uuid)} className="fab-btn-primary h-11 shrink-0 px-4 text-[15px]">
-            Open in calculator →
-          </button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button type="button" onClick={() => buildList.add(bp.uuid)} className="fab-btn h-11 px-3.5 text-[13px]">
+              {queued ? `+ Add another (${queued} in list)` : '+ Add to build list'}
+            </button>
+            <button type="button" onClick={() => onCalculator(bp.uuid)} className="fab-btn-primary h-11 px-4 text-[15px]">
+              Open in calculator →
+            </button>
+          </div>
         </div>
       </section>
 
@@ -101,7 +110,7 @@ export function BlueprintsPage() {
         <BlueprintBrowser
           selectedUuid={bp?.uuid ?? null}
           onPick={pick}
-          className={cn('flex-[1_1_260px] lg:max-w-[360px] xl:min-h-0', bp && 'hidden lg:flex')}
+          className={cn('flex-[1_1_260px] lg:max-w-[340px] xl:min-h-0', bp && 'hidden lg:flex')}
         />
         <div className="fab-scroll min-w-0 flex-[999_1_480px] xl:min-h-0 xl:overflow-y-auto xl:pb-1">
           {bp ? (
@@ -111,6 +120,9 @@ export function BlueprintsPage() {
               That blueprint isn't in the current game data. <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">Back to all blueprints</button>
             </section>
           ) : <EmptyState />}
+        </div>
+        <div className="fab-scroll min-w-0 flex-[1_1_300px] lg:max-w-[380px] xl:min-h-0 xl:overflow-y-auto xl:pb-1">
+          <BuildListPanel onPick={pick} />
         </div>
       </div>
     </div>
