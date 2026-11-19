@@ -1,22 +1,24 @@
 // Mining (v1.49.0): the ore finder (where an ore is the main ore of a rock, by
 // place, with both quality bands), the scanner signature lookup, every rock
-// signature, and the mining lasers and modules. Exact numbers from the game
-// files; nothing estimated. Lives at /tools/mining and in each server's
-// dashboard. The view and ore are in the address (?view=, ?ore=).
+// signature, and the mining lasers, modules and gadgets. Exact numbers from
+// the game files; nothing estimated. Lives at /tools/mining and in each
+// server's dashboard. The view and ore are in the address (?view=, ?ore=),
+// and the scanner's place too (?at=, v1.52.0).
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { matchSignature, MINING_METHOD_LABELS, oreName, type MiningLaser, type MiningMethod, type MiningModule, type OreSpot, type RockSignature } from '@dem/shared';
+import { matchSignature, scanHitLabel, MINING_METHOD_LABELS, SCAN_METHOD_LABELS, oreName, type MiningGadget, type MiningLaser, type MiningMethod, type MiningModule, type OreSpot, type RockSignature, type ScanMethod } from '@dem/shared';
 import { fmt, useMiningData } from '../../lib/gameTools';
 import { ToolsDataState } from './ToolsLayout';
-import { MOD_COLUMNS, ModCell, pctText } from './miningBits';
+import { GADGET_MOD_COLUMNS, LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell } from './miningBits';
 
-type View = 'ores' | 'signatures' | 'lasers' | 'modules';
+type View = 'ores' | 'signatures' | 'lasers' | 'modules' | 'gadgets';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'ores', label: 'Ore finder' },
   { id: 'signatures', label: 'Rock signatures' },
   { id: 'lasers', label: 'Lasers' },
   { id: 'modules', label: 'Modules' },
+  { id: 'gadgets', label: 'Gadgets' },
 ];
 
 const METHOD_WORD: Record<MiningMethod, string> = { ship: 'Ship', roc: 'ROC', hand: 'By hand' };
@@ -40,11 +42,12 @@ export function MiningPage() {
             aria-current={view === v.id ? 'page' : undefined} onClick={() => set('view', v.id === 'ores' ? null : v.id)}>{v.label}</button>
         ))}
       </nav>
-      {view === 'ores' && <OreFinder spots={data.spots} ores={data.ores} signatures={data.signatures} ore={params.get('ore') ?? 'quantainium'} setOre={(o) => set('ore', o)} />}
-      {view === 'signatures' && <Signatures signatures={data.signatures} />}
+      {view === 'ores' && <OreFinder spots={data.spots} ores={data.ores} signatures={data.signatures} ore={params.get('ore') ?? 'quantainium'} setOre={(o) => set('ore', o)} place={params.get('at')} setPlace={(p) => set('at', p)} />}
+      {view === 'signatures' && <Signatures signatures={data.signatures} spots={data.spots} place={params.get('at')} setPlace={(p) => set('at', p)} />}
       {view === 'lasers' && <Lasers lasers={data.lasers} />}
       {view === 'modules' && <Modules modules={data.modules} />}
-      <p className="text-xs gt-dim px-5 sm:px-10 pb-6 m-0">From the game files{data.build ? <>, build <span className="gt-mono">{data.build}</span></> : null}. Prices and refinery yields (UEX) are coming.</p>
+      {view === 'gadgets' && <Gadgets gadgets={data.gadgets ?? []} />}
+      <p className="text-xs gt-dim px-5 sm:px-10 pb-6 m-0">From the game files{data.build ? <>, build <span className="gt-mono">{data.build}</span></> : null}. Prices and refinery yields are coming.</p>
     </>
   );
 }
@@ -108,7 +111,7 @@ const bandsText = (s: OreSpot) => s.bands.map((b) => `${fmt(b.minPct, 1)}–${fm
 const cluster = (s: { clusterMin: number | null; clusterMax: number | null }) =>
   s.clusterMin == null ? '–' : s.clusterMin === s.clusterMax ? `${s.clusterMin}` : `${s.clusterMin}–${s.clusterMax}`;
 
-function OreFinder({ spots, ores, signatures, ore, setOre }: { spots: OreSpot[]; ores: { key: string; name: string }[]; signatures: RockSignature[]; ore: string; setOre: (o: string) => void }) {
+function OreFinder({ spots, ores, signatures, ore, setOre, place, setPlace }: { spots: OreSpot[]; ores: { key: string; name: string }[]; signatures: RockSignature[]; ore: string; setOre: (o: string) => void; place: string | null; setPlace: (p: string | null) => void }) {
   const [query, setQuery] = useState('');
   const [system, setSystem] = useState('All');
   const [method, setMethod] = useState('All');
@@ -124,7 +127,7 @@ function OreFinder({ spots, ores, signatures, ore, setOre }: { spots: OreSpot[];
   const cols: Col<OreSpot>[] = [
     { key: 'place', label: 'Location', sort: (s) => s.place, render: (s) => <><span className="font-semibold gt-hi">{s.place}</span><span className="block text-xs gt-dim">{s.system}{s.kind ? ` · ${s.kind}` : ''}</span></> },
     { key: 'rock', label: 'Rock', sort: (s) => s.rock, render: (s) => <><span className="gt-acc font-medium">{s.rock}</span><span className="block text-xs gt-dim">mined by {MINING_METHOD_LABELS[s.method]}</span></> },
-    { key: 'chance', label: 'Chance', num: true, sort: (s) => s.chance, render: (s) => <span className="gt-hi">{fmt(s.chance * 100, 1)}%</span> },
+    { key: 'chance', label: 'Chance', num: true, sort: (s) => s.chance, render: (s) => <><span className="gt-hi">{fmt(s.chance * 100, 1)}%</span>{s.groupChance != null && <span className="block text-xs gt-dim" title={`How often a spawn at this place is ${MINING_METHOD_LABELS[s.method]} rocks at all, as the game files give it`}>of {fmt(s.groupChance * 100, s.groupChance < 0.1 ? 1 : 0)}% spawns</span>}</> },
     { key: 'bands', label: `${found?.name ?? ''} in it · quality`, render: (s) => <span className="gt-mono text-[13px] whitespace-pre-line leading-relaxed">{bandsText(s).join('\n')}</span> },
     { key: 'sig', label: 'Signature', num: true, sort: (s) => s.signature, render: (s) => fmt(s.signature) },
     { key: 'cluster', label: 'Cluster', num: true, sort: (s) => s.clusterMax, render: (s) => `${cluster(s)} rocks` },
@@ -175,11 +178,11 @@ function OreFinder({ spots, ores, signatures, ore, setOre }: { spots: OreSpot[];
             ? <SortTable rows={shown} cols={cols} initial="chance" rowKey={(s) => `${s.place}|${s.system}|${s.method}|${s.rock}`} minWidth={860} />
             : <p className="gt-dim m-0">No {found?.name} rocks match those filters.</p>}
           <p className="text-xs gt-dim m-0 leading-relaxed max-w-[900px]">
-            Rocks where {found?.name} is the main ore. Chance is the share of that mining method&rsquo;s rocks at the place that are this rock. Each rock gives its main ore either as a small share at high quality or a large share at low quality: both bands are listed.
+            Rocks where {found?.name} is the main ore. Chance is the share of that mining method&rsquo;s rocks at the place that are this rock; under it, how often the place spawns that kind of rock at all. Each rock gives its main ore either as a small share at high quality or a large share at low quality: both bands are listed.
           </p>
         </div>
         <aside aria-label="Scanner and rock facts" className="flex-[1_1_340px] lg:max-w-[440px] box-border px-5 sm:pl-7 sm:pr-10 py-6 flex flex-col gap-7" style={{ borderLeft: '1px solid var(--gt-line)' }}>
-          <Scanner signatures={signatures} />
+          <Scanner signatures={signatures} spots={spots} place={place} setPlace={setPlace} />
           {rocks.map((s) => (
             <section key={`${s.rock}|${s.method}`} className="flex flex-col">
               <h2 className="gt-label gt-label-acc m-0 pb-2" style={{ borderBottom: '1px solid var(--gt-line)' }}>{s.rock} · {MINING_METHOD_LABELS[s.method]}</h2>
@@ -200,46 +203,72 @@ function OreFinder({ spots, ores, signatures, ore, setOre }: { spots: OreSpot[];
   );
 }
 
-function Scanner({ signatures }: { signatures: RockSignature[] }) {
+/** Places to narrow the scanner to, by system (only places with rocks the scanner can match). */
+function placeOptions(signatures: readonly RockSignature[], spots: readonly OreSpot[]): { system: string; places: string[] }[] {
+  const known = new Set(signatures.flatMap((s) => s.places));
+  const bySystem = new Map<string, Set<string>>();
+  for (const s of spots) if (known.has(s.place)) bySystem.set(s.system, (bySystem.get(s.system) ?? new Set()).add(s.place));
+  return [...bySystem].sort((a, b) => a[0].localeCompare(b[0])).map(([system, set]) => ({ system, places: [...set].sort() }));
+}
+
+function Scanner({ signatures, spots, place, setPlace }: { signatures: RockSignature[]; spots: OreSpot[]; place: string | null; setPlace: (p: string | null) => void }) {
   const [value, setValue] = useState('');
   const n = parseInt(value.replace(/[^0-9]/g, ''), 10);
-  const hits = matchSignature(n, signatures);
+  const options = useMemo(() => placeOptions(signatures, spots), [signatures, spots]);
+  const at = place && options.some((o) => o.places.includes(place)) ? place : null;
+  const hits = matchSignature(n, signatures, { place: at, spots });
   return (
     <section className="flex flex-col gap-2.5">
       <h2 className="gt-label gt-label-acc m-0 pb-2" style={{ borderBottom: '1px solid var(--gt-line)' }}>What&rsquo;s on my scanner?</h2>
       <label htmlFor="gt-sig" className="text-sm">Signature number</label>
       <input id="gt-sig" inputMode="numeric" className="gt-input gt-mono text-xl" placeholder="e.g. 7650" value={value} onChange={(e) => setValue(e.target.value)} />
+      <label htmlFor="gt-at" className="text-sm">Where are you? <span className="gt-dim">(optional)</span></label>
+      <select id="gt-at" className="gt-input" value={at ?? ''} onChange={(e) => setPlace(e.target.value || null)}>
+        <option value="">Anywhere</option>
+        {options.map((o) => (
+          <optgroup key={o.system} label={o.system}>
+            {o.places.map((p) => <option key={p} value={p}>{p}</option>)}
+          </optgroup>
+        ))}
+      </select>
       {hits.map((h) => (
-        <div key={`${h.rock}|${h.method}|${h.count}`} className="flex items-baseline justify-between gap-3 py-2 gt-row">
-          <span><b className="gt-hi font-semibold">{h.count} × {h.rock}</b> <span className="text-xs gt-dim">{MINING_METHOD_LABELS[h.method]}</span></span>
-          <span className="gt-mono text-[13px] gt-dim">{fmt(h.each)} each</span>
+        <div key={`${h.method}|${h.each}|${h.count}`} className="flex items-baseline justify-between gap-3 py-2 gt-row">
+          <span>
+            <b className="gt-hi font-semibold">{scanHitLabel(h)}</b> <span className="text-xs gt-dim">{SCAN_METHOD_LABELS[h.method]}</span>
+            {at && h.rocks.some((r) => r.chance != null) && <span className="block text-xs gt-dim">{h.rocks.filter((r) => r.chance != null).map((r) => `${r.rock} ${fmt(r.chance! * 100, 1)}% of ${SCAN_METHOD_LABELS[h.method].toLowerCase()} rocks here`).join(' · ')}</span>}
+          </span>
+          <span className="gt-mono text-[13px] gt-dim whitespace-nowrap">{fmt(h.each)} each</span>
         </div>
       ))}
-      {n > 0 && !hits.length && <span className="text-sm gt-dim">No rock type adds up to that number.</span>}
-      <span className="text-xs gt-dim">A cluster reads as one rock&rsquo;s signature times the number of rocks in it.</span>
+      {n > 0 && !hits.length && <span className="text-sm gt-dim">Nothing {at ? `found at ${at} ` : ''}adds up to that number. Check the digits: neighbouring ores are only 15 apart.</span>}
+      <span className="text-xs gt-dim">A cluster reads as one rock&rsquo;s signature times the number of rocks in it, up to the most that rock ever clusters in (legendary ores 2, epic 3, rare 4, uncommon 5, common 6).</span>
     </section>
   );
 }
 
 // ── Rock signatures ──────────────────────────────────────────────────────────
 
-function Signatures({ signatures }: { signatures: RockSignature[] }) {
+const SIG_METHODS: ScanMethod[] = ['ship', 'roc', 'hand', 'salvage'];
+
+function Signatures({ signatures, spots, place, setPlace }: { signatures: RockSignature[]; spots: OreSpot[]; place: string | null; setPlace: (p: string | null) => void }) {
   const [method, setMethod] = useState('Ship');
-  const methods = ['All', ...(['ship', 'roc'] as const).filter((m) => signatures.some((s) => s.method === m)).map((m) => METHOD_WORD[m])];
-  const rows = signatures.filter((s) => method === 'All' || METHOD_WORD[s.method] === method);
+  const methods = ['All', ...SIG_METHODS.filter((m) => signatures.some((s) => s.method === m)).map((m) => SCAN_METHOD_LABELS[m])];
+  const rows = signatures.filter((s) => method === 'All' || SCAN_METHOD_LABELS[s.method] === method);
   const cols: Col<RockSignature>[] = [
-    { key: 'rock', label: 'Rock', sort: (s) => s.rock, render: (s) => <><span className="font-semibold gt-hi">{s.rock}</span><span className="block text-xs gt-dim">{oreName(s.ore)} · {MINING_METHOD_LABELS[s.method]}</span></> },
-    ...[1, 2, 3, 4, 5, 6].map((k) => ({ key: `x${k}`, label: k === 1 ? 'One rock' : `× ${k}`, num: true, sort: k === 1 ? (s: RockSignature) => s.signature : undefined, render: (s: RockSignature) => <span className={k === 1 ? 'gt-hi' : ''}>{fmt(s.signature * k)}</span> })),
+    { key: 'rock', label: 'Rock', sort: (s) => s.rock, render: (s) => <><span className="font-semibold gt-hi">{s.rock}</span><span className="block text-xs gt-dim">{s.ore === 'salvage' ? 'Salvage' : `${oreName(s.ore)} · ${MINING_METHOD_LABELS[s.method as MiningMethod]}`}</span></> },
+    ...[1, 2, 3, 4, 5, 6].map((k) => ({ key: `x${k}`, label: k === 1 ? 'One rock' : `× ${k}`, num: true, sort: k === 1 ? (s: RockSignature) => s.signature : undefined,
+      render: (s: RockSignature) => (k <= s.maxCluster ? <span className={k === 1 ? 'gt-hi' : ''}>{fmt(s.signature * k)}</span> : <span className="gt-dim" title="Never this many in one cluster">–</span>) })),
+    { key: 'max', label: 'Most in a cluster', num: true, sort: (s) => s.maxCluster, render: (s) => s.maxCluster },
   ];
   return (
     <div className="flex flex-wrap">
       <div className="flex-[999_1_620px] min-w-0 box-border px-5 sm:pl-10 sm:pr-8 py-6 flex flex-col gap-4">
-        <Chips label="Mined by" options={methods} value={method} onChange={setMethod} />
-        <SortTable rows={rows} cols={cols} initial="x1" rowKey={(s) => `${s.rock}|${s.method}`} minWidth={760} />
-        <p className="text-xs gt-dim m-0">What the scanner shows for a cluster of 1 to 6 rocks of each type.</p>
+        <Chips label="Scanned by" options={methods} value={method} onChange={setMethod} />
+        <SortTable rows={rows} cols={cols} initial="x1" rowKey={(s) => `${s.rock}|${s.method}`} minWidth={820} />
+        <p className="text-xs gt-dim m-0">What the scanner shows for a cluster of 1 to 6 rocks of each type. A dash means that rock never clusters that big, so the number can&rsquo;t be it. ROC and hand-mining gems all share one signature, so the scanner can&rsquo;t tell them apart.</p>
       </div>
       <aside className="flex-[1_1_340px] lg:max-w-[440px] box-border px-5 sm:pl-7 sm:pr-10 py-6" style={{ borderLeft: '1px solid var(--gt-line)' }}>
-        <Scanner signatures={signatures} />
+        <Scanner signatures={signatures} spots={spots} place={place} setPlace={setPlace} />
       </aside>
     </div>
   );
@@ -249,23 +278,24 @@ function Signatures({ signatures }: { signatures: RockSignature[] }) {
 
 function Lasers({ lasers }: { lasers: MiningLaser[] }) {
   const [size, setSize] = useState('All');
-  const sizes = ['All', ...[...new Set(lasers.map((l) => l.size))].sort().map((s) => `Size ${s}`)];
-  const rows = lasers.filter((l) => size === 'All' || `Size ${l.size}` === size);
+  const sizeLabel = (n: number) => (n === 0 ? 'ROC & hand' : `Size ${n}`);
+  const sizes = ['All', ...[...new Set(lasers.map((l) => l.size))].sort().map(sizeLabel)];
+  const rows = lasers.filter((l) => size === 'All' || sizeLabel(l.size) === size);
   const cols: Col<MiningLaser>[] = [
-    { key: 'name', label: 'Laser', sort: (l) => l.name, render: (l) => <><span className="font-semibold gt-hi">{l.name.replace(/ Mining Laser$/, '')}</span><span className="block text-xs gt-dim">{l.maker} · size {l.size}</span></> },
+    { key: 'name', label: 'Laser', sort: (l) => l.name, render: (l) => <><span className="font-semibold gt-hi">{l.name.replace(/ Mining Laser$/, '')}</span><span className="block text-xs gt-dim">{l.maker} · {l.size === 0 ? 'ROC / multi-tool' : `size ${l.size}`}</span></> },
     { key: 'power', label: 'Power', num: true, sort: (l) => l.power, render: (l) => <span className="gt-hi">{fmt(l.power)}</span> },
     { key: 'min', label: 'Min power', num: true, sort: (l) => l.minPower, render: (l) => fmt(l.minPower, l.minPower != null && l.minPower % 1 ? 1 : 0) },
     { key: 'ext', label: 'Extraction', num: true, sort: (l) => l.extraction, render: (l) => fmt(l.extraction) },
     { key: 'opt', label: 'Optimal m', num: true, sort: (l) => l.optimalRange, render: (l) => fmt(l.optimalRange) },
     { key: 'max', label: 'Max m', num: true, sort: (l) => l.maxRange, render: (l) => fmt(l.maxRange) },
     { key: 'slots', label: 'Modules', num: true, sort: (l) => l.moduleSlots, render: (l) => l.moduleSlots },
-    ...MOD_COLUMNS.slice(0, 6).map((m) => ({ key: m.key, label: m.label, num: true, low: m.lowerIsBetter, sort: (l: MiningLaser) => l.modifiers[m.key] ?? 0, render: (l: MiningLaser) => <ModCell v={l.modifiers[m.key]} lowerIsBetter={m.lowerIsBetter} /> })),
+    ...LASER_MOD_COLUMNS.map((m) => ({ key: m.key, label: m.label, num: true, low: m.lowerIsBetter, sort: (l: MiningLaser) => l.modifiers[m.key] ?? 0, render: (l: MiningLaser) => <ModCell v={l.modifiers[m.key]} lowerIsBetter={m.lowerIsBetter} /> })),
   ];
   return (
     <div className="px-5 sm:px-10 py-6 flex flex-col gap-4">
       <Chips label="Size" options={sizes} value={size} onChange={setSize} />
       <SortTable rows={rows} cols={cols} initial="power" rowKey={(l) => l.uuid} minWidth={1200} />
-      <p className="text-xs gt-dim m-0">Green helps the miner, red hurts. Hand and ROC lasers are coming.</p>
+      <p className="text-xs gt-dim m-0">Green helps the miner, red hurts. Inert is the share of inert material the laser filters out of what you collect.</p>
     </div>
   );
 }
@@ -285,6 +315,21 @@ function Modules({ modules }: { modules: MiningModule[] }) {
       <Chips label="Kind" options={['All', 'Active', 'Passive']} value={kind} onChange={setKind} />
       <SortTable rows={rows} cols={cols} initial="power" rowKey={(m) => m.uuid} minWidth={1200} />
       <p className="text-xs gt-dim m-0">Active modules are used up: uses × seconds each. Green helps the miner, red hurts.</p>
+    </div>
+  );
+}
+
+function Gadgets({ gadgets }: { gadgets: MiningGadget[] }) {
+  const cols: Col<MiningGadget>[] = [
+    { key: 'name', label: 'Gadget', sort: (g) => g.name, render: (g) => <><span className="font-semibold gt-hi">{g.name}</span><span className="block text-xs gt-dim">{g.maker ?? ''}{g.rarity ? ` · ${g.rarity}` : ''}</span></> },
+    ...GADGET_MOD_COLUMNS.map((c) => ({ key: c.key, label: c.label, num: true, low: c.lowerIsBetter, sort: (g: MiningGadget) => g.modifiers[c.key] ?? 0, render: (g: MiningGadget) => <ModCell v={g.modifiers[c.key]} lowerIsBetter={c.lowerIsBetter} /> })),
+  ];
+  return (
+    <div className="px-5 sm:px-10 py-6 flex flex-col gap-4">
+      {gadgets.length
+        ? <SortTable rows={gadgets} cols={cols} initial="name" rowKey={(g) => g.uuid} minWidth={760} />
+        : <p className="gt-dim m-0">No gadgets in this build&rsquo;s data.</p>}
+      <p className="text-xs gt-dim m-0 max-w-[900px]">Gadgets are placed on the rock itself, not on the laser, and change the rock for everyone mining it. Use one per rock: the game warns that two can make it explode. A higher cluster figure keeps more of the rock&rsquo;s ore together when it breaks. Numbers are the game&rsquo;s own values, which can differ from the item&rsquo;s description text in game.</p>
     </div>
   );
 }
