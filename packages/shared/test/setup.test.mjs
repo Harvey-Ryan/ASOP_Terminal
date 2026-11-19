@@ -112,3 +112,16 @@ test('without Manage Roles the loot draft can\'t mark the picker: a step says so
   assert.equal(byKey(setupChecklist({ settings, hasEvents: true, discord: withRoles }))['roles-perm'], undefined);
   assert.equal(byKey(setupChecklist({ settings: { ...settings, lootEnabled: false }, hasEvents: true, discord: discord() }))['roles-perm'], undefined);
 });
+
+test('AI assistant channels (v1.56.0): only problems show, and only when it is on', () => {
+  const settings = { ...allOff, forumChannelId: 'forum', voiceCategoryId: 'cat' };
+  const d = discord({ channels: [...discord().channels, { id: 'ask', name: 'ask-asop', type: 0, permission_overwrites: [] },
+    { id: 'quiet', name: 'quiet', type: 0, permission_overwrites: [{ id: BOT_ROLE, type: 0, allow: '0', deny: p(PERMS.SEND_MESSAGES) }] }] });
+  const off = byKey(setupChecklist({ settings, hasEvents: true, discord: d }));
+  assert.equal(Object.keys(off).some((k) => k.startsWith('assistant')), false);
+  const on = byKey(setupChecklist({ settings, hasEvents: true, discord: d, assistantChannelIds: ['ask', 'quiet', 'gone'] }));
+  assert.equal(on['assistant-ask'], undefined);
+  assert.match(on['assistant-quiet'].detail, /missing Send Messages in #quiet/);
+  assert.match(on['assistant-gone'].detail, /deleted/);
+  assert.equal(on['assistant-gone'].page, 'assistant');
+});

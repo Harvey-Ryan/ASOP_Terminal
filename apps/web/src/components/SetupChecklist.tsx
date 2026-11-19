@@ -20,6 +20,7 @@ const PAGE_PATH: Record<SetupPage, string> = {
   bot: 'settings/bot',
   allies: 'settings/allies',
   jobs: 'settings/modules/jobs',
+  assistant: 'settings/assistant',
   'new-event': 'events/new',
 };
 

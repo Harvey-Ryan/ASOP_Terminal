@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, Crosshair, BookOpen, Calculator, Palmtree, Pickaxe, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase } from 'lucide-react';
+import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, Crosshair, BookOpen, Calculator, Palmtree, Pickaxe, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase, Bot } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -695,6 +695,17 @@ export function DashboardLayout() {
                     <Puzzle className="h-4 w-4 shrink-0" />
                     {!navCollapsed && 'Module Settings'}
                   </NavLink>
+
+                  {myPerms?.assistantAvailable && (
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild!.id}/settings/assistant`}
+                      title={navCollapsed ? 'AI Assistant' : undefined}
+                      className={navCls}
+                    >
+                      <Bot className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'AI Assistant'}
+                    </NavLink>
+                  )}
 
                   <NavLink
                     to={`/dashboard/servers/${activeGuild!.id}/settings/game-data`}

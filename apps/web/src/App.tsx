@@ -27,6 +27,7 @@ const LootModulePage = lazyPage(() => import('./pages/LootModulePage'), 'LootMod
 const StandaloneLootSessionPage = lazyPage(() => import('./pages/StandaloneLootSessionPage'), 'StandaloneLootSessionPage');
 const ModuleEventBotPage = lazyPage(() => import('./pages/settings/ModuleEventBotPage'), 'ModuleEventBotPage');
 const BotSettingsPage = lazyPage(() => import('./pages/settings/BotSettingsPage'), 'BotSettingsPage');
+const AssistantSettingsPage = lazyPage(() => import('./pages/settings/AssistantSettingsPage'), 'AssistantSettingsPage');
 const PermissionsPage = lazyPage(() => import('./pages/settings/PermissionsPage'), 'PermissionsPage');
 const DkpSettingsPage = lazyPage(() => import('./pages/settings/DkpSettingsPage'), 'DkpSettingsPage');
 const GameDataPage = lazyPage(() => import('./pages/settings/GameDataPage'), 'GameDataPage');
@@ -124,6 +125,7 @@ export default function App() {
           <Route path="servers/:guildId/settings/modules/event-bot" element={<ModuleGate setting="eventBotEnabled"><ModuleEventBotPage /></ModuleGate>} />
           <Route path="servers/:guildId/settings/modules/dkp" element={<ModuleGate setting="dkpEnabled"><DkpSettingsPage /></ModuleGate>} />
           <Route path="servers/:guildId/settings/bot" element={<BotSettingsPage />} />
+          <Route path="servers/:guildId/settings/assistant" element={<AssistantSettingsPage />} />
           <Route path="servers/:guildId/settings/allies" element={<AlliesPage />} />
           <Route path="servers/:guildId/settings/game-data" element={<GameDataPage />} />
           <Route path="servers/:guildId/settings/sc-data" element={<ScDataPage />} />

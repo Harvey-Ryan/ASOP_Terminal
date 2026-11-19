@@ -305,6 +305,8 @@ used and can be removed.
 | `ROLECALL_API_URL` | RoleCall integration API base URL |
 | `ROLECALL_API_KEY` | RoleCall integration API key |
 | `ACTIVITY_SERVER_IDS` | Optional. Comma-separated Discord server ids that get Activity (RoleCall). Defaults to Fleet 919; every other server doesn't see the module. |
+| `AI_KEY_SECRET` | Needed for the AI assistant (v1.56.0). A random secret of 32+ characters (for example `openssl rand -base64 48`) that encrypts servers' AI keys. Set it on the main ASOP service (API and bot share it). Keep it only in Railway, never in the database or repo; changing or losing it makes every saved key unreadable (admins then add their keys again). Without it, keys can't be saved. |
+| `AI_SERVER_IDS` | Optional. Comma-separated Discord server ids offered the AI assistant, or `*` for every server. Defaults to Fleet 919. |
 
 ---
 

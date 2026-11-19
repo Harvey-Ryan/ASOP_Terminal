@@ -1,4 +1,5 @@
 import { expireJobs } from './services/jobService.js';
+import { pruneAssistantData } from './services/assistantService.js';
 import { checkLootThreadHolds } from './services/lootService.js';
 import cron from 'node-cron';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
@@ -80,6 +81,7 @@ const POSTING_CHECKS: [string, () => Promise<void>][] = [
   ['refreshStatusEmbeds',      () => refreshStatusEmbeds()],
   ['checkFleetNudges',         () => checkFleetNudges()],
   ['announceStarStrings',      () => announceStarStrings()],
+  ['pruneAssistantData',       () => pruneAssistantData()],
 ];
 
 // Runs a named scheduler check, logs its duration, and swallows errors so one

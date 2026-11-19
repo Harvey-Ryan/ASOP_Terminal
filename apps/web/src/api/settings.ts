@@ -77,6 +77,8 @@ export interface GuildMyPermissions {
   activityHeatmapPublic: boolean;
   tournamentsEnabled: boolean;
   jobsEnabled: boolean;
+  /** The AI assistant is offered to this server (v1.56.0 rollout); its settings are for server admins */
+  assistantAvailable?: boolean;
   /** Modules a platform admin hid for every server (v1.28.0); their *Enabled flags are already false */
   hiddenModules?: ModuleSetting[];
   rsiOrgRequired: boolean;

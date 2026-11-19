@@ -53,6 +53,11 @@ export function withInteraction<T>(interaction: Interaction, fn: () => Promise<T
   return als.run({ ref: newRef(), guildId: interaction.guildId, userId: interaction.user.id, what: describeInteraction(interaction) }, fn);
 }
 
+/** Runs a message handler (the AI assistant, v1.56.0) with its own ref and context. */
+export function withMessage<T>(m: { guildId: string | null; author: { id: string } }, what: string, fn: () => Promise<T>): Promise<T> {
+  return als.run({ ref: newRef(), guildId: m.guildId, userId: m.author.id, what }, fn);
+}
+
 /** "Something went wrong." plus the ref to quote, inside an interaction. */
 export function withRef(message: string): string {
   const ref = als.getStore()?.ref;

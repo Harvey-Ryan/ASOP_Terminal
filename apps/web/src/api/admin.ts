@@ -39,5 +39,10 @@ export const adminApi = {
   saveConfig: (c: Omit<AdminConfigDto, 'lastDigestDate'>) => api.put<ApiResponse<AdminConfigDto>>('/admin/config', c).then((r) => r.data!),
   modules: () => api.get<ApiResponse<AdminModuleDto[]>>('/admin/modules').then((r) => r.data!),
   saveModules: (hidden: ModuleSetting[]) => api.put<ApiResponse<AdminModuleDto[]>>('/admin/modules', { hidden }).then((r) => r.data!),
+  /** The AI assistant for every server (v1.56.0): off needs "TURN OFF AI" typed. */
+  ai: () => api.get<ApiResponse<AdminAiStatus>>('/admin/ai').then((r) => r.data!),
+  setAi: (disabled: boolean, confirm?: string) => api.put<ApiResponse<AdminAiStatus>>('/admin/ai', { disabled, confirm }).then((r) => r.data!),
   testFeed: () => api.post<ApiResponse<{ queued: boolean }>>('/admin/config/test').then((r) => r.data!),
 };
+
+export interface AdminAiStatus { disabled: boolean; disabledAt: string | null; serversOn: number; keysSaved: number }

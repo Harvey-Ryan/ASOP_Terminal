@@ -36,6 +36,10 @@ async function world() {
   await prisma.fleetShip.create({ data: { discordId: d, shipId: 'rsi-test-carrack', nickname: 'Wanderer' } });
   await prisma.eventBriefing.create({ data: { eventId: coming.id, content: '{}', updatedBy: d } });
   await prisma.wikeloProgress.create({ data: { discordId: d, missionId: 'mission-f7', ticked: JSON.stringify(['favor']), completedAt: null } });
+  // v1.56.0: assistant counts, a flagged question and the privacy notice.
+  await prisma.aiUsage.create({ data: { guildId: guild.guildId, discordId: d, day: '2026-11-19', questions: 3, inputTokens: 900, outputTokens: 120 } });
+  await prisma.aiFlag.create({ data: { guildId: guild.guildId, discordId: d, username: 'Rook', question: 'something rude', reason: 'abusive' } });
+  await prisma.aiNoticeSeen.create({ data: { discordId: d } });
   // v1.53.0: a correction they sent, one they confirmed, and reviewer status.
   const sent = await prisma.dataCorrection.create({ data: {
     kind: 'mining-laser', recordKey: 'arbor', recordName: 'Arbor MH1', field: 'power', gameValue: 2340, value: 2400, note: 'Seen at Lorville',
@@ -80,6 +84,8 @@ describe('your data', () => {
     expect(data.marketplace.conversations.map((m: { body: string }) => m.body)).toEqual(['Still have it?', 'Yes']);
     expect(data.jobs.posted[0].title).toBe('Need a hauler');
     expect(data.wikeloChecklists[0]).toMatchObject({ missionId: 'mission-f7', ticked: ['favor'] });
+    expect(data.aiAssistant.usage).toEqual([{ guildId: w.guild.guildId, day: '2026-11-19', questions: 3, inputTokens: 900, outputTokens: 120 }]);
+    expect(data.aiAssistant.flaggedQuestions[0]).toMatchObject({ question: 'something rude', reason: 'abusive' });
     expect(data.corrections.sent[0]).toMatchObject({ recordName: 'Arbor MH1', value: 2400, creditName: 'Rook' });
     expect(data.corrections.confirmed).toHaveLength(1);
     expect(data.corrections.dataReviewerSince).not.toBeNull();
@@ -106,6 +112,9 @@ describe('your data', () => {
     expect(await prisma.fleetShip.count({ where: { discordId: d } })).toBe(0);
     expect(await prisma.fleetOwner.count({ where: { discordId: d } })).toBe(0);
     expect(await prisma.wikeloProgress.count({ where: { discordId: d } })).toBe(0);
+    expect(await prisma.aiUsage.count({ where: { discordId: d } })).toBe(0);
+    expect(await prisma.aiFlag.count({ where: { discordId: d } })).toBe(0);
+    expect(await prisma.aiNoticeSeen.count({ where: { discordId: d } })).toBe(0);
     // Corrections stay, without them; reviewer status goes.
     expect(await prisma.dataCorrection.findFirst({ where: { recordKey: 'arbor' }, select: { submittedBy: true, submittedName: true, creditName: true } }))
       .toEqual({ submittedBy: ghost, submittedName: 'Deleted member', creditName: null });

@@ -81,6 +81,8 @@ const FORUM_NEEDS: Need = [[PERMS.VIEW_CHANNEL, 'View Channel'], [PERMS.SEND_MES
   [PERMS.EMBED_LINKS, 'Embed Links'], [PERMS.ATTACH_FILES, 'Attach Files'], [PERMS.READ_MESSAGE_HISTORY, 'Read Message History']];
 const CATEGORY_NEEDS: Need = [[PERMS.VIEW_CHANNEL, 'View Channel'], [PERMS.MANAGE_CHANNELS, 'Manage Channels']];
 const TEXT_NEEDS: Need = [[PERMS.VIEW_CHANNEL, 'View Channel'], [PERMS.SEND_MESSAGES, 'Send Messages'], [PERMS.EMBED_LINKS, 'Embed Links']];
+/** The AI assistant replies to questions, in channels and their threads (v1.56.0). */
+const ASSISTANT_NEEDS: Need = [[PERMS.VIEW_CHANNEL, 'View Channel'], [PERMS.SEND_MESSAGES, 'Send Messages'], [PERMS.SEND_MESSAGES_IN_THREADS, 'Send Messages in Threads'], [PERMS.READ_MESSAGE_HISTORY, 'Read Message History']];
 
 // ── The checklist ────────────────────────────────────────────────────────────
 
@@ -98,7 +100,7 @@ export type CreatableChannel = keyof typeof CREATABLE_CHANNELS;
 export const isCreatableChannel = (v: unknown): v is CreatableChannel => typeof v === 'string' && Object.hasOwn(CREATABLE_CHANNELS, v);
 
 /** Where on the website a step is fixed (a settings page, or creating an event). */
-export type SetupPage = 'event-bot' | 'loot' | 'dkp' | 'tournaments' | 'bot' | 'allies' | 'jobs' | 'new-event';
+export type SetupPage = 'event-bot' | 'loot' | 'dkp' | 'tournaments' | 'bot' | 'allies' | 'jobs' | 'assistant' | 'new-event';
 
 export interface SetupStep {
   key: string;
@@ -137,6 +139,8 @@ export interface SetupInput {
   settings: Record<string, unknown> | null;
   hasEvents: boolean;
   discord: SetupDiscord | null;
+  /** The AI assistant's channels when it's switched on (v1.56.0); omitted = not on. */
+  assistantChannelIds?: string[];
 }
 
 /** Required, unfinished steps in plain words: the admin panel's "looks unfinished" list. */
@@ -144,7 +148,7 @@ export function setupProblems(steps: readonly SetupStep[]): string[] {
   return steps.filter((s) => !s.done && !s.optional).map((s) => (s.detail ? `${s.label}: ${s.detail}` : s.label));
 }
 
-export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput): SetupStep[] {
+export function setupChecklist({ settings: s, hasEvents, discord, assistantChannelIds }: SetupInput): SetupStep[] {
   const on = (k: string) => !s || s[k] !== false;
   const str = (k: string) => (s && typeof s[k] === 'string' && s[k] ? (s[k] as string) : null);
   const base = discord ? basePermissions(discord.guildId, discord.roles, discord.botRoleIds) : 0n;
@@ -202,6 +206,17 @@ export function setupChecklist({ settings: s, hasEvents, discord }: SetupInput):
       const before = steps.length;
       channel(key, label, setting, page, TEXT_NEEDS, 'channel', '');
       if (steps[before]!.done) steps.pop(); // fine: nothing to show
+    }
+  }
+
+  // The AI assistant's channels (v1.56.0): only problems are shown.
+  if (discord && assistantChannelIds) {
+    for (const id of assistantChannelIds) {
+      const ch = discord.channels.find((c) => c.id === id);
+      if (!ch) { steps.push({ key: `assistant-${id}`, label: 'AI assistant channel', done: false, broken: true, detail: 'A channel the assistant answers in was deleted. Pick another.', page: 'assistant' }); continue; }
+      const have = channelPermissions(base, discord.guildId, discord.botId, discord.botRoleIds, ch.permission_overwrites);
+      const missing = ASSISTANT_NEEDS.filter(([bit]) => !(have & bit)).map(([, n]) => n);
+      if (missing.length) steps.push({ key: `assistant-${id}`, label: 'AI assistant channel', done: false, broken: true, detail: `The bot is missing ${missing.join(', ')} in #${ch.name}, so it can't answer there.`, page: 'assistant' });
     }
   }
 
