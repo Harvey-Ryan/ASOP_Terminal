@@ -11,6 +11,7 @@ import {
   combatGunFromItem, combatShipFromRow, dedupeGuns, gunGroupKey, isUnavailableGun, isGameDataMissingError, shipIndex, matchShip,
   shipComponentFromItem, dedupeComponents, componentGroupKey,
   missileFromItem, dedupeMissiles, missileGroupKey,
+  salvageModuleFromItem, fuelPodFromItem, SALVAGE_MODULES_SQL, FUEL_PODS_SQL, type FuelPod, type SalvageModule,
   buildOreSpots, miningLaserFromItem, miningModuleFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL,
   type MiningDataDto, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
   GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
@@ -55,7 +56,7 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   }
   if (!source?.commit) return null;
 
-  const [shipRows, gunRows, componentRows, missileRows, launcherRows, laserRows, moduleRows] = await Promise.all([
+  const [shipRows, gunRows, componentRows, missileRows, launcherRows, laserRows, moduleRows, salvageRows, podRows] = await Promise.all([
     query<Row[]>(GAME_TOOLS_SHIPS_SQL),
     query<Row[]>(GAME_TOOLS_GUNS_SQL),
     query<Row[]>(GAME_TOOLS_COMPONENTS_SQL),
@@ -63,6 +64,8 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
     query<Row[]>(COUNTERMEASURE_SQL),
     query<Row[]>(MINING_LASERS_SQL),
     query<Row[]>(MINING_MODULES_SQL),
+    query<Row[]>(SALVAGE_MODULES_SQL),
+    query<Row[]>(FUEL_PODS_SQL),
   ]);
   const allGuns = gunRows.map(combatGunFromItem).filter((g): g is CombatGun => !!g && !isUnavailableGun(g));
   const guns = dedupeGuns(allGuns);
@@ -98,6 +101,12 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const miningModules = dedupeMining(moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m), (m) => [m.name, m.power, m.modifiers])
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 
+  // Salvage modules and fuel pods (v1.51.0). A ship's pod may be a filled copy: point it at the plain pod of that name.
+  const salvageModules = salvageRows.map(salvageModuleFromItem).filter((m): m is SalvageModule => !!m).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  const fuelPods = podRows.map(fuelPodFromItem).filter((p): p is FuelPod => !!p).sort((a, b) => a.name.localeCompare(b.name));
+  const podByName = new Map(fuelPods.map((p) => [p.name, p.uuid]));
+  const podRep = new Map(podRows.map((r) => [r.uuid, podByName.get(r.name ?? '') ?? null]));
+
   const catalog = await catalogFn().catch((err: unknown) => { console.warn('[game-tools] No ship pictures:', err); return []; });
   const index = catalog.length ? shipIndex(catalog) : null;
 
@@ -113,6 +122,7 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
       head.stockLaserUuid = laserRep.get(head.stockLaserUuid) ?? null;
       if (head.stockLaserUuid) stockLasers.add(head.stockLaserUuid);
     }
+    for (const slot of s.fuelPodSlots ?? []) if (slot.stockUuid) slot.stockUuid = podRep.get(slot.stockUuid) ?? null;
     for (const slot of s.componentSlots) {
       if (!slot.stockUuid) continue;
       slot.stockUuid = compRep.get(slot.stockUuid) ?? null;
@@ -129,7 +139,7 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const components = componentGroups.filter((c) => c.available || stockComponents.has(c.uuid));
   // Lasers made for one ship only where that ship comes with them.
   const miningLasers = laserGroups.filter((l) => !l.bespokeFor || stockLasers.has(l.uuid)).sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
-  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles, miningLasers, miningModules };
+  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles, miningLasers, miningModules, salvageModules, fuelPods };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<GameToolsDataDto>));
   return {
     commit: source.commit, at: Date.now(), data,

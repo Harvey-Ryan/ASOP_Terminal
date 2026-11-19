@@ -640,7 +640,7 @@ Patch Notes — v1.1.0 — November 10
 - Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
   and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
   an ETag, rate-limited per IP. Building it (and the Mining data) takes
-  several seconds, so nobody waits on it (v1.50.1): `warmGameTools()` builds
+  several seconds, so nobody waits on it (v1.51.1): `warmGameTools()` builds
   both at start-up and after each ship-list refresh, and a moved sc-data
   commit (checked at most once a minute) or a day-old copy is rebuilt in
   the background while the old copy is served. Only a request before the
@@ -698,8 +698,21 @@ Patch Notes — v1.1.0 — November 10
   (1+a)(1+b)−1 with active modules on: still to be checked against
   Regolith, and the page says so. "What this loadout can break" is a
   placeholder until that check.
-- Next: salvage and refuel loadouts, UEX prices and refinery yields. Power
-  pips are on hold.
+- Salvage and refuelling (v1.51.0, `packages/shared/src/industry.ts`):
+  `shipSalvageHeads` lists each salvage head and its module slots (a slot
+  holding the ReadyGrip/typed `SalvageModifier_TractorBeam` is the tractor
+  slot, fixed; the rest take any scraper module, `salvageModuleFitsSlot`).
+  Heads aren't swapped (Baler and Salvation heads hold different numbers of
+  modules). Scraper figures are `SalvageModifier` (radius, speed,
+  efficiency); one scraper works at a time, so nothing is added up.
+  Fuel pods: `shipFuelPodSlots` (Starfarer, Starlite) and `fuelPodFromItem`,
+  one per pod (filled copies, AI/template pods and the Eriesium cargo pods
+  left out; a ship's filled copy points at the plain pod by name). Capacity,
+  flow and integrity come from the pod's description: the files'
+  `ResourceContainer` size disagrees with it for every pod. Address:
+  `?sv0_1=<scraper>`, `?sf0=<pod>` (`cv`/`cf` when compared).
+- Next: tractor beams, UEX prices and refinery yields. Power pips are on
+  hold.
 - Components (v1.46.0): shields, power plants, coolers, quantum drives and
   radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
   `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats
