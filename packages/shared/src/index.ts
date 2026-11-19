@@ -972,3 +972,4 @@ export * from './briefing.js';
 export * from './uex.js';
 export * from './combat.js';
 export * from './corrections.js';
+export * from './assistant.js';

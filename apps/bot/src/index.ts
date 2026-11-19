@@ -32,6 +32,7 @@ import * as fleetCommand from './commands/fleet.js';
 import * as helpCommand from './commands/help.js';
 import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
+import { forgetAssistantKey, handleAssistantMessage, isForAssistant } from './services/assistantService.js';
 import { joinRoster, setRosterRole, leaveRoster, notifyThreadJoin } from './services/rsvpService.js';
 import { clickWaitlist } from './services/waitlistService.js';
 import { clickJob } from './services/jobService.js';
@@ -149,6 +150,8 @@ client.on(Events.GuildCreate, async (guild) => {
 
 client.on(Events.GuildDelete, async (guild) => {
   await prisma.guild.deleteMany({ where: { guildId: guild.id } }).catch(() => null);
+  // Its AI key goes too (v1.56.0); not kept for a server we've left.
+  await forgetAssistantKey(guild.id).catch((err) => console.error('[bot] Forgetting the AI key failed:', err));
   invalidateStatusTargets(); // its settings (and status channel) went with it
   console.log(`[bot] Left guild: ${guild.name} (${guild.id})`);
   // (discord.js reports outages as GuildUnavailable, not here.)
@@ -728,6 +731,8 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
+  // A question for the AI assistant (v1.56.0): someone tagged the bot.
+  if (isForAssistant(message)) { await handleAssistantMessage(message); return; }
   if (message.content.trim().toLowerCase() !== '!asop') return;
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';

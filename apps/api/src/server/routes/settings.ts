@@ -2,6 +2,7 @@ import { cachedDiscordGet, discordPost, forgetCached } from '../../lib/discordRe
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
+import { assistantAvailable, assistantChannels } from '../../lib/assistant.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertModuleEditor } from '../../lib/assertModuleEditor.js';
 import { assertEventCreator } from '../../lib/assertEventCreator.js';
@@ -80,6 +81,7 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         activityHeatmapPublic: s?.activityHeatmapPublic ?? true,
         tournamentsEnabled: on('tournamentsEnabled'),
         jobsEnabled:        on('jobsEnabled'),
+        assistantAvailable: assistantAvailable(guildId),
         hiddenModules:      [...hidden],
         rsiOrgRequired:     orgRequired,
         rsiVerified,
@@ -298,13 +300,16 @@ settingsRouter.get('/:guildId/setup', requireAuth, async (req, res) => {
     return;
   }
   const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
-  const [discord, anyEvent] = await Promise.all([
+  const [discord, anyEvent, ai] = await Promise.all([
     setupDiscord(guildId),
     prisma.event.findFirst({ where: { guildId }, select: { id: true } }),
+    prisma.aiAssistant.findUnique({ where: { guildId }, select: { enabled: true, channelIds: true } }),
   ]);
   // Hidden modules (v1.28.0) don't ask for their channels.
   const settings = withHiddenModules((guild?.settings ?? null) as Record<string, unknown> | null, await hiddenModules());
-  const steps = setupChecklist({ settings, hasEvents: !!anyEvent, discord });
+  // The AI assistant's channels, when it's on (v1.56.0).
+  const assistantChannelIds = ai?.enabled ? assistantChannels(ai.channelIds) : undefined;
+  const steps = setupChecklist({ settings, hasEvents: !!anyEvent, discord, assistantChannelIds });
   res.json({ success: true, data: { steps, hidden: guild?.settings?.setupHidden ?? false, discordChecked: !!discord } } satisfies ApiResponse<SetupChecklistDto>);
 });
 

@@ -1438,6 +1438,9 @@ model AdminConfig {
   digestTimezone   String    @default("America/Chicago")
   /// JSON ModuleSetting[]: modules hidden for every server (v1.28.0; @dem/shared modules.ts)
   hiddenModules    String    @default("[]")
+  /// AI assistant switched off for every server (v1.56.0); each server's own switch is kept
+  aiDisabled       Boolean   @default(false)
+  aiDisabledAt     DateTime?
   /// Bot-managed cursors
   lastDigestDate   String?
   alertCursor      Int       @default(0)
@@ -1621,4 +1624,74 @@ model DataReviewer {
   username  String
   addedBy   String?
   createdAt DateTime @default(now())
+}
+
+/// The AI assistant of one Discord server (v1.56.0; rules in packages/shared
+/// src/assistant.ts). The server brings its own provider key: stored only
+/// encrypted (AES-256-GCM with AI_KEY_SECRET, bound to the server id: API
+/// lib/aiKeys.ts), never sent to the browser, logged or exported.
+model AiAssistant {
+  /// Discord server id
+  guildId            String    @id
+  enabled            Boolean   @default(false)
+  /// openai (any OpenAI-style API) | anthropic | google
+  provider           String    @default("openai")
+  /// OpenAI-style providers other than OpenAI (https, checked by safeBaseUrl)
+  baseUrl            String?
+  model              String    @default("")
+  /// "v1:<iv>:<ciphertext+tag>" (base64); null = no key
+  keyCipher          String?
+  keyLast4           String?
+  keySavedAt         DateTime?
+  /// ok | invalid | no_credit | unreachable | model (AssistantKeyStatus)
+  keyStatus          String?
+  keyCheckedAt       DateTime?
+  /// JSON string[]: channels it answers in (empty = all)
+  channelIds         String    @default("[]")
+  /// JSON string[]: roles that can use it (empty = everyone)
+  roleIds            String    @default("[]")
+  dailyQuestionLimit Int       @default(20)
+  monthlyTokenLimit  Int       @default(1000000)
+  answerChars        Int       @default(500)
+  priceInPerM        Float?
+  priceOutPerM       Float?
+  /// Last time admins were told the key stopped working (so it's said once)
+  keyAlertAt         DateTime?
+  updatedAt          DateTime  @updatedAt
+}
+
+/// Assistant use, counts only: one row per person per server per UTC day.
+model AiUsage {
+  guildId      String
+  discordId    String
+  /// "2026-11-19" (UTC)
+  day          String
+  questions    Int    @default(0)
+  inputTokens  Int    @default(0)
+  outputTokens Int    @default(0)
+
+  @@id([guildId, discordId, day])
+  @@index([guildId, day])
+}
+
+/// A question the model flagged as inappropriate or harmful, kept in plain
+/// text for that server's admins only, deleted after 90 days (bot prunes).
+model AiFlag {
+  id        String   @id @default(cuid())
+  guildId   String
+  discordId String
+  username  String
+  channelId String?
+  question  String
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([guildId, createdAt])
+  @@index([discordId])
+}
+
+/// People who have seen the assistant's privacy notice (shown once).
+model AiNoticeSeen {
+  discordId String   @id
+  seenAt    DateTime @default(now())
 }

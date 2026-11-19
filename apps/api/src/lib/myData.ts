@@ -33,6 +33,7 @@ export async function exportMyData(userId: string) {
     tournamentsCreated, tournamentEntries, teamSpots, ratings, standings,
     jobsPosted, jobCrew, briefings, wikelo, errors, requests,
     correctionsSent, correctionConfirms, correctionActions, reviewer,
+    aiUsage, aiFlags, aiNotice,
   ] = await Promise.all([
     prisma.account.findMany({ where: { userId }, select: { provider: true, providerAccountId: true, scope: true, createdAt: true } }),
     prisma.guildMember.findMany({ where: { userId }, select: { role: true, rsiHandle: true, rsiVerified: true, createdAt: true, guild: { select: { guildId: true, name: true } } } }),
@@ -74,6 +75,9 @@ export async function exportMyData(userId: string) {
     prisma.correctionConfirmation.findMany({ where: { discordId: d }, select: { correctionId: true, note: true, evidenceUrl: true, createdAt: true } }),
     prisma.correctionEvent.findMany({ where: { actorId: d }, select: { correctionId: true, action: true, note: true, createdAt: true } }),
     prisma.dataReviewer.findUnique({ where: { discordId: d } }),
+    prisma.aiUsage.findMany({ where: { discordId: d }, orderBy: { day: 'asc' }, select: { guildId: true, day: true, questions: true, inputTokens: true, outputTokens: true } }),
+    prisma.aiFlag.findMany({ where: { discordId: d }, orderBy: { createdAt: 'asc' }, select: { guildId: true, question: true, reason: true, createdAt: true } }),
+    prisma.aiNoticeSeen.findUnique({ where: { discordId: d } }),
   ]);
 
   // Trades on their listings, with the whole conversation (it's theirs too).
@@ -129,6 +133,12 @@ export async function exportMyData(userId: string) {
     jobs: { posted: jobsPosted, crew: jobCrew },
     wikeloChecklists: wikelo.map((w) => ({ ...w, ticked: parseTicked(w.ticked) })),
     corrections: { sent: correctionsSent, confirmed: correctionConfirms, actions: correctionActions, dataReviewerSince: reviewer?.createdAt ?? null },
+    aiAssistant: {
+      about: 'Counts of your questions to the AI assistant (not the questions), and any question it flagged as inappropriate, which that server\'s admins can see for 90 days.',
+      privacyNoticeSeen: aiNotice?.seenAt ?? null,
+      usage: aiUsage,
+      flaggedQuestions: aiFlags,
+    },
     briefingsLastEditedByYou: briefings.map((b) => ({ eventId: b.eventId, event: b.event.name, updatedAt: b.updatedAt })),
     problemsLogged: { errors, websiteRequestsLogged: requests },
   };
@@ -218,6 +228,10 @@ export async function deleteMyData(userId: string): Promise<DeleteResult> {
     // ── Fleet, tournaments, jobs ──
     await tx.fleetOwner.deleteMany({ where: { discordId: d } }); // its ships go with it
     await tx.wikeloProgress.deleteMany({ where: { discordId: d } });
+    // AI assistant (v1.56.0): their counts, flagged questions and notice go.
+    await tx.aiUsage.deleteMany({ where: { discordId: d } });
+    await tx.aiFlag.deleteMany({ where: { discordId: d } });
+    await tx.aiNoticeSeen.deleteMany({ where: { discordId: d } });
     // Corrections stay (others confirmed and rely on them); who sent or checked them doesn't.
     await tx.dataCorrection.updateMany({ where: { submittedBy: d }, data: { submittedBy: ghost, submittedName: DELETED_NAME, creditName: null } });
     await tx.dataCorrection.updateMany({ where: { reviewedBy: d }, data: { reviewedBy: ghost, reviewedName: DELETED_NAME } });

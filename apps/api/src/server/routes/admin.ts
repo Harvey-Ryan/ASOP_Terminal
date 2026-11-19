@@ -13,6 +13,7 @@
 //   GET   /config, PUT /config          the admin Discord feed
 //   POST  /config/test                  send a test message to the feed
 //   GET   /modules, PUT /modules        modules hidden for every server (v1.28.0)
+//   GET   /ai, PUT /ai                  AI assistant off for every server (v1.56.0)
 
 import { Router, type Request, type Response } from 'express';
 import {
@@ -582,6 +583,37 @@ adminRouter.put('/modules', async (req, res) => {
     await adminLog({ kind: 'admin.modules', actor: adminOf(res), summary: `${parts.join('; ')} for every server`, details: { hidden: next } });
   }
   ok(res, await moduleDtos());
+});
+
+// ── AI assistant off for every server (v1.56.0) ─────────────────────────────
+// An emergency switch: turning it off needs "TURN OFF AI" typed; each server's
+// own setting and key are kept (and never shown here). Flags aren't shown to
+// platform admins either: each server moderates its own.
+
+async function aiStatus() {
+  const cfg = await prisma.adminConfig.findUnique({ where: { id: 1 }, select: { aiDisabled: true, aiDisabledAt: true } });
+  const [serversOn, keysSaved] = await Promise.all([
+    prisma.aiAssistant.count({ where: { enabled: true } }),
+    prisma.aiAssistant.count({ where: { keyCipher: { not: null } } }),
+  ]);
+  return { disabled: cfg?.aiDisabled ?? false, disabledAt: cfg?.aiDisabledAt?.toISOString() ?? null, serversOn, keysSaved };
+}
+
+adminRouter.get('/ai', async (_req, res) => {
+  ok(res, await aiStatus());
+});
+
+adminRouter.put('/ai', async (req, res) => {
+  const body = (req.body ?? {}) as { disabled?: unknown; confirm?: unknown };
+  if (typeof body.disabled !== 'boolean') { fail(res, 400, 'disabled must be true or false'); return; }
+  if (body.disabled && body.confirm !== 'TURN OFF AI') { fail(res, 400, 'Type TURN OFF AI to switch the assistant off for every server.'); return; }
+  await prisma.adminConfig.upsert({
+    where: { id: 1 },
+    create: { id: 1, aiDisabled: body.disabled, aiDisabledAt: body.disabled ? new Date() : null },
+    update: { aiDisabled: body.disabled, aiDisabledAt: body.disabled ? new Date() : null },
+  });
+  await adminLog({ kind: 'admin.ai', actor: adminOf(res), summary: body.disabled ? 'AI assistant switched off for every server' : 'AI assistant switched back on (each server\'s own setting applies)' });
+  ok(res, await aiStatus());
 });
 
 // ── Data reviewers (v1.53.0) ─────────────────────────────────────────────────

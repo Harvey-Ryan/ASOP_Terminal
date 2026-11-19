@@ -46,6 +46,7 @@ import { APP_VERSION, APP_COMMIT } from '../lib/appVersion.js';
 import { memberPinsRouter } from './routes/memberPins.js';
 import { liveRouter } from './routes/live.js';
 import { myDataRouter } from './routes/myData.js';
+import { assistantRouter } from './routes/assistant.js';
 import { logRequest, normalizePath, deriveModule, extractGuildId, requestLoggingOn } from '../lib/requestLogger.js';
 import type { ApiResponse } from '@dem/shared';
 import { discordBusyAsServiceUnavailable } from '../lib/memberRoles.js';
@@ -304,6 +305,7 @@ export function createServer(): express.Express {
   app.use('/api/guilds', memberPinsRouter);
   app.use('/api/guilds', membersRouter);
   app.use('/api/guilds', jobsRouter);
+  app.use('/api/guilds', assistantRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', clientErrorsRouter);
   app.use('/api', liveRouter);

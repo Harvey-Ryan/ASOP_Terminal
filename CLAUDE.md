@@ -763,6 +763,43 @@ Patch Notes — v1.1.0 — November 10
 - Next: tractor beams, UEX prices and refinery yields. Power pips are on
   hold.
 
+## AI assistant (v1.56.0)
+
+- Members tag the bot with a plain question; the server's own model answers
+  with ASOP's lookups. Plan and decisions: the "ASOP Terminal AI Assistant
+  Plan" doc. Rules, provider formats (OpenAI-style, Anthropic, Google) and the
+  tool list are in `packages/shared/src/assistant.ts` (`ASSISTANT_TOOLS`,
+  `pickTools`, `buildModelRequest`/`parseModelResponse`, `callModel`).
+- Settings (`AiAssistant`, one row per Discord server): `routes/assistant.ts`,
+  `lib/assistant.ts`, page `pages/settings/AssistantSettingsPage.tsx` at
+  `/dashboard/servers/:guildId/settings/assistant` (sidebar "AI Assistant").
+  Server admins only (`assertGuildManager`); servers outside `AI_SERVER_IDS`
+  (default Fleet 919, `*` = all) get 404 and no link.
+- Keys are write-only: checked with one tiny call (`KEY_TEST_REQUEST`), then
+  stored AES-256-GCM encrypted with `AI_KEY_SECRET` (env only), bound to the
+  server id (API `lib/aiKeys.ts`, bot `utils/aiKeys.ts`; keep them in step).
+  Never return a key, its cipher text, or put it in logs, errors, the admin
+  panel or exports; only `keyLast4`. Changing provider/address drops the key;
+  the bot leaving a server deletes it.
+- Bot: `services/assistantService.ts` (checks in order: rollout, global off,
+  switched on with key, channel, role, limits; then the model loop, at most
+  `MAX_MODEL_ROUNDS`/`MAX_TOOL_CALLS`), lookups in `services/assistantTools.ts`
+  (only what the asker could see in that server; Discord timestamps for
+  times; member-written text passed as quoted data). Only a typed mention
+  triggers it (a reply ping doesn't). Answers never ping (`allowedMentions`).
+- Stored about people: `AiUsage` (counts per person per server per UTC day),
+  `AiFlag` (questions the model flagged via `flag_question`; that server's
+  admins only, not platform admins; 90 days), `AiNoticeSeen` (privacy notice
+  shown once). All three are in Your data. Questions and answers aren't stored.
+- Admin → Modules has the emergency switch (`AdminConfig.aiDisabled`,
+  `PUT /api/admin/ai`, needs "TURN OFF AI" typed); each server keeps its own
+  setting and key.
+- Lookups only for now. Self-service sign-ups and officer actions (each with
+  Confirm/Cancel) are next; loot, DKP changes, roles and settings stay out.
+  A new tool goes into `ASSISTANT_TOOLS` (with its topic) and `TOOL_RUNNERS`.
+- The model guide on the settings page is general guidance only: no model
+  names, prices or recommendations.
+
 ## Community corrections (v1.53.0)
 
 - Members fix numbers the game files get wrong; corrections never change

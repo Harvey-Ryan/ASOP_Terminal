@@ -9,6 +9,7 @@ import type { AdminModuleDto, ModuleSetting } from '@dem/shared';
 import { adminApi } from '@/api/admin';
 import { ToggleSwitch } from '@/components/settings/SettingsControls';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { LoadFailed, Section } from './adminUi';
 
 export function AdminModulesPage() {
@@ -57,6 +58,48 @@ export function AdminModulesPage() {
           {save.isPending ? 'Saving…' : save.isError ? <span className="text-destructive">Couldn't save: {save.error instanceof Error ? save.error.message : 'unknown error'}</span> : note}
         </p>
       </Section>
+      <AiSwitch />
     </div>
+  );
+}
+
+/**
+ * The AI assistant's emergency switch (v1.56.0): off for every server at once.
+ * Keys and each server's own setting are kept (and never shown here); turning
+ * it off needs "TURN OFF AI" typed. Flagged questions stay with each server.
+ */
+function AiSwitch() {
+  const qc = useQueryClient();
+  const ai = useQuery({ queryKey: ['admin', 'ai'], queryFn: adminApi.ai });
+  const [typed, setTyped] = useState('');
+  const set = useMutation({
+    mutationFn: (disabled: boolean) => adminApi.setAi(disabled, disabled ? typed : undefined),
+    onSuccess: (d) => { qc.setQueryData(['admin', 'ai'], d); setTyped(''); },
+  });
+  if (ai.isError) return <LoadFailed error={ai.error} />;
+  if (!ai.data) return <Skeleton className="h-40 max-w-2xl" />;
+  const d = ai.data;
+  return (
+    <Section title="AI assistant (every server)">
+      {d.disabled && (
+        <p className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200" role="status">
+          The assistant is off for every server{d.disabledAt ? ` since ${new Date(d.disabledAt).toLocaleString()}` : ''}. Server admins see a notice on its settings page.
+        </p>
+      )}
+      <p className="mb-3 text-sm text-muted-foreground">
+        {d.serversOn} server{d.serversOn === 1 ? ' has' : 's have'} it switched on; {d.keysSaved} key{d.keysSaved === 1 ? ' is' : 's are'} saved.
+        Switching it off stops every answer within a minute and keeps each server's settings and key, so switching it back on restores them. Keys and flagged questions are never shown here.
+      </p>
+      {d.disabled ? (
+        <Button size="sm" disabled={set.isPending} onClick={() => set.mutate(false)}>Switch it back on</Button>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <input aria-label="Type TURN OFF AI to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Type TURN OFF AI"
+            className="w-48 rounded-md border border-input bg-background px-3 py-1.5 text-sm" />
+          <Button size="sm" variant="destructive" disabled={typed !== 'TURN OFF AI' || set.isPending} onClick={() => set.mutate(true)}>Turn off for every server</Button>
+        </div>
+      )}
+      {set.isError && <p className="mt-2 text-sm text-destructive">{set.error instanceof Error ? set.error.message : 'Couldn\'t save.'}</p>}
+    </Section>
   );
 }
