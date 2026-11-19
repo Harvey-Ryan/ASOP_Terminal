@@ -81,6 +81,7 @@ export function MiningPage() {
             </span>
           </div>
         </header>
+        <RockCrawlerStrip />
         <nav aria-label="Mining views" className="flex flex-wrap gap-x-6 border-b border-[#2c2c2c] bg-[#141414] px-5 sm:px-8">
           {VIEWS.map((v) => (
             <button key={v.id} type="button" className="fab-view fab-label text-[13px]" aria-current={view === v.id ? 'page' : undefined}
@@ -97,6 +98,36 @@ export function MiningPage() {
         </div>
       </div>
     </CorrectionsProvider>
+  );
+}
+
+// ASOP RockCrawler (v1.55.0): the desktop overlay that reads the signature off the HUD with
+// this page's data. GitHub's latest-release address always serves the newest installer
+// (its release workflow uploads it as RockCrawler-Setup.exe).
+const ROCKCRAWLER_REPO = 'https://github.com/Harvey-Ryan/ASOP_RockCrawler';
+const ROCKCRAWLER_SETUP = `${ROCKCRAWLER_REPO}/releases/latest/download/RockCrawler-Setup.exe`;
+
+function RockCrawlerStrip() {
+  return (
+    <section aria-label="ASOP RockCrawler" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-[#2c2c2c] bg-[#121212] px-5 py-3 sm:px-8">
+      <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-0.5">
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="fab-stencil text-[17px] text-[var(--fab-gold-text)]">ROCKCRAWLER</span>
+          <span className="fab-label">Desktop overlay · Windows 10/11 · free</span>
+        </span>
+        <span className="text-sm text-[var(--fab-text)]">
+          Reads the signature off your HUD and shows the rock right beside it, using this page&rsquo;s scanner data. It updates itself.
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <a href={ROCKCRAWLER_SETUP} className="fab-btn-primary inline-flex h-11 items-center px-4 text-[15px] no-underline" download>Download for Windows</a>
+        <a href={`${ROCKCRAWLER_REPO}#readme`} target="_blank" rel="noreferrer" className="text-sm text-[var(--fab-muted)] underline underline-offset-2 hover:text-[var(--fab-bright)]">How it works</a>
+        <a href={`${ROCKCRAWLER_REPO}/releases/latest`} target="_blank" rel="noreferrer" className="text-sm text-[var(--fab-muted)] underline underline-offset-2 hover:text-[var(--fab-bright)]">What&rsquo;s new</a>
+      </div>
+      <p className="m-0 w-full text-xs text-[var(--fab-muted)]">
+        The installer isn&rsquo;t code-signed yet, so Windows may say it protected your PC: choose <b className="text-[var(--fab-text)]">More info → Run anyway</b>. Set Star Citizen to Borderless so the overlay can show.
+      </p>
+    </section>
   );
 }
 

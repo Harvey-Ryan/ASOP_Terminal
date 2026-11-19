@@ -698,6 +698,11 @@ Patch Notes — v1.1.0 — November 10
   list (`OreList`) · ore plate · scanner panel (on a phone a picked `?ore=`
   hides the list, "All ores" brings it back); the other views are plates
   around their sortable tables.
+- RockCrawler download (v1.55.0): a strip under the Mining header links to
+  `releases/latest/download/RockCrawler-Setup.exe` in the public
+  Harvey-Ryan/ASOP_RockCrawler repo (its release workflow always uploads the
+  installer under that name), plus "How it works" and "What's new". Keep the
+  file name in step if that workflow changes.
 - Scanner accuracy (v1.52.0): each `RockSignature` carries `maxCluster` (the
   biggest `Clustering.MaxSize` of that rock anywhere: ship ores 2–6 by
   rarity, ROC/hand gems 21–25) and `places`. `matchSignature` never counts
