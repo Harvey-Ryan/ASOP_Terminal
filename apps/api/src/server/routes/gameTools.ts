@@ -26,11 +26,19 @@ export const gameToolsRouter = Router();
 type Built = { commit: string; at: number; data: GameToolsDataDto; gz: Buffer; etag: string };
 let cached: Built | null = null;
 let building: Promise<Built | null> | null = null;
-/** Ship pictures can arrive after start-up (the ship list refreshes then): rebuild now and then. */
-const REBUILD_MS = 60 * 60_000;
+/**
+ * Building takes several seconds, so nobody waits on it (v1.51.1): it's built
+ * at start-up (`warmGameTools`), rebuilt in the background when the game data
+ * moves on or the ship list refreshes (new pictures), and the old copy is
+ * served meanwhile. Only a request before the very first build waits.
+ */
+const REBUILD_MS = 24 * 60 * 60_000;
+/** How often a request checks whether the game data moved on. */
+const CHECK_MS = 60_000;
+let checkedAt = 0;
 
 /** For tests: forget the cached copy. */
-export function resetGameToolsCache(): void { cached = null; building = null; }
+export function resetGameToolsCache(): void { cached = null; building = null; checkedAt = 0; }
 
 type Row = { uuid: string; class_name: string | null; name: string | null; manufacturer_name: string | null; size: number | null; grade?: number | null; career?: string | null; role?: string | null; crew?: number | null; data: Record<string, unknown> };
 
@@ -161,16 +169,28 @@ function countermeasures(loadout: unknown[] | undefined, launchers: Map<string, 
   return decoy || noise ? { decoy, noise } : null;
 }
 
+function rebuild(): Promise<Built | null> {
+  building ??= buildGameToolsData()
+    .then((b) => { if (b) cached = b; return b; })
+    .catch((err: unknown) => { console.error('[game-tools] Building the ship data failed:', err); return null; })
+    .finally(() => { building = null; });
+  return building;
+}
+
 async function getBuilt(): Promise<Built | null> {
-  if (cached && Date.now() - cached.at < REBUILD_MS) {
-    // Cheap check that the game data hasn't moved on.
+  if (!cached) return (await rebuild()) ?? cached;
+  if (Date.now() - checkedAt > CHECK_MS) {
+    checkedAt = Date.now();
+    // Cheap check that the game data hasn't moved on; rebuild behind the scenes if it has.
     const head = await prisma.$queryRawUnsafe<{ commit: string | null }[]>('SELECT commit FROM scdata.source LIMIT 1').catch(() => []);
-    if (head[0]?.commit === cached.commit) return cached;
+    if ((head[0]?.commit && head[0].commit !== cached.commit) || Date.now() - cached.at > REBUILD_MS) void rebuild();
   }
-  building ??= buildGameToolsData().finally(() => { building = null; });
-  const b = await building;
-  if (b) cached = b;
-  return b;
+  return cached;
+}
+
+/** Build the ship and mining data now (start-up, and after the ship list refreshes) so no visitor waits for it. */
+export function warmGameTools(): Promise<unknown> {
+  return Promise.all([rebuild(), rebuildMining()]);
 }
 
 /** For the bot and other server code: the same data, uncompressed. */
@@ -246,12 +266,17 @@ export async function buildMiningData(query: Query = prismaQuery): Promise<Minin
   };
 }
 
+function rebuildMining(): Promise<MiningBuilt | null> {
+  miningBuilding ??= buildMiningData()
+    .then((b) => { if (b) miningCached = b; return b; })
+    .catch((err: unknown) => { console.error('[game-tools] mining data:', err); return null; })
+    .finally(() => { miningBuilding = null; });
+  return miningBuilding;
+}
+
 gameToolsRouter.get('/game-tools/mining', async (req, res) => {
-  if (!miningCached || Date.now() - miningCached.at > REBUILD_MS) {
-    miningBuilding ??= buildMiningData().finally(() => { miningBuilding = null; });
-    const b = await miningBuilding.catch((err: unknown) => { console.error('[game-tools] mining data:', err); return null; });
-    if (b) miningCached = b;
-  }
+  if (!miningCached) await rebuildMining();
+  else if (Date.now() - miningCached.at > REBUILD_MS || (cached && cached.commit !== miningCached.commit)) void rebuildMining();
   const b = miningCached;
   if (!b) {
     res.status(503).json({ success: false, error: 'Game data isn’t loaded yet. Try again in a few minutes.' } satisfies ApiResponse);

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { refreshShipCatalog } from './lib/shipCatalog.js';
+import { warmGameTools } from './server/routes/gameTools.js';
 import cron from 'node-cron';
 import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
@@ -99,7 +100,8 @@ app.listen(PORT, async () => {
     const r = await refreshShipCatalog();
     if (r.source !== 'none') console.log(`[ships] ship list refreshed from ${r.source}: ${r.count} ships`);
   };
-  void ships().catch((err) => console.error('[ships] Start-up refresh failed:', err));
-  cron.schedule('20 5 * * *', () => { ships().catch((err) => console.error('[ships] Daily refresh failed:', err)); });
+  // Game Tools data (v1.51.1): built once the ship list is in (it brings the pictures), and again after each refresh.
+  void ships().catch((err) => console.error('[ships] Start-up refresh failed:', err)).finally(() => { void warmGameTools(); });
+  cron.schedule('20 5 * * *', () => { ships().catch((err) => console.error('[ships] Daily refresh failed:', err)).finally(() => { void warmGameTools(); }); });
 
 });
