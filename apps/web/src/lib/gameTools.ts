@@ -26,6 +26,8 @@ export function useGameTools() {
       missilesByUuid: new Map((d.missiles ?? []).map((m) => [m.uuid, m])),
       lasersByUuid: new Map((d.miningLasers ?? []).map((l) => [l.uuid, l])),
       modulesByUuid: new Map((d.miningModules ?? []).map((m) => [m.uuid, m])),
+      salvageByUuid: new Map((d.salvageModules ?? []).map((m) => [m.uuid, m])),
+      podsByUuid: new Map((d.fuelPods ?? []).map((p) => [p.uuid, p])),
       shipsByClass: new Map(d.ships.map((s) => [s.className.toLowerCase(), s])),
     };
   }, [q.data]);

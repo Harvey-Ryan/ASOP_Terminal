@@ -5,13 +5,15 @@
 // ?sk0=<component>…, ?sm0=<missile>… for the ship, c0/ck0/cm0 for the one it's
 // compared with. Mining ships (v1.50.0): each mining head's laser and
 // modules, ?sl0=<laser>, ?sd0_1=<module> (cl0/cd0_1 when compared).
+// Salvage and refuelling (v1.51.0): scraper modules ?sv0_1=, fuel pods ?sf0=.
 
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  gunFitsSlot, componentFitsSlot, componentTotals, missileFitsRack, laserFitsHead, miningHeadTotals, COMPONENT_KINDS,
+  gunFitsSlot, componentFitsSlot, componentTotals, missileFitsRack, laserFitsHead, miningHeadTotals, salvageModuleFitsSlot, fuelPodFitsSlot, COMPONENT_KINDS,
   type CombatGun, type GameToolsShip, type GunSlot, type ShipComponent, type ComponentSlot, type ComponentTotals,
   type MissileItem, type MissileRack, type MiningHead, type MiningHeadTotals, type MiningLaser, type MiningModule,
+  type SalvageHeadMount, type SalvageModule, type FuelPod, type FuelPodSlot,
 } from '@dem/shared';
 import { fmt, pctChange, pilotSlots } from '../../lib/gameTools';
 import { SwapWindow, type SwapColumn } from './SwapWindow';
@@ -43,6 +45,14 @@ export interface LoadoutState {
   headModules: (MiningModule | null)[][];
   headTotals: MiningHeadTotals[];
   stockHeadTotals: MiningHeadTotals[];
+  salvage: SalvageHeadMount[];
+  salvStock: (SalvageModule | null)[][];
+  salvFitted: (SalvageModule | null)[][];
+  podSlots: FuelPodSlot[];
+  podStock: (FuelPod | null)[];
+  podFitted: (FuelPod | null)[];
+  podCapacity: number;
+  stockPodCapacity: number;
   changes: number;
   pick: (slot: number, g: CombatGun) => void;
   pickComponent: (slot: number, c: ShipComponent) => void;
@@ -50,11 +60,14 @@ export interface LoadoutState {
   pickMissiles: (racks: number[], m: MissileItem) => void;
   pickLaser: (head: number, l: MiningLaser) => void;
   pickModule: (head: number, slot: number, m: MiningModule | null) => void;
+  pickSalvage: (head: number, slot: number, m: SalvageModule) => void;
+  pickPod: (slot: number, p: FuelPod) => void;
   reset: () => void;
 }
 
 export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUuid: Map<string, CombatGun>, componentsByUuid: Map<string, ShipComponent>, missilesByUuid: Map<string, MissileItem>,
-  lasersByUuid: Map<string, MiningLaser> = new Map(), modulesByUuid: Map<string, MiningModule> = new Map()): LoadoutState | null {
+  lasersByUuid: Map<string, MiningLaser> = new Map(), modulesByUuid: Map<string, MiningModule> = new Map(),
+  salvageByUuid: Map<string, SalvageModule> = new Map(), podsByUuid: Map<string, FuelPod> = new Map()): LoadoutState | null {
   const [params, setParams] = useSearchParams();
   if (!ship) return null;
   const slots = pilotSlots(ship);
@@ -87,6 +100,19 @@ export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUui
   });
   // No ship comes with modules fitted, so an empty slot is stock.
   const headModules = headLaser.map((l, i) => Array.from({ length: l?.moduleSlots ?? 0 }, (_, j) => modulesByUuid.get(params.get(`${prefix}d${i}_${j}`) ?? '') ?? null));
+  const salvage = ship.salvageHeads ?? [];
+  const salvStock = salvage.map((h) => h.slots.map((sl) => (sl.stockUuid ? salvageByUuid.get(sl.stockUuid) ?? null : null)));
+  const salvFitted = salvage.map((h, i) => h.slots.map((sl, j) => {
+    const m = salvageByUuid.get(params.get(`${prefix}v${i}_${j}`) ?? '');
+    return m && salvageModuleFitsSlot(m, sl) ? m : salvStock[i]![j] ?? null;
+  }));
+  const podSlots = ship.fuelPodSlots ?? [];
+  const podStock = podSlots.map((sl) => (sl.stockUuid ? podsByUuid.get(sl.stockUuid) ?? null : null));
+  const podFitted = podSlots.map((sl, i) => {
+    const p = podsByUuid.get(params.get(`${prefix}f${i}`) ?? '');
+    return p && fuelPodFitsSlot(p, sl) ? p : podStock[i] ?? null;
+  });
+  const podTotal = (list: (FuelPod | null)[]) => list.reduce((t, p) => t + (p?.capacity ?? 0), 0);
   const rackDamage = (list: (MissileItem | null)[]) => list.reduce((t, m, i) => t + (m ? m.damage * racks[i]!.count : 0), 0);
   const set = (mutate: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params);
@@ -108,11 +134,15 @@ export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUui
     heads, headStock, headLaser, headModules,
     headTotals: headLaser.map((l, i) => miningHeadTotals(l, headModules[i]!)),
     stockHeadTotals: headStock.map((l) => miningHeadTotals(l, [])),
+    salvage, salvStock, salvFitted, podSlots, podStock, podFitted,
+    podCapacity: podTotal(podFitted), stockPodCapacity: podTotal(podStock),
     changes: equipped.filter((g, i) => g?.uuid !== stock[i]?.uuid).length
       + compFitted.filter((c, i) => c?.uuid !== compStock[i]?.uuid).length
       + misFitted.filter((m, i) => m?.uuid !== misStock[i]?.uuid).length
       + headLaser.filter((l, i) => l?.uuid !== headStock[i]?.uuid).length
-      + headModules.flat().filter(Boolean).length,
+      + headModules.flat().filter(Boolean).length
+      + salvFitted.flat().filter((m, k) => m?.uuid !== salvStock.flat()[k]?.uuid).length
+      + podFitted.filter((p, i) => p?.uuid !== podStock[i]?.uuid).length,
     pick: (slot, g) => set((n) => put(n, `${prefix}${slot}`, g.uuid, stock[slot]?.uuid)),
     pickComponent: (slot, c) => set((n) => put(n, `${prefix}k${slot}`, c.uuid, compStock[slot]?.uuid)),
     pickMissiles: (list, m) => set((n) => list.forEach((i) => { if (missileFitsRack(m, racks[i]!)) put(n, `${prefix}m${i}`, m.uuid, misStock[i]?.uuid); })),
@@ -122,13 +152,16 @@ export function useLoadout(ship: GameToolsShip | null, prefix: string, gunsByUui
       for (const k of [...n.keys()]) { const m = new RegExp(`^${prefix}d${head}_(\\d+)$`).exec(k); if (m && Number(m[1]) >= l.moduleSlots) n.delete(k); }
     }),
     pickModule: (head, slot, m) => set((n) => { if (m) n.set(`${prefix}d${head}_${slot}`, m.uuid); else n.delete(`${prefix}d${head}_${slot}`); }),
-    reset: () => set((n) => { for (const k of [...n.keys()]) if (new RegExp(`^${prefix}(?:[kml]?\\d+|d\\d+_\\d+)$`).test(k)) n.delete(k); }),
+    pickSalvage: (head, slot, m) => set((n) => put(n, `${prefix}v${head}_${slot}`, m.uuid, salvStock[head]?.[slot]?.uuid)),
+    pickPod: (slot, p) => set((n) => put(n, `${prefix}f${slot}`, p.uuid, podStock[slot]?.uuid)),
+    reset: () => set((n) => { for (const k of [...n.keys()]) if (new RegExp(`^${prefix}(?:[kmlf]?\\d+|[dv]\\d+_\\d+)$`).test(k)) n.delete(k); }),
   };
 }
 
 /** What a click on a card opens. */
 export type SwapTarget = { kind: 'gun'; slot: number } | { kind: 'comp'; slot: number } | { kind: 'missile'; racks: number[] }
-  | { kind: 'laser'; head: number } | { kind: 'module'; head: number; slot: number };
+  | { kind: 'laser'; head: number } | { kind: 'module'; head: number; slot: number }
+  | { kind: 'salvage'; head: number; slot: number } | { kind: 'pod'; slot: number };
 
 const sameTarget = (a: SwapTarget | null | undefined, b: SwapTarget) => !!a && JSON.stringify(a) === JSON.stringify(b);
 
@@ -143,15 +176,35 @@ export function summaryOf(lo: LoadoutState) {
     const text = pctChange(now, before);
     return text ? { text, good: text.startsWith('+') !== low } : null;
   };
+  type Item = { label: string; value: string; delta: ReturnType<typeof d>; acc: boolean };
+  const work: Item[] = [];
   if (lo.heads.length) {
     const total = (list: MiningHeadTotals[], k: 'power' | 'extraction') => list.reduce((t, h) => t + (h[k] ?? 0), 0);
     const slots = lo.headModules.reduce((t, m) => t + m.length, 0);
     const fitted = lo.headModules.reduce((t, m) => t + m.filter(Boolean).length, 0);
-    return [
+    work.push(
       { label: lo.heads.length === 1 ? 'mining head' : 'mining heads', value: String(lo.heads.length), delta: null, acc: false },
       { label: 'laser power', value: fmt(total(lo.headTotals, 'power')), delta: d(total(lo.headTotals, 'power'), total(lo.stockHeadTotals, 'power')), acc: true },
       { label: 'extraction', value: fmt(total(lo.headTotals, 'extraction')), delta: d(total(lo.headTotals, 'extraction'), total(lo.stockHeadTotals, 'extraction')), acc: false },
       { label: 'modules', value: `${fitted} / ${slots}`, delta: null, acc: false },
+    );
+  }
+  if (lo.salvage.length) {
+    const scrapers = lo.salvFitted.flat().filter((m) => m?.kind === 'scraper').length;
+    work.push(
+      { label: lo.salvage.length === 1 ? 'salvage head' : 'salvage heads', value: String(lo.salvage.length), delta: null, acc: !lo.heads.length },
+      { label: scrapers === 1 ? 'scraper module' : 'scraper modules', value: String(scrapers), delta: null, acc: false },
+    );
+  }
+  if (lo.podSlots.length) {
+    work.push(
+      { label: lo.podSlots.length === 1 ? 'fuel pod' : 'fuel pods', value: String(lo.podFitted.filter(Boolean).length), delta: null, acc: false },
+      { label: 'pod capacity', value: `${fmt(lo.podCapacity)} SCU`, delta: d(lo.podCapacity, lo.stockPodCapacity), acc: true },
+    );
+  }
+  if (work.length) {
+    return [
+      ...work,
       ...(lo.ship.cargo != null ? [{ label: 'cargo', value: `${fmt(lo.ship.cargo)} SCU`, delta: null, acc: false }] : []),
       { label: 'shield HP', value: fmt(shields ? sys.shieldHp : lo.ship.shieldHp), delta: shields ? d(sys.shieldHp, was.shieldHp) : null, acc: false },
       { label: 'quantum range', value: sys.qtRangeGm != null ? `${fmt(sys.qtRangeGm, 1)} Gm` : '–', delta: d(sys.qtRangeGm, was.qtRangeGm), acc: false },
@@ -235,6 +288,8 @@ export function LoadoutCards({ lo, onOpen, active, narrow = false }: { lo: Loado
   return (
     <div className="flex flex-col gap-8">
       {lo.heads.length > 0 && <MiningHeads lo={lo} onOpen={onOpen} active={active} narrow={narrow} />}
+      {lo.salvage.length > 0 && <SalvageHeads lo={lo} onOpen={onOpen} active={active} narrow={narrow} />}
+      {lo.podSlots.length > 0 && <FuelPods lo={lo} onOpen={onOpen} active={active} narrow={narrow} />}
 
       <Section title={`Armament · ${lo.slots.length} pilot gun${lo.slots.length === 1 ? '' : 's'}`} aside={lo.slots.length ? 'Click a gun to swap it' : undefined}>
         {lo.slots.map((s, i) => {
@@ -279,7 +334,7 @@ export function LoadoutCards({ lo, onOpen, active, narrow = false }: { lo: Loado
             </div>
           );
         })}
-        {!lo.slots.length && <p className="gt-dim text-sm m-0">{lo.heads.length ? 'No pilot guns.' : 'This ship has no pilot guns.'}</p>}
+        {!lo.slots.length && <p className="gt-dim text-sm m-0">{lo.heads.length || lo.salvage.length || lo.podSlots.length ? 'No pilot guns.' : 'This ship has no pilot guns.'}</p>}
         {lo.ship.gunSlots.some((s) => s.turret) && <p className="text-xs gt-dim m-0">Turret guns (for crew) aren&rsquo;t counted.</p>}
       </Section>
 
@@ -468,6 +523,82 @@ function MiningHeads({ lo, onOpen, active, narrow }: { lo: LoadoutState; onOpen:
   );
 }
 
+// ── Salvage heads and fuel pods (v1.51.0) ────────────────────────────────────
+
+const salvageLine = (m: SalvageModule) => [
+  m.radius != null ? `radius ${fmt(m.radius, 1)} m` : null,
+  m.speed != null ? `speed ×${fmt(m.speed, 2)}` : null,
+  m.efficiency != null ? `efficiency ${fmt(m.efficiency * 100)}%` : null,
+].filter(Boolean).join(' · ');
+
+function SalvageHeads({ lo, onOpen, active, narrow }: { lo: LoadoutState; onOpen: (t: SwapTarget) => void; active?: SwapTarget | null; narrow: boolean }) {
+  return (
+    <Section title={`Salvage heads · ${lo.salvage.length}`} aside="Click a scraper module to swap it">
+      {lo.salvage.map((h, i) => (
+        <div key={h.id} className={narrow ? 'grid gap-2' : 'grid gap-2.5 grid-cols-1 sm:grid-cols-[minmax(150px,200px)_minmax(0,1fr)]'}>
+          {!narrow && (
+            <div className="gt-box flex flex-col justify-center gap-0.5 px-3 py-2.5">
+              <span className="text-xs gt-dim">{h.label}</span>
+              <span className="font-semibold">{h.head ?? 'Salvage head'}</span>
+              <span className="text-xs gt-dim">{h.crewed ? 'Crew turret' : 'Pilot arm'} · {h.slots.length} module slot{h.slots.length === 1 ? '' : 's'}</span>
+            </div>
+          )}
+          <div className={`grid gap-2 ${narrow ? '' : 'sm:grid-cols-2'}`}>
+            {h.slots.map((sl, j) => {
+              const m = lo.salvFitted[i]?.[j] ?? null;
+              const changed = m?.uuid !== lo.salvStock[i]?.[j]?.uuid;
+              const fixed = sl.kind === 'tractor';
+              return (
+                <button key={sl.id} type="button" className="gt-card" data-changed={changed || sameTarget(active, { kind: 'salvage', head: i, slot: j })}
+                  onClick={() => onOpen({ kind: 'salvage', head: i, slot: j })} style={m ? undefined : { borderStyle: 'dashed', background: 'transparent' }}>
+                  <span className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-xs gt-dim">{narrow ? `${h.label} · ` : ''}{fixed ? 'Tractor module · fixed' : 'Scraper module'}</span>
+                    <span className={`font-semibold text-base ${m ? (changed ? 'gt-acc' : 'gt-hi') : 'gt-dim'}`}>{m?.name ?? '+ Add a scraper module'}</span>
+                    <span className="text-[13px] gt-dim">{m ? (m.kind === 'tractor' ? 'The head’s tractor beam' : salvageLine(m)) : 'Empty'}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <p className="text-xs gt-dim m-0">One scraper module works at a time; the head switches between them. Radius, speed and efficiency are the module&rsquo;s own figures.</p>
+    </Section>
+  );
+}
+
+function FuelPods({ lo, onOpen, active, narrow }: { lo: LoadoutState; onOpen: (t: SwapTarget) => void; active?: SwapTarget | null; narrow: boolean }) {
+  return (
+    <Section title={`Fuel pods · ${fmt(lo.podCapacity)} SCU`} aside="Click a pod to swap it">
+      <div className={`grid gap-2.5 ${narrow ? '' : 'sm:grid-cols-2'}`}>
+        {lo.podSlots.map((sl, i) => {
+          const p = lo.podFitted[i] ?? null;
+          const changed = p?.uuid !== lo.podStock[i]?.uuid;
+          return (
+            <button key={sl.id} type="button" className="gt-card" data-changed={changed || sameTarget(active, { kind: 'pod', slot: i })} onClick={() => onOpen({ kind: 'pod', slot: i })}>
+              <span className="flex items-center gap-3 min-w-0">
+                <span className="gt-tag">S{p?.size ?? sl.maxSize}</span>
+                <span className="flex flex-col flex-1 min-w-0">
+                  <span className="text-xs gt-dim truncate">{sl.label}{p?.maker ? ` · ${p.maker}` : ''}</span>
+                  <span className={`font-semibold text-base truncate ${changed ? 'gt-acc' : 'gt-hi'}`}>{p?.name ?? 'Empty'}</span>
+                </span>
+                {p && (
+                  <span className="flex flex-col items-end">
+                    <span className="gt-mono text-lg font-semibold gt-hi whitespace-nowrap">{fmt(p.capacity)} SCU</span>
+                    <span className="text-xs gt-dim whitespace-nowrap">flow ×{fmt(p.hydrogenFlow, 2)}</span>
+                  </span>
+                )}
+              </span>
+              {p && <span className="text-[13px] gt-dim">Hydrogen flow ×{fmt(p.hydrogenFlow, 2)} · quantum flow ×{fmt(p.quantumFlow, 2)} · integrity {fmt(p.integrity)}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs gt-dim m-0">Capacity, flow and integrity are each pod&rsquo;s own figures, as the game describes it. A pod holds hydrogen or quantum fuel.</p>
+    </Section>
+  );
+}
+
 /** Whether slot `i`'s shield is one of the two that are up (the strongest; ties go to the earlier slot). */
 function isActiveShield(lo: LoadoutState, i: number): boolean {
   const ranked = lo.compSlots.map((s, j) => ({ j, hp: s.kind === 'shield' ? lo.compFitted[j]?.shieldHp ?? -1 : -1 }))
@@ -507,6 +638,18 @@ export function ShipPanels({ lo }: { lo: LoadoutState }) {
       ['Modules fitted', `${lo.headModules.reduce((t, m) => t + m.filter(Boolean).length, 0)} of ${lo.headModules.reduce((t, m) => t + m.length, 0)}`],
       ...(lo.heads.some((h) => h.crewed) ? [['Crew to run every head', fmt(lo.heads.filter((h) => h.crewed).length + 1)] as Row] : []),
       ...(s.crew != null ? [['Crew seats', fmt(s.crew)] as Row] : []),
+    ] as Row[] }] : []),
+    ...(lo.salvage.length ? [{ title: 'Salvage', rows: [
+      ['Salvage heads', fmt(lo.salvage.length)],
+      ['Scraper modules fitted', fmt(lo.salvFitted.flat().filter((m) => m?.kind === 'scraper').length)],
+      ['Tractor modules', fmt(lo.salvFitted.flat().filter((m) => m?.kind === 'tractor').length)],
+      ...(s.crew != null ? [['Crew seats', fmt(s.crew)] as Row] : []),
+    ] as Row[] }] : []),
+    ...(lo.podSlots.length ? [{ title: 'Refuelling', rows: [
+      ['Fuel pods', `${lo.podFitted.filter(Boolean).length} of ${lo.podSlots.length}`],
+      ['Pod capacity', `${fmt(lo.podCapacity)} SCU`],
+      ['Slowest pod flow', (() => { const f = lo.podFitted.map((p) => p?.hydrogenFlow).filter((v): v is number => v != null); return f.length ? `×${fmt(Math.min(...f), 2)}` : '–'; })()],
+      ...(s.flight?.hydrogen != null ? [['Own hydrogen tank', `${fmt(s.flight.hydrogen, 1)} SCU`] as Row] : []),
     ] as Row[] }] : []),
     { title: 'Defense', rows: [
       ['Shield resistance', `phys ${pct(s.resistance.physical)} · energy ${pct(s.resistance.energy)}${s.distortion ? ` · dist ${pct(s.distortion.resistance)}` : ''}`],
@@ -556,11 +699,60 @@ export function ShipPanels({ lo }: { lo: LoadoutState }) {
 
 // ── Swap windows ─────────────────────────────────────────────────────────────
 
-export function Swap({ lo, target, guns, components, missiles, lasers = [], modules = [], onClose }: {
+export function Swap({ lo, target, guns, components, missiles, lasers = [], modules = [], salvage = [], pods = [], onClose }: {
   lo: LoadoutState; target: SwapTarget; guns: CombatGun[]; components: ShipComponent[]; missiles: MissileItem[];
-  lasers?: MiningLaser[]; modules?: MiningModule[]; onClose: () => void;
+  lasers?: MiningLaser[]; modules?: MiningModule[]; salvage?: SalvageModule[]; pods?: FuelPod[]; onClose: () => void;
 }) {
   const shipName = lo.ship.name;
+  if (target.kind === 'salvage') {
+    const head = lo.salvage[target.head];
+    const slot = head?.slots[target.slot];
+    if (!head || !slot) return null;
+    const cols: SwapColumn<SalvageModule>[] = [
+      { key: 'name', label: 'Module', get: (m) => m.name, text: true },
+      { key: 'radius', label: 'Radius m', get: (m) => m.radius, digits: 1 },
+      { key: 'speed', label: 'Speed ×', get: (m) => m.speed, digits: 2 },
+      { key: 'eff', label: 'Efficiency %', get: (m) => (m.efficiency != null ? m.efficiency * 100 : null) },
+    ];
+    const fits = salvage.filter((m) => salvageModuleFitsSlot(m, slot));
+    return (
+      <SwapWindow eyebrow={`${shipName} · ${head.label} · ${head.head ?? 'salvage head'}`} title={slot.kind === 'tractor' ? 'Tractor module' : 'Swap scraper module'}
+        items={fits} columns={cols} defaultSort="speed" filters={[]}
+        searchText={(m) => `${m.name} ${m.maker ?? ''}`}
+        idOf={(m) => m.uuid} nameOf={(m) => m.name} subOf={(m) => m.maker ?? ''}
+        fittedId={lo.salvFitted[target.head]?.[target.slot]?.uuid ?? null} stockId={lo.salvStock[target.head]?.[target.slot]?.uuid ?? null}
+        onPick={(m) => { lo.pickSalvage(target.head, target.slot, m); onClose(); }}
+        onStock={() => { const st = lo.salvStock[target.head]?.[target.slot]; if (st) lo.pickSalvage(target.head, target.slot, st); onClose(); }}
+        onClose={onClose}
+        locked={slot.kind === 'tractor' ? 'the tractor module is part of the head' : undefined}
+        note="a wider beam is slower: radius, speed and efficiency trade off" />
+    );
+  }
+
+  if (target.kind === 'pod') {
+    const slot = lo.podSlots[target.slot];
+    if (!slot) return null;
+    const cols: SwapColumn<FuelPod>[] = [
+      { key: 'name', label: 'Pod', get: (p) => p.name, text: true },
+      { key: 'cap', label: 'Capacity SCU', get: (p) => p.capacity },
+      { key: 'hflow', label: 'Hydrogen flow ×', get: (p) => p.hydrogenFlow, digits: 2 },
+      { key: 'qflow', label: 'Quantum flow ×', get: (p) => p.quantumFlow, digits: 2 },
+      { key: 'hp', label: 'Integrity', get: (p) => p.integrity },
+    ];
+    const fits = pods.filter((p) => fuelPodFitsSlot(p, slot));
+    return (
+      <SwapWindow eyebrow={`${shipName} · ${slot.label} · size ${slot.maxSize}`} title="Swap fuel pod"
+        items={fits} columns={cols} defaultSort="cap"
+        filters={[{ label: 'Maker', get: (p) => p.maker }]}
+        searchText={(p) => `${p.name} ${p.maker ?? ''}`}
+        idOf={(p) => p.uuid} nameOf={(p) => p.name} subOf={(p) => p.maker ?? ''}
+        fittedId={lo.podFitted[target.slot]?.uuid ?? null} stockId={lo.podStock[target.slot]?.uuid ?? null}
+        onPick={(p) => { lo.pickPod(target.slot, p); onClose(); }}
+        onStock={() => { const st = lo.podStock[target.slot]; if (st) lo.pickPod(target.slot, st); onClose(); }}
+        onClose={onClose}
+        note="a higher flow modifier moves fuel faster" />
+    );
+  }
   if (target.kind === 'laser') {
     const head = lo.heads[target.head];
     if (!head) return null;

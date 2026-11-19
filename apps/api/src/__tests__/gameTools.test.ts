@@ -32,6 +32,8 @@ const shipRow = {
       { HardpointName: 'hardpoint_mining_cab_front', Type: 'UtilityTurret.MannedTurret', Editable: false, Loadout: [
         { HardpointName: 'hardpoint_weapon_mining', Type: 'WeaponMining.Gun', UUID: 'mh2-copy', MaxSize: 2, MinSize: 2, Editable: true, CompatibleTypes: [{ Type: 'WeaponMining' }] },
       ] },
+      // v1.51.0: a fuel pod slot holding a filled copy of a pod.
+      { HardpointName: 'hardpoint_fuel_pod_L1', Type: 'ExternalFuelTank.UNDEFINED', UUID: 'cr60-h', MinSize: 2, MaxSize: 3, CompatibleTypes: [{ Type: 'ExternalFuelTank' }] },
     ],
   },
 };
@@ -61,6 +63,11 @@ function fakeQuery(sql: string): Promise<unknown> {
   }
   if (sql.includes("'MiningModifier'")) return Promise.resolve([{ uuid: 'surge', class_name: 'Mining_Modules_Active_Surge', name: 'Surge Module', manufacturer_name: null, size: 1,
     data: { stdItem: { MiningModule: { Type: 'Active', Charges: 7, Lifetime: 15, Modifiers: { DamageMultiplier: 1.5, Resistance: -15.5 } } } } }]);
+  if (sql.includes("'SalvageModifier'")) return Promise.resolve([]);
+  if (sql.includes("'ExternalFuelTank'")) return Promise.resolve([
+    { uuid: 'cr60', class_name: 'FuelPod_MISC_Standard', name: 'CR-60', manufacturer_name: 'MISC', size: 2, data: { stdItem: { Description: 'Hydrogen Flow Modifier: 1.16\nQuantum Flow Modifier: 1.16\nMax. Integrity: 22800\nCapacity: 20 SCU' } } },
+    { uuid: 'cr60-h', class_name: 'FuelPod_MISC_Standard_HydrogenPrefilled', name: 'CR-60', manufacturer_name: 'MISC', size: 2, data: { stdItem: {} } },
+  ]);
   // A gun and its skin with the same numbers, plus one that's different.
   return Promise.resolve([gunRow('plain', 'Laser', 40), gunRow('skin', 'Laser Hazard-Zone', 40), gunRow('other', 'Cannon', 400)]);
 }
@@ -97,6 +104,9 @@ describe('Game Tools data', () => {
     expect(ship.miningHeads).toEqual([{ id: 'hardpoint_mining_cab_front/hardpoint_weapon_mining', label: 'Front turret', size: 2, stockLaserUuid: 'mh2', crewed: true, locked: false }]);
     expect(data.miningLasers!.map((l) => l.name)).toEqual(['Arbor MH2']);
     expect(data.miningModules!.map((m) => [m.name, m.power])).toEqual([['Surge Module', 1.5]]);
+    // Fuel pods (v1.51.0): one per pod, the slot pointed at the plain pod.
+    expect(data.fuelPods!.map((p) => [p.name, p.capacity])).toEqual([['CR-60', 20]]);
+    expect(ship.fuelPodSlots!.map((s) => [s.label, s.stockUuid])).toEqual([['Left 1', 'cr60']]);
     // Sent gzipped as the same JSON.
     const body = JSON.parse(gunzipSync(built!.gz).toString());
     expect(body.data.ships[0].name).toBe('Test Fighter');
