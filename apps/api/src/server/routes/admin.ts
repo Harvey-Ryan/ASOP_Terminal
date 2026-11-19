@@ -36,6 +36,7 @@ import {
   type ErrorLevel,
   type ErrorSource,
   type AdminModuleDto,
+  type DataReviewerDto,
   type ModuleSetting,
   isModuleSetting,
   parseHiddenModules,
@@ -581,4 +582,39 @@ adminRouter.put('/modules', async (req, res) => {
     await adminLog({ kind: 'admin.modules', actor: adminOf(res), summary: `${parts.join('; ')} for every server`, details: { hidden: next } });
   }
   ok(res, await moduleDtos());
+});
+
+// ── Data reviewers (v1.53.0) ─────────────────────────────────────────────────
+// People who may approve community corrections (platform admins always can).
+// Added by Discord id or by the username of someone who has signed in to ASOP.
+
+const reviewerDtos = async (): Promise<DataReviewerDto[]> =>
+  (await prisma.dataReviewer.findMany({ orderBy: { createdAt: 'asc' } }))
+    .map((r) => ({ discordId: r.discordId, username: r.username, addedBy: r.addedBy, createdAt: r.createdAt.toISOString() }));
+
+adminRouter.get('/reviewers', async (_req, res) => {
+  ok(res, await reviewerDtos());
+});
+
+adminRouter.post('/reviewers', async (req, res) => {
+  const who = String((req.body as { who?: unknown } | undefined)?.who ?? '').trim().replace(/^@/, '');
+  if (!who) { fail(res, 400, 'Give a Discord id or username'); return; }
+  const user = await prisma.user.findFirst({
+    where: /^\d{15,22}$/.test(who) ? { discordId: who } : { username: { equals: who, mode: 'insensitive' } },
+  });
+  if (!user || user.discordId.startsWith('deleted-')) { fail(res, 404, 'Nobody by that name has signed in to ASOP yet'); return; }
+  await prisma.dataReviewer.upsert({
+    where: { discordId: user.discordId },
+    create: { discordId: user.discordId, username: user.username, addedBy: adminOf(res).username },
+    update: {},
+  });
+  await adminLog({ kind: 'admin.reviewers', actor: adminOf(res), summary: `Made ${user.username} a data reviewer`, details: { discordId: user.discordId } });
+  ok(res, await reviewerDtos());
+});
+
+adminRouter.delete('/reviewers/:discordId', async (req, res) => {
+  const discordId = String(req.params['discordId']);
+  const gone = await prisma.dataReviewer.deleteMany({ where: { discordId } });
+  if (gone.count) await adminLog({ kind: 'admin.reviewers', actor: adminOf(res), summary: `Removed data reviewer ${discordId}`, details: { discordId } });
+  ok(res, await reviewerDtos());
 });

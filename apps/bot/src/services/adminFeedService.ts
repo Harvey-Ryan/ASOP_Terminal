@@ -46,7 +46,19 @@ export async function adminFeedTick(now = new Date()): Promise<void> {
 
 // ── Servers joining / leaving, tests ────────────────────────────────────────
 
-const POSTED_NOW = ['guild.joined', 'guild.left', 'admin.test'];
+const POSTED_NOW = [
+  'guild.joined', 'guild.left', 'admin.test',
+  // Community corrections (v1.53.0): the reviewers' to-do and what changed on the site.
+  'corrections.ready', 'corrections.approved', 'corrections.disputed', 'corrections.reverted', 'corrections.recheck', 'corrections.retired',
+];
+const CORRECTION_TITLES: Record<string, string> = {
+  'corrections.ready': '📝 Correction ready for review',
+  'corrections.approved': '✅ Correction approved',
+  'corrections.disputed': '⚠️ Correction disputed',
+  'corrections.reverted': '↩️ Correction reverted',
+  'corrections.recheck': '🔁 Correction needs a re-check',
+  'corrections.retired': '🏁 Correction fixed in the game files',
+};
 
 async function postLogEntries(channel: SendableChannels): Promise<void> {
   const entries = await prisma.adminLog.findMany({ where: { posted: false, kind: { in: POSTED_NOW } }, orderBy: { id: 'asc' }, take: 10 });
@@ -54,6 +66,10 @@ async function postLogEntries(channel: SendableChannels): Promise<void> {
     const embed = new EmbedBuilder().setTimestamp(e.createdAt);
     if (e.kind === 'guild.joined') embed.setColor(COLORS.good).setTitle('➕ Bot added to a server').setDescription(`**${e.guildName ?? e.guildId}**\n${e.summary}`);
     else if (e.kind === 'guild.left') embed.setColor(COLORS.warn).setTitle('➖ Bot removed from a server').setDescription(`**${e.guildName ?? e.guildId}**\n${e.summary}`);
+    else if (CORRECTION_TITLES[e.kind]) {
+      embed.setColor(e.kind === 'corrections.disputed' || e.kind === 'corrections.recheck' ? COLORS.warn : COLORS.info)
+        .setTitle(CORRECTION_TITLES[e.kind]!).setDescription(`${e.summary.slice(0, 3800)}\nReview queue: Tools → Corrections`);
+    }
     else embed.setColor(COLORS.info).setTitle('✅ Admin feed test').setDescription(`Sent by ${e.actorName ?? 'an admin'}. Alerts and the daily digest will be posted here.`);
     await channel.send({ embeds: [embed] });
     await prisma.adminLog.update({ where: { id: e.id }, data: { posted: true } });

@@ -26,6 +26,7 @@ import { scRouter } from './routes/sc.js';
 import { fleetRouter } from './routes/fleet.js';
 import { wikeloRouter } from './routes/wikelo.js';
 import { gameToolsRouter } from './routes/gameTools.js';
+import { correctionsRouter } from './routes/corrections.js';
 import { briefingsRouter } from './routes/briefings.js';
 import { eventTemplatesRouter } from './routes/eventTemplates.js';
 import { rsiRosterRouter } from './routes/rsiRoster.js';
@@ -291,6 +292,7 @@ export function createServer(): express.Express {
   app.use('/api', fleetRouter);
   app.use('/api', wikeloRouter);
   app.use('/api', gameToolsRouter);
+  app.use('/api', correctionsRouter);
   app.use('/api/guilds', rsiRouter);
   app.use('/api', kanbanRouter);
   app.use('/api/guilds', alliesRouter);

@@ -32,6 +32,7 @@ export async function exportMyData(userId: string) {
     inventory, tradesAsBuyer, tradeMessages, fleetOwner, fleetShips,
     tournamentsCreated, tournamentEntries, teamSpots, ratings, standings,
     jobsPosted, jobCrew, briefings, wikelo, errors, requests,
+    correctionsSent, correctionConfirms, correctionActions, reviewer,
   ] = await Promise.all([
     prisma.account.findMany({ where: { userId }, select: { provider: true, providerAccountId: true, scope: true, createdAt: true } }),
     prisma.guildMember.findMany({ where: { userId }, select: { role: true, rsiHandle: true, rsiVerified: true, createdAt: true, guild: { select: { guildId: true, name: true } } } }),
@@ -69,6 +70,10 @@ export async function exportMyData(userId: string) {
     prisma.wikeloProgress.findMany({ where: { discordId: d }, select: { missionId: true, ticked: true, completedAt: true, updatedAt: true } }),
     prisma.errorEvent.findMany({ where: { userId: d }, select: { createdAt: true, source: true, message: true } }),
     prisma.requestLog.count({ where: { userId } }),
+    prisma.dataCorrection.findMany({ where: { submittedBy: d }, select: { id: true, kind: true, recordName: true, field: true, gameValue: true, value: true, note: true, evidenceUrl: true, status: true, creditName: true, createdAt: true } }),
+    prisma.correctionConfirmation.findMany({ where: { discordId: d }, select: { correctionId: true, note: true, evidenceUrl: true, createdAt: true } }),
+    prisma.correctionEvent.findMany({ where: { actorId: d }, select: { correctionId: true, action: true, note: true, createdAt: true } }),
+    prisma.dataReviewer.findUnique({ where: { discordId: d } }),
   ]);
 
   // Trades on their listings, with the whole conversation (it's theirs too).
@@ -123,6 +128,7 @@ export async function exportMyData(userId: string) {
     tournaments: { created: tournamentsCreated, entries: tournamentEntries, teamSpots, ratings, seasonStandings: standings },
     jobs: { posted: jobsPosted, crew: jobCrew },
     wikeloChecklists: wikelo.map((w) => ({ ...w, ticked: parseTicked(w.ticked) })),
+    corrections: { sent: correctionsSent, confirmed: correctionConfirms, actions: correctionActions, dataReviewerSince: reviewer?.createdAt ?? null },
     briefingsLastEditedByYou: briefings.map((b) => ({ eventId: b.eventId, event: b.event.name, updatedAt: b.updatedAt })),
     problemsLogged: { errors, websiteRequestsLogged: requests },
   };
@@ -212,6 +218,12 @@ export async function deleteMyData(userId: string): Promise<DeleteResult> {
     // ── Fleet, tournaments, jobs ──
     await tx.fleetOwner.deleteMany({ where: { discordId: d } }); // its ships go with it
     await tx.wikeloProgress.deleteMany({ where: { discordId: d } });
+    // Corrections stay (others confirmed and rely on them); who sent or checked them doesn't.
+    await tx.dataCorrection.updateMany({ where: { submittedBy: d }, data: { submittedBy: ghost, submittedName: DELETED_NAME, creditName: null } });
+    await tx.dataCorrection.updateMany({ where: { reviewedBy: d }, data: { reviewedBy: ghost, reviewedName: DELETED_NAME } });
+    await tx.correctionConfirmation.updateMany({ where: { discordId: d }, data: { discordId: ghost, username: DELETED_NAME } });
+    await tx.correctionEvent.updateMany({ where: { actorId: d }, data: { actorId: ghost, actorName: DELETED_NAME } });
+    await tx.dataReviewer.deleteMany({ where: { discordId: d } });
     await tx.eventBriefing.updateMany({ where: { updatedBy: d }, data: { updatedBy: ghost } }); // the briefing is the server's
     await tx.tournament.updateMany({ where: { createdById: d }, data: { createdById: ghost } });
     await tx.tournamentParticipant.updateMany({ where: { discordId: d }, data: { discordId: ghost, displayName: DELETED_NAME } });

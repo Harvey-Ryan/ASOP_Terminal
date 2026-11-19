@@ -222,4 +222,11 @@ export const ADMIN_LOG_KINDS: Record<string, string> = {
   'admin.config': 'Admin feed settings changed',
   'admin.modules': 'Modules hidden or shown for every server',
   'admin.test': 'Admin feed test',
+  'admin.reviewers': 'Data reviewers changed',
+  'corrections.ready': 'Correction ready for review',
+  'corrections.approved': 'Correction approved',
+  'corrections.disputed': 'Correction disputed',
+  'corrections.reverted': 'Correction reverted',
+  'corrections.recheck': 'Correction needs a re-check (new game build)',
+  'corrections.retired': 'Correction retired (fixed in the game files)',
 };

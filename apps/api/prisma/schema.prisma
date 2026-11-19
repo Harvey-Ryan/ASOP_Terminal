@@ -1534,3 +1534,91 @@ model EventBriefing {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
+
+// ── Community corrections (v1.53.0) ──────────────────────────────────────────
+// Members fix numbers the game files get wrong; nothing here changes scdata.
+// Rules and the lifecycle: packages/shared/src/corrections.ts. People are
+// stored by Discord id, so every model below is in "Your data" (lib/myData.ts).
+
+/// One proposed fix to one stat of one record.
+model DataCorrection {
+  id            String    @id @default(cuid())
+  /// corrections.ts CORRECTION_KINDS key: mining-laser | mining-module | mining-gadget | rock-signature
+  kind          String
+  /// The record: a uuid, or "rock|method" for rocks
+  recordKey     String
+  /// The record's name when submitted, for the queue
+  recordName    String
+  /// Allow-listed stat path, e.g. "modifiers.Resistance"
+  field         String
+  /// What our game data said when submitted (read by the server, never sent by the browser)
+  gameValue     Float?
+  value         Float
+  note          String
+  /// Screenshot proof: /uploads/corrections/<file>
+  evidenceUrl   String
+  /// Game build it was seen on, and the build it was last checked against
+  build         String?
+  checkedBuild  String?
+  /// PENDING | REVIEW | LIVE | DISPUTED | RECHECK | RETIRED | REJECTED | REVERTED | WITHDRAWN | SUPERSEDED
+  status        String    @default("PENDING")
+  bigChange     Boolean   @default(false)
+  submittedBy   String
+  submittedName String
+  /// Name to credit, or null for "an ASOP member"
+  creditName    String?
+  reviewedBy    String?
+  reviewedName  String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  approvedAt    DateTime?
+  retiredBuild  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  confirmations CorrectionConfirmation[]
+  events        CorrectionEvent[]
+
+  @@index([status])
+  @@index([kind, recordKey, field])
+  @@index([submittedBy])
+}
+
+/// "I see this in game too": one per person per correction.
+model CorrectionConfirmation {
+  id           String         @id @default(cuid())
+  correctionId String
+  correction   DataCorrection @relation(fields: [correctionId], references: [id], onDelete: Cascade)
+  discordId    String
+  username     String
+  evidenceUrl  String?
+  note         String?
+  createdAt    DateTime       @default(now())
+
+  @@unique([correctionId, discordId])
+  @@index([discordId])
+}
+
+/// Everything that happened to a correction, in order (submit, confirm, approve, dispute…).
+model CorrectionEvent {
+  id           Int            @id @default(autoincrement())
+  correctionId String
+  correction   DataCorrection @relation(fields: [correctionId], references: [id], onDelete: Cascade)
+  action       String
+  actorId      String?
+  actorName    String?
+  note         String?
+  evidenceUrl  String?
+  createdAt    DateTime       @default(now())
+
+  @@index([correctionId])
+  @@index([actorId])
+}
+
+/// People who may approve corrections (platform admins always can). Set in Admin → Data reviewers.
+model DataReviewer {
+  discordId String   @id
+  username  String
+  addedBy   String?
+  createdAt DateTime @default(now())
+}

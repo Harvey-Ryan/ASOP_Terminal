@@ -70,6 +70,8 @@ const ToolsShipsHomePage = lazyPage(() => import('./pages/tools/ShipsPage'), 'Sh
 const ToolsShipPage = lazyPage(() => import('./pages/tools/ShipsPage'), 'ShipPage');
 // v1.46.0: Ships inside each server's dashboard, and the other tools on the public site.
 const MiningPage = lazyPage(() => import('./pages/tools/MiningPage'), 'MiningPage');
+// v1.53.0: community corrections queue.
+const CorrectionsPage = lazyPage(() => import('./pages/tools/CorrectionsPage'), 'CorrectionsPage');
 const DashboardToolsFrame = lazyPage(() => import('./pages/tools/ToolsLayout'), 'DashboardToolsFrame');
 // lazyPage drops props, so this one says what it takes.
 const SignInForTool = lazyPage(() => import('./pages/tools/ToolsLayout'), 'SignInForTool') as unknown as ComponentType<{ name: string; children: ReactNode }>;
@@ -87,6 +89,7 @@ export default function App() {
           <Route path="ships" element={<Navigate to="/tools" replace />} />
           <Route path="ships/:className" element={<ToolsShipPage />} />
           <Route path="mining" element={<MiningPage />} />
+          <Route path="corrections" element={<CorrectionsPage />} />
           {/* v1.45.0: Loadout lives on the ship page; the Optimizer is hidden for now. */}
           <Route path="loadout/:className" element={<ToolsLegacyRedirect />} />
           <Route path="optimizer/:className" element={<ToolsLegacyRedirect />} />
