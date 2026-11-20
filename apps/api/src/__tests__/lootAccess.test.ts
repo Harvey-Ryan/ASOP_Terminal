@@ -22,7 +22,10 @@ async function officer(guildDiscordId: string) {
 async function hostWithLoot(overrides: Record<string, unknown> = {}) {
   const host = await createGuild({ name: 'Host' });
   const owner = await createUser();
-  const event = await createEvent(host.guildId, owner.discordId, { status: 'ENDED', confirmedAttendees: JSON.stringify([owner.discordId]) });
+  const event = await createEvent(host.guildId, owner.discordId, {
+    status: 'ENDED',
+    confirmedAttendees: JSON.stringify([owner.discordId]),
+  });
   const session = await createLootSession(event.id, host.guildId, overrides);
   const item = await createLootItem(session.id, { name: 'Pulse Laser' });
   const loot = `/events/${event.id}/loot`;
@@ -54,7 +57,9 @@ describe('an ally the event is shared with', () => {
   it('sees the loot, but its officers cannot run it', async () => {
     const { event, item, loot } = await hostWithLoot();
     const ally = await createGuild({ name: 'Ally' });
-    await prisma.eventGuildShare.create({ data: { eventId: event.id, guildId: ally.id, sourceType: 'DIRECT', status: 'ACCEPTED' } });
+    await prisma.eventGuildShare.create({
+      data: { eventId: event.id, guildId: ally.id, sourceType: 'DIRECT', status: 'ACCEPTED' },
+    });
     const { agent } = await officer(ally.guildId);
     const base = `/api/guilds/${ally.guildId}${loot}`;
 
@@ -68,7 +73,9 @@ describe('an ally the event is shared with', () => {
   it('a share that was declined gives no access', async () => {
     const { event, loot } = await hostWithLoot();
     const ally = await createGuild({ name: 'Declined' });
-    await prisma.eventGuildShare.create({ data: { eventId: event.id, guildId: ally.id, sourceType: 'DIRECT', status: 'DECLINED' } });
+    await prisma.eventGuildShare.create({
+      data: { eventId: event.id, guildId: ally.id, sourceType: 'DIRECT', status: 'DECLINED' },
+    });
     const { agent } = await officer(ally.guildId);
     await agent.get(`/api/guilds/${ally.guildId}${loot}`).expect(403);
   });
@@ -119,9 +126,15 @@ describe('the snake draft picker', () => {
     await agent.post('/test/login').send({ userId: picker.id, managedGuildIds: [] });
     const base = `/api/guilds/${mine.host.guildId}${mine.loot}`;
 
-    await agent.post(`${base}/items/${theirs.item.id}/assign`).send({ userId: picker.discordId, username: 'Picker' }).expect(404);
+    await agent
+      .post(`${base}/items/${theirs.item.id}/assign`)
+      .send({ userId: picker.discordId, username: 'Picker' })
+      .expect(404);
     expect(await prisma.lootAssignment.count({ where: { itemId: theirs.item.id } })).toBe(0);
-    await agent.post(`${base}/items/${mine.item.id}/assign`).send({ userId: picker.discordId, username: 'Picker' }).expect(200);
+    await agent
+      .post(`${base}/items/${mine.item.id}/assign`)
+      .send({ userId: picker.discordId, username: 'Picker' })
+      .expect(200);
   });
 });
 
@@ -131,9 +144,13 @@ describe('standalone sessions', () => {
     const { agent } = await officer(guild.guildId);
     const a = await prisma.lootSession.create({ data: { guildId: guild.guildId, name: 'A' } });
     const other = await hostWithLoot();
-    const award = await prisma.lootAssignment.create({ data: { itemId: other.item.id, userId: 'd-9', username: 'Winner' } });
+    const award = await prisma.lootAssignment.create({
+      data: { itemId: other.item.id, userId: 'd-9', username: 'Winner' },
+    });
 
-    await agent.patch(`/api/guilds/${guild.guildId}/loot/sessions/${a.id}/assignments/${award.id}/delivered`).expect(404);
+    await agent
+      .patch(`/api/guilds/${guild.guildId}/loot/sessions/${a.id}/assignments/${award.id}/delivered`)
+      .expect(404);
     await agent.delete(`/api/guilds/${guild.guildId}/loot/sessions/${a.id}/items/${other.item.id}/assign`).expect(404);
     expect((await prisma.lootAssignment.findUnique({ where: { id: award.id } }))?.delivered).toBe(false);
   });

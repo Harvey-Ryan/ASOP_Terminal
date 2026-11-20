@@ -31,7 +31,10 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
   const orgTag = guild.settings?.rsiOrgTag ?? null;
 
   if (!orgTag) {
-    res.json({ success: true, data: { orgTag: null, linked: [], orgOnly: [], total: 0 } satisfies RsiRosterDto } satisfies ApiResponse<RsiRosterDto>);
+    res.json({
+      success: true,
+      data: { orgTag: null, linked: [], orgOnly: [], total: 0 } satisfies RsiRosterDto,
+    } satisfies ApiResponse<RsiRosterDto>);
     return;
   }
 
@@ -59,9 +62,10 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
       if (!handleMatch?.[1]) continue;
       const handle = handleMatch[1].trim();
       // Count active star spans: icon-star followed or preceded by "active" somewhere in its class
-      const activeStars = (block.match(/class="[^"]*icon-star[^"]*"\s+style="[^"]*color/g) ?? []).length
-        || (block.match(/<span[^>]*class="[^"]*icon-star\s+active[^"]*"/g) ?? []).length
-        || (block.match(/active(?:[^"]*)?icon-star|icon-star(?:[^"]*)?active/g) ?? []).length;
+      const activeStars =
+        (block.match(/class="[^"]*icon-star[^"]*"\s+style="[^"]*color/g) ?? []).length ||
+        (block.match(/<span[^>]*class="[^"]*icon-star\s+active[^"]*"/g) ?? []).length ||
+        (block.match(/active(?:[^"]*)?icon-star|icon-star(?:[^"]*)?active/g) ?? []).length;
       out.push({ handle, stars: activeStars });
     }
     return out;
@@ -73,10 +77,11 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': 'https://robertsspaceindustries.com',
-          'Referer': `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          Origin: 'https://robertsspaceindustries.com',
+          Referer: `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
         },
         body: JSON.stringify({ symbol: orgTag, page, pagesize: RSI_PAGE_SIZE }),
         signal: AbortSignal.timeout(15_000),
@@ -85,7 +90,9 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
       if (!response.ok) {
         const body = await response.text().catch(() => '');
         console.error(`[rsi/roster] HTTP ${response.status} from RSI:`, body.slice(0, 300));
-        res.status(502).json({ success: false, error: `RSI API returned HTTP ${response.status}` } satisfies ApiResponse);
+        res
+          .status(502)
+          .json({ success: false, error: `RSI API returned HTTP ${response.status}` } satisfies ApiResponse);
         return;
       }
 
@@ -110,10 +117,13 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
 
       const parsed = json.data?.html
         ? parseMembersHtml(json.data.html)
-        : (json.data?.members as { handle: string; stars: number }[] | undefined) ?? [];
+        : ((json.data?.members as { handle: string; stars: number }[] | undefined) ?? []);
 
       if (parsed.length === 0 && page === 1) {
-        console.error('[rsi/roster] Could not parse any members from RSI response. html length:', (json.data?.html ?? '').length);
+        console.error(
+          '[rsi/roster] Could not parse any members from RSI response. html length:',
+          (json.data?.html ?? '').length,
+        );
       }
 
       for (const m of parsed) {
@@ -138,17 +148,22 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': 'https://robertsspaceindustries.com',
-          'Referer': `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          Origin: 'https://robertsspaceindustries.com',
+          Referer: `https://robertsspaceindustries.com/en/orgs/${orgTag}`,
         },
         body: JSON.stringify({ symbol: orgTag, page: affiliatePage, pagesize: RSI_PAGE_SIZE, role: 'affiliate' }),
         signal: AbortSignal.timeout(15_000),
       });
       if (!affResponse.ok) break;
       let affJson: { success: number; data: { totalrows: number; html?: string } };
-      try { affJson = JSON.parse(await affResponse.text()); } catch { break; }
+      try {
+        affJson = JSON.parse(await affResponse.text());
+      } catch {
+        break;
+      }
       if (!affJson.success) break;
       affiliateTotalRows = affJson.data?.totalrows ?? 0;
       if (affiliateTotalRows === 0) break;
@@ -183,7 +198,11 @@ rsiRosterRouter.get('/:guildId/rsi/roster', requireAuth, async (req, res) => {
   const linkedHandles = new Set(linked.map((l) => l.rsiHandle.toLowerCase()));
   const orgOnly = orgMembers
     .filter((m) => !linkedHandles.has(m.handle.toLowerCase()))
-    .map((m) => ({ rsiHandle: m.handle, orgRank: m.stars, isAffiliate: affiliateHandleSet.has(m.handle.toLowerCase()) }));
+    .map((m) => ({
+      rsiHandle: m.handle,
+      orgRank: m.stars,
+      isAffiliate: affiliateHandleSet.has(m.handle.toLowerCase()),
+    }));
 
   res.json({
     success: true,

@@ -4,8 +4,19 @@
 
 import type { AiAssistant } from '@prisma/client';
 import {
-  callModel, DEFAULT_ASSISTANT_SETTINGS, estimateCost, isAssistantProvider, KEY_TEST_REQUEST, ModelCallError, usageDay, usageMonthStart,
-  type AssistantKeyStatus, type AssistantSettings, type AssistantSettingsDto, type AssistantUsageDto, type FetchLike,
+  callModel,
+  DEFAULT_ASSISTANT_SETTINGS,
+  estimateCost,
+  isAssistantProvider,
+  KEY_TEST_REQUEST,
+  ModelCallError,
+  usageDay,
+  usageMonthStart,
+  type AssistantKeyStatus,
+  type AssistantSettings,
+  type AssistantSettingsDto,
+  type AssistantUsageDto,
+  type FetchLike,
 } from '@dem/shared';
 import { prisma } from './prisma.js';
 
@@ -16,7 +27,10 @@ const DEFAULT_IDS = '1497395378495160493';
 export function assistantAvailable(guildId: string): boolean {
   const raw = (process.env['AI_SERVER_IDS'] ?? DEFAULT_IDS).trim();
   if (raw === '*') return true;
-  return raw.split(',').map((s) => s.trim()).includes(guildId);
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .includes(guildId);
 }
 
 /** The platform admins' "off for every server" switch (AdminConfig.aiDisabled). */
@@ -26,7 +40,12 @@ export async function assistantGloballyOff(): Promise<boolean> {
 }
 
 const list = (json: string): string[] => {
-  try { const v = JSON.parse(json); return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
 };
 
 /** The channels the assistant answers in (empty = every channel). */
@@ -52,17 +71,29 @@ export function settingsOf(row: AiAssistant | null): AssistantSettings {
 /** Settings → the columns that hold them. */
 export function columnsOf(s: AssistantSettings) {
   return {
-    enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, model: s.model,
-    channelIds: JSON.stringify(s.channelIds), roleIds: JSON.stringify(s.roleIds),
-    dailyQuestionLimit: s.dailyQuestionLimit, monthlyTokenLimit: s.monthlyTokenLimit, answerChars: s.answerChars,
-    priceInPerM: s.priceInPerM, priceOutPerM: s.priceOutPerM,
+    enabled: s.enabled,
+    provider: s.provider,
+    baseUrl: s.baseUrl,
+    model: s.model,
+    channelIds: JSON.stringify(s.channelIds),
+    roleIds: JSON.stringify(s.roleIds),
+    dailyQuestionLimit: s.dailyQuestionLimit,
+    monthlyTokenLimit: s.monthlyTokenLimit,
+    answerChars: s.answerChars,
+    priceInPerM: s.priceInPerM,
+    priceOutPerM: s.priceOutPerM,
   };
 }
 
-export async function usageOf(guildId: string, settings: AssistantSettings, now = new Date()): Promise<AssistantUsageDto> {
+export async function usageOf(
+  guildId: string,
+  settings: AssistantSettings,
+  now = new Date(),
+): Promise<AssistantUsageDto> {
   const from = usageDay(new Date(now.getTime() - 29 * 86_400_000));
   const rows = await prisma.aiUsage.groupBy({
-    by: ['day'], where: { guildId, day: { gte: from < usageMonthStart(now) ? from : usageMonthStart(now) } },
+    by: ['day'],
+    where: { guildId, day: { gte: from < usageMonthStart(now) ? from : usageMonthStart(now) } },
     _sum: { questions: true, inputTokens: true, outputTokens: true },
   });
   const month = rows.filter((r) => r.day >= usageMonthStart(now));
@@ -72,11 +103,22 @@ export async function usageOf(guildId: string, settings: AssistantSettings, now 
   for (let i = 29; i >= 0; i--) {
     const day = usageDay(new Date(now.getTime() - i * 86_400_000));
     const r = byDay.get(day);
-    days.push({ day, questions: r?._sum.questions ?? 0, tokens: (r?._sum.inputTokens ?? 0) + (r?._sum.outputTokens ?? 0) });
+    days.push({
+      day,
+      questions: r?._sum.questions ?? 0,
+      tokens: (r?._sum.inputTokens ?? 0) + (r?._sum.outputTokens ?? 0),
+    });
   }
   return {
-    monthQuestions: sum('questions'), monthTokensIn: sum('inputTokens'), monthTokensOut: sum('outputTokens'),
-    monthCostEstimate: estimateCost(sum('inputTokens'), sum('outputTokens'), settings.priceInPerM, settings.priceOutPerM),
+    monthQuestions: sum('questions'),
+    monthTokensIn: sum('inputTokens'),
+    monthTokensOut: sum('outputTokens'),
+    monthCostEstimate: estimateCost(
+      sum('inputTokens'),
+      sum('outputTokens'),
+      settings.priceInPerM,
+      settings.priceOutPerM,
+    ),
     days,
   };
 }
@@ -105,11 +147,19 @@ export async function assistantDto(guildId: string): Promise<AssistantSettingsDt
  * 'other' are reported as they are; the caller decides). The provider's reply
  * never includes the key (callModel masks it).
  */
-export async function testAssistantKey(settings: AssistantSettings, apiKey: string, fetchFn: FetchLike = fetch as unknown as FetchLike):
-  Promise<{ status: AssistantKeyStatus | 'busy' | 'other'; detail?: string }> {
+export async function testAssistantKey(
+  settings: AssistantSettings,
+  apiKey: string,
+  fetchFn: FetchLike = fetch as unknown as FetchLike,
+): Promise<{ status: AssistantKeyStatus | 'busy' | 'other'; detail?: string }> {
   try {
     const signal = AbortSignal.timeout(20_000);
-    await callModel({ provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, apiKey }, KEY_TEST_REQUEST, fetchFn, signal);
+    await callModel(
+      { provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, apiKey },
+      KEY_TEST_REQUEST,
+      fetchFn,
+      signal,
+    );
     return { status: 'ok' };
   } catch (err) {
     if (err instanceof ModelCallError) return { status: err.kind, detail: err.message };

@@ -15,7 +15,7 @@ const NEWER = 'b'.repeat(40);
 
 async function signedIn(discordId?: string) {
   const user = discordId
-    ? (await prisma.user.findUnique({ where: { discordId } })) ?? (await createUser({ discordId }))
+    ? ((await prisma.user.findUnique({ where: { discordId } })) ?? (await createUser({ discordId })))
     : await createUser();
   const agent = request.agent(app);
   await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
@@ -29,7 +29,7 @@ beforeEach(() => forgetLastCheckForTests());
 afterEach(() => vi.restoreAllMocks());
 
 describe('game data: check now', () => {
-  it('reads the branch commit from git\'s ref list, and only that branch', () => {
+  it("reads the branch commit from git's ref list, and only that branch", () => {
     expect(parseHeadRef(refs(NEWER), 'master')).toBe(NEWER);
     expect(() => parseHeadRef(refs(NEWER), 'main')).toThrow(/not found/);
   });
@@ -43,7 +43,9 @@ describe('game data: check now', () => {
 
   it('says up to date when GitHub has the commit we hold, without asking for details', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(refs(HELD)));
-    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValueOnce([{ commit: HELD, build: '4.10.2-LIVE.1', committed_at: new Date('2026-10-28T20:20:55Z') }] as never);
+    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValueOnce([
+      { commit: HELD, build: '4.10.2-LIVE.1', committed_at: new Date('2026-10-28T20:20:55Z') },
+    ] as never);
     const a = await signedIn(ADMIN);
     const res = await a.post('/api/game-data/check').expect(200);
     expect(res.body.data).toMatchObject({ upToDate: true, upstreamCommit: HELD, upstreamBuild: '4.10.2-LIVE.1' });
@@ -51,21 +53,36 @@ describe('game data: check now', () => {
   });
 
   it('names the new build when GitHub has moved on', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => (String(url).includes('api.github.com')
-      ? new Response(JSON.stringify({ commit: { message: '4.11.0-LIVE.2\n\nmore', committer: { date: '2026-11-13T18:00:00Z' } } }))
-      : new Response(refs(NEWER))));
-    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValueOnce([{ commit: HELD, build: '4.10.2-LIVE.1', committed_at: null }] as never);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) =>
+      String(url).includes('api.github.com')
+        ? new Response(
+            JSON.stringify({
+              commit: { message: '4.11.0-LIVE.2\n\nmore', committer: { date: '2026-11-13T18:00:00Z' } },
+            }),
+          )
+        : new Response(refs(NEWER)),
+    );
+    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValueOnce([
+      { commit: HELD, build: '4.10.2-LIVE.1', committed_at: null },
+    ] as never);
     const a = await signedIn(ADMIN);
     const res = await a.post('/api/game-data/check').expect(200);
-    expect(res.body.data).toMatchObject({ upToDate: false, upstreamCommit: NEWER, upstreamBuild: '4.11.0-LIVE.2', upstreamCommittedAt: '2026-11-13T18:00:00Z' });
+    expect(res.body.data).toMatchObject({
+      upToDate: false,
+      upstreamCommit: NEWER,
+      upstreamBuild: '4.11.0-LIVE.2',
+      upstreamCommittedAt: '2026-11-13T18:00:00Z',
+    });
     // a second click within 30 s reuses the answer
     await a.post('/api/game-data/check').expect(200);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('says so when GitHub can\'t be reached', async () => {
+  it("says so when GitHub can't be reached", async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('nope', { status: 503 }));
-    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValueOnce([{ commit: HELD, build: null, committed_at: null }] as never);
+    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValueOnce([
+      { commit: HELD, build: null, committed_at: null },
+    ] as never);
     const a = await signedIn(ADMIN);
     const res = await a.post('/api/game-data/check').expect(502);
     expect(res.body.error).toMatch(/GitHub/);

@@ -6,8 +6,13 @@
 // same key the bot uses) raises UEX's limits; these endpoints also work without it.
 
 import {
-  buildRefineryData, UEX_API,
-  type RefineryDataDto, type UexRefineryCommodity, type UexRefineryPriceRow, type UexRefineryTerminal, type UexRefineryYield,
+  buildRefineryData,
+  UEX_API,
+  type RefineryDataDto,
+  type UexRefineryCommodity,
+  type UexRefineryPriceRow,
+  type UexRefineryTerminal,
+  type UexRefineryYield,
 } from '@dem/shared';
 
 const TTL_MS = 30 * 60_000;
@@ -15,13 +20,19 @@ const TTL_MS = 30 * 60_000;
 async function uexGet<T>(path: string): Promise<T[]> {
   const key = process.env['UEX_KEY'];
   const res = await fetch(`${UEX_API}/${path}`, {
-    headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'ASOP-Terminal',
+      ...(key ? { Authorization: `Bearer ${key}` } : {}),
+    },
     signal: AbortSignal.timeout(20_000),
   });
   type Body = { status?: string; data?: T[]; message?: string };
   const body = await (res.json() as Promise<Body>).catch((): Body | null => null);
   if (!res.ok || body?.status !== 'ok' || !Array.isArray(body.data)) {
-    throw new Error(`UEX ${path}: HTTP ${res.status} ${body?.status ?? 'no body'}${body?.message ? ` (${body.message})` : ''}`);
+    throw new Error(
+      `UEX ${path}: HTTP ${res.status} ${body?.status ?? 'no body'}${body?.message ? ` (${body.message})` : ''}`,
+    );
   }
   return body.data as T[];
 }
@@ -42,9 +53,17 @@ let building: Promise<RefineryDataDto | null> | null = null;
 
 function refresh(): Promise<RefineryDataDto | null> {
   building ??= fetchRefineryData()
-    .then((data) => { cached = { at: Date.now(), data }; return data; })
-    .catch((err: unknown) => { console.warn('[refinery] UEX data:', err instanceof Error ? err.message : err); return cached?.data ?? null; })
-    .finally(() => { building = null; });
+    .then((data) => {
+      cached = { at: Date.now(), data };
+      return data;
+    })
+    .catch((err: unknown) => {
+      console.warn('[refinery] UEX data:', err instanceof Error ? err.message : err);
+      return cached?.data ?? null;
+    })
+    .finally(() => {
+      building = null;
+    });
   return building;
 }
 

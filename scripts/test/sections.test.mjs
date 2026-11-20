@@ -25,14 +25,16 @@ test('features land in their section across every app', () => {
     'apps/bot/src/services/lootService.ts',
     'apps/bot/src/commands/bid.ts',
     'apps/web/src/hooks/useDkpLabel.ts',
-  ]) assert.equal(where(f), 'loot', f);
+  ])
+    assert.equal(where(f), 'loot', f);
   for (const f of [
     'apps/web/src/pages/tools/ShipLoadout.tsx',
     'apps/sc-data/src/index.ts',
     'packages/shared/src/mining.ts',
     'packages/shared/test/combat.test.mjs',
     'apps/bot/src/commands/blueprint.ts',
-  ]) assert.equal(where(f), 'game-tools', f);
+  ])
+    assert.equal(where(f), 'game-tools', f);
   assert.equal(where('packages/shared/src/ships.ts'), 'fleet');
   assert.equal(where('apps/api/src/server/routes/rsiRoster.ts'), 'members');
   assert.equal(where('apps/web/src/pages/settings/TournamentSettingsPage.tsx'), 'tournaments');
@@ -51,7 +53,8 @@ test('core and wiring', () => {
     'scripts/sections.config.mjs',
     'apps/api/src/lib/assertModuleEnabled.ts',
     'apps/web/src/components/ProtectedRoute.tsx',
-  ]) assert.equal(where(f), 'core', f);
+  ])
+    assert.equal(where(f), 'core', f);
   assert.deepEqual(classify('apps/web/src/App.tsx'), { kind: 'wiring', limit: 40 });
   assert.deepEqual(classify('apps/api/src/server/app.ts'), { kind: 'wiring', limit: 25 });
   assert.deepEqual(classify('apps/web/src/lib/somethingNew.ts'), { kind: 'core', unmapped: true });
@@ -77,10 +80,13 @@ test('one section with a little wiring passes', () => {
 });
 
 test('two sections, core files, big wiring and too many files each fail', () => {
-  assert.equal(checkScope([
-    { path: 'apps/api/src/server/routes/loot.ts', lines: 1 },
-    { path: 'apps/api/src/server/routes/events.ts', lines: 1 },
-  ]).ok, false);
+  assert.equal(
+    checkScope([
+      { path: 'apps/api/src/server/routes/loot.ts', lines: 1 },
+      { path: 'apps/api/src/server/routes/events.ts', lines: 1 },
+    ]).ok,
+    false,
+  );
   const core = checkScope([{ path: 'package.json', lines: 2 }]);
   assert.equal(core.ok, false);
   assert.match(core.problems[0], /core file/);
@@ -101,7 +107,10 @@ test('the override label lets a maintainer accept it, and says so', () => {
 test('CODEOWNERS is generated, maintainers own core last, and the committed file is current', () => {
   const text = renderCodeowners();
   const lines = text.split('\n');
-  assert.equal(lines.find((l) => l.startsWith('* ')), '* @Harvey-Ryan');
+  assert.equal(
+    lines.find((l) => l.startsWith('* ')),
+    '* @Harvey-Ryan',
+  );
   assert.ok(lines.includes('*loot* @Harvey-Ryan') && lines.includes('*Loot* @Harvey-Ryan'));
   assert.ok(lines.indexOf('/apps/api/prisma/** @Harvey-Ryan') > lines.indexOf('*loot* @Harvey-Ryan'));
   assert.equal(readFileSync(new URL('../../.github/CODEOWNERS', import.meta.url), 'utf8'), text);

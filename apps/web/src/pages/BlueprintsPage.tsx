@@ -8,47 +8,78 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToolsPaths } from '@/lib/toolsPaths';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { craftingSource, getBlueprintByUuid, missionContracts, obtainableBlueprints, type LocalBlueprint } from '@/lib/gameData';
+import {
+  craftingSource,
+  getBlueprintByUuid,
+  missionContracts,
+  obtainableBlueprints,
+  type LocalBlueprint,
+} from '@/lib/gameData';
 import './crafting/fabrication.css';
 import { buildList, useBuildList } from '@/lib/buildList';
 import { BlueprintBrowser, fmtSecs, Rivets, typeLabel } from './crafting/browser';
 import { MissionCard } from './crafting/missions';
 import { BuildListPanel } from './CraftingCalculatorPage';
 
-function BlueprintMissions({ bp, onPick, onCalculator, onBack }: {
+function BlueprintMissions({
+  bp,
+  onPick,
+  onCalculator,
+  onBack,
+}: {
   bp: LocalBlueprint;
   onPick: (uuid: string) => void;
   onCalculator: (uuid: string) => void;
   onBack: () => void;
 }) {
   const contracts = useMemo(
-    () => missionContracts().filter((mc) => mc.pools.some((p) => p.blueprints.some((e) => e.blueprintUuid === bp.uuid))),
+    () =>
+      missionContracts().filter((mc) => mc.pools.some((p) => p.blueprints.some((e) => e.blueprintUuid === bp.uuid))),
     [bp.uuid],
   );
   const queued = useBuildList().find((i) => i.uuid === bp.uuid)?.qty ?? 0;
-  const kind = [typeLabel(bp.type), bp.subtype && !typeLabel(bp.type).toLowerCase().includes(bp.subtype.toLowerCase()) && bp.subtype, bp.grade && `Grade ${bp.grade}`].filter(Boolean).join(' · ');
+  const kind = [
+    typeLabel(bp.type),
+    bp.subtype && !typeLabel(bp.type).toLowerCase().includes(bp.subtype.toLowerCase()) && bp.subtype,
+    bp.grade && `Grade ${bp.grade}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="flex flex-col gap-4">
       <section aria-label={bp.name} className="fab-plate flex flex-col gap-4 px-5 pb-5 pt-6 sm:px-7">
         <Rivets />
-        <button type="button" onClick={onBack} className="fab-btn -mt-1 flex h-9 w-fit items-center gap-1 px-2.5 text-xs lg:hidden">
+        <button
+          type="button"
+          onClick={onBack}
+          className="fab-btn -mt-1 flex h-9 w-fit items-center gap-1 px-2.5 text-xs lg:hidden"
+        >
           <ChevronLeft aria-hidden="true" className="h-4 w-4" /> All blueprints
         </button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="fab-label">{kind}</span>
-            <h2 className="fab-stencil m-0 text-[26px] leading-tight text-[var(--fab-bright)] sm:text-[30px]">{bp.name.toUpperCase()}</h2>
+            <h2 className="fab-stencil m-0 text-[26px] leading-tight text-[var(--fab-bright)] sm:text-[30px]">
+              {bp.name.toUpperCase()}
+            </h2>
             <span className="fab-mono text-xs text-[var(--fab-muted)]">
-              {contracts.length} mission{contracts.length === 1 ? '' : 's'} can give it · craft time {fmtSecs(bp.craftTimeSecs)}
+              {contracts.length} mission{contracts.length === 1 ? '' : 's'} can give it · craft time{' '}
+              {fmtSecs(bp.craftTimeSecs)}
             </span>
-            <span className="text-xs text-[var(--fab-muted)]">{bp.components.map((c) => c.material.name).join(' · ')}</span>
+            <span className="text-xs text-[var(--fab-muted)]">
+              {bp.components.map((c) => c.material.name).join(' · ')}
+            </span>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <button type="button" onClick={() => buildList.add(bp.uuid)} className="fab-btn h-11 px-3.5 text-[13px]">
               {queued ? `+ Add another (${queued} in list)` : '+ Add to build list'}
             </button>
-            <button type="button" onClick={() => onCalculator(bp.uuid)} className="fab-btn-primary h-11 px-4 text-[15px]">
+            <button
+              type="button"
+              onClick={() => onCalculator(bp.uuid)}
+              className="fab-btn-primary h-11 px-4 text-[15px]"
+            >
               Open in calculator →
             </button>
           </div>
@@ -56,11 +87,20 @@ function BlueprintMissions({ bp, onPick, onCalculator, onBack }: {
       </section>
 
       {contracts.length === 0 ? (
-        <section className="fab-plate px-6 py-8 text-center text-sm text-[var(--fab-muted)]">No mission in the current game data gives this blueprint.</section>
+        <section className="fab-plate px-6 py-8 text-center text-sm text-[var(--fab-muted)]">
+          No mission in the current game data gives this blueprint.
+        </section>
       ) : (
         <div className="flex flex-col gap-3">
           {contracts.map((mc, i) => (
-            <MissionCard key={mc.title} contract={mc} defaultOpen={i === 0} currentUuid={bp.uuid} onSelectBlueprint={onPick} onOpenCalculator={onCalculator} />
+            <MissionCard
+              key={mc.title}
+              contract={mc}
+              defaultOpen={i === 0}
+              currentUuid={bp.uuid}
+              onSelectBlueprint={onPick}
+              onOpenCalculator={onCalculator}
+            />
           ))}
         </div>
       )}
@@ -74,7 +114,8 @@ function EmptyState() {
       <Rivets />
       <span className="fab-stencil text-xl text-[var(--fab-gold-text)]">SELECT A BLUEPRINT</span>
       <p className="m-0 max-w-sm text-sm text-[var(--fab-muted)]">
-        Search for an item or pick a type. You'll see every mission that can give its blueprint: the rewards, how hard it is, where it runs and what else it can give.
+        Search for an item or pick a type. You'll see every mission that can give its blueprint: the rewards, how hard
+        it is, where it runs and what else it can give.
       </p>
     </section>
   );
@@ -84,7 +125,7 @@ export function BlueprintsPage() {
   const { blueprintUuid } = useParams<{ blueprintUuid?: string }>();
   const paths = useToolsPaths();
   const navigate = useNavigate();
-  const bp = blueprintUuid ? getBlueprintByUuid(blueprintUuid) ?? null : null;
+  const bp = blueprintUuid ? (getBlueprintByUuid(blueprintUuid) ?? null) : null;
   const pick = (uuid: string) => navigate(`${paths.blueprints}/${uuid}`);
   const back = () => navigate(paths.blueprints);
   const toCalculator = (uuid: string) => navigate(`${paths.crafting}/${uuid}`);
@@ -95,14 +136,20 @@ export function BlueprintsPage() {
       <div aria-hidden="true" className="fab-hazard h-2 shrink-0 opacity-85" />
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b-2 border-[#0d0d0d] px-5 pb-4 pt-5 shadow-[0_1px_0_#2c2c2c] sm:px-8">
         <div className="flex items-center gap-4">
-          <span aria-hidden="true" className="fab-stencil flex h-11 w-11 items-center justify-center border-2 border-[var(--fab-gold)] text-xl text-[var(--fab-gold-text)]">B</span>
+          <span
+            aria-hidden="true"
+            className="fab-stencil flex h-11 w-11 items-center justify-center border-2 border-[var(--fab-gold)] text-xl text-[var(--fab-gold-text)]"
+          >
+            B
+          </span>
           <div className="flex flex-col gap-0.5">
             <span className="fab-label">Mission rewards{src.build ? ` · ${src.build}` : ''}</span>
             <h1 className="fab-stencil m-0 text-[26px] text-[var(--fab-gold-text)] sm:text-[32px]">BLUEPRINTS</h1>
           </div>
         </div>
         <span className="fab-mono border border-[#333] bg-[#121212] px-2.5 py-1.5 text-xs text-[var(--fab-muted)]">
-          <span className="font-semibold text-[var(--fab-gold-text)]">{obtainableBlueprints().length}</span> BLUEPRINTS · <span className="font-semibold text-[var(--fab-gold-text)]">{missionContracts().length}</span> MISSIONS
+          <span className="font-semibold text-[var(--fab-gold-text)]">{obtainableBlueprints().length}</span> BLUEPRINTS
+          · <span className="font-semibold text-[var(--fab-gold-text)]">{missionContracts().length}</span> MISSIONS
         </span>
       </header>
 
@@ -117,9 +164,14 @@ export function BlueprintsPage() {
             <BlueprintMissions key={bp.uuid} bp={bp} onPick={pick} onCalculator={toCalculator} onBack={back} />
           ) : blueprintUuid ? (
             <section className="fab-plate px-6 py-10 text-center text-sm text-[var(--fab-muted)]">
-              That blueprint isn't in the current game data. <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">Back to all blueprints</button>
+              That blueprint isn't in the current game data.{' '}
+              <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">
+                Back to all blueprints
+              </button>
             </section>
-          ) : <EmptyState />}
+          ) : (
+            <EmptyState />
+          )}
         </div>
         <div className="fab-scroll min-w-0 flex-[1_1_300px] lg:max-w-[380px] xl:min-h-0 xl:overflow-y-auto xl:pb-1">
           <BuildListPanel onPick={pick} />

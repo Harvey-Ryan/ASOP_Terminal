@@ -5,12 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import { isPlatformAdminId } from '../../lib/platformAdmin.js';
 import { buildOAuthUrl, exchangeCode, fetchDiscordUser } from '../../lib/discord-oauth.js';
 import { requireAuth } from '../middleware/requireAuth.js';
-import {
-  getGuildIconUrl,
-  resolveAvatarUrl,
-  canManageGuild,
-  safeReturnPath,
-} from '@dem/shared';
+import { getGuildIconUrl, resolveAvatarUrl, canManageGuild, safeReturnPath } from '@dem/shared';
 import { getUserGuilds, GuildsUnavailableError } from '../../lib/userGuilds.js';
 import type { ApiResponse, DiscordUser, ManagedGuild, MeResponse } from '@dem/shared';
 
@@ -155,29 +150,29 @@ authRouter.get('/me', requireAuth, async (req, res) => {
           prisma.guild.findMany({ select: { guildId: true } }),
         ]);
         const botGuildIds = new Set(botGuildRows.map((g) => g.guildId));
-        const botGuilds   = raw.filter((g) => botGuildIds.has(g.id));
+        const botGuilds = raw.filter((g) => botGuildIds.has(g.id));
 
         // Guild managers always have access.
-        const managerGuilds = botGuilds.filter((g) =>  canManageGuild(g));
-        const memberGuilds  = botGuilds.filter((g) => !canManageGuild(g));
+        const managerGuilds = botGuilds.filter((g) => canManageGuild(g));
+        const memberGuilds = botGuilds.filter((g) => !canManageGuild(g));
 
         // For non-managers: open when no viewer roles are configured;
         // otherwise the user must hold one of the configured roles.
         let accessibleMemberGuilds: typeof memberGuilds = [];
         if (memberGuilds.length > 0) {
           const configs = await prisma.guild.findMany({
-            where:  { guildId: { in: memberGuilds.map((g) => g.id) } },
+            where: { guildId: { in: memberGuilds.map((g) => g.id) } },
             select: { guildId: true, settings: { select: { viewerRoles: true, eventCreatorRoles: true } } },
           });
           const configMap = new Map(configs.map((c) => [c.guildId, c.settings]));
-          const botToken  = process.env['DISCORD_TOKEN'];
+          const botToken = process.env['DISCORD_TOKEN'];
 
           accessibleMemberGuilds = (
             await Promise.all(
               memberGuilds.map(async (g) => {
-                const s       = configMap.get(g.id);
+                const s = configMap.get(g.id);
                 const allowed = [
-                  ...(JSON.parse(s?.viewerRoles      ?? '[]') as string[]),
+                  ...(JSON.parse(s?.viewerRoles ?? '[]') as string[]),
                   ...(JSON.parse(s?.eventCreatorRoles ?? '[]') as string[]),
                 ];
 
@@ -193,21 +188,19 @@ authRouter.get('/me', requireAuth, async (req, res) => {
         }
 
         const toDto = (g: (typeof botGuilds)[0]): ManagedGuild => ({
-          id:              g.id,
-          name:            g.name,
-          icon:            g.icon,
-          iconUrl:         getGuildIconUrl(g.id, g.icon),
-          owner:           g.owner,
-          permissions:     g.permissions,
+          id: g.id,
+          name: g.name,
+          icon: g.icon,
+          iconUrl: getGuildIconUrl(g.id, g.icon),
+          owner: g.owner,
+          permissions: g.permissions,
           hasBotInstalled: true,
         });
 
-        guilds = [...managerGuilds, ...accessibleMemberGuilds]
-          .map(toDto)
-          .sort((a, b) => {
-            if (a.owner !== b.owner) return a.owner ? -1 : 1;
-            return a.name.localeCompare(b.name);
-          });
+        guilds = [...managerGuilds, ...accessibleMemberGuilds].map(toDto).sort((a, b) => {
+          if (a.owner !== b.owner) return a.owner ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
       } catch (err) {
         // Non-fatal: an empty server list rather than failing /me entirely.
         if (!(err instanceof GuildsUnavailableError)) console.error('[auth/me] server list', err);
@@ -246,5 +239,3 @@ authRouter.post('/logout', requireAuth, (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' } satisfies ApiResponse);
   });
 });
-
-

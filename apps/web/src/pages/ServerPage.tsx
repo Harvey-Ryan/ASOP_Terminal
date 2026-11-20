@@ -1,7 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Plus, StopCircle, ExternalLink, Package, ChevronsRight, X, Pencil, Trash2, Upload, Check, RotateCcw, PlayCircle, Mic, Swords, Gavel, LockOpen, CheckCircle2, ClipboardList, LayoutTemplate } from 'lucide-react';
+import {
+  CalendarDays,
+  Plus,
+  StopCircle,
+  ExternalLink,
+  Package,
+  ChevronsRight,
+  X,
+  Pencil,
+  Trash2,
+  Upload,
+  Check,
+  RotateCcw,
+  PlayCircle,
+  Mic,
+  Swords,
+  Gavel,
+  LockOpen,
+  CheckCircle2,
+  ClipboardList,
+  LayoutTemplate,
+} from 'lucide-react';
 import { imagesApi } from '@/api/images';
 import { EventCreateForm } from './events/EventCreateForm';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,7 +47,7 @@ import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 function ensureRoleIds(roles: EventRole[]): EventRole[] {
-  return roles.map((r) => r.id ? r : { ...r, id: crypto.randomUUID() });
+  return roles.map((r) => (r.id ? r : { ...r, id: crypto.randomUUID() }));
 }
 
 const RECUR_LABELS: Record<string, string> = {
@@ -55,16 +76,27 @@ type Tab = 'upcoming' | 'completed' | 'pending';
 type View = 'table' | 'create' | 'detail' | 'edit';
 
 // The Event Manager's chunky gold scrollbar (Chrome/Edge/Safari), shared by its panels.
-const panelScrollCls = '[&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]';
-const rowCls = 'flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
-const labelCls = 'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-1';
-const inputCls = 'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
-const timeInputCls = 'w-36 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
-const btnCls = 'gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground';
+const panelScrollCls =
+  '[&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-track]:[border-left:2px_solid_black] [&::-webkit-scrollbar-thumb]:bg-primary [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:min-h-[16px] [&::-webkit-scrollbar-thumb]:max-h-[16px] [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:[background-clip:padding-box] [&::-webkit-scrollbar-thumb]:[box-shadow:3px_0_8px_2px_rgba(0,0,0,0.9),0_2px_6px_2px_rgba(0,0,0,0.8)]';
+const rowCls =
+  'flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
+const labelCls =
+  'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-1';
+const inputCls =
+  'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
+const timeInputCls =
+  'w-36 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
+const btnCls =
+  'gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground';
 
 // ── Event edit inline view ────────────────────────────────────────────────────
 
-function EventEditView({ event, guildId, onDone, onCancel }: {
+function EventEditView({
+  event,
+  guildId,
+  onDone,
+  onCancel,
+}: {
   event: EventDto;
   guildId: string;
   onDone: () => void;
@@ -124,7 +156,10 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
 
   const updateMutation = useMutation({
     mutationFn: (body: Partial<CreateEventBody>) => eventsApi.update(guildId, event.id, body),
-    onSuccess: () => { invalidate(); onDone(); },
+    onSuccess: () => {
+      invalidate();
+      onDone();
+    },
     onError: (err: Error) => setFormError(err.message),
   });
 
@@ -138,9 +173,13 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   function handleDrop(target: string | null) {
     if (draggingUserId) {
       const r = ev.rsvps.find((x) => x.userId === draggingUserId);
-      const current = r?.tentative ? '__maybe' : r?.role ?? null;
+      const current = r?.tentative ? '__maybe' : (r?.role ?? null);
       if (current !== target) {
-        reassignMutation.mutate({ userId: draggingUserId, role: target === '__maybe' ? null : target, tentative: target === '__maybe' });
+        reassignMutation.mutate({
+          userId: draggingUserId,
+          role: target === '__maybe' ? null : target,
+          tentative: target === '__maybe',
+        });
       }
     }
     setDraggingUserId(null);
@@ -166,9 +205,15 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (!startDate || !startTime) { setFormError('Start date and time are required.'); return; }
+    if (!startDate || !startTime) {
+      setFormError('Start date and time are required.');
+      return;
+    }
     const startIso = new Date(`${startDate}T${startTime}:00`);
-    if (isNaN(startIso.getTime())) { setFormError('Invalid start date or time.'); return; }
+    if (isNaN(startIso.getTime())) {
+      setFormError('Invalid start date or time.');
+      return;
+    }
     const durationMins = parseInt(duration) || 0;
     const endIso = durationMins > 0 ? new Date(startIso.getTime() + durationMins * 60_000) : undefined;
     updateMutation.mutate({
@@ -187,12 +232,14 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
   }
 
   const rosterBuckets = [
-    ...roles.filter((r) => r.name.trim()).map((role) => ({
-      key: role.id ?? role.name,
-      label: role.name,
-      count: role.count as number | null,
-      members: ev.rsvps.filter((r) => r.role === (role.id ?? role.name)),
-    })),
+    ...roles
+      .filter((r) => r.name.trim())
+      .map((role) => ({
+        key: role.id ?? role.name,
+        label: role.name,
+        count: role.count as number | null,
+        members: ev.rsvps.filter((r) => r.role === (role.id ?? role.name)),
+      })),
     { key: '__unassigned', label: 'Unassigned', count: null, members: ev.rsvps.filter((r) => !r.role && !r.tentative) },
     { key: '__maybe', label: 'Maybe', count: null, members: ev.rsvps.filter((r) => r.tentative) },
   ];
@@ -215,29 +262,49 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       <div className={rowCls}>
         <span className={labelCls}>Description</span>
         <div className="flex-1">
-          <textarea className={`${inputCls} resize-none`} rows={3} value={description}
-            onChange={(e) => setDescription(e.target.value)} />
+          <textarea
+            className={`${inputCls} resize-none`}
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </div>
       </div>
 
       <div className={rowCls}>
         <span className={labelCls}>Location</span>
         <div className="flex-1">
-          <input className={inputCls} value={musterPoint} placeholder="Main Gate, Zone 7, etc."
-            onChange={(e) => setMusterPoint(e.target.value)} />
+          <input
+            className={inputCls}
+            value={musterPoint}
+            placeholder="Main Gate, Zone 7, etc."
+            onChange={(e) => setMusterPoint(e.target.value)}
+          />
         </div>
       </div>
 
       <div className={rowCls}>
         <span className={labelCls}>Start *</span>
         <div className="flex flex-1 gap-2">
-          <input type="date" className={inputCls} value={startDate} required
-            onChange={(e) => setStartDate(e.target.value)} />
-          <input type="time" className={timeInputCls} value={startTime} required
-            onChange={(e) => setStartTime(e.target.value)} />
+          <input
+            type="date"
+            className={inputCls}
+            value={startDate}
+            required
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <input
+            type="time"
+            className={timeInputCls}
+            value={startTime}
+            required
+            onChange={(e) => setStartTime(e.target.value)}
+          />
           <select
             className="w-32 shrink-0 rounded-md bg-primary text-primary-foreground px-2 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
-            value={duration} onChange={(e) => setDuration(e.target.value)}>
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          >
             <option value="30">30 min</option>
             <option value="60">1 hr</option>
             <option value="90">1.5 hr</option>
@@ -261,37 +328,61 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
             return roles.map((role, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <input
-                  ref={(el) => { roleInputRefs.current[i] = el; }}
-                  className={inputCls} placeholder="Role name (e.g. Tank)" value={role.name}
-                  onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRoleAndFocus(); } }}
+                  ref={(el) => {
+                    roleInputRefs.current[i] = el;
+                  }}
+                  className={inputCls}
+                  placeholder="Role name (e.g. Tank)"
+                  value={role.name}
+                  onChange={(e) => setRoles((p) => p.map((x, idx) => (idx === i ? { ...x, name: e.target.value } : x)))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addRoleAndFocus();
+                    }
+                  }}
                 />
-                <input type="number" min={1} max={99}
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
                   className="w-20 shrink-0 rounded-md bg-primary text-primary-foreground px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
                   value={role.count}
-                  onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, count: Math.max(1, parseInt(e.target.value) || 1) } : x))} />
+                  onChange={(e) =>
+                    setRoles((p) =>
+                      p.map((x, idx) => (idx === i ? { ...x, count: Math.max(1, parseInt(e.target.value) || 1) } : x)),
+                    )
+                  }
+                />
                 {guildOptions && (
                   <select
                     className="w-36 shrink-0 rounded-md bg-primary text-primary-foreground px-2 py-2 text-sm border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
                     value={role.guildId ?? ''}
-                    onChange={(e) => setRoles((p) => p.map((x, idx) => idx === i ? { ...x, guildId: e.target.value || null } : x))}
+                    onChange={(e) =>
+                      setRoles((p) => p.map((x, idx) => (idx === i ? { ...x, guildId: e.target.value || null } : x)))
+                    }
                   >
                     <option value="">All Guilds</option>
                     {guildOptions.map((g) => (
-                      <option key={g.guildId} value={g.guildId}>{g.label}</option>
+                      <option key={g.guildId} value={g.guildId}>
+                        {g.label}
+                      </option>
                     ))}
                   </select>
                 )}
-                <button type="button" onClick={() => setRoles((p) => p.filter((_, idx) => idx !== i))}
-                  className="text-primary-foreground/60 hover:text-destructive transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setRoles((p) => p.filter((_, idx) => idx !== i))}
+                  className="text-primary-foreground/60 hover:text-destructive transition-colors"
+                >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ));
           })()}
-          <Button type="button" variant="outline" size="sm" className={btnCls}
-            onClick={addRoleAndFocus}>
-            <Plus className="h-3.5 w-3.5" />Add Role
+          <Button type="button" variant="outline" size="sm" className={btnCls} onClick={addRoleAndFocus}>
+            <Plus className="h-3.5 w-3.5" />
+            Add Role
           </Button>
         </div>
       </div>
@@ -305,20 +396,32 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
           {vcNames.map((vc, i) => (
             <div key={i} className="flex gap-2 items-center">
               <input
-                ref={(el) => { vcInputRefs.current[i] = el; }}
-                className={inputCls} placeholder="VC name (e.g. Squad Alpha)" value={vc}
-                onChange={(e) => setVcNames((p) => p.map((x, idx) => idx === i ? e.target.value : x))}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVcAndFocus(); } }}
+                ref={(el) => {
+                  vcInputRefs.current[i] = el;
+                }}
+                className={inputCls}
+                placeholder="VC name (e.g. Squad Alpha)"
+                value={vc}
+                onChange={(e) => setVcNames((p) => p.map((x, idx) => (idx === i ? e.target.value : x)))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addVcAndFocus();
+                  }
+                }}
               />
-              <button type="button" onClick={() => setVcNames((p) => p.filter((_, idx) => idx !== i))}
-                className="text-primary-foreground/60 hover:text-destructive transition-colors">
+              <button
+                type="button"
+                onClick={() => setVcNames((p) => p.filter((_, idx) => idx !== i))}
+                className="text-primary-foreground/60 hover:text-destructive transition-colors"
+              >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}
-          <Button type="button" variant="outline" size="sm" className={btnCls}
-            onClick={addVcAndFocus}>
-            <Plus className="h-3.5 w-3.5" />Add VC
+          <Button type="button" variant="outline" size="sm" className={btnCls} onClick={addVcAndFocus}>
+            <Plus className="h-3.5 w-3.5" />
+            Add VC
           </Button>
           <label className="flex items-center gap-3 cursor-pointer pt-1">
             <button
@@ -338,7 +441,9 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
             </button>
             <span className="text-sm text-primary-foreground/90">
               Briefing Channel
-              <span className="block text-[11px] text-primary-foreground/50">PTT-only VC created alongside regular channels</span>
+              <span className="block text-[11px] text-primary-foreground/50">
+                PTT-only VC created alongside regular channels
+              </span>
             </span>
           </label>
         </div>
@@ -348,8 +453,14 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
         <span className={labelCls}>Event Image</span>
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="sm" className={btnCls}
-              onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={btnCls}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+            >
               <Upload className="h-3.5 w-3.5" />
               {uploadMutation.isPending ? 'Uploading…' : 'Upload Image'}
             </Button>
@@ -358,20 +469,35 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
                 <Check className="h-3.5 w-3.5" /> Image selected
               </span>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadMutation.mutate(f);
+              }}
+            />
           </div>
           {selectedImageUrl && (
-            <img src={`${API_BASE}${selectedImageUrl}`} alt="Selected"
-              className="h-32 w-auto rounded-md border border-background/40 object-cover" />
+            <img
+              src={`${API_BASE}${selectedImageUrl}`}
+              alt="Selected"
+              className="h-32 w-auto rounded-md border border-background/40 object-cover"
+            />
           )}
           {imageLibrary.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs text-primary-foreground/60">Or select from library:</p>
               <div className="grid grid-cols-4 gap-2">
                 {imageLibrary.map((img) => (
-                  <button key={img.id} type="button" onClick={() => setSelectedImageUrl(img.url)}
-                    className={`relative rounded-md overflow-hidden border-2 transition-colors ${selectedImageUrl === img.url ? 'border-primary-foreground' : 'border-transparent hover:border-background/60'}`}>
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setSelectedImageUrl(img.url)}
+                    className={`relative rounded-md overflow-hidden border-2 transition-colors ${selectedImageUrl === img.url ? 'border-primary-foreground' : 'border-transparent hover:border-background/60'}`}
+                  >
                     <img src={`${API_BASE}${img.url}`} alt={img.filename} className="h-20 w-full object-cover" />
                     {selectedImageUrl === img.url && (
                       <div className="absolute inset-0 bg-background/30 flex items-center justify-center">
@@ -392,30 +518,47 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
           <span className={labelCls}>Roster</span>
           <div className="flex-1 space-y-2">
             {rosterBuckets.map((bucket) => (
-              <div key={bucket.key}
-                onDragOver={(e) => { e.preventDefault(); setDragOverBucket(bucket.key); }}
-                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverBucket(null); }}
-                onDrop={(e) => { e.preventDefault(); handleDrop(bucket.key === '__unassigned' ? null : bucket.key); }}
-                className={`rounded border p-2 min-h-[40px] transition-colors ${dragOverBucket === bucket.key ? 'border-primary-foreground bg-primary-foreground/10' : 'border-primary-foreground/30'}`}>
+              <div
+                key={bucket.key}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverBucket(bucket.key);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverBucket(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleDrop(bucket.key === '__unassigned' ? null : bucket.key);
+                }}
+                className={`rounded border p-2 min-h-[40px] transition-colors ${dragOverBucket === bucket.key ? 'border-primary-foreground bg-primary-foreground/10' : 'border-primary-foreground/30'}`}
+              >
                 <p className="text-sm font-bold uppercase tracking-widest opacity-60 mb-1.5">
-                  {bucket.label}{bucket.count !== null ? ` (${bucket.members.length}/${bucket.count})` : ` (${bucket.members.length})`}
+                  {bucket.label}
+                  {bucket.count !== null
+                    ? ` (${bucket.members.length}/${bucket.count})`
+                    : ` (${bucket.members.length})`}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {bucket.members.map((member) => (
-                    <div key={member.userId} draggable
+                    <div
+                      key={member.userId}
+                      draggable
                       onDragStart={(e) => {
                         setDraggingUserId(member.userId);
                         e.dataTransfer.setData('text/plain', member.userId);
                         e.dataTransfer.effectAllowed = 'move';
                       }}
-                      onDragEnd={() => { setDraggingUserId(null); setDragOverBucket(null); }}
-                      className={`px-3 py-1 text-base rounded bg-primary-foreground text-primary cursor-grab active:cursor-grabbing select-none transition-opacity ${draggingUserId === member.userId ? 'opacity-40' : ''}`}>
+                      onDragEnd={() => {
+                        setDraggingUserId(null);
+                        setDragOverBucket(null);
+                      }}
+                      className={`px-3 py-1 text-base rounded bg-primary-foreground text-primary cursor-grab active:cursor-grabbing select-none transition-opacity ${draggingUserId === member.userId ? 'opacity-40' : ''}`}
+                    >
                       {resolveUsername(member.userId, member.username, currentUser?.id)}
                     </div>
                   ))}
-                  {bucket.members.length === 0 && (
-                    <span className="text-xs opacity-40 italic">Drop here</span>
-                  )}
+                  {bucket.members.length === 0 && <span className="text-xs opacity-40 italic">Drop here</span>}
                 </div>
               </div>
             ))}
@@ -425,8 +568,15 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
       )}
 
       <div className="flex justify-end gap-2 bg-primary px-5 py-4">
-        <Button type="button" size="sm" className={btnCls} onClick={onCancel}>Cancel</Button>
-        <Button type="submit" size="sm" className={btnCls} disabled={updateMutation.isPending || uploadMutation.isPending}>
+        <Button type="button" size="sm" className={btnCls} onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          className={btnCls}
+          disabled={updateMutation.isPending || uploadMutation.isPending}
+        >
           {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
         </Button>
       </div>
@@ -436,7 +586,14 @@ function EventEditView({ event, guildId, onDone, onCancel }: {
 
 // ── Event detail inline view ──────────────────────────────────────────────────
 
-function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }: {
+function EventDetailView({
+  event,
+  guildId,
+  isManager,
+  userId,
+  onEdit,
+  onRepeat,
+}: {
   event: EventDto;
   guildId: string;
   isManager: boolean;
@@ -549,7 +706,10 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   // This event's loot starting, and picks in its draft, as they happen (v1.30.0).
   lootLiveRef.current = useLiveQueries(
     [`loot-event:${event.id}`, myDraftPick && `loot:${myDraftPick.sessionId}`],
-    [['loot', guildId, event.id], ['loot', 'my-picks']],
+    [
+      ['loot', guildId, event.id],
+      ['loot', 'my-picks'],
+    ],
   );
 
   // Allies you can share this event with (v1.11.0: allies only).
@@ -568,12 +728,15 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   }
 
   const inviteGuildMutation = useMutation({
-    mutationFn: (targetDiscordGuildId: string) =>
-      eventsApi.inviteGuildDirect(guildId, event.id, targetDiscordGuildId),
-    onSuccess: () => { invalidateShares(); setSharePickerOpen(false); setSelectedGuildId(''); setShareError(null); },
+    mutationFn: (targetDiscordGuildId: string) => eventsApi.inviteGuildDirect(guildId, event.id, targetDiscordGuildId),
+    onSuccess: () => {
+      invalidateShares();
+      setSharePickerOpen(false);
+      setSelectedGuildId('');
+      setShareError(null);
+    },
     onError: (err: Error) => setShareError(err.message),
   });
-
 
   const cancelShareMutation = useMutation({
     mutationFn: (shareId: string) => eventsApi.cancelShare(guildId, event.id, shareId),
@@ -602,7 +765,8 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
   // Joint ops (v1.20.0): on a shared event, everyone's server tag and a headcount per server.
   const serverTag = (r: RsvpDto) => (ev.serverTags ? serverTagOf(r, ev.guildId, ev.serverTags) : undefined);
   const byServer = ev.serverTags ? serverHeadcount(ev.rsvps, ev.guildId, ev.serverTags) : [];
-  const isMutating = rsvpMutation.isPending || removeRsvpMutation.isPending || waitlistMutation.isPending || maybeMutation.isPending;
+  const isMutating =
+    rsvpMutation.isPending || removeRsvpMutation.isPending || waitlistMutation.isPending || maybeMutation.isPending;
   const waitlist = ev.waitlist ?? [];
   const myWait = userId ? waitlist.find((w) => w.userId === userId) : undefined;
 
@@ -610,19 +774,33 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
     <div>
       {/* Draft pick notification */}
       {myDraftPick && (
-        <div className={`flex items-center justify-between rounded-lg border px-3 py-2.5 mb-3 gap-3 ${
-          myDraftPick.isMyTurn
-            ? 'border-amber-500/40 bg-amber-500/10'
-            : 'border-border bg-muted/40'
-        }`}>
+        <div
+          className={`flex items-center justify-between rounded-lg border px-3 py-2.5 mb-3 gap-3 ${
+            myDraftPick.isMyTurn ? 'border-amber-500/40 bg-amber-500/10' : 'border-border bg-muted/40'
+          }`}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <Swords className={`h-4 w-4 shrink-0 ${myDraftPick.isMyTurn ? 'text-amber-500' : 'text-muted-foreground'}`} />
-            <span className={`text-sm font-medium truncate ${myDraftPick.isMyTurn ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-              {myDraftPick.isMyTurn ? "It's your turn to pick!" : myDraftPick.method === 'SNAKE_DRAFT' ? 'Snake draft in progress' : 'Loot session in progress'}
-              {myDraftPick.itemCount > 0 && ` · ${myDraftPick.itemCount} item${myDraftPick.itemCount !== 1 ? 's' : ''} left`}
+            <Swords
+              className={`h-4 w-4 shrink-0 ${myDraftPick.isMyTurn ? 'text-amber-500' : 'text-muted-foreground'}`}
+            />
+            <span
+              className={`text-sm font-medium truncate ${myDraftPick.isMyTurn ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}
+            >
+              {myDraftPick.isMyTurn
+                ? "It's your turn to pick!"
+                : myDraftPick.method === 'SNAKE_DRAFT'
+                  ? 'Snake draft in progress'
+                  : 'Loot session in progress'}
+              {myDraftPick.itemCount > 0 &&
+                ` · ${myDraftPick.itemCount} item${myDraftPick.itemCount !== 1 ? 's' : ''} left`}
             </span>
           </div>
-          <Button size="sm" variant={myDraftPick.isMyTurn ? 'default' : 'outline'} className={`shrink-0 h-7 text-xs ${myDraftPick.isMyTurn ? 'bg-amber-500 hover:bg-amber-600 text-white border-0' : ''}`} asChild>
+          <Button
+            size="sm"
+            variant={myDraftPick.isMyTurn ? 'default' : 'outline'}
+            className={`shrink-0 h-7 text-xs ${myDraftPick.isMyTurn ? 'bg-amber-500 hover:bg-amber-600 text-white border-0' : ''}`}
+            asChild
+          >
             <Link to={`/dashboard/servers/${guildId}/events/${event.id}/loot`}>
               {myDraftPick.isMyTurn ? 'Pick Now' : 'View Loot'}
             </Link>
@@ -641,7 +819,9 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             </span>
           )}
           {!isHostGuild && (
-            <span className="rounded-full px-2 py-0.5 text-sm font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400">Shared</span>
+            <span className="rounded-full px-2 py-0.5 text-sm font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400">
+              Shared
+            </span>
           )}
           {ev.recurType && (
             <span className="text-base opacity-60">{ev.recurLabel ?? RECUR_LABELS[ev.recurType] ?? ev.recurType}</span>
@@ -654,7 +834,10 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         <span className={labelCls}>When</span>
         <div className="flex-1 text-lg">
           <p>{dateStr}</p>
-          <p className="opacity-70 mt-0.5">{timeStr}{endTimeStr ? ` → ${endTimeStr}` : ''}</p>
+          <p className="opacity-70 mt-0.5">
+            {timeStr}
+            {endTimeStr ? ` → ${endTimeStr}` : ''}
+          </p>
         </div>
       </div>
 
@@ -699,47 +882,72 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                 <div key={roleKey}>
                   <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
                     {role.name} ({members.length}/{role.count})
-                    {waiting.length > 0 && <span className="ml-2 text-sm font-medium normal-case tracking-normal opacity-60">{waiting.length} waiting</span>}
+                    {waiting.length > 0 && (
+                      <span className="ml-2 text-sm font-medium normal-case tracking-normal opacity-60">
+                        {waiting.length} waiting
+                      </span>
+                    )}
                   </p>
                   <div className="mt-0.5 space-y-0.5">
-                    {members.length > 0
-                      ? members.map((r) => (
-                          <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}{serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}</p>
-                        ))
-                      : <span className="opacity-50 italic text-lg">None</span>}
+                    {members.length > 0 ? (
+                      members.map((r) => (
+                        <p key={r.userId} className="text-lg">
+                          {resolveUsername(r.userId, r.username, userId)}
+                          {serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}
+                        </p>
+                      ))
+                    ) : (
+                      <span className="opacity-50 italic text-lg">None</span>
+                    )}
                     {waiting.length > 0 && (
-                      <p className="text-base opacity-60">Waiting: {waiting.map((w) => resolveUsername(w.userId, w.username, userId)).join(', ')}</p>
+                      <p className="text-base opacity-60">
+                        Waiting: {waiting.map((w) => resolveUsername(w.userId, w.username, userId)).join(', ')}
+                      </p>
                     )}
                   </div>
                   {canRsvp && userId && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       {isMyRole ? (
-                        <Button size="sm" disabled={isMutating}
+                        <Button
+                          size="sm"
+                          disabled={isMutating}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => rsvpMutation.mutate(null)}>
+                          onClick={() => rsvpMutation.mutate(null)}
+                        >
                           Unassign
                         </Button>
                       ) : isFull && !otherServer ? (
                         // A full role: wait in line for it, keeping your current spot (v1.14.0).
                         myPlace ? (
                           <>
-                            <Button size="sm" disabled={isMutating} className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                              onClick={() => waitlistMutation.mutate(null)}>
+                            <Button
+                              size="sm"
+                              disabled={isMutating}
+                              className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => waitlistMutation.mutate(null)}
+                            >
                               Leave waitlist
                             </Button>
                             <span className="text-base font-semibold">You're #{myPlace} in line</span>
                           </>
                         ) : (
-                          <Button size="sm" disabled={isMutating} className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                          <Button
+                            size="sm"
+                            disabled={isMutating}
+                            className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
                             title="You keep your current spot until a slot opens; then you're moved in and DMed."
-                            onClick={() => waitlistMutation.mutate(roleKey)}>
+                            onClick={() => waitlistMutation.mutate(roleKey)}
+                          >
                             Join waitlist
                           </Button>
                         )
                       ) : (
-                        <Button size="sm" disabled={isMutating || otherServer}
+                        <Button
+                          size="sm"
+                          disabled={isMutating || otherServer}
                           className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
-                          onClick={() => rsvpMutation.mutate(roleKey)}>
+                          onClick={() => rsvpMutation.mutate(roleKey)}
+                        >
                           {otherServer ? 'Other server' : userRsvp && !userRsvp.tentative ? 'Switch Here' : 'Sign Up'}
                         </Button>
                       )}
@@ -757,24 +965,35 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         <span className={labelCls}>Unassigned</span>
         <div className="flex-1">
           <div className="space-y-0.5">
-            {unassigned.length > 0
-              ? unassigned.map((r) => (
-                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}{serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}</p>
-                ))
-              : <span className="opacity-50 italic text-lg">None</span>}
+            {unassigned.length > 0 ? (
+              unassigned.map((r) => (
+                <p key={r.userId} className="text-lg">
+                  {resolveUsername(r.userId, r.username, userId)}
+                  {serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}
+                </p>
+              ))
+            ) : (
+              <span className="opacity-50 italic text-lg">None</span>
+            )}
           </div>
           {canRsvp && userId && (
             <div className="mt-1.5">
               {userRsvp && !userRsvp.role && !userRsvp.tentative ? (
-                <Button size="sm" disabled={isMutating}
+                <Button
+                  size="sm"
+                  disabled={isMutating}
                   className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => removeRsvpMutation.mutate()}>
+                  onClick={() => removeRsvpMutation.mutate()}
+                >
                   Leave
                 </Button>
               ) : !userRsvp || userRsvp.tentative ? (
-                <Button size="sm" disabled={isMutating}
+                <Button
+                  size="sm"
+                  disabled={isMutating}
                   className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => rsvpMutation.mutate(null)}>
+                  onClick={() => rsvpMutation.mutate(null)}
+                >
                   Join (No Role)
                 </Button>
               ) : null}
@@ -784,37 +1003,55 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       </div>
 
       {/* Maybe (v1.17.0): on the roster without a role, so it never takes a slot */}
-      {(canRsvp || maybes.length > 0) && <div className={rowCls}>
-        <span className={labelCls}>Maybe</span>
-        <div className="flex-1">
-          <div className="space-y-0.5">
-            {maybes.length > 0
-              ? maybes.map((r) => (
-                  <p key={r.userId} className="text-lg">{resolveUsername(r.userId, r.username, userId)}{serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}</p>
+      {(canRsvp || maybes.length > 0) && (
+        <div className={rowCls}>
+          <span className={labelCls}>Maybe</span>
+          <div className="flex-1">
+            <div className="space-y-0.5">
+              {maybes.length > 0 ? (
+                maybes.map((r) => (
+                  <p key={r.userId} className="text-lg">
+                    {resolveUsername(r.userId, r.username, userId)}
+                    {serverTag(r) && <span className="ml-2 text-sm opacity-60">{serverTag(r)}</span>}
+                  </p>
                 ))
-              : <span className="opacity-50 italic text-lg">None</span>}
-          </div>
-          {canRsvp && userId && (
-            <div className="mt-1.5">
-              <Button size="sm" disabled={isMutating}
-                className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                title={userRsvp?.tentative ? undefined : 'Show you might come, without taking a role'}
-                onClick={() => (userRsvp?.tentative ? removeRsvpMutation.mutate() : maybeMutation.mutate())}>
-                {userRsvp?.tentative ? 'Leave' : "I'm a maybe"}
-              </Button>
+              ) : (
+                <span className="opacity-50 italic text-lg">None</span>
+              )}
             </div>
-          )}
+            {canRsvp && userId && (
+              <div className="mt-1.5">
+                <Button
+                  size="sm"
+                  disabled={isMutating}
+                  className="h-8 px-3 text-base bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                  title={userRsvp?.tentative ? undefined : 'Show you might come, without taking a role'}
+                  onClick={() => (userRsvp?.tentative ? removeRsvpMutation.mutate() : maybeMutation.mutate())}
+                >
+                  {userRsvp?.tentative ? 'Leave' : "I'm a maybe"}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>}
+      )}
 
       {/* Attending */}
       <div className={rowCls}>
         <span className={labelCls}>Attending</span>
         <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
-          <p className="text-lg font-medium">{ev.rsvps.length - maybes.length}{maybes.length > 0 && <span className="font-normal opacity-70"> · {maybes.length} maybe</span>}</p>
-          {byServer.length > 1 && <p className="text-base opacity-80">{byServer.map((c) => `${c.tag} ${c.count}`).join(' · ')}</p>}
+          <p className="text-lg font-medium">
+            {ev.rsvps.length - maybes.length}
+            {maybes.length > 0 && <span className="font-normal opacity-70"> · {maybes.length} maybe</span>}
+          </p>
+          {byServer.length > 1 && (
+            <p className="text-base opacity-80">{byServer.map((c) => `${c.tag} ${c.count}`).join(' · ')}</p>
+          )}
           {userRsvp && canRsvp && (
-            <Link to="/dashboard/settings/notifications" className="text-base underline underline-offset-2 opacity-70 hover:opacity-100">
+            <Link
+              to="/dashboard/settings/notifications"
+              className="text-base underline underline-offset-2 opacity-70 hover:opacity-100"
+            >
               Add your sign-ups to your calendar
             </Link>
           )}
@@ -825,8 +1062,16 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       {(ev.status === 'ENDED' || ev.status === 'COMPLETED') && (
         <div className={rowCls}>
           <span className={labelCls}>After Action</span>
-          <AfterActionSection ev={ev} guildId={guildId} canEdit={canManage} userId={userId}
-            onSaved={(updated) => { queryClient.setQueryData(['events', guildId, event.id], updated); invalidateEvent(); }} />
+          <AfterActionSection
+            ev={ev}
+            guildId={guildId}
+            canEdit={canManage}
+            userId={userId}
+            onSaved={(updated) => {
+              queryClient.setQueryData(['events', guildId, event.id], updated);
+              invalidateEvent();
+            }}
+          />
         </div>
       )}
 
@@ -846,7 +1091,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           {lootSession && (
             <div className={rowCls}>
               <span className={labelCls}>Loot System</span>
-              <p className="flex-1 text-lg font-medium">{lootSession.method === 'DKP' ? `${dkpLabel} Bid` : METHOD_LABELS[lootSession.method] ?? lootSession.method}</p>
+              <p className="flex-1 text-lg font-medium">
+                {lootSession.method === 'DKP'
+                  ? `${dkpLabel} Bid`
+                  : (METHOD_LABELS[lootSession.method] ?? lootSession.method)}
+              </p>
             </div>
           )}
 
@@ -854,56 +1103,69 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             <div className={rowCls}>
               <span className={labelCls}>Items</span>
               <div className="flex-1 space-y-3">
-                {lootSession.method === 'COMMODITY_DRAFT' ? (() => {
-                  // Group items by name for commodity draft display
-                  const grouped = new Map<string, typeof lootSession.items>();
-                  for (const item of [...lootSession.items].sort((a, b) => a.sortOrder - b.sortOrder)) {
-                    const group = grouped.get(item.name) ?? [];
-                    group.push(item);
-                    grouped.set(item.name, group);
-                  }
-                  return Array.from(grouped.entries()).map(([name, items]) => (
-                    <div key={name}>
-                      <p className="text-base font-extrabold uppercase tracking-widest opacity-90">{name}</p>
-                      <div className="mt-0.5 space-y-0.5">
-                        {items.map((item) =>
-                          item.assignments.length > 0 ? (
-                            item.assignments.map((a) => (
-                              <p key={a.id} className="text-lg">
-                                {resolveUsername(a.userId, a.username, userId)}
-                                {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber + 1}</span>}
-                              </p>
-                            ))
-                          ) : (
-                            <p key={item.id} className="text-lg opacity-50 italic">Unassigned</p>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  ));
-                })() : (
-                  [...lootSession.items].sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
-                    <div key={item.id}>
-                      <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
-                        {item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
-                      </p>
-                      {item.assignments.length > 0 ? (
-                        <div className="mt-0.5 space-y-0.5">
-                          {item.assignments.map((a) => (
-                            <p key={a.id} className="text-lg">
-                              {resolveUsername(a.userId, a.username, userId)}
-                              {a.rollValue != null && <span className="opacity-60 ml-1.5">🎲 {a.rollValue}</span>}
-                              {a.dkpSpent != null && a.dkpSpent > 0 && <span className="opacity-60 ml-1.5">{a.dkpSpent} {dkpLabel}</span>}
-                              {a.pickNumber != null && <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>}
-                            </p>
-                          ))}
+                {lootSession.method === 'COMMODITY_DRAFT'
+                  ? (() => {
+                      // Group items by name for commodity draft display
+                      const grouped = new Map<string, typeof lootSession.items>();
+                      for (const item of [...lootSession.items].sort((a, b) => a.sortOrder - b.sortOrder)) {
+                        const group = grouped.get(item.name) ?? [];
+                        group.push(item);
+                        grouped.set(item.name, group);
+                      }
+                      return Array.from(grouped.entries()).map(([name, items]) => (
+                        <div key={name}>
+                          <p className="text-base font-extrabold uppercase tracking-widest opacity-90">{name}</p>
+                          <div className="mt-0.5 space-y-0.5">
+                            {items.map((item) =>
+                              item.assignments.length > 0 ? (
+                                item.assignments.map((a) => (
+                                  <p key={a.id} className="text-lg">
+                                    {resolveUsername(a.userId, a.username, userId)}
+                                    {a.pickNumber != null && (
+                                      <span className="opacity-60 ml-1.5">Pick #{a.pickNumber + 1}</span>
+                                    )}
+                                  </p>
+                                ))
+                              ) : (
+                                <p key={item.id} className="text-lg opacity-50 italic">
+                                  Unassigned
+                                </p>
+                              ),
+                            )}
+                          </div>
                         </div>
-                      ) : (
-                        <p className="text-lg opacity-50 italic mt-0.5">Unassigned</p>
-                      )}
-                    </div>
-                  ))
-                )}
+                      ));
+                    })()
+                  : [...lootSession.items]
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((item) => (
+                        <div key={item.id}>
+                          <p className="text-base font-extrabold uppercase tracking-widest opacity-90">
+                            {item.name}
+                            {item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                          </p>
+                          {item.assignments.length > 0 ? (
+                            <div className="mt-0.5 space-y-0.5">
+                              {item.assignments.map((a) => (
+                                <p key={a.id} className="text-lg">
+                                  {resolveUsername(a.userId, a.username, userId)}
+                                  {a.rollValue != null && <span className="opacity-60 ml-1.5">🎲 {a.rollValue}</span>}
+                                  {a.dkpSpent != null && a.dkpSpent > 0 && (
+                                    <span className="opacity-60 ml-1.5">
+                                      {a.dkpSpent} {dkpLabel}
+                                    </span>
+                                  )}
+                                  {a.pickNumber != null && (
+                                    <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>
+                                  )}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-lg opacity-50 italic mt-0.5">Unassigned</p>
+                          )}
+                        </div>
+                      ))}
               </div>
             </div>
           )}
@@ -916,10 +1178,14 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
           <span className={labelCls}>Audit</span>
           <div className="flex-1">
             <p className="text-lg opacity-70 mb-2">Review attendance and record loot.</p>
-            <Button asChild size="sm"
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+            <Button
+              asChild
+              size="sm"
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/audit`}>
-                <ExternalLink className="h-3.5 w-3.5" />Go to Audit
+                <ExternalLink className="h-3.5 w-3.5" />
+                Go to Audit
               </Link>
             </Button>
           </div>
@@ -927,28 +1193,29 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       )}
 
       {/* Shared With — host managers only */}
-      {canManage && ev.shares.length > 0 || (canManage && ev.status !== 'COMPLETED') ? (
+      {(canManage && ev.shares.length > 0) || (canManage && ev.status !== 'COMPLETED') ? (
         <div className={rowCls}>
           <span className={labelCls}>Shared With</span>
           <div className="flex-1 space-y-2">
-            {ev.shares.length === 0 && !sharePickerOpen && (
-              <p className="text-lg opacity-50 italic">Not shared</p>
-            )}
+            {ev.shares.length === 0 && !sharePickerOpen && <p className="text-lg opacity-50 italic">Not shared</p>}
 
             {/* Existing shares list */}
             {ev.shares.map((s) => {
               const statusColor =
-                s.status === 'ACCEPTED' ? 'text-green-400' :
-                s.status === 'DECLINED' ? 'text-red-400' :
-                'text-yellow-400';
+                s.status === 'ACCEPTED'
+                  ? 'text-green-400'
+                  : s.status === 'DECLINED'
+                    ? 'text-red-400'
+                    : 'text-yellow-400';
               return (
                 <div key={s.id} className="flex items-center gap-2 flex-wrap">
                   <span className="text-lg font-medium">{s.guildName}</span>
-                  <span className={`text-[11px] font-bold uppercase tracking-wide ${statusColor}`}>
-                    {s.status}
-                  </span>
+                  <span className={`text-[11px] font-bold uppercase tracking-wide ${statusColor}`}>{s.status}</span>
                   {s.autoAccepted && (
-                    <span className="text-[11px] opacity-50 uppercase tracking-wide" title="This ally posts your events automatically">
+                    <span
+                      className="text-[11px] opacity-50 uppercase tracking-wide"
+                      title="This ally posts your events automatically"
+                    >
                       Auto
                     </span>
                   )}
@@ -991,10 +1258,10 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                     .filter((a) => !ev.shares.some((s) => s.guildDiscordId === a.guild.guildId))
                     .map((a) => (
                       <option key={a.guild.guildId} value={a.guild.guildId}>
-                        {a.guild.name}{a.postsAutomatically ? ' (posts automatically)' : ''}
+                        {a.guild.name}
+                        {a.postsAutomatically ? ' (posts automatically)' : ''}
                       </option>
-                    ))
-                  }
+                    ))}
                 </select>
                 <button
                   disabled={!selectedGuildId || inviteGuildMutation.isPending}
@@ -1004,7 +1271,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
                   {inviteGuildMutation.isPending ? 'Sharing…' : 'Share'}
                 </button>
                 <button
-                  onClick={() => { setSharePickerOpen(false); setSelectedGuildId(''); setShareError(null); }}
+                  onClick={() => {
+                    setSharePickerOpen(false);
+                    setSelectedGuildId('');
+                    setShareError(null);
+                  }}
                   className="px-2 py-1.5 rounded text-[12px] font-bold uppercase tracking-wide bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
                 >
                   Cancel
@@ -1028,7 +1299,11 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
             {shareError && <p className="text-sm text-red-300">{shareError}</p>}
             {sharePickerOpen && shareable && shareable.allies.length === 0 && (
               <p className="text-sm opacity-70">
-                You have no allies yet. <Link to={`/dashboard/servers/${guildId}/settings/allies`} className="underline">Add allies</Link> to share events with them.
+                You have no allies yet.{' '}
+                <Link to={`/dashboard/servers/${guildId}/settings/allies`} className="underline">
+                  Add allies
+                </Link>{' '}
+                to share events with them.
               </p>
             )}
           </div>
@@ -1036,15 +1311,37 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
       ) : null}
 
       {templateName !== null && (
-        <form className="flex flex-wrap items-center gap-2 bg-primary px-5 pt-4 text-primary-foreground"
-          onSubmit={(e) => { e.preventDefault(); if (templateName.trim()) saveTemplate.mutate(templateName.trim()); }}>
+        <form
+          className="flex flex-wrap items-center gap-2 bg-primary px-5 pt-4 text-primary-foreground"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (templateName.trim()) saveTemplate.mutate(templateName.trim());
+          }}
+        >
           <span className="text-sm">Template name</span>
-          <input autoFocus maxLength={200} value={templateName} onChange={(e) => setTemplateName(e.target.value)}
-            className="min-w-0 flex-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground border-2 border-primary-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40" />
-          <Button type="submit" size="sm" disabled={saveTemplate.isPending || !templateName.trim()}>{saveTemplate.isPending ? 'Saving…' : 'Save template'}</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setTemplateName(null)}>Cancel</Button>
-          <p className="w-full text-xs text-primary-foreground/60">Copies the roles, voice channels and details{ev.briefingPublished ? ', and the briefing' : ' (and the briefing, if there is one)'}. New events made from the template get its briefing as a draft.</p>
-          {saveTemplate.isError && <p className="w-full text-xs text-red-400">{saveTemplate.error instanceof Error ? saveTemplate.error.message : 'Could not save the template'}</p>}
+          <input
+            autoFocus
+            maxLength={200}
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            className="min-w-0 flex-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground border-2 border-primary-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
+          />
+          <Button type="submit" size="sm" disabled={saveTemplate.isPending || !templateName.trim()}>
+            {saveTemplate.isPending ? 'Saving…' : 'Save template'}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setTemplateName(null)}>
+            Cancel
+          </Button>
+          <p className="w-full text-xs text-primary-foreground/60">
+            Copies the roles, voice channels and details
+            {ev.briefingPublished ? ', and the briefing' : ' (and the briefing, if there is one)'}. New events made from
+            the template get its briefing as a draft.
+          </p>
+          {saveTemplate.isError && (
+            <p className="w-full text-xs text-red-400">
+              {saveTemplate.error instanceof Error ? saveTemplate.error.message : 'Could not save the template'}
+            </p>
+          )}
         </form>
       )}
 
@@ -1055,134 +1352,196 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
         )}
         <div className="flex gap-2 ml-auto">
           {(ev.briefingPublished || canManage) && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
-              <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/briefing${!ev.briefingPublished && canManage ? '?mode=edit' : ''}`}>
-                <ClipboardList className="h-3.5 w-3.5" />{ev.briefingPublished ? 'Briefing' : 'Write briefing'}
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <Link
+                to={`/dashboard/servers/${guildId}/events/${ev.id}/briefing${!ev.briefingPublished && canManage ? '?mode=edit' : ''}`}
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                {ev.briefingPublished ? 'Briefing' : 'Write briefing'}
               </Link>
             </Button>
           )}
-          {canManage && ev.vcIds.length === 0 && (ev.vcNames.length > 0 || ev.briefingChannel) && (ev.status === 'PENDING' || ev.status === 'ACTIVE') && (
-            <Button size="sm"
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => createVcsMutation.mutate()}
-              disabled={createVcsMutation.isPending || createVcsMutation.isSuccess}>
-              <Mic className="h-3.5 w-3.5" />
-              {createVcsMutation.isPending ? 'Creating…' : createVcsMutation.isSuccess ? 'Queued' : 'Create VCs'}
-            </Button>
-          )}
+          {canManage &&
+            ev.vcIds.length === 0 &&
+            (ev.vcNames.length > 0 || ev.briefingChannel) &&
+            (ev.status === 'PENDING' || ev.status === 'ACTIVE') && (
+              <Button
+                size="sm"
+                className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                onClick={() => createVcsMutation.mutate()}
+                disabled={createVcsMutation.isPending || createVcsMutation.isSuccess}
+              >
+                <Mic className="h-3.5 w-3.5" />
+                {createVcsMutation.isPending ? 'Creating…' : createVcsMutation.isSuccess ? 'Queued' : 'Create VCs'}
+              </Button>
+            )}
           {canManage && ev.status === 'ENDED' && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/audit`}>
-                <CheckCircle2 className="h-3.5 w-3.5" />Complete Event
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Complete Event
               </Link>
             </Button>
           )}
           {canManage && (ev.status === 'ENDED' || ev.status === 'ACTIVE') && lootSession?.status === 'OPEN' && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
-                <PlayCircle className="h-3.5 w-3.5" />Resume Loot
+                <PlayCircle className="h-3.5 w-3.5" />
+                Resume Loot
               </Link>
             </Button>
           )}
           {canManage && ev.status === 'ACTIVE' && !lootSession && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
-                <PlayCircle className="h-3.5 w-3.5" />Start Loot
+                <PlayCircle className="h-3.5 w-3.5" />
+                Start Loot
               </Link>
             </Button>
           )}
           {canManage && ev.status === 'COMPLETED' && lootSession?.status === 'OPEN' && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
-                <PlayCircle className="h-3.5 w-3.5" />Resume Loot
+                <PlayCircle className="h-3.5 w-3.5" />
+                Resume Loot
               </Link>
             </Button>
           )}
           {canManage && ev.status === 'COMPLETED' && lootSession?.status === 'COMPLETED' && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
               <Link to={`/dashboard/servers/${guildId}/events/${ev.id}/loot`}>
-                <Package className="h-3.5 w-3.5" />Loot
+                <Package className="h-3.5 w-3.5" />
+                Loot
               </Link>
             </Button>
           )}
           {canManage && templateName === null && !saveTemplate.isSuccess && (
-            <Button size="sm"
+            <Button
+              size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => setTemplateName(ev.name)} title="Save this event's details and briefing as a template">
-              <LayoutTemplate className="h-3.5 w-3.5" />Save as template
+              onClick={() => setTemplateName(ev.name)}
+              title="Save this event's details and briefing as a template"
+            >
+              <LayoutTemplate className="h-3.5 w-3.5" />
+              Save as template
             </Button>
           )}
           {saveTemplate.isSuccess && (
-            <Button size="sm" asChild
-              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground">
-              <Link to={`/dashboard/servers/${guildId}/templates`}><Check className="h-3.5 w-3.5" />Saved: open templates</Link>
+            <Button
+              size="sm"
+              asChild
+              className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <Link to={`/dashboard/servers/${guildId}/templates`}>
+                <Check className="h-3.5 w-3.5" />
+                Saved: open templates
+              </Link>
             </Button>
           )}
           {isManager && (ev.status === 'ENDED' || ev.status === 'COMPLETED') && (
-            <Button size="sm"
+            <Button
+              size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={onRepeat}>
-              <RotateCcw className="h-3.5 w-3.5" />Repeat
+              onClick={onRepeat}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Repeat
             </Button>
           )}
           {canManage && ev.status === 'COMPLETED' && (
-            <Button size="sm" variant="outline"
+            <Button
+              size="sm"
+              variant="outline"
               className="gap-1"
               onClick={() => {
-                if (confirm(`Re-open "${ev.name}"? The event will return to ENDED status and the loot session (if any) will re-open. Rosters are retained.`)) {
+                if (
+                  confirm(
+                    `Re-open "${ev.name}"? The event will return to ENDED status and the loot session (if any) will re-open. Rosters are retained.`,
+                  )
+                ) {
                   reopenMutation.mutate();
                 }
               }}
-              disabled={reopenMutation.isPending}>
+              disabled={reopenMutation.isPending}
+            >
               <LockOpen className="h-3.5 w-3.5" />
               {reopenMutation.isPending ? 'Re-opening…' : 'Re-open'}
             </Button>
           )}
           {canManage && ev.recurType && ev.status !== 'COMPLETED' && ev.status !== 'CANCELLED' && (
-            <Button size="sm" variant="outline"
+            <Button
+              size="sm"
+              variant="outline"
               className="gap-1"
               onClick={() => {
-                const msg = ev.status === 'PENDING'
-                  ? `Stop repeating "${ev.name}"?\n\nThis upcoming occurrence will be cancelled (its Discord event and thread are taken down) and no more will be scheduled.`
-                  : `Stop repeating "${ev.name}"?\n\nThis occurrence finishes as normal, but no more will be scheduled.`;
+                const msg =
+                  ev.status === 'PENDING'
+                    ? `Stop repeating "${ev.name}"?\n\nThis upcoming occurrence will be cancelled (its Discord event and thread are taken down) and no more will be scheduled.`
+                    : `Stop repeating "${ev.name}"?\n\nThis occurrence finishes as normal, but no more will be scheduled.`;
                 if (confirm(msg)) stopRepeatMutation.mutate();
               }}
-              disabled={stopRepeatMutation.isPending}>
+              disabled={stopRepeatMutation.isPending}
+            >
               <StopCircle className="h-3.5 w-3.5" />
               {stopRepeatMutation.isPending ? 'Stopping…' : 'Stop Repeating'}
             </Button>
           )}
           {canManage && ev.status !== 'COMPLETED' && ev.status !== 'CANCELLED' && (
-            <Button size="sm"
+            <Button
+              size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" />Edit
+              onClick={onEdit}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
             </Button>
           )}
           {canManage && ev.status === 'PENDING' && (
-            <Button size="sm"
+            <Button
+              size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={() => startMutation.mutate()}
-              disabled={startMutation.isPending}>
+              disabled={startMutation.isPending}
+            >
               <PlayCircle className="h-3.5 w-3.5" />
               {startMutation.isPending ? 'Starting…' : 'Start Event'}
             </Button>
           )}
           {canEnd && canManage && (
-            <Button size="sm"
+            <Button
+              size="sm"
               className="gap-1 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={() => {
                 if (confirm(`End "${ev.name}"? The bot will clean up VCs and archive the forum thread.`)) {
                   endMutation.mutate();
                 }
               }}
-              disabled={endMutation.isPending}>
+              disabled={endMutation.isPending}
+            >
               <StopCircle className="h-3.5 w-3.5" />
               {endMutation.isPending ? 'Ending…' : 'End Event'}
             </Button>
@@ -1195,16 +1554,27 @@ function EventDetailView({ event, guildId, isManager, userId, onEdit, onRepeat }
 
 // ── Event row (Fleet Manager style) ──────────────────────────────────────────
 
-function EventCard({ event, userId, onClick }: { event: EventDto; guildId: string; userId?: string; onClick: () => void }) {
+function EventCard({
+  event,
+  userId,
+  onClick,
+}: {
+  event: EventDto;
+  guildId: string;
+  userId?: string;
+  onClick: () => void;
+}) {
   const start = new Date(event.startTime);
   const month = start.toLocaleDateString('en', { month: 'short' });
   const day = start.getDate();
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const location = event.musterPoint ?? '—';
   const userRsvp = userId ? event.rsvps.find((r) => r.userId === userId) : undefined;
-  const userRoleName = userRsvp?.tentative ? 'Maybe' : userRsvp?.role
-    ? (event.roles.find((r) => (r.id ?? r.name) === userRsvp.role)?.name ?? userRsvp.role)
-    : null;
+  const userRoleName = userRsvp?.tentative
+    ? 'Maybe'
+    : userRsvp?.role
+      ? (event.roles.find((r) => (r.id ?? r.name) === userRsvp.role)?.name ?? userRsvp.role)
+      : null;
 
   return (
     <button
@@ -1237,7 +1607,9 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
           {userRsvp && <span className="text-[13px] opacity-70">Rostered</span>}
         </div>
         {event.recurType && (
-          <p className="text-[15px] opacity-60 line-clamp-2">{event.recurLabel ?? RECUR_LABELS[event.recurType] ?? event.recurType}</p>
+          <p className="text-[15px] opacity-60 line-clamp-2">
+            {event.recurLabel ?? RECUR_LABELS[event.recurType] ?? event.recurType}
+          </p>
         )}
       </div>
 
@@ -1250,7 +1622,9 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
       <div className="hidden sm:flex w-28 shrink-0 px-4 py-3 flex-col items-center justify-center gap-1">
         <span className="text-[21px] font-medium">{userRsvp ? 'Rostered' : '—'}</span>
         {(event.status === 'ENDED' || event.status === 'ACTIVE' || event.status === 'CANCELLED') && (
-          <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${STATUS_BADGE[event.status]}`}>
+          <span
+            className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${STATUS_BADGE[event.status]}`}
+          >
             {event.status}
           </span>
         )}
@@ -1273,21 +1647,12 @@ function EventCard({ event, userId, onClick }: { event: EventDto; guildId: strin
 
 // ── Pending share card (receiving guild view) ─────────────────────────────────
 
-function PendingShareCard({
-  event,
-  guildId,
-  onRespond,
-}: {
-  event: EventDto;
-  guildId: string;
-  onRespond: () => void;
-}) {
+function PendingShareCard({ event, guildId, onRespond }: { event: EventDto; guildId: string; onRespond: () => void }) {
   const queryClient = useQueryClient();
   const start = new Date(event.startTime);
   const month = start.toLocaleDateString('en', { month: 'short' });
   const day = start.getDate();
   const time = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-
 
   const acceptMutation = useMutation({
     mutationFn: () => eventsApi.respondToShare(guildId, event.id, 'accept'),
@@ -1330,9 +1695,7 @@ function PendingShareCard({
       {/* Event info */}
       <div className="flex-1 px-4 py-3 min-w-0">
         <p className="font-semibold text-[18px] leading-tight line-clamp-1">{event.name}</p>
-        <p className="text-[13px] opacity-70 mt-0.5 truncate">
-          Shared by {event.hostGuildName ?? 'another server'}
-        </p>
+        <p className="text-[13px] opacity-70 mt-0.5 truncate">Shared by {event.hostGuildName ?? 'another server'}</p>
       </div>
 
       {/* Accept / Decline */}
@@ -1394,7 +1757,9 @@ function RecentLootCard({ guildId }: { guildId: string }) {
       <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="space-y-2">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-10 rounded-lg" />
+            ))}
           </div>
         ) : !event || event.items.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">No loot awarded yet.</p>
@@ -1409,7 +1774,9 @@ function RecentLootCard({ guildId }: { guildId: string }) {
                     <span className="ml-1.5 text-primary">🎲 {item.winner.rollValue}</span>
                   )}
                   {item.winner.dkpSpent != null && item.winner.dkpSpent > 0 && (
-                    <span className="ml-1.5 text-amber-500">{item.winner.dkpSpent} {dkpLabel}</span>
+                    <span className="ml-1.5 text-amber-500">
+                      {item.winner.dkpSpent} {dkpLabel}
+                    </span>
                   )}
                 </p>
               </li>
@@ -1466,10 +1833,27 @@ export function ServerPage() {
   useEffect(() => {
     if (!newFrom || !guildId || openedFrom.current === newFrom) return;
     openedFrom.current = newFrom;
-    eventTemplatesApi.get(guildId, newFrom)
-      .then((t) => { setRepeatSource(null); setRepeatTemplateId(null); setStartTemplate(t); setView('create'); })
-      .catch(() => { /* gone or not allowed: just show the events */ })
-      .finally(() => setSearchParams((p) => { const n = new URLSearchParams(p); n.delete('newFrom'); return n; }, { replace: true }));
+    eventTemplatesApi
+      .get(guildId, newFrom)
+      .then((t) => {
+        setRepeatSource(null);
+        setRepeatTemplateId(null);
+        setStartTemplate(t);
+        setView('create');
+      })
+      .catch(() => {
+        /* gone or not allowed: just show the events */
+      })
+      .finally(() =>
+        setSearchParams(
+          (p) => {
+            const n = new URLSearchParams(p);
+            n.delete('newFrom');
+            return n;
+          },
+          { replace: true },
+        ),
+      );
   }, [newFrom, guildId, setSearchParams]);
 
   const upcomingQuery = useQuery({
@@ -1486,7 +1870,9 @@ export function ServerPage() {
     staleTime: 5 * 60_000,
   });
 
-  const auctionsLive = useLiveQueries(guildSettingsQuery.data?.dkpEnabled ? [guildId && `auctions:${guildId}`] : [], [['auctions', guildId]]);
+  const auctionsLive = useLiveQueries(guildSettingsQuery.data?.dkpEnabled ? [guildId && `auctions:${guildId}`] : [], [
+    ['auctions', guildId],
+  ]);
   const openAuctionQuery = useQuery({
     queryKey: ['auctions', guildId, 'open'],
     queryFn: () => auctionsApi.list(guildId!),
@@ -1516,7 +1902,6 @@ export function ServerPage() {
   const pendingShareCount = pendingSharesQuery.data?.length ?? 0;
 
   const active = tab === 'upcoming' ? upcomingQuery : tab === 'completed' ? completedQuery : pendingSharesQuery;
-
 
   function openDetail(event: EventDto) {
     setDetailEvent(event);
@@ -1553,11 +1938,16 @@ export function ServerPage() {
             <Gavel className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="text-sm font-medium truncate text-amber-600 dark:text-amber-400">
               Live auction: <span className="font-semibold">{openAuction.title}</span>
-              {openAuction.bids.length > 0 && ` · ${openAuction.bids.length} bid${openAuction.bids.length !== 1 ? 's' : ''}`}
+              {openAuction.bids.length > 0 &&
+                ` · ${openAuction.bids.length} bid${openAuction.bids.length !== 1 ? 's' : ''}`}
               {openAuction.secondsRemaining > 0 && ` · ${Math.ceil(openAuction.secondsRemaining / 60)}m left`}
             </span>
           </div>
-          <Button size="sm" className="shrink-0 h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0" asChild>
+          <Button
+            size="sm"
+            className="shrink-0 h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
+            asChild
+          >
             <Link to={`/dashboard/servers/${guildId}/auctions`}>Bid Now</Link>
           </Button>
         </div>
@@ -1571,12 +1961,20 @@ export function ServerPage() {
         {/* Events panel – Fleet Manager style */}
         <div className="min-h-0 flex flex-col overflow-hidden rounded-xl border border-border">
           {/* Hazard stripe */}
-          <div style={{ background: 'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)' }} className="h-2 shrink-0" />
+          <div
+            style={{
+              background:
+                'repeating-linear-gradient(-45deg, #181818 0px, #181818 8px, hsl(var(--primary)) 8px, hsl(var(--primary)) 12px)',
+            }}
+            className="h-2 shrink-0"
+          />
 
           {/* Header bar */}
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-3 border-b border-border">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
-              <span className="font-condensed text-xl sm:text-2xl font-bold uppercase tracking-widest text-white sm:px-6">Event Manager</span>
+              <span className="font-condensed text-xl sm:text-2xl font-bold uppercase tracking-widest text-white sm:px-6">
+                Event Manager
+              </span>
               {view === 'table' && (
                 <div className="flex gap-1">
                   {(['upcoming', 'completed'] as Tab[]).map((t) => (
@@ -1584,9 +1982,7 @@ export function ServerPage() {
                       key={t}
                       onClick={() => setTab(t)}
                       className={`px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wide transition-colors ${
-                        tab === t
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground'
+                        tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       {t}
@@ -1614,7 +2010,9 @@ export function ServerPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2" title="Adjust gold shade">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hidden sm:block">Shade</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hidden sm:block">
+                  Shade
+                </span>
                 <input
                   type="range"
                   min={0}
@@ -1640,13 +2038,21 @@ export function ServerPage() {
                 </Button>
               )}
               {view !== 'table' && (
-                <Button size="icon" variant="ghost"
+                <Button
+                  size="icon"
+                  variant="ghost"
                   className="h-8 w-8 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={
-                    view === 'edit' ? () => setView('detail')
-                    : (view === 'create' && repeatSource) ? () => { setRepeatSource(null); setView('detail'); }
-                    : closePanel
-                  }>
+                    view === 'edit'
+                      ? () => setView('detail')
+                      : view === 'create' && repeatSource
+                        ? () => {
+                            setRepeatSource(null);
+                            setView('detail');
+                          }
+                        : closePanel
+                  }
+                >
                   <X className="h-4 w-4" />
                 </Button>
               )}
@@ -1729,11 +2135,18 @@ export function ServerPage() {
                 <div className="flex-1 flex flex-col items-center justify-center text-center bg-primary">
                   <CalendarDays className="h-7 w-7 text-primary-foreground mb-2" />
                   <p className="text-sm text-primary-foreground">
-                    {tab === 'upcoming' ? 'No upcoming events.' : tab === 'completed' ? 'No completed events yet.' : 'No pending event invites.'}
+                    {tab === 'upcoming'
+                      ? 'No upcoming events.'
+                      : tab === 'completed'
+                        ? 'No completed events yet.'
+                        : 'No pending event invites.'}
                   </p>
                   {tab === 'upcoming' && isManager && (
-                    <Button size="sm" className="mt-3 bg-background text-primary hover:bg-background/80 hover:text-primary"
-                      onClick={() => setView('create')}>
+                    <Button
+                      size="sm"
+                      className="mt-3 bg-background text-primary hover:bg-background/80 hover:text-primary"
+                      onClick={() => setView('create')}
+                    >
                       Create your first event
                     </Button>
                   )}
@@ -1742,21 +2155,25 @@ export function ServerPage() {
                 <div className={`flex-1 overflow-y-auto bg-primary ${panelScrollCls}`}>
                   {tab === 'pending'
                     ? active.data.map((e) => (
-                        <PendingShareCard
+                        <PendingShareCard key={e.id} event={e} guildId={guildId!} onRespond={() => {}} />
+                      ))
+                    : active.data.map((e) => (
+                        <EventCard
                           key={e.id}
                           event={e}
                           guildId={guildId!}
-                          onRespond={() => {}}
+                          userId={user?.id}
+                          onClick={() => openDetail(e)}
                         />
-                      ))
-                    : active.data.map((e) => (
-                        <EventCard key={e.id} event={e} guildId={guildId!} userId={user?.id} onClick={() => openDetail(e)} />
-                      ))
-                  }
+                      ))}
                   {tab === 'completed' && completedQuery.hasNextPage && (
                     <div className="flex justify-center p-4">
-                      <Button size="sm" className="bg-background text-primary hover:bg-background/80 hover:text-primary"
-                        disabled={completedQuery.isFetchingNextPage} onClick={() => completedQuery.fetchNextPage()}>
+                      <Button
+                        size="sm"
+                        className="bg-background text-primary hover:bg-background/80 hover:text-primary"
+                        disabled={completedQuery.isFetchingNextPage}
+                        onClick={() => completedQuery.fetchNextPage()}
+                      >
                         {completedQuery.isFetchingNextPage ? 'Loading…' : 'Show more'}
                       </Button>
                     </div>
@@ -1768,7 +2185,11 @@ export function ServerPage() {
         </div>
 
         {/* Recent Loot column — only shown at lg+ where the two-column layout is active */}
-        {canView && <div className="hidden 2xl:flex flex-col min-h-0"><RecentLootCard guildId={guildId!} /></div>}
+        {canView && (
+          <div className="hidden 2xl:flex flex-col min-h-0">
+            <RecentLootCard guildId={guildId!} />
+          </div>
+        )}
       </div>
     </div>
   );

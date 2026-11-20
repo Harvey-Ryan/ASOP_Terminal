@@ -34,7 +34,9 @@ async function migrate(client: pg.PoolClient): Promise<void> {
   await client.query(
     'CREATE TABLE IF NOT EXISTS scdata_raw.schema_migration (id text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
   );
-  const done = new Set((await client.query<{ id: string }>('SELECT id FROM scdata_raw.schema_migration')).rows.map((r) => r.id));
+  const done = new Set(
+    (await client.query<{ id: string }>('SELECT id FROM scdata_raw.schema_migration')).rows.map((r) => r.id),
+  );
   for (const m of migrations) {
     if (done.has(m.id)) continue;
     log(`Applying migration ${m.id}`);
@@ -87,7 +89,8 @@ async function main(): Promise<number> {
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
   const client = await pool.connect();
   try {
-    const locked = (await client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock($1) AS ok', [LOCK_KEY])).rows[0]?.ok;
+    const locked = (await client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock($1) AS ok', [LOCK_KEY])).rows[0]
+      ?.ok;
     if (!locked) {
       log('Another sync is running; exiting.');
       return 0;
@@ -103,7 +106,8 @@ async function main(): Promise<number> {
         'SELECT id, requested_by FROM scdata_raw.sync_request WHERE handled_at IS NULL ORDER BY id LIMIT 1',
       )
     ).rows[0];
-    if (request) log(`Sync requested${request.requested_by ? ` by ${request.requested_by}` : ''}; forcing a full re-check`);
+    if (request)
+      log(`Sync requested${request.requested_by ? ` by ${request.requested_by}` : ''}; forcing a full re-check`);
 
     // The last finished run failed and nothing has succeeded since: retry it on
     // this run, but not sooner than RETRY_AFTER_MIN after the failure, so a
@@ -124,7 +128,9 @@ async function main(): Promise<number> {
 
     const head = process.env['SC_DATA_COMMIT'] ?? (await getHeadCommit(cfg));
     const state = (await client.query<{ commit: string | null }>('SELECT commit FROM scdata_raw.state')).rows[0];
-    log(`Upstream ${cfg.repo}@${cfg.branch} is at ${head.slice(0, 12)}; we hold ${state?.commit?.slice(0, 12) ?? 'nothing'}`);
+    log(
+      `Upstream ${cfg.repo}@${cfg.branch} is at ${head.slice(0, 12)}; we hold ${state?.commit?.slice(0, 12) ?? 'nothing'}`,
+    );
 
     if (state?.commit === head && !forced) {
       await client.query(
@@ -159,19 +165,28 @@ async function main(): Promise<number> {
 
       log(`Syncing ${info.build ?? head.slice(0, 12)}…`);
       const tarball = await openTarball(cfg, head, process.env['SC_DATA_TARBALL_FILE']);
-      const raw = await syncRaw(client, tarball, head, { allowMassDelete: process.env['SC_DATA_ALLOW_MASS_DELETE'] === '1' });
-      log(`Raw: ${raw.seen} files seen, ${raw.added} added, ${raw.changed} changed, ${raw.removed} removed, ${raw.invalid.length} invalid`);
+      const raw = await syncRaw(client, tarball, head, {
+        allowMassDelete: process.env['SC_DATA_ALLOW_MASS_DELETE'] === '1',
+      });
+      log(
+        `Raw: ${raw.seen} files seen, ${raw.added} added, ${raw.changed} changed, ${raw.removed} removed, ${raw.invalid.length} invalid`,
+      );
       if (raw.invalid.length) log(`Invalid (kept previous version, if any): ${raw.invalid.slice(0, 20).join(', ')}`);
 
       const counts = await rebuildClean(client, { commit: head, build: info.build, committedAt: info.committedAt });
-      log(`Clean: ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+      log(
+        `Clean: ${Object.entries(counts)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' ')}`,
+      );
       const unmapped = unmappedPaths(raw.paths);
       if (unmapped.length) log(`New upstream files with no clean table yet (still stored raw): ${unmapped.join(', ')}`);
 
-      await client.query(
-        'UPDATE scdata_raw.state SET commit = $1, build = $2, committed_at = $3, synced_at = now()',
-        [head, info.build, info.committedAt],
-      );
+      await client.query('UPDATE scdata_raw.state SET commit = $1, build = $2, committed_at = $3, synced_at = now()', [
+        head,
+        info.build,
+        info.committedAt,
+      ]);
       await client.query(
         `UPDATE scdata_raw.sync_run SET status = 'success', finished_at = now(), files_seen = $2, files_added = $3,
            files_changed = $4, files_removed = $5, files_invalid = $6, invalid_paths = $7, unmapped_paths = $8,

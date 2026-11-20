@@ -25,7 +25,10 @@ describe('hiding modules for every server', () => {
   it('only platform admins can see or change the list', async () => {
     const { agent } = await signedIn();
     await agent.get('/api/admin/modules').expect(404);
-    await agent.put('/api/admin/modules').send({ hidden: ['fleetEnabled'] }).expect(404);
+    await agent
+      .put('/api/admin/modules')
+      .send({ hidden: ['fleetEnabled'] })
+      .expect(404);
   });
 
   it('lists every module, shown, with how many servers have it on', async () => {
@@ -33,7 +36,11 @@ describe('hiding modules for every server', () => {
     await createGuild();
     await createGuildSettings(a.id, { fleetEnabled: false });
     const { agent } = await signedIn(ADMIN_DISCORD_ID);
-    const list = (await agent.get('/api/admin/modules').expect(200)).body.data as { setting: string; hidden: boolean; serversOn: number }[];
+    const list = (await agent.get('/api/admin/modules').expect(200)).body.data as {
+      setting: string;
+      hidden: boolean;
+      serversOn: number;
+    }[];
     expect(list.map((m) => m.setting)).toContain('tournamentsEnabled');
     expect(list.every((m) => !m.hidden)).toBe(true);
     expect(list.find((m) => m.setting === 'fleetEnabled')!.serversOn).toBe(1);
@@ -46,8 +53,13 @@ describe('hiding modules for every server', () => {
     const admin = await signedIn(ADMIN_DISCORD_ID);
     const officer = await signedIn(undefined, [guild.guildId]);
 
-    const res = await admin.agent.put('/api/admin/modules').send({ hidden: ['jobsEnabled', 'fleetEnabled'] }).expect(200);
-    expect(res.body.data.filter((m: { hidden: boolean }) => m.hidden).map((m: { setting: string }) => m.setting)).toEqual(['fleetEnabled', 'jobsEnabled']);
+    const res = await admin.agent
+      .put('/api/admin/modules')
+      .send({ hidden: ['jobsEnabled', 'fleetEnabled'] })
+      .expect(200);
+    expect(
+      res.body.data.filter((m: { hidden: boolean }) => m.hidden).map((m: { setting: string }) => m.setting),
+    ).toEqual(['fleetEnabled', 'jobsEnabled']);
 
     const perms = (await officer.agent.get(`/api/guilds/${guild.guildId}/my-permissions`).expect(200)).body.data;
     expect(perms.fleetEnabled).toBe(false);
@@ -58,16 +70,29 @@ describe('hiding modules for every server', () => {
 
     // The server's own choice is untouched, so showing it again brings it back.
     expect((await prisma.guildSettings.findUnique({ where: { guildId: guild.id } }))!.fleetEnabled).toBe(true);
-    await admin.agent.put('/api/admin/modules').send({ hidden: ['jobsEnabled'] }).expect(200);
+    await admin.agent
+      .put('/api/admin/modules')
+      .send({ hidden: ['jobsEnabled'] })
+      .expect(200);
     const after = (await officer.agent.get(`/api/guilds/${guild.guildId}/my-permissions`).expect(200)).body.data;
     expect(after.fleetEnabled).toBe(true);
     expect(after.hiddenModules).toEqual(['jobsEnabled']);
     // The fleet view lists the server's members (from Discord, v1.32.0): none here.
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })));
-    try { await officer.agent.get(`/api/guilds/${guild.guildId}/fleet`).expect(200); } finally { vi.unstubAllGlobals(); }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })),
+    );
+    try {
+      await officer.agent.get(`/api/guilds/${guild.guildId}/fleet`).expect(200);
+    } finally {
+      vi.unstubAllGlobals();
+    }
 
     const log = await prisma.adminLog.findMany({ where: { kind: 'admin.modules' }, orderBy: { id: 'asc' } });
-    expect(log.map((l) => l.summary)).toEqual(['Hid Fleet, Job Board for every server', 'Showed Fleet for every server']);
+    expect(log.map((l) => l.summary)).toEqual([
+      'Hid Fleet, Job Board for every server',
+      'Showed Fleet for every server',
+    ]);
   });
 
   it('a hidden module drops out of the setup checklist', async () => {
@@ -75,15 +100,24 @@ describe('hiding modules for every server', () => {
     await createGuildSettings(guild.id, { tournamentsEnabled: true, tournamentChannelId: null });
     const admin = await signedIn(ADMIN_DISCORD_ID);
     const officer = await signedIn(undefined, [guild.guildId]);
-    const keys = async () => ((await officer.agent.get(`/api/guilds/${guild.guildId}/setup`).expect(200)).body.data.steps as { key: string }[]).map((s) => s.key);
+    const keys = async () =>
+      (
+        (await officer.agent.get(`/api/guilds/${guild.guildId}/setup`).expect(200)).body.data.steps as { key: string }[]
+      ).map((s) => s.key);
     expect(await keys()).toContain('tournaments');
-    await admin.agent.put('/api/admin/modules').send({ hidden: ['tournamentsEnabled'] }).expect(200);
+    await admin.agent
+      .put('/api/admin/modules')
+      .send({ hidden: ['tournamentsEnabled'] })
+      .expect(200);
     expect(await keys()).not.toContain('tournaments');
   });
 
-  it('turns away anything that isn\'t a module', async () => {
+  it("turns away anything that isn't a module", async () => {
     const { agent } = await signedIn(ADMIN_DISCORD_ID);
-    await agent.put('/api/admin/modules').send({ hidden: ['nope'] }).expect(400);
+    await agent
+      .put('/api/admin/modules')
+      .send({ hidden: ['nope'] })
+      .expect(400);
     await agent.put('/api/admin/modules').send({}).expect(400);
   });
 });

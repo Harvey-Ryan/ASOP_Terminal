@@ -5,7 +5,16 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { gunFitsSlot, type ApiResponse, type MiningDataDto, type RefineryDataDto, type CombatGun, type GameToolsDataDto, type GameToolsShip, type GunSlot } from '@dem/shared';
+import {
+  gunFitsSlot,
+  type ApiResponse,
+  type MiningDataDto,
+  type RefineryDataDto,
+  type CombatGun,
+  type GameToolsDataDto,
+  type GameToolsShip,
+  type GunSlot,
+} from '@dem/shared';
 import { api } from '../api/client';
 
 export function useGameTools() {
@@ -13,7 +22,8 @@ export function useGameTools() {
     queryKey: ['game-tools', 'data'],
     // The site's version in the address (v1.46.1): a new release never reuses the
     // browser's cached copy (cached for 5 minutes), whose shape may be older.
-    queryFn: async () => (await api.get<ApiResponse<GameToolsDataDto>>(`/game-tools/data?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
+    queryFn: async () =>
+      (await api.get<ApiResponse<GameToolsDataDto>>(`/game-tools/data?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
   });
@@ -38,7 +48,8 @@ export function useGameTools() {
 export function useMiningData() {
   return useQuery({
     queryKey: ['game-tools', 'mining'],
-    queryFn: async () => (await api.get<ApiResponse<MiningDataDto>>(`/game-tools/mining?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
+    queryFn: async () =>
+      (await api.get<ApiResponse<MiningDataDto>>(`/game-tools/mining?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
   });
@@ -73,9 +84,10 @@ export function shortShipName(ship: Pick<GameToolsShip, 'name' | 'maker'>): stri
   return first && ship.name.startsWith(first + ' ') ? ship.name.slice(first.length + 1) : ship.name;
 }
 
-
 export const fmt = (n: number | null | undefined, digits = 0): string =>
-  n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  n == null || !Number.isFinite(n)
+    ? '–'
+    : n.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });
 
 /** "+18%" / "−4%" / "" when there's nothing to compare. */
 export function pctChange(now: number, before: number): string {
@@ -103,11 +115,17 @@ export function readTheme(): GameToolsTheme {
   try {
     const v = localStorage.getItem(THEME_KEY);
     if (GAME_TOOLS_THEMES.some((t) => t.id === v)) return v as GameToolsTheme;
-  } catch { /* private window */ }
+  } catch {
+    /* private window */
+  }
   return 'asop';
 }
 export function saveTheme(t: GameToolsTheme): void {
-  try { localStorage.setItem(THEME_KEY, t); } catch { /* private window */ }
+  try {
+    localStorage.setItem(THEME_KEY, t);
+  } catch {
+    /* private window */
+  }
 }
 
 // Ships looked at recently, newest first (this browser only).
@@ -116,11 +134,15 @@ export function readRecentShips(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 8) : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 export function rememberShip(className: string): void {
   try {
     const key = className.toLowerCase();
     localStorage.setItem(RECENT_KEY, JSON.stringify([key, ...readRecentShips().filter((c) => c !== key)].slice(0, 8)));
-  } catch { /* private window */ }
+  } catch {
+    /* private window */
+  }
 }

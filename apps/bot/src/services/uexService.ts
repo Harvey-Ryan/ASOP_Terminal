@@ -10,12 +10,26 @@
 //   when busy or when UEX fails, answer from the last copy we had.
 
 import {
-  UEX_API, uexLiveCommodities, uexTradeTerminals,
-  type UexCommodity, type UexPriceAllRow, type UexPriceRow, type UexResponse, type UexRoute, type UexStarSystem, type UexTerminal,
+  UEX_API,
+  uexLiveCommodities,
+  uexTradeTerminals,
+  type UexCommodity,
+  type UexPriceAllRow,
+  type UexPriceRow,
+  type UexResponse,
+  type UexRoute,
+  type UexStarSystem,
+  type UexTerminal,
 } from '@dem/shared';
 
 const MIN = 60_000;
-const TTL = { prices: 30 * MIN, routes: 30 * MIN, commodities: 60 * MIN, terminals: 12 * 60 * MIN, systems: 24 * 60 * MIN } as const;
+const TTL = {
+  prices: 30 * MIN,
+  routes: 30 * MIN,
+  commodities: 60 * MIN,
+  terminals: 12 * 60 * MIN,
+  systems: 24 * 60 * MIN,
+} as const;
 const PER_MINUTE = 100;
 
 export class UexUnavailable extends Error {}
@@ -44,13 +58,23 @@ async function fetchUex<T>(path: string): Promise<T> {
   sent.push(Date.now());
   const t = token();
   const res = await fetch(`${UEX_API}/${path}`, {
-    headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'ASOP-Terminal',
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    },
     signal: AbortSignal.timeout(10_000),
   });
   let body: UexResponse<T> | null = null;
-  try { body = (await res.json()) as UexResponse<T>; } catch { /* not JSON */ }
+  try {
+    body = (await res.json()) as UexResponse<T>;
+  } catch {
+    /* not JSON */
+  }
   if (!body || body.status !== 'ok' || body.data === undefined) {
-    throw new UexUnavailable(`UEX ${path}: HTTP ${res.status} ${body?.status ?? 'no body'}${body?.message ? ` (${body.message})` : ''}`);
+    throw new UexUnavailable(
+      `UEX ${path}: HTTP ${res.status} ${body?.status ?? 'no body'}${body?.message ? ` (${body.message})` : ''}`,
+    );
   }
   return body.data;
 }
@@ -66,7 +90,10 @@ async function get<T>(path: string, ttl: number): Promise<T> {
   const running = inFlight.get(path);
   if (running) return running as Promise<T>;
   const p = fetchUex<T>(path)
-    .then((data) => { cache.set(path, { at: Date.now(), ttl, data }); return data; })
+    .then((data) => {
+      cache.set(path, { at: Date.now(), ttl, data });
+      return data;
+    })
     .catch((err: unknown) => {
       console.warn(`[uex] ${(err as Error).message}`);
       if (hit) return hit.data as T;
@@ -85,18 +112,34 @@ function peek<T>(path: string): T | null {
 export const uexCommodities = async () => uexLiveCommodities(await get<UexCommodity[]>('commodities', TTL.commodities));
 export const uexTerminals = async () => uexTradeTerminals(await get<UexTerminal[]>('terminals', TTL.terminals));
 export const uexStarSystems = async () =>
-  (await get<UexStarSystem[]>('star_systems', TTL.systems)).filter((s) => s.is_available_live === 1 && s.is_visible === 1);
+  (await get<UexStarSystem[]>('star_systems', TTL.systems)).filter(
+    (s) => s.is_available_live === 1 && s.is_visible === 1,
+  );
 
-export const peekCommodities = () => { const c = peek<UexCommodity[]>('commodities'); return c ? uexLiveCommodities(c) : null; };
-export const peekTerminals = () => { const t = peek<UexTerminal[]>('terminals'); return t ? uexTradeTerminals(t) : null; };
-export const peekStarSystems = () => peek<UexStarSystem[]>('star_systems')?.filter((s) => s.is_available_live === 1 && s.is_visible === 1) ?? null;
+export const peekCommodities = () => {
+  const c = peek<UexCommodity[]>('commodities');
+  return c ? uexLiveCommodities(c) : null;
+};
+export const peekTerminals = () => {
+  const t = peek<UexTerminal[]>('terminals');
+  return t ? uexTradeTerminals(t) : null;
+};
+export const peekStarSystems = () =>
+  peek<UexStarSystem[]>('star_systems')?.filter((s) => s.is_available_live === 1 && s.is_visible === 1) ?? null;
 
 /** Prices of one commodity at every terminal: raw ores come from UEX's raw prices. */
 export async function uexCommodityPrices(c: UexCommodity): Promise<UexPriceRow[]> {
-  return get<UexPriceRow[]>(`${c.is_raw === 1 ? 'commodities_raw_prices' : 'commodities_prices'}?id_commodity=${c.id}`, TTL.prices);
+  return get<UexPriceRow[]>(
+    `${c.is_raw === 1 ? 'commodities_raw_prices' : 'commodities_prices'}?id_commodity=${c.id}`,
+    TTL.prices,
+  );
 }
 
-export async function uexRoutes(q: { commodityId?: number; originTerminalId?: number; investment?: number }): Promise<UexRoute[]> {
+export async function uexRoutes(q: {
+  commodityId?: number;
+  originTerminalId?: number;
+  investment?: number;
+}): Promise<UexRoute[]> {
   const params = new URLSearchParams();
   if (q.commodityId) params.set('id_commodity', String(q.commodityId));
   if (q.originTerminalId) params.set('id_terminal_origin', String(q.originTerminalId));

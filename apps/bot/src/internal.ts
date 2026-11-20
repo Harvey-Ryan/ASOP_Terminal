@@ -1,6 +1,24 @@
 import http from 'node:http';
-import { setupDiscordForEvent, endEvent, cancelEvent, updatePostEventEmbed, syncDiscordEvent, createVcsForEvent, postEventLive, setupDiscordForShare, revokeDiscordShare } from './services/eventService.js';
-import { announceLootResults, announceLootSessionStart, notifySnakeTurn, notifyStandaloneSnakeTurn, announceDraftOrder, notifyLootComplete, closeLootThreadIfDone } from './services/lootService.js';
+import {
+  setupDiscordForEvent,
+  endEvent,
+  cancelEvent,
+  updatePostEventEmbed,
+  syncDiscordEvent,
+  createVcsForEvent,
+  postEventLive,
+  setupDiscordForShare,
+  revokeDiscordShare,
+} from './services/eventService.js';
+import {
+  announceLootResults,
+  announceLootSessionStart,
+  notifySnakeTurn,
+  notifyStandaloneSnakeTurn,
+  announceDraftOrder,
+  notifyLootComplete,
+  closeLootThreadIfDone,
+} from './services/lootService.js';
 import { postOrUpdateAuctionMessage, postOrUpdateStandaloneAuctionMessage } from './services/auctionService.js';
 import { registerCommands } from './services/commandService.js';
 import { queueRosterUpdate, notifyThreadJoin } from './services/rsvpService.js';
@@ -13,7 +31,18 @@ import { isWaitlistMoves, notifyWaitlistMoves } from './services/waitlistService
 import { notifyJobTaken, syncJobMessages } from './services/jobService.js';
 import { announceStarStrings } from './services/starStringsService.js';
 import { announceBriefing } from './services/briefingService.js';
-import { setupDiscordForTournament, postMatchResult, postTournamentOpen, postTournamentComplete, postTournamentCancelled, addParticipantToThread, setupDraftThread, updateRegistrationEmbed, postMatchScheduled, announceH2hResult } from './services/tournamentService.js';
+import {
+  setupDiscordForTournament,
+  postMatchResult,
+  postTournamentOpen,
+  postTournamentComplete,
+  postTournamentCancelled,
+  addParticipantToThread,
+  setupDraftThread,
+  updateRegistrationEmbed,
+  postMatchScheduled,
+  announceH2hResult,
+} from './services/tournamentService.js';
 
 const TOO_BIG = Symbol('too big');
 
@@ -24,7 +53,11 @@ async function readJson(req: AsyncIterable<Buffer | string>): Promise<unknown> {
     raw += chunk;
     if (raw.length > 10_000) return TOO_BIG;
   }
-  try { return JSON.parse(raw); } catch { return null; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 const PORT = parseInt(process.env['BOT_INTERNAL_PORT'] ?? '3002');
@@ -33,18 +66,30 @@ const INTERNAL_SECRET = process.env['BOT_INTERNAL_SECRET'];
 
 export function startInternalServer() {
   const server = http.createServer(async (req, res) => {
-    if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+    if (req.method !== 'POST') {
+      res.writeHead(405).end();
+      return;
+    }
 
     if (INTERNAL_SECRET) {
       const auth = req.headers['authorization'];
-      if (auth !== `Bearer ${INTERNAL_SECRET}`) { res.writeHead(401).end(); return; }
+      if (auth !== `Bearer ${INTERNAL_SECRET}`) {
+        res.writeHead(401).end();
+        return;
+      }
     }
 
     // Ally notices (v1.10.0): the payload comes as JSON in the body.
     if (req.url === '/trigger/ally') {
       const payload = await readJson(req);
-      if (payload === TOO_BIG) { res.writeHead(413).end(); return; }
-      if (!isAllyNoticePayload(payload)) { res.writeHead(400).end(); return; }
+      if (payload === TOO_BIG) {
+        res.writeHead(413).end();
+        return;
+      }
+      if (!isAllyNoticePayload(payload)) {
+        res.writeHead(400).end();
+        return;
+      }
       res.writeHead(202).end();
       await handleAllyNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleAllyNotice failed for ${payload.event} ${payload.linkId}:`, err),
@@ -77,8 +122,14 @@ export function startInternalServer() {
     // Shared-event notices (v1.11.0).
     if (req.url === '/trigger/share-notice') {
       const payload = await readJson(req);
-      if (payload === TOO_BIG) { res.writeHead(413).end(); return; }
-      if (!isShareNoticePayload(payload)) { res.writeHead(400).end(); return; }
+      if (payload === TOO_BIG) {
+        res.writeHead(413).end();
+        return;
+      }
+      if (!isShareNoticePayload(payload)) {
+        res.writeHead(400).end();
+        return;
+      }
       res.writeHead(202).end();
       await handleShareNotice(payload).catch((err) =>
         console.error(`[bot:internal] handleShareNotice failed for ${payload.event} ${payload.shareId}:`, err),
@@ -114,9 +165,15 @@ export function startInternalServer() {
     if (waitlistMatch) {
       const eventId = waitlistMatch[1]!;
       const payload = await readJson(req);
-      if (payload === TOO_BIG) { res.writeHead(413).end(); return; }
+      if (payload === TOO_BIG) {
+        res.writeHead(413).end();
+        return;
+      }
       const moves = (payload as { moves?: unknown } | null)?.moves;
-      if (!isWaitlistMoves(moves)) { res.writeHead(400).end(); return; }
+      if (!isWaitlistMoves(moves)) {
+        res.writeHead(400).end();
+        return;
+      }
       res.writeHead(202).end();
       await notifyWaitlistMoves(eventId, moves).catch((err) =>
         console.error(`[bot:internal] Waitlist DMs failed for ${eventId}:`, err),
@@ -138,9 +195,7 @@ export function startInternalServer() {
     if (endMatch) {
       const eventId = endMatch[1]!;
       res.writeHead(202).end();
-      await endEvent(eventId).catch((err) =>
-        console.error(`[bot:internal] endEvent failed for ${eventId}:`, err),
-      );
+      await endEvent(eventId).catch((err) => console.error(`[bot:internal] endEvent failed for ${eventId}:`, err));
       return;
     }
 
@@ -179,7 +234,9 @@ export function startInternalServer() {
     if (briefingMatch) {
       const eventId = briefingMatch[1]!;
       res.writeHead(202).end();
-      await announceBriefing(eventId).catch((err) => console.error(`[bot:internal] announceBriefing failed for ${eventId}:`, err));
+      await announceBriefing(eventId).catch((err) =>
+        console.error(`[bot:internal] announceBriefing failed for ${eventId}:`, err),
+      );
       return;
     }
 

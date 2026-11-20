@@ -12,7 +12,8 @@ declare global {
   }
 }
 
-export const DISCORD_BUSY_MESSAGE = 'Discord is busy right now, so we couldn\'t check your roles. Try again in a few seconds.';
+export const DISCORD_BUSY_MESSAGE =
+  "Discord is busy right now, so we couldn't check your roles. Try again in a few seconds.";
 
 /** Discord id of the signed-in user. */
 export async function sessionDiscordUserId(req: Express.Request): Promise<string | null> {
@@ -45,7 +46,11 @@ export function discordBusyAsServiceUnavailable(req: Request, res: Response, nex
   const json = res.json.bind(res);
   let swapped = false;
   res.status = (code: number) => {
-    if (code === 403 && req.discordUnavailable) { swapped = true; res.setHeader('Retry-After', '5'); return status(503); }
+    if (code === 403 && req.discordUnavailable) {
+      swapped = true;
+      res.setHeader('Retry-After', '5');
+      return status(503);
+    }
     return status(code);
   };
   res.json = (body?: unknown) => {

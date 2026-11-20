@@ -6,8 +6,7 @@ export const imagesApi = {
   usage: (guildId: string) =>
     api.get<ApiResponse<ImageUsageDto>>(`/guilds/${guildId}/images/usage`).then((r) => r.data!),
 
-  list: (guildId: string) =>
-    api.get<ApiResponse<ServerImageDto[]>>(`/guilds/${guildId}/images`).then((r) => r.data!),
+  list: (guildId: string) => api.get<ApiResponse<ServerImageDto[]>>(`/guilds/${guildId}/images`).then((r) => r.data!),
 
   delete: (guildId: string, imageId: string) =>
     api.delete<ApiResponse>(`/guilds/${guildId}/images/${imageId}`).then(() => undefined),
@@ -25,7 +24,9 @@ export const imagesApi = {
       body: form,
       // No Content-Type header — browser sets it with the correct boundary automatically
     });
-    const body: ApiResponse<ServerImageDto> = await res.json().catch(() => ({ error: `HTTP ${res.status}` } as ApiResponse));
+    const body: ApiResponse<ServerImageDto> = await res
+      .json()
+      .catch(() => ({ error: `HTTP ${res.status}` }) as ApiResponse);
     if (!res.ok) throw new ApiError(res.status, body.error ?? `Upload failed (${res.status})`);
     return body.data!;
   },

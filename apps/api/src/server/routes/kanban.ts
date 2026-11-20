@@ -15,16 +15,33 @@ async function isAdmin(sessionUserId: string): Promise<boolean> {
 }
 
 function toCardDto(c: {
-  id: string; columnId: string; title: string; description: string | null;
-  sortOrder: number; createdAt: Date; updatedAt: Date;
+  id: string;
+  columnId: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
 }): KanbanCardDto {
   return { ...c, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString() };
 }
 
 function toColumnDto(col: {
-  id: string; title: string; color: string; sortOrder: number;
-  createdAt: Date; updatedAt: Date;
-  cards: { id: string; columnId: string; title: string; description: string | null; sortOrder: number; createdAt: Date; updatedAt: Date }[];
+  id: string;
+  title: string;
+  color: string;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  cards: {
+    id: string;
+    columnId: string;
+    title: string;
+    description: string | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
 }): KanbanColumnDto {
   return {
     id: col.id,
@@ -52,11 +69,13 @@ kanbanRouter.get('/kanban', requireAuth, async (_req, res) => {
 
 kanbanRouter.post('/kanban/columns', requireAuth, async (req, res) => {
   if (!(await isAdmin(req.session.userId!))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   const { title, color } = req.body as { title?: string; color?: string };
   if (!title?.trim()) {
-    res.status(400).json({ success: false, error: 'title is required' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'title is required' } satisfies ApiResponse);
+    return;
   }
   const last = await prisma.kanbanColumn.findFirst({ orderBy: { sortOrder: 'desc' }, select: { sortOrder: true } });
   const col = await prisma.kanbanColumn.create({
@@ -70,7 +89,8 @@ kanbanRouter.post('/kanban/columns', requireAuth, async (req, res) => {
 
 kanbanRouter.patch('/kanban/columns/:id', requireAuth, async (req, res) => {
   if (!(await isAdmin(req.session.userId!))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   const { id } = req.params as { id: string };
   const { title, color, sortOrder } = req.body as { title?: string; color?: string; sortOrder?: number };
@@ -90,7 +110,8 @@ kanbanRouter.patch('/kanban/columns/:id', requireAuth, async (req, res) => {
 
 kanbanRouter.delete('/kanban/columns/:id', requireAuth, async (req, res) => {
   if (!(await isAdmin(req.session.userId!))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   const { id } = req.params as { id: string };
   await prisma.kanbanColumn.delete({ where: { id } });
@@ -101,14 +122,17 @@ kanbanRouter.delete('/kanban/columns/:id', requireAuth, async (req, res) => {
 
 kanbanRouter.post('/kanban/cards', requireAuth, async (req, res) => {
   if (!(await isAdmin(req.session.userId!))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   const { columnId, title, description } = req.body as { columnId?: string; title?: string; description?: string };
   if (!columnId) {
-    res.status(400).json({ success: false, error: 'columnId is required' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'columnId is required' } satisfies ApiResponse);
+    return;
   }
   if (!title?.trim()) {
-    res.status(400).json({ success: false, error: 'title is required' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'title is required' } satisfies ApiResponse);
+    return;
   }
   const last = await prisma.kanbanCard.findFirst({
     where: { columnId },
@@ -130,11 +154,15 @@ kanbanRouter.post('/kanban/cards', requireAuth, async (req, res) => {
 
 kanbanRouter.patch('/kanban/cards/:id', requireAuth, async (req, res) => {
   if (!(await isAdmin(req.session.userId!))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   const { id } = req.params as { id: string };
   const { title, description, columnId, sortOrder } = req.body as {
-    title?: string; description?: string | null; columnId?: string; sortOrder?: number;
+    title?: string;
+    description?: string | null;
+    columnId?: string;
+    sortOrder?: number;
   };
   const card = await prisma.kanbanCard.update({
     where: { id },
@@ -152,7 +180,8 @@ kanbanRouter.patch('/kanban/cards/:id', requireAuth, async (req, res) => {
 
 kanbanRouter.delete('/kanban/cards/:id', requireAuth, async (req, res) => {
   if (!(await isAdmin(req.session.userId!))) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   const { id } = req.params as { id: string };
   await prisma.kanbanCard.delete({ where: { id } });

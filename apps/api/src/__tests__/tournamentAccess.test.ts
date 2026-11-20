@@ -8,12 +8,25 @@ import { createUser, createGuild, createGuildSettings } from './factories.js';
 
 const app = createServer();
 const prevToken = process.env['DISCORD_TOKEN'];
-afterEach(() => { vi.unstubAllGlobals(); if (prevToken === undefined) delete process.env['DISCORD_TOKEN']; else process.env['DISCORD_TOKEN'] = prevToken; });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (prevToken === undefined) delete process.env['DISCORD_TOKEN'];
+  else process.env['DISCORD_TOKEN'] = prevToken;
+});
 
 function discordRoles(roles: string[]) {
   resetDiscordRest();
   process.env['DISCORD_TOKEN'] = 'test-token';
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ user: { id: 'x' }, roles }), { status: 200, headers: { 'content-type': 'application/json' } })));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ user: { id: 'x' }, roles }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    ),
+  );
 }
 
 async function setup(enabled = true) {
@@ -25,14 +38,21 @@ async function setup(enabled = true) {
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: managed });
     return agent;
   };
-  const t = await prisma.tournament.create({ data: { guildId: g.guildId, name: 'Cup', status: 'REGISTRATION', size: 8, createdById: 'x' } });
+  const t = await prisma.tournament.create({
+    data: { guildId: g.guildId, name: 'Cup', status: 'REGISTRATION', size: 8, createdById: 'x' },
+  });
   return { g: g.guildId, t: t.id, officer: await login([g.guildId]), member: await login([]) };
 }
 
-const reads = (g: string, t: string) => [
-  `tournaments`, `tournaments/rankings`, `tournaments/seasons`, `tournaments/players/1/history`,
-  `tournaments/${t}`, `tournaments/${t}/elo-summary`,
-].map((p) => `/api/guilds/${g}/${p}`);
+const reads = (g: string, t: string) =>
+  [
+    `tournaments`,
+    `tournaments/rankings`,
+    `tournaments/seasons`,
+    `tournaments/players/1/history`,
+    `tournaments/${t}`,
+    `tournaments/${t}/elo-summary`,
+  ].map((p) => `/api/guilds/${g}/${p}`);
 
 describe('Tournament access', () => {
   it('members of the server can read and sign up; outsiders cannot', async () => {

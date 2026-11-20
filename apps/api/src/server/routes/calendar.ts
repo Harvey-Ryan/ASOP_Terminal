@@ -22,7 +22,9 @@ const DEFAULT_LENGTH_MS = 2 * 3600_000; // as for Discord's scheduled events
 calendarRouter.get('/me/calendar', requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { calendarToken: true } });
-  const token = user.calendarToken ?? (await prisma.user.update({ where: { id: userId }, data: { calendarToken: newToken() } })).calendarToken!;
+  const token =
+    user.calendarToken ??
+    (await prisma.user.update({ where: { id: userId }, data: { calendarToken: newToken() } })).calendarToken!;
   res.json({ success: true, data: { token } } satisfies ApiResponse<{ token: string }>);
 });
 
@@ -39,7 +41,10 @@ calendarRouter.get('/calendar/:file', async (req, res) => {
     ? await prisma.user.findUnique({ where: { calendarToken: token }, select: { discordId: true } })
     : null;
   if (!user) {
-    res.status(404).type('text/plain').send('This calendar link was reset or doesn\'t exist. Copy the new one from ASOP\'s Notification Settings.');
+    res
+      .status(404)
+      .type('text/plain')
+      .send("This calendar link was reset or doesn't exist. Copy the new one from ASOP's Notification Settings.");
     return;
   }
 
@@ -48,29 +53,45 @@ calendarRouter.get('/calendar/:file', async (req, res) => {
       userId: user.discordId,
       event: { status: { not: 'CANCELLED' }, startTime: { gte: new Date(Date.now() - HISTORY_MS) } },
     },
-    include: { event: { include: { allianceGuilds: { select: { id: true } }, waitlist: { orderBy: { id: 'asc' }, select: { userId: true, role: true } } } } },
+    include: {
+      event: {
+        include: {
+          allianceGuilds: { select: { id: true } },
+          waitlist: { orderBy: { id: 'asc' }, select: { userId: true, role: true } },
+        },
+      },
+    },
     orderBy: { event: { startTime: 'asc' } },
     take: 300,
   });
-  const hostNames = new Map((await prisma.guild.findMany({
-    where: { guildId: { in: [...new Set(rsvps.map((r) => r.event.guildId))] } },
-    select: { guildId: true, name: true },
-  })).map((g) => [g.guildId, g.name]));
+  const hostNames = new Map(
+    (
+      await prisma.guild.findMany({
+        where: { guildId: { in: [...new Set(rsvps.map((r) => r.event.guildId))] } },
+        select: { guildId: true, name: true },
+      })
+    ).map((g) => [g.guildId, g.name]),
+  );
 
   const events: IcsEvent[] = rsvps.map(({ event: e, role, tentative }) => {
     const roles = JSON.parse(e.roles) as EventRole[];
-    const roleName = (key: string | null) => (key ? findRole(roles, key)?.name ?? key : null);
+    const roleName = (key: string | null) => (key ? (findRole(roles, key)?.name ?? key) : null);
     const waiting = e.waitlist.find((w) => w.userId === user.discordId);
-    const place = waiting ? e.waitlist.filter((w) => w.role === waiting.role).findIndex((w) => w.userId === user.discordId) + 1 : 0;
+    const place = waiting
+      ? e.waitlist.filter((w) => w.role === waiting.role).findIndex((w) => w.userId === user.discordId) + 1
+      : 0;
     // The host's thread, when everyone can open it (shared events have a thread per server).
-    const url = e.threadId && e.allianceGuilds.length === 0 ? `https://discord.com/channels/${e.guildId}/${e.threadId}` : null;
+    const url =
+      e.threadId && e.allianceGuilds.length === 0 ? `https://discord.com/channels/${e.guildId}/${e.threadId}` : null;
     const description = [
       tentative ? 'You said maybe' : `Your role: ${roleName(role) ?? 'Unassigned'}`,
       waiting ? `Waiting for ${roleName(waiting.role)} (#${place} in line)` : null,
       `Server: ${hostNames.get(e.guildId) ?? 'ASOP'}`,
       e.description ? `\n${e.description}` : null,
       url ? `\nEvent thread: ${url}` : null,
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
     return {
       uid: `${e.id}@asop-terminal`,
       start: e.startTime,

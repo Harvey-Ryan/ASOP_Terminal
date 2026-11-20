@@ -13,7 +13,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply();
   const release = await liveRelease();
   if (!release) {
-    await interaction.editReply({ content: `Couldn't reach GitHub just now. The latest build is always at <${STARSTRINGS_LIVE_PAGE}>.` });
+    await interaction.editReply({
+      content: `Couldn't reach GitHub just now. The latest build is always at <${STARSTRINGS_LIVE_PAGE}>.`,
+    });
     return;
   }
   const { embeds, components } = starStringsMessage(release, 'current');

@@ -12,9 +12,12 @@ export const assistantApi = {
   get: (guildId: string) => api.get<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant`).then(data),
   update: (guildId: string, patch: Partial<AssistantSettings>) =>
     api.put<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant`, patch).then(data),
-  saveKey: (guildId: string, key: string) => api.put<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant/key`, { key }).then(data),
-  testKey: (guildId: string) => api.post<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant/key/test`, {}).then(data),
-  removeKey: (guildId: string) => api.delete<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant/key`).then(data),
+  saveKey: (guildId: string, key: string) =>
+    api.put<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant/key`, { key }).then(data),
+  testKey: (guildId: string) =>
+    api.post<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant/key/test`, {}).then(data),
+  removeKey: (guildId: string) =>
+    api.delete<ApiResponse<AssistantSettingsDto>>(`/guilds/${guildId}/assistant/key`).then(data),
   flags: (guildId: string) => api.get<ApiResponse<AssistantFlagDto[]>>(`/guilds/${guildId}/assistant/flags`).then(data),
   dismissFlag: (guildId: string, id: string) => api.delete<ApiResponse>(`/guilds/${guildId}/assistant/flags/${id}`),
 };

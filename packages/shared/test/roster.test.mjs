@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roleSignupProblem, waitlistProblem, planWaitlistMoves, findRole, canRunEventFromDiscord } from '../dist/index.js';
+import {
+  roleSignupProblem,
+  waitlistProblem,
+  planWaitlistMoves,
+  findRole,
+  canRunEventFromDiscord,
+} from '../dist/index.js';
 
 const roles = [
   { id: 'pilot', name: 'Pilot', count: 1 },
@@ -18,7 +24,10 @@ test('signup checks are unchanged', () => {
 });
 
 test('findRole prefers ids over names', () => {
-  const r = [{ id: 'Miner', name: 'Pilot', count: 1 }, { id: 'x', name: 'Miner', count: 1 }];
+  const r = [
+    { id: 'Miner', name: 'Pilot', count: 1 },
+    { id: 'x', name: 'Miner', count: 1 },
+  ];
   assert.equal(findRole(r, 'Miner').name, 'Pilot');
 });
 
@@ -32,19 +41,32 @@ test('waitlistProblem', () => {
 });
 
 test('first in line moves into an open slot', () => {
-  const rsvps = [{ userId: 'a', role: 'pilot' }, { userId: 'b', role: null }, { userId: 'c', role: 'miner' }];
-  const waitlist = [{ userId: 'c', role: 'pilot', guildId: 'G1' }, { userId: 'b', role: 'pilot', guildId: 'G1' }];
+  const rsvps = [
+    { userId: 'a', role: 'pilot' },
+    { userId: 'b', role: null },
+    { userId: 'c', role: 'miner' },
+  ];
+  const waitlist = [
+    { userId: 'c', role: 'pilot', guildId: 'G1' },
+    { userId: 'b', role: 'pilot', guildId: 'G1' },
+  ];
   assert.deepEqual(planWaitlistMoves(roles, rsvps, waitlist), []);
   const after = rsvps.filter((r) => r.userId !== 'a');
-  assert.deepEqual(planWaitlistMoves(roles, after, waitlist), [{ userId: 'c', role: 'pilot', from: 'miner', guildId: 'G1' }]);
+  assert.deepEqual(planWaitlistMoves(roles, after, waitlist), [
+    { userId: 'c', role: 'pilot', from: 'miner', guildId: 'G1' },
+  ]);
 });
 
 test('a move frees the old role for the next line (chain)', () => {
   const rsvps = [
-    { userId: 'm1', role: 'miner' }, { userId: 'm2', role: 'miner' },
+    { userId: 'm1', role: 'miner' },
+    { userId: 'm2', role: 'miner' },
     { userId: 'x', role: null },
   ];
-  const waitlist = [{ userId: 'm1', role: 'pilot', guildId: 'G1' }, { userId: 'x', role: 'miner', guildId: 'G1' }];
+  const waitlist = [
+    { userId: 'm1', role: 'pilot', guildId: 'G1' },
+    { userId: 'x', role: 'miner', guildId: 'G1' },
+  ];
   assert.deepEqual(planWaitlistMoves(roles, rsvps, waitlist), [
     { userId: 'm1', role: 'pilot', from: 'miner', guildId: 'G1' },
     { userId: 'x', role: 'miner', from: null, guildId: 'G1' },
@@ -52,19 +74,31 @@ test('a move frees the old role for the next line (chain)', () => {
 });
 
 test('server-limited roles skip other servers; people off the roster never move', () => {
-  const rsvps = [{ userId: 'a', role: null }, { userId: 'b', role: null }];
+  const rsvps = [
+    { userId: 'a', role: null },
+    { userId: 'b', role: null },
+  ];
   const waitlist = [
     { userId: 'gone', role: 'medic', guildId: 'G2' },
     { userId: 'a', role: 'medic', guildId: 'G1' },
     { userId: 'b', role: 'medic', guildId: 'G2' },
   ];
-  assert.deepEqual(planWaitlistMoves(roles, rsvps, waitlist), [{ userId: 'b', role: 'medic', from: null, guildId: 'G2' }]);
+  assert.deepEqual(planWaitlistMoves(roles, rsvps, waitlist), [
+    { userId: 'b', role: 'medic', from: null, guildId: 'G2' },
+  ]);
 });
 
 test('several slots fill in line order; nobody moves twice', () => {
-  const rsvps = [{ userId: 'a', role: null }, { userId: 'b', role: null }, { userId: 'c', role: null }];
+  const rsvps = [
+    { userId: 'a', role: null },
+    { userId: 'b', role: null },
+    { userId: 'c', role: null },
+  ];
   const waitlist = ['a', 'b', 'c'].map((userId) => ({ userId, role: 'miner', guildId: 'G1' }));
-  assert.deepEqual(planWaitlistMoves(roles, rsvps, waitlist).map((m) => m.userId), ['a', 'b']);
+  assert.deepEqual(
+    planWaitlistMoves(roles, rsvps, waitlist).map((m) => m.userId),
+    ['a', 'b'],
+  );
 });
 
 test('joint ops: server labels, tags and headcount', async () => {
@@ -74,16 +108,32 @@ test('joint ops: server labels, tags and headcount', async () => {
   assert.equal(serverLabel('', null), '?');
   const tags = { host: 'ASOP', ally: 'NC' };
   const rsvps = [
-    { guildId: 'ally' }, { guildId: 'ally' }, { guildId: 'host' }, { guildId: null }, { guildId: 'gone' }, { guildId: 'ally', tentative: true },
+    { guildId: 'ally' },
+    { guildId: 'ally' },
+    { guildId: 'host' },
+    { guildId: null },
+    { guildId: 'gone' },
+    { guildId: 'ally', tentative: true },
   ];
-  assert.deepEqual(serverHeadcount(rsvps, 'host', tags), [{ guildId: 'host', tag: 'ASOP', count: 3 }, { guildId: 'ally', tag: 'NC', count: 2 }]);
+  assert.deepEqual(serverHeadcount(rsvps, 'host', tags), [
+    { guildId: 'host', tag: 'ASOP', count: 3 },
+    { guildId: 'ally', tag: 'NC', count: 2 },
+  ]);
   assert.equal(serverTagOf({ guildId: null }, 'host', tags), 'ASOP');
   assert.equal(serverTagOf({ guildId: 'ally' }, 'host', tags), 'NC');
   assert.equal(serverTagOf({ guildId: 'gone' }, 'host', tags), 'ASOP');
 });
 
 test('who can answer the loot prompt in Discord: the same people who can create events', () => {
-  const base = { isCreator: false, inHostServer: true, isOwner: false, manageGuild: false, administrator: false, memberRoleIds: ['r-member'], eventCreatorRoles: '["r-officer"]' };
+  const base = {
+    isCreator: false,
+    inHostServer: true,
+    isOwner: false,
+    manageGuild: false,
+    administrator: false,
+    memberRoleIds: ['r-member'],
+    eventCreatorRoles: '["r-officer"]',
+  };
   assert.equal(canRunEventFromDiscord(base), false);
   assert.equal(canRunEventFromDiscord({ ...base, isCreator: true, inHostServer: false }), true);
   assert.equal(canRunEventFromDiscord({ ...base, isOwner: true }), true);
@@ -91,7 +141,10 @@ test('who can answer the loot prompt in Discord: the same people who can create 
   assert.equal(canRunEventFromDiscord({ ...base, administrator: true }), true);
   assert.equal(canRunEventFromDiscord({ ...base, memberRoleIds: ['r-member', 'r-officer'] }), true);
   // another server's managers and officers don't count
-  assert.equal(canRunEventFromDiscord({ ...base, inHostServer: false, manageGuild: true, memberRoleIds: ['r-officer'] }), false);
+  assert.equal(
+    canRunEventFromDiscord({ ...base, inHostServer: false, manageGuild: true, memberRoleIds: ['r-officer'] }),
+    false,
+  );
   assert.equal(canRunEventFromDiscord({ ...base, eventCreatorRoles: 'not json', memberRoleIds: ['r-officer'] }), false);
   assert.equal(canRunEventFromDiscord({ ...base, eventCreatorRoles: null }), false);
 });

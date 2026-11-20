@@ -14,7 +14,12 @@ import { APP_COMMIT, APP_VERSION } from '../appVersion.js';
 
 export const RELEASE = `${APP_VERSION}${APP_COMMIT ? `+${APP_COMMIT}` : ''}`;
 
-interface InteractionContext { ref: string; guildId: string | null; userId: string; what: string }
+interface InteractionContext {
+  ref: string;
+  guildId: string | null;
+  userId: string;
+  what: string;
+}
 
 const als = new AsyncLocalStorage<InteractionContext>();
 const original = { error: console.error.bind(console) };
@@ -22,11 +27,15 @@ const original = { error: console.error.bind(console) };
 export const botErrors = new ErrorRecorder({
   source: 'bot',
   release: RELEASE,
-  write: async (rows) => { await prisma.errorEvent.createMany({ data: rows }); },
+  write: async (rows) => {
+    await prisma.errorEvent.createMany({ data: rows });
+  },
   fallbackLog: (...args) => original.error(...args),
   currentContext: () => {
     const ctx = als.getStore();
-    return ctx ? { ref: ctx.ref, guildId: ctx.guildId, userId: ctx.userId, context: { interaction: ctx.what } } : undefined;
+    return ctx
+      ? { ref: ctx.ref, guildId: ctx.guildId, userId: ctx.userId, context: { interaction: ctx.what } }
+      : undefined;
   },
 });
 
@@ -50,11 +59,23 @@ function describeInteraction(i: Interaction): string {
 
 /** Runs an interaction handler with its ref and context. */
 export function withInteraction<T>(interaction: Interaction, fn: () => Promise<T>): Promise<T> {
-  return als.run({ ref: newRef(), guildId: interaction.guildId, userId: interaction.user.id, what: describeInteraction(interaction) }, fn);
+  return als.run(
+    {
+      ref: newRef(),
+      guildId: interaction.guildId,
+      userId: interaction.user.id,
+      what: describeInteraction(interaction),
+    },
+    fn,
+  );
 }
 
 /** Runs a message handler (the AI assistant, v1.56.0) with its own ref and context. */
-export function withMessage<T>(m: { guildId: string | null; author: { id: string } }, what: string, fn: () => Promise<T>): Promise<T> {
+export function withMessage<T>(
+  m: { guildId: string | null; author: { id: string } },
+  what: string,
+  fn: () => Promise<T>,
+): Promise<T> {
   return als.run({ ref: newRef(), guildId: m.guildId, userId: m.author.id, what }, fn);
 }
 
@@ -66,7 +87,11 @@ export function withRef(message: string): string {
 
 /** Every minute from index.ts: the bot is alive, with its gateway numbers (admin Overview). */
 export async function botHeartbeat(startedAt: Date, details: Record<string, unknown>): Promise<void> {
-  const d = JSON.stringify({ ...details, memoryMb: Math.round(process.memoryUsage().rss / 1_048_576), uptimeMin: Math.round(process.uptime() / 60) });
+  const d = JSON.stringify({
+    ...details,
+    memoryMb: Math.round(process.memoryUsage().rss / 1_048_576),
+    uptimeMin: Math.round(process.uptime() / 60),
+  });
   await prisma.serviceHeartbeat.upsert({
     where: { service: 'bot' },
     create: { service: 'bot', startedAt, beatAt: new Date(), release: RELEASE, details: d },

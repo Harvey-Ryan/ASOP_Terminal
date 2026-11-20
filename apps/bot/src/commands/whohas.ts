@@ -13,11 +13,7 @@ export const data = new SlashCommandBuilder()
   .setName('whohas')
   .setDescription('Search guild member inventories for an item or commodity')
   .addStringOption((opt) =>
-    opt
-      .setName('item')
-      .setDescription('Item or commodity name')
-      .setRequired(true)
-      .setAutocomplete(true),
+    opt.setName('item').setDescription('Item or commodity name').setRequired(true).setAutocomplete(true),
   );
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
@@ -51,7 +47,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   });
 
   // Resolve server nicknames for all members in the result set
-  const guild = interaction.guild ?? await client.guilds.fetch(interaction.guildId);
+  const guild = interaction.guild ?? (await client.guilds.fetch(interaction.guildId));
   const userIds = [...new Set(entries.map((e) => e.userId))];
   const nickMap = new Map<string, string>();
   if (userIds.length > 0) {
@@ -95,10 +91,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   for (const [ql, group] of groups) {
     const header = ql !== null ? `QL ${ql}` : itemName;
     const lines = group.map((e) => {
-      const qty =
-        e.quantity % 1 === 0
-          ? e.quantity.toFixed(0)
-          : e.quantity.toFixed(itemType === 'COMMODITY' ? 3 : 2);
+      const qty = e.quantity % 1 === 0 ? e.quantity.toFixed(0) : e.quantity.toFixed(itemType === 'COMMODITY' ? 3 : 2);
       const prefix = itemType === 'COMMODITY' ? '' : '×';
       const suffix = itemType === 'COMMODITY' ? ' cSCU' : '';
       const loc = e.location ? ` · 📍 ${e.location}` : '';

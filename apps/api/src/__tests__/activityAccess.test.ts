@@ -8,13 +8,26 @@ import { createUser, createGuild, createGuildSettings } from './factories.js';
 
 const app = createServer();
 const prevToken = process.env['DISCORD_TOKEN'];
-afterEach(() => { vi.unstubAllGlobals(); if (prevToken === undefined) delete process.env['DISCORD_TOKEN']; else process.env['DISCORD_TOKEN'] = prevToken; });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (prevToken === undefined) delete process.env['DISCORD_TOKEN'];
+  else process.env['DISCORD_TOKEN'] = prevToken;
+});
 
 /** Discord says everyone holds these roles in the server. */
 function discordRoles(roles: string[] = ['viewer']) {
   resetDiscordRest();
   process.env['DISCORD_TOKEN'] = 'test-token';
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ user: { id: 'x' }, roles }), { status: 200, headers: { 'content-type': 'application/json' } })));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ user: { id: 'x' }, roles }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    ),
+  );
 }
 const viewerRole = () => discordRoles();
 
@@ -37,14 +50,28 @@ async function setup(heatmapPublic = true) {
   process.env['ACTIVITY_SERVER_IDS'] = g.guildId; // Activity only exists for the servers RoleCall tracks (v1.25.0)
   await createGuildSettings(g.id, { viewerRoles: JSON.stringify(['viewer']), activityHeatmapPublic: heatmapPublic });
   const other = await createGuild({ guildId: String(Date.now() + 1) + String(Math.floor(Math.random() * 1000)) });
-  return { g: g.guildId, officer: await login([g.guildId]), member: await login([]), outsider: await login([other.guildId]) };
+  return {
+    g: g.guildId,
+    officer: await login([g.guildId]),
+    member: await login([]),
+    outsider: await login([other.guildId]),
+  };
 }
 
 describe('Activity access', () => {
   it('officers reach everything; outsiders reach nothing', async () => {
     const { g, officer, outsider } = await setup();
     discordRoles([]);
-    for (const path of ['stats', 'leaderboard', 'member', 'heatmap/guild', 'heatmap/user', 'config', 'role-change-log', 'left-members']) {
+    for (const path of [
+      'stats',
+      'leaderboard',
+      'member',
+      'heatmap/guild',
+      'heatmap/user',
+      'config',
+      'role-change-log',
+      'left-members',
+    ]) {
       await passes(officer.agent.get(`/api/rolecall/${path}?guildId=${g}&userId=1`));
       await outsider.agent.get(`/api/rolecall/${path}?guildId=${g}&userId=1`).expect(403);
     }
@@ -53,7 +80,7 @@ describe('Activity access', () => {
     await outsider.agent.get(`/api/guilds/${g}/heatmap/events`).expect(403);
   });
 
-  it('members: the server\'s numbers, their own details, heat maps only when allowed, no settings', async () => {
+  it("members: the server's numbers, their own details, heat maps only when allowed, no settings", async () => {
     const { g, member } = await setup();
     viewerRole();
     await passes(member.agent.get(`/api/rolecall/stats?guildId=${g}`));
@@ -112,4 +139,3 @@ describe('Activity only exists for the servers RoleCall tracks (v1.25.0)', () =>
     await passes(officer.agent.get(`/api/rolecall/stats?guildId=${g}`));
   });
 });
-

@@ -56,9 +56,7 @@ describe('POST /:guildId/events/:eventId/loot — create session', () => {
     const event = await createEvent(guild.guildId, user.discordId);
     await createLootSession(event.id, guild.guildId);
 
-    const res = await agent
-      .post(`/api/guilds/${guild.guildId}/events/${event.id}/loot`)
-      .send({});
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot`).send({});
     expect(res.status).toBe(409);
   });
 });
@@ -89,9 +87,7 @@ describe('Loot item CRUD', () => {
     const event = await createEvent(guild.guildId, user.discordId);
     await createLootSession(event.id, guild.guildId);
 
-    const res = await agent
-      .post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/items`)
-      .send({ quantity: 1 });
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/items`).send({ quantity: 1 });
     expect(res.status).toBe(400);
   });
 
@@ -103,9 +99,7 @@ describe('Loot item CRUD', () => {
     const session = await createLootSession(event.id, guild.guildId);
     const item = await createLootItem(session.id, { name: 'Delete Me' });
 
-    const res = await agent.delete(
-      `/api/guilds/${guild.guildId}/events/${event.id}/loot/items/${item.id}`,
-    );
+    const res = await agent.delete(`/api/guilds/${guild.guildId}/events/${event.id}/loot/items/${item.id}`);
     expect(res.status).toBe(200);
   });
 });
@@ -131,9 +125,7 @@ describe('POST /loot/items/:itemId/roll', () => {
     const session = await createLootSession(event.id, guild.guildId);
     const item = await createLootItem(session.id);
 
-    const res = await agent.post(
-      `/api/guilds/${guild.guildId}/events/${event.id}/loot/items/${item.id}/roll`,
-    );
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/items/${item.id}/roll`);
 
     expect(res.status).toBe(200);
     expect(res.body.data.winner.userId).toBe('player-1');
@@ -153,9 +145,7 @@ describe('POST /loot/items/:itemId/roll', () => {
     const session = await createLootSession(event.id, guild.guildId);
     const item = await createLootItem(session.id);
 
-    const res = await agent.post(
-      `/api/guilds/${guild.guildId}/events/${event.id}/loot/items/${item.id}/roll`,
-    );
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/items/${item.id}/roll`);
     expect(res.status).toBe(400);
   });
 });
@@ -215,9 +205,7 @@ describe('POST /loot/complete — DKP award', () => {
 
     const session = await createLootSession(event.id, guild.guildId, { dkpAward: 10 });
 
-    const res = await agent.post(
-      `/api/guilds/${guild.guildId}/events/${event.id}/loot/complete`,
-    );
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/complete`);
     expect(res.status).toBe(200);
 
     // Verify DKP balances were created
@@ -253,9 +241,7 @@ describe('POST /loot/complete — DKP award', () => {
       data: { itemId: item.id, userId: 'winner-1', username: 'Winner', dkpSpent: 20 },
     });
 
-    const res = await agent.post(
-      `/api/guilds/${guild.guildId}/events/${event.id}/loot/complete`,
-    );
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/complete`);
     expect(res.status).toBe(200);
 
     const bal = await prisma.dkpBalance.findUnique({
@@ -272,9 +258,7 @@ describe('POST /loot/complete — DKP award', () => {
     const event = await createEvent(guild.guildId, user.discordId);
     await createLootSession(event.id, guild.guildId, { status: 'COMPLETED' });
 
-    const res = await agent.post(
-      `/api/guilds/${guild.guildId}/events/${event.id}/loot/complete`,
-    );
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/loot/complete`);
     expect(res.status).toBe(409);
   });
 });

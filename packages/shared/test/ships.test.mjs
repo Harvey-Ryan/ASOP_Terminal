@@ -1,36 +1,99 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  eventFleetPeople, isCustomShipName, shipCodeName, parseShipMatrix, shipsFromGameFiles, shipIndex, matchShip, searchShips, parseFleetImport, shipRoleGroup, fleetCheckDue,
+  eventFleetPeople,
+  isCustomShipName,
+  shipCodeName,
+  parseShipMatrix,
+  shipsFromGameFiles,
+  shipIndex,
+  matchShip,
+  searchShips,
+  parseFleetImport,
+  shipRoleGroup,
+  fleetCheckDue,
 } from '../dist/index.js';
 
 const matrix = {
   success: 1,
   data: [
-    { id: 1, name: 'Aurora Mk I ES', type: 'multi-role', focus: 'Starter / Pathfinder', size: 'small', min_crew: 1, max_crew: 1, cargocapacity: 3, production_status: 'flight-ready', url: '/pledge/ships/rsi-aurora/Aurora-Mk-I-ES',
+    {
+      id: 1,
+      name: 'Aurora Mk I ES',
+      type: 'multi-role',
+      focus: 'Starter / Pathfinder',
+      size: 'small',
+      min_crew: 1,
+      max_crew: 1,
+      cargocapacity: 3,
+      production_status: 'flight-ready',
+      url: '/pledge/ships/rsi-aurora/Aurora-Mk-I-ES',
       manufacturer: { name: 'Roberts Space Industries', code: 'RSI' },
-      media: [{ source_url: 'https://media.robertsspaceindustries.com/e1/source.jpg', images: { store_small: 'https://media.robertsspaceindustries.com/e1/store_small.jpg', slideshow: 'https://media.robertsspaceindustries.com/e1/slideshow.jpg' } }] },
-    { id: 2, name: 'Carrack', type: 'Exploration', focus: 'Expedition', size: 'large', min_crew: 4, max_crew: 6, cargocapacity: 456, manufacturer: { name: 'Anvil Aerospace', code: 'ANVL' }, media: [] },
+      media: [
+        {
+          source_url: 'https://media.robertsspaceindustries.com/e1/source.jpg',
+          images: {
+            store_small: 'https://media.robertsspaceindustries.com/e1/store_small.jpg',
+            slideshow: 'https://media.robertsspaceindustries.com/e1/slideshow.jpg',
+          },
+        },
+      ],
+    },
+    {
+      id: 2,
+      name: 'Carrack',
+      type: 'Exploration',
+      focus: 'Expedition',
+      size: 'large',
+      min_crew: 4,
+      max_crew: 6,
+      cargocapacity: 456,
+      manufacturer: { name: 'Anvil Aerospace', code: 'ANVL' },
+      media: [],
+    },
     { id: 3, name: 'Carrack Expedition', type: 'Exploration', manufacturer: { name: 'Anvil Aerospace', code: 'ANVL' } },
     { id: 4, name: 'Cutlass Black', type: 'Multi-Role', manufacturer: { name: 'Drake Interplanetary', code: 'DRAK' } },
     { id: 5, name: 'Cutlass Red', type: 'Support', manufacturer: { name: 'Drake Interplanetary', code: 'DRAK' } },
-    { id: 6, name: 'Mercury Star Runner', type: 'Transport', manufacturer: { name: 'Crusader Industries', code: 'CRSD' } },
+    {
+      id: 6,
+      name: 'Mercury Star Runner',
+      type: 'Transport',
+      manufacturer: { name: 'Crusader Industries', code: 'CRSD' },
+    },
     { id: 7, name: 'Prospector', type: 'Industrial', focus: 'Mining', manufacturer: { name: 'MISC', code: 'MISC' } },
     { id: 8, name: '600i Explorer', type: 'Exploration', manufacturer: { name: 'Origin Jumpworks', code: 'ORIG' } },
-    { id: 9, name: 'C2 Hercules Starlifter', type: 'Transport', manufacturer: { name: 'Crusader Industries', code: 'CRSD' } },
+    {
+      id: 9,
+      name: 'C2 Hercules Starlifter',
+      type: 'Transport',
+      manufacturer: { name: 'Crusader Industries', code: 'CRSD' },
+    },
     { name: 'no id' },
   ],
 };
 const ships = parseShipMatrix(matrix);
 const idx = shipIndex(ships);
-const m = (s, hint) => { const r = matchShip(s, idx, hint); return r.status === 'matched' ? r.ship.name : `${r.status}:${r.suggestions.map((x) => x.name).join('|')}`; };
+const m = (s, hint) => {
+  const r = matchShip(s, idx, hint);
+  return r.status === 'matched' ? r.ship.name : `${r.status}:${r.suggestions.map((x) => x.name).join('|')}`;
+};
 
 test('reads RSI ship data', () => {
   assert.equal(ships.length, 9);
   assert.deepEqual(ships[0], {
-    id: 'rsi-1', name: 'Aurora Mk I ES', manufacturer: 'Roberts Space Industries', manufacturerCode: 'RSI', type: 'Multi-Role', focus: 'Starter / Pathfinder',
-    size: 'Small', minCrew: 1, maxCrew: 1, cargo: 3, status: 'flight-ready',
-    imageUrl: 'https://media.robertsspaceindustries.com/e1/slideshow.jpg', thumbUrl: 'https://media.robertsspaceindustries.com/e1/store_small.jpg',
+    id: 'rsi-1',
+    name: 'Aurora Mk I ES',
+    manufacturer: 'Roberts Space Industries',
+    manufacturerCode: 'RSI',
+    type: 'Multi-Role',
+    focus: 'Starter / Pathfinder',
+    size: 'Small',
+    minCrew: 1,
+    maxCrew: 1,
+    cargo: 3,
+    status: 'flight-ready',
+    imageUrl: 'https://media.robertsspaceindustries.com/e1/slideshow.jpg',
+    thumbUrl: 'https://media.robertsspaceindustries.com/e1/store_small.jpg',
     storeUrl: 'https://robertsspaceindustries.com/pledge/ships/rsi-aurora/Aurora-Mk-I-ES',
   });
   assert.equal(shipRoleGroup(ships[1]), 'Exploration');
@@ -40,10 +103,31 @@ test('reads RSI ship data', () => {
 
 test('the game files are the fallback, without the maker in the name', () => {
   const g = shipsFromGameFiles([
-    { uuid: 'u1', name: 'Anvil Carrack', manufacturer_name: 'Anvil Aerospace', manufacturer_code: 'ANVL', role: 'Expedition', career: 'Exploration', crew: 6, is_vehicle: false },
-    { uuid: 'u2', name: '<= PLACEHOLDER =>', manufacturer_name: null, manufacturer_code: null, role: null, career: null, crew: null, is_vehicle: false },
+    {
+      uuid: 'u1',
+      name: 'Anvil Carrack',
+      manufacturer_name: 'Anvil Aerospace',
+      manufacturer_code: 'ANVL',
+      role: 'Expedition',
+      career: 'Exploration',
+      crew: 6,
+      is_vehicle: false,
+    },
+    {
+      uuid: 'u2',
+      name: '<= PLACEHOLDER =>',
+      manufacturer_name: null,
+      manufacturer_code: null,
+      role: null,
+      career: null,
+      crew: null,
+      is_vehicle: false,
+    },
   ]);
-  assert.deepEqual(g.map((s) => [s.id, s.name, s.type]), [['game-u1', 'Carrack', 'Exploration']]);
+  assert.deepEqual(
+    g.map((s) => [s.id, s.name, s.type]),
+    [['game-u1', 'Carrack', 'Exploration']],
+  );
 });
 
 test('matching names as people type or export them', () => {
@@ -66,53 +150,97 @@ test('matching names as people type or export them', () => {
 });
 
 test('search for the add box and autocomplete', () => {
-  assert.deepEqual(searchShips('cut', ships).map((s) => s.name), ['Cutlass Black', 'Cutlass Red']);
-  assert.deepEqual(searchShips('drake red', ships).map((s) => s.name), ['Cutlass Red']);
-  assert.deepEqual(searchShips('carr', ships).map((s) => s.name), ['Carrack', 'Carrack Expedition']);
+  assert.deepEqual(
+    searchShips('cut', ships).map((s) => s.name),
+    ['Cutlass Black', 'Cutlass Red'],
+  );
+  assert.deepEqual(
+    searchShips('drake red', ships).map((s) => s.name),
+    ['Cutlass Red'],
+  );
+  assert.deepEqual(
+    searchShips('carr', ships).map((s) => s.name),
+    ['Carrack', 'Carrack Expedition'],
+  );
   assert.equal(searchShips('', ships, 3).length, 3);
 });
 
 test('importing plain text', () => {
   const r = parseFleetImport('Carrack\n2x Cutlass Black\nProspector, 3\n# a comment\n\n- Mercury x2\ncarrack');
   assert.equal(r.format, 'text');
-  assert.deepEqual(r.lines.map((l) => [l.name, l.quantity]), [['Carrack', 2], ['Cutlass Black', 2], ['Prospector', 3], ['Mercury', 2]]);
+  assert.deepEqual(
+    r.lines.map((l) => [l.name, l.quantity]),
+    [
+      ['Carrack', 2],
+      ['Cutlass Black', 2],
+      ['Prospector', 3],
+      ['Mercury', 2],
+    ],
+  );
 });
 
 test('importing a Hangar Export / hangar.link file: ships and vehicles only', () => {
   const file = JSON.stringify({
-    type: 'hangarexport', version: 2, handle: 'someone',
+    type: 'hangarexport',
+    version: 2,
+    handle: 'someone',
     pledges: [
-      { pledgeName: 'Package - Carrack', items: [
-        { title: 'Carrack', kind: 'Ship', liner: 'Anvil Aerospace', itemCustomName: 'Wanderer' },
-        { title: 'Pisces C8X', kind: 'Ship', liner: 'Anvil Aerospace', itemCustomName: '' },
-        { title: 'Lifetime Insurance', kind: 'Insurance', liner: '' },
-      ] },
-      { pledgeName: 'Standalone Ship - Cutlass Black', items: [{ title: 'Cutlass Black', kind: 'Ship', liner: 'Drake Interplanetary' }] },
-      { pledgeName: 'Standalone Ship - Cutlass Black', items: [{ title: 'Cutlass Black', kind: 'Ship', liner: 'Drake Interplanetary' }] },
+      {
+        pledgeName: 'Package - Carrack',
+        items: [
+          { title: 'Carrack', kind: 'Ship', liner: 'Anvil Aerospace', itemCustomName: 'Wanderer' },
+          { title: 'Pisces C8X', kind: 'Ship', liner: 'Anvil Aerospace', itemCustomName: '' },
+          { title: 'Lifetime Insurance', kind: 'Insurance', liner: '' },
+        ],
+      },
+      {
+        pledgeName: 'Standalone Ship - Cutlass Black',
+        items: [{ title: 'Cutlass Black', kind: 'Ship', liner: 'Drake Interplanetary' }],
+      },
+      {
+        pledgeName: 'Standalone Ship - Cutlass Black',
+        items: [{ title: 'Cutlass Black', kind: 'Ship', liner: 'Drake Interplanetary' }],
+      },
       { pledgeName: 'Ursa', items: [{ title: 'Ursa Rover', kind: 'Vehicle', liner: 'Roberts Space Industries' }] },
     ],
   });
   const r = parseFleetImport(file);
   assert.equal(r.format, 'hangarexport');
-  assert.deepEqual(r.lines.map((l) => [l.name, l.quantity, l.manufacturer, l.nickname]), [
-    ['Carrack', 1, 'Anvil Aerospace', 'Wanderer'], ['Pisces C8X', 1, 'Anvil Aerospace', null], ['Cutlass Black', 2, 'Drake Interplanetary', null], ['Ursa Rover', 1, 'Roberts Space Industries', null],
-  ]);
+  assert.deepEqual(
+    r.lines.map((l) => [l.name, l.quantity, l.manufacturer, l.nickname]),
+    [
+      ['Carrack', 1, 'Anvil Aerospace', 'Wanderer'],
+      ['Pisces C8X', 1, 'Anvil Aerospace', null],
+      ['Cutlass Black', 2, 'Drake Interplanetary', null],
+      ['Ursa Rover', 1, 'Roberts Space Industries', null],
+    ],
+  );
 });
 
 test('importing a FleetYards-style or plain JSON list', () => {
-  const fy = parseFleetImport(JSON.stringify([
-    { name: 'Big Red', model: { name: 'Carrack', slug: 'carrack', manufacturer: { name: 'Anvil Aerospace' } } },
-    { model: { name: 'Prospector' } },
-    { slug: 'mercury-star-runner' },
-  ]));
+  const fy = parseFleetImport(
+    JSON.stringify([
+      { name: 'Big Red', model: { name: 'Carrack', slug: 'carrack', manufacturer: { name: 'Anvil Aerospace' } } },
+      { model: { name: 'Prospector' } },
+      { slug: 'mercury-star-runner' },
+    ]),
+  );
   assert.equal(fy.format, 'json');
-  assert.deepEqual(fy.lines.map((l) => [l.name, l.nickname ?? null, l.manufacturer ?? null]), [['Carrack', 'Big Red', 'Anvil Aerospace'], ['Prospector', null, null], ['mercury star runner', null, null]]);
+  assert.deepEqual(
+    fy.lines.map((l) => [l.name, l.nickname ?? null, l.manufacturer ?? null]),
+    [
+      ['Carrack', 'Big Red', 'Anvil Aerospace'],
+      ['Prospector', null, null],
+      ['mercury star runner', null, null],
+    ],
+  );
   assert.deepEqual(parseFleetImport('{"ships":["Carrack","Carrack"]}').lines, [{ name: 'Carrack', quantity: 2 }]);
   assert.equal(parseFleetImport('{broken').format, 'text');
 });
 
 test('when to ask "still flying these?"', () => {
-  const day = 86_400_000; const now = new Date('2026-11-12T12:00:00Z');
+  const day = 86_400_000;
+  const now = new Date('2026-11-12T12:00:00Z');
   const ago = (d) => new Date(now.getTime() - d * day);
   const owner = { checkedAt: ago(100), lastNudgeAt: null, nudges: true, createdAt: ago(200) };
   assert.equal(fleetCheckDue(owner, 3, now), true);
@@ -124,12 +252,22 @@ test('when to ask "still flying these?"', () => {
 });
 
 test('importing a FleetViewer layout (STARJUMP / fleetviewer.link): only its ships', () => {
-  const text = (id, label) => ({ id: `t-${id}`, itemType: 'TEXTGROUP', text: label, childOfShip: id, stats: ['LENGTH'] });
+  const text = (id, label) => ({
+    id: `t-${id}`,
+    itemType: 'TEXTGROUP',
+    text: label,
+    childOfShip: id,
+    stats: ['LENGTH'],
+  });
   const file = JSON.stringify({
-    type: 'starjumpFleetviewer', version: 1, backgroundImageUrl: 'https://example.invalid/bg.png',
+    type: 'starjumpFleetviewer',
+    version: 1,
+    backgroundImageUrl: 'https://example.invalid/bg.png',
     canvasItems: [
-      { id: 'a', itemType: 'SHIP', shipSlug: 'galaxy', variantSlug: '', defaultText: 'Galaxy', parentOfGroup: 't-a' }, text('a', 'Galaxy'),
-      { id: 'b', itemType: 'SHIP', shipSlug: 'aurora-mk-ii', defaultText: 'Aurora Mk II' }, text('b', 'Aurora Mk II'),
+      { id: 'a', itemType: 'SHIP', shipSlug: 'galaxy', variantSlug: '', defaultText: 'Galaxy', parentOfGroup: 't-a' },
+      text('a', 'Galaxy'),
+      { id: 'b', itemType: 'SHIP', shipSlug: 'aurora-mk-ii', defaultText: 'Aurora Mk II' },
+      text('b', 'Aurora Mk II'),
       { id: 'c', itemType: 'SHIP', shipSlug: 'dragonfly-black' },
       { id: 'd', itemType: 'SHIP', shipSlug: 'galaxy', defaultText: 'Galaxy' },
       { id: 'e', itemType: 'IMAGE', url: 'x.png' },
@@ -137,7 +275,14 @@ test('importing a FleetViewer layout (STARJUMP / fleetviewer.link): only its shi
   });
   const r = parseFleetImport(file);
   assert.equal(r.format, 'fleetviewer');
-  assert.deepEqual(r.lines.map((l) => [l.name, l.quantity]), [['Galaxy', 2], ['Aurora Mk II', 1], ['dragonfly black', 1]]);
+  assert.deepEqual(
+    r.lines.map((l) => [l.name, l.quantity]),
+    [
+      ['Galaxy', 2],
+      ['Aurora Mk II', 1],
+      ['dragonfly black', 1],
+    ],
+  );
 });
 
 test('a JSON list never turns tags or stats into ships', () => {
@@ -153,33 +298,52 @@ test("an event's fleets: signed up, not maybes, not hidden from the server they 
   ];
   const rsvps = [
     { userId: 'a', username: 'Rook', guildId: 'host', tentative: false },
-    { userId: 'b', username: 'Vex', guildId: null, tentative: false },     // hid it from the host
-    { userId: 'c', username: 'Ally', guildId: 'ally', tentative: false },  // hid it from the host, signed up from the ally
+    { userId: 'b', username: 'Vex', guildId: null, tentative: false }, // hid it from the host
+    { userId: 'c', username: 'Ally', guildId: 'ally', tentative: false }, // hid it from the host, signed up from the ally
     { userId: 'd', username: 'Maybe', guildId: 'host', tentative: true },
     { userId: 'e', username: 'No fleet', guildId: 'host', tentative: false },
   ];
-  assert.deepEqual([...eventFleetPeople({ guildId: 'host' }, rsvps, owners)], [['a', 'Rook'], ['c', 'Ally']]);
+  assert.deepEqual(
+    [...eventFleetPeople({ guildId: 'host' }, rsvps, owners)],
+    [
+      ['a', 'Rook'],
+      ['c', 'Ally'],
+    ],
+  );
 });
 
 test('an RSI hangar list (Hangar XPLOR style): names people gave their ships become nicknames', () => {
-  const row = (name, ship_name, ship_code, extra = {}) => ({ name, ship_name, ship_code, manufacturer_name: 'Maker', entity_type: 'ship', lti: true, ...extra });
-  const r = parseFleetImport(JSON.stringify([
-    row('Idris-P Frigate', 'Silly Ship Name', 'AEGS_Idris_P'),
-    row('Reclaimer', 'Free Candy Boys n Girls', 'AEGS_Reclaimer'),
-    row('600i Exploration Module', 'Battle Almond', 'ORIG_600i'),
-    row('MOTH', 'MOTH', 'ARGO_MOTH'),
-    row('F8C Lightning Executive Edition', 'F8C Lightning', 'ANVL_Lightning_F8C'), // the default name, shortened
-    row('Dragonfly Star Kitten Edition', 'Dragonfly Star Kitten', 'DRAK_Dragonfly_Pink'),
-    row('Ironscale', 'Ironscale', 'PAINT_X', { entity_type: 'skin' }),
-  ]));
-  assert.deepEqual(r.lines.map((l) => [l.name, l.nickname, l.altNames ?? null]), [
-    ['Idris-P Frigate', 'Silly Ship Name', ['Idris P']],
-    ['Reclaimer', 'Free Candy Boys n Girls', null],
-    ['600i Exploration Module', 'Battle Almond', ['600i']],
-    ['MOTH', null, null],
-    ['F8C Lightning Executive Edition', null, ['Lightning F8C']],
-    ['Dragonfly Star Kitten Edition', null, ['Dragonfly Pink']],
-  ]);
+  const row = (name, ship_name, ship_code, extra = {}) => ({
+    name,
+    ship_name,
+    ship_code,
+    manufacturer_name: 'Maker',
+    entity_type: 'ship',
+    lti: true,
+    ...extra,
+  });
+  const r = parseFleetImport(
+    JSON.stringify([
+      row('Idris-P Frigate', 'Silly Ship Name', 'AEGS_Idris_P'),
+      row('Reclaimer', 'Free Candy Boys n Girls', 'AEGS_Reclaimer'),
+      row('600i Exploration Module', 'Battle Almond', 'ORIG_600i'),
+      row('MOTH', 'MOTH', 'ARGO_MOTH'),
+      row('F8C Lightning Executive Edition', 'F8C Lightning', 'ANVL_Lightning_F8C'), // the default name, shortened
+      row('Dragonfly Star Kitten Edition', 'Dragonfly Star Kitten', 'DRAK_Dragonfly_Pink'),
+      row('Ironscale', 'Ironscale', 'PAINT_X', { entity_type: 'skin' }),
+    ]),
+  );
+  assert.deepEqual(
+    r.lines.map((l) => [l.name, l.nickname, l.altNames ?? null]),
+    [
+      ['Idris-P Frigate', 'Silly Ship Name', ['Idris P']],
+      ['Reclaimer', 'Free Candy Boys n Girls', null],
+      ['600i Exploration Module', 'Battle Almond', ['600i']],
+      ['MOTH', null, null],
+      ['F8C Lightning Executive Edition', null, ['Lightning F8C']],
+      ['Dragonfly Star Kitten Edition', null, ['Dragonfly Pink']],
+    ],
+  );
   assert.equal(isCustomShipName('F8C Lightning', 'F8C Lightning Executive Edition'), false);
   assert.equal(isCustomShipName('Battle Almond', '600i Exploration Module', '600i'), true);
   assert.equal(shipCodeName('ORIG_600i'), '600i');

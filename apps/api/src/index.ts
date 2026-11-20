@@ -17,8 +17,14 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
 // ── Required env var checks ────────────────────────────────────────────────
 
-const REQUIRED_PROD = ['SESSION_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'DISCORD_REDIRECT_URI', 'DISCORD_TOKEN'];
-const REQUIRED_DEV  = ['DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'DISCORD_REDIRECT_URI'];
+const REQUIRED_PROD = [
+  'SESSION_SECRET',
+  'DISCORD_CLIENT_ID',
+  'DISCORD_CLIENT_SECRET',
+  'DISCORD_REDIRECT_URI',
+  'DISCORD_TOKEN',
+];
+const REQUIRED_DEV = ['DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'DISCORD_REDIRECT_URI'];
 
 if (isProd) {
   const missing = REQUIRED_PROD.filter((k) => !process.env[k]);
@@ -43,7 +49,9 @@ if (isProd) {
 process.on('unhandledRejection', (err) => console.error('[API] Unhandled rejection:', err));
 // Errors waiting to be written are saved before a deploy stops the process.
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-  process.once(signal, () => { void flushErrors().finally(() => process.exit(0)); });
+  process.once(signal, () => {
+    void flushErrors().finally(() => process.exit(0));
+  });
 }
 
 const app = createServer();
@@ -84,7 +92,9 @@ app.listen(PORT, async () => {
   void linkInventoryOnStartup();
 
   // Build the Blueprints / Crafting Calculator data now, so the first visitor doesn't wait (v1.11.2).
-  void getCraftingPayload().catch((err) => console.error('[crafting] Warm-up failed (built on first request instead):', err));
+  void getCraftingPayload().catch((err) =>
+    console.error('[crafting] Warm-up failed (built on first request instead):', err),
+  );
 
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
 
@@ -93,7 +103,9 @@ app.listen(PORT, async () => {
   const beat = () => apiHeartbeat(startedAt).catch((err) => console.warn('[API] Heartbeat failed:', err));
   void beat();
   setInterval(beat, 60_000).unref();
-  cron.schedule('15 4 * * *', () => { pruneOldErrors().catch((err) => console.error('[errorLog] Pruning failed:', err)); });
+  cron.schedule('15 4 * * *', () => {
+    pruneOldErrors().catch((err) => console.error('[errorLog] Pruning failed:', err));
+  });
 
   // Ship list from RSI (v1.32.0): now, then daily at 05:20 UTC.
   const ships = async () => {
@@ -101,7 +113,16 @@ app.listen(PORT, async () => {
     if (r.source !== 'none') console.log(`[ships] ship list refreshed from ${r.source}: ${r.count} ships`);
   };
   // Game Tools data (v1.51.1): built once the ship list is in (it brings the pictures), and again after each refresh.
-  void ships().catch((err) => console.error('[ships] Start-up refresh failed:', err)).finally(() => { void warmGameTools(); });
-  cron.schedule('20 5 * * *', () => { ships().catch((err) => console.error('[ships] Daily refresh failed:', err)).finally(() => { void warmGameTools(); }); });
-
+  void ships()
+    .catch((err) => console.error('[ships] Start-up refresh failed:', err))
+    .finally(() => {
+      void warmGameTools();
+    });
+  cron.schedule('20 5 * * *', () => {
+    ships()
+      .catch((err) => console.error('[ships] Daily refresh failed:', err))
+      .finally(() => {
+        void warmGameTools();
+      });
+  });
 });

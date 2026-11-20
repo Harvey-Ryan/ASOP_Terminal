@@ -18,7 +18,9 @@ export async function assertAllianceManager(req: Express.Request, guildId: strin
     where: { id: settingsId },
     select: { allianceManagerRoles: true },
   });
-  const allowedRoles = JSON.parse((settings as unknown as { allianceManagerRoles?: string })?.allianceManagerRoles ?? '[]') as string[];
+  const allowedRoles = JSON.parse(
+    (settings as unknown as { allianceManagerRoles?: string })?.allianceManagerRoles ?? '[]',
+  ) as string[];
   if (allowedRoles.length === 0) return false;
 
   // Cached, rate-limit-aware lookup (lib/discordRest.ts).

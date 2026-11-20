@@ -10,8 +10,12 @@ import { getBlueprintByUuid, type MissionContract } from '@/lib/gameData';
 
 /** Placeholders the game fills in when it offers the mission, as words. */
 const PLACEHOLDER_WORDS: Record<string, string> = {
-  Location: 'location', Address: 'location', NearbyLocation: 'nearby location',
-  TargetName: 'target', Ship: 'ship', RecoverItemTitle: 'Recover an item',
+  Location: 'location',
+  Address: 'location',
+  NearbyLocation: 'nearby location',
+  TargetName: 'target',
+  Ship: 'ship',
+  RecoverItemTitle: 'Recover an item',
 };
 function placeholder(inner: string): string {
   const parts = inner.split('|');
@@ -23,7 +27,10 @@ function placeholder(inner: string): string {
 export function fmtContractTitle(raw: string): string {
   const t = raw.replace(/~mission\(([^)]+)\)/g, '[$1]').trim();
   const whole = /^\[([^\]]+)\]$/.exec(t);
-  if (whole) { const w = placeholder(whole[1]!); return w.charAt(0).toUpperCase() + w.slice(1); }
+  if (whole) {
+    const w = placeholder(whole[1]!);
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
   return t.replace(/\[([^\]]+)\]/g, (_, inner: string) => `‹${placeholder(inner)}›`).replace(/\s{2,}/g, ' ');
 }
 
@@ -56,20 +63,30 @@ export function diffCls(score: number): string {
   return 'border-[#7a3a32] text-[#e07a6e]';
 }
 
-const sameName = (a: string | null, b: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+const sameName = (a: string | null, b: string | null) =>
+  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
 function reputationWord(scope: string): string {
   switch (scope) {
-    case 'FactionReputation': return 'reputation';
-    case 'Affinity': return 'affinity';
-    case 'BountyHunter_BountyHuntersGuild': return 'Bounty Hunters Guild rep';
-    case 'ShipCombat_HeadHunters': return 'Headhunters rep';
-    default: return scope.replace(/_/g, ' ').toLowerCase();
+    case 'FactionReputation':
+      return 'reputation';
+    case 'Affinity':
+      return 'affinity';
+    case 'BountyHunter_BountyHuntersGuild':
+      return 'Bounty Hunters Guild rep';
+    case 'ShipCombat_HeadHunters':
+      return 'Headhunters rep';
+    default:
+      return scope.replace(/_/g, ' ').toLowerCase();
   }
 }
 
 function Chip({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <span className={cn('border border-[#3a3a3a] px-1.5 py-0.5 text-xs text-[var(--fab-muted)]', className)}>{children}</span>;
+  return (
+    <span className={cn('border border-[#3a3a3a] px-1.5 py-0.5 text-xs text-[var(--fab-muted)]', className)}>
+      {children}
+    </span>
+  );
 }
 
 /** Type, who gives it, and what kind of contract it is. */
@@ -78,7 +95,9 @@ export function MissionChips({ contract }: { contract: MissionContract }) {
     <div className="flex flex-wrap gap-1.5">
       {contract.missionType && <Chip>{contract.missionType}</Chip>}
       {contract.missionGiver && <Chip className="text-[var(--fab-gold-text)]">{contract.missionGiver}</Chip>}
-      {contract.faction && !sameName(contract.faction, contract.missionGiver) && <Chip className="text-[var(--fab-gold-text)]">{contract.faction}</Chip>}
+      {contract.faction && !sameName(contract.faction, contract.missionGiver) && (
+        <Chip className="text-[var(--fab-gold-text)]">{contract.faction}</Chip>
+      )}
       {contract.illegal && <Chip className="border-[#7a3a32] text-[#e07a6e]">Illegal</Chip>}
       {contract.shareable && <Chip>Shareable</Chip>}
       {contract.onceOnly && <Chip>Once only</Chip>}
@@ -94,7 +113,11 @@ export function MissionStats({ contract }: { contract: MissionContract }) {
     <p className="fab-mono flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--fab-muted)]">
       {contract.timeToCompleteMinutes != null && <span>{fmtMinutes(contract.timeToCompleteMinutes)}</span>}
       {risk > 0 && <span className={diffText(risk)}>Risk {risk}/7</span>}
-      {e && <span>{e.min === e.max ? e.max : `${e.min}–${e.max}`} {e.max === 1 ? 'enemy' : 'enemies'}</span>}
+      {e && (
+        <span>
+          {e.min === e.max ? e.max : `${e.min}–${e.max}`} {e.max === 1 ? 'enemy' : 'enemies'}
+        </span>
+      )}
     </p>
   );
 }
@@ -108,7 +131,11 @@ function Places({ places }: { places: string[] }) {
     <p className="text-sm leading-relaxed text-[var(--fab-text)]">
       {shown.join(' · ')}
       {places.length > PLACES_SHOWN && (
-        <button type="button" onClick={() => setAll((v) => !v)} className="ml-2 text-[var(--fab-gold-text)] hover:underline">
+        <button
+          type="button"
+          onClick={() => setAll((v) => !v)}
+          className="ml-2 text-[var(--fab-gold-text)] hover:underline"
+        >
           {all ? 'fewer' : `+${places.length - PLACES_SHOWN} more`}
         </button>
       )}
@@ -121,7 +148,12 @@ function SubHead({ children }: { children: React.ReactNode }) {
 }
 
 /** Everything about one mission: rewards, difficulty, places, its blueprints. */
-export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpenCalculator }: {
+export function MissionDetails({
+  contract,
+  currentUuid,
+  onSelectBlueprint,
+  onOpenCalculator,
+}: {
   contract: MissionContract;
   /** The blueprint being looked at, marked in the list */
   currentUuid?: string | null;
@@ -131,12 +163,14 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
 }) {
   const [descOpen, setDescOpen] = useState(false);
   const d = contract.difficulty;
-  const dims = d ? [
-    { label: 'Risk', score: d.riskOfLoss, words: d.riskOfLossLabel },
-    { label: 'Focus', score: d.mentalLoad, words: d.mentalLoadLabel },
-    { label: 'Combat', score: d.mechanicalSkill, words: d.mechanicalSkillLabel },
-    { label: 'Know-how', score: d.gameKnowledge, words: d.gameKnowledgeLabel },
-  ].filter((x) => x.score > 0) : [];
+  const dims = d
+    ? [
+        { label: 'Risk', score: d.riskOfLoss, words: d.riskOfLossLabel },
+        { label: 'Focus', score: d.mentalLoad, words: d.mentalLoadLabel },
+        { label: 'Combat', score: d.mechanicalSkill, words: d.mechanicalSkillLabel },
+        { label: 'Know-how', score: d.gameKnowledge, words: d.gameKnowledgeLabel },
+      ].filter((x) => x.score > 0)
+    : [];
   const desc = contract.description ? fmtDescription(contract.description) : '';
   const multiPool = contract.pools.length > 1;
 
@@ -146,15 +180,25 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
         <SubHead>Rewards</SubHead>
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
           {contract.rewardItems.map((r) => (
-            <li key={r.name}><span className="fab-mono text-[var(--fab-gold-text)]">{r.amount.toLocaleString()} ×</span> {r.name}</li>
+            <li key={r.name}>
+              <span className="fab-mono text-[var(--fab-gold-text)]">{r.amount.toLocaleString()} ×</span> {r.name}
+            </li>
           ))}
           {contract.reputation.map((r, i) => (
-            <li key={`rep-${i}`}><span className="fab-mono text-[var(--fab-gold-text)]">+{r.xp.toLocaleString()}</span> {reputationWord(r.scope)} with {r.faction}</li>
+            <li key={`rep-${i}`}>
+              <span className="fab-mono text-[var(--fab-gold-text)]">+{r.xp.toLocaleString()}</span>{' '}
+              {reputationWord(r.scope)} with {r.faction}
+            </li>
           ))}
-          <li className="text-xs text-[var(--fab-faint)]">Plus aUEC, which the game sets when you accept the contract.</li>
+          <li className="text-xs text-[var(--fab-faint)]">
+            Plus aUEC, which the game sets when you accept the contract.
+          </li>
         </ul>
         {contract.minStanding && contract.minStanding.minReputation > 0 && (
-          <p className="mt-2 text-xs text-[var(--fab-muted)]">Needs the rank <span className="text-[var(--fab-bright)]">{contract.minStanding.name}</span> ({contract.minStanding.minReputation.toLocaleString()}+ reputation).</p>
+          <p className="mt-2 text-xs text-[var(--fab-muted)]">
+            Needs the rank <span className="text-[var(--fab-bright)]">{contract.minStanding.name}</span> (
+            {contract.minStanding.minReputation.toLocaleString()}+ reputation).
+          </p>
         )}
       </div>
 
@@ -170,7 +214,10 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
                 </span>
                 <span aria-hidden="true" className="flex gap-0.5">
                   {Array.from({ length: 7 }, (_, i) => (
-                    <span key={i} className={cn('h-1.5 flex-1', i < x.score ? 'bg-current' : 'bg-[#2a2a2a]', diffText(x.score))} />
+                    <span
+                      key={i}
+                      className={cn('h-1.5 flex-1', i < x.score ? 'bg-current' : 'bg-[#2a2a2a]', diffText(x.score))}
+                    />
                   ))}
                 </span>
                 {x.words && <span className="text-xs text-[var(--fab-text)]">{x.words}</span>}
@@ -194,7 +241,9 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
             <div key={pi} className="fab-inset">
               {multiPool && (
                 <p className="m-0 border-b border-[#262626] px-3 py-1.5 text-xs text-[var(--fab-muted)]">
-                  {pool.locations.length ? `At ${pool.locations.slice(0, 4).join(', ')}${pool.locations.length > 4 ? ` +${pool.locations.length - 4} more` : ''}` : 'Anywhere'}
+                  {pool.locations.length
+                    ? `At ${pool.locations.slice(0, 4).join(', ')}${pool.locations.length > 4 ? ` +${pool.locations.length - 4} more` : ''}`
+                    : 'Anywhere'}
                 </p>
               )}
               <ul className="m-0 list-none p-0">
@@ -202,12 +251,36 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
                   const known = !!getBlueprintByUuid(e.blueprintUuid);
                   const here = e.blueprintUuid === currentUuid;
                   return (
-                    <li key={e.blueprintUuid} className={cn('flex items-center justify-between gap-3 border-b border-[#1f1f1f] px-3 py-2 last:border-0 text-sm', here && 'bg-[rgba(185,138,19,0.12)]')}>
-                      {known && !here
-                        ? <button type="button" onClick={() => onSelectBlueprint(e.blueprintUuid)} className="text-left text-[var(--fab-bright)] hover:text-[var(--fab-gold-text)] hover:underline">{e.name}</button>
-                        : <span className={here ? 'font-semibold text-[var(--fab-gold-text)]' : 'text-[var(--fab-muted)]'}>{e.name}</span>}
+                    <li
+                      key={e.blueprintUuid}
+                      className={cn(
+                        'flex items-center justify-between gap-3 border-b border-[#1f1f1f] px-3 py-2 last:border-0 text-sm',
+                        here && 'bg-[rgba(185,138,19,0.12)]',
+                      )}
+                    >
+                      {known && !here ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelectBlueprint(e.blueprintUuid)}
+                          className="text-left text-[var(--fab-bright)] hover:text-[var(--fab-gold-text)] hover:underline"
+                        >
+                          {e.name}
+                        </button>
+                      ) : (
+                        <span
+                          className={here ? 'font-semibold text-[var(--fab-gold-text)]' : 'text-[var(--fab-muted)]'}
+                        >
+                          {e.name}
+                        </span>
+                      )}
                       {known && onOpenCalculator && (
-                        <button type="button" onClick={() => onOpenCalculator(e.blueprintUuid)} className="shrink-0 text-xs text-[var(--fab-gold-text)] hover:underline">Calculator →</button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenCalculator(e.blueprintUuid)}
+                          className="shrink-0 text-xs text-[var(--fab-gold-text)] hover:underline"
+                        >
+                          Calculator →
+                        </button>
                       )}
                     </li>
                   );
@@ -220,10 +293,23 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
 
       {desc && (
         <div>
-          <button type="button" aria-expanded={descOpen} onClick={() => setDescOpen((v) => !v)} className="fab-label flex items-center gap-1 !text-[12px] hover:text-[var(--fab-bright)]">
-            Briefing <ChevronDown aria-hidden="true" className={cn('h-3.5 w-3.5 transition-transform', descOpen && 'rotate-180')} />
+          <button
+            type="button"
+            aria-expanded={descOpen}
+            onClick={() => setDescOpen((v) => !v)}
+            className="fab-label flex items-center gap-1 !text-[12px] hover:text-[var(--fab-bright)]"
+          >
+            Briefing{' '}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn('h-3.5 w-3.5 transition-transform', descOpen && 'rotate-180')}
+            />
           </button>
-          {descOpen && <p className="fab-inset mt-1.5 whitespace-pre-wrap px-3 py-2.5 text-sm leading-relaxed text-[var(--fab-text)]">{desc}</p>}
+          {descOpen && (
+            <p className="fab-inset mt-1.5 whitespace-pre-wrap px-3 py-2.5 text-sm leading-relaxed text-[var(--fab-text)]">
+              {desc}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -231,14 +317,28 @@ export function MissionDetails({ contract, currentUuid, onSelectBlueprint, onOpe
 }
 
 /** A mission in a list: the summary, opening to the details. */
-export function MissionCard({ contract, defaultOpen = false, ...rest }: React.ComponentProps<typeof MissionDetails> & { defaultOpen?: boolean }) {
+export function MissionCard({
+  contract,
+  defaultOpen = false,
+  ...rest
+}: React.ComponentProps<typeof MissionDetails> & { defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <article className="fab-plate flex flex-col">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex flex-col gap-2 px-4 py-3.5 text-left hover:bg-[rgba(255,255,255,0.02)]">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex flex-col gap-2 px-4 py-3.5 text-left hover:bg-[rgba(255,255,255,0.02)]"
+      >
         <span className="flex items-start justify-between gap-3">
-          <span className="text-base font-semibold leading-snug text-[var(--fab-bright)]">{fmtContractTitle(contract.title)}</span>
-          <ChevronDown aria-hidden="true" className={cn('mt-0.5 h-4 w-4 shrink-0 text-[var(--fab-faint)] transition-transform', open && 'rotate-180')} />
+          <span className="text-base font-semibold leading-snug text-[var(--fab-bright)]">
+            {fmtContractTitle(contract.title)}
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className={cn('mt-0.5 h-4 w-4 shrink-0 text-[var(--fab-faint)] transition-transform', open && 'rotate-180')}
+          />
         </span>
         <MissionChips contract={contract} />
         <MissionStats contract={contract} />
@@ -253,25 +353,47 @@ export function MissionCard({ contract, defaultOpen = false, ...rest }: React.Co
 }
 
 /** A mission's details over the page (the calculator's "Details"). */
-export function MissionModal({ contract, onClose, ...rest }: Omit<React.ComponentProps<typeof MissionDetails>, 'contract'> & { contract: MissionContract; onClose: () => void }) {
+export function MissionModal({
+  contract,
+  onClose,
+  ...rest
+}: Omit<React.ComponentProps<typeof MissionDetails>, 'contract'> & { contract: MissionContract; onClose: () => void }) {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={fmtContractTitle(contract.title)} onClick={(e) => e.stopPropagation()}
-        className="fab-plate fab-scroll flex max-h-[85vh] w-full max-w-2xl flex-col overflow-y-auto">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={fmtContractTitle(contract.title)}
+        onClick={(e) => e.stopPropagation()}
+        className="fab-plate fab-scroll flex max-h-[85vh] w-full max-w-2xl flex-col overflow-y-auto"
+      >
         <div className="flex items-start justify-between gap-3 border-b border-[#0d0d0d] px-5 py-4 shadow-[0_1px_0_#2c2c2c]">
           <div className="flex min-w-0 flex-col gap-2">
-            <h2 className="m-0 text-lg font-semibold leading-snug text-[var(--fab-bright)]">{fmtContractTitle(contract.title)}</h2>
+            <h2 className="m-0 text-lg font-semibold leading-snug text-[var(--fab-bright)]">
+              {fmtContractTitle(contract.title)}
+            </h2>
             <MissionChips contract={contract} />
             <MissionStats contract={contract} />
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="fab-btn flex h-9 w-9 shrink-0 items-center justify-center"><X aria-hidden="true" className="h-4 w-4" /></button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="fab-btn flex h-9 w-9 shrink-0 items-center justify-center"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
         </div>
-        <div className="px-5 py-4"><MissionDetails contract={contract} {...rest} /></div>
+        <div className="px-5 py-4">
+          <MissionDetails contract={contract} {...rest} />
+        </div>
       </div>
     </div>
   );

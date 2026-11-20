@@ -9,20 +9,33 @@ import { createUser, createGuild, createEvent, createLootSession, createLootItem
 
 const app = createServer();
 const prevBot = process.env['BOT_INTERNAL_URL'];
-afterEach(() => { vi.unstubAllGlobals(); if (prevBot === undefined) delete process.env['BOT_INTERNAL_URL']; else process.env['BOT_INTERNAL_URL'] = prevBot; });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (prevBot === undefined) delete process.env['BOT_INTERNAL_URL'];
+  else process.env['BOT_INTERNAL_URL'] = prevBot;
+});
 
 /** Records what the API asks the bot to do. */
 function botCalls() {
   process.env['BOT_INTERNAL_URL'] = 'http://bot.test';
   const calls: string[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => { calls.push(String(url).replace('http://bot.test', '')); return new Response(null, { status: 202 }); }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      calls.push(String(url).replace('http://bot.test', ''));
+      return new Response(null, { status: 202 });
+    }),
+  );
   return calls;
 }
 
 async function setup() {
   const host = await createGuild({ name: 'Host' });
   const owner = await createUser();
-  const event = await createEvent(host.guildId, owner.discordId, { status: 'ENDED', confirmedAttendees: JSON.stringify([owner.discordId]) });
+  const event = await createEvent(host.guildId, owner.discordId, {
+    status: 'ENDED',
+    confirmedAttendees: JSON.stringify([owner.discordId]),
+  });
   const session = await createLootSession(event.id, host.guildId);
   const item = await createLootItem(session.id, { name: 'Quantanium', quantity: 2 });
   const user = await createUser();
@@ -41,7 +54,11 @@ describe('loot thread hold', () => {
     expect(s.status).toBe('COMPLETED');
     expect(s.completedAt).toBeInstanceOf(Date);
     expect(s.threadClosedAt).toBeNull();
-    await vi.waitFor(() => expect(calls).toEqual(expect.arrayContaining([`/trigger/loot/${session.id}`, `/trigger/loot-complete/${session.id}`])));
+    await vi.waitFor(() =>
+      expect(calls).toEqual(
+        expect.arrayContaining([`/trigger/loot/${session.id}`, `/trigger/loot-complete/${session.id}`]),
+      ),
+    );
   });
 
   it('each winner of an item can be marked delivered, and the bot hears about it', async () => {
@@ -57,7 +74,9 @@ describe('loot thread hold', () => {
     await vi.waitFor(() => expect(calls.filter((c) => c === `/trigger/loot-delivered/${session.id}`)).toHaveLength(2));
     // Someone else's assignment can't be named through this item.
     const other = await setup();
-    const theirs = await prisma.lootAssignment.create({ data: { itemId: other.item.id, userId: 'd-3', username: 'C' } });
+    const theirs = await prisma.lootAssignment.create({
+      data: { itemId: other.item.id, userId: 'd-3', username: 'C' },
+    });
     await agent.patch(`${base}/items/${item.id}/assign/delivered?assignmentId=${theirs.id}`).expect(404);
   });
 });

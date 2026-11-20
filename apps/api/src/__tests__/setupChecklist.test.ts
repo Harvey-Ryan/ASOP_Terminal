@@ -12,21 +12,32 @@ const prevToken = process.env['DISCORD_TOKEN'];
 
 /** Discord as the bot sees one server: a forum it can post in, a category it can't manage. */
 function fakeDiscord(guildId: string, opts: { down?: boolean } = {}) {
-  const VIEW_SEND = String((1n << 10n) | (1n << 11n) | (1n << 14n) | (1n << 15n) | (1n << 16n) | (1n << 38n) | (1n << 33n));
+  const VIEW_SEND = String(
+    (1n << 10n) | (1n << 11n) | (1n << 14n) | (1n << 15n) | (1n << 16n) | (1n << 38n) | (1n << 33n),
+  );
   const answers: Record<string, unknown> = {
     '/users/@me': { id: 'bot' },
     [`/guilds/${guildId}/channels`]: [
       { id: 'forum', name: 'operations', type: 15, permission_overwrites: [] },
       { id: 'cat', name: 'Ops voice', type: 4, permission_overwrites: [] },
     ],
-    [`/guilds/${guildId}/roles`]: [{ id: guildId, permissions: '0' }, { id: 'bot-role', permissions: VIEW_SEND }],
+    [`/guilds/${guildId}/roles`]: [
+      { id: guildId, permissions: '0' },
+      { id: 'bot-role', permissions: VIEW_SEND },
+    ],
     [`/guilds/${guildId}/members/bot`]: { roles: ['bot-role'] },
   };
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    const path = url.replace('https://discord.com/api/v10', '');
-    if (opts.down) return new Response('{}', { status: 503 });
-    return new Response(JSON.stringify(answers[path] ?? {}), { status: path in answers ? 200 : 404, headers: { 'content-type': 'application/json' } });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      const path = url.replace('https://discord.com/api/v10', '');
+      if (opts.down) return new Response('{}', { status: 503 });
+      return new Response(JSON.stringify(answers[path] ?? {}), {
+        status: path in answers ? 200 : 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }),
+  );
 }
 
 async function officer(guildDiscordId: string, manager = true) {
@@ -36,13 +47,27 @@ async function officer(guildDiscordId: string, manager = true) {
   return agent;
 }
 
-beforeEach(() => { resetDiscordRest(); process.env['DISCORD_TOKEN'] = 'test-token'; });
-afterEach(() => { vi.unstubAllGlobals(); if (prevToken === undefined) delete process.env['DISCORD_TOKEN']; else process.env['DISCORD_TOKEN'] = prevToken; });
+beforeEach(() => {
+  resetDiscordRest();
+  process.env['DISCORD_TOKEN'] = 'test-token';
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (prevToken === undefined) delete process.env['DISCORD_TOKEN'];
+  else process.env['DISCORD_TOKEN'] = prevToken;
+});
 
 describe('setup checklist', () => {
-  it('shows what\'s done, what\'s missing, and what the bot can\'t do', async () => {
+  it("shows what's done, what's missing, and what the bot can't do", async () => {
     const g = await createGuild();
-    await createGuildSettings(g.id, { timezone: 'America/Chicago', forumChannelId: 'forum', voiceCategoryId: 'cat', lootEnabled: false, dkpEnabled: false, tournamentsEnabled: false });
+    await createGuildSettings(g.id, {
+      timezone: 'America/Chicago',
+      forumChannelId: 'forum',
+      voiceCategoryId: 'cat',
+      lootEnabled: false,
+      dkpEnabled: false,
+      tournamentsEnabled: false,
+    });
     fakeDiscord(g.guildId);
     const agent = await officer(g.guildId);
     const data = (await agent.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data;
@@ -84,30 +109,47 @@ describe('setup checklist', () => {
 
   it('"Create it" makes the channel in Discord and saves it (v1.29.0)', async () => {
     const g = await createGuild();
-    await createGuildSettings(g.id, { voiceCategoryId: 'cat', lootEnabled: false, dkpEnabled: false, tournamentsEnabled: false });
+    await createGuildSettings(g.id, {
+      voiceCategoryId: 'cat',
+      lootEnabled: false,
+      dkpEnabled: false,
+      tournamentsEnabled: false,
+    });
     fakeDiscord(g.guildId);
-    const real = (globalThis.fetch as unknown as (u: string, init?: RequestInit) => Promise<Response>);
+    const real = globalThis.fetch as unknown as (u: string, init?: RequestInit) => Promise<Response>;
     const created: { body: unknown; reason: string | null }[] = [];
     const channels = [{ id: 'cat', name: 'Ops voice', type: 4, permission_overwrites: [] }];
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      const path = url.replace('https://discord.com/api/v10', '');
-      if (path === `/guilds/${g.guildId}/channels` && init?.method === 'POST') {
-        const body = JSON.parse(String(init.body)) as { name: string; type: number };
-        created.push({ body, reason: new Headers(init.headers).get('X-Audit-Log-Reason') });
-        const ch = { id: 'new-forum', name: body.name, type: body.type, permission_overwrites: [] };
-        channels.push(ch);
-        return new Response(JSON.stringify(ch), { status: 201, headers: { 'content-type': 'application/json' } });
-      }
-      if (path === `/guilds/${g.guildId}/channels`) return new Response(JSON.stringify(channels), { status: 200, headers: { 'content-type': 'application/json' } });
-      return real(url, init);
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = url.replace('https://discord.com/api/v10', '');
+        if (path === `/guilds/${g.guildId}/channels` && init?.method === 'POST') {
+          const body = JSON.parse(String(init.body)) as { name: string; type: number };
+          created.push({ body, reason: new Headers(init.headers).get('X-Audit-Log-Reason') });
+          const ch = { id: 'new-forum', name: body.name, type: body.type, permission_overwrites: [] };
+          channels.push(ch);
+          return new Response(JSON.stringify(ch), { status: 201, headers: { 'content-type': 'application/json' } });
+        }
+        if (path === `/guilds/${g.guildId}/channels`)
+          return new Response(JSON.stringify(channels), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        return real(url, init);
+      }),
+    );
     const agent = await officer(g.guildId);
     const before = (await agent.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data;
-    expect(before.steps.find((s: { key: string }) => s.key === 'forum')).toMatchObject({ done: false, create: 'forum' });
+    expect(before.steps.find((s: { key: string }) => s.key === 'forum')).toMatchObject({
+      done: false,
+      create: 'forum',
+    });
 
     const res = await agent.post(`/api/guilds/${g.guildId}/setup/create/forum`).expect(200);
     expect(res.body.data).toEqual({ id: 'new-forum', name: 'events' });
-    expect(created).toEqual([{ body: { name: 'events', type: 15 }, reason: encodeURIComponent('ASOP setup checklist') }]);
+    expect(created).toEqual([
+      { body: { name: 'events', type: 15 }, reason: encodeURIComponent('ASOP setup checklist') },
+    ]);
     expect((await prisma.guildSettings.findUnique({ where: { guildId: g.id } }))?.forumChannelId).toBe('new-forum');
     // Shown straight away, not as "deleted" from a cached channel list.
     const after = (await agent.get(`/api/guilds/${g.guildId}/setup`).expect(200)).body.data;
@@ -116,7 +158,16 @@ describe('setup checklist', () => {
 
   it('"Create it" explains a missing permission, refuses other keys, and is for officers only', async () => {
     const g = await createGuild();
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), { status: 403, headers: { 'content-type': 'application/json' } })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), {
+            status: 403,
+            headers: { 'content-type': 'application/json' },
+          }),
+      ),
+    );
     const agent = await officer(g.guildId);
     const res = await agent.post(`/api/guilds/${g.guildId}/setup/create/voice`).expect(400);
     expect(res.body.error).toMatch(/Manage Channels/);

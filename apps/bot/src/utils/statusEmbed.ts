@@ -43,9 +43,15 @@ function headline(s: StatusSnapshot): { text: string; color: number } {
     case 'syncing':
       return { text: `🔄 **Updating game data…** started ${ts(g.running?.startedAt)}`, color: COLOR.syncing };
     case 'failed':
-      return { text: '⚠️ **Last game data update failed.** The previous data is still in use; it retries automatically at the next check.', color: COLOR.error };
+      return {
+        text: '⚠️ **Last game data update failed.** The previous data is still in use; it retries automatically at the next check.',
+        color: COLOR.error,
+      };
     case 'stale':
-      return { text: `⚠️ **Game data checks have stopped** — last check ${ts(g.lastCheckAt)}. The data still works but may fall behind.`, color: COLOR.warn };
+      return {
+        text: `⚠️ **Game data checks have stopped** — last check ${ts(g.lastCheckAt)}. The data still works but may fall behind.`,
+        color: COLOR.warn,
+      };
     case 'not_set_up':
       return { text: '⏳ **Game data is not set up yet.** It appears here after the first sync.', color: COLOR.idle };
     default:
@@ -59,7 +65,9 @@ export function buildStatusEmbed(s: StatusSnapshot): { embed: APIEmbed; hash: st
   const { text, color } = headline(s);
   const lines = [text];
   if (g.pendingRequest) {
-    lines.push(`🔁 Full re-sync requested${g.pendingRequest.requestedBy ? ` by **${g.pendingRequest.requestedBy}**` : ''} ${ts(g.pendingRequest.requestedAt)}; it runs at the next check${nextCheck(g) ? ` (${ts(nextCheck(g))})` : ''}.`);
+    lines.push(
+      `🔁 Full re-sync requested${g.pendingRequest.requestedBy ? ` by **${g.pendingRequest.requestedBy}**` : ''} ${ts(g.pendingRequest.requestedAt)}; it runs at the next check${nextCheck(g) ? ` (${ts(nextCheck(g))})` : ''}.`,
+    );
   }
 
   const version = `**v${s.app.version}**${s.app.commit ? ` · \`${s.app.commit}\`` : ''}`;
@@ -67,16 +75,34 @@ export function buildStatusEmbed(s: StatusSnapshot): { embed: APIEmbed; hash: st
     ? `+${num(g.lastChange.added)} new · ${num(g.lastChange.changed)} changed · ${num(g.lastChange.removed)} removed\n${ts(g.lastChange.finishedAt)}`
     : '—';
   const counts = g.counts
-    ? [`${num(g.counts.items)} items`, `${num(g.counts.ships)} ships & vehicles`, `${num(g.counts.contracts)} missions`, `${num(g.counts.blueprints)} blueprints`, `${num(g.counts.commodities)} commodities`].join('\n')
+    ? [
+        `${num(g.counts.items)} items`,
+        `${num(g.counts.ships)} ships & vehicles`,
+        `${num(g.counts.contracts)} missions`,
+        `${num(g.counts.blueprints)} blueprints`,
+        `${num(g.counts.commodities)} commodities`,
+      ].join('\n')
     : '—';
 
   const fields: APIEmbed['fields'] = [
     { name: 'ASOP Version', value: version, inline: true },
-    { name: 'Deployed', value: s.app.deployedAt ? `${ts(s.app.deployedAt, 'f')}\n${ts(s.app.deployedAt)}` : '—', inline: true },
+    {
+      name: 'Deployed',
+      value: s.app.deployedAt ? `${ts(s.app.deployedAt, 'f')}\n${ts(s.app.deployedAt)}` : '—',
+      inline: true,
+    },
     { name: 'Servers', value: num(s.serverCount), inline: true },
 
-    { name: 'Game Data Build', value: g.build ? `\`${g.build}\`` : g.commit ? `\`${g.commit.slice(0, 12)}\`` : '—', inline: true },
-    { name: 'scunpacked Published', value: g.committedAt ? `${ts(g.committedAt, 'f')}\n${ts(g.committedAt)}` : '—', inline: true },
+    {
+      name: 'Game Data Build',
+      value: g.build ? `\`${g.build}\`` : g.commit ? `\`${g.commit.slice(0, 12)}\`` : '—',
+      inline: true,
+    },
+    {
+      name: 'scunpacked Published',
+      value: g.committedAt ? `${ts(g.committedAt, 'f')}\n${ts(g.committedAt)}` : '—',
+      inline: true,
+    },
     { name: 'Synced to ASOP', value: g.syncedAt ? `${ts(g.syncedAt, 'f')}\n${ts(g.syncedAt)}` : '—', inline: true },
 
     { name: 'Last Check', value: lastCheck(g.lastCheckAt, g.checkIntervalMin), inline: true },

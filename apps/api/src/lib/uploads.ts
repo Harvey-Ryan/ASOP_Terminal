@@ -40,7 +40,9 @@ export async function dirUsage(dir: string): Promise<{ bytes: number; files: num
     try {
       bytes += (await fs.stat(path.join(dir, e.name))).size;
       files++;
-    } catch { /* removed meanwhile */ }
+    } catch {
+      /* removed meanwhile */
+    }
   }
   return { bytes, files };
 }
@@ -85,7 +87,9 @@ export interface StorageReport {
 }
 
 let cached: { at: number; report: StorageReport } | null = null;
-export const forgetStorageReport = () => { cached = null; };
+export const forgetStorageReport = () => {
+  cached = null;
+};
 
 /** Every server's folder, biggest first. Cached for a minute (cleared by uploads and deletes). */
 export async function storageReport(): Promise<StorageReport> {
@@ -96,14 +100,25 @@ export async function storageReport(): Promise<StorageReport> {
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
-  const usage = await Promise.all(dirs.map(async (d) => ({ guildId: d, ...(await dirUsage(path.join(UPLOADS_BASE, d))) })));
-  const names = new Map((await prisma.guild.findMany({ where: { guildId: { in: dirs } }, select: { guildId: true, name: true } })).map((g) => [g.guildId, g.name]));
+  const usage = await Promise.all(
+    dirs.map(async (d) => ({ guildId: d, ...(await dirUsage(path.join(UPLOADS_BASE, d))) })),
+  );
+  const names = new Map(
+    (await prisma.guild.findMany({ where: { guildId: { in: dirs } }, select: { guildId: true, name: true } })).map(
+      (g) => [g.guildId, g.name],
+    ),
+  );
   let disk: StorageReport['disk'] = null;
   try {
     const s = await fs.statfs(UPLOADS_BASE);
     disk = { sizeBytes: s.blocks * s.bsize, freeBytes: s.bavail * s.bsize };
-  } catch { /* no folder yet */ }
-  const servers = usage.filter((u) => u.files > 0).map((u) => ({ ...u, name: names.get(u.guildId) ?? null })).sort((a, b) => b.bytes - a.bytes);
+  } catch {
+    /* no folder yet */
+  }
+  const servers = usage
+    .filter((u) => u.files > 0)
+    .map((u) => ({ ...u, name: names.get(u.guildId) ?? null }))
+    .sort((a, b) => b.bytes - a.bytes);
   const report: StorageReport = {
     totalBytes: servers.reduce((n, s) => n + s.bytes, 0),
     files: servers.reduce((n, s) => n + s.files, 0),

@@ -113,14 +113,22 @@ export interface UexStarSystem {
 /** UEX's 1–7 stock scale (commodities_status). */
 export function uexStockWord(status: number | null | undefined): string | null {
   switch (status) {
-    case 1: return 'Out of stock';
-    case 2: return 'Very low stock';
-    case 3: return 'Low stock';
-    case 4: return 'Medium stock';
-    case 5: return 'High stock';
-    case 6: return 'Very high stock';
-    case 7: return 'Max stock';
-    default: return null;
+    case 1:
+      return 'Out of stock';
+    case 2:
+      return 'Very low stock';
+    case 3:
+      return 'Low stock';
+    case 4:
+      return 'Medium stock';
+    case 5:
+      return 'High stock';
+    case 6:
+      return 'Very high stock';
+    case 7:
+      return 'Max stock';
+    default:
+      return null;
   }
 }
 
@@ -141,7 +149,19 @@ export function uexShort(n: number): string {
 }
 
 /** "Area18 TDD · ArcCorp, Stanton": the terminal, then the biggest places it's in. */
-export function uexPlace(r: Pick<UexPriceRow, 'terminal_name' | 'star_system_name' | 'planet_name' | 'moon_name' | 'orbit_name' | 'city_name' | 'space_station_name' | 'outpost_name'>): string {
+export function uexPlace(
+  r: Pick<
+    UexPriceRow,
+    | 'terminal_name'
+    | 'star_system_name'
+    | 'planet_name'
+    | 'moon_name'
+    | 'orbit_name'
+    | 'city_name'
+    | 'space_station_name'
+    | 'outpost_name'
+  >,
+): string {
   const body = r.moon_name ?? r.planet_name ?? r.orbit_name;
   const where = [body, r.star_system_name].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
   return where.length ? `${r.terminal_name} · ${where.join(', ')}` : r.terminal_name;
@@ -161,14 +181,18 @@ export const uexRouteUrl = (code: string) => `${UEX_SITE}/trade/route?code=${enc
 /** Rows reported within this many days count; older ones are left out (prices drift every patch). */
 export const UEX_MAX_AGE_DAYS = 30;
 
-const fresh = (r: { date_modified: number }, now: number) => r.date_modified * 1000 >= now - UEX_MAX_AGE_DAYS * 86_400_000;
+const fresh = (r: { date_modified: number }, now: number) =>
+  r.date_modified * 1000 >= now - UEX_MAX_AGE_DAYS * 86_400_000;
 
 /**
  * Where to sell and where to buy a commodity: highest sell prices first, lowest
  * buy prices first, each place once, reports older than UEX_MAX_AGE_DAYS and
  * terminals out of stock (buying) left out.
  */
-export function uexBestPrices(rows: readonly UexPriceRow[], opts: { limit?: number; system?: string | null; now?: number } = {}): {
+export function uexBestPrices(
+  rows: readonly UexPriceRow[],
+  opts: { limit?: number; system?: string | null; now?: number } = {},
+): {
   sell: UexPriceRow[];
   buy: UexPriceRow[];
   newest: number | null;
@@ -177,9 +201,12 @@ export function uexBestPrices(rows: readonly UexPriceRow[], opts: { limit?: numb
   const limit = opts.limit ?? 5;
   const sys = opts.system?.trim().toLowerCase() || null;
   const usable = rows.filter((r) => fresh(r, now) && (!sys || (r.star_system_name ?? '').toLowerCase() === sys));
-  const once = (list: UexPriceRow[]) => list.filter((r, i, a) => a.findIndex((x) => x.id_terminal === r.id_terminal) === i);
+  const once = (list: UexPriceRow[]) =>
+    list.filter((r, i, a) => a.findIndex((x) => x.id_terminal === r.id_terminal) === i);
   const sell = once(usable.filter((r) => r.price_sell > 0).sort((a, b) => b.price_sell - a.price_sell)).slice(0, limit);
-  const buy = once(usable.filter((r) => r.price_buy > 0 && r.status_buy !== 1).sort((a, b) => a.price_buy - b.price_buy)).slice(0, limit);
+  const buy = once(
+    usable.filter((r) => r.price_buy > 0 && r.status_buy !== 1).sort((a, b) => a.price_buy - b.price_buy),
+  ).slice(0, limit);
   const shown = [...sell, ...buy];
   return { sell, buy, newest: shown.length ? Math.max(...shown.map((r) => r.date_modified)) : null };
 }
@@ -189,12 +216,24 @@ export function uexBestRoutes(routes: readonly UexRoute[], limit = 5): UexRoute[
   return routes
     .filter((r) => r.price_margin > 0 && r.price_origin > 0 && r.price_destination > 0)
     .sort((a, b) => b.score - a.score || b.profit - a.profit)
-    .filter((r, i, a) => a.findIndex((x) => x.id_commodity === r.id_commodity && x.id_terminal_origin === r.id_terminal_origin && x.id_terminal_destination === r.id_terminal_destination) === i)
+    .filter(
+      (r, i, a) =>
+        a.findIndex(
+          (x) =>
+            x.id_commodity === r.id_commodity &&
+            x.id_terminal_origin === r.id_terminal_origin &&
+            x.id_terminal_destination === r.id_terminal_destination,
+        ) === i,
+    )
     .slice(0, limit);
 }
 
 /** Every typed word somewhere in the name (or code), any order; exact and prefix matches first. */
-export function uexSearch<T extends { name: string; code?: string | null }>(list: readonly T[], query: string, limit = 25): T[] {
+export function uexSearch<T extends { name: string; code?: string | null }>(
+  list: readonly T[],
+  query: string,
+  limit = 25,
+): T[] {
   const q = query.trim().toLowerCase();
   if (!q) return list.slice(0, limit);
   const words = q.split(/\s+/);
@@ -215,7 +254,9 @@ export const uexLiveCommodities = (list: readonly UexCommodity[]) =>
 
 /** Terminals that trade commodities, in the live game. */
 export const uexTradeTerminals = (list: readonly UexTerminal[]) =>
-  list.filter((t) => t.is_available_live === 1 && t.is_visible === 1 && (t.type === 'commodity' || t.type === 'commodity_raw'));
+  list.filter(
+    (t) => t.is_available_live === 1 && t.is_visible === 1 && (t.type === 'commodity' || t.type === 'commodity_raw'),
+  );
 
 // ── Best runs across everything (v1.43.0, /route best) ───────────────────────
 
@@ -270,7 +311,14 @@ export function uexBestRuns(
   rows: readonly UexPriceAllRow[],
   terminals: readonly UexTerminal[],
   commodities: readonly Pick<UexCommodity, 'id' | 'is_illegal'>[],
-  opts: { scu?: number | null; budget?: number | null; system?: string | null; crossSystem?: boolean; limit?: number; now?: number } = {},
+  opts: {
+    scu?: number | null;
+    budget?: number | null;
+    system?: string | null;
+    crossSystem?: boolean;
+    limit?: number;
+    now?: number;
+  } = {},
 ): UexRun[] {
   const now = opts.now ?? Date.now();
   const byId = new Map(terminals.map((t) => [t.id, t]));
@@ -321,7 +369,8 @@ export function uexBestRuns(
           crossSystem: cross,
           reportedAt: Math.min(b.date_modified, s.date_modified),
         };
-        const better = (a: UexRun, z: UexRun) => (sized ? (a.profit ?? 0) - (z.profit ?? 0) : a.margin - z.margin) || a.margin - z.margin;
+        const better = (a: UexRun, z: UexRun) =>
+          (sized ? (a.profit ?? 0) - (z.profit ?? 0) : a.margin - z.margin) || a.margin - z.margin;
         if (!top || better(run, top) > 0) top = run;
       }
     }
@@ -329,7 +378,12 @@ export function uexBestRuns(
   }
   const sized = !!(scu || budget);
   return best
-    .sort((a, b) => (sized ? (b.profit ?? 0) - (a.profit ?? 0) : b.margin - a.margin) || b.margin - a.margin || a.commodityName.localeCompare(b.commodityName))
+    .sort(
+      (a, b) =>
+        (sized ? (b.profit ?? 0) - (a.profit ?? 0) : b.margin - a.margin) ||
+        b.margin - a.margin ||
+        a.commodityName.localeCompare(b.commodityName),
+    )
     .slice(0, opts.limit ?? 5);
 }
 
@@ -337,6 +391,8 @@ export function uexBestRuns(
 export function uexTerminalPlace(t: UexTerminal | null, fallback: string): string {
   if (!t) return fallback;
   const body = t.moon_name ?? t.planet_name ?? t.space_station_name ?? t.city_name;
-  const where = [body, t.star_system_name].filter((x, i, a): x is string => !!x && a.indexOf(x) === i && !t.name.includes(x));
+  const where = [body, t.star_system_name].filter(
+    (x, i, a): x is string => !!x && a.indexOf(x) === i && !t.name.includes(x),
+  );
   return where.length ? `${t.name} · ${where.join(', ')}` : t.name;
 }

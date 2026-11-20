@@ -39,8 +39,7 @@ export function PermissionsPage() {
 
   const saveMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
-    mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { eventCreatorRoles: [...selected] }),
+    mutationFn: () => settingsApi.updateSettings(guildId!, { eventCreatorRoles: [...selected] }),
     onSuccess: () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -74,8 +73,8 @@ export function PermissionsPage() {
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             <span>
-              Server admins can always create events. Select additional roles below to grant
-              non-admin members access. If no roles are selected, only admins can create events.
+              Server admins can always create events. Select additional roles below to grant non-admin members access.
+              If no roles are selected, only admins can create events.
             </span>
           </div>
         </CardHeader>
@@ -98,9 +97,7 @@ export function PermissionsPage() {
                   <label
                     key={role.id}
                     className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 transition-colors ${
-                      isChecked
-                        ? 'border-primary/40 bg-primary/5'
-                        : 'border-border hover:bg-accent/40'
+                      isChecked ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-accent/40'
                     }`}
                   >
                     <input
@@ -122,15 +119,10 @@ export function PermissionsPage() {
 
           {!isLoading && !isError && (
             <div className="mt-4 flex items-center gap-3">
-              <Button
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-              >
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
               </Button>
-              {saveMutation.isError && (
-                <p className="text-sm text-destructive">Failed to save. Please try again.</p>
-              )}
+              {saveMutation.isError && <p className="text-sm text-destructive">Failed to save. Please try again.</p>}
             </div>
           )}
         </CardContent>

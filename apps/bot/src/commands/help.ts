@@ -3,9 +3,7 @@ import type { ChatInputCommandInteraction } from 'discord.js';
 import { prisma } from '../db.js';
 import { hiddenModules } from '../utils/hiddenModules.js';
 
-export const data = new SlashCommandBuilder()
-  .setName('help')
-  .setDescription('Show all commands available to you');
+export const data = new SlashCommandBuilder().setName('help').setDescription('Show all commands available to you');
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId;
@@ -30,31 +28,43 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     },
   });
 
-  const dkpLabel          = settings?.dkpLabel          ?? 'DKP';
+  const dkpLabel = settings?.dkpLabel ?? 'DKP';
   // Modules hidden for every server (v1.28.0) are left out whatever this server chose.
   const hidden = await hiddenModules();
-  const eventBotEnabled   = !hidden.has('eventBotEnabled') && (settings?.eventBotEnabled ?? true);
-  const dkpEnabled        = !hidden.has('dkpEnabled') && (settings?.dkpEnabled ?? true);
-  const lootEnabled       = !hidden.has('lootEnabled') && (settings?.lootEnabled ?? true);
-  const exchangeEnabled   = !hidden.has('exchangeEnabled') && (settings?.exchangeEnabled ?? true);
-  const fleetEnabled      = !hidden.has('fleetEnabled') && (settings?.fleetEnabled ?? true);
+  const eventBotEnabled = !hidden.has('eventBotEnabled') && (settings?.eventBotEnabled ?? true);
+  const dkpEnabled = !hidden.has('dkpEnabled') && (settings?.dkpEnabled ?? true);
+  const lootEnabled = !hidden.has('lootEnabled') && (settings?.lootEnabled ?? true);
+  const exchangeEnabled = !hidden.has('exchangeEnabled') && (settings?.exchangeEnabled ?? true);
+  const fleetEnabled = !hidden.has('fleetEnabled') && (settings?.fleetEnabled ?? true);
   const tournamentsEnabled = !hidden.has('tournamentsEnabled') && (settings?.tournamentsEnabled ?? false);
-  const wikeloEnabled     = !hidden.has('wikeloEnabled') && (settings?.wikeloEnabled ?? true);
+  const wikeloEnabled = !hidden.has('wikeloEnabled') && (settings?.wikeloEnabled ?? true);
 
-  const eventCreatorRoles: string[]     = (() => { try { return JSON.parse(settings?.eventCreatorRoles    ?? '[]') as string[]; } catch { return []; } })();
-  const lootDraftCreatorRoles: string[] = (() => { try { return JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[]; } catch { return []; } })();
+  const eventCreatorRoles: string[] = (() => {
+    try {
+      return JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  })();
+  const lootDraftCreatorRoles: string[] = (() => {
+    try {
+      return JSON.parse(settings?.lootDraftCreatorRoles ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  })();
 
   // Determine what the user can do
   const member = interaction.member;
-  let isAdmin        = false;
+  let isAdmin = false;
   let memberRoleIds: string[] = [];
 
   if (member instanceof GuildMember) {
-    isAdmin       = member.permissions.has(PermissionFlagsBits.ManageGuild);
+    isAdmin = member.permissions.has(PermissionFlagsBits.ManageGuild);
     memberRoleIds = member.roles.cache.map((r) => r.id);
   }
 
-  const canManageEvents    = isAdmin || eventCreatorRoles.some((r) => memberRoleIds.includes(r));
+  const canManageEvents = isAdmin || eventCreatorRoles.some((r) => memberRoleIds.includes(r));
   const canCreateLootDraft = isAdmin || lootDraftCreatorRoles.some((r) => memberRoleIds.includes(r));
 
   const fields: { name: string; value: string }[] = [];
@@ -62,10 +72,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // ── General ───────────────────────────────────────────────────────────────────
   fields.push({
     name: '🔹 General',
-    value: [
-      '`/login` — Get a link to log in to the web dashboard',
-      '`/help` — Show this message',
-    ].join('\n'),
+    value: ['`/login` — Get a link to log in to the web dashboard', '`/help` — Show this message'].join('\n'),
   });
 
   // ── Events ────────────────────────────────────────────────────────────────────
@@ -106,7 +113,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     fields.push({
       name: '🛒 Marketplace',
       value: [
-        '`/whohas <item>` — Search this guild\'s member inventories for an item or commodity',
+        "`/whohas <item>` — Search this guild's member inventories for an item or commodity",
         '`/marketplace search <item>` — Browse active listings for an item across all guilds',
         '`/marketplace list` — View your own active listings in this server',
       ].join('\n'),
@@ -118,9 +125,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     fields.push({
       name: '🚀 Fleet',
       value: [
-        '`/fleet add <ship>` — Add a ship to your fleet (shown in every ASOP server you\'re in)',
+        "`/fleet add <ship>` — Add a ship to your fleet (shown in every ASOP server you're in)",
         '`/fleet remove <ship>` · `/fleet mine` — Change or see your fleet',
-        '`/fleet search <ship> [event]` — Who in this server has a ship, or who\'s bringing one to an event',
+        "`/fleet search <ship> [event]` — Who in this server has a ship, or who's bringing one to an event",
       ].join('\n'),
     });
   }
@@ -130,7 +137,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     fields.push({
       name: '🏆 Tournaments',
       value: [
-        'Register for open tournaments using the **Register** button in the bot\'s announcement embed',
+        "Register for open tournaments using the **Register** button in the bot's announcement embed",
         'View the bracket and match results on the web dashboard',
         '`/login` — Get a dashboard link to view standings and your match history',
       ].join('\n'),
@@ -154,7 +161,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const embed = new EmbedBuilder()
     .setTitle('📖 Available Commands')
-    .setDescription('Only commands relevant to your role and this server\'s enabled modules are shown.')
+    .setDescription("Only commands relevant to your role and this server's enabled modules are shown.")
     .setColor(0x5865f2)
     .addFields(fields);
 

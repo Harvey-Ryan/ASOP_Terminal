@@ -1,29 +1,68 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_ASSISTANT_SETTINGS, mergeAssistantSettings, safeBaseUrl, cleanApiKey, keyLast4,
-  assistantLimitHit, limitMessage, estimateCost, trimAnswer, defuseMentions, questionText,
-  pickTools, parseLocalDateTime, localNowText, assistantSystemPrompt, buildModelRequest, parseModelResponse, modelErrorKind, callModel, ModelCallError, answerTokenCap,
+  DEFAULT_ASSISTANT_SETTINGS,
+  mergeAssistantSettings,
+  safeBaseUrl,
+  cleanApiKey,
+  keyLast4,
+  assistantLimitHit,
+  limitMessage,
+  estimateCost,
+  trimAnswer,
+  defuseMentions,
+  questionText,
+  pickTools,
+  parseLocalDateTime,
+  localNowText,
+  assistantSystemPrompt,
+  buildModelRequest,
+  parseModelResponse,
+  modelErrorKind,
+  callModel,
+  ModelCallError,
+  answerTokenCap,
 } from '../dist/index.js';
 
 test('provider addresses: https on the open internet only', () => {
   assert.equal(safeBaseUrl('https://openrouter.ai/api/v1/'), 'https://openrouter.ai/api/v1');
   assert.equal(safeBaseUrl('https://api.groq.com/openai/v1'), 'https://api.groq.com/openai/v1');
-  for (const bad of ['http://openrouter.ai/api/v1', 'https://localhost:3000', 'https://127.0.0.1/v1', 'https://[::1]/v1',
-    'https://api.railway.internal/v1', 'https://user:pw@example.com/v1', 'https://example.com/v1?x=1', 'ftp://example.com', 'nonsense', 42]) {
+  for (const bad of [
+    'http://openrouter.ai/api/v1',
+    'https://localhost:3000',
+    'https://127.0.0.1/v1',
+    'https://[::1]/v1',
+    'https://api.railway.internal/v1',
+    'https://user:pw@example.com/v1',
+    'https://example.com/v1?x=1',
+    'ftp://example.com',
+    'nonsense',
+    42,
+  ]) {
     assert.equal(safeBaseUrl(bad), null, String(bad));
   }
 });
 
 test('settings: checked, clamped, and a model is needed to switch on', () => {
-  const r = mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, { provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'some/model', dailyQuestionLimit: 9999, answerChars: 50, channelIds: ['123456789012345678', '123456789012345678'], priceInPerM: 0.15 });
+  const r = mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, {
+    provider: 'openai',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'some/model',
+    dailyQuestionLimit: 9999,
+    answerChars: 50,
+    channelIds: ['123456789012345678', '123456789012345678'],
+    priceInPerM: 0.15,
+  });
   assert.equal(r.ok, true);
   assert.equal(r.value.dailyQuestionLimit, 500);
   assert.equal(r.value.answerChars, 200);
   assert.deepEqual(r.value.channelIds, ['123456789012345678']);
   assert.equal(r.value.priceInPerM, 0.15);
   assert.equal(mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, { enabled: true }).ok, false);
-  assert.equal(mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, { provider: 'anthropic', baseUrl: 'https://x.example.com' }).ok, false);
+  assert.equal(
+    mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, { provider: 'anthropic', baseUrl: 'https://x.example.com' }).ok,
+    false,
+  );
   assert.equal(mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, { model: 'has space' }).ok, false);
   assert.equal(mergeAssistantSettings(DEFAULT_ASSISTANT_SETTINGS, { roleIds: ['not-a-role'] }).ok, false);
   // Changing provider clears an OpenAI-style address.
@@ -40,11 +79,26 @@ test('keys: cleaned, and only the last four are ever shown', () => {
 
 test('limits: monthly first, then daily, with UTC resets', () => {
   const now = new Date('2026-11-19T22:00:00Z');
-  assert.equal(assistantLimitHit({ questionsToday: 3, tokensThisMonth: 10, dailyQuestionLimit: 20, monthlyTokenLimit: 1000, now }), null);
-  const daily = assistantLimitHit({ questionsToday: 20, tokensThisMonth: 10, dailyQuestionLimit: 20, monthlyTokenLimit: 1000, now });
+  assert.equal(
+    assistantLimitHit({ questionsToday: 3, tokensThisMonth: 10, dailyQuestionLimit: 20, monthlyTokenLimit: 1000, now }),
+    null,
+  );
+  const daily = assistantLimitHit({
+    questionsToday: 20,
+    tokensThisMonth: 10,
+    dailyQuestionLimit: 20,
+    monthlyTokenLimit: 1000,
+    now,
+  });
   assert.equal(daily.limit, 'daily');
   assert.equal(daily.resetsAt.toISOString(), '2026-11-20T00:00:00.000Z');
-  const monthly = assistantLimitHit({ questionsToday: 20, tokensThisMonth: 1000, dailyQuestionLimit: 20, monthlyTokenLimit: 1000, now });
+  const monthly = assistantLimitHit({
+    questionsToday: 20,
+    tokensThisMonth: 1000,
+    dailyQuestionLimit: 20,
+    monthlyTokenLimit: 1000,
+    now,
+  });
   assert.equal(monthly.limit, 'monthly');
   assert.equal(monthly.resetsAt.toISOString(), '2026-12-01T00:00:00.000Z');
   assert.match(limitMessage(daily), /<t:\d+:R>/);
@@ -65,7 +119,12 @@ test('answers: trimmed at a sentence, no pings, mention removed', () => {
 
 test('tools: by topic, everything when unsure, flag always offered', () => {
   const names = (q, l) => pickTools(q, l).map((t) => t.name);
-  assert.deepEqual(names('where can I mine quantanium?'), ['ship_info', 'where_to_mine', 'blueprint_missions', 'flag_question']);
+  assert.deepEqual(names('where can I mine quantanium?'), [
+    'ship_info',
+    'where_to_mine',
+    'blueprint_missions',
+    'flag_question',
+  ]);
   assert.ok(names('what is my dkp?').includes('my_dkp'));
   assert.ok(names('how many Credits do I have', 'Credits').includes('my_dkp'));
   assert.ok(names('who has a Carrack for the Hathor op?').includes('who_has_ship'));
@@ -83,7 +142,13 @@ test('tools: by topic, everything when unsure, flag always offered', () => {
   }
 });
 
-const tools = [{ name: 'find_event', description: 'd', parameters: { type: 'object', properties: { name: { type: 'string', description: 'n' } }, required: ['name'] } }];
+const tools = [
+  {
+    name: 'find_event',
+    description: 'd',
+    parameters: { type: 'object', properties: { name: { type: 'string', description: 'n' } }, required: ['name'] },
+  },
+];
 const conversation = [
   { role: 'user', text: 'briefing for hathor?' },
   { role: 'assistant', text: '', toolCalls: [{ id: 'c1', name: 'find_event', args: { name: 'hathor' } }] },
@@ -91,24 +156,36 @@ const conversation = [
 ];
 
 test('requests: each provider gets its own shape, key only in a header', () => {
-  const o = buildModelRequest({ provider: 'openai', baseUrl: null, model: 'm', apiKey: 'sk-secret' }, { system: 's', messages: conversation, tools, maxTokens: 100 });
+  const o = buildModelRequest(
+    { provider: 'openai', baseUrl: null, model: 'm', apiKey: 'sk-secret' },
+    { system: 's', messages: conversation, tools, maxTokens: 100 },
+  );
   assert.equal(o.url, 'https://api.openai.com/v1/chat/completions');
   assert.equal(o.headers.authorization, 'Bearer sk-secret');
   assert.equal(o.body.max_completion_tokens, 100);
   assert.equal(o.body.messages[0].role, 'system');
   assert.equal(o.body.messages[2].tool_calls[0].function.arguments, '{"name":"hathor"}');
   assert.equal(o.body.messages[3].tool_call_id, 'c1');
-  const r = buildModelRequest({ provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'm', apiKey: 'k' }, { system: 's', messages: conversation, tools, maxTokens: 100 });
+  const r = buildModelRequest(
+    { provider: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'm', apiKey: 'k' },
+    { system: 's', messages: conversation, tools, maxTokens: 100 },
+  );
   assert.equal(r.body.max_tokens, 100);
 
-  const a = buildModelRequest({ provider: 'anthropic', baseUrl: null, model: 'm', apiKey: 'k' }, { system: 's', messages: conversation, tools, maxTokens: 100 });
+  const a = buildModelRequest(
+    { provider: 'anthropic', baseUrl: null, model: 'm', apiKey: 'k' },
+    { system: 's', messages: conversation, tools, maxTokens: 100 },
+  );
   assert.equal(a.url, 'https://api.anthropic.com/v1/messages');
   assert.equal(a.headers['x-api-key'], 'k');
   assert.equal(a.body.tools[0].input_schema.type, 'object');
   assert.equal(a.body.messages[1].content[0].type, 'tool_use');
   assert.equal(a.body.messages[2].content[0].tool_use_id, 'c1');
 
-  const g = buildModelRequest({ provider: 'google', baseUrl: null, model: 'gemini-x', apiKey: 'k' }, { system: 's', messages: conversation, tools, maxTokens: 100 });
+  const g = buildModelRequest(
+    { provider: 'google', baseUrl: null, model: 'gemini-x', apiKey: 'k' },
+    { system: 's', messages: conversation, tools, maxTokens: 100 },
+  );
   assert.equal(g.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-x:generateContent');
   assert.ok(!g.url.includes('k='));
   assert.equal(g.body.contents[1].role, 'model');
@@ -117,13 +194,25 @@ test('requests: each provider gets its own shape, key only in a header', () => {
 });
 
 test('replies: text, tool calls and tokens from each provider', () => {
-  const o = parseModelResponse('openai', { choices: [{ message: { content: null, tool_calls: [{ id: 'x', function: { name: 'my_dkp', arguments: '{}' } }] } }], usage: { prompt_tokens: 50, completion_tokens: 7 } });
+  const o = parseModelResponse('openai', {
+    choices: [{ message: { content: null, tool_calls: [{ id: 'x', function: { name: 'my_dkp', arguments: '{}' } }] } }],
+    usage: { prompt_tokens: 50, completion_tokens: 7 },
+  });
   assert.deepEqual(o.toolCalls, [{ id: 'x', name: 'my_dkp', args: {} }]);
   assert.deepEqual(o.usage, { input: 50, output: 7 });
-  const a = parseModelResponse('anthropic', { content: [{ type: 'text', text: 'Hi' }, { type: 'tool_use', id: 't', name: 'my_dkp', input: {} }], usage: { input_tokens: 9, output_tokens: 3 } });
+  const a = parseModelResponse('anthropic', {
+    content: [
+      { type: 'text', text: 'Hi' },
+      { type: 'tool_use', id: 't', name: 'my_dkp', input: {} },
+    ],
+    usage: { input_tokens: 9, output_tokens: 3 },
+  });
   assert.equal(a.text, 'Hi');
   assert.equal(a.toolCalls[0].id, 't');
-  const g = parseModelResponse('google', { candidates: [{ content: { parts: [{ text: 'thinking', thought: true }, { text: 'Answer' }] } }], usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2, thoughtsTokenCount: 5 } });
+  const g = parseModelResponse('google', {
+    candidates: [{ content: { parts: [{ text: 'thinking', thought: true }, { text: 'Answer' }] } }],
+    usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2, thoughtsTokenCount: 5 },
+  });
   assert.equal(g.text, 'Answer');
   assert.deepEqual(g.usage, { input: 4, output: 7 });
   assert.throws(() => parseModelResponse('openai', {}));
@@ -138,21 +227,41 @@ test('errors: what a failure means for the key, and the key never in the message
   assert.equal(modelErrorKind(500, ''), 'other');
   const fetchFn = async () => ({ ok: false, status: 401, text: async () => 'bad key sk-secret-123' });
   await assert.rejects(
-    callModel({ provider: 'openai', baseUrl: null, model: 'm', apiKey: 'sk-secret-123' }, { system: 's', messages: [], tools: [], maxTokens: 5 }, fetchFn),
+    callModel(
+      { provider: 'openai', baseUrl: null, model: 'm', apiKey: 'sk-secret-123' },
+      { system: 's', messages: [], tools: [], maxTokens: 5 },
+      fetchFn,
+    ),
     (err) => err instanceof ModelCallError && err.kind === 'invalid' && !err.message.includes('sk-secret-123'),
   );
-  const down = async () => { throw new Error('ECONNREFUSED'); };
-  await assert.rejects(callModel({ provider: 'anthropic', baseUrl: null, model: 'm', apiKey: 'k' }, { system: 's', messages: [], tools: [], maxTokens: 5 }, down),
-    (err) => err.kind === 'unreachable');
+  const down = async () => {
+    throw new Error('ECONNREFUSED');
+  };
+  await assert.rejects(
+    callModel(
+      { provider: 'anthropic', baseUrl: null, model: 'm', apiKey: 'k' },
+      { system: 's', messages: [], tools: [], maxTokens: 5 },
+      down,
+    ),
+    (err) => err.kind === 'unreachable',
+  );
 });
 
-test('local times for changes: read in the asker\'s zone, impossible dates refused', () => {
+test("local times for changes: read in the asker's zone, impossible dates refused", () => {
   assert.equal(parseLocalDateTime('2026-11-21T20:00', 'America/Chicago').toISOString(), '2026-11-22T02:00:00.000Z');
   assert.equal(parseLocalDateTime('2026-07-04 9:30', 'America/Chicago').toISOString(), '2026-07-04T14:30:00.000Z');
   assert.equal(parseLocalDateTime('2026-11-21T20:00', 'UTC').toISOString(), '2026-11-21T20:00:00.000Z');
-  for (const bad of ['2026-02-30T20:00', '2026-13-01T10:00', 'next saturday', '2026-11-21', 42]) assert.equal(parseLocalDateTime(bad, 'UTC'), null, String(bad));
+  for (const bad of ['2026-02-30T20:00', '2026-13-01T10:00', 'next saturday', '2026-11-21', 42])
+    assert.equal(parseLocalDateTime(bad, 'UTC'), null, String(bad));
   assert.equal(localNowText(new Date('2026-11-19T22:45:00Z'), 'America/Chicago'), '2026-11-19 16:45 (Thursday)');
-  const p = assistantSystemPrompt({ serverName: 'S', answerChars: 500, today: '2026-11-19', dkpLabel: 'DKP', timeZone: 'America/Chicago', localNow: '2026-11-19 16:45 (Thursday)' });
+  const p = assistantSystemPrompt({
+    serverName: 'S',
+    answerChars: 500,
+    today: '2026-11-19',
+    dkpLabel: 'DKP',
+    timeZone: 'America/Chicago',
+    localNow: '2026-11-19 16:45 (Thursday)',
+  });
   assert.match(p, /America\/Chicago; it is now 2026-11-19 16:45/);
   assert.match(p, /Never say a change is done/);
 });

@@ -13,8 +13,13 @@ export const emptyGrid = <T>(fill: T): T[][] => Array.from({ length: 7 }, () => 
 
 /** Weekday (0 = Sunday) and hour of a moment in a time zone. */
 export function localSlot(at: Date, timeZone: string): { day: number; hour: number } {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short', hour: 'numeric', hourCycle: 'h23' }).formatToParts(at);
-  const day = DAY_NAMES.indexOf(parts.find((p) => p.type === 'weekday')!.value as typeof DAY_NAMES[number]);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const day = DAY_NAMES.indexOf(parts.find((p) => p.type === 'weekday')!.value as (typeof DAY_NAMES)[number]);
   const hour = Number(parts.find((p) => p.type === 'hour')!.value) % 24;
   return { day, hour };
 }
@@ -52,11 +57,17 @@ export interface EventHeatmapDto {
  * towards turnout but not towards it.
  */
 export function buildEventHeatmap(events: readonly HeatmapEvent[], timeZone: string, days: number): EventHeatmapDto {
-  const people = emptyGrid(0), count = emptyGrid(0), signed = emptyGrid(0), came = emptyGrid(0);
+  const people = emptyGrid(0),
+    count = emptyGrid(0),
+    signed = emptyGrid(0),
+    came = emptyGrid(0);
   let notRecorded = 0;
   for (const e of events) {
     const attendees = recordedAttendees(e);
-    if (!attendees) { notRecorded++; continue; }
+    if (!attendees) {
+      notRecorded++;
+      continue;
+    }
     const { day, hour } = localSlot(e.startTime, timeZone);
     const here = new Set(attendees);
     const yes = e.rsvps.filter((r) => !r.tentative);
@@ -69,10 +80,14 @@ export function buildEventHeatmap(events: readonly HeatmapEvent[], timeZone: str
   const attendanceGrid = people.map((row, d) => row.map((p, h) => (count[d]![h]! ? round1(p / count[d]![h]!) : 0)));
   const ratioGrid = signed.map((row, d) => row.map((s, h) => (s ? came[d]![h]! / s : null)));
   return {
-    attendanceGrid, ratioGrid, eventCountGrid: count,
+    attendanceGrid,
+    ratioGrid,
+    eventCountGrid: count,
     maxAttendance: Math.max(0, ...attendanceGrid.flat()),
     eventCount: count.flat().reduce((a, b) => a + b, 0),
-    notRecorded, days, timezone: timeZone,
+    notRecorded,
+    days,
+    timezone: timeZone,
   };
 }
 
@@ -86,33 +101,57 @@ export function hourName(hour: number): string {
 
 /** "Sat 8–11 PM", "Sun 11 PM–1 AM" (end is exclusive: the hour after the last) */
 export function slotRange(day: number, from: number, toExclusive: number): string {
-  const a = hourName(from), b = hourName(toExclusive);
-  const [an, ap] = a.split(' '), [bn, bp] = b.split(' ');
+  const a = hourName(from),
+    b = hourName(toExclusive);
+  const [an, ap] = a.split(' '),
+    [bn, bp] = b.split(' ');
   return `${DAY_NAMES[day]} ${ap === bp ? an : a}–${b}`.replace(` ${bp}`, '') + ` ${bp}`;
 }
 
-export interface BestTime { day: number; from: number; to: number; label: string; peak: number }
+export interface BestTime {
+  day: number;
+  from: number;
+  to: number;
+  label: string;
+  peak: number;
+}
 
 /**
  * The busiest stretches of the week: runs of hours on the same day at 75% of
  * the busiest hour or more, busiest first. Empty when there's nothing to show.
  * `usable` leaves out cells that shouldn't count (e.g. no events there).
  */
-export function bestTimes(grid: (number | null)[][], limit = 3, usable?: (day: number, hour: number) => boolean): BestTime[] {
-  const value = (d: number, h: number) => (usable && !usable(d, h) ? 0 : grid[d]?.[h] ?? 0);
+export function bestTimes(
+  grid: (number | null)[][],
+  limit = 3,
+  usable?: (day: number, hour: number) => boolean,
+): BestTime[] {
+  const value = (d: number, h: number) => (usable && !usable(d, h) ? 0 : (grid[d]?.[h] ?? 0));
   let max = 0;
   for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) max = Math.max(max, value(d, h));
   if (max <= 0) return [];
   const runs: (BestTime & { sum: number })[] = [];
   for (let d = 0; d < 7; d++) {
     for (let h = 0; h < 24;) {
-      if (value(d, h) < max * 0.75) { h++; continue; }
-      const from = h; let sum = 0, peak = 0;
-      while (h < 24 && value(d, h) >= max * 0.75) { sum += value(d, h); peak = Math.max(peak, value(d, h)); h++; }
+      if (value(d, h) < max * 0.75) {
+        h++;
+        continue;
+      }
+      const from = h;
+      let sum = 0,
+        peak = 0;
+      while (h < 24 && value(d, h) >= max * 0.75) {
+        sum += value(d, h);
+        peak = Math.max(peak, value(d, h));
+        h++;
+      }
       runs.push({ day: d, from, to: h, label: slotRange(d, from, h), peak, sum });
     }
   }
-  return runs.sort((a, b) => b.peak - a.peak || b.sum - a.sum).slice(0, limit).map(({ sum: _s, ...r }) => r);
+  return runs
+    .sort((a, b) => b.peak - a.peak || b.sum - a.sum)
+    .slice(0, limit)
+    .map(({ sum: _s, ...r }) => r);
 }
 
 /** "Saturday 8 PM" */

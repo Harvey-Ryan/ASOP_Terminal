@@ -1,6 +1,16 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, RefreshCw, CheckCircle2, XCircle, Link2Off, Settings, AlertCircle, ShieldCheck, ShieldOff } from 'lucide-react';
+import {
+  Users,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Link2Off,
+  Settings,
+  AlertCircle,
+  ShieldCheck,
+  ShieldOff,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,14 +38,20 @@ function RankBadge({ stars }: { stars: number | null }) {
 function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
   const ShieldIcon = member.verified ? ShieldCheck : ShieldOff;
   const shieldCls = member.isAffiliate
-    ? (member.verified ? 'text-blue-500' : 'text-blue-500/30')
-    : (member.verified ? 'text-green-500' : 'text-muted-foreground/50');
+    ? member.verified
+      ? 'text-blue-500'
+      : 'text-blue-500/30'
+    : member.verified
+      ? 'text-green-500'
+      : 'text-muted-foreground/50';
 
   return (
     <div className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
-      {member.inOrg
-        ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-        : <XCircle className="h-4 w-4 shrink-0 text-yellow-500" />}
+      {member.inOrg ? (
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+      ) : (
+        <XCircle className="h-4 w-4 shrink-0 text-yellow-500" />
+      )}
       <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-sm font-medium truncate">{member.discordUsername}</span>
         <span className="text-xs text-muted-foreground font-mono">{member.rsiHandle}</span>
@@ -47,9 +63,7 @@ function LinkedRow({ member }: { member: RsiRosterLinkedMember }) {
       </div>
       <ShieldIcon className={`h-3.5 w-3.5 shrink-0 ${shieldCls}`} />
       <RankBadge stars={member.inOrg ? member.orgRank : null} />
-      {!member.inOrg && (
-        <span className="text-xs text-yellow-500/80 shrink-0">Not in org</span>
-      )}
+      {!member.inOrg && <span className="text-xs text-yellow-500/80 shrink-0">Not in org</span>}
     </div>
   );
 }
@@ -102,10 +116,18 @@ export function RosterPage() {
       {/* Shield key */}
       <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
         <span className="font-medium text-foreground shrink-0">Shield Key</span>
-        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-green-500" /> Main member · verified</span>
-        <span className="flex items-center gap-1.5"><ShieldOff className="h-3.5 w-3.5 text-muted-foreground/50" /> Main member · unverified</span>
-        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-blue-500" /> Affiliate · verified</span>
-        <span className="flex items-center gap-1.5"><ShieldOff className="h-3.5 w-3.5 text-blue-500/30" /> Affiliate · unverified</span>
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-green-500" /> Main member · verified
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ShieldOff className="h-3.5 w-3.5 text-muted-foreground/50" /> Main member · unverified
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-blue-500" /> Affiliate · verified
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ShieldOff className="h-3.5 w-3.5 text-blue-500/30" /> Affiliate · unverified
+        </span>
       </div>
 
       {isLoading && (
@@ -185,8 +207,12 @@ export function RosterPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 {inOrg
-                  .sort((a, b) => (b.orgRank ?? 0) - (a.orgRank ?? 0) || a.discordUsername.localeCompare(b.discordUsername))
-                  .map((m) => <LinkedRow key={m.discordId} member={m} />)}
+                  .sort(
+                    (a, b) => (b.orgRank ?? 0) - (a.orgRank ?? 0) || a.discordUsername.localeCompare(b.discordUsername),
+                  )
+                  .map((m) => (
+                    <LinkedRow key={m.discordId} member={m} />
+                  ))}
               </CardContent>
             </Card>
           )}
@@ -203,7 +229,9 @@ export function RosterPage() {
               <CardContent className="pt-0">
                 {notInOrg
                   .sort((a, b) => a.discordUsername.localeCompare(b.discordUsername))
-                  .map((m) => <LinkedRow key={m.discordId} member={m} />)}
+                  .map((m) => (
+                    <LinkedRow key={m.discordId} member={m} />
+                  ))}
               </CardContent>
             </Card>
           )}
@@ -223,7 +251,9 @@ export function RosterPage() {
                 </p>
                 {orgOnly
                   .sort((a, b) => (b.orgRank ?? 0) - (a.orgRank ?? 0) || a.rsiHandle.localeCompare(b.rsiHandle))
-                  .map((m) => <OrgOnlyRow key={m.rsiHandle} member={m} />)}
+                  .map((m) => (
+                    <OrgOnlyRow key={m.rsiHandle} member={m} />
+                  ))}
               </CardContent>
             </Card>
           )}

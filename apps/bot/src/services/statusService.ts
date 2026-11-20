@@ -10,7 +10,15 @@
 // content changed, the message is gone, or the channel setting moved.
 
 import { DiscordAPIError, type APIEmbed } from 'discord.js';
-import { GAME_DATA_CHANGE_SQL, GAME_DATA_STATUS_SQL, GAME_DATA_NOT_SET_UP, gameDataRecheckAt, parseGameDataStatus, isGameDataMissingError, type GameDataStatus } from '@dem/shared';
+import {
+  GAME_DATA_CHANGE_SQL,
+  GAME_DATA_STATUS_SQL,
+  GAME_DATA_NOT_SET_UP,
+  gameDataRecheckAt,
+  parseGameDataStatus,
+  isGameDataMissingError,
+  type GameDataStatus,
+} from '@dem/shared';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 import { APP_VERSION, APP_COMMIT } from '../appVersion.js';
@@ -36,7 +44,12 @@ export interface StatusOps {
 export type TargetUpdate = Pick<StatusTarget, 'messageId' | 'messageChannelId' | 'hash'>;
 
 /** Brings one guild's status message in line with `embed`. Returns the fields to save, or null if nothing changed. */
-export async function refreshTarget(t: StatusTarget, embed: APIEmbed, hash: string, ops: StatusOps): Promise<TargetUpdate | null> {
+export async function refreshTarget(
+  t: StatusTarget,
+  embed: APIEmbed,
+  hash: string,
+  ops: StatusOps,
+): Promise<TargetUpdate | null> {
   let messageId = t.messageId;
   let messageChannelId = t.messageChannelId;
   const before = JSON.stringify([t.messageId, t.messageChannelId, t.hash]);
@@ -116,7 +129,9 @@ export async function recordDeployment(): Promise<void> {
       create: { version: APP_VERSION, commitSha: APP_COMMIT },
     });
     deployedAt = row.firstSeenAt;
-    console.log(`[bot] ASOP v${APP_VERSION}${APP_COMMIT ? ` (${APP_COMMIT})` : ''}, first deployed ${row.firstSeenAt.toISOString()}`);
+    console.log(
+      `[bot] ASOP v${APP_VERSION}${APP_COMMIT ? ` (${APP_COMMIT})` : ''}, first deployed ${row.firstSeenAt.toISOString()}`,
+    );
   } catch (err) {
     console.error('[bot] Could not record deployment:', err);
   }
@@ -143,7 +158,13 @@ async function readGameDataToken(): Promise<string | null> {
   }
 }
 
-type TargetRow = { id: string; statusChannelId: string | null; statusMessageId: string | null; statusMessageChannelId: string | null; statusEmbedHash: string | null };
+type TargetRow = {
+  id: string;
+  statusChannelId: string | null;
+  statusMessageId: string | null;
+  statusMessageChannelId: string | null;
+  statusEmbedHash: string | null;
+};
 
 /** Servers with a status channel (or a message to take down), kept until a setting changes. */
 let targets: TargetRow[] | null = null;
@@ -163,13 +184,18 @@ let again = false;
 
 /** Brings every status message up to date; cheap when nothing changed. Overlapping calls are merged. */
 export async function refreshStatusEmbeds(ops: StatusOps = discordOps): Promise<void> {
-  if (inFlight) { again = true; return inFlight; }
+  if (inFlight) {
+    again = true;
+    return inFlight;
+  }
   inFlight = (async () => {
     do {
       again = false;
       await refreshOnce(ops);
     } while (again);
-  })().finally(() => { inFlight = null; });
+  })().finally(() => {
+    inFlight = null;
+  });
   return inFlight;
 }
 
@@ -178,14 +204,25 @@ async function refreshOnce(ops: StatusOps): Promise<void> {
   if (targets === null) {
     targets = await prisma.guildSettings.findMany({
       where: { OR: [{ statusChannelId: { not: null } }, { statusMessageId: { not: null } }] },
-      select: { id: true, statusChannelId: true, statusMessageId: true, statusMessageChannelId: true, statusEmbedHash: true },
+      select: {
+        id: true,
+        statusChannelId: true,
+        statusMessageId: true,
+        statusMessageChannelId: true,
+        statusEmbedHash: true,
+      },
     });
   }
   if (targets.length === 0) return;
 
   const token = await readGameDataToken();
   const serverCount = client.guilds.cache.size;
-  const quiet = !targetsChanged && token !== null && token === lastToken && serverCount === lastServerCount && Date.now() < recheckAt;
+  const quiet =
+    !targetsChanged &&
+    token !== null &&
+    token === lastToken &&
+    serverCount === lastServerCount &&
+    Date.now() < recheckAt;
   if (quiet) return;
 
   const snapshot: StatusSnapshot = {
@@ -199,17 +236,28 @@ async function refreshOnce(ops: StatusOps): Promise<void> {
   let failed = false;
   for (const s of targets) {
     const t: StatusTarget = {
-      settingsId: s.id, channelId: s.statusChannelId, messageId: s.statusMessageId,
-      messageChannelId: s.statusMessageChannelId, hash: s.statusEmbedHash,
+      settingsId: s.id,
+      channelId: s.statusChannelId,
+      messageId: s.statusMessageId,
+      messageChannelId: s.statusMessageChannelId,
+      hash: s.statusEmbedHash,
     };
     try {
       const update = await refreshTarget(t, embed, hash, ops);
       if (update) {
         await prisma.guildSettings.update({
           where: { id: s.id },
-          data: { statusMessageId: update.messageId, statusMessageChannelId: update.messageChannelId, statusEmbedHash: update.hash },
+          data: {
+            statusMessageId: update.messageId,
+            statusMessageChannelId: update.messageChannelId,
+            statusEmbedHash: update.hash,
+          },
         });
-        Object.assign(s, { statusMessageId: update.messageId, statusMessageChannelId: update.messageChannelId, statusEmbedHash: update.hash });
+        Object.assign(s, {
+          statusMessageId: update.messageId,
+          statusMessageChannelId: update.messageChannelId,
+          statusEmbedHash: update.hash,
+        });
       }
     } catch (err) {
       // Usually missing permissions or a deleted channel. Retried in 10 minutes
@@ -230,5 +278,8 @@ async function refreshOnce(ops: StatusOps): Promise<void> {
 
 /** For tests: forget everything remembered between refreshes. */
 export function resetStatusState(): void {
-  targets = null; lastToken = null; lastServerCount = -1; recheckAt = 0;
+  targets = null;
+  lastToken = null;
+  lastServerCount = -1;
+  recheckAt = 0;
 }

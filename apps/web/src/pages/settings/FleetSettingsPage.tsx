@@ -57,8 +57,8 @@ export function FleetSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Fleet Module</h1>
         <p className="mt-1 text-muted-foreground">
-          Members keep one fleet each, with <code>/fleet add</code> in Discord or on the Fleet page, and it shows in every ASOP
-          server they&apos;re in. Officers see the server&apos;s fleet by role and who has which ship.
+          Members keep one fleet each, with <code>/fleet add</code> in Discord or on the Fleet page, and it shows in
+          every ASOP server they&apos;re in. Officers see the server&apos;s fleet by role and who has which ship.
         </p>
       </div>
 
@@ -68,16 +68,17 @@ export function FleetSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-
           <Card>
             <CardContent className="pt-4">
               <ToggleSwitch
                 checked={form.fleetEnabled}
                 onChange={(v) => setField('fleetEnabled', v)}
                 label="Fleet enabled"
-                description={form.fleetEnabled
-                  ? 'Members can see the server\'s fleet and who has which ship.'
-                  : 'The Fleet page and /fleet search are off in this server. Members\' own fleets are kept.'}
+                description={
+                  form.fleetEnabled
+                    ? "Members can see the server's fleet and who has which ship."
+                    : "The Fleet page and /fleet search are off in this server. Members' own fleets are kept."
+                }
                 tooltip="Fleets belong to each member and show in every ASOP server they're in, so switching this off only hides this server's fleet view; nobody's ships are deleted."
               />
             </CardContent>
@@ -92,12 +93,8 @@ export function FleetSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {settingsMutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {settingsMutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
-
-
         </div>
       )}
     </div>

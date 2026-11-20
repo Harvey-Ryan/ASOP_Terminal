@@ -4,10 +4,15 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { parseCatalogRef } from '@dem/shared';
-import type { ApiResponse, InventoryEntryDto, InventorySearchGroup, UpsertInventoryEntryBody, InventoryItemType } from '@dem/shared';
+import type {
+  ApiResponse,
+  InventoryEntryDto,
+  InventorySearchGroup,
+  UpsertInventoryEntryBody,
+  InventoryItemType,
+} from '@dem/shared';
 import type { InventoryEntry } from '@prisma/client';
 import { getCatalog, sameItemWhere } from '../../lib/catalog.js';
-
 
 export const exchangeRouter = Router();
 
@@ -42,7 +47,8 @@ function toDto(row: InventoryEntry): InventoryEntryDto {
 exchangeRouter.get('/:guildId/exchange/inventory', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
-    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse);
+    return;
   }
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
@@ -67,7 +73,8 @@ exchangeRouter.get('/:guildId/exchange/inventory', requireAuth, async (req, res)
 exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
-    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse);
+    return;
   }
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
   const userId = dbUser.discordId;
@@ -75,34 +82,43 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
   const body = req.body as UpsertInventoryEntryBody;
 
   if (!body.itemType || !['ITEM', 'COMMODITY'].includes(body.itemType)) {
-    res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse);
+    return;
   }
   // Which item: a game catalog ref. (Edits by id keep the entry's item.)
   let itemUuid: string | null = null;
   let itemName = body.itemName?.trim() ?? '';
   const ref = body.itemRef ? parseCatalogRef(body.itemRef) : null;
   if (body.itemRef && !ref) {
-    res.status(400).json({ success: false, error: 'itemRef is not a valid game item' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'itemRef is not a valid game item' } satisfies ApiResponse);
+    return;
   }
   if (ref) {
     const entry = (await getCatalog()).get(body.itemRef!);
     if (!entry || entry.kind !== body.itemType) {
-      res.status(400).json({ success: false, error: 'That item is not in the game data' } satisfies ApiResponse); return;
+      res.status(400).json({ success: false, error: 'That item is not in the game data' } satisfies ApiResponse);
+      return;
     }
     itemUuid = entry.uuid;
     itemName = entry.name;
   } else if (!body.id) {
-    res.status(400).json({ success: false, error: 'Pick an item from the list' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'Pick an item from the list' } satisfies ApiResponse);
+    return;
   }
   if (!itemName) {
-    res.status(400).json({ success: false, error: 'itemName is required' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'itemName is required' } satisfies ApiResponse);
+    return;
   }
   if (typeof body.quantity !== 'number' || body.quantity < 0) {
-    res.status(400).json({ success: false, error: 'quantity must be a non-negative number' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'quantity must be a non-negative number' } satisfies ApiResponse);
+    return;
   }
   if (body.qualityLevel !== undefined && body.qualityLevel !== null) {
     if (!Number.isInteger(body.qualityLevel) || body.qualityLevel < 0 || body.qualityLevel > 1000) {
-      res.status(400).json({ success: false, error: 'qualityLevel must be an integer between 0 and 1000' } satisfies ApiResponse); return;
+      res
+        .status(400)
+        .json({ success: false, error: 'qualityLevel must be an integer between 0 and 1000' } satisfies ApiResponse);
+      return;
     }
   }
 
@@ -125,7 +141,12 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
         userId,
         location,
         qualityLevel,
-        ...sameItemWhere(entry.itemType as InventoryItemType, entry.itemUuid, entry.externalItemId, entry.itemUuid ? null : entry.itemName),
+        ...sameItemWhere(
+          entry.itemType as InventoryItemType,
+          entry.itemUuid,
+          entry.externalItemId,
+          entry.itemUuid ? null : entry.itemName,
+        ),
       },
     });
     if (conflict) {
@@ -143,10 +164,7 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
         const newNote = body.priceNote?.trim() || null;
         // Reset listedAt only when the price or note actually changes (enforces
         // renew-requires-price-adjustment rule). Also resets on first listing.
-        const priceChanged =
-          !entry.forSale ||
-          entry.askingPrice !== newPrice ||
-          (entry.priceNote ?? null) !== newNote;
+        const priceChanged = !entry.forSale || entry.askingPrice !== newPrice || (entry.priceNote ?? null) !== newNote;
         listingData = {
           forSale: true,
           quantityListed: body.quantityListed ?? null,
@@ -161,7 +179,14 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
 
     const row = await prisma.inventoryEntry.update({
       where: { id: body.id },
-      data: { username, itemName: entry.itemUuid ? entry.itemName : itemName, quantity: body.quantity, qualityLevel, location, ...listingData },
+      data: {
+        username,
+        itemName: entry.itemUuid ? entry.itemName : itemName,
+        quantity: body.quantity,
+        qualityLevel,
+        location,
+        ...listingData,
+      },
     });
     res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
     return;
@@ -179,11 +204,26 @@ exchangeRouter.put('/:guildId/exchange/inventory', requireAuth, async (req, res)
     ? await prisma.inventoryEntry.update({
         where: { id: existing.id },
         data: {
-          username, quantity: body.quantity, qualityLevel, location, itemUuid, itemName,
+          username,
+          quantity: body.quantity,
+          qualityLevel,
+          location,
+          itemUuid,
+          itemName,
         },
       })
     : await prisma.inventoryEntry.create({
-        data: { guildId, userId, username, itemType: body.itemType, itemUuid, itemName, quantity: body.quantity, qualityLevel, location },
+        data: {
+          guildId,
+          userId,
+          username,
+          itemType: body.itemType,
+          itemUuid,
+          itemName,
+          quantity: body.quantity,
+          qualityLevel,
+          location,
+        },
       });
 
   res.json({ success: true, data: toDto(row) } satisfies ApiResponse<InventoryEntryDto>);
@@ -212,7 +252,8 @@ exchangeRouter.delete('/:guildId/exchange/inventory/all', requireAuth, async (re
 exchangeRouter.delete('/:guildId/exchange/inventory/:entryId', requireAuth, async (req, res) => {
   const { guildId, entryId } = req.params as { guildId: string; entryId: string };
   if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
-    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse);
+    return;
   }
   const dbUser = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId } });
 
@@ -239,7 +280,8 @@ exchangeRouter.delete('/:guildId/exchange/inventory/:entryId', requireAuth, asyn
 exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   if (!(await assertModuleEnabled(guildId, 'exchangeEnabled'))) {
-    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Exchange module is disabled' } satisfies ApiResponse);
+    return;
   }
   // itemRef = the game catalog ref of the item.
   const ref = parseCatalogRef(typeof req.query.itemRef === 'string' ? req.query.itemRef : null);
@@ -257,7 +299,10 @@ exchangeRouter.get('/:guildId/exchange/search', requireAuth, async (req, res) =>
   // Resolve live display names from Discord. Falls back to stored username on error.
   const userIds = [...new Set(rows.map((r) => r.userId))];
   // Cached and throttled (lib/discordRest.ts); names Discord can't give right now fall back to the stored one.
-  const nickMap = process.env['DISCORD_TOKEN'] && userIds.length > 0 ? await getMemberNames(guildId, userIds) : new Map<string, string>();
+  const nickMap =
+    process.env['DISCORD_TOKEN'] && userIds.length > 0
+      ? await getMemberNames(guildId, userIds)
+      : new Map<string, string>();
 
   // Group by qualityLevel
   const groupMap = new Map<string, InventorySearchGroup>();

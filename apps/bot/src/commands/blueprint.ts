@@ -42,7 +42,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
   const matches = getBlueprints().filter((b) => b.outputName.toLowerCase().includes(focused));
   await interaction.respond(
     matches.slice(0, 25).map((b) => ({
-      name:  b.outputType ? `${b.outputName} (${b.outputType})` : b.outputName,
+      name: b.outputType ? `${b.outputName} (${b.outputType})` : b.outputName,
       value: b.uuid,
     })),
   );
@@ -71,7 +71,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setTitle(`Blueprints matching "${rawValue}"`)
       .setColor(0x00b0f4)
       .setDescription(`${shown.join('\n')}\n\nPick one from the suggestions to see its recipe.`)
-      .setFooter({ text: `${similar.length} result${similar.length === 1 ? '' : 's'}${similar.length > 15 ? ', showing 15' : ''} · ${gameDataFooter()}` });
+      .setFooter({
+        text: `${similar.length} result${similar.length === 1 ? '' : 's'}${similar.length > 15 ? ', showing 15' : ''} · ${gameDataFooter()}`,
+      });
     await interaction.editReply({ embeds: [embed] });
     return;
   }
@@ -79,28 +81,32 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const embed = buildRecipeEmbed(bp);
 
   const dismantle: string[] = [];
-  if (bp.dismantleTimeSecs   != null) dismantle.push(`⏱ ${formatSeconds(bp.dismantleTimeSecs)}`);
+  if (bp.dismantleTimeSecs != null) dismantle.push(`⏱ ${formatSeconds(bp.dismantleTimeSecs)}`);
   if (bp.dismantleEfficiency != null) dismantle.push(`${(bp.dismantleEfficiency * 100).toFixed(0)}% of materials back`);
   if (dismantle.length) embed.addFields({ name: '🔧 Dismantle', value: dismantle.join(' · '), inline: false });
 
   const missions = getContractsForBlueprint(bp.uuid).length;
   embed.addFields({
-    name:   '🎯 Missions',
-    value:  missions > 0
-      ? `Can be rewarded by **${missions}** mission${missions === 1 ? '' : 's'}.`
-      : 'Not rewarded by any known mission.',
+    name: '🎯 Missions',
+    value:
+      missions > 0
+        ? `Can be rewarded by **${missions}** mission${missions === 1 ? '' : 's'}.`
+        : 'Not rewarded by any known mission.',
     inline: false,
   });
 
-  const components = missions > 0
-    ? [new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`${MISSIONS_BUTTON}:${bp.uuid}`)
-          .setLabel(`Show missions (${missions})`)
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🎯'),
-      )]
-    : [];
+  const components =
+    missions > 0
+      ? [
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`${MISSIONS_BUTTON}:${bp.uuid}`)
+              .setLabel(`Show missions (${missions})`)
+              .setStyle(ButtonStyle.Secondary)
+              .setEmoji('🎯'),
+          ),
+        ]
+      : [];
 
   await interaction.editReply({ embeds: [embed], components });
 }
@@ -112,7 +118,10 @@ export async function handleMissionsButton(interaction: ButtonInteraction): Prom
   const uuid = interaction.customId.slice(MISSIONS_BUTTON.length + 1);
   const bp = getBlueprintByUuid(uuid);
   if (!bp) {
-    await interaction.reply({ content: 'This blueprint is no longer in the game data. Run /blueprint again.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: 'This blueprint is no longer in the game data. Run /blueprint again.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
   const embed = buildMissionsEmbed(bp);
@@ -127,7 +136,7 @@ function buildMissionsEmbed(bp: LocalBlueprint): EmbedBuilder | null {
   const contracts = getContractsForBlueprint(bp.uuid);
   if (contracts.length === 0) return null;
 
-  const total  = contracts.length;
+  const total = contracts.length;
   const toShow = contracts.slice(0, 10);
 
   const embed = new EmbedBuilder()
@@ -151,11 +160,11 @@ function buildMissionsEmbed(bp: LocalBlueprint): EmbedBuilder | null {
     const lines: string[] = [];
 
     const meta: string[] = [];
-    if (contract.missionType)  meta.push(`\`${contract.missionType}\``);
+    if (contract.missionType) meta.push(`\`${contract.missionType}\``);
     if (contract.missionGiver) meta.push(`Giver: ${contract.missionGiver}`);
-    if (contract.faction)      meta.push(contract.faction);
-    if (contract.illegal)      meta.push('⚠️ **ILLEGAL**');
-    if (meta.length)           lines.push(meta.join(' · '));
+    if (contract.faction) meta.push(contract.faction);
+    if (contract.illegal) meta.push('⚠️ **ILLEGAL**');
+    if (meta.length) lines.push(meta.join(' · '));
 
     const stats: string[] = [];
     if (contract.timeToCompleteMinutes) stats.push(`⏱ ${contract.timeToCompleteMinutes} min`);
@@ -188,13 +197,13 @@ function buildMissionsEmbed(bp: LocalBlueprint): EmbedBuilder | null {
     // Line 4: locations
     if (locsSorted.length > 0) {
       const preview = locsSorted.slice(0, 3).join(', ');
-      const extra   = locsSorted.length > 3 ? ` +${locsSorted.length - 3} more` : '';
+      const extra = locsSorted.length > 3 ? ` +${locsSorted.length - 3} more` : '';
       lines.push(`📍 ${preview}${extra}`);
     }
 
     embed.addFields({
-      name:   contract.illegal ? `${contract.title} ⚠️` : contract.title,
-      value:  lines.join('\n') || '_No additional details_',
+      name: contract.illegal ? `${contract.title} ⚠️` : contract.title,
+      value: lines.join('\n') || '_No additional details_',
       inline: false,
     });
   }
@@ -206,17 +215,21 @@ function buildMissionsEmbed(bp: LocalBlueprint): EmbedBuilder | null {
 
 function resolve(rawValue: string) {
   return (
-    getBlueprintByUuid(rawValue) ??
-    getBlueprints().find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase())
+    getBlueprintByUuid(rawValue) ?? getBlueprints().find((b) => b.outputName.toLowerCase() === rawValue.toLowerCase())
   );
 }
 
 function scopeLabel(scope: string): string {
   switch (scope) {
-    case 'FactionReputation':            return 'XP';
-    case 'Affinity':                     return 'Affinity';
-    case 'BountyHunter_BountyHuntersGuild': return 'BHG';
-    case 'ShipCombat_HeadHunters':       return 'Headhunters';
-    default: return scope.replace(/_/g, ' ');
+    case 'FactionReputation':
+      return 'XP';
+    case 'Affinity':
+      return 'Affinity';
+    case 'BountyHunter_BountyHuntersGuild':
+      return 'BHG';
+    case 'ShipCombat_HeadHunters':
+      return 'Headhunters';
+    default:
+      return scope.replace(/_/g, ' ');
   }
 }

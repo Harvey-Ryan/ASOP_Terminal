@@ -3,7 +3,10 @@ import { api } from './client';
 import type { ApiResponse, MemberHistoryDto, MemberSummaryDto } from '@dem/shared';
 
 /** Only count what happened between these moments (ISO); either end may be open. */
-export interface MemberRange { from?: string; to?: string }
+export interface MemberRange {
+  from?: string;
+  to?: string;
+}
 
 const qs = (r: MemberRange) => {
   const p = new URLSearchParams();

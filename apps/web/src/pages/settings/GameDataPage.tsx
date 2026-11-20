@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, CheckCircle2, XCircle, Loader2, Database, Clock, AlertTriangle, Search, Tag, Layers, Package, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Database,
+  Clock,
+  AlertTriangle,
+  Search,
+  Tag,
+  Layers,
+  Package,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { uexApi } from '@/api/uex';
@@ -14,12 +28,12 @@ import { CatalogInfoCard } from '@/components/ItemInfoPopover';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
-  const mins  = Math.floor(diff / 60_000);
+  const mins = Math.floor(diff / 60_000);
   const hours = Math.floor(diff / 3_600_000);
-  const days  = Math.floor(diff / 86_400_000);
-  if (mins  < 1)   return 'just now';
-  if (mins  < 60)  return `${mins}m ago`;
-  if (hours < 24)  return `${hours}h ago`;
+  const days = Math.floor(diff / 86_400_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
   return `${days}d ago`;
 }
 
@@ -31,7 +45,10 @@ function duration(log: UexSyncLogDto): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -76,7 +93,7 @@ function StatTile({ label, value }: { label: string; value: number | string }) {
 // ── Log row ───────────────────────────────────────────────────────────────────
 
 function LogRow({ log }: { log: UexSyncLogDto }) {
-  const totalAdded   = log.categoriesAdded   + log.itemsAdded   + log.commoditiesAdded;
+  const totalAdded = log.categoriesAdded + log.itemsAdded + log.commoditiesAdded;
   const totalUpdated = log.categoriesUpdated + log.itemsUpdated + log.commoditiesUpdated;
 
   return (
@@ -120,8 +137,16 @@ function ResultRow({ entry }: { entry: { ref: string; name: string; detail: stri
   });
   return (
     <div className="rounded-md border border-border bg-background">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent/40">
-        {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent/40"
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        )}
         <span className="truncate font-medium">{entry.name}</span>
         <span className="ml-auto truncate text-xs text-muted-foreground max-w-[50%]">{entry.detail}</span>
       </button>
@@ -197,8 +222,8 @@ function SearchPanel() {
           {results.length > 0
             ? `${results.length} result${results.length !== 1 ? 's' : ''}${results.length === 50 ? ' (showing the best 50)' : ''} · click one for details`
             : debouncedQuery.trim().length >= 2
-            ? 'No results'
-            : 'Type at least 2 letters to search'}
+              ? 'No results'
+              : 'Type at least 2 letters to search'}
         </p>
       </div>
 
@@ -212,7 +237,9 @@ function SearchPanel() {
             </p>
           </div>
         )}
-        {results.map((e) => <ResultRow key={e.ref} entry={e} />)}
+        {results.map((e) => (
+          <ResultRow key={e.ref} entry={e} />
+        ))}
       </div>
     </div>
   );
@@ -238,10 +265,10 @@ export function GameDataPage() {
     },
   });
 
-  const status  = statusQuery.data;
+  const status = statusQuery.data;
   const isRunning = status?.isRunning ?? false;
-  const lastSync  = status?.lastSync ?? null;
-  const counts    = status?.counts;
+  const lastSync = status?.lastSync ?? null;
+  const counts = status?.counts;
   const recentLogs: UexSyncLogDto[] = lastSync ? [lastSync] : [];
 
   return (
@@ -256,8 +283,9 @@ export function GameDataPage() {
           </h1>
           <p className="mt-1 text-muted-foreground">
             Items and commodities come from the Star Citizen game files (see{' '}
-            <span className="font-medium text-foreground">SC Database</span>), updated when a new game build is published.
-            Average commodity prices come from <span className="font-medium text-foreground">UEX Corp</span>, refreshed every Monday.
+            <span className="font-medium text-foreground">SC Database</span>), updated when a new game build is
+            published. Average commodity prices come from <span className="font-medium text-foreground">UEX Corp</span>,
+            refreshed every Monday.
           </p>
         </div>
 
@@ -274,7 +302,9 @@ export function GameDataPage() {
           <>
             {/* Cache stats */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commodity Prices (UEX)</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Commodity Prices (UEX)
+              </p>
               <div className="grid grid-cols-3 gap-3">
                 <StatTile label="Commodities priced" value={counts?.commodities ?? 0} />
               </div>
@@ -290,7 +320,9 @@ export function GameDataPage() {
                     {isRunning ? (
                       <span className="text-amber-500 font-medium">Sync in progress…</span>
                     ) : lastSync?.completedAt ? (
-                      <span>Last synced <span className="text-foreground font-medium">{timeAgo(lastSync.completedAt)}</span></span>
+                      <span>
+                        Last synced <span className="text-foreground font-medium">{timeAgo(lastSync.completedAt)}</span>
+                      </span>
                     ) : (
                       <span>Never synced</span>
                     )}
@@ -302,7 +334,7 @@ export function GameDataPage() {
                     disabled={isRunning || syncMutation.isPending}
                     className="shrink-0 gap-1.5"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${(isRunning || syncMutation.isPending) ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${isRunning || syncMutation.isPending ? 'animate-spin' : ''}`} />
                     {isRunning ? 'Running…' : syncMutation.isPending ? 'Starting…' : 'Refresh Prices'}
                   </Button>
                 </div>
@@ -321,7 +353,8 @@ export function GameDataPage() {
                 )}
 
                 <p className="text-xs text-muted-foreground border-t border-border pt-3">
-                  Prices refresh every <span className="font-medium text-foreground">Monday at 03:00 UTC</span>. Use Refresh Prices to pull the latest now.
+                  Prices refresh every <span className="font-medium text-foreground">Monday at 03:00 UTC</span>. Use
+                  Refresh Prices to pull the latest now.
                 </p>
               </div>
             </div>
@@ -339,9 +372,11 @@ export function GameDataPage() {
                 {lastSync && lastSync.status === 'SUCCESS' && (
                   <div className="rounded-md bg-muted/30 border border-border px-3 py-2 text-xs text-muted-foreground text-center">
                     <div>
-                      <span className="font-medium text-foreground">{lastSync.commoditiesAdded + lastSync.commoditiesUpdated > 0
-                        ? `+${lastSync.commoditiesAdded} / ~${lastSync.commoditiesUpdated}`
-                        : 'No change'}</span>
+                      <span className="font-medium text-foreground">
+                        {lastSync.commoditiesAdded + lastSync.commoditiesUpdated > 0
+                          ? `+${lastSync.commoditiesAdded} / ~${lastSync.commoditiesUpdated}`
+                          : 'No change'}
+                      </span>
                       <p className="mt-0.5">Commodities</p>
                     </div>
                   </div>
@@ -354,7 +389,8 @@ export function GameDataPage() {
                 <Database className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-50" />
                 <p className="text-sm text-muted-foreground">Prices haven't been loaded yet.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Click <span className="font-medium text-foreground">Refresh Prices</span> above to load commodity prices.
+                  Click <span className="font-medium text-foreground">Refresh Prices</span> above to load commodity
+                  prices.
                 </p>
               </div>
             )}

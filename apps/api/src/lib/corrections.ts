@@ -4,8 +4,17 @@
 
 import type { Request } from 'express';
 import {
-  APPLIED_STATUSES, CORRECTION_KINDS, correctionActions, gameNumber, recheckOnNewBuild, rockRecordKey,
-  type CorrectionActor, type CorrectionDto, type CorrectionStatus, type LiveCorrectionDto, type MiningDataDto,
+  APPLIED_STATUSES,
+  CORRECTION_KINDS,
+  correctionActions,
+  gameNumber,
+  recheckOnNewBuild,
+  rockRecordKey,
+  type CorrectionActor,
+  type CorrectionDto,
+  type CorrectionStatus,
+  type LiveCorrectionDto,
+  type MiningDataDto,
 } from '@dem/shared';
 import { prisma } from './prisma.js';
 import { isPlatformAdminId } from './platformAdmin.js';
@@ -48,28 +57,51 @@ export async function correctionUser(req: Request): Promise<CorrectionUser | nul
   const reviewer = await isDataReviewer(user.discordId);
   const member = platformAdmin || reviewer || (await isAsopMember(userId));
   return {
-    userId, discordId: user.discordId, username: user.username, displayName: user.globalName || user.username,
-    member, reviewer, platformAdmin,
+    userId,
+    discordId: user.discordId,
+    username: user.username,
+    displayName: user.globalName || user.username,
+    member,
+    reviewer,
+    platformAdmin,
   };
 }
 
 // ── Game values ─────────────────────────────────────────────────────────────
 
-export interface GameRecord { name: string; record: unknown }
+export interface GameRecord {
+  name: string;
+  record: unknown;
+}
 
 /** A record from our game data, by kind and key; null if it isn't there. */
 export function findGameRecord(data: MiningDataDto, kind: string, recordKey: string): GameRecord | null {
   switch (kind) {
-    case 'mining-laser': { const r = data.lasers.find((l) => l.uuid === recordKey); return r ? { name: r.name, record: r } : null; }
-    case 'mining-module': { const r = data.modules.find((m) => m.uuid === recordKey); return r ? { name: r.name, record: r } : null; }
-    case 'mining-gadget': { const r = (data.gadgets ?? []).find((g) => g.uuid === recordKey); return r ? { name: r.name, record: r } : null; }
-    case 'rock-signature': { const r = data.signatures.find((s) => rockRecordKey(s) === recordKey); return r ? { name: r.rock, record: r } : null; }
-    default: return null;
+    case 'mining-laser': {
+      const r = data.lasers.find((l) => l.uuid === recordKey);
+      return r ? { name: r.name, record: r } : null;
+    }
+    case 'mining-module': {
+      const r = data.modules.find((m) => m.uuid === recordKey);
+      return r ? { name: r.name, record: r } : null;
+    }
+    case 'mining-gadget': {
+      const r = (data.gadgets ?? []).find((g) => g.uuid === recordKey);
+      return r ? { name: r.name, record: r } : null;
+    }
+    case 'rock-signature': {
+      const r = data.signatures.find((s) => rockRecordKey(s) === recordKey);
+      return r ? { name: r.rock, record: r } : null;
+    }
+    default:
+      return null;
   }
 }
 
 /** The kinds' game data, with its build. */
-export async function gameDataFor(kind: string): Promise<{ build: string | null; find: (key: string) => GameRecord | null } | null> {
+export async function gameDataFor(
+  kind: string,
+): Promise<{ build: string | null; find: (key: string) => GameRecord | null } | null> {
   if (!CORRECTION_KINDS[kind]) return null;
   const data = await getMiningData();
   if (!data) return null;
@@ -100,20 +132,31 @@ export async function recheckForBuild(): Promise<void> {
       continue;
     }
     const status: CorrectionStatus = verdict === 'retire' ? 'RETIRED' : 'RECHECK';
-    const note = verdict === 'retire'
-      ? `The game files now say ${current}: fixed by CIG in ${data.build}.`
-      : found ? `The game files changed from ${c.gameValue} to ${current} in ${data.build}.` : `Not in the game data of ${data.build} any more.`;
+    const note =
+      verdict === 'retire'
+        ? `The game files now say ${current}: fixed by CIG in ${data.build}.`
+        : found
+          ? `The game files changed from ${c.gameValue} to ${current} in ${data.build}.`
+          : `Not in the game data of ${data.build} any more.`;
     await prisma.dataCorrection.update({
       where: { id: c.id },
       data: { status, checkedBuild: data.build, ...(verdict === 'retire' ? { retiredBuild: data.build } : {}) },
     });
-    await prisma.correctionEvent.create({ data: { correctionId: c.id, action: verdict === 'retire' ? 'retired' : 'recheck', note } });
-    await adminLog({ kind: verdict === 'retire' ? 'corrections.retired' : 'corrections.recheck', summary: `${c.recordName}: ${note}`, details: { correctionId: c.id } });
+    await prisma.correctionEvent.create({
+      data: { correctionId: c.id, action: verdict === 'retire' ? 'retired' : 'recheck', note },
+    });
+    await adminLog({
+      kind: verdict === 'retire' ? 'corrections.retired' : 'corrections.recheck',
+      summary: `${c.recordName}: ${note}`,
+      details: { correctionId: c.id },
+    });
   }
   lastChecked = data.build;
 }
 
-export function resetCorrectionsForTests(): void { lastChecked = null; }
+export function resetCorrectionsForTests(): void {
+  lastChecked = null;
+}
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -126,12 +169,20 @@ export function loadCorrection(id: string) {
   });
 }
 
-export function toLiveDto(c: NonNullable<Row> | (Omit<NonNullable<Row>, 'events'> & { events?: unknown })): LiveCorrectionDto {
+export function toLiveDto(
+  c: NonNullable<Row> | (Omit<NonNullable<Row>, 'events'> & { events?: unknown }),
+): LiveCorrectionDto {
   return {
-    id: c.id, kind: c.kind, recordKey: c.recordKey, field: c.field,
-    gameValue: c.gameValue, value: c.value,
-    credit: c.creditName, confirmations: c.confirmations.length,
-    disputed: c.status === 'DISPUTED', build: c.build,
+    id: c.id,
+    kind: c.kind,
+    recordKey: c.recordKey,
+    field: c.field,
+    gameValue: c.gameValue,
+    value: c.value,
+    credit: c.creditName,
+    confirmations: c.confirmations.length,
+    disputed: c.status === 'DISPUTED',
+    build: c.build,
     approvedAt: c.approvedAt?.toISOString() ?? null,
   };
 }
@@ -160,9 +211,18 @@ export function toDto(c: NonNullable<Row>, who: CorrectionUser | null): Correcti
     history: c.events.map((e) => ({
       action: e.action,
       // Names in the history: the submitter as credited, reviewers by name, others only to reviewers.
-      actor: e.actorId === c.submittedBy ? (c.creditName ?? 'an ASOP member')
-        : e.action === 'approved' || e.action === 'rejected' || e.action === 'reverted' || e.action === 'upheld' || who?.reviewer ? e.actorName
-        : e.actorId ? 'a member' : null,
+      actor:
+        e.actorId === c.submittedBy
+          ? (c.creditName ?? 'an ASOP member')
+          : e.action === 'approved' ||
+              e.action === 'rejected' ||
+              e.action === 'reverted' ||
+              e.action === 'upheld' ||
+              who?.reviewer
+            ? e.actorName
+            : e.actorId
+              ? 'a member'
+              : null,
       note: e.note,
       evidenceUrl: e.evidenceUrl,
       at: e.createdAt.toISOString(),

@@ -5,7 +5,15 @@ import cron from 'node-cron';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { prisma } from './db.js';
 import { client } from './client.js';
-import { setupDiscordForEvent, setupDiscordForShare, endEvent, deleteEventVcs, createVcsForEvent, postEventLive, updatePostEventEmbed } from './services/eventService.js';
+import {
+  setupDiscordForEvent,
+  setupDiscordForShare,
+  endEvent,
+  deleteEventVcs,
+  createVcsForEvent,
+  postEventLive,
+  updatePostEventEmbed,
+} from './services/eventService.js';
 import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { dispatchTournamentReminder, recordMatchForfeit } from './services/tournamentService.js';
@@ -18,14 +26,21 @@ import { announceStarStrings } from './services/starStringsService.js';
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Like Promise.allSettled(items.map(fn)), but at most `limit` at a time; results keep their order. */
-export async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+export async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
   const results: PromiseSettledResult<R>[] = new Array(items.length);
   let next = 0;
   const worker = async () => {
     while (next < items.length) {
       const i = next++;
-      try { results[i] = { status: 'fulfilled', value: await fn(items[i]!) }; }
-      catch (reason) { results[i] = { status: 'rejected', reason }; }
+      try {
+        results[i] = { status: 'fulfilled', value: await fn(items[i]!) };
+      } catch (reason) {
+        results[i] = { status: 'rejected', reason };
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
@@ -55,33 +70,33 @@ export async function runLoop(name: keyof typeof running, checks: [string, () =>
 }
 
 const LIFECYCLE_CHECKS: [string, () => Promise<void>][] = [
-  ['checkEventStart',                checkEventStart],
-  ['checkVcCreation',                checkVcCreation],
-  ['checkVcActivity',                checkVcActivity],
-  ['checkInactivityEnd',             checkInactivityEnd],
-  ['checkStuckActiveEvents',         checkStuckActiveEvents],
-  ['checkEventEnd',                  checkEventEnd],
-  ['checkEndedEvents',               checkEndedEvents],
-  ['checkLootPromptTimeout',         checkLootPromptTimeout],
-  ['checkAutoComplete',              checkAutoComplete],
-  ['closeExpiredAuctions',           closeExpiredAuctions],
-  ['expireJobs',                     expireJobs],
-  ['checkLootThreadHolds',           checkLootThreadHolds],
+  ['checkEventStart', checkEventStart],
+  ['checkVcCreation', checkVcCreation],
+  ['checkVcActivity', checkVcActivity],
+  ['checkInactivityEnd', checkInactivityEnd],
+  ['checkStuckActiveEvents', checkStuckActiveEvents],
+  ['checkEventEnd', checkEventEnd],
+  ['checkEndedEvents', checkEndedEvents],
+  ['checkLootPromptTimeout', checkLootPromptTimeout],
+  ['checkAutoComplete', checkAutoComplete],
+  ['closeExpiredAuctions', closeExpiredAuctions],
+  ['expireJobs', expireJobs],
+  ['checkLootThreadHolds', checkLootThreadHolds],
   ['closeExpiredStandaloneAuctions', closeExpiredStandaloneAuctions],
-  ['checkMatchCheckIn',              checkMatchCheckIn],
-  ['checkMatchNoShow',               checkMatchNoShow],
-  ['checkMatchNoShowEscalation',     checkMatchNoShowEscalation],
+  ['checkMatchCheckIn', checkMatchCheckIn],
+  ['checkMatchNoShow', checkMatchNoShow],
+  ['checkMatchNoShowEscalation', checkMatchNoShowEscalation],
 ];
 
 const POSTING_CHECKS: [string, () => Promise<void>][] = [
   ['checkPendingDiscordSetup', checkPendingDiscordSetup],
-  ['checkPendingShareSetup',   checkPendingShareSetup],
-  ['checkReminders',           checkReminders],
+  ['checkPendingShareSetup', checkPendingShareSetup],
+  ['checkReminders', checkReminders],
   ['checkTournamentReminders', checkTournamentReminders],
-  ['refreshStatusEmbeds',      () => refreshStatusEmbeds()],
-  ['checkFleetNudges',         () => checkFleetNudges()],
-  ['announceStarStrings',      () => announceStarStrings()],
-  ['pruneAssistantData',       () => pruneAssistantData()],
+  ['refreshStatusEmbeds', () => refreshStatusEmbeds()],
+  ['checkFleetNudges', () => checkFleetNudges()],
+  ['announceStarStrings', () => announceStarStrings()],
+  ['pruneAssistantData', () => pruneAssistantData()],
 ];
 
 // Runs a named scheduler check, logs its duration, and swallows errors so one
@@ -133,22 +148,22 @@ export async function startScheduler() {
       activeEvents.filter((e) => e.discordEventId),
       2,
       async (event) => {
-          const guild = await client.guilds.fetch(event.guildId);
-          const scheduled = await guild.scheduledEvents.fetch(event.discordEventId!).catch(() => null);
-          if (!scheduled) return 0;
-          const subscribers = await scheduled.fetchSubscribers({ withMember: true }).catch(() => null);
-          if (!subscribers) return 0;
-          const existingIds = new Set(event.rsvps.map((r) => r.userId));
-          let count = 0;
-          for (const sub of subscribers.values()) {
-            if (existingIds.has(sub.user.id)) continue;
-            const username = sub.member?.displayName ?? sub.user.username;
-            await joinRoster(event.id, sub.user.id, username, event.guildId).catch((err) =>
-              console.error(`[bot] Startup sync: joinRoster failed for ${sub.user.id}:`, err),
-            );
-            count++;
-          }
-          return count;
+        const guild = await client.guilds.fetch(event.guildId);
+        const scheduled = await guild.scheduledEvents.fetch(event.discordEventId!).catch(() => null);
+        if (!scheduled) return 0;
+        const subscribers = await scheduled.fetchSubscribers({ withMember: true }).catch(() => null);
+        if (!subscribers) return 0;
+        const existingIds = new Set(event.rsvps.map((r) => r.userId));
+        let count = 0;
+        for (const sub of subscribers.values()) {
+          if (existingIds.has(sub.user.id)) continue;
+          const username = sub.member?.displayName ?? sub.user.username;
+          await joinRoster(event.id, sub.user.id, username, event.guildId).catch((err) =>
+            console.error(`[bot] Startup sync: joinRoster failed for ${sub.user.id}:`, err),
+          );
+          count++;
+        }
+        return count;
       },
     );
 
@@ -158,7 +173,9 @@ export async function startScheduler() {
       else console.error('[bot] Startup sync: failed for an event:', result.reason);
     }
     if (activeEvents.length > 0) {
-      console.log(`[bot] Startup subscriber sync: added ${syncCount} missing subscriber(s) across ${activeEvents.length} event(s)`);
+      console.log(
+        `[bot] Startup subscriber sync: added ${syncCount} missing subscriber(s) across ${activeEvents.length} event(s)`,
+      );
     }
   } catch (err) {
     console.error('[bot] Startup subscriber sync failed:', err);
@@ -234,9 +251,7 @@ export async function checkEventStart() {
   });
   await Promise.allSettled(
     starting.map((event) =>
-      postEventLive(event.id).catch((err) =>
-        console.error(`[bot] postEventLive failed for ${event.id}:`, err),
-      ),
+      postEventLive(event.id).catch((err) => console.error(`[bot] postEventLive failed for ${event.id}:`, err)),
     ),
   );
 }
@@ -264,15 +279,23 @@ export async function checkPendingDiscordSetup() {
     await setupDiscordForEvent(event.id).catch((err) =>
       console.error(`[bot] Discord setup failed for event ${event.id}:`, err),
     );
-    const after = await prisma.event.findUnique({ where: { id: event.id }, select: { threadId: true, discordEventId: true, startTime: true } });
+    const after = await prisma.event.findUnique({
+      where: { id: event.id },
+      select: { threadId: true, discordEventId: true, startTime: true },
+    });
     if (!after) continue;
     const done = !!after.threadId && (!!after.discordEventId || after.startTime <= new Date());
     const next = afterSetupAttempt(done, event.setupAttempts, new Date());
     if (done && event.setupAttempts === 0) continue; // nothing to record
-    await prisma.event.update({ where: { id: event.id }, data: { setupAttempts: next.setupAttempts, nextSetupAt: next.nextSetupAt } });
+    await prisma.event.update({
+      where: { id: event.id },
+      data: { setupAttempts: next.setupAttempts, nextSetupAt: next.nextSetupAt },
+    });
     if (next.gaveUp) {
-      console.warn(`[bot] Giving up on Discord setup for event ${event.id} (${event.name}) in ${event.guildId} after ${next.setupAttempts} attempts — `
-        + `is a forum channel set and can the bot post there? Changing the forum channel setting retries it.`);
+      console.warn(
+        `[bot] Giving up on Discord setup for event ${event.id} (${event.name}) in ${event.guildId} after ${next.setupAttempts} attempts — ` +
+          `is a forum channel set and can the bot post there? Changing the forum channel setting retries it.`,
+      );
     }
   }
 }
@@ -320,7 +343,10 @@ async function checkReminders() {
             await agThread.send(`⏰ **Reminder:** **${event.name}** starts ${when}! (<t:${ts}:F>)`);
           }
         } catch (err) {
-          console.error(`[bot] Forum reminder failed for alliance guild ${ag.discordGuildId} (event ${event.id}):`, err);
+          console.error(
+            `[bot] Forum reminder failed for alliance guild ${ag.discordGuildId} (event ${event.id}):`,
+            err,
+          );
         }
       }
     }
@@ -340,12 +366,13 @@ async function checkReminders() {
       // Batch-load notification prefs for all RSVPs that are not in a VC
       const eligibleRsvps = event.rsvps.filter((rsvp) => !membersInVc.has(rsvp.userId));
       const discordIds = eligibleRsvps.map((r) => r.userId);
-      const usersWithPrefs = discordIds.length > 0
-        ? await prisma.user.findMany({
-            where: { discordId: { in: discordIds } },
-            select: { discordId: true, notificationPrefs: { select: { dmEventReminder: true } } },
-          })
-        : [];
+      const usersWithPrefs =
+        discordIds.length > 0
+          ? await prisma.user.findMany({
+              where: { discordId: { in: discordIds } },
+              select: { discordId: true, notificationPrefs: { select: { dmEventReminder: true } } },
+            })
+          : [];
       const prefsMap = new Map<string, { dmEventReminder: boolean } | null>(
         usersWithPrefs.map((u) => [u.discordId, u.notificationPrefs]),
       );
@@ -357,7 +384,7 @@ async function checkReminders() {
       const dmTargets = eligibleRsvps.filter((rsvp) => {
         const prefs = prefsMap.get(rsvp.userId);
         // Unknown user or no saved prefs → default opt-in
-        return prefs === undefined || prefs === null || (prefs.dmEventReminder !== false);
+        return prefs === undefined || prefs === null || prefs.dmEventReminder !== false;
       });
 
       if (dmTargets.length === 0) {
@@ -534,7 +561,9 @@ async function checkAutoComplete() {
           if (thread.archived) await thread.setArchived(false).catch(() => null);
           await thread.send('✅ This event has been automatically completed after the 24-hour review period.');
           // While its loot is being handed out the thread stays open; checkLootThreadHolds closes it (v1.22.0).
-          const holding = await prisma.lootSession.count({ where: { eventId: event.id, status: 'COMPLETED', completedAt: { not: null }, threadClosedAt: null } });
+          const holding = await prisma.lootSession.count({
+            where: { eventId: event.id, status: 'COMPLETED', completedAt: { not: null }, threadClosedAt: null },
+          });
           if (!holding) await thread.setArchived(true).catch(() => null);
         }
       } catch (err) {
@@ -569,9 +598,7 @@ async function checkEndedEvents() {
   });
 
   for (const event of needsEndEvent) {
-    await endEvent(event.id).catch((err) =>
-      console.error(`[bot] endEvent backstop failed for ${event.id}:`, err),
-    );
+    await endEvent(event.id).catch((err) => console.error(`[bot] endEvent backstop failed for ${event.id}:`, err));
   }
 
   // ── Phase 2: deferred VC deletion with 5-min empty timer ─────────────────
@@ -619,9 +646,7 @@ async function checkEndedEvents() {
     }
 
     // 5 minutes have elapsed with empty VCs — delete them
-    await deleteEventVcs(event.id).catch((err) =>
-      console.error(`[bot] deleteEventVcs failed for ${event.id}:`, err),
-    );
+    await deleteEventVcs(event.id).catch((err) => console.error(`[bot] deleteEventVcs failed for ${event.id}:`, err));
   }
 }
 
@@ -636,7 +661,7 @@ async function checkLootPromptTimeout() {
     where: {
       status: 'ENDED',
       botEndedAt: { not: null, lte: twoHoursAgo },
-      hadLoot: null,   // prompt never answered
+      hadLoot: null, // prompt never answered
     },
     take: 5,
   });
@@ -654,7 +679,9 @@ async function checkLootPromptTimeout() {
         where: { id: event.id, hadLoot: null },
         data: { hadLoot: true },
       });
-      console.log(`[bot] checkLootPromptTimeout: event ${event.id} has an active loot session — correcting hadLoot to true`);
+      console.log(
+        `[bot] checkLootPromptTimeout: event ${event.id} has an active loot session — correcting hadLoot to true`,
+      );
       continue;
     }
 
@@ -694,7 +721,10 @@ async function checkLootPromptTimeout() {
           await thread.send('⏰ Loot prompt expired — event closed with no loot.').catch(() => null);
           await thread.setArchived(true).catch(() => null);
         } catch (err) {
-          console.error(`[bot] checkLootPromptTimeout: failed to archive alliance thread for guild ${ag.discordGuildId}:`, err);
+          console.error(
+            `[bot] checkLootPromptTimeout: failed to archive alliance thread for guild ${ag.discordGuildId}:`,
+            err,
+          );
         }
       }),
     );
@@ -716,12 +746,12 @@ export async function checkPendingShareSetup() {
   const orphaned = await prisma.eventGuildShare.findMany({
     where: {
       status: 'ACCEPTED',
-      allianceGuild: null,                          // no linked EventAllianceGuild yet
+      allianceGuild: null, // no linked EventAllianceGuild yet
       event: { status: { notIn: ['COMPLETED', 'ENDED', 'CANCELLED'] } },
       setupAttempts: { lt: SETUP_MAX_ATTEMPTS },
       OR: [{ nextSetupAt: null }, { nextSetupAt: { lte: now } }],
     },
-    take: 5,                                        // cap per tick to avoid Discord rate-limits
+    take: 5, // cap per tick to avoid Discord rate-limits
     orderBy: [{ nextSetupAt: { sort: 'asc', nulls: 'first' } }, { invitedAt: 'asc' }],
   });
 
@@ -733,9 +763,14 @@ export async function checkPendingShareSetup() {
     const done = (await prisma.eventAllianceGuild.count({ where: { shareId: share.id } })) > 0;
     const next = afterSetupAttempt(done, share.setupAttempts, new Date());
     if (done && share.setupAttempts === 0) continue;
-    await prisma.eventGuildShare.update({ where: { id: share.id }, data: { setupAttempts: next.setupAttempts, nextSetupAt: next.nextSetupAt } });
+    await prisma.eventGuildShare.update({
+      where: { id: share.id },
+      data: { setupAttempts: next.setupAttempts, nextSetupAt: next.nextSetupAt },
+    });
     if (next.gaveUp) {
-      console.warn(`[bot] Giving up on posting share ${share.id} (event ${share.eventId}) after ${next.setupAttempts} attempts — is the bot still in that server?`);
+      console.warn(
+        `[bot] Giving up on posting share ${share.id} (event ${share.eventId}) after ${next.setupAttempts} attempts — is the bot still in that server?`,
+      );
     }
   }
 }
@@ -769,10 +804,12 @@ async function checkMatchCheckIn() {
   for (const match of matches) {
     if (!match.checkedInA || !match.checkedInB) {
       // Transition to READY_CHECK and ensure the check-in reminder fired
-      await prisma.tournamentMatch.update({
-        where: { id: match.id },
-        data: { status: 'READY_CHECK' },
-      }).catch(() => null);
+      await prisma.tournamentMatch
+        .update({
+          where: { id: match.id },
+          data: { status: 'READY_CHECK' },
+        })
+        .catch(() => null);
     }
   }
 }
@@ -801,15 +838,19 @@ async function checkMatchNoShow() {
     const noShowB = !match.checkedInB ? match.participantB : null;
     const noShowNames = [noShowA?.displayName, noShowB?.displayName].filter(Boolean).join(' and ');
 
-    await thread.send(
-      `⚠️ **No-show alert** — Round ${match.round} Match ${match.position + 1}: ${noShowNames} has not checked in 30 minutes after the scheduled time. A manager must manually record the result or forfeit.`,
-    ).catch(() => null);
+    await thread
+      .send(
+        `⚠️ **No-show alert** — Round ${match.round} Match ${match.position + 1}: ${noShowNames} has not checked in 30 minutes after the scheduled time. A manager must manually record the result or forfeit.`,
+      )
+      .catch(() => null);
 
     // Transition to AWAITING_RESULT so this doesn't re-fire
-    await prisma.tournamentMatch.update({
-      where: { id: match.id },
-      data: { status: 'AWAITING_RESULT' },
-    }).catch(() => null);
+    await prisma.tournamentMatch
+      .update({
+        where: { id: match.id },
+        data: { status: 'AWAITING_RESULT' },
+      })
+      .catch(() => null);
   }
 }
 
@@ -841,13 +882,13 @@ async function checkMatchNoShowEscalation() {
     const roundLabel = `Round ${match.round} Match ${match.position + 1}`;
     const checkedInA = match.checkedInA ? match.participantA : null;
     const checkedInB = match.checkedInB ? match.participantB : null;
-    const noShowA    = !match.checkedInA ? match.participantA : null;
-    const noShowB    = !match.checkedInB ? match.participantB : null;
+    const noShowA = !match.checkedInA ? match.participantA : null;
+    const noShowB = !match.checkedInB ? match.participantB : null;
 
     // One side confirmed, one is a no-show — offer managers the auto-forfeit button
     if ((checkedInA || checkedInB) && (noShowA || noShowB)) {
-      const winner   = (checkedInA ?? checkedInB)!;
-      const noShow   = (noShowA   ?? noShowB)!;
+      const winner = (checkedInA ?? checkedInB)!;
+      const noShow = (noShowA ?? noShowB)!;
 
       const forfeitRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
@@ -856,26 +897,30 @@ async function checkMatchNoShowEscalation() {
           .setStyle(ButtonStyle.Danger),
       );
 
-      await thread.send({
-        content: `🔴 **Escalation — ${roundLabel}:** It has been 2 hours since the scheduled time.\n**${noShow.displayName}** has not checked in. **${winner.displayName}** was present and ready.\n\n_Managers: click below to record a forfeit win for ${winner.displayName}. If this is the final match, mark the tournament complete via the dashboard afterwards._`,
-        components: [forfeitRow],
-      }).catch(() => null);
-
+      await thread
+        .send({
+          content: `🔴 **Escalation — ${roundLabel}:** It has been 2 hours since the scheduled time.\n**${noShow.displayName}** has not checked in. **${winner.displayName}** was present and ready.\n\n_Managers: click below to record a forfeit win for ${winner.displayName}. If this is the final match, mark the tournament complete via the dashboard afterwards._`,
+          components: [forfeitRow],
+        })
+        .catch(() => null);
     } else {
       // Neither side checked in — require manual manager action
       const nameA = match.participantA?.displayName ?? '?';
       const nameB = match.participantB?.displayName ?? '?';
 
-      await thread.send(
-        `🔴 **Escalation — ${roundLabel}:** It has been 2 hours since the scheduled time and **neither ${nameA} nor ${nameB} checked in**. A manager must manually record the result, record a forfeit via the dashboard, or contact both participants. If this was the final match, mark the tournament complete via the dashboard once resolved.`,
-      ).catch(() => null);
+      await thread
+        .send(
+          `🔴 **Escalation — ${roundLabel}:** It has been 2 hours since the scheduled time and **neither ${nameA} nor ${nameB} checked in**. A manager must manually record the result, record a forfeit via the dashboard, or contact both participants. If this was the final match, mark the tournament complete via the dashboard once resolved.`,
+        )
+        .catch(() => null);
     }
 
     // Mark escalated so this match won't fire again
-    await prisma.tournamentMatch.update({
-      where: { id: match.id },
-      data: { noShowEscalatedAt: new Date() },
-    }).catch(() => null);
+    await prisma.tournamentMatch
+      .update({
+        where: { id: match.id },
+        data: { noShowEscalatedAt: new Date() },
+      })
+      .catch(() => null);
   }
 }
-

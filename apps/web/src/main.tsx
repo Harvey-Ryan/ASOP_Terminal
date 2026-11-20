@@ -36,11 +36,16 @@ const queryClient = new QueryClient({
     // Saving a setting, creating an event or switching a module can finish the
     // setup checklist, so it's checked again (v1.22.1). Only a mounted
     // checklist refetches; others just count as stale.
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['setup'] }); },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['setup'] });
+    },
     onError: (error, _vars, _ctx, mutation) => {
       if (mutation.options.onError || mutation.meta?.quietErrors) return;
       // Signed out (session expired): back to the login page, as for queries.
-      if (error instanceof ApiError && error.status === 401) { queryClient.setQueryData(AUTH_QUERY_KEY, null); return; }
+      if (error instanceof ApiError && error.status === 401) {
+        queryClient.setQueryData(AUTH_QUERY_KEY, null);
+        return;
+      }
       const text = error instanceof Error && error.message ? error.message : 'Something went wrong. Please try again.';
       // Server errors carry a ref to quote when asking for help (v1.13.0).
       const ref = error instanceof ApiError && error.status >= 500 ? error.ref : null;

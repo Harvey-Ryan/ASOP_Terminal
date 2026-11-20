@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
-import type { ApiResponse, MarketplaceListingDto, TradeDto, TradeMessageDto, CreateTradeBody, InventoryItemType, TradeStatus } from '@dem/shared';
+import type {
+  ApiResponse,
+  MarketplaceListingDto,
+  TradeDto,
+  TradeMessageDto,
+  CreateTradeBody,
+  InventoryItemType,
+  TradeStatus,
+} from '@dem/shared';
 
 export const marketplaceRouter = Router();
 
@@ -23,7 +31,7 @@ async function sendBotDm(userId: string, content: string): Promise<void> {
       body: JSON.stringify({ recipient_id: userId }),
     });
     if (!dmRes.ok) return;
-    const { id: channelId } = await dmRes.json() as { id: string };
+    const { id: channelId } = (await dmRes.json()) as { id: string };
     await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bot ${token}`, 'Content-Type': 'application/json' },
@@ -62,7 +70,7 @@ const DM_COOLDOWN_MS = 60 * 60 * 1000;
 const dmCooldowns = new Map<string, number>();
 
 async function maybeSendMessageDm(recipientId: string, tradeId: string, content: string) {
-  if (!await canSendDm(recipientId, 'dmTradeMessage')) return;
+  if (!(await canSendDm(recipientId, 'dmTradeMessage'))) return;
   const key = `${recipientId}:${tradeId}`;
   const lastSent = dmCooldowns.get(key) ?? 0;
   if (Date.now() - lastSent < DM_COOLDOWN_MS) return;
@@ -76,11 +84,22 @@ const LISTING_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 function toListingDto(
   row: {
-    id: string; guildId: string; userId: string; username: string;
-    itemType: string; externalItemId: number | null; itemUuid: string | null; itemName: string;
-    quantity: number; quantityListed: number | null; qualityLevel: number | null;
-    location: string | null; askingPrice: number | null; priceNote: string | null;
-    listedAt: Date | null; updatedAt: Date;
+    id: string;
+    guildId: string;
+    userId: string;
+    username: string;
+    itemType: string;
+    externalItemId: number | null;
+    itemUuid: string | null;
+    itemName: string;
+    quantity: number;
+    quantityListed: number | null;
+    qualityLevel: number | null;
+    location: string | null;
+    askingPrice: number | null;
+    priceNote: string | null;
+    listedAt: Date | null;
+    updatedAt: Date;
   },
   guildName: string,
 ): MarketplaceListingDto {
@@ -105,11 +124,19 @@ function toListingDto(
 }
 
 function tradeToDto(t: {
-  id: string; inventoryEntryId: string; listingSnapshot: unknown;
-  buyerGuildId: string; buyerId: string; buyerUsername: string;
-  quantityRequested: number; note: string | null; status: string;
-  sellerActive: boolean; unreadCount: number;
-  createdAt: Date; updatedAt: Date;
+  id: string;
+  inventoryEntryId: string;
+  listingSnapshot: unknown;
+  buyerGuildId: string;
+  buyerId: string;
+  buyerUsername: string;
+  quantityRequested: number;
+  note: string | null;
+  status: string;
+  sellerActive: boolean;
+  unreadCount: number;
+  createdAt: Date;
+  updatedAt: Date;
 }): TradeDto {
   return {
     id: t.id,
@@ -142,15 +169,15 @@ function tradeToDto(t: {
 const BROWSE_MAX = 50;
 
 marketplaceRouter.get('/marketplace/browse', requireAuth, async (req, res) => {
-  const q             = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
-  const itemType      = typeof req.query.itemType === 'string' ? req.query.itemType : undefined;
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : undefined;
+  const itemType = typeof req.query.itemType === 'string' ? req.query.itemType : undefined;
   const filterGuildId = typeof req.query.filterGuildId === 'string' ? req.query.filterGuildId : undefined;
-  const hasPriceOnly  = req.query.hasPriceOnly === 'true';
-  const sort          = req.query.sort === 'price_asc' ? 'price_asc' : 'newest';
-  const rawLimit      = parseInt(String(req.query.limit ?? ''), 10);
-  const rawOffset     = parseInt(String(req.query.offset ?? ''), 10);
-  const limit         = Math.min(isNaN(rawLimit) || rawLimit <= 0 ? BROWSE_MAX : rawLimit, BROWSE_MAX);
-  const offset        = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
+  const hasPriceOnly = req.query.hasPriceOnly === 'true';
+  const sort = req.query.sort === 'price_asc' ? 'price_asc' : 'newest';
+  const rawLimit = parseInt(String(req.query.limit ?? ''), 10);
+  const rawOffset = parseInt(String(req.query.offset ?? ''), 10);
+  const limit = Math.min(isNaN(rawLimit) || rawLimit <= 0 ? BROWSE_MAX : rawLimit, BROWSE_MAX);
+  const offset = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
   if (itemType && !['ITEM', 'COMMODITY'].includes(itemType)) {
     res.status(400).json({ success: false, error: 'itemType must be ITEM or COMMODITY' } satisfies ApiResponse);
@@ -161,7 +188,10 @@ marketplaceRouter.get('/marketplace/browse', requireAuth, async (req, res) => {
 
   const orderBy =
     sort === 'price_asc'
-      ? [{ askingPrice: { sort: 'asc' as const, nulls: 'last' as const } }, { listedAt: { sort: 'desc' as const, nulls: 'last' as const } }]
+      ? [
+          { askingPrice: { sort: 'asc' as const, nulls: 'last' as const } },
+          { listedAt: { sort: 'desc' as const, nulls: 'last' as const } },
+        ]
       : [{ listedAt: { sort: 'desc' as const, nulls: 'last' as const } }, { itemName: 'asc' as const }];
 
   const rows = await prisma.inventoryEntry.findMany({
@@ -181,12 +211,13 @@ marketplaceRouter.get('/marketplace/browse', requireAuth, async (req, res) => {
 
   // Batch-load guild names only for the returned rows
   const guildIds = [...new Set(rows.map((r) => r.guildId))];
-  const guilds = guildIds.length > 0
-    ? await prisma.guild.findMany({
-        where: { guildId: { in: guildIds } },
-        select: { guildId: true, name: true },
-      })
-    : [];
+  const guilds =
+    guildIds.length > 0
+      ? await prisma.guild.findMany({
+          where: { guildId: { in: guildIds } },
+          select: { guildId: true, name: true },
+        })
+      : [];
   const guildNameMap = new Map(guilds.map((g) => [g.guildId, g.name]));
 
   const data: MarketplaceListingDto[] = rows.map((row) =>
@@ -223,10 +254,7 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades/unread-count', requir
 
   const trades = await prisma.trade.findMany({
     where: {
-      OR: [
-        { inventoryEntry: { guildId, userId: me } },
-        { buyerGuildId: guildId, buyerId: me },
-      ],
+      OR: [{ inventoryEntry: { guildId, userId: me } }, { buyerGuildId: guildId, buyerId: me }],
     },
     select: { id: true },
   });
@@ -282,11 +310,12 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades', requireAuth, async 
   const allTrades = [...incoming, ...outgoing];
 
   // Load read records for the current user across all returned trades
-  const readRecords = allTrades.length > 0
-    ? await prisma.tradeMessageRead.findMany({
-        where: { userId: me, tradeId: { in: allTrades.map((t) => t.id) } },
-      })
-    : [];
+  const readRecords =
+    allTrades.length > 0
+      ? await prisma.tradeMessageRead.findMany({
+          where: { userId: me, tradeId: { in: allTrades.map((t) => t.id) } },
+        })
+      : [];
   const readMap = new Map(readRecords.map((r) => [r.tradeId, r.lastReadAt]));
 
   // Count messages sent by the other party after the user's lastReadAt
@@ -308,8 +337,12 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades', requireAuth, async 
   res.json({
     success: true,
     data: {
-      incoming: incoming.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 })),
-      outgoing: outgoing.map((t) => tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 })),
+      incoming: incoming.map((t) =>
+        tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 }),
+      ),
+      outgoing: outgoing.map((t) =>
+        tradeToDto({ ...t, sellerActive: t.inventoryEntry.memberActive, unreadCount: unreadMap.get(t.id) ?? 0 }),
+      ),
     },
   } satisfies ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>);
 });
@@ -323,30 +356,40 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades', requireAuth, async
   const body = req.body as CreateTradeBody;
 
   if (!body.inventoryEntryId) {
-    res.status(400).json({ success: false, error: 'inventoryEntryId is required' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'inventoryEntryId is required' } satisfies ApiResponse);
+    return;
   }
   if (typeof body.quantityRequested !== 'number' || body.quantityRequested <= 0) {
-    res.status(400).json({ success: false, error: 'quantityRequested must be a positive number' } satisfies ApiResponse); return;
+    res
+      .status(400)
+      .json({ success: false, error: 'quantityRequested must be a positive number' } satisfies ApiResponse);
+    return;
   }
 
   const listing = await prisma.inventoryEntry.findUnique({ where: { id: body.inventoryEntryId } });
   if (!listing || !listing.forSale || !listing.memberActive) {
-    res.status(404).json({ success: false, error: 'Listing not found or no longer available' } satisfies ApiResponse); return;
+    res.status(404).json({ success: false, error: 'Listing not found or no longer available' } satisfies ApiResponse);
+    return;
   }
   if (listing.userId === dbUser.discordId) {
-    res.status(400).json({ success: false, error: 'You cannot buy your own listing' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'You cannot buy your own listing' } satisfies ApiResponse);
+    return;
   }
 
   const available = listing.quantityListed ?? listing.quantity;
   if (body.quantityRequested > available) {
-    res.status(400).json({ success: false, error: `Only ${available} available` } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: `Only ${available} available` } satisfies ApiResponse);
+    return;
   }
 
   const existingPending = await prisma.trade.findFirst({
     where: { inventoryEntryId: listing.id, buyerId: dbUser.discordId, status: 'PENDING' },
   });
   if (existingPending) {
-    res.status(409).json({ success: false, error: 'You already have a pending request for this listing' } satisfies ApiResponse); return;
+    res
+      .status(409)
+      .json({ success: false, error: 'You already have a pending request for this listing' } satisfies ApiResponse);
+    return;
   }
 
   const guild = await prisma.guild.findFirst({ where: { guildId: listing.guildId }, select: { name: true } });
@@ -365,15 +408,20 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades', requireAuth, async
   });
 
   const buyerName = dbUser.globalName ?? dbUser.username;
-  canSendDm(listing.userId, 'dmTradeRequest').then((ok) => {
-    if (!ok) return;
-    sendBotDm(
-      listing.userId,
-      `New trade request! ${buyerName} wants to buy ${body.quantityRequested}x ${listing.itemName} from your marketplace listing.${body.note ? `\n"${body.note}"` : ''}\n\nSign in to accept or decline: ${WEB_URL}${NOTIF_FOOTER}`,
-    );
-  }).catch(() => null);
+  canSendDm(listing.userId, 'dmTradeRequest')
+    .then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        listing.userId,
+        `New trade request! ${buyerName} wants to buy ${body.quantityRequested}x ${listing.itemName} from your marketplace listing.${body.note ? `\n"${body.note}"` : ''}\n\nSign in to accept or decline: ${WEB_URL}${NOTIF_FOOTER}`,
+      );
+    })
+    .catch(() => null);
 
-  res.status(201).json({ success: true, data: tradeToDto({ ...trade, sellerActive: true, unreadCount: 0 }) } satisfies ApiResponse<TradeDto>);
+  res.status(201).json({
+    success: true,
+    data: tradeToDto({ ...trade, sellerActive: true, unreadCount: 0 }),
+  } satisfies ApiResponse<TradeDto>);
 });
 
 // ── PATCH /api/guilds/:guildId/marketplace/trades/:tradeId/accept ─────────────
@@ -389,21 +437,25 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/accept', r
     include: { inventoryEntry: true },
   });
   if (!trade || trade.status !== 'PENDING') {
-    res.status(404).json({ success: false, error: 'Trade not found or already resolved' } satisfies ApiResponse); return;
+    res.status(404).json({ success: false, error: 'Trade not found or already resolved' } satisfies ApiResponse);
+    return;
   }
   if (trade.inventoryEntry.userId !== dbUser.discordId) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
 
   const available = trade.inventoryEntry.quantityListed ?? trade.inventoryEntry.quantity;
   if (trade.quantityRequested > available) {
-    res.status(409).json({ success: false, error: 'Not enough quantity remaining to fulfil this trade' } satisfies ApiResponse); return;
+    res
+      .status(409)
+      .json({ success: false, error: 'Not enough quantity remaining to fulfil this trade' } satisfies ApiResponse);
+    return;
   }
 
   const newQty = trade.inventoryEntry.quantity - trade.quantityRequested;
-  const newListed = trade.inventoryEntry.quantityListed !== null
-    ? trade.inventoryEntry.quantityListed - trade.quantityRequested
-    : null;
+  const newListed =
+    trade.inventoryEntry.quantityListed !== null ? trade.inventoryEntry.quantityListed - trade.quantityRequested : null;
   const exhausted = (newListed !== null ? newListed : newQty) <= 0;
 
   await prisma.$transaction([
@@ -422,13 +474,15 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/accept', r
     }),
   ]);
 
-  canSendDm(trade.buyerId, 'dmTradeStatus').then((ok) => {
-    if (!ok) return;
-    sendBotDm(
-      trade.buyerId,
-      `Trade accepted! ${dbUser.globalName ?? dbUser.username} accepted your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}. Reach out to arrange the handoff.${NOTIF_FOOTER}`,
-    );
-  }).catch(() => null);
+  canSendDm(trade.buyerId, 'dmTradeStatus')
+    .then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        trade.buyerId,
+        `Trade accepted! ${dbUser.globalName ?? dbUser.username} accepted your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}. Reach out to arrange the handoff.${NOTIF_FOOTER}`,
+      );
+    })
+    .catch(() => null);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -444,21 +498,25 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/decline', 
     include: { inventoryEntry: true },
   });
   if (!trade || trade.status !== 'PENDING') {
-    res.status(404).json({ success: false, error: 'Trade not found or already resolved' } satisfies ApiResponse); return;
+    res.status(404).json({ success: false, error: 'Trade not found or already resolved' } satisfies ApiResponse);
+    return;
   }
   if (trade.inventoryEntry.userId !== dbUser.discordId) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
 
   await prisma.trade.update({ where: { id: tradeId }, data: { status: 'DECLINED' } });
 
-  canSendDm(trade.buyerId, 'dmTradeStatus').then((ok) => {
-    if (!ok) return;
-    sendBotDm(
-      trade.buyerId,
-      `Trade declined. ${dbUser.globalName ?? dbUser.username} declined your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}.${NOTIF_FOOTER}`,
-    );
-  }).catch(() => null);
+  canSendDm(trade.buyerId, 'dmTradeStatus')
+    .then((ok) => {
+      if (!ok) return;
+      sendBotDm(
+        trade.buyerId,
+        `Trade declined. ${dbUser.globalName ?? dbUser.username} declined your request for ${trade.quantityRequested}x ${trade.inventoryEntry.itemName}.${NOTIF_FOOTER}`,
+      );
+    })
+    .catch(() => null);
 
   res.json({ success: true } satisfies ApiResponse);
 });
@@ -483,7 +541,7 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/cancel', r
     return;
   }
 
-  const isBuyer  = trade.buyerId === me;
+  const isBuyer = trade.buyerId === me;
   const isSeller = trade.inventoryEntry.userId === me;
 
   if (!isBuyer && !isSeller) {
@@ -497,21 +555,25 @@ marketplaceRouter.patch('/guilds/:guildId/marketplace/trades/:tradeId/cancel', r
   const qty = trade.quantityRequested;
 
   if (isBuyer) {
-    canSendDm(trade.inventoryEntry.userId, 'dmTradeCancelled').then((ok) => {
-      if (!ok) return;
-      sendBotDm(
-        trade.inventoryEntry.userId,
-        `Trade request cancelled. ${myName} cancelled their request for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
-      );
-    }).catch(() => null);
+    canSendDm(trade.inventoryEntry.userId, 'dmTradeCancelled')
+      .then((ok) => {
+        if (!ok) return;
+        sendBotDm(
+          trade.inventoryEntry.userId,
+          `Trade request cancelled. ${myName} cancelled their request for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
+        );
+      })
+      .catch(() => null);
   } else {
-    canSendDm(trade.buyerId, 'dmTradeCancelled').then((ok) => {
-      if (!ok) return;
-      sendBotDm(
-        trade.buyerId,
-        `Trade cancelled. ${myName} cancelled the trade for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
-      );
-    }).catch(() => null);
+    canSendDm(trade.buyerId, 'dmTradeCancelled')
+      .then((ok) => {
+        if (!ok) return;
+        sendBotDm(
+          trade.buyerId,
+          `Trade cancelled. ${myName} cancelled the trade for ${qty}x ${itemName}.${NOTIF_FOOTER}`,
+        );
+      })
+      .catch(() => null);
   }
 
   res.json({ success: true } satisfies ApiResponse);
@@ -529,12 +591,17 @@ marketplaceRouter.get('/guilds/:guildId/marketplace/trades/:tradeId/messages', r
     where: { id: tradeId },
     include: { inventoryEntry: { select: { userId: true, guildId: true } } },
   });
-  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (!trade) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse);
+    return;
+  }
   if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
-    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse);
+    return;
   }
   if (trade.buyerId !== me && trade.inventoryEntry.userId !== me) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
 
   const messages = await prisma.tradeMessage.findMany({
@@ -568,26 +635,34 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages', 
     where: { id: tradeId },
     include: { inventoryEntry: { select: { userId: true, itemName: true, guildId: true } } },
   });
-  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (!trade) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse);
+    return;
+  }
   if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
-    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse);
+    return;
   }
 
-  const isBuyer  = trade.buyerId === me;
+  const isBuyer = trade.buyerId === me;
   const isSeller = trade.inventoryEntry.userId === me;
   if (!isBuyer && !isSeller) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
   if (trade.status === 'DECLINED' || trade.status === 'CANCELLED') {
-    res.status(409).json({ success: false, error: 'Cannot message on a closed trade' } satisfies ApiResponse); return;
+    res.status(409).json({ success: false, error: 'Cannot message on a closed trade' } satisfies ApiResponse);
+    return;
   }
 
   const body = (req.body as { body?: unknown }).body;
   if (typeof body !== 'string' || !body.trim()) {
-    res.status(400).json({ success: false, error: 'body is required' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'body is required' } satisfies ApiResponse);
+    return;
   }
   if (body.trim().length > 1000) {
-    res.status(400).json({ success: false, error: 'Message too long (max 1000 characters)' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'Message too long (max 1000 characters)' } satisfies ApiResponse);
+    return;
   }
 
   const message = await prisma.tradeMessage.create({
@@ -629,12 +704,17 @@ marketplaceRouter.post('/guilds/:guildId/marketplace/trades/:tradeId/messages/re
     where: { id: tradeId },
     include: { inventoryEntry: { select: { userId: true, guildId: true } } },
   });
-  if (!trade) { res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return; }
+  if (!trade) {
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse);
+    return;
+  }
   if (trade.inventoryEntry.guildId !== guildId && trade.buyerGuildId !== guildId) {
-    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse); return;
+    res.status(404).json({ success: false, error: 'Trade not found' } satisfies ApiResponse);
+    return;
   }
   if (trade.buyerId !== me && trade.inventoryEntry.userId !== me) {
-    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return;
   }
 
   await prisma.tradeMessageRead.upsert({

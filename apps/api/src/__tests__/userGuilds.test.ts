@@ -10,25 +10,46 @@ import { createUser, createGuild } from './factories.js';
 const app = createServer();
 const MANAGE = String(1 << 5);
 beforeEach(() => resetUserGuilds());
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /** Discord: /users/@me/guilds answers from `answers` in turn (then the last one); counts calls. */
 function discord(answers: (() => Response)[]) {
   const calls: string[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    const u = String(url);
-    if (u.endsWith('/users/@me/guilds')) { calls.push(u); return (answers[Math.min(calls.length - 1, answers.length - 1)]!)(); }
-    return new Response('{}', { status: 404 });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      const u = String(url);
+      if (u.endsWith('/users/@me/guilds')) {
+        calls.push(u);
+        return answers[Math.min(calls.length - 1, answers.length - 1)]!();
+      }
+      return new Response('{}', { status: 404 });
+    }),
+  );
   return calls;
 }
-const ok = (guilds: unknown[]) => () => new Response(JSON.stringify(guilds), { status: 200, headers: { 'content-type': 'application/json' } });
-const limited = (seconds: number) => () => new Response('{"message":"You are being rate limited."}', { status: 429, headers: { 'Retry-After': String(seconds) } });
+const ok = (guilds: unknown[]) => () =>
+  new Response(JSON.stringify(guilds), { status: 200, headers: { 'content-type': 'application/json' } });
+const limited = (seconds: number) => () =>
+  new Response('{"message":"You are being rate limited."}', {
+    status: 429,
+    headers: { 'Retry-After': String(seconds) },
+  });
 
 async function signIn() {
   const g = await createGuild({ name: 'Fleet' });
   const user = await createUser({ discordId: String(100000000000000000n + BigInt(Math.floor(Math.random() * 1e9))) });
-  await prisma.account.create({ data: { userId: user.id, provider: 'discord', providerAccountId: user.discordId, accessToken: 't', expiresAt: Math.floor(Date.now() / 1000) + 86_400 } });
+  await prisma.account.create({
+    data: {
+      userId: user.id,
+      provider: 'discord',
+      providerAccountId: user.discordId,
+      accessToken: 't',
+      expiresAt: Math.floor(Date.now() / 1000) + 86_400,
+    },
+  });
   const agent = request.agent(app);
   await agent.post('/test/login').send({ userId: user.id, managedGuildIds: null }); // no list yet: the check has to ask
   await prisma.guildSettings.deleteMany({ where: { guild: { guildId: g.guildId } } });

@@ -19,17 +19,9 @@ export const data = new SlashCommandBuilder()
   .setName('event')
   .setDescription('Manage events')
   .setDefaultMemberPermissions('0')
-  .addSubcommand((sub) =>
-    sub.setName('create').setDescription('Open the web dashboard to create a new event'),
-  )
-  .addSubcommand((sub) =>
-    sub.setName('end').setDescription('End an active event in this server'),
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('list')
-      .setDescription('List upcoming events'),
-  );
+  .addSubcommand((sub) => sub.setName('create').setDescription('Open the web dashboard to create a new event'))
+  .addSubcommand((sub) => sub.setName('end').setDescription('End an active event in this server'))
+  .addSubcommand((sub) => sub.setName('list').setDescription('List upcoming events'));
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 
@@ -116,7 +108,10 @@ async function handleEnd(interaction: ChatInputCommandInteraction) {
     await selection.update({ content: `⏳ Ending **${event?.name ?? eventId}**…`, components: [] });
 
     await endEvent(eventId);
-    await interaction.editReply({ content: `✅ **${event?.name ?? eventId}** ended. VCs deleted, loot prompt posted.`, components: [] });
+    await interaction.editReply({
+      content: `✅ **${event?.name ?? eventId}** ended. VCs deleted, loot prompt posted.`,
+      components: [],
+    });
   } catch {
     await interaction.editReply({ content: 'Timed out — no event selected.', components: [] });
   }
@@ -138,10 +133,7 @@ async function handleList(interaction: ChatInputCommandInteraction) {
     where: {
       status: { notIn: ['COMPLETED', 'CANCELLED'] },
       startTime: { gte: new Date() },
-      OR: [
-        { guildId },
-        ...(sharedEventIds.length > 0 ? [{ id: { in: sharedEventIds } }] : []),
-      ],
+      OR: [{ guildId }, ...(sharedEventIds.length > 0 ? [{ id: { in: sharedEventIds } }] : [])],
     },
     orderBy: { startTime: 'asc' },
     take: 15,
@@ -184,7 +176,7 @@ async function handleList(interaction: ChatInputCommandInteraction) {
 export function startedAgo(start: Date | string, now = Date.now()): string {
   const diff = now - new Date(start).getTime();
   const mins = Math.round(Math.abs(diff) / 60_000);
-  const span = mins < 60 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`;
+  const span =
+    mins < 60 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`;
   return diff >= 0 ? `Started ${span} ago` : `Starts in ${span}`;
 }
-

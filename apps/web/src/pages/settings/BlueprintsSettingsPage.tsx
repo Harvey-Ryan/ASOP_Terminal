@@ -64,8 +64,8 @@ export function BlueprintsSettingsPage() {
         <div className="space-y-1">
           <p className="font-medium text-yellow-500">Under Construction</p>
           <p className="text-muted-foreground">
-            The Blueprints browser is functional for browsing and searching SC crafting data.
-            Additional features like personal watchlists and material cost tracking are planned.
+            The Blueprints browser is functional for browsing and searching SC crafting data. Additional features like
+            personal watchlists and material cost tracking are planned.
           </p>
         </div>
       </div>
@@ -82,9 +82,11 @@ export function BlueprintsSettingsPage() {
                 checked={form.blueprintsEnabled}
                 onChange={(v) => setField('blueprintsEnabled', v)}
                 label="Blueprints enabled"
-                description={form.blueprintsEnabled
-                  ? 'Members can browse and search SC blueprints.'
-                  : 'Blueprints is disabled. The Blueprints nav link will be hidden for all members.'}
+                description={
+                  form.blueprintsEnabled
+                    ? 'Members can browse and search SC blueprints.'
+                    : 'Blueprints is disabled. The Blueprints nav link will be hidden for all members.'
+                }
                 tooltip="Controls whether the Star Citizen Blueprints browser is visible to members of this server. When disabled, the Blueprints nav link is hidden. Existing blueprint data is not affected."
               />
             </CardContent>
@@ -99,9 +101,7 @@ export function BlueprintsSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
         </div>
       )}

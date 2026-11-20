@@ -30,9 +30,9 @@ import 'dotenv/config';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const API   = (process.env['SCRIPT_API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
+const API = (process.env['SCRIPT_API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
 const GUILD = process.env['SCRIPT_GUILD_ID'] ?? '';
-const USER  = process.env['SCRIPT_USER_ID']  ?? '';
+const USER = process.env['SCRIPT_USER_ID'] ?? '';
 const DELAY = 30_000; // ms between stages
 
 // Four participants → clean 2-round bracket, no BYEs
@@ -60,8 +60,9 @@ async function api(method: string, path: string, body?: unknown) {
   const raw = res.headers.get('set-cookie');
   if (raw) {
     // Collapse multi-value Set-Cookie into a single Cookie header (name=value only)
-    cookies = raw.split(/,(?=[^ ].*?=)/)
-      .map(c => c.trim().split(';')[0]!)
+    cookies = raw
+      .split(/,(?=[^ ].*?=)/)
+      .map((c) => c.trim().split(';')[0]!)
       .join('; ');
   }
 
@@ -72,7 +73,7 @@ async function api(method: string, path: string, body?: unknown) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function sleep(ms: number) {
-  return new Promise<void>(r => setTimeout(r, ms));
+  return new Promise<void>((r) => setTimeout(r, ms));
 }
 
 function hr(label: string) {
@@ -80,8 +81,12 @@ function hr(label: string) {
   console.log(`\n${line}\n  ${label}\n${line}`);
 }
 
-function ok(msg: string)   { console.log(`  ✅  ${msg}`); }
-function info(msg: string) { console.log(`  ℹ️   ${msg}`); }
+function ok(msg: string) {
+  console.log(`  ✅  ${msg}`);
+}
+function info(msg: string) {
+  console.log(`  ℹ️   ${msg}`);
+}
 
 async function must<T>(result: Awaited<ReturnType<typeof api>>, label: string): Promise<T> {
   if (result.status < 200 || result.status >= 300) {
@@ -137,10 +142,7 @@ async function main() {
 
   // ── Login ──────────────────────────────────────────────────────────────────
   hr('Login');
-  await must(
-    await api('POST', '/test/login', { userId: USER, managedGuildIds: [GUILD] }),
-    'Logged in via /test/login',
-  );
+  await must(await api('POST', '/test/login', { userId: USER, managedGuildIds: [GUILD] }), 'Logged in via /test/login');
 
   // ── Stage 1: Create tournament ─────────────────────────────────────────────
   hr('Stage 1 — Create tournament');
@@ -162,10 +164,7 @@ async function main() {
   // ── Stage 2: Open registration ─────────────────────────────────────────────
   hr('Stage 2 — Open registration');
   info('Expected Discord: thread renamed, registration embed with Join button');
-  await must(
-    await api('POST', `/api/guilds/${GUILD}/tournaments/${tournament.id}/open`),
-    'Registration opened',
-  );
+  await must(await api('POST', `/api/guilds/${GUILD}/tournaments/${tournament.id}/open`), 'Registration opened');
   await countdown(DELAY / 1000);
 
   // ── Stage 3: Register participants ─────────────────────────────────────────
@@ -187,15 +186,12 @@ async function main() {
   // ── Stage 4: Start tournament ──────────────────────────────────────────────
   hr('Stage 4 — Start tournament (close registration + generate bracket)');
   info('Expected Discord: "🔒 Registration closed!" → bracket image → Round 1 match cards');
-  await must(
-    await api('POST', `/api/guilds/${GUILD}/tournaments/${tournament.id}/start`),
-    'Tournament started',
-  );
+  await must(await api('POST', `/api/guilds/${GUILD}/tournaments/${tournament.id}/start`), 'Tournament started');
   await countdown(DELAY / 1000);
 
   // ── Stages 5+: Submit results round by round ───────────────────────────────
   let detail = await fetchDetail(tournament.id);
-  const maxRound = Math.max(...detail.matches.map(m => m.round));
+  const maxRound = Math.max(...detail.matches.map((m) => m.round));
 
   for (let round = 1; round <= maxRound; round++) {
     // Re-fetch so we get the current participantAId / participantBId for this round
@@ -203,19 +199,21 @@ async function main() {
     detail = await fetchDetail(tournament.id);
 
     const roundMatches = detail.matches
-      .filter(m => m.round === round && m.status !== 'BYE' && m.participantAId && m.participantBId)
+      .filter((m) => m.round === round && m.status !== 'BYE' && m.participantAId && m.participantBId)
       .sort((a, b) => a.position - b.position);
 
     const isLastRound = round === maxRound;
-    hr(`Stage ${4 + round} — Round ${round} results (${roundMatches.length} match${roundMatches.length !== 1 ? 'es' : ''})${isLastRound ? '  →  🏆 champion' : ''}`);
+    hr(
+      `Stage ${4 + round} — Round ${round} results (${roundMatches.length} match${roundMatches.length !== 1 ? 'es' : ''})${isLastRound ? '  →  🏆 champion' : ''}`,
+    );
 
     for (const match of roundMatches) {
       // Always declare participant A the winner for determinism
-      const res = await api(
-        'POST',
-        `/api/guilds/${GUILD}/tournaments/${tournament.id}/matches/${match.id}/result`,
-        { winnerId: match.participantAId, scoreA: 2, scoreB: 1 },
-      );
+      const res = await api('POST', `/api/guilds/${GUILD}/tournaments/${tournament.id}/matches/${match.id}/result`, {
+        winnerId: match.participantAId,
+        scoreA: 2,
+        scoreB: 1,
+      });
 
       if (res.status >= 200 && res.status < 300) {
         ok(`Round ${round} · match ${match.position + 1}: participant A wins (2–1)`);
@@ -244,7 +242,7 @@ async function main() {
   console.log('  Full lifecycle exercised. Check Discord for all expected posts.\n');
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('\n❌  Unexpected error:', err);
   process.exit(1);
 });

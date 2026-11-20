@@ -79,10 +79,7 @@ export function prevPow2(n: number): number {
 
 // ── Bracket generator ─────────────────────────────────────────────────────────
 
-export function generateSingleElimBracket(
-  tournamentId: string,
-  participants: BracketParticipant[],
-): MatchSlot[] {
+export function generateSingleElimBracket(tournamentId: string, participants: BracketParticipant[]): MatchSlot[] {
   const sorted = [...participants].sort((a, b) => a.seed - b.seed);
   const N = sorted.length;
 
@@ -152,16 +149,14 @@ export function generateSingleElimBracket(
   // 3rd-place match: only when the semi-final round has two real (non-BYE) slots
   // so that both semi-final losers exist.  If the semi has a structural BYE, one
   // side has no loser and the 3rd-place match is skipped.
-  const semiFinalHasBye = totalRounds >= 2
-    ? (roundStructure[totalRounds - 2]?.hasBye ?? false)
-    : true; // treat as "has bye" to skip 3rd place for tiny brackets
+  const semiFinalHasBye = totalRounds >= 2 ? (roundStructure[totalRounds - 2]?.hasBye ?? false) : true; // treat as "has bye" to skip 3rd place for tiny brackets
 
   if (totalRounds >= 2 && !semiFinalHasBye) {
     const THIRD_KEY = 'tp_p0';
     matches.push({
       key: THIRD_KEY,
       tournamentId,
-      round: totalRounds,   // same round number as the Grand Final
+      round: totalRounds, // same round number as the Grand Final
       position: 0,
       bracketSide: 'THIRD_PLACE',
       participantAId: null,

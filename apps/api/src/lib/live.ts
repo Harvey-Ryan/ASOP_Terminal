@@ -10,7 +10,11 @@
 import pg from 'pg';
 import { LIVE_CHANNEL, parseLiveNotice } from '@dem/shared';
 
-interface Subscriber { topics: Set<string>; send(topics: string[]): void; end(): void }
+interface Subscriber {
+  topics: Set<string>;
+  send(topics: string[]): void;
+  end(): void;
+}
 
 const subscribers = new Set<Subscriber>();
 let client: pg.Client | null = null;
@@ -36,7 +40,11 @@ function dropped(err?: unknown): void {
   // (and reconnect once we're back).
   for (const sub of subscribers) sub.end();
   subscribers.clear();
-  if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; void ensureListening(); }, 5_000);
+  if (!retryTimer)
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      void ensureListening();
+    }, 5_000);
 }
 
 /** Connects the listener if it isn't; resolves true once it is. */
@@ -46,8 +54,12 @@ export async function ensureListening(): Promise<boolean> {
     connecting = (async () => {
       const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
       c.on('error', (err) => dropped(err));
-      c.on('end', () => { if (client === c) dropped(); });
-      c.on('notification', (msg) => { if (msg.channel === LIVE_CHANNEL) dispatch(parseLiveNotice(msg.payload)); });
+      c.on('end', () => {
+        if (client === c) dropped();
+      });
+      c.on('notification', (msg) => {
+        if (msg.channel === LIVE_CHANNEL) dispatch(parseLiveNotice(msg.payload));
+      });
       try {
         await c.connect();
         await c.query(`LISTEN ${LIVE_CHANNEL}`);
@@ -58,7 +70,9 @@ export async function ensureListening(): Promise<boolean> {
         c.removeAllListeners();
         c.end().catch(() => null);
       }
-    })().finally(() => { connecting = null; });
+    })().finally(() => {
+      connecting = null;
+    });
   }
   await connecting;
   return connected;
@@ -68,5 +82,7 @@ export async function ensureListening(): Promise<boolean> {
 export function subscribe(topics: Iterable<string>, send: (topics: string[]) => void, end: () => void): () => void {
   const sub: Subscriber = { topics: new Set(topics), send, end };
   subscribers.add(sub);
-  return () => { subscribers.delete(sub); };
+  return () => {
+    subscribers.delete(sub);
+  };
 }

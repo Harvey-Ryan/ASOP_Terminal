@@ -11,7 +11,7 @@ import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 
 export interface UpstreamConfig {
-  repo: string;   // owner/name
+  repo: string; // owner/name
   branch: string;
   token?: string;
 }

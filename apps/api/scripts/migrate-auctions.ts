@@ -166,10 +166,7 @@ async function createStandaloneAuctionTables() {
 }
 
 async function main() {
-  const [lootAuctionExists, auctionExists] = await Promise.all([
-    tableExists('LootAuction'),
-    tableExists('Auction'),
-  ]);
+  const [lootAuctionExists, auctionExists] = await Promise.all([tableExists('LootAuction'), tableExists('Auction')]);
 
   let anyWork = false;
 

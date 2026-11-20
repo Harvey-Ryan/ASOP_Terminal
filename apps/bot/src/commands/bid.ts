@@ -9,11 +9,7 @@ export const data = new SlashCommandBuilder()
   .setName('bid')
   .setDescription('Place or raise your DKP bid in the current live auction')
   .addIntegerOption((opt) =>
-    opt
-      .setName('amount')
-      .setDescription('Maximum DKP you are willing to pay')
-      .setRequired(true)
-      .setMinValue(1),
+    opt.setName('amount').setDescription('Maximum DKP you are willing to pay').setRequired(true).setMinValue(1),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -28,9 +24,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const amount = interaction.options.getInteger('amount', true);
   const userId = interaction.user.id;
   const username =
-    interaction.member instanceof GuildMember
-      ? interaction.member.displayName
-      : interaction.user.username;
+    interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
   const dkpLabel = await getGuildDkpLabel(guildId);
 
   // Find the most recently started OPEN auction from EITHER table
@@ -52,9 +46,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   // Pick the most recent by createdAt
   const useLootAuction =
-    lootAuction &&
-    (!standaloneAuction ||
-      lootAuction.createdAt.getTime() >= standaloneAuction.createdAt.getTime());
+    lootAuction && (!standaloneAuction || lootAuction.createdAt.getTime() >= standaloneAuction.createdAt.getTime());
 
   // ── Standalone auction path ───────────────────────────────────────────────
 
@@ -65,9 +57,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     if (standaloneAuction.closesAt <= new Date()) {
-      await interaction.editReply(
-        '❌ The auction has already closed. Check the web dashboard for results.',
-      );
+      await interaction.editReply('❌ The auction has already closed. Check the web dashboard for results.');
       return;
     }
 
@@ -77,13 +67,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         where: { id: standaloneAuction.eventId },
         select: { confirmedAttendees: true },
       });
-      const confirmedAttendees: string[] = event?.confirmedAttendees
-        ? JSON.parse(event.confirmedAttendees)
-        : [];
+      const confirmedAttendees: string[] = event?.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
       if (!confirmedAttendees.includes(userId)) {
-        await interaction.editReply(
-          '❌ This auction is restricted to confirmed attendees of the linked event.',
-        );
+        await interaction.editReply('❌ This auction is restricted to confirmed attendees of the linked event.');
         return;
       }
     }
@@ -113,7 +99,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     let bidRejected = false;
     await prisma.$transaction(async (tx) => {
       const freshBal = await tx.dkpBalance.findUnique({ where: { guildId_userId: { guildId, userId } } });
-      if (amount > (freshBal?.balance ?? 0)) { bidRejected = true; return; }
+      if (amount > (freshBal?.balance ?? 0)) {
+        bidRejected = true;
+        return;
+      }
 
       await tx.auctionBid.upsert({
         where: { auctionId_userId: { auctionId: standaloneAuction.id, userId } },
@@ -164,13 +153,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     where: { id: auction.item.session.eventId },
     select: { confirmedAttendees: true },
   });
-  const confirmedAttendees: string[] = event?.confirmedAttendees
-    ? JSON.parse(event.confirmedAttendees)
-    : [];
+  const confirmedAttendees: string[] = event?.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
   if (!confirmedAttendees.includes(userId)) {
-    await interaction.editReply(
-      '❌ You are not a confirmed attendee for this loot session and cannot bid.',
-    );
+    await interaction.editReply('❌ You are not a confirmed attendee for this loot session and cannot bid.');
     return;
   }
 
@@ -211,7 +196,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       select: { dkpSpent: true },
     });
     const freshCommitted = freshWon.reduce((s, a) => s + (a.dkpSpent ?? 0), 0);
-    if (amount > (freshBal?.balance ?? 0) - freshCommitted) { bidRejected = true; return; }
+    if (amount > (freshBal?.balance ?? 0) - freshCommitted) {
+      bidRejected = true;
+      return;
+    }
 
     await tx.lootAuctionBid.upsert({
       where: { auctionId_userId: { auctionId: auction.id, userId } },

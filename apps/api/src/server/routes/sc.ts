@@ -33,13 +33,19 @@ function searchTerm(req: Request): string | null {
 function searchRoute(path: string, query: (contains: string, prefix: string) => Prisma.Sql) {
   scRouter.get(path, requireAuth, async (req: Request, res: Response) => {
     const q = searchTerm(req);
-    if (!q) { res.json({ success: true, data: [] } satisfies ApiResponse<unknown[]>); return; }
+    if (!q) {
+      res.json({ success: true, data: [] } satisfies ApiResponse<unknown[]>);
+      return;
+    }
     const esc = likeEscape(q);
     try {
       const rows = await prisma.$queryRaw<Record<string, unknown>[]>(query(`%${esc}%`, `${esc}%`));
       res.json({ success: true, data: rows } satisfies ApiResponse<unknown[]>);
     } catch (err) {
-      if (isGameDataMissingError(err)) { res.json({ success: true, data: [] } satisfies ApiResponse<unknown[]>); return; }
+      if (isGameDataMissingError(err)) {
+        res.json({ success: true, data: [] } satisfies ApiResponse<unknown[]>);
+        return;
+      }
       console.error(`[sc] ${path}:`, err);
       res.status(500).json({ success: false, error: 'Could not search the game data' } satisfies ApiResponse);
     }
@@ -49,7 +55,9 @@ function searchRoute(path: string, query: (contains: string, prefix: string) => 
 const limit = Prisma.raw(String(SC_SEARCH_LIMIT));
 
 // ── Blueprints: by the crafted item's name ───────────────────────────────────
-searchRoute('/sc/blueprints', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/blueprints',
+  (c, p) => Prisma.sql`
   SELECT b.uuid, b.key,
          coalesce(b.data->'Output'->>'Name', b.output_class) AS "outputName",
          b.output_type AS "outputType",
@@ -62,64 +70,86 @@ searchRoute('/sc/blueprints', (c, p) => Prisma.sql`
   FROM scdata.blueprints b
   WHERE coalesce(b.data->'Output'->>'Name', b.output_class) ILIKE ${c}
   ORDER BY coalesce(b.data->'Output'->>'Name', b.output_class) ILIKE ${p} DESC, 3
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Ship items (components, weapons…): by name, class or type ───────────────
 // Type matters: shield generators are named "5CA 'Akura'", so "shield" finds them by type.
-searchRoute('/sc/ship-items', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/ship-items',
+  (c, p) => Prisma.sql`
   SELECT uuid, name, class_name AS "className", type, sub_type AS "subType", size, grade,
          classification, manufacturer_name AS manufacturer, mass
   FROM scdata.items
   WHERE is_ship_item AND NOT is_placeholder
     AND (name ILIKE ${c} OR class_name ILIKE ${c} OR type ILIKE ${c} OR sub_type ILIKE ${c})
   ORDER BY name ILIKE ${p} DESC, name ILIKE ${c} DESC, type, size, name NULLS LAST
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Commodities ──────────────────────────────────────────────────────────────
-searchRoute('/sc/commodities', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/commodities',
+  (c, p) => Prisma.sql`
   SELECT uuid, name, key, tier
   FROM scdata.commodities
   WHERE name ILIKE ${c} OR key ILIKE ${c}
   ORDER BY name ILIKE ${p} DESC, name NULLS LAST
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Resources (mineables and other raw materials) ───────────────────────────
-searchRoute('/sc/resources', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/resources',
+  (c, p) => Prisma.sql`
   SELECT uuid, name, kind, key
   FROM scdata.resources
   WHERE name ILIKE ${c} OR key ILIKE ${c}
   ORDER BY name ILIKE ${p} DESC, name NULLS LAST
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Starmap (systems, planets, moons, stations…) ────────────────────────────
-searchRoute('/sc/starmap', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/starmap',
+  (c, p) => Prisma.sql`
   SELECT s.uuid, s.name, s.type_name AS type, parent.name AS parent
   FROM scdata.starmap s
   LEFT JOIN scdata.starmap parent ON parent.uuid = s.parent_uuid
   WHERE NOT s.is_placeholder AND s.name ILIKE ${c}
   ORDER BY s.name ILIKE ${p} DESC, s.name
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Trade locations ──────────────────────────────────────────────────────────
-searchRoute('/sc/trade-locations', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/trade-locations',
+  (c, p) => Prisma.sql`
   SELECT uuid, display_name AS "displayName", class_name AS "className", disabled
   FROM scdata.trade_locations
   WHERE display_name ILIKE ${c} OR class_name ILIKE ${c}
   ORDER BY display_name ILIKE ${p} DESC, display_name NULLS LAST
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Manufacturers ────────────────────────────────────────────────────────────
-searchRoute('/sc/manufacturers', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/manufacturers',
+  (c, p) => Prisma.sql`
   SELECT uuid, name, code, description
   FROM scdata.manufacturers
   WHERE name ILIKE ${c} OR code ILIKE ${c}
   ORDER BY name ILIKE ${p} DESC, name NULLS LAST
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);
 
 // ── Labels (the game's localisation strings) ────────────────────────────────
-searchRoute('/sc/labels', (c, p) => Prisma.sql`
+searchRoute(
+  '/sc/labels',
+  (c, p) => Prisma.sql`
   SELECT key, value
   FROM scdata.labels
   WHERE value ILIKE ${c} OR key ILIKE ${c}
   ORDER BY value ILIKE ${p} DESC, value
-  LIMIT ${limit}`);
+  LIMIT ${limit}`,
+);

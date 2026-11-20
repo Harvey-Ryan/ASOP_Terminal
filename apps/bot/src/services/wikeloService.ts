@@ -25,9 +25,17 @@ export async function wikeloMissions(): Promise<WikeloMission[]> {
   if (cache && Date.now() - checkedAt < 10 * 60_000) return cache.missions;
   if (!loading) {
     loading = load()
-      .then((m) => { checkedAt = Date.now(); return m; })
-      .catch((err: unknown) => { console.error('[wikelo] Could not load missions:', err); return cache?.missions ?? []; })
-      .finally(() => { loading = null; });
+      .then((m) => {
+        checkedAt = Date.now();
+        return m;
+      })
+      .catch((err: unknown) => {
+        console.error('[wikelo] Could not load missions:', err);
+        return cache?.missions ?? [];
+      })
+      .finally(() => {
+        loading = null;
+      });
   }
   return loading;
 }

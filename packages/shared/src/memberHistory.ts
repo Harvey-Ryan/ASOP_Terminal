@@ -64,7 +64,11 @@ export interface MemberHistoryDto {
 const FINISHED = new Set(['ENDED', 'COMPLETED']);
 
 /** Attendance as recorded: the officers' check, or else who was in voice; null when neither (or not over yet). */
-export function recordedAttendees(e: { status: string; confirmedAttendees: string | null; vcAttendees: string }): string[] | null {
+export function recordedAttendees(e: {
+  status: string;
+  confirmedAttendees: string | null;
+  vcAttendees: string;
+}): string[] | null {
   if (!FINISHED.has(e.status)) return null;
   if (e.confirmedAttendees) return JSON.parse(e.confirmedAttendees) as string[];
   const vc = JSON.parse(e.vcAttendees) as string[];
@@ -76,7 +80,12 @@ export function recordedAttendees(e: { status: string; confirmedAttendees: strin
  * who attended, or, where attendance wasn't recorded, who signed up (not maybe).
  */
 export function canComment(
-  e: { status: string; confirmedAttendees: string | null; vcAttendees: string; rsvps: { userId: string; tentative: boolean }[] },
+  e: {
+    status: string;
+    confirmedAttendees: string | null;
+    vcAttendees: string;
+    rsvps: { userId: string; tentative: boolean }[];
+  },
   userId: string,
 ): boolean {
   if (!FINISHED.has(e.status)) return false;
@@ -89,20 +98,33 @@ export function outcomeFor(e: HistoryEvent, userId: string): MemberEventDto | nu
   const rsvp = e.rsvps.find((r) => r.userId === userId);
   const there = e.attendees?.includes(userId) ?? false;
   if (!rsvp && !there) return null;
-  const role = rsvp && !rsvp.tentative ? (rsvp.role ? findRole(e.roles, rsvp.role)?.name ?? rsvp.role : 'Unassigned') : null;
+  const role =
+    rsvp && !rsvp.tentative ? (rsvp.role ? (findRole(e.roles, rsvp.role)?.name ?? rsvp.role) : 'Unassigned') : null;
   let outcome: HistoryOutcome;
   if (!FINISHED.has(e.status)) outcome = rsvp?.tentative ? 'maybe' : 'upcoming';
   else if (e.attendees === null) outcome = rsvp?.tentative ? 'maybe' : 'not-recorded';
   else if (there) outcome = 'attended';
   else outcome = rsvp?.tentative ? 'maybe' : 'no-show';
-  return { eventId: e.id, name: e.name, startTime: e.startTime.toISOString(), role, outcome, walkIn: there && (!rsvp || rsvp.tentative) };
+  return {
+    eventId: e.id,
+    name: e.name,
+    startTime: e.startTime.toISOString(),
+    role,
+    outcome,
+    walkIn: there && (!rsvp || rsvp.tentative),
+  };
 }
 
 export function statsFor(events: readonly MemberEventDto[]): MemberStatsDto {
-  let attended = 0, signedUp = 0, showedWhenSignedUp = 0;
+  let attended = 0,
+    signedUp = 0,
+    showedWhenSignedUp = 0;
   const seen: string[] = [];
   for (const e of events) {
-    if (e.outcome === 'attended') { attended++; seen.push(e.startTime); }
+    if (e.outcome === 'attended') {
+      attended++;
+      seen.push(e.startTime);
+    }
     if ((e.outcome === 'attended' && !e.walkIn) || e.outcome === 'no-show') {
       signedUp++;
       if (e.outcome === 'attended') showedWhenSignedUp++;
@@ -110,14 +132,20 @@ export function statsFor(events: readonly MemberEventDto[]): MemberStatsDto {
   }
   seen.sort();
   return {
-    attended, signedUp, noShows: signedUp - showedWhenSignedUp,
+    attended,
+    signedUp,
+    noShows: signedUp - showedWhenSignedUp,
     showRate: signedUp ? Math.round((showedWhenSignedUp / signedUp) * 100) : null,
-    firstSeen: seen[0] ?? null, lastSeen: seen.at(-1) ?? null,
+    firstSeen: seen[0] ?? null,
+    lastSeen: seen.at(-1) ?? null,
   };
 }
 
 /** Everyone who signed up for or attended these events, with their numbers. */
-export function summarizeMembers(events: readonly HistoryEvent[], names: ReadonlyMap<string, string> = new Map()): MemberSummaryDto[] {
+export function summarizeMembers(
+  events: readonly HistoryEvent[],
+  names: ReadonlyMap<string, string> = new Map(),
+): MemberSummaryDto[] {
   const byUser = new Map<string, MemberEventDto[]>();
   const nameOf = new Map(names);
   const sorted = [...events].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
@@ -135,8 +163,12 @@ export function summarizeMembers(events: readonly HistoryEvent[], names: Readonl
 /** The roles someone played at events they attended, most first. */
 export function rolesPlayed(events: readonly MemberEventDto[]): { role: string; count: number }[] {
   const counts = new Map<string, number>();
-  for (const e of events) if (e.outcome === 'attended' && e.role && e.role !== 'Unassigned') counts.set(e.role, (counts.get(e.role) ?? 0) + 1);
-  return [...counts].map(([role, count]) => ({ role, count })).sort((a, b) => b.count - a.count || a.role.localeCompare(b.role));
+  for (const e of events)
+    if (e.outcome === 'attended' && e.role && e.role !== 'Unassigned')
+      counts.set(e.role, (counts.get(e.role) ?? 0) + 1);
+  return [...counts]
+    .map(([role, count]) => ({ role, count }))
+    .sort((a, b) => b.count - a.count || a.role.localeCompare(b.role));
 }
 
 /** A tournament entry's result in words. */
@@ -144,17 +176,25 @@ export function tournamentResult(status: string, placement: number | null, tourn
   const named: Record<string, string> = { WINNER: 'Winner', RUNNER_UP: 'Runner-up', THIRD: 'Third' };
   if (named[status]) return named[status]!;
   if (placement) {
-    const n = placement % 100, suffix = n >= 11 && n <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][placement % 10] ?? 'th';
+    const n = placement % 100,
+      suffix = n >= 11 && n <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][placement % 10] ?? 'th');
     return `${placement}${suffix} place`;
   }
   if (status === 'ELIMINATED') return 'Eliminated';
-  return ({ COMPLETED: 'Took part', CANCELLED: 'Cancelled', IN_PROGRESS: 'Playing' } as Record<string, string>)[tournamentStatus] ?? 'Signed up';
+  return (
+    ({ COMPLETED: 'Took part', CANCELLED: 'Cancelled', IN_PROGRESS: 'Playing' } as Record<string, string>)[
+      tournamentStatus
+    ] ?? 'Signed up'
+  );
 }
 
 // ── Date range (v1.23.0) ─────────────────────────────────────────────────────
 
 /** Only count what happened between these moments (either end open). */
-export interface HistoryRange { from?: Date; to?: Date }
+export interface HistoryRange {
+  from?: Date;
+  to?: Date;
+}
 
 /**
  * The ?from=&to= of a member history request: ISO moments (the website sends

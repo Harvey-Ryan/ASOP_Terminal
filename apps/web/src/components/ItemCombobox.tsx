@@ -33,7 +33,9 @@ export function ItemCombobox({
   const listRef = useRef<HTMLDivElement>(null);
   const debouncedQuery = useDebounce(query, 200);
 
-  useEffect(() => { setQuery(value); }, [value]);
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -50,7 +52,9 @@ export function ItemCombobox({
     staleTime: 5 * 60_000,
   });
 
-  useEffect(() => { setHighlight(-1); }, [results]);
+  useEffect(() => {
+    setHighlight(-1);
+  }, [results]);
 
   function select(i: number) {
     const r = results[i];
@@ -81,29 +85,50 @@ export function ItemCombobox({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => { if (query.length >= 2) setOpen(true); }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => {
+            if (query.length >= 2) setOpen(true);
+          }}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           className="w-full rounded-md border border-input bg-background pl-9 pr-9 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
         />
         {query && (
-          <button type="button" onClick={() => { setQuery(''); onClear(); }} aria-label="Clear" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              onClear();
+            }}
+            aria-label="Clear"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
       {open && results.length > 0 && (
-        <div ref={listRef} className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
+        <div
+          ref={listRef}
+          className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-64 overflow-y-auto"
+        >
           {results.map((r, i) => (
             <button
               type="button"
               key={r.ref}
-              onMouseDown={(e) => { e.preventDefault(); select(i); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                select(i);
+              }}
               onMouseEnter={() => setHighlight(i)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-left ${i === highlight ? 'bg-accent' : 'hover:bg-accent'}`}
             >
-              <span className={`text-[10px] rounded px-1.5 py-0.5 font-medium shrink-0 ${r.kind === 'COMMODITY' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
+              <span
+                className={`text-[10px] rounded px-1.5 py-0.5 font-medium shrink-0 ${r.kind === 'COMMODITY' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}
+              >
                 {r.kind === 'COMMODITY' ? 'COM' : 'ITEM'}
               </span>
               <span className="truncate">{r.name}</span>

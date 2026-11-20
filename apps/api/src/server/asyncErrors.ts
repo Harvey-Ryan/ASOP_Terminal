@@ -12,7 +12,10 @@ import { createRequire } from 'node:module';
 import type { NextFunction, Request, Response } from 'express';
 
 type Handler = (req: Request, res: Response, next: NextFunction) => unknown;
-interface LayerProto { handle: Handler; handle_request(req: Request, res: Response, next: NextFunction): void }
+interface LayerProto {
+  handle: Handler;
+  handle_request(req: Request, res: Response, next: NextFunction): void;
+}
 
 const Layer = createRequire(import.meta.url)('express/lib/router/layer.js') as { prototype: LayerProto };
 

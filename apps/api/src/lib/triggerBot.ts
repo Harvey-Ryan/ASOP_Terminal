@@ -6,7 +6,11 @@ export function triggerBot(path: string, body?: unknown): void {
   const secret = process.env['BOT_INTERNAL_SECRET'];
   if (secret) headers['Authorization'] = `Bearer ${secret}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  fetch(`${botUrl}${path}`, { method: 'POST', headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }).catch((err) => {
+  fetch(`${botUrl}${path}`, {
+    method: 'POST',
+    headers,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  }).catch((err) => {
     console.warn(`[triggerBot] Failed to notify bot at ${path}:`, err);
   });
 }

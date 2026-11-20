@@ -18,23 +18,20 @@ export const data = new SlashCommandBuilder()
       .setName('search')
       .setDescription('Search active listings for an item or commodity across all guilds')
       .addStringOption((opt) =>
-        opt
-          .setName('item')
-          .setDescription('Item or commodity name')
-          .setRequired(true)
-          .setAutocomplete(true),
+        opt.setName('item').setDescription('Item or commodity name').setRequired(true).setAutocomplete(true),
       ),
   )
-  .addSubcommand((sub) =>
-    sub.setName('list').setDescription('Show your active marketplace listings in this server'),
-  );
+  .addSubcommand((sub) => sub.setName('list').setDescription('Show your active marketplace listings in this server'));
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 // Values are game catalog refs ("ITEM:<uuid>" / "COMMODITY:<uuid>") — same as /whohas.
 
 export async function autocomplete(interaction: AutocompleteInteraction) {
   const sub = interaction.options.getSubcommand(false);
-  if (sub !== 'search') { await interaction.respond([]); return; }
+  if (sub !== 'search') {
+    await interaction.respond([]);
+    return;
+  }
   await respondWithCatalog(interaction);
 }
 
@@ -49,7 +46,7 @@ function fmtQty(qty: number, itemType: string): string {
 
 function fmtPrice(askingPrice: number | null, priceNote: string | null): string {
   if (askingPrice != null) return `💰 ${askingPrice.toLocaleString()} aUEC`;
-  if (priceNote)           return `💬 ${priceNote}`;
+  if (priceNote) return `💬 ${priceNote}`;
   return '💬 Price not set';
 }
 
@@ -91,9 +88,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     // Batch-load guild names only for returned rows
     const guildIds = [...new Set(listings.map((l) => l.guildId))];
-    const guilds = guildIds.length > 0
-      ? await prisma.guild.findMany({ where: { guildId: { in: guildIds } }, select: { guildId: true, name: true } })
-      : [];
+    const guilds =
+      guildIds.length > 0
+        ? await prisma.guild.findMany({ where: { guildId: { in: guildIds } }, select: { guildId: true, name: true } })
+        : [];
     const guildNameMap = new Map(guilds.map((g) => [g.guildId, g.name]));
 
     const itemName = item.name;
@@ -113,16 +111,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const embed = new EmbedBuilder()
       .setTitle(`🛒 ${itemName} — Marketplace`)
       .setColor(itemType === 'COMMODITY' ? 0xf59e0b : 0x5865f2)
-      .setFooter({ text: `${listings.length} listing${listings.length !== 1 ? 's' : ''} · up to 10 shown · price low → high` });
+      .setFooter({
+        text: `${listings.length} listing${listings.length !== 1 ? 's' : ''} · up to 10 shown · price low → high`,
+      });
 
     for (const l of listings) {
       const available = l.quantityListed ?? l.quantity;
       const guildName = guildNameMap.get(l.guildId) ?? 'Unknown Guild';
-      const ql  = l.qualityLevel !== null ? ` · QL ${l.qualityLevel}` : '';
+      const ql = l.qualityLevel !== null ? ` · QL ${l.qualityLevel}` : '';
       const loc = l.location ? ` · 📍 ${l.location}` : '';
       embed.addFields({
-        name:   `${l.username} · ${guildName}`,
-        value:  `${fmtQty(available, itemType)}${ql}${loc}\n${fmtPrice(l.askingPrice, l.priceNote)}`,
+        name: `${l.username} · ${guildName}`,
+        value: `${fmtQty(available, itemType)}${ql}${loc}\n${fmtPrice(l.askingPrice, l.priceNote)}`,
         inline: true,
       });
     }
@@ -146,7 +146,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     });
 
     if (listings.length === 0) {
-      await interaction.editReply({ content: 'You have no listings in this server. Use the web dashboard to add items and mark them for sale.' });
+      await interaction.editReply({
+        content: 'You have no listings in this server. Use the web dashboard to add items and mark them for sale.',
+      });
       return;
     }
 
@@ -164,14 +166,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setFooter({ text: footerParts.join(' · ') });
 
     for (const l of visible) {
-      const available  = l.quantityListed ?? l.quantity;
-      const isExpired  = l.listedAt !== null && l.listedAt < expiryCutoff;
-      const ql          = l.qualityLevel !== null ? ` · QL ${l.qualityLevel}` : '';
-      const loc         = l.location ? ` · 📍 ${l.location}` : '';
-      const expiryNote  = isExpired ? '\n⚠️ Expired — update price to renew' : '';
+      const available = l.quantityListed ?? l.quantity;
+      const isExpired = l.listedAt !== null && l.listedAt < expiryCutoff;
+      const ql = l.qualityLevel !== null ? ` · QL ${l.qualityLevel}` : '';
+      const loc = l.location ? ` · 📍 ${l.location}` : '';
+      const expiryNote = isExpired ? '\n⚠️ Expired — update price to renew' : '';
       embed.addFields({
-        name:   l.itemName,
-        value:  `${fmtQty(available, l.itemType)}${ql}${loc}\n${fmtPrice(l.askingPrice, l.priceNote)}${expiryNote}`,
+        name: l.itemName,
+        value: `${fmtQty(available, l.itemType)}${ql}${loc}\n${fmtPrice(l.askingPrice, l.priceNote)}${expiryNote}`,
         inline: true,
       });
     }

@@ -19,8 +19,8 @@ export async function assertEventViewer(req: Express.Request, guildId: string): 
     select: { eventCreatorRoles: true, viewerRoles: true },
   });
   const allowed = [
-    ...JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[],
-    ...JSON.parse(settings?.viewerRoles ?? '[]') as string[],
+    ...(JSON.parse(settings?.eventCreatorRoles ?? '[]') as string[]),
+    ...(JSON.parse(settings?.viewerRoles ?? '[]') as string[]),
   ];
   if (allowed.length === 0) return false;
 

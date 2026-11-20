@@ -72,7 +72,14 @@ export interface ComponentSlot {
 }
 
 /** One `scdata.items` row (type Shield, PowerPlant, Cooler, QuantumDrive or Radar) → its numbers. */
-export function shipComponentFromItem(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; size?: number | null; data: Json }): ShipComponent | null {
+export function shipComponentFromItem(row: {
+  uuid: string;
+  class_name?: string | null;
+  name?: string | null;
+  manufacturer_name?: string | null;
+  size?: number | null;
+  data: Json;
+}): ShipComponent | null {
   const s: Json = row.data?.stdItem ?? row.data ?? {};
   const type = String(s.Type ?? '').split('.')[0] ?? '';
   const kind = KIND_BY_TYPE.get(type);
@@ -107,14 +114,34 @@ export function shipComponentFromItem(row: { uuid: string; class_name?: string |
     qtSpeed: kind === 'quantum' ? num(qd.DriveSpeed) : null,
     qtSpool: kind === 'quantum' ? num(qd.SpoolUpTime) : null,
     qtCooldown: kind === 'quantum' ? num(qd.CooldownTime) : null,
-    qtFuelPerGm: kind === 'quantum' && num(s.QuantumDrive?.FuelRequirement10GM) ? num(s.QuantumDrive?.FuelRequirement10GM)! * 100 : null,
+    qtFuelPerGm:
+      kind === 'quantum' && num(s.QuantumDrive?.FuelRequirement10GM)
+        ? num(s.QuantumDrive?.FuelRequirement10GM)! * 100
+        : null,
     aimAssist: kind === 'radar' ? num(s.Radar?.AimAssist?.DistanceMaxAssignment) : null,
   };
 }
 
 /** Components with the same name, size and numbers are one choice (skins, duplicate records). */
 export function componentGroupKey(c: ShipComponent): string {
-  return [c.kind, c.size, c.name, c.grade, c.cls, c.powerDraw, c.em, c.ir, c.shieldHp, c.shieldRegen, c.powerOut, c.coolOut, c.qtSpeed, c.qtSpool, c.qtFuelPerGm, c.aimAssist].join('|');
+  return [
+    c.kind,
+    c.size,
+    c.name,
+    c.grade,
+    c.cls,
+    c.powerDraw,
+    c.em,
+    c.ir,
+    c.shieldHp,
+    c.shieldRegen,
+    c.powerOut,
+    c.coolOut,
+    c.qtSpeed,
+    c.qtSpool,
+    c.qtFuelPerGm,
+    c.aimAssist,
+  ].join('|');
 }
 
 /** Groups identical components; the representative keeps a `variants` count. */
@@ -154,7 +181,10 @@ export function shipComponentSlots(ship: Json): ComponentSlot[] {
   };
   walk(ship.Loadout, []);
   const order = COMPONENT_KINDS.map((k) => k.kind);
-  return slots.map((s, i) => ({ s, i })).sort((a, b) => order.indexOf(a.s.kind) - order.indexOf(b.s.kind) || a.i - b.i).map((x) => x.s);
+  return slots
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => order.indexOf(a.s.kind) - order.indexOf(b.s.kind) || a.i - b.i)
+    .map((x) => x.s);
 }
 
 /** Whether a component can go in a slot: same kind and size, and one players can get (the stock part always fits). */
@@ -177,7 +207,9 @@ export interface ComponentTotals {
 }
 
 export function componentTotals(fitted: (ShipComponent | null)[], qtFuelCapacity: number | null): ComponentTotals {
-  const shields = fitted.filter((c): c is ShipComponent => c?.kind === 'shield').sort((a, b) => (b.shieldHp ?? 0) - (a.shieldHp ?? 0));
+  const shields = fitted
+    .filter((c): c is ShipComponent => c?.kind === 'shield')
+    .sort((a, b) => (b.shieldHp ?? 0) - (a.shieldHp ?? 0));
   const up = shields.slice(0, ACTIVE_SHIELDS);
   const quantum = fitted.find((c): c is ShipComponent => c?.kind === 'quantum') ?? null;
   return {

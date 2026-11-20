@@ -26,7 +26,9 @@ function timeAgo(iso: string) {
 function FieldLabel({ htmlFor, label, description }: { htmlFor?: string; label: string; description?: string }) {
   return (
     <div className="space-y-0.5">
-      <label className="text-sm font-medium" htmlFor={htmlFor}>{label}</label>
+      <label className="text-sm font-medium" htmlFor={htmlFor}>
+        {label}
+      </label>
       {description && <p className="text-xs text-muted-foreground">{description}</p>}
     </div>
   );
@@ -55,9 +57,7 @@ function FormerMemberRow({ row }: { row: RcLeftMember }) {
         </p>
       </div>
       <div className="text-right shrink-0 space-y-0.5">
-        {row.left_at && (
-          <p className="text-xs text-muted-foreground">Left {timeAgo(row.left_at)}</p>
-        )}
+        {row.left_at && <p className="text-xs text-muted-foreground">Left {timeAgo(row.left_at)}</p>}
         {row.last_active_at && (
           <p className="text-xs text-muted-foreground">Last active {timeAgo(row.last_active_at)}</p>
         )}
@@ -184,14 +184,14 @@ export function ActivitySettingsPage() {
   useEffect(() => {
     if (rcConfig) {
       setRcForm({
-        inactivity_days:         rcConfig.inactivity_days,
-        active_role_id:          rcConfig.active_role_id,
-        inactive_role_id:        rcConfig.inactive_role_id,
+        inactivity_days: rcConfig.inactivity_days,
+        active_role_id: rcConfig.active_role_id,
+        inactive_role_id: rcConfig.inactive_role_id,
         achievements_channel_id: rcConfig.achievements_channel_id,
-        leaderboard_channel_id:  rcConfig.leaderboard_channel_id,
-        leaderboard_schedule:    rcConfig.leaderboard_schedule,
-        message_weight:          Number(rcConfig.message_weight),
-        voice_weight:            Number(rcConfig.voice_weight),
+        leaderboard_channel_id: rcConfig.leaderboard_channel_id,
+        leaderboard_schedule: rcConfig.leaderboard_schedule,
+        message_weight: Number(rcConfig.message_weight),
+        voice_weight: Number(rcConfig.voice_weight),
       });
       setRcDirty(false);
     }
@@ -204,8 +204,7 @@ export function ActivitySettingsPage() {
 
   const rcMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
-    mutationFn: (data: Partial<Omit<RcConfig, 'guild_id'>>) =>
-      roleCallApi.updateConfig(guildId!, data),
+    mutationFn: (data: Partial<Omit<RcConfig, 'guild_id'>>) => roleCallApi.updateConfig(guildId!, data),
     onSuccess: (data) => {
       queryClient.setQueryData(['rolecall-config', guildId], data);
       setRcDirty(false);
@@ -215,7 +214,11 @@ export function ActivitySettingsPage() {
   });
 
   // ── Former members ────────────────────────────────────────────────────────
-  const { data: leftMembers, isLoading: leftLoading, isError: leftError } = useQuery({
+  const {
+    data: leftMembers,
+    isLoading: leftLoading,
+    isError: leftError,
+  } = useQuery({
     queryKey: ['rolecall-left-members', guildId],
     queryFn: () => roleCallApi.getLeftMembers(guildId!),
     enabled: !!guildId && hasActivity,
@@ -224,7 +227,11 @@ export function ActivitySettingsPage() {
 
   // ── Role change log ───────────────────────────────────────────────────────
   const [logPage, setLogPage] = useState(1);
-  const { data: log, isLoading: logLoading, isError: logError } = useQuery({
+  const {
+    data: log,
+    isLoading: logLoading,
+    isError: logError,
+  } = useQuery({
     queryKey: ['rolecall-role-change-log', guildId, logPage],
     queryFn: () => roleCallApi.getRoleChangeLog(guildId!, logPage),
     enabled: !!guildId && hasActivity,
@@ -250,12 +257,17 @@ export function ActivitySettingsPage() {
           <CardTitle className="text-base">Activity Module</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loading ? <Skeleton className="h-8 w-full" /> : (
+          {loading ? (
+            <Skeleton className="h-8 w-full" />
+          ) : (
             <ToggleSwitch
               label="Enable Activity"
               description="Show the Activity page in the sidebar and allow members to view leaderboards and stats."
               checked={enabled}
-              onChange={(v) => { setEnabled(v); setEnabledDirty(true); }}
+              onChange={(v) => {
+                setEnabled(v);
+                setEnabledDirty(true);
+              }}
             />
           )}
           {enabledDirty && (
@@ -264,7 +276,14 @@ export function ActivitySettingsPage() {
               onClick={() => enabledMutation.mutate({ activityEnabled: enabled })}
               disabled={enabledMutation.isPending}
             >
-              {enabledFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+              {enabledFlash ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Saved
+                </>
+              ) : (
+                'Save'
+              )}
             </Button>
           )}
           {!loading && (
@@ -272,7 +291,10 @@ export function ActivitySettingsPage() {
               label="Members can view Org Health"
               description="Allow all members to see the Guild Activity and Event Planning heat maps. Managers always have access."
               checked={heatmapPublic}
-              onChange={(v) => { setHeatmapPublic(v); setHeatmapPublicDirty(true); }}
+              onChange={(v) => {
+                setHeatmapPublic(v);
+                setHeatmapPublicDirty(true);
+              }}
             />
           )}
           {heatmapPublicDirty && (
@@ -281,7 +303,14 @@ export function ActivitySettingsPage() {
               onClick={() => heatmapPublicMutation.mutate({ activityHeatmapPublic: heatmapPublic })}
               disabled={heatmapPublicMutation.isPending}
             >
-              {heatmapPublicFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+              {heatmapPublicFlash ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Saved
+                </>
+              ) : (
+                'Save'
+              )}
             </Button>
           )}
         </CardContent>
@@ -322,7 +351,9 @@ export function ActivitySettingsPage() {
               </div>
 
               {/* Roles */}
-              {rolesLoading ? <Skeleton className="h-10 w-full" /> : (
+              {rolesLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
                 <>
                   <div className="space-y-1.5">
                     <FieldLabel
@@ -350,7 +381,9 @@ export function ActivitySettingsPage() {
               )}
 
               {/* Channels */}
-              {channelsLoading ? <Skeleton className="h-10 w-full" /> : (
+              {channelsLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
                 <>
                   <div className="space-y-1.5">
                     <FieldLabel
@@ -414,7 +447,12 @@ export function ActivitySettingsPage() {
                 />
                 <div className="flex gap-6">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide" htmlFor="msg-weight">Message</label>
+                    <label
+                      className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                      htmlFor="msg-weight"
+                    >
+                      Message
+                    </label>
                     <input
                       id="msg-weight"
                       type="number"
@@ -426,7 +464,12 @@ export function ActivitySettingsPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide" htmlFor="voice-weight">Voice (per min)</label>
+                    <label
+                      className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                      htmlFor="voice-weight"
+                    >
+                      Voice (per min)
+                    </label>
                     <input
                       id="voice-weight"
                       type="number"
@@ -442,12 +485,15 @@ export function ActivitySettingsPage() {
 
               {/* Save */}
               <div className="flex items-center gap-3 pt-1">
-                <Button
-                  size="sm"
-                  onClick={() => rcMutation.mutate(rcForm)}
-                  disabled={!rcDirty || rcMutation.isPending}
-                >
-                  {rcFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save RoleCallBot Settings'}
+                <Button size="sm" onClick={() => rcMutation.mutate(rcForm)} disabled={!rcDirty || rcMutation.isPending}>
+                  {rcFlash ? (
+                    <>
+                      <Check className="h-4 w-4 mr-1" />
+                      Saved
+                    </>
+                  ) : (
+                    'Save RoleCallBot Settings'
+                  )}
                 </Button>
                 {rcMutation.isError && (
                   <p className="text-xs text-destructive">Failed to save — check RoleCallBot service.</p>
@@ -466,14 +512,18 @@ export function ActivitySettingsPage() {
               Former Members
             </CardTitle>
             {leftMembers && leftMembers.total > 0 && (
-              <span className="text-xs text-muted-foreground">{leftMembers.total} record{leftMembers.total !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-muted-foreground">
+                {leftMembers.total} record{leftMembers.total !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           {leftLoading && (
             <div className="space-y-2 py-2">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
           )}
           {leftError && (
@@ -482,7 +532,9 @@ export function ActivitySettingsPage() {
           {leftMembers && leftMembers.rows.length === 0 && (
             <p className="py-4 text-sm text-muted-foreground text-center">No members have left yet.</p>
           )}
-          {leftMembers?.rows.map((row) => <FormerMemberRow key={row.user_id} row={row} />)}
+          {leftMembers?.rows.map((row) => (
+            <FormerMemberRow key={row.user_id} row={row} />
+          ))}
         </CardContent>
       </Card>
 
@@ -496,30 +548,46 @@ export function ActivitySettingsPage() {
         <CardContent className="pt-0">
           {logLoading && (
             <div className="space-y-2 py-2">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
           )}
 
           {logError && (
-            <p className="py-4 text-sm text-muted-foreground text-center">
-              Could not load role change log.
-            </p>
+            <p className="py-4 text-sm text-muted-foreground text-center">Could not load role change log.</p>
           )}
 
           {log && log.rows.length === 0 && (
             <p className="py-4 text-sm text-muted-foreground text-center">No role changes recorded yet.</p>
           )}
 
-          {log?.rows.map((row) => <RoleChangeRow key={row.id} row={row} />)}
+          {log?.rows.map((row) => (
+            <RoleChangeRow key={row.id} row={row} />
+          ))}
 
           {log && log.totalPages > 1 && (
             <div className="flex items-center justify-between pt-3">
-              <Button variant="ghost" size="sm" onClick={() => setLogPage((p) => Math.max(1, p - 1))} disabled={logPage === 1}>
-                <ChevronLeft className="h-4 w-4" />Prev
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                disabled={logPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
               </Button>
-              <span className="text-xs text-muted-foreground">Page {log.page} of {log.totalPages}</span>
-              <Button variant="ghost" size="sm" onClick={() => setLogPage((p) => Math.min(log.totalPages, p + 1))} disabled={logPage === log.totalPages}>
-                Next<ChevronRight className="h-4 w-4" />
+              <span className="text-xs text-muted-foreground">
+                Page {log.page} of {log.totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLogPage((p) => Math.min(log.totalPages, p + 1))}
+                disabled={logPage === log.totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           )}

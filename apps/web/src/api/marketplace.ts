@@ -13,22 +13,16 @@ import type {
 // Inventory management (guild-scoped — powers the My Inventory tab)
 export const inventoryApi = {
   getMyInventory: (guildId: string) =>
-    api
-      .get<ApiResponse<InventoryEntryDto[]>>(`/guilds/${guildId}/exchange/inventory`)
-      .then((r) => r.data ?? []),
+    api.get<ApiResponse<InventoryEntryDto[]>>(`/guilds/${guildId}/exchange/inventory`).then((r) => r.data ?? []),
 
   upsertEntry: (guildId: string, body: UpsertInventoryEntryBody) =>
-    api
-      .put<ApiResponse<InventoryEntryDto>>(`/guilds/${guildId}/exchange/inventory`, body)
-      .then((r) => r.data!),
+    api.put<ApiResponse<InventoryEntryDto>>(`/guilds/${guildId}/exchange/inventory`, body).then((r) => r.data!),
 
   deleteEntry: (guildId: string, entryId: string) =>
     api.delete<ApiResponse>(`/guilds/${guildId}/exchange/inventory/${entryId}`),
 
   wipeInventories: (guildId: string) =>
-    api
-      .delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/exchange/inventory/all`)
-      .then((r) => r.data!),
+    api.delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/exchange/inventory/all`).then((r) => r.data!),
 
   /** Members of this server who have the item. `itemRef` is a game catalog ref. */
   search: (guildId: string, itemRef: string) =>
@@ -58,9 +52,7 @@ export const marketplaceApi = {
     if (params?.sort) qs.set('sort', params.sort);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.offset != null) qs.set('offset', String(params.offset));
-    return api
-      .get<ApiResponse<MarketplaceListingDto[]>>(`/marketplace/browse?${qs}`)
-      .then((r) => r.data ?? []);
+    return api.get<ApiResponse<MarketplaceListingDto[]>>(`/marketplace/browse?${qs}`).then((r) => r.data ?? []);
   },
 
   getPendingCount: (guildId: string) =>
@@ -75,15 +67,11 @@ export const marketplaceApi = {
 
   getTrades: (guildId: string) =>
     api
-      .get<ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>>(
-        `/guilds/${guildId}/marketplace/trades`,
-      )
+      .get<ApiResponse<{ incoming: TradeDto[]; outgoing: TradeDto[] }>>(`/guilds/${guildId}/marketplace/trades`)
       .then((r) => r.data!),
 
   requestTrade: (guildId: string, body: CreateTradeBody) =>
-    api
-      .post<ApiResponse<TradeDto>>(`/guilds/${guildId}/marketplace/trades`, body)
-      .then((r) => r.data!),
+    api.post<ApiResponse<TradeDto>>(`/guilds/${guildId}/marketplace/trades`, body).then((r) => r.data!),
 
   acceptTrade: (guildId: string, tradeId: string) =>
     api.patch<ApiResponse>(`/guilds/${guildId}/marketplace/trades/${tradeId}/accept`),

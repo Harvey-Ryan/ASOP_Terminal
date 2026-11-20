@@ -25,16 +25,24 @@ export function parsePatchNotes(message) {
     const title = /^\s*\[(.+)\]\s*$/.exec(line);
     if (title) {
       section = sections.find((s) => s.title === title[1].trim());
-      if (!section) { section = { title: title[1].trim(), bullets: [] }; sections.push(section); }
+      if (!section) {
+        section = { title: title[1].trim(), bullets: [] };
+        sections.push(section);
+      }
       bullet = null;
       continue;
     }
     if (!line.trim()) continue;
     const sub = /^\s{2,}[*-]\s+(.*)$/.exec(line);
     const top = /^[*-]\s+(.*)$/.exec(line);
-    if (!section) { section = { title: 'Other', bullets: [] }; sections.push(section); }
-    if (top) { bullet = { text: top[1].trim(), subs: [] }; section.bullets.push(bullet); }
-    else if (sub && bullet) bullet.subs.push(sub[1].trim());
+    if (!section) {
+      section = { title: 'Other', bullets: [] };
+      sections.push(section);
+    }
+    if (top) {
+      bullet = { text: top[1].trim(), subs: [] };
+      section.bullets.push(bullet);
+    } else if (sub && bullet) bullet.subs.push(sub[1].trim());
     else if (bullet) {
       // A wrapped line belongs to the last bullet (or its last sub-point).
       if (bullet.subs.length) bullet.subs[bullet.subs.length - 1] += ` ${line.trim()}`;
@@ -46,11 +54,15 @@ export function parsePatchNotes(message) {
 
 /** `git log --format='%H%n%B%n==END=='` output → commits. */
 export function splitLog(log) {
-  return String(log).split(/^==END==$/m).map((chunk) => chunk.replace(/^\n+/, '')).filter((c) => c.trim()).map((chunk) => {
-    const [sha, ...rest] = chunk.split('\n');
-    const message = rest.join('\n').trim();
-    return { sha: sha.trim(), subject: message.split('\n')[0] ?? '', message };
-  });
+  return String(log)
+    .split(/^==END==$/m)
+    .map((chunk) => chunk.replace(/^\n+/, ''))
+    .filter((c) => c.trim())
+    .map((chunk) => {
+      const [sha, ...rest] = chunk.split('\n');
+      const message = rest.join('\n').trim();
+      return { sha: sha.trim(), subject: message.split('\n')[0] ?? '', message };
+    });
 }
 
 const isMerge = (c) => /^Merge (pull request|branch|remote-tracking branch)\b/.test(c.subject);
@@ -65,11 +77,17 @@ export function collectNotes(commits) {
   for (const c of commits) {
     if (isMerge(c)) continue;
     const notes = parsePatchNotes(c.message);
-    if (notes.kind === 'missing') { missing.push(c); continue; }
+    if (notes.kind === 'missing') {
+      missing.push(c);
+      continue;
+    }
     if (notes.kind !== 'notes') continue;
     for (const s of notes.sections) {
       let into = sections.find((x) => x.title.toLowerCase() === s.title.toLowerCase());
-      if (!into) { into = { title: s.title, bullets: [] }; sections.push(into); }
+      if (!into) {
+        into = { title: s.title, bullets: [] };
+        sections.push(into);
+      }
       for (const b of s.bullets) if (!into.bullets.some((x) => x.text === b.text)) into.bullets.push(b);
     }
   }
@@ -77,7 +95,20 @@ export function collectNotes(commits) {
   return { sections: [...sections.filter((s) => !/^bug fixes$/i.test(s.title)), ...fixes], missing };
 }
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 /** "Patch Notes — v1.55.0 — November 19", as CLAUDE.md asks; the date is the release commit's (Central time, the team's). */
 export function releaseTitle(version, isoDate) {
@@ -107,7 +138,8 @@ export function renderNotes({ sections, missing }) {
 
 /** "1.10.2" > "1.9.9" */
 export function compareVersions(a, b) {
-  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+  const pa = a.split('.').map(Number),
+    pb = b.split('.').map(Number);
   for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
   return 0;
 }

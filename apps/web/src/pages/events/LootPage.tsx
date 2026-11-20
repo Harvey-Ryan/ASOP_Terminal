@@ -4,7 +4,28 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ItemInfoPopover } from '@/components/ItemInfoPopover';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Shuffle, RotateCcw, CheckCircle2, Coins, Save, SkipForward, Play, Package, EyeOff, AlertTriangle, Gavel, Timer, X, GripVertical, ListOrdered, Info, ListCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Shuffle,
+  RotateCcw,
+  CheckCircle2,
+  Coins,
+  Save,
+  SkipForward,
+  Play,
+  Package,
+  EyeOff,
+  AlertTriangle,
+  Gavel,
+  Timer,
+  X,
+  GripVertical,
+  ListOrdered,
+  Info,
+  ListCheck,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,7 +35,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { resolveUsername } from '@/lib/displayName';
 import { shuffleArray } from '@/lib/utils';
-import type { LootSessionDto, LootItemDto, LootMethod, DkpBalanceDto, RsvpDto, LootAuctionDto, LootQueueItemDto } from '@dem/shared';
+import type {
+  LootSessionDto,
+  LootItemDto,
+  LootMethod,
+  DkpBalanceDto,
+  RsvpDto,
+  LootAuctionDto,
+  LootQueueItemDto,
+} from '@dem/shared';
 import { showError } from '@/components/ErrorNotices';
 import { useLiveQueries, LIVE_SAFETY_MS } from '@/lib/live';
 
@@ -25,7 +54,8 @@ const METHOD_LABELS: Record<LootMethod, string> = {
   COMMODITY_DRAFT: '📦 Commodity Draft',
 };
 
-const inputCls = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
+const inputCls =
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +120,10 @@ function AuctionPanel({
   const bidMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
     mutationFn: () => lootApi.placeBid(guildId, eventId, item.id, { maxBid: Number(bidInput) }),
-    onSuccess: () => { setBidInput(''); onAuctionChange(); },
+    onSuccess: () => {
+      setBidInput('');
+      onAuctionChange();
+    },
   });
 
   const closeMutation = useMutation({
@@ -110,7 +143,7 @@ function AuctionPanel({
     setSecondsLeft(auction.secondsRemaining);
     const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auction?.id, auction?.status, auction?.secondsRemaining]);
   // At zero, ask again: the server closes the auction when it's next read.
   const closingDue = auction?.status === 'OPEN' && secondsLeft === 0;
@@ -118,7 +151,7 @@ function AuctionPanel({
     if (!closingDue) return;
     const id = setTimeout(onAuctionChange, 1500);
     return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closingDue, auction?.id]);
 
   // No active auction
@@ -132,7 +165,9 @@ function AuctionPanel({
           className="rounded-md border border-input bg-background px-2 py-1 text-sm"
         >
           {DURATION_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
         <Button
@@ -173,7 +208,9 @@ function AuctionPanel({
           <Gavel className="h-3.5 w-3.5" />
           Live Auction
         </p>
-        <span className={`flex items-center gap-1 text-sm font-mono font-semibold tabular-nums ${urgentTime ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}>
+        <span
+          className={`flex items-center gap-1 text-sm font-mono font-semibold tabular-nums ${urgentTime ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}
+        >
           <Timer className="h-3.5 w-3.5" />
           {secondsLeft === 0 ? 'Closing…' : formatTime(secondsLeft)}
         </span>
@@ -203,9 +240,7 @@ function AuctionPanel({
       {/* Bid input — confirmed attendees and managers */}
       {isEligible && (
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Max Bid
-          </label>
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Max Bid</label>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <input
@@ -237,7 +272,8 @@ function AuctionPanel({
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            Your available DKP: <span className={myEffectiveBalance <= 0 ? 'text-destructive' : ''}>{myEffectiveBalance}</span>
+            Your available DKP:{' '}
+            <span className={myEffectiveBalance <= 0 ? 'text-destructive' : ''}>{myEffectiveBalance}</span>
           </p>
           {overBid && (
             <p className="text-xs text-destructive flex items-center gap-1">
@@ -288,7 +324,6 @@ function AuctionPanel({
 
 // ── UEX info popover (hover on loot items) ────────────────────────────────────
 
-
 // ── Item row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({
@@ -334,7 +369,10 @@ function ItemRow({
   /** Present only when the user can queue this item (draft participant, item unassigned) */
   onToggleQueue?: () => void;
 }) {
-  const [rollResult, setRollResult] = useState<{ rolls: { userId: string; username: string; rollValue: number }[]; winner: { userId: string; username: string; rollValue: number } } | null>(null);
+  const [rollResult, setRollResult] = useState<{
+    rolls: { userId: string; username: string; rollValue: number }[];
+    winner: { userId: string; username: string; rollValue: number };
+  } | null>(null);
   const [showRolls, setShowRolls] = useState(false);
 
   const winner = item.assignments[0];
@@ -357,7 +395,11 @@ function ItemRow({
 
   const clearMutation = useMutation({
     mutationFn: () => lootApi.clearAssignment(guildId, eventId, item.id),
-    onSuccess: () => { setRollResult(null); setShowRolls(false); onAssigned(); },
+    onSuccess: () => {
+      setRollResult(null);
+      setShowRolls(false);
+      onAssigned();
+    },
   });
 
   const deliveredMutation = useMutation({
@@ -371,27 +413,35 @@ function ItemRow({
   });
 
   const updateItemMutation = useMutation({
-    mutationFn: (body: Partial<{ excludePrevWinners: boolean }>) =>
-      lootApi.updateItem(guildId, eventId, item.id, body),
+    mutationFn: (body: Partial<{ excludePrevWinners: boolean }>) => lootApi.updateItem(guildId, eventId, item.id, body),
     onSuccess: onRolled,
   });
 
-  const nextPicker = session.method === 'SNAKE_DRAFT'
-    ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder)
-    : null;
+  const nextPicker =
+    session.method === 'SNAKE_DRAFT' ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder) : null;
   const nextPickerName = nextPicker
-    ? resolveUsername(nextPicker, eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? allRsvpMap.get(nextPicker) ?? nextPicker, currentUserId)
+    ? resolveUsername(
+        nextPicker,
+        eligiblePlayers.find((p) => p.userId === nextPicker)?.username ?? allRsvpMap.get(nextPicker) ?? nextPicker,
+        currentUserId,
+      )
     : null;
   const isMyTurn = session.method === 'SNAKE_DRAFT' && !isAssigned && nextPicker !== null;
 
   return (
-    <div className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}>
+    <div
+      className={`rounded-lg border ${isAssigned ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-card'} p-4 space-y-3`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="font-medium truncate">
               {item.name}
-              {item.qualityLevel !== null && <span className="ml-1.5 rounded-sm bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">QL {item.qualityLevel}</span>}
+              {item.qualityLevel !== null && (
+                <span className="ml-1.5 rounded-sm bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                  QL {item.qualityLevel}
+                </span>
+              )}
               {item.quantity > 1 && <span className="ml-1 text-muted-foreground text-sm">×{item.quantity}</span>}
             </p>
             <ItemInfoPopover name={item.name} />
@@ -400,10 +450,18 @@ function ItemRow({
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {resolveUsername(winner.userId, winner.username || allRsvpMap.get(winner.userId) || winner.userId, currentUserId)}
-                {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
+                {resolveUsername(
+                  winner.userId,
+                  winner.username || allRsvpMap.get(winner.userId) || winner.userId,
+                  currentUserId,
+                )}
+                {winner.rollValue != null && (
+                  <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>
+                )}
                 {winner.dkpSpent != null && <span className="text-muted-foreground"> ({winner.dkpSpent} DKP)</span>}
-                {winner.pickNumber != null && <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>}
+                {winner.pickNumber != null && (
+                  <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>
+                )}
               </p>
               {isManager ? (
                 <button
@@ -447,7 +505,13 @@ function ItemRow({
           {isManager && (
             <>
               {isAssigned && (
-                <Button size="sm" variant="ghost" onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending} title="Clear assignment">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => clearMutation.mutate()}
+                  disabled={clearMutation.isPending}
+                  title="Clear assignment"
+                >
                   <RotateCcw className="h-3.5 w-3.5" />
                 </Button>
               )}
@@ -455,7 +519,13 @@ function ItemRow({
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  if (isAssigned && !window.confirm(`Delete "${item.name}"? It is assigned to ${winner!.username} — the assignment will be removed.`)) return;
+                  if (
+                    isAssigned &&
+                    !window.confirm(
+                      `Delete "${item.name}"? It is assigned to ${winner!.username} — the assignment will be removed.`,
+                    )
+                  )
+                    return;
                   deleteMutation.mutate();
                 }}
                 disabled={deleteMutation.isPending}
@@ -492,11 +562,18 @@ function ItemRow({
         <div className="rounded-md bg-muted/50 border border-border p-3 space-y-1">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Roll Results</p>
-            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowRolls(false)}>Hide</button>
+            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowRolls(false)}>
+              Hide
+            </button>
           </div>
           {rollResult.rolls.map((r) => (
-            <div key={r.userId} className={`flex items-center justify-between text-sm px-2 py-1 rounded ${r.userId === rollResult.winner.userId ? 'bg-primary/10 font-medium' : ''}`}>
-              <span>{resolveUsername(r.userId, r.username, currentUserId)} {r.userId === rollResult.winner.userId && '🏆'}</span>
+            <div
+              key={r.userId}
+              className={`flex items-center justify-between text-sm px-2 py-1 rounded ${r.userId === rollResult.winner.userId ? 'bg-primary/10 font-medium' : ''}`}
+            >
+              <span>
+                {resolveUsername(r.userId, r.username, currentUserId)} {r.userId === rollResult.winner.userId && '🏆'}
+              </span>
               <span className="font-mono">{r.rollValue}</span>
             </div>
           ))}
@@ -523,7 +600,9 @@ function ItemRow({
       {session.method === 'SNAKE_DRAFT' && isMyTurn && (isManager || nextPicker === currentUserId) && (
         <div className="flex items-center gap-2">
           {isManager && (
-            <span className="text-sm text-muted-foreground">Pick for <span className="font-medium text-foreground">{nextPickerName}</span>:</span>
+            <span className="text-sm text-muted-foreground">
+              Pick for <span className="font-medium text-foreground">{nextPickerName}</span>:
+            </span>
           )}
           <Button
             size="sm"
@@ -660,9 +739,7 @@ function QueueCard({
                 ${isDragTarget ? 'border-primary bg-primary/5' : ''}
                 ${!isCompleted ? 'cursor-grab active:cursor-grabbing' : ''}`}
             >
-              {!isCompleted && (
-                <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              )}
+              {!isCompleted && <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
               <span className="text-xs text-muted-foreground w-4 shrink-0 text-right">{index + 1}.</span>
               <span className="flex-1 min-w-0 truncate">{name}</span>
               {!isCompleted && (
@@ -678,7 +755,6 @@ function QueueCard({
             </div>
           );
         })}
-
       </CardContent>
     </Card>
   );
@@ -686,7 +762,17 @@ function QueueCard({
 
 // ── Setup form (no session yet) ───────────────────────────────────────────────
 
-function SetupForm({ guildId, eventId, onCreated, eligibleCount }: { guildId: string; eventId: string; onCreated: () => void; eligibleCount: number | undefined }) {
+function SetupForm({
+  guildId,
+  eventId,
+  onCreated,
+  eligibleCount,
+}: {
+  guildId: string;
+  eventId: string;
+  onCreated: () => void;
+  eligibleCount: number | undefined;
+}) {
   const [method, setMethod] = useState<LootMethod>('RANDOM_ROLL');
   const [dkpAward, setDkpAward] = useState('0');
 
@@ -704,7 +790,9 @@ function SetupForm({ guildId, eventId, onCreated, eligibleCount }: { guildId: st
         {eligibleCount !== undefined && eligibleCount === 0 && (
           <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-600 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>No confirmed attendees. Complete the event audit to populate the roster before starting a loot session.</span>
+            <span>
+              No confirmed attendees. Complete the event audit to populate the roster before starting a loot session.
+            </span>
           </div>
         )}
         <div className="space-y-2">
@@ -732,7 +820,9 @@ function SetupForm({ guildId, eventId, onCreated, eligibleCount }: { guildId: st
             onChange={(e) => setDkpAward(e.target.value)}
             placeholder="0"
           />
-          <p className="text-xs text-muted-foreground">Awarded to all confirmed attendees when the session is completed.</p>
+          <p className="text-xs text-muted-foreground">
+            Awarded to all confirmed attendees when the session is completed.
+          </p>
         </div>
         <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} className="w-full">
           {createMutation.isPending ? 'Creating…' : 'Start Session'}
@@ -766,7 +856,13 @@ export function LootPage() {
   // Picks, bids and queue changes, from here or Discord, arrive as they happen (v1.30.0).
   const live = useLiveQueries(
     [sessionQuery.data?.id && `loot:${sessionQuery.data.id}`, eventId && `loot-event:${eventId}`],
-    [['loot', guildId, eventId], ['loot-queue', guildId, eventId], ['loot-auctions', guildId, eventId], ['dkp', guildId], ['dkp-me', guildId]],
+    [
+      ['loot', guildId, eventId],
+      ['loot-queue', guildId, eventId],
+      ['loot-auctions', guildId, eventId],
+      ['dkp', guildId],
+      ['dkp-me', guildId],
+    ],
   );
   liveRef.current = live;
 
@@ -795,13 +891,19 @@ export function LootPage() {
     queryKey: ['loot-auctions', guildId, eventId],
     queryFn: () => lootApi.getAuctions(guildId!, eventId!),
     enabled: !!guildId && !!eventId && sessionQuery.data?.method === 'DKP',
-    refetchInterval: sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN' ? (live ? LIVE_SAFETY_MS : 2000) : false,
+    refetchInterval:
+      sessionQuery.data?.method === 'DKP' && sessionQuery.data?.status === 'OPEN'
+        ? live
+          ? LIVE_SAFETY_MS
+          : 2000
+        : false,
   });
 
   // Current user's snake-draft queue. Same query key as QueueCard, so both
   // share one cache entry and stay in sync.
   const sessionForQueue = sessionQuery.data;
-  const inDraft = !!user?.id && sessionForQueue?.method === 'SNAKE_DRAFT' && sessionForQueue.draftOrder.includes(user.id);
+  const inDraft =
+    !!user?.id && sessionForQueue?.method === 'SNAKE_DRAFT' && sessionForQueue.draftOrder.includes(user.id);
   const queueKey = ['loot-queue', guildId, eventId] as const;
   const myQueueQuery = useQuery({
     queryKey: queueKey,
@@ -851,8 +953,12 @@ export function LootPage() {
   };
 
   const updateMutation = useMutation({
-    mutationFn: (body: { method?: LootMethod; dkpAward?: number; draftOrder?: string[]; refreshParticipants?: boolean }) =>
-      lootApi.updateSession(guildId!, eventId!, body),
+    mutationFn: (body: {
+      method?: LootMethod;
+      dkpAward?: number;
+      draftOrder?: string[];
+      refreshParticipants?: boolean;
+    }) => lootApi.updateSession(guildId!, eventId!, body),
     onSuccess: invalidate,
   });
 
@@ -901,14 +1007,26 @@ export function LootPage() {
   });
   const skipMutation = useMutation({
     mutationFn: () => lootApi.skipTurn(guildId!, eventId!),
-    onSuccess: () => { setSkipConfirm(false); invalidate(); },
-    onError: (err) => { setSkipConfirm(false); showError(err.message); },
+    onSuccess: () => {
+      setSkipConfirm(false);
+      invalidate();
+    },
+    onError: (err) => {
+      setSkipConfirm(false);
+      showError(err.message);
+    },
   });
 
   const startDraftMutation = useMutation({
     mutationFn: () => lootApi.startDraft(guildId!, eventId!),
-    onSuccess: () => { setStartConfirm(false); invalidate(); },
-    onError: (err) => { setStartConfirm(false); showError(err.message); },
+    onSuccess: () => {
+      setStartConfirm(false);
+      invalidate();
+    },
+    onError: (err) => {
+      setStartConfirm(false);
+      showError(err.message);
+    },
   });
 
   const restartDraftMutation = useMutation({
@@ -918,14 +1036,19 @@ export function LootPage() {
       setPreRestartMembers(new Set(session!.draftOrder));
       invalidate();
     },
-    onError: (err) => { setRestartConfirm(false); showError(err.message); },
+    onError: (err) => {
+      setRestartConfirm(false);
+      showError(err.message);
+    },
   });
 
   async function handleShuffleAndStart() {
     if (!session) return;
     const currentMembers = new Set(session.draftOrder);
-    const membersChanged = preRestartMembers === null || currentMembers.size !== preRestartMembers.size
-      || [...currentMembers].some((id) => !preRestartMembers.has(id));
+    const membersChanged =
+      preRestartMembers === null ||
+      currentMembers.size !== preRestartMembers.size ||
+      [...currentMembers].some((id) => !preRestartMembers.has(id));
     const order = membersChanged ? shuffleArray([...session.draftOrder]) : session.draftOrder;
     if (membersChanged) {
       try {
@@ -946,8 +1069,8 @@ export function LootPage() {
   // All known guild members (DKP players + RSVPs) not yet in the draft order
   const allKnownPlayers: { userId: string; username: string }[] = (() => {
     const map = new Map<string, string>();
-    for (const p of (playersQuery.data ?? [])) map.set(p.userId, p.username);
-    for (const r of (event?.rsvps ?? [])) map.set(r.userId, r.username);
+    for (const p of playersQuery.data ?? []) map.set(p.userId, p.username);
+    for (const r of event?.rsvps ?? []) map.set(r.userId, r.username);
     return Array.from(map.entries()).map(([userId, username]) => ({ userId, username }));
   })();
   const draftSet = new Set(session?.draftOrder ?? []);
@@ -959,17 +1082,24 @@ export function LootPage() {
   const skipCount = session?.skipCount ?? 0;
   const nextPickerId = session ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder) : null;
   const nextPickerName = nextPickerId
-    ? resolveUsername(nextPickerId, eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ?? allRsvpMap.get(nextPickerId) ?? nextPickerId, user?.id)
+    ? resolveUsername(
+        nextPickerId,
+        eligiblePlayers.find((p) => p.userId === nextPickerId)?.username ??
+          allRsvpMap.get(nextPickerId) ??
+          nextPickerId,
+        user?.id,
+      )
     : null;
 
   const isCurrentPicker = session?.method === 'SNAKE_DRAFT' && session.status === 'OPEN' && nextPickerId === user?.id;
 
   // Effective DKP balance for the current user: raw minus DKP committed to items already won this session
   const myRawBalance = myDkpQuery.data?.balance ?? 0;
-  const myCommitted = session?.items.reduce((sum, item) => {
-    const a = item.assignments[0];
-    return sum + (a?.userId === user?.id && a.dkpSpent ? a.dkpSpent : 0);
-  }, 0) ?? 0;
+  const myCommitted =
+    session?.items.reduce((sum, item) => {
+      const a = item.assignments[0];
+      return sum + (a?.userId === user?.id && a.dkpSpent ? a.dkpSpent : 0);
+    }, 0) ?? 0;
   const myEffectiveBalance = myRawBalance - myCommitted;
 
   const isLoading = sessionQuery.isLoading || eventQuery.isLoading;
@@ -1002,476 +1132,582 @@ export function LootPage() {
 
       {/* No session yet — managers only */}
       {!session && isManager && (
-        <SetupForm guildId={guildId!} eventId={eventId!} onCreated={invalidate} eligibleCount={event ? eligiblePlayers.length : undefined} />
+        <SetupForm
+          guildId={guildId!}
+          eventId={eventId!}
+          onCreated={invalidate}
+          eligibleCount={event ? eligiblePlayers.length : undefined}
+        />
       )}
       {!session && !isManager && (
-        <p className="text-sm text-muted-foreground italic py-4">No loot session has been started for this event yet.</p>
+        <p className="text-sm text-muted-foreground italic py-4">
+          No loot session has been started for this event yet.
+        </p>
       )}
 
       {/* Active session */}
       {session && (
         <div className={isSnakeDraft ? 'flex flex-col md:flex-row gap-5 items-start' : ''}>
-        {/* Main content column */}
-        <div className={isSnakeDraft ? 'flex-1 min-w-0 space-y-5' : ''}>
-        <>
-          {/* Method + DKP award row — managers only */}
-          {isManager && <Card>
-            <CardContent className="pt-4 space-y-4">
-              <div className="flex items-start gap-4 flex-wrap">
-                <div className="space-y-1.5 flex-1 min-w-[200px]">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Method</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {(Object.keys(METHOD_LABELS) as LootMethod[]).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => updateMutation.mutate({ method: m })}
-                        disabled={session.status === 'COMPLETED'}
-                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${session.method === m ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}
-                      >
-                        {METHOD_LABELS[m]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1.5 w-36">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide flex items-center gap-1">
-                    <Coins className="h-3 w-3" /> DKP Award
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                    value={session.dkpAward}
-                    disabled={session.status === 'COMPLETED'}
-                    onChange={(e) => updateMutation.mutate({ dkpAward: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-              {session.status === 'OPEN' && session.method !== 'SNAKE_DRAFT' && (
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => updateMutation.mutate({ refreshParticipants: true })}
-                    disabled={updateMutation.isPending}
-                    title="Re-sync participant list from confirmed attendees"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Sync Roster
-                  </Button>
-                  <span className="text-xs text-muted-foreground">Re-syncs eligible players from confirmed attendees</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>}
-
-          {/* Snake draft order */}
-          {session.method === 'SNAKE_DRAFT' && (
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
-                  {isManager && session.status === 'OPEN' && (
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {!session.draftStarted && (!startConfirm ? (
-                        <Button
-                          size="sm"
-                          className="gap-1 h-7 text-xs"
-                          onClick={() => setStartConfirm(true)}
-                          disabled={session.draftOrder.length === 0}
-                        >
-                          <Play className="h-3 w-3" />
-                          Shuffle & Start
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                          <span className="text-xs text-muted-foreground">Order will be shuffled and locked.</span>
-                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={handleShuffleAndStart} disabled={startDraftMutation.isPending || updateMutation.isPending}>
-                            {startDraftMutation.isPending || updateMutation.isPending ? 'Starting…' : 'Yes, Shuffle & Start'}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStartConfirm(false)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      ))}
-                      {session.draftStarted && (!restartConfirm ? (
-                        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setRestartConfirm(true)}>
-                          <RotateCcw className="h-3 w-3" />
-                          Restart Draft
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                          <span className="text-xs text-muted-foreground">All picks will be cleared.</span>
-                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => restartDraftMutation.mutate()} disabled={restartDraftMutation.isPending}>
-                            {restartDraftMutation.isPending ? 'Restarting…' : 'Yes, Restart'}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setRestartConfirm(false)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {nextPickerName && session.status === 'OPEN' && (isManager || isCurrentPicker) && (
-                  <div className="mb-3 space-y-2">
-                    <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-primary">Now picking: {nextPickerName}</span>
-                      {(isManager || isCurrentPicker) && (!skipConfirm ? (
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0" onClick={() => setSkipConfirm(true)}>
-                          <SkipForward className="h-3 w-3" />
-                          {isCurrentPicker && !isManager ? 'Skip My Turn' : 'Skip Turn'}
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">
-                            {isCurrentPicker && !isManager ? 'Skip your turn?' : `Skip ${nextPickerName}?`}
-                          </span>
-                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
-                            {skipMutation.isPending ? 'Skipping…' : 'Yes, Skip'}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSkipConfirm(false)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {session.draftOrder.map((userId, i) => {
-                    const name = resolveUsername(userId, eligiblePlayers.find((p) => p.userId === userId)?.username ?? allRsvpMap.get(userId) ?? userId, user?.id);
-                    const isCurrent = userId === nextPickerId;
-                    const canRemove = isManager && session.status === 'OPEN' && !session.draftStarted;
-                    return (
-                      <span
-                        key={userId}
-                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border ${isCurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
-                      >
-                        {i + 1}. {name}
-                        {canRemove && (
-                          <button
-                            type="button"
-                            className="ml-1 opacity-50 hover:opacity-100 leading-none"
-                            onClick={() => updateMutation.mutate({ draftOrder: session.draftOrder.filter((id) => id !== userId) })}
-                            title={`Remove ${name}`}
-                          >
-                            ×
-                          </button>
-                        )}
-                      </span>
-                    );
-                  })}
-                  {session.draftOrder.length === 0 && (
-                    <p className="text-sm text-muted-foreground italic">No members in draft order yet.</p>
-                  )}
-                </div>
-                {isManager && session.status === 'OPEN' && !session.draftStarted && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    {notInDraft.length > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs text-muted-foreground shrink-0">Add member:</p>
-                        <div className="relative flex-1">
-                          <input
-                            className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                            placeholder="Search members…"
-                            value={memberSearch}
-                            onChange={(e) => setMemberSearch(e.target.value)}
-                            onFocus={() => setMemberSearchFocused(true)}
-                            onBlur={() => setMemberSearchFocused(false)}
-                            autoComplete="off"
-                          />
-                          {memberSearchFocused && (() => {
-                            const q = memberSearch.toLowerCase();
-                            const filtered = notInDraft.filter((p) =>
-                              resolveUsername(p.userId, p.username, user?.id).toLowerCase().includes(q)
-                            );
-                            return filtered.length > 0 ? (
-                              <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
-                                {filtered.map((p) => (
-                                  <button
-                                    key={p.userId}
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      updateMutation.mutate({ draftOrder: [...session.draftOrder, p.userId] });
-                                      setMemberSearch('');
-                                    }}
-                                    className="w-full px-3 py-2 text-xs text-left hover:bg-accent transition-colors truncate"
-                                  >
-                                    {resolveUsername(p.userId, p.username, user?.id)}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null;
-                          })()}
+          {/* Main content column */}
+          <div className={isSnakeDraft ? 'flex-1 min-w-0 space-y-5' : ''}>
+            <>
+              {/* Method + DKP award row — managers only */}
+              {isManager && (
+                <Card>
+                  <CardContent className="pt-4 space-y-4">
+                    <div className="flex items-start gap-4 flex-wrap">
+                      <div className="space-y-1.5 flex-1 min-w-[200px]">
+                        <label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">
+                          Method
+                        </label>
+                        <div className="flex gap-2 flex-wrap">
+                          {(Object.keys(METHOD_LABELS) as LootMethod[]).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => updateMutation.mutate({ method: m })}
+                              disabled={session.status === 'COMPLETED'}
+                              className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${session.method === m ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}
+                            >
+                              {METHOD_LABELS[m]}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">All known members are already in the draft.</p>
+                      <div className="space-y-1.5 w-36">
+                        <label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide flex items-center gap-1">
+                          <Coins className="h-3 w-3" /> DKP Award
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                          value={session.dkpAward}
+                          disabled={session.status === 'COMPLETED'}
+                          onChange={(e) => updateMutation.mutate({ dkpAward: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+                    {session.status === 'OPEN' && session.method !== 'SNAKE_DRAFT' && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => updateMutation.mutate({ refreshParticipants: true })}
+                          disabled={updateMutation.isPending}
+                          title="Re-sync participant list from confirmed attendees"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Sync Roster
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          Re-syncs eligible players from confirmed attendees
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Snake draft order */}
+              {session.method === 'SNAKE_DRAFT' && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm">🐍 Draft Order</CardTitle>
+                      {isManager && session.status === 'OPEN' && (
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          {!session.draftStarted &&
+                            (!startConfirm ? (
+                              <Button
+                                size="sm"
+                                className="gap-1 h-7 text-xs"
+                                onClick={() => setStartConfirm(true)}
+                                disabled={session.draftOrder.length === 0}
+                              >
+                                <Play className="h-3 w-3" />
+                                Shuffle & Start
+                              </Button>
+                            ) : (
+                              <div className="flex items-center gap-2 flex-wrap justify-end">
+                                <span className="text-xs text-muted-foreground">
+                                  Order will be shuffled and locked.
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-7 text-xs"
+                                  onClick={handleShuffleAndStart}
+                                  disabled={startDraftMutation.isPending || updateMutation.isPending}
+                                >
+                                  {startDraftMutation.isPending || updateMutation.isPending
+                                    ? 'Starting…'
+                                    : 'Yes, Shuffle & Start'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => setStartConfirm(false)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ))}
+                          {session.draftStarted &&
+                            (!restartConfirm ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 h-7 text-xs"
+                                onClick={() => setRestartConfirm(true)}
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                Restart Draft
+                              </Button>
+                            ) : (
+                              <div className="flex items-center gap-2 flex-wrap justify-end">
+                                <span className="text-xs text-muted-foreground">All picks will be cleared.</span>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-7 text-xs"
+                                  onClick={() => restartDraftMutation.mutate()}
+                                  disabled={restartDraftMutation.isPending}
+                                >
+                                  {restartDraftMutation.isPending ? 'Restarting…' : 'Yes, Restart'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => setRestartConfirm(false)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {nextPickerName && session.status === 'OPEN' && (isManager || isCurrentPicker) && (
+                      <div className="mb-3 space-y-2">
+                        <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between gap-3">
+                          <span className="text-sm font-medium text-primary">Now picking: {nextPickerName}</span>
+                          {(isManager || isCurrentPicker) &&
+                            (!skipConfirm ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1 shrink-0"
+                                onClick={() => setSkipConfirm(true)}
+                              >
+                                <SkipForward className="h-3 w-3" />
+                                {isCurrentPicker && !isManager ? 'Skip My Turn' : 'Skip Turn'}
+                              </Button>
+                            ) : (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs text-muted-foreground">
+                                  {isCurrentPicker && !isManager ? 'Skip your turn?' : `Skip ${nextPickerName}?`}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-7 text-xs"
+                                  onClick={() => skipMutation.mutate()}
+                                  disabled={skipMutation.isPending}
+                                >
+                                  {skipMutation.isPending ? 'Skipping…' : 'Yes, Skip'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => setSkipConfirm(false)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {session.draftOrder.map((userId, i) => {
+                        const name = resolveUsername(
+                          userId,
+                          eligiblePlayers.find((p) => p.userId === userId)?.username ??
+                            allRsvpMap.get(userId) ??
+                            userId,
+                          user?.id,
+                        );
+                        const isCurrent = userId === nextPickerId;
+                        const canRemove = isManager && session.status === 'OPEN' && !session.draftStarted;
+                        return (
+                          <span
+                            key={userId}
+                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border ${isCurrent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+                          >
+                            {i + 1}. {name}
+                            {canRemove && (
+                              <button
+                                type="button"
+                                className="ml-1 opacity-50 hover:opacity-100 leading-none"
+                                onClick={() =>
+                                  updateMutation.mutate({
+                                    draftOrder: session.draftOrder.filter((id) => id !== userId),
+                                  })
+                                }
+                                title={`Remove ${name}`}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                      {session.draftOrder.length === 0 && (
+                        <p className="text-sm text-muted-foreground italic">No members in draft order yet.</p>
+                      )}
+                    </div>
+                    {isManager && session.status === 'OPEN' && !session.draftStarted && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        {notInDraft.length > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-muted-foreground shrink-0">Add member:</p>
+                            <div className="relative flex-1">
+                              <input
+                                className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                                placeholder="Search members…"
+                                value={memberSearch}
+                                onChange={(e) => setMemberSearch(e.target.value)}
+                                onFocus={() => setMemberSearchFocused(true)}
+                                onBlur={() => setMemberSearchFocused(false)}
+                                autoComplete="off"
+                              />
+                              {memberSearchFocused &&
+                                (() => {
+                                  const q = memberSearch.toLowerCase();
+                                  const filtered = notInDraft.filter((p) =>
+                                    resolveUsername(p.userId, p.username, user?.id).toLowerCase().includes(q),
+                                  );
+                                  return filtered.length > 0 ? (
+                                    <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
+                                      {filtered.map((p) => (
+                                        <button
+                                          key={p.userId}
+                                          type="button"
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            updateMutation.mutate({ draftOrder: [...session.draftOrder, p.userId] });
+                                            setMemberSearch('');
+                                          }}
+                                          className="w-full px-3 py-2 text-xs text-left hover:bg-accent transition-colors truncate"
+                                        >
+                                          {resolveUsername(p.userId, p.username, user?.id)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null;
+                                })()}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic">
+                            All known members are already in the draft.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Item list */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">
+                    Items ({session.items.length})
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    {session.items.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {session.items.filter((i) => i.assignments.length > 0).length} / {session.items.length} assigned
+                      </span>
+                    )}
+                    {session.items.some((i) => i.assignments.length > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => setHideAssigned((v) => !v)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+                          hideAssigned
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border text-muted-foreground hover:border-primary/50'
+                        }`}
+                      >
+                        <EyeOff className="h-3 w-3" />
+                        {hideAssigned ? 'Showing available' : 'Hide assigned'}
+                      </button>
                     )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                </div>
 
-          {/* Item list */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Items ({session.items.length})</h2>
-              <div className="flex items-center gap-3">
-                {session.items.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {session.items.filter((i) => i.assignments.length > 0).length} / {session.items.length} assigned
-                  </span>
-                )}
-                {session.items.some((i) => i.assignments.length > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => setHideAssigned((v) => !v)}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
-                      hideAssigned
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/50'
-                    }`}
+                {/* Add item — managers only */}
+                {isManager && session.status === 'OPEN' && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newItemName.trim()) return;
+                      if (isCommodityItem) {
+                        const ql = parseInt(newItemQl, 10);
+                        const qty = parseInt(newItemQty || '1', 10);
+                        if (isNaN(ql) || ql < 0 || isNaN(qty) || qty < 1) return;
+                        addItemMutation.mutate({ name: newItemName.trim(), qualityLevel: ql, quantity: qty });
+                      } else {
+                        addItemMutation.mutate({ name: newItemName.trim() });
+                      }
+                    }}
+                    className="flex flex-wrap gap-2 items-start"
                   >
-                    <EyeOff className="h-3 w-3" />
-                    {hideAssigned ? 'Showing available' : 'Hide assigned'}
-                  </button>
+                    <div className="relative w-full sm:w-[50ch] min-w-0">
+                      <input
+                        ref={newItemInputRef}
+                        className={inputCls}
+                        placeholder="Item name…"
+                        value={newItemName}
+                        onChange={(e) => {
+                          setNewItemName(e.target.value);
+                          if (!e.target.value) {
+                            setIsCommodityItem(false);
+                            setNewItemQl('');
+                            setNewItemQty('1');
+                          }
+                        }}
+                        onFocus={() => setNewItemInputFocused(true)}
+                        onBlur={() => setNewItemInputFocused(false)}
+                        autoComplete="off"
+                      />
+                      {newItemInputFocused &&
+                        newItemName === debouncedNewItem &&
+                        newItemName.length >= 2 &&
+                        (suggestQuery.data?.length ?? 0) > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
+                            {suggestQuery.data!.map((s) => (
+                              <button
+                                key={`${s.type}-${s.id}`}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setNewItemName(s.name);
+                                  const isCom = s.type === 'commodity';
+                                  setIsCommodityItem(isCom);
+                                  if (!isCom) {
+                                    setNewItemQl('');
+                                    setNewItemQty('1');
+                                  }
+                                  setNewItemInputFocused(false);
+                                  newItemInputRef.current?.focus();
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                              >
+                                <span className="flex-1 truncate">{s.name}</span>
+                                {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
+                                <span
+                                  className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}
+                                >
+                                  {s.type}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                    </div>
+                    {isCommodityItem && (
+                      <>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={4}
+                          className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                          placeholder="QL"
+                          value={newItemQl}
+                          onChange={(e) => setNewItemQl(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                          title="Quality Level (required)"
+                        />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={4}
+                          className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
+                          placeholder="Qty"
+                          value={newItemQty}
+                          onChange={(e) => setNewItemQty(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                          title="Quantity — each unit becomes an individual assignable item"
+                        />
+                      </>
+                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title={isCommodityItem ? 'Commodity/Material (click to clear)' : 'Mark as commodity/material'}
+                        onClick={() => {
+                          const next = !isCommodityItem;
+                          setIsCommodityItem(next);
+                          if (!next) {
+                            setNewItemQl('');
+                            setNewItemQty('1');
+                          }
+                        }}
+                        className={`rounded-sm px-1.5 py-1 text-[10px] font-medium border transition-colors ${isCommodityItem ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'border-border text-muted-foreground hover:border-amber-500/40 hover:text-amber-400'}`}
+                      >
+                        commodity
+                      </button>
+                      <Button
+                        type="submit"
+                        disabled={
+                          !newItemName.trim() || addItemMutation.isPending || (isCommodityItem && !newItemQl.trim())
+                        }
+                        className="gap-1"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {[...session.items]
+                  .sort((a, b) => {
+                    const aAssigned = a.assignments.length > 0 ? 1 : 0;
+                    const bAssigned = b.assignments.length > 0 ? 1 : 0;
+                    if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+                    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+                    return a.name.localeCompare(b.name);
+                  })
+                  .filter((item) => !hideAssigned || item.assignments.length === 0)
+                  .map((item) => (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      session={session}
+                      auction={auctionQuery.data?.[item.id] ?? null}
+                      dkpBalances={dkpQuery.data ?? []}
+                      eligiblePlayers={eligiblePlayers}
+                      allRsvpMap={allRsvpMap}
+                      allAssignmentCount={allAssignmentCount}
+                      skipCount={skipCount}
+                      onRolled={invalidate}
+                      onAssigned={invalidate}
+                      onDelete={invalidate}
+                      onAuctionChange={invalidate}
+                      guildId={guildId!}
+                      eventId={eventId!}
+                      currentUserId={user?.id}
+                      myEffectiveBalance={myEffectiveBalance}
+                      isManager={isManager}
+                      queued={queuedIds.has(item.id)}
+                      onToggleQueue={
+                        inDraft && session.status === 'OPEN' && item.assignments.length === 0
+                          ? () => toggleQueued(item.id)
+                          : undefined
+                      }
+                    />
+                  ))}
+
+                {session.items.length === 0 && (
+                  <p className="text-sm text-muted-foreground italic py-2">No items yet. Add the first item above.</p>
                 )}
               </div>
-            </div>
 
-            {/* Add item — managers only */}
-            {isManager && session.status === 'OPEN' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!newItemName.trim()) return;
-                  if (isCommodityItem) {
-                    const ql = parseInt(newItemQl, 10);
-                    const qty = parseInt(newItemQty || '1', 10);
-                    if (isNaN(ql) || ql < 0 || isNaN(qty) || qty < 1) return;
-                    addItemMutation.mutate({ name: newItemName.trim(), qualityLevel: ql, quantity: qty });
-                  } else {
-                    addItemMutation.mutate({ name: newItemName.trim() });
-                  }
-                }}
-                className="flex flex-wrap gap-2 items-start"
-              >
-                <div className="relative w-full sm:w-[50ch] min-w-0">
-                  <input
-                    ref={newItemInputRef}
-                    className={inputCls}
-                    placeholder="Item name…"
-                    value={newItemName}
-                    onChange={(e) => {
-                      setNewItemName(e.target.value);
-                      if (!e.target.value) { setIsCommodityItem(false); setNewItemQl(''); setNewItemQty('1'); }
-                    }}
-                    onFocus={() => setNewItemInputFocused(true)}
-                    onBlur={() => setNewItemInputFocused(false)}
-                    autoComplete="off"
-                  />
-                  {newItemInputFocused && newItemName === debouncedNewItem && newItemName.length >= 2 && (suggestQuery.data?.length ?? 0) > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
-                      {suggestQuery.data!.map((s) => (
-                        <button
-                          key={`${s.type}-${s.id}`}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setNewItemName(s.name);
-                            const isCom = s.type === 'commodity';
-                            setIsCommodityItem(isCom);
-                            if (!isCom) { setNewItemQl(''); setNewItemQty('1'); }
-                            setNewItemInputFocused(false);
-                            newItemInputRef.current?.focus();
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
-                        >
-                          <span className="flex-1 truncate">{s.name}</span>
-                          {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
-                          <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
-                            {s.type}
-                          </span>
-                        </button>
-                      ))}
+              {/* Commodity roll — shown when any item has a QL set */}
+              {isManager && session.status === 'OPEN' && session.items.some((i) => i.qualityLevel !== null) && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Shuffle className="h-4 w-4 mt-0.5 text-amber-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-amber-400">Commodity Draft</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Items are grouped by name. Within each group, items are sorted by QL (highest first) and
+                        distributed via a fresh randomised snake draft. Each group gets its own random order.
+                      </p>
                     </div>
+                  </div>
+                  {commodityRollMutation.isError && (
+                    <p className="text-xs text-destructive">
+                      {(commodityRollMutation.error as Error)?.message ?? 'Failed to roll.'}
+                    </p>
+                  )}
+                  <Button
+                    onClick={() => commodityRollMutation.mutate()}
+                    disabled={
+                      commodityRollMutation.isPending || session.participants.length === 0 || session.items.length === 0
+                    }
+                    className="gap-2"
+                  >
+                    <Shuffle className="h-4 w-4" />
+                    {session.draftStarted ? 'Re-roll Assignments' : 'Roll Assignments'}
+                  </Button>
+                  {session.draftStarted && (
+                    <p className="text-xs text-muted-foreground">
+                      Assignments have been rolled. Re-rolling will clear all current assignments.
+                    </p>
                   )}
                 </div>
-                {isCommodityItem && (
-                  <>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={4}
-                      className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
-                      placeholder="QL"
-                      value={newItemQl}
-                      onChange={(e) => setNewItemQl(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      title="Quality Level (required)"
-                    />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={4}
-                      className="w-16 shrink-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-center"
-                      placeholder="Qty"
-                      value={newItemQty}
-                      onChange={(e) => setNewItemQty(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      title="Quantity — each unit becomes an individual assignable item"
-                    />
-                  </>
-                )}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    title={isCommodityItem ? 'Commodity/Material (click to clear)' : 'Mark as commodity/material'}
-                    onClick={() => {
-                      const next = !isCommodityItem;
-                      setIsCommodityItem(next);
-                      if (!next) { setNewItemQl(''); setNewItemQty('1'); }
-                    }}
-                    className={`rounded-sm px-1.5 py-1 text-[10px] font-medium border transition-colors ${isCommodityItem ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'border-border text-muted-foreground hover:border-amber-500/40 hover:text-amber-400'}`}
-                  >
-                    commodity
-                  </button>
-                  <Button type="submit" disabled={!newItemName.trim() || addItemMutation.isPending || (isCommodityItem && (!newItemQl.trim()))} className="gap-1">
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            {[...session.items]
-              .sort((a, b) => {
-                const aAssigned = a.assignments.length > 0 ? 1 : 0;
-                const bAssigned = b.assignments.length > 0 ? 1 : 0;
-                if (aAssigned !== bAssigned) return aAssigned - bAssigned;
-                if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-                return a.name.localeCompare(b.name);
-              })
-              .filter((item) => !hideAssigned || item.assignments.length === 0)
-              .map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                session={session}
-                auction={auctionQuery.data?.[item.id] ?? null}
-                dkpBalances={dkpQuery.data ?? []}
-                eligiblePlayers={eligiblePlayers}
-                allRsvpMap={allRsvpMap}
-                allAssignmentCount={allAssignmentCount}
-                skipCount={skipCount}
-                onRolled={invalidate}
-                onAssigned={invalidate}
-                onDelete={invalidate}
-                onAuctionChange={invalidate}
-                guildId={guildId!}
-                eventId={eventId!}
-                currentUserId={user?.id}
-                myEffectiveBalance={myEffectiveBalance}
-                isManager={isManager}
-                queued={queuedIds.has(item.id)}
-                onToggleQueue={inDraft && session.status === 'OPEN' && item.assignments.length === 0 ? () => toggleQueued(item.id) : undefined}
-              />
-            ))}
-
-            {session.items.length === 0 && (
-              <p className="text-sm text-muted-foreground italic py-2">No items yet. Add the first item above.</p>
-            )}
-          </div>
-
-          {/* Commodity roll — shown when any item has a QL set */}
-          {isManager && session.status === 'OPEN' && session.items.some((i) => i.qualityLevel !== null) && (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <Shuffle className="h-4 w-4 mt-0.5 text-amber-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-400">Commodity Draft</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Items are grouped by name. Within each group, items are sorted by QL (highest first) and distributed via a fresh randomised snake draft. Each group gets its own random order.
-                  </p>
-                </div>
-              </div>
-              {commodityRollMutation.isError && (
-                <p className="text-xs text-destructive">{(commodityRollMutation.error as Error)?.message ?? 'Failed to roll.'}</p>
               )}
-              <Button
-                onClick={() => commodityRollMutation.mutate()}
-                disabled={commodityRollMutation.isPending || session.participants.length === 0 || session.items.length === 0}
-                className="gap-2"
-              >
-                <Shuffle className="h-4 w-4" />
-                {session.draftStarted ? 'Re-roll Assignments' : 'Roll Assignments'}
-              </Button>
-              {session.draftStarted && (
-                <p className="text-xs text-muted-foreground">Assignments have been rolled. Re-rolling will clear all current assignments.</p>
+
+              {/* Complete — managers only */}
+              {isManager && session.status === 'OPEN' && (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2 border-t border-border">
+                  <div className="space-y-1">
+                    {session.dkpAward > 0 && (
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Coins className="h-3.5 w-3.5" />+{session.dkpAward} DKP to {eligiblePlayers.length} attendee
+                        {eligiblePlayers.length !== 1 ? 's' : ''} on completion
+                      </span>
+                    )}
+                    <p className="text-xs text-muted-foreground">Changes are saved automatically.</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate(`/dashboard/servers/${guildId}`)}
+                      className="gap-1"
+                    >
+                      <Save className="h-4 w-4" />
+                      Save & Exit
+                    </Button>
+                    <Button
+                      onClick={() => completeMutation.mutate()}
+                      disabled={completeMutation.isPending}
+                      className="gap-1"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {completeMutation.isPending ? 'Completing…' : 'Complete & Post to Discord'}
+                    </Button>
+                  </div>
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Complete — managers only */}
-          {isManager && session.status === 'OPEN' && (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2 border-t border-border">
-              <div className="space-y-1">
-                {session.dkpAward > 0 && (
-                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Coins className="h-3.5 w-3.5" />
-                    +{session.dkpAward} DKP to {eligiblePlayers.length} attendee{eligiblePlayers.length !== 1 ? 's' : ''} on completion
-                  </span>
-                )}
-                <p className="text-xs text-muted-foreground">Changes are saved automatically.</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(`/dashboard/servers/${guildId}`)}
-                  className="gap-1"
-                >
-                  <Save className="h-4 w-4" />
-                  Save & Exit
-                </Button>
-                <Button
-                  onClick={() => completeMutation.mutate()}
-                  disabled={completeMutation.isPending}
-                  className="gap-1"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {completeMutation.isPending ? 'Completing…' : 'Complete & Post to Discord'}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {session.status === 'COMPLETED' && (
-            <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
-              ✅ Loot session completed. Results posted to the event forum thread.
-            </div>
-          )}
-        </>
-        </div>{/* end main content column */}
-
-        {/* Queue card — snake draft participants only (API 403s anyone not in the draft order without a viewer role) */}
-        {isSnakeDraft && !!user?.id && session.draftOrder.includes(user.id) && (
-          <div className="md:sticky md:top-4 self-start">
-            <QueueCard
-              session={session}
-              guildId={guildId!}
-              eventId={eventId!}
-              live={live}
-            />
+              {session.status === 'COMPLETED' && (
+                <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+                  ✅ Loot session completed. Results posted to the event forum thread.
+                </div>
+              )}
+            </>
           </div>
-        )}
+          {/* end main content column */}
+
+          {/* Queue card — snake draft participants only (API 403s anyone not in the draft order without a viewer role) */}
+          {isSnakeDraft && !!user?.id && session.draftOrder.includes(user.id) && (
+            <div className="md:sticky md:top-4 self-start">
+              <QueueCard session={session} guildId={guildId!} eventId={eventId!} live={live} />
+            </div>
+          )}
         </div>
       )}
     </div>

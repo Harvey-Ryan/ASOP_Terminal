@@ -4,7 +4,13 @@
 
 import { useMemo, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { correctionIndex, type ApiResponse, type CorrectionRoleDto, type GameBuildDto, type LiveCorrectionsDto } from '@dem/shared';
+import {
+  correctionIndex,
+  type ApiResponse,
+  type CorrectionRoleDto,
+  type GameBuildDto,
+  type LiveCorrectionsDto,
+} from '@dem/shared';
 import { api, ApiError } from '../api/client';
 
 export type DataView = 'corrected' | 'files';
@@ -12,11 +18,19 @@ const KEY = 'asop.dataView';
 const listeners = new Set<() => void>();
 
 function read(): DataView {
-  try { return localStorage.getItem(KEY) === 'files' ? 'files' : 'corrected'; } catch { return 'corrected'; }
+  try {
+    return localStorage.getItem(KEY) === 'files' ? 'files' : 'corrected';
+  } catch {
+    return 'corrected';
+  }
 }
 
 export function setDataView(v: DataView): void {
-  try { localStorage.setItem(KEY, v); } catch { /* private mode: this tab only */ }
+  try {
+    localStorage.setItem(KEY, v);
+  } catch {
+    /* private mode: this tab only */
+  }
   current = v;
   listeners.forEach((l) => l());
 }
@@ -24,7 +38,14 @@ let current: DataView = read();
 
 /** Corrected values (default) or the game files as they are. */
 export function useDataView(): DataView {
-  return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => current, () => 'corrected');
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => current,
+    () => 'corrected',
+  );
 }
 
 export function useLiveCorrections() {
@@ -59,6 +80,7 @@ export async function uploadEvidence(file: File): Promise<string> {
   form.append('image', file);
   const res = await fetch('/api/corrections/evidence', { method: 'POST', credentials: 'include', body: form });
   const body = (await res.json().catch(() => ({}))) as ApiResponse<{ url: string }>;
-  if (!res.ok || !body.data) throw new ApiError(res.status, body.error ?? `Upload failed (${res.status})`, res.headers.get('X-Request-Id'));
+  if (!res.ok || !body.data)
+    throw new ApiError(res.status, body.error ?? `Upload failed (${res.status})`, res.headers.get('X-Request-Id'));
   return body.data.url;
 }

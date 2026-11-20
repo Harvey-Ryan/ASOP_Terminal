@@ -6,8 +6,20 @@ vi.mock('../lib/discord-oauth.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('../lib/discord-oauth.js')>();
   return {
     ...real,
-    exchangeCode: vi.fn(async () => ({ access_token: 'at', refresh_token: 'rt', expires_in: 3600, token_type: 'Bearer', scope: 'identify' })),
-    fetchDiscordUser: vi.fn(async () => ({ id: `d-${Math.random().toString(36).slice(2)}`, username: 'pilot', discriminator: '0', global_name: 'Pilot', avatar: null })),
+    exchangeCode: vi.fn(async () => ({
+      access_token: 'at',
+      refresh_token: 'rt',
+      expires_in: 3600,
+      token_type: 'Bearer',
+      scope: 'identify',
+    })),
+    fetchDiscordUser: vi.fn(async () => ({
+      id: `d-${Math.random().toString(36).slice(2)}`,
+      username: 'pilot',
+      discriminator: '0',
+      global_name: 'Pilot',
+      avatar: null,
+    })),
   };
 });
 
@@ -17,7 +29,9 @@ const WEB = process.env.WEB_URL ?? 'http://localhost:5173';
 
 async function signIn(next?: string) {
   const agent = request.agent(app);
-  const start = await agent.get(`/api/auth/login${next !== undefined ? `?next=${encodeURIComponent(next)}` : ''}`).expect(302);
+  const start = await agent
+    .get(`/api/auth/login${next !== undefined ? `?next=${encodeURIComponent(next)}` : ''}`)
+    .expect(302);
   const state = new URL(start.headers['location']!).searchParams.get('state')!;
   const done = await agent.get(`/api/auth/callback?code=c&state=${state}`).expect(302);
   return done.headers['location'];

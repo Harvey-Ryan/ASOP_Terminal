@@ -12,51 +12,72 @@
 
 // ── Raw shapes (shared with the API: packages/shared/src/crafting.ts) ────────
 
-import type {
-  RawBpItem, RawMission, RawResource, RawLocalBlueprint,
-} from '@dem/shared';
+import type { RawBpItem, RawMission, RawResource, RawLocalBlueprint } from '@dem/shared';
 export type {
-  RawBpItem, RawBpPool, RawDifficulty, RawStanding, RawReputation, RawMission,
-  RawResource, RawStat, RawMaterial, RawComponent, RawDismantle, RawLocalBlueprint,
+  RawBpItem,
+  RawBpPool,
+  RawDifficulty,
+  RawStanding,
+  RawReputation,
+  RawMission,
+  RawResource,
+  RawStat,
+  RawMaterial,
+  RawComponent,
+  RawDismantle,
+  RawLocalBlueprint,
 } from '@dem/shared';
 
 // ── Exported types ────────────────────────────────────────────────────────────
 
 export interface ContractDifficulty {
-  mechanicalSkill:      number;
+  mechanicalSkill: number;
   mechanicalSkillLabel: string;
-  mentalLoad:           number;
-  mentalLoadLabel:      string;
-  riskOfLoss:           number;
-  riskOfLossLabel:      string;
-  gameKnowledge:        number;
-  gameKnowledgeLabel:   string;
+  mentalLoad: number;
+  mentalLoadLabel: string;
+  riskOfLoss: number;
+  riskOfLossLabel: string;
+  gameKnowledge: number;
+  gameKnowledgeLabel: string;
   profile: string | null;
 }
 
-export interface ContractStanding   { name: string; minReputation: number }
-export interface ContractBlueprint  { name: string; blueprintUuid: string }
-export interface ContractPool       { locations: string[]; blueprints: ContractBlueprint[] }
-export interface ContractReputation { faction: string; xp: number; scope: string }
+export interface ContractStanding {
+  name: string;
+  minReputation: number;
+}
+export interface ContractBlueprint {
+  name: string;
+  blueprintUuid: string;
+}
+export interface ContractPool {
+  locations: string[];
+  blueprints: ContractBlueprint[];
+}
+export interface ContractReputation {
+  faction: string;
+  xp: number;
+  scope: string;
+}
 
 export interface MissionContract {
-  title:                 string;
-  description:           string;
-  missionType:           string | null;
-  missionGiver:          string | null;
-  faction:               string | null;
-  locations:             string[];
-  pools:                 ContractPool[];
-  reputation:            ContractReputation[];
-  difficulty:            ContractDifficulty | null;
+  title: string;
+  description: string;
+  missionType: string | null;
+  missionGiver: string | null;
+  faction: string | null;
+  locations: string[];
+  pools: ContractPool[];
+  reputation: ContractReputation[];
+  difficulty: ContractDifficulty | null;
   timeToCompleteMinutes: number | null;
-  minStanding:           ContractStanding | null;
-  illegal:               boolean;
+  minStanding: ContractStanding | null;
+  illegal: boolean;
 }
 
 // ── Build helpers ─────────────────────────────────────────────────────────────
 
-const PLACEHOLDER   = '<= PLACEHOLDER =>';
+const PLACEHOLDER = '<= PLACEHOLDER =>';
 const UNINITIALIZED = '<= UNINITIALIZED =>';
 
 function normalise(items: RawBpItem | RawBpItem[] | undefined | null): RawBpItem[] {
@@ -82,12 +103,9 @@ function cleanStr(s: string | undefined | null): string | null {
 // ── Main build function ───────────────────────────────────────────────────────
 
 function buildContracts(raw: RawMission[]): MissionContract[] {
-
   // Keep only missions that have at least one blueprint pool with items
   const relevant = raw.filter(
-    (m) =>
-      Array.isArray(m.BlueprintPool) &&
-      m.BlueprintPool.some((p) => normalise(p.Items).length > 0),
+    (m) => Array.isArray(m.BlueprintPool) && m.BlueprintPool.some((p) => normalise(p.Items).length > 0),
   );
 
   // Group by title — multiple missions sharing a title are variants of the same contract
@@ -103,26 +121,32 @@ function buildContracts(raw: RawMission[]): MissionContract[] {
 
   for (const [title, group] of byTitle) {
     // Deduplicate pools by sorted blueprint-UUID fingerprint, merging locations
-    const poolsByFp = new Map<string, {
-      locations:  Set<string>;
-      blueprints: ContractBlueprint[];
-    }>();
+    const poolsByFp = new Map<
+      string,
+      {
+        locations: Set<string>;
+        blueprints: ContractBlueprint[];
+      }
+    >();
 
     for (const m of group) {
       const rawPools = m.BlueprintPool ?? [];
-      const mLocs    = m.Locations    ?? [];
+      const mLocs = m.Locations ?? [];
 
       for (const pool of rawPools) {
         const contents = normalise(pool.Items);
         if (!contents.length) continue;
 
-        const fp = contents.map((c) => c.BlueprintUUID).sort().join('|');
+        const fp = contents
+          .map((c) => c.BlueprintUUID)
+          .sort()
+          .join('|');
         const existing = poolsByFp.get(fp);
         if (!existing) {
           poolsByFp.set(fp, {
-            locations:  new Set(mLocs),
+            locations: new Set(mLocs),
             blueprints: contents.map((c) => ({
-              name:          c.Name,
+              name: c.Name,
               blueprintUuid: c.BlueprintUUID,
             })),
           });
@@ -133,7 +157,7 @@ function buildContracts(raw: RawMission[]): MissionContract[] {
     }
 
     const pools: ContractPool[] = [...poolsByFp.values()].map((p) => ({
-      locations:  [...p.locations].sort(),
+      locations: [...p.locations].sort(),
       blueprints: p.blueprints,
     }));
 
@@ -141,9 +165,7 @@ function buildContracts(raw: RawMission[]): MissionContract[] {
     if (!first) continue;
 
     // Reputation — skip placeholder/uninitialised entries
-    const reputation: ContractReputation[] = (
-      Array.isArray(first.Reputation) ? first.Reputation : []
-    )
+    const reputation: ContractReputation[] = (Array.isArray(first.Reputation) ? first.Reputation : [])
       .filter((r) => !!cleanStr(r.Faction) && r.XP != null)
       .map((r) => ({ faction: r.Faction!, xp: r.XP!, scope: r.Scope ?? 'FactionReputation' }));
 
@@ -151,38 +173,36 @@ function buildContracts(raw: RawMission[]): MissionContract[] {
     const rd = first.Difficulty;
     const difficulty: ContractDifficulty | null = rd
       ? {
-          mechanicalSkill:      diffScore(rd.MechanicalSkill),
+          mechanicalSkill: diffScore(rd.MechanicalSkill),
           mechanicalSkillLabel: diffLabel(rd.MechanicalSkill),
-          mentalLoad:           diffScore(rd.MentalLoad),
-          mentalLoadLabel:      diffLabel(rd.MentalLoad),
-          riskOfLoss:           diffScore(rd.RiskOfLoss),
-          riskOfLossLabel:      diffLabel(rd.RiskOfLoss),
-          gameKnowledge:        diffScore(rd.GameKnowledge),
-          gameKnowledgeLabel:   diffLabel(rd.GameKnowledge),
-          profile:              rd.Profile ?? null,
+          mentalLoad: diffScore(rd.MentalLoad),
+          mentalLoadLabel: diffLabel(rd.MentalLoad),
+          riskOfLoss: diffScore(rd.RiskOfLoss),
+          riskOfLossLabel: diffLabel(rd.RiskOfLoss),
+          gameKnowledge: diffScore(rd.GameKnowledge),
+          gameKnowledgeLabel: diffLabel(rd.GameKnowledge),
+          profile: rd.Profile ?? null,
         }
       : null;
 
     // Minimum standing requirement
     const rs = first.MinStanding;
     const minStanding: ContractStanding | null =
-      rs?.Name && rs.MinReputation != null
-        ? { name: rs.Name, minReputation: rs.MinReputation }
-        : null;
+      rs?.Name && rs.MinReputation != null ? { name: rs.Name, minReputation: rs.MinReputation } : null;
 
     result.push({
       title,
-      description:           first.Description        ?? '',
-      missionType:           cleanStr(first.MissionType),
-      missionGiver:          cleanStr(first.MissionGiver),
-      faction:               cleanStr(first.Faction),
-      locations:             [...new Set(pools.flatMap((p) => p.locations))].sort(),
+      description: first.Description ?? '',
+      missionType: cleanStr(first.MissionType),
+      missionGiver: cleanStr(first.MissionGiver),
+      faction: cleanStr(first.Faction),
+      locations: [...new Set(pools.flatMap((p) => p.locations))].sort(),
       pools,
       reputation,
       difficulty,
       timeToCompleteMinutes: first.TimeToCompleteMinutes ?? null,
       minStanding,
-      illegal:               first.Illegal ?? false,
+      illegal: first.Illegal ?? false,
     });
   }
 
@@ -197,38 +217,38 @@ function buildContracts(raw: RawMission[]): MissionContract[] {
 // ── Exported types ────────────────────────────────────────────────────────────
 
 export interface LocalMaterial {
-  name:        string;
-  uuid:        string | null;
-  kind:        string;
-  slot:        string;
-  quantity:    number | null;
+  name: string;
+  uuid: string | null;
+  kind: string;
+  slot: string;
+  quantity: number | null;
   quantityScu: number | null;
-  minQuality:  number | null;
+  minQuality: number | null;
 }
 
 export interface LocalModifier {
-  key:          string;
-  name:         string;
-  qualityMin:   number;
-  qualityMax:   number;
+  key: string;
+  name: string;
+  qualityMin: number;
+  qualityMax: number;
   modifierAtMin: number;
   modifierAtMax: number;
-  unitFormat:   string | null;
+  unitFormat: string | null;
   /** Adds a whole number (Power Pips…) instead of multiplying (v1.28.1) */
   additive?: boolean;
 }
 
 export interface LocalBlueprint {
-  uuid:               string;
-  key:                string;
-  outputName:         string;
-  outputType:         string;
-  outputSubtype:      string | null;
-  outputGrade:        string | null;
-  craftTimeSecs:      number;
-  materials:          LocalMaterial[];
-  modifiers:          LocalModifier[];
-  dismantleTimeSecs:  number | null;
+  uuid: string;
+  key: string;
+  outputName: string;
+  outputType: string;
+  outputSubtype: string | null;
+  outputGrade: string | null;
+  craftTimeSecs: number;
+  materials: LocalMaterial[];
+  modifiers: LocalModifier[];
+  dismantleTimeSecs: number | null;
   dismantleEfficiency: number | null;
 }
 
@@ -263,45 +283,43 @@ function buildBlueprints(raw: RawLocalBlueprint[], resources: RawResource[]): Lo
 
     for (const comp of bp.Components ?? []) {
       const m = comp.Material;
-      const resolvedName =
-        m.Name ??
-        (m.UUID ? (resMap.get(m.UUID) ?? comp.Slot) : comp.Slot);
+      const resolvedName = m.Name ?? (m.UUID ? (resMap.get(m.UUID) ?? comp.Slot) : comp.Slot);
 
       materials.push({
-        name:        resolvedName,
-        uuid:        m.UUID,
-        kind:        m.Kind,
-        slot:        comp.Slot,
-        quantity:    m.Quantity,
+        name: resolvedName,
+        uuid: m.UUID,
+        kind: m.Kind,
+        slot: comp.Slot,
+        quantity: m.Quantity,
         quantityScu: m.QuantityScu,
-        minQuality:  m.MinQuality,
+        minQuality: m.MinQuality,
       });
 
       for (const stat of comp.Stats ?? []) {
         modifiers.push({
-          key:          stat.Key,
-          name:         stat.Label,
-          qualityMin:   stat.QualityMin,
-          qualityMax:   stat.QualityMax,
+          key: stat.Key,
+          name: stat.Label,
+          qualityMin: stat.QualityMin,
+          qualityMax: stat.QualityMax,
           modifierAtMin: stat.MultiplierAtMin,
           modifierAtMax: stat.MultiplierAtMax,
-          additive:     stat.Additive ?? false,
-          unitFormat:   parseUnitFormat(stat.UnitFormat),
+          additive: stat.Additive ?? false,
+          unitFormat: parseUnitFormat(stat.UnitFormat),
         });
       }
     }
 
     result.push({
-      uuid:               bp.UUID,
-      key:                bp.Key,
-      outputName:         bp.Name,
-      outputType:         bp.Type,
-      outputSubtype:      (!bp.Subtype || bp.Subtype === 'UNDEFINED') ? null : bp.Subtype,
-      outputGrade:        bp.Grade ?? null,
-      craftTimeSecs:      bp.CraftTimeSeconds,
+      uuid: bp.UUID,
+      key: bp.Key,
+      outputName: bp.Name,
+      outputType: bp.Type,
+      outputSubtype: !bp.Subtype || bp.Subtype === 'UNDEFINED' ? null : bp.Subtype,
+      outputGrade: bp.Grade ?? null,
+      craftTimeSecs: bp.CraftTimeSeconds,
       materials,
       modifiers,
-      dismantleTimeSecs:  bp.Dismantle?.TimeSeconds ?? null,
+      dismantleTimeSecs: bp.Dismantle?.TimeSeconds ?? null,
       dismantleEfficiency: bp.Dismantle?.Efficiency ?? null,
     });
   }
@@ -403,7 +421,9 @@ export async function loadGameData(): Promise<GameDataSource> {
       const next = buildStore(raw, { kind: 'scdata', build, commit, loadedAt: new Date() });
       if (next.blueprints.length > 0) {
         store = next;
-        console.log(`[gamedata] Loaded game build ${build ?? commit.slice(0, 12)} from scdata: ${next.blueprints.length} blueprints, ${new Set([...next.contractsByBlueprint.values()].flat()).size} mission contracts`);
+        console.log(
+          `[gamedata] Loaded game build ${build ?? commit.slice(0, 12)} from scdata: ${next.blueprints.length} blueprints, ${new Set([...next.contractsByBlueprint.values()].flat()).size} mission contracts`,
+        );
         return store.source;
       }
       console.warn('[gamedata] scdata has no blueprints yet; trying again on the next reload');
@@ -411,7 +431,10 @@ export async function loadGameData(): Promise<GameDataSource> {
       console.warn('[gamedata] scdata not set up yet; trying again on the next reload');
     }
   } catch (err) {
-    console.error('[gamedata] Could not load scdata (trying again on the next reload):', err instanceof Error ? err.message : err);
+    console.error(
+      '[gamedata] Could not load scdata (trying again on the next reload):',
+      err instanceof Error ? err.message : err,
+    );
   }
   return current().source;
 }
@@ -422,7 +445,8 @@ export const getGameDataSource = (): GameDataSource => current().source;
 export const getBlueprints = (): readonly LocalBlueprint[] => current().blueprints;
 export const getBlueprintByUuid = (uuid: string): LocalBlueprint | undefined => current().byUuid.get(uuid);
 /** All mission contracts that can reward the given blueprint UUID. */
-export const getContractsForBlueprint = (uuid: string): MissionContract[] => current().contractsByBlueprint.get(uuid) ?? [];
+export const getContractsForBlueprint = (uuid: string): MissionContract[] =>
+  current().contractsByBlueprint.get(uuid) ?? [];
 export const blueprintHasContracts = (uuid: string): boolean => current().contractsByBlueprint.has(uuid);
 /** Distinct material names sorted alphabetically (for autocomplete). */
 export const getMaterialNames = (): readonly string[] => current().materialNames;

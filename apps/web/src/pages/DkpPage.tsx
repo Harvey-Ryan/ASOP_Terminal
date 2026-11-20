@@ -12,7 +12,10 @@ import { cn } from '@/lib/utils';
 
 // ── Member combobox ───────────────────────────────────────────────────────────
 
-interface Member { userId: string; username: string }
+interface Member {
+  userId: string;
+  username: string;
+}
 
 function MemberCombobox({
   members,
@@ -71,7 +74,10 @@ function MemberCombobox({
           {filtered.map((m) => (
             <li
               key={m.userId}
-              onMouseDown={(e) => { e.preventDefault(); select(m); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                select(m);
+              }}
               className={cn(
                 'cursor-pointer px-3 py-2 text-sm hover:bg-accent transition-colors',
                 value?.userId === m.userId && 'bg-primary/10 text-primary font-medium',
@@ -145,9 +151,18 @@ export function DkpPage() {
 
   function handleAdjust() {
     const amt = parseInt(adjustAmount, 10);
-    if (!adjustMember) { setAdjustError('Select a member from the list.'); return; }
-    if (!adjustAmount || isNaN(amt) || amt <= 0) { setAdjustError('Enter a positive amount.'); return; }
-    if (!adjustReason.trim()) { setAdjustError('Reason is required.'); return; }
+    if (!adjustMember) {
+      setAdjustError('Select a member from the list.');
+      return;
+    }
+    if (!adjustAmount || isNaN(amt) || amt <= 0) {
+      setAdjustError('Enter a positive amount.');
+      return;
+    }
+    if (!adjustReason.trim()) {
+      setAdjustError('Reason is required.');
+      return;
+    }
     setAdjustError('');
     adjustMutation.mutate({
       userId: adjustMember.userId,
@@ -211,9 +226,7 @@ export function DkpPage() {
 
           {tab === 'leaderboard' && (
             <div className="space-y-6">
-              {leaderboardQuery.isLoading && (
-                <p className="text-sm text-muted-foreground">Loading…</p>
-              )}
+              {leaderboardQuery.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
               {leaderboard.length > 0 && (
                 <div className="rounded-xl border border-border overflow-hidden">
@@ -279,11 +292,7 @@ export function DkpPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Member</label>
-                    <MemberCombobox
-                      members={players}
-                      value={adjustMember}
-                      onChange={setAdjustMember}
-                    />
+                    <MemberCombobox members={players} value={adjustMember} onChange={setAdjustMember} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Amount</label>
@@ -316,12 +325,16 @@ export function DkpPage() {
                   disabled={adjustMutation.isPending}
                   className={cn(adjustMode === 'deduct' && 'bg-red-600 hover:bg-red-700')}
                 >
-                  {adjustMode === 'grant'
-                    ? <Plus className="h-3.5 w-3.5 mr-1.5" />
-                    : <Minus className="h-3.5 w-3.5 mr-1.5" />}
+                  {adjustMode === 'grant' ? (
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  ) : (
+                    <Minus className="h-3.5 w-3.5 mr-1.5" />
+                  )}
                   {adjustMutation.isPending
                     ? 'Saving…'
-                    : adjustMode === 'grant' ? `Grant ${dkpLabel}` : `Deduct ${dkpLabel}`}
+                    : adjustMode === 'grant'
+                      ? `Grant ${dkpLabel}`
+                      : `Deduct ${dkpLabel}`}
                 </Button>
               </div>
             </div>
@@ -367,10 +380,13 @@ export function DkpPage() {
                                 t.amount >= 0 ? 'text-emerald-400' : 'text-red-400',
                               )}
                             >
-                              {t.amount >= 0
-                                ? <TrendingUp className="h-3.5 w-3.5" />
-                                : <TrendingDown className="h-3.5 w-3.5" />}
-                              {t.amount >= 0 ? '+' : ''}{t.amount.toLocaleString()}
+                              {t.amount >= 0 ? (
+                                <TrendingUp className="h-3.5 w-3.5" />
+                              ) : (
+                                <TrendingDown className="h-3.5 w-3.5" />
+                              )}
+                              {t.amount >= 0 ? '+' : ''}
+                              {t.amount.toLocaleString()}
                             </span>
                           </td>
                           <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">

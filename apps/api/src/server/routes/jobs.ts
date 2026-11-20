@@ -6,8 +6,17 @@
 import { Router, type Request, type Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import {
-  JOB_EXPIRY_DAYS, JOB_LIMITS, JOB_TAKE_MESSAGES, jobTakeProblem, jobVisibleTo, parseJobInput,
-  type ApiResponse, type JobDto, type JobKind, type JobStatus, type JobVisibility,
+  JOB_EXPIRY_DAYS,
+  JOB_LIMITS,
+  JOB_TAKE_MESSAGES,
+  jobTakeProblem,
+  jobVisibleTo,
+  parseJobInput,
+  type ApiResponse,
+  type JobDto,
+  type JobKind,
+  type JobStatus,
+  type JobVisibility,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -35,16 +44,31 @@ async function alliesOf(discordGuildId: string): Promise<Set<string>> {
 }
 
 async function toDtos(rows: JobRow[]): Promise<JobDto[]> {
-  const names = new Map((await prisma.guild.findMany({
-    where: { guildId: { in: [...new Set(rows.map((r) => r.guildId))] } }, select: { guildId: true, name: true },
-  })).map((g) => [g.guildId, g.name]));
+  const names = new Map(
+    (
+      await prisma.guild.findMany({
+        where: { guildId: { in: [...new Set(rows.map((r) => r.guildId))] } },
+        select: { guildId: true, name: true },
+      })
+    ).map((g) => [g.guildId, g.name]),
+  );
   return rows.map((j) => ({
-    id: j.id, guildId: j.guildId, guildName: names.get(j.guildId) ?? 'Unknown server',
-    posterId: j.posterId, posterName: j.posterName, kind: j.kind as JobKind, title: j.title, details: j.details,
-    reward: j.reward, location: j.location, whenText: j.whenText, slots: j.slots,
+    id: j.id,
+    guildId: j.guildId,
+    guildName: names.get(j.guildId) ?? 'Unknown server',
+    posterId: j.posterId,
+    posterName: j.posterName,
+    kind: j.kind as JobKind,
+    title: j.title,
+    details: j.details,
+    reward: j.reward,
+    location: j.location,
+    whenText: j.whenText,
+    slots: j.slots,
     visibility: j.visibility as JobVisibility,
     status: (j.status === 'OPEN' && j.expiresAt < new Date() ? 'EXPIRED' : j.status) as JobStatus,
-    expiresAt: j.expiresAt.toISOString(), createdAt: j.createdAt.toISOString(),
+    expiresAt: j.expiresAt.toISOString(),
+    createdAt: j.createdAt.toISOString(),
     crew: j.crew.map((c) => ({ userId: c.userId, username: c.username })),
   }));
 }
@@ -57,10 +81,15 @@ async function boardUser(req: Request, res: Response) {
     return null;
   }
   if (!(await assertModuleEnabled(guildId, 'jobsEnabled'))) {
-    res.status(404).json({ success: false, error: 'The job board is switched off in this server.' } satisfies ApiResponse);
+    res
+      .status(404)
+      .json({ success: false, error: 'The job board is switched off in this server.' } satisfies ApiResponse);
     return null;
   }
-  const u = await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true, globalName: true, username: true } });
+  const u = await prisma.user.findUniqueOrThrow({
+    where: { id: req.session.userId! },
+    select: { discordId: true, globalName: true, username: true },
+  });
   return { guildId, userId: u.discordId, name: u.globalName ?? u.username };
 }
 
@@ -83,18 +112,28 @@ const one = async (res: Response, jobId: string) => {
 jobsRouter.get('/:guildId/jobs', requireAuth, async (req, res) => {
   const me = await boardUser(req, res);
   if (!me) return;
-  const rows = req.query['view'] === 'mine'
-    ? await prisma.job.findMany({
-        where: { OR: [{ posterId: me.userId }, { crew: { some: { userId: me.userId } } }] },
-        orderBy: { createdAt: 'desc' }, take: 50, include: withCrew,
-      })
-    : await prisma.job.findMany({
-        where: {
-          status: 'OPEN', expiresAt: { gt: new Date() },
-          OR: [{ guildId: me.guildId }, { visibility: 'GLOBAL' }, { visibility: 'ALLIES', guildId: { in: [...(await alliesOf(me.guildId))] } }],
-        },
-        orderBy: { createdAt: 'desc' }, take: 200, include: withCrew,
-      });
+  const rows =
+    req.query['view'] === 'mine'
+      ? await prisma.job.findMany({
+          where: { OR: [{ posterId: me.userId }, { crew: { some: { userId: me.userId } } }] },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          include: withCrew,
+        })
+      : await prisma.job.findMany({
+          where: {
+            status: 'OPEN',
+            expiresAt: { gt: new Date() },
+            OR: [
+              { guildId: me.guildId },
+              { visibility: 'GLOBAL' },
+              { visibility: 'ALLIES', guildId: { in: [...(await alliesOf(me.guildId))] } },
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+          include: withCrew,
+        });
   res.json({ success: true, data: await toDtos(rows) } satisfies ApiResponse<JobDto[]>);
 });
 
@@ -107,13 +146,24 @@ jobsRouter.post('/:guildId/jobs', requireAuth, async (req, res) => {
     res.status(400).json({ success: false, error: parsed.error } satisfies ApiResponse);
     return;
   }
-  const open = await prisma.job.count({ where: { posterId: me.userId, status: 'OPEN', expiresAt: { gt: new Date() } } });
+  const open = await prisma.job.count({
+    where: { posterId: me.userId, status: 'OPEN', expiresAt: { gt: new Date() } },
+  });
   if (open >= JOB_LIMITS.openPerPerson) {
-    res.status(409).json({ success: false, error: `You already have ${JOB_LIMITS.openPerPerson} open jobs. Close one first.` } satisfies ApiResponse);
+    res.status(409).json({
+      success: false,
+      error: `You already have ${JOB_LIMITS.openPerPerson} open jobs. Close one first.`,
+    } satisfies ApiResponse);
     return;
   }
   const job = await prisma.job.create({
-    data: { ...parsed.job, guildId: me.guildId, posterId: me.userId, posterName: me.name, expiresAt: new Date(Date.now() + JOB_EXPIRY_DAYS * 86_400_000) },
+    data: {
+      ...parsed.job,
+      guildId: me.guildId,
+      posterId: me.userId,
+      posterName: me.name,
+      expiresAt: new Date(Date.now() + JOB_EXPIRY_DAYS * 86_400_000),
+    },
   });
   triggerBot(`/trigger/job/${job.id}`);
   res.status(201);
@@ -136,7 +186,10 @@ jobsRouter.put('/:guildId/jobs/:jobId', requireAuth, async (req, res) => {
     return;
   }
   if (parsed.job.slots < job.crew.length) {
-    res.status(400).json({ success: false, error: `${job.crew.length} people already took it; remove some first.` } satisfies ApiResponse);
+    res.status(400).json({
+      success: false,
+      error: `${job.crew.length} people already took it; remove some first.`,
+    } satisfies ApiResponse);
     return;
   }
   await prisma.job.update({ where: { id: job.id }, data: parsed.job });
@@ -155,7 +208,11 @@ jobsRouter.post('/:guildId/jobs/:jobId/take', requireAuth, async (req, res) => {
       SELECT status, slots, "posterId", "expiresAt" FROM "Job" WHERE id = ${job.id} FOR UPDATE`;
     if (!row) return 'closed' as const;
     const crew = await tx.jobCrew.findMany({ where: { jobId: job.id }, select: { userId: true } });
-    const why = jobTakeProblem({ ...row, status: row.expiresAt < new Date() ? 'EXPIRED' : row.status }, crew, me.userId);
+    const why = jobTakeProblem(
+      { ...row, status: row.expiresAt < new Date() ? 'EXPIRED' : row.status },
+      crew,
+      me.userId,
+    );
     if (why) return why;
     await tx.jobCrew.create({ data: { jobId: job.id, userId: me.userId, username: me.name, guildId: me.guildId } });
     return null;

@@ -2,8 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Search, Package, Plus, Trash2, Pencil, X, Check,
-  Tag, Store, ArrowLeftRight, ChevronDown, ChevronUp, Send,
+  Search,
+  Package,
+  Plus,
+  Trash2,
+  Pencil,
+  X,
+  Check,
+  Tag,
+  Store,
+  ArrowLeftRight,
+  ChevronDown,
+  ChevronUp,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,11 +37,10 @@ import type {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 const LISTING_TTL_DAYS = 14;
-const LISTING_TTL_MS   = LISTING_TTL_DAYS * 24 * 60 * 60 * 1000;
+const LISTING_TTL_MS = LISTING_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 function isExpired(listedAt: string | null): boolean {
   if (!listedAt) return false;
@@ -64,7 +74,6 @@ function PriceBadge({ listing }: { listing: Pick<MarketplaceListingDto, 'askingP
 
 // ── UEX autocomplete ──────────────────────────────────────────────────────────
 
-
 // ── Tab 1 — Browse (cross-guild marketplace) ──────────────────────────────────
 
 const PAGE_SIZE = 50;
@@ -77,25 +86,25 @@ function BrowseTab({ guildId }: { guildId: string }) {
   const qc = useQueryClient();
 
   // Filter / sort state
-  const [q, setQ]                         = useState('');
-  const debouncedQ                         = useDebounce(q, 300);
-  const [typeFilter, setTypeFilter]        = useState<ItemTypeFilter>('ALL');
-  const [guildOnly, setGuildOnly]          = useState(false);
+  const [q, setQ] = useState('');
+  const debouncedQ = useDebounce(q, 300);
+  const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>('ALL');
+  const [guildOnly, setGuildOnly] = useState(false);
   const [fixedPriceOnly, setFixedPriceOnly] = useState(false);
-  const [sort, setSort]                    = useState<SortMode>('newest');
+  const [sort, setSort] = useState<SortMode>('newest');
 
   // Pagination state — listings is the accumulated list across pages
-  const [listings, setListings]  = useState<MarketplaceListingDto[]>([]);
-  const [offset, setOffset]      = useState(0);
-  const [hasMore, setHasMore]    = useState(false);
-  const [loading, setLoading]    = useState(false);
+  const [listings, setListings] = useState<MarketplaceListingDto[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   // Request form state
   const [requesting, setRequesting] = useState<MarketplaceListingDto | null>(null);
-  const [reqQty, setReqQty]         = useState('');
-  const [reqNote, setReqNote]       = useState('');
-  const [reqError, setReqError]     = useState('');
+  const [reqQty, setReqQty] = useState('');
+  const [reqNote, setReqNote] = useState('');
+  const [reqError, setReqError] = useState('');
 
   // Build the browse params object — used as a dependency key
   const browseParams = {
@@ -113,37 +122,45 @@ function BrowseTab({ guildId }: { guildId: string }) {
     setLoading(true);
     setOffset(0);
     setRequesting(null);
-    marketplaceApi.browse({ ...browseParams, offset: 0 }).then((rows) => {
-      if (cancelled) return;
-      setListings(rows);
-      setHasMore(rows.length === PAGE_SIZE);
-      setLoading(false);
-    }).catch((err: unknown) => {
-      if (cancelled) return;
-      setLoading(false);
-      // 401 means session expired — clear auth cache so ProtectedRoute redirects to login
-      if (err instanceof ApiError && err.status === 401) {
-        qc.setQueryData(AUTH_QUERY_KEY, null);
-      }
-    });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    marketplaceApi
+      .browse({ ...browseParams, offset: 0 })
+      .then((rows) => {
+        if (cancelled) return;
+        setListings(rows);
+        setHasMore(rows.length === PAGE_SIZE);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setLoading(false);
+        // 401 means session expired — clear auth cache so ProtectedRoute redirects to login
+        if (err instanceof ApiError && err.status === 401) {
+          qc.setQueryData(AUTH_QUERY_KEY, null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQ, typeFilter, guildOnly, fixedPriceOnly, sort]);
 
   function loadMore() {
     const nextOffset = offset + PAGE_SIZE;
     setLoadingMore(true);
-    marketplaceApi.browse({ ...browseParams, offset: nextOffset }).then((rows) => {
-      setListings((prev) => [...prev, ...rows]);
-      setOffset(nextOffset);
-      setHasMore(rows.length === PAGE_SIZE);
-      setLoadingMore(false);
-    }).catch((err: unknown) => {
-      setLoadingMore(false);
-      if (err instanceof ApiError && err.status === 401) {
-        qc.setQueryData(AUTH_QUERY_KEY, null);
-      }
-    });
+    marketplaceApi
+      .browse({ ...browseParams, offset: nextOffset })
+      .then((rows) => {
+        setListings((prev) => [...prev, ...rows]);
+        setOffset(nextOffset);
+        setHasMore(rows.length === PAGE_SIZE);
+        setLoadingMore(false);
+      })
+      .catch((err: unknown) => {
+        setLoadingMore(false);
+        if (err instanceof ApiError && err.status === 401) {
+          qc.setQueryData(AUTH_QUERY_KEY, null);
+        }
+      });
   }
 
   const requestMut = useMutation({
@@ -162,7 +179,10 @@ function BrowseTab({ guildId }: { guildId: string }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
       qc.invalidateQueries({ queryKey: ['marketplace-pending-count', guildId] });
-      setRequesting(null); setReqQty(''); setReqNote(''); setReqError('');
+      setRequesting(null);
+      setReqQty('');
+      setReqNote('');
+      setReqError('');
     },
     onError: (e: Error) => setReqError(e.message),
   });
@@ -192,7 +212,9 @@ function BrowseTab({ guildId }: { guildId: string }) {
               onClick={() => setTypeFilter(t)}
               className={cn(
                 'px-3 py-1.5 transition-colors',
-                typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                typeFilter === t
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >
               {t === 'ALL' ? 'All' : t === 'COMMODITY' ? 'Commodity' : 'Item'}
@@ -205,7 +227,9 @@ function BrowseTab({ guildId }: { guildId: string }) {
           onClick={() => setGuildOnly((v) => !v)}
           className={cn(
             'rounded-full border px-3 py-1 text-xs font-medium transition-colors shrink-0',
-            guildOnly ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:border-primary/50',
+            guildOnly
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border bg-card text-muted-foreground hover:border-primary/50',
           )}
         >
           This guild only
@@ -214,7 +238,9 @@ function BrowseTab({ guildId }: { guildId: string }) {
           onClick={() => setFixedPriceOnly((v) => !v)}
           className={cn(
             'rounded-full border px-3 py-1 text-xs font-medium transition-colors shrink-0',
-            fixedPriceOnly ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:border-primary/50',
+            fixedPriceOnly
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border bg-card text-muted-foreground hover:border-primary/50',
           )}
         >
           Fixed price only
@@ -234,7 +260,9 @@ function BrowseTab({ guildId }: { guildId: string }) {
       {/* Results */}
       {loading && (
         <div className="space-y-2">
-          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-16 rounded-lg" />
+          ))}
         </div>
       )}
 
@@ -277,7 +305,9 @@ function BrowseTab({ guildId }: { guildId: string }) {
 
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground tabular-nums">{fmtQty(available, listing.itemType)}</p>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {fmtQty(available, listing.itemType)}
+                        </p>
                         <PriceBadge listing={listing} />
                       </div>
                       {!isOwn && (
@@ -285,16 +315,23 @@ function BrowseTab({ guildId }: { guildId: string }) {
                           size="sm"
                           variant={isOpen ? 'outline' : 'default'}
                           onClick={() => {
-                            if (isOpen) { setRequesting(null); setReqQty(''); setReqNote(''); setReqError(''); }
-                            else { setRequesting(listing); setReqQty(''); setReqNote(''); setReqError(''); }
+                            if (isOpen) {
+                              setRequesting(null);
+                              setReqQty('');
+                              setReqNote('');
+                              setReqError('');
+                            } else {
+                              setRequesting(listing);
+                              setReqQty('');
+                              setReqNote('');
+                              setReqError('');
+                            }
                           }}
                         >
                           {isOpen ? 'Cancel' : 'Request'}
                         </Button>
                       )}
-                      {isOwn && (
-                        <span className="text-xs text-muted-foreground italic">Your listing</span>
-                      )}
+                      {isOwn && <span className="text-xs text-muted-foreground italic">Your listing</span>}
                     </div>
                   </div>
 
@@ -320,7 +357,9 @@ function BrowseTab({ guildId }: { guildId: string }) {
                           />
                         </div>
                         <div className="flex-1 min-w-[160px]">
-                          <label className="text-xs text-muted-foreground block mb-1">Message to seller (optional)</label>
+                          <label className="text-xs text-muted-foreground block mb-1">
+                            Message to seller (optional)
+                          </label>
                           <input
                             value={reqNote}
                             onChange={(e) => setReqNote(e.target.value)}
@@ -395,7 +434,7 @@ function ListingEditor({
         forSale,
         quantityListed: forSale ? parsedQty : null,
         askingPrice: forSale ? parsedPrice : null,
-        priceNote: forSale ? (note.trim() || null) : null,
+        priceNote: forSale ? note.trim() || null : null,
       });
     },
     onSuccess: () => {
@@ -414,9 +453,11 @@ function ListingEditor({
         </p>
         {entry.forSale && (
           <p className="text-xs text-muted-foreground">
-            {isExpired(entry.listedAt)
-              ? <span className="text-amber-400">Expired — change your price to renew for {LISTING_TTL_DAYS} days</span>
-              : `Change your price to renew for ${LISTING_TTL_DAYS} days`}
+            {isExpired(entry.listedAt) ? (
+              <span className="text-amber-400">Expired — change your price to renew for {LISTING_TTL_DAYS} days</span>
+            ) : (
+              `Change your price to renew for ${LISTING_TTL_DAYS} days`
+            )}
           </p>
         )}
       </div>
@@ -470,12 +511,19 @@ function ListingEditor({
           {saveMut.isPending ? 'Saving…' : entry.forSale ? 'Update Listing' : 'Publish Listing'}
         </Button>
         {entry.forSale && (
-          <Button size="sm" variant="ghost" onClick={() => saveMut.mutate(false)} disabled={saveMut.isPending}
-            className="text-destructive hover:text-destructive/80">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => saveMut.mutate(false)}
+            disabled={saveMut.isPending}
+            className="text-destructive hover:text-destructive/80"
+          >
             Unlist
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
       </div>
     </div>
   );
@@ -483,13 +531,7 @@ function ListingEditor({
 
 // ── Inventory row ─────────────────────────────────────────────────────────────
 
-function InventoryRow({
-  entry,
-  guildId,
-}: {
-  entry: InventoryEntryDto;
-  guildId: string;
-}) {
+function InventoryRow({ entry, guildId }: { entry: InventoryEntryDto; guildId: string }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [listing, setListing] = useState(false);
@@ -529,23 +571,45 @@ function InventoryRow({
       <div className="py-2 space-y-1">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium min-w-0 flex-1">{entry.itemName}</span>
-          <input type="number" min={0} step={entry.itemType === 'COMMODITY' ? 0.001 : 1}
-            value={qty} onChange={(e) => setQty(e.target.value)}
+          <input
+            type="number"
+            min={0}
+            step={entry.itemType === 'COMMODITY' ? 0.001 : 1}
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
             className="w-24 rounded border border-input bg-background px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-ring"
-            placeholder="Qty" />
-          <input type="number" min={0} max={1000} step={1}
-            value={ql} onChange={(e) => setQl(e.target.value)}
+            placeholder="Qty"
+          />
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            step={1}
+            value={ql}
+            onChange={(e) => setQl(e.target.value)}
             className="w-20 rounded border border-input bg-background px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-ring"
-            placeholder={entry.itemType === 'COMMODITY' ? 'QL *' : 'QL'} />
-          <input value={loc} onChange={(e) => setLoc(e.target.value)}
+            placeholder={entry.itemType === 'COMMODITY' ? 'QL *' : 'QL'}
+          />
+          <input
+            value={loc}
+            onChange={(e) => setLoc(e.target.value)}
             className="w-36 rounded border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-            placeholder="Location" />
-          <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
-            className="text-green-500 hover:text-green-400 disabled:opacity-50">
+            placeholder="Location"
+          />
+          <button
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending}
+            className="text-green-500 hover:text-green-400 disabled:opacity-50"
+          >
             <Check className="h-4 w-4" />
           </button>
-          <button onClick={() => { setEditing(false); setSaveError(''); }}
-            className="text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => {
+              setEditing(false);
+              setSaveError('');
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -563,14 +627,10 @@ function InventoryRow({
             {entry.itemType === 'COMMODITY' ? 'COM' : 'ITEM'}
           </span>
           {entry.forSale && !isExpired(entry.listedAt) && (
-            <span className="text-xs rounded-full px-2 py-0.5 bg-green-500/10 text-green-400 font-medium">
-              Listed
-            </span>
+            <span className="text-xs rounded-full px-2 py-0.5 bg-green-500/10 text-green-400 font-medium">Listed</span>
           )}
           {entry.forSale && isExpired(entry.listedAt) && (
-            <span className="text-xs rounded-full px-2 py-0.5 bg-amber-500/10 text-amber-400 font-medium">
-              Expired
-            </span>
+            <span className="text-xs rounded-full px-2 py-0.5 bg-amber-500/10 text-amber-400 font-medium">Expired</span>
           )}
         </div>
         <div className="flex items-center gap-3 text-muted-foreground shrink-0">
@@ -578,47 +638,51 @@ function InventoryRow({
           {entry.location && <span className="text-xs">📍 {entry.location}</span>}
           <span className="tabular-nums text-xs">{fmtQty(entry.quantity, entry.itemType)}</span>
           {/* Action buttons — revealed on hover */}
-          <button onClick={() => { setEditing(true); setListing(false); }}
+          <button
+            onClick={() => {
+              setEditing(true);
+              setListing(false);
+            }}
             className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-            title="Edit inventory entry">
+            title="Edit inventory entry"
+          >
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => setListing((v) => !v)}
+          <button
+            onClick={() => setListing((v) => !v)}
             className={cn(
               'opacity-0 group-hover:opacity-100 transition-opacity',
               listing ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
             )}
-            title={entry.forSale ? 'Manage listing' : 'List for sale'}>
+            title={entry.forSale ? 'Manage listing' : 'List for sale'}
+          >
             <Tag className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => deleteMut.mutate()} disabled={deleteMut.isPending}
+          <button
+            onClick={() => deleteMut.mutate()}
+            disabled={deleteMut.isPending}
             className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/80 disabled:opacity-50"
-            title="Remove from inventory">
+            title="Remove from inventory"
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
       {/* Listing editor — shown when tag button is toggled */}
-      {listing && (
-        <ListingEditor entry={entry} guildId={guildId} onClose={() => setListing(false)} />
-      )}
+      {listing && <ListingEditor entry={entry} guildId={guildId} onClose={() => setListing(false)} />}
 
       {/* Price summary when listed and editor is closed */}
       {!listing && entry.forSale && (
         <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>
-            {entry.quantityListed != null ? fmtQty(entry.quantityListed, entry.itemType) : 'All'} listed
-          </span>
+          <span>{entry.quantityListed != null ? fmtQty(entry.quantityListed, entry.itemType) : 'All'} listed</span>
           <PriceBadge listing={entry} />
           {isExpired(entry.listedAt) ? (
             <span className="text-amber-400">Expired — update price to renew</span>
           ) : (
             (() => {
               const days = daysUntilExpiry(entry.listedAt);
-              return days !== null && days <= 3
-                ? <span className="text-amber-400">Expires in {days}d</span>
-                : null;
+              return days !== null && days <= 3 ? <span className="text-amber-400">Expires in {days}d</span> : null;
             })()
           )}
         </div>
@@ -667,7 +731,12 @@ function InventoryTab({ guildId }: { guildId: string }) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['exchange-inventory', guildId] });
-      setSelected(null); setLabelValue(''); setQty('1'); setQl(''); setLoc(''); setFormError('');
+      setSelected(null);
+      setLabelValue('');
+      setQty('1');
+      setQl('');
+      setLoc('');
+      setFormError('');
     },
     onError: (err: Error) => setFormError(err.message),
   });
@@ -688,33 +757,54 @@ function InventoryTab({ guildId }: { guildId: string }) {
         <CardContent className="space-y-3">
           <ItemCombobox
             placeholder="Search for an item or commodity to add…"
-            onSelect={(r) => { setSelected(r); setLabelValue(r.name); setQl(''); }}
+            onSelect={(r) => {
+              setSelected(r);
+              setLabelValue(r.name);
+              setQl('');
+            }}
             value={labelValue}
-            onClear={() => { setSelected(null); setLabelValue(''); }}
+            onClear={() => {
+              setSelected(null);
+              setLabelValue('');
+            }}
           />
           <div className="flex flex-wrap gap-2">
             <div className="flex-1 min-w-[100px]">
               <label className="text-xs text-muted-foreground block mb-1">
                 {isCommodity ? 'Quantity (cSCU)' : 'Quantity'}
               </label>
-              <input type="number" min={0} step={isCommodity ? 0.001 : 1}
-                value={qty} onChange={(e) => setQty(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring" />
+              <input
+                type="number"
+                min={0}
+                step={isCommodity ? 0.001 : 1}
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              />
             </div>
             <div className="w-28">
               <label className="text-xs text-muted-foreground block mb-1">
                 Quality (0–1000){isCommodity ? ' *' : ''}
               </label>
-              <input type="number" min={0} max={1000} step={1}
-                value={ql} onChange={(e) => setQl(e.target.value)}
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                step={1}
+                value={ql}
+                onChange={(e) => setQl(e.target.value)}
                 placeholder={isCommodity ? 'Required' : 'Optional'}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring" />
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              />
             </div>
             <div className="flex-1 min-w-[140px]">
               <label className="text-xs text-muted-foreground block mb-1">Location (optional)</label>
-              <input value={loc} onChange={(e) => setLoc(e.target.value)}
+              <input
+                value={loc}
+                onChange={(e) => setLoc(e.target.value)}
                 placeholder="e.g. Lorville - TDD"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring" />
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              />
             </div>
           </div>
           {formError && <p className="text-xs text-destructive">{formError}</p>}
@@ -729,7 +819,11 @@ function InventoryTab({ guildId }: { guildId: string }) {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <CardTitle className="text-base flex items-center gap-2">
               <Package className="h-4 w-4" /> My Inventory
-              {user && <span className="text-xs font-normal text-muted-foreground ml-1">— {user.globalName ?? user.username}</span>}
+              {user && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  — {user.globalName ?? user.username}
+                </span>
+              )}
             </CardTitle>
             {listedCount > 0 && (
               <button
@@ -747,7 +841,13 @@ function InventoryTab({ guildId }: { guildId: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 rounded" />)}</div>}
+          {isLoading && (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-10 rounded" />
+              ))}
+            </div>
+          )}
           {!isLoading && inventory.length === 0 && (
             <p className="text-sm text-muted-foreground py-4 text-center">Your inventory is empty. Add items above.</p>
           )}
@@ -824,15 +924,14 @@ function TradeChat({ trade, guildId, myDiscordId }: { trade: TradeDto; guildId: 
               <div
                 className={cn(
                   'max-w-[75%] rounded-lg px-3 py-2 text-sm break-words',
-                  isMe
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-foreground',
+                  isMe ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
                 )}
               >
                 {msg.body}
               </div>
               <span className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                {isMe ? 'You' : msg.senderUsername} · {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {isMe ? 'You' : msg.senderUsername} ·{' '}
+                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
           );
@@ -855,9 +954,7 @@ function TradeChat({ trade, guildId, myDiscordId }: { trade: TradeDto; guildId: 
           {sendMut.isPending ? '…' : 'Send'}
         </Button>
       </form>
-      {sendMut.isError && (
-        <p className="text-xs text-destructive mt-1">Failed to send. Try again.</p>
-      )}
+      {sendMut.isError && <p className="text-xs text-destructive mt-1">Failed to send. Try again.</p>}
     </div>
   );
 }
@@ -878,9 +975,18 @@ function TradeRow({
   const listing = trade.listingSnapshot;
   const invalidate = () => qc.invalidateQueries({ queryKey: ['marketplace-trades', guildId] });
 
-  const acceptMut  = useMutation({ mutationFn: () => marketplaceApi.acceptTrade(guildId, trade.id),  onSuccess: invalidate });
-  const declineMut = useMutation({ mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id), onSuccess: invalidate });
-  const cancelMut  = useMutation({ mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),  onSuccess: invalidate });
+  const acceptMut = useMutation({
+    mutationFn: () => marketplaceApi.acceptTrade(guildId, trade.id),
+    onSuccess: invalidate,
+  });
+  const declineMut = useMutation({
+    mutationFn: () => marketplaceApi.declineTrade(guildId, trade.id),
+    onSuccess: invalidate,
+  });
+  const cancelMut = useMutation({
+    mutationFn: () => marketplaceApi.cancelTrade(guildId, trade.id),
+    onSuccess: invalidate,
+  });
   const markReadMut = useMutation({
     meta: { quietErrors: true }, // a background read receipt; failing is harmless
     mutationFn: () => marketplaceApi.markAsRead(guildId, trade.id),
@@ -895,16 +1001,19 @@ function TradeRow({
     if (chatOpen && trade.unreadCount > 0) {
       markReadMut.mutate();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatOpen]);
 
   const busy = acceptMut.isPending || declineMut.isPending || cancelMut.isPending;
 
   const statusColor =
-    trade.status === 'ACCEPTED'  ? 'text-green-400' :
-    trade.status === 'DECLINED'  ? 'text-destructive' :
-    trade.status === 'CANCELLED' ? 'text-muted-foreground' :
-    'text-yellow-400';
+    trade.status === 'ACCEPTED'
+      ? 'text-green-400'
+      : trade.status === 'DECLINED'
+        ? 'text-destructive'
+        : trade.status === 'CANCELLED'
+          ? 'text-muted-foreground'
+          : 'text-yellow-400';
 
   const ChevronIcon = chatOpen ? ChevronUp : ChevronDown;
 
@@ -921,7 +1030,12 @@ function TradeRow({
         role="button"
         tabIndex={0}
         onClick={() => setChatOpen((v) => !v)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChatOpen((v) => !v); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setChatOpen((v) => !v);
+          }
+        }}
         className="flex items-center gap-3 flex-wrap cursor-pointer select-none rounded-md -mx-2 px-2 py-1 hover:bg-muted/50 transition-colors"
       >
         <div className="flex-1 min-w-0">
@@ -939,21 +1053,58 @@ function TradeRow({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <ChevronIcon className={cn('h-4 w-4 transition-colors', chatOpen ? 'text-primary' : 'text-muted-foreground')} />
+          <ChevronIcon
+            className={cn('h-4 w-4 transition-colors', chatOpen ? 'text-primary' : 'text-muted-foreground')}
+          />
           <span className={cn('text-xs font-medium', statusColor)}>{trade.status}</span>
           {trade.status === 'PENDING' && role === 'seller' && (
             <>
-              <Button size="sm" onClick={(e) => { e.stopPropagation(); acceptMut.mutate(); }} disabled={busy}>Accept</Button>
-              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); declineMut.mutate(); }} disabled={busy}>Decline</Button>
-              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelMut.mutate(); }} disabled={busy}
-                className="text-muted-foreground hover:text-foreground">
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  acceptMut.mutate();
+                }}
+                disabled={busy}
+              >
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  declineMut.mutate();
+                }}
+                disabled={busy}
+              >
+                Decline
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelMut.mutate();
+                }}
+                disabled={busy}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 Cancel
               </Button>
             </>
           )}
           {trade.status === 'PENDING' && role === 'buyer' && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelMut.mutate(); }} disabled={busy}
-              className="text-muted-foreground hover:text-foreground">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelMut.mutate();
+              }}
+              disabled={busy}
+              className="text-muted-foreground hover:text-foreground"
+            >
               Cancel
             </Button>
           )}
@@ -986,15 +1137,17 @@ function TradesTab({ guildId }: { guildId: string }) {
   const visibleOutgoing = showHistory ? outgoing : outgoing.filter((t) => !isOldResolved(t));
 
   if (isLoading) {
-    return <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>;
+    return (
+      <div className="space-y-2">
+        {[0, 1].map((i) => (
+          <Skeleton key={i} className="h-14 rounded-lg" />
+        ))}
+      </div>
+    );
   }
 
   if (incoming.length === 0 && outgoing.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground text-center py-12">
-        No trade requests yet.
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground text-center py-12">No trade requests yet.</p>;
   }
 
   const historyToggle = hiddenCount > 0 && (
@@ -1012,11 +1165,7 @@ function TradesTab({ guildId }: { guildId: string }) {
 
   return (
     <div className="space-y-6">
-      {nothingVisible && (
-        <p className="text-sm text-muted-foreground text-center py-8">
-          No recent activity.
-        </p>
-      )}
+      {nothingVisible && <p className="text-sm text-muted-foreground text-center py-8">No recent activity.</p>}
 
       {visibleIncoming.length > 0 && (
         <div>
@@ -1084,9 +1233,9 @@ export function MarketplacePage() {
   if (!guildId) return null;
 
   const TABS: { id: TabId; label: string; Icon: React.ElementType; pendingBadge?: number; messageBadge?: number }[] = [
-    { id: 'browse',    label: 'Browse',       Icon: Store },
+    { id: 'browse', label: 'Browse', Icon: Store },
     { id: 'inventory', label: 'My Inventory', Icon: Package },
-    { id: 'trades',    label: 'Trades',       Icon: ArrowLeftRight, pendingBadge: pendingCount, messageBadge: unreadCount },
+    { id: 'trades', label: 'Trades', Icon: ArrowLeftRight, pendingBadge: pendingCount, messageBadge: unreadCount },
   ];
 
   return (
@@ -1126,9 +1275,9 @@ export function MarketplacePage() {
         ))}
       </div>
 
-      {activeTab === 'browse'    && <BrowseTab guildId={guildId} />}
+      {activeTab === 'browse' && <BrowseTab guildId={guildId} />}
       {activeTab === 'inventory' && <InventoryTab guildId={guildId} />}
-      {activeTab === 'trades'    && <TradesTab guildId={guildId} />}
+      {activeTab === 'trades' && <TradesTab guildId={guildId} />}
     </div>
   );
 }

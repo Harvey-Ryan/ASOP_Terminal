@@ -126,7 +126,8 @@ export async function maybeAutoCloseStandalone(auctionId: string): Promise<void>
 auctionRouter.get('/:guildId/auctions', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   if (!(await assertModuleEnabled(guildId, 'dkpEnabled'))) {
-    res.status(403).json({ success: false, error: 'DKP module is disabled' } satisfies ApiResponse); return;
+    res.status(403).json({ success: false, error: 'DKP module is disabled' } satisfies ApiResponse);
+    return;
   }
 
   // Lazy-close any expired auctions
@@ -289,9 +290,7 @@ auctionRouter.post('/:guildId/auctions/:auctionId/bid', requireAuth, async (req,
       where: { id: auction.eventId },
       select: { confirmedAttendees: true },
     });
-    const confirmedAttendees: string[] = eventRow?.confirmedAttendees
-      ? JSON.parse(eventRow.confirmedAttendees)
-      : [];
+    const confirmedAttendees: string[] = eventRow?.confirmedAttendees ? JSON.parse(eventRow.confirmedAttendees) : [];
     if (!isManager && !confirmedAttendees.includes(userId)) {
       res.status(403).json({
         success: false,

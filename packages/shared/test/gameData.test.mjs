@@ -1,9 +1,15 @@
 // Tests for the game data status helpers. Run: `npm test -w @dem/shared`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inferCheckIntervalMin, parseGameDataStatus, gameDataStaleAfterMin, describeCheckInterval } from '../dist/gameData.js';
+import {
+  inferCheckIntervalMin,
+  parseGameDataStatus,
+  gameDataStaleAfterMin,
+  describeCheckInterval,
+} from '../dist/gameData.js';
 
-const DAY = 86400, MIN = 60;
+const DAY = 86400,
+  MIN = 60;
 
 test('a regular 5-minute schedule is recognised', () => {
   assert.equal(inferCheckIntervalMin([300, 301, 299, 300, 302, 300, 298, 300, 300]), 5);
@@ -33,25 +39,48 @@ test('too few runs → default', () => {
 
 test('no false "checks have stopped" 45 minutes after a deploy-day run', () => {
   const now = new Date('2026-11-10T18:28:00Z');
-  const s = parseGameDataStatus({
-    state: { commit: 'abc', build: '4.10.2-LIVE.12881860', committed_at: '2026-10-28T20:20:55Z', synced_at: '2026-11-10T17:20:00Z' },
-    last_check: '2026-11-10T17:43:00Z',
-    check_gaps_sec: [23 * MIN, 2 * MIN, 17 * MIN],
-    running: null,
-    last_run: { status: 'success', trigger: 'cron', started_at: '2026-11-10T17:18:00Z', finished_at: '2026-11-10T17:20:00Z', error: null },
-    last_success: null, pending: null, counts: null,
-  }, now);
+  const s = parseGameDataStatus(
+    {
+      state: {
+        commit: 'abc',
+        build: '4.10.2-LIVE.12881860',
+        committed_at: '2026-10-28T20:20:55Z',
+        synced_at: '2026-11-10T17:20:00Z',
+      },
+      last_check: '2026-11-10T17:43:00Z',
+      check_gaps_sec: [23 * MIN, 2 * MIN, 17 * MIN],
+      running: null,
+      last_run: {
+        status: 'success',
+        trigger: 'cron',
+        started_at: '2026-11-10T17:18:00Z',
+        finished_at: '2026-11-10T17:20:00Z',
+        error: null,
+      },
+      last_success: null,
+      pending: null,
+      counts: null,
+    },
+    now,
+  );
   assert.equal(s.checkIntervalMin, null);
   assert.equal(s.health, 'ok');
 });
 
 test('a real stop is still caught: regular 5-minute runs, then nothing for an hour', () => {
-  const s = parseGameDataStatus({
-    state: { commit: 'abc', build: null, committed_at: null, synced_at: null },
-    last_check: '2026-11-10T17:00:00Z',
-    check_gaps_sec: [300, 300, 300, 300, 300],
-    running: null, last_run: null, last_success: null, pending: null, counts: null,
-  }, new Date('2026-11-10T18:00:00Z'));
+  const s = parseGameDataStatus(
+    {
+      state: { commit: 'abc', build: null, committed_at: null, synced_at: null },
+      last_check: '2026-11-10T17:00:00Z',
+      check_gaps_sec: [300, 300, 300, 300, 300],
+      running: null,
+      last_run: null,
+      last_success: null,
+      pending: null,
+      counts: null,
+    },
+    new Date('2026-11-10T18:00:00Z'),
+  );
   assert.equal(s.health, 'stale');
 });
 
@@ -59,7 +88,13 @@ test('a real stop is still caught: regular 5-minute runs, then nothing for an ho
 import { gameDataRecheckAt, GAME_DATA_CHANGE_SQL, GAME_DATA_NOT_SET_UP } from '../dist/gameData.js';
 
 test('gameDataRecheckAt: when the status turns stale with no new runs', () => {
-  const base = { ...GAME_DATA_NOT_SET_UP, commit: 'abc', health: 'ok', lastCheckAt: '2026-11-10T00:00:00.000Z', checkIntervalMin: 60 };
+  const base = {
+    ...GAME_DATA_NOT_SET_UP,
+    commit: 'abc',
+    health: 'ok',
+    lastCheckAt: '2026-11-10T00:00:00.000Z',
+    checkIntervalMin: 60,
+  };
   // hourly checks → stale after 150 min (+1 s so the check lands just past it)
   assert.equal(gameDataRecheckAt(base).toISOString(), '2026-11-10T02:30:01.000Z');
   // unknown interval → daily → 60 h
@@ -71,8 +106,14 @@ test('gameDataRecheckAt: when the status turns stale with no new runs', () => {
 });
 
 test('gameDataRecheckAt: an "updating" run drops out of the status after an hour', () => {
-  const s = { ...GAME_DATA_NOT_SET_UP, commit: 'abc', health: 'syncing', lastCheckAt: '2026-11-10T00:00:00.000Z', checkIntervalMin: 1440,
-    running: { startedAt: '2026-11-10T00:00:00.000Z', trigger: 'cron' } };
+  const s = {
+    ...GAME_DATA_NOT_SET_UP,
+    commit: 'abc',
+    health: 'syncing',
+    lastCheckAt: '2026-11-10T00:00:00.000Z',
+    checkIntervalMin: 1440,
+    running: { startedAt: '2026-11-10T00:00:00.000Z', trigger: 'cron' },
+  };
   assert.equal(gameDataRecheckAt(s).toISOString(), '2026-11-10T01:00:01.000Z'); // sooner than stale (60 h)
 });
 

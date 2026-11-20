@@ -17,10 +17,18 @@ auctionRouter.param('itemId', lootItemParam);
 // ── DTO helper ────────────────────────────────────────────────────────────────
 
 type AuctionRow = {
-  id: string; itemId: string; sessionId: string; guildId: string;
-  durationSecs: number; closesAt: Date; status: string;
-  winnerId: string | null; winnerUsername: string | null; winningBid: number | null;
-  createdAt: Date; updatedAt: Date;
+  id: string;
+  itemId: string;
+  sessionId: string;
+  guildId: string;
+  durationSecs: number;
+  closesAt: Date;
+  status: string;
+  winnerId: string | null;
+  winnerUsername: string | null;
+  winningBid: number | null;
+  createdAt: Date;
+  updatedAt: Date;
   bids: { userId: string; username: string; amount: number; maxBid: number; placedAt: Date }[];
 };
 
@@ -166,7 +174,9 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction', requi
     return;
   }
   if (session.method !== 'DKP') {
-    res.status(400).json({ success: false, error: 'Auctions are only available for DKP sessions' } satisfies ApiResponse);
+    res
+      .status(400)
+      .json({ success: false, error: 'Auctions are only available for DKP sessions' } satisfies ApiResponse);
     return;
   }
 
@@ -201,8 +211,16 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction', requi
     where: { itemId },
     create: { itemId, sessionId: session.id, guildId, startedById: req.session.userId!, durationSecs, closesAt },
     update: {
-      sessionId: session.id, guildId, startedById: req.session.userId!, durationSecs, closesAt,
-      status: 'OPEN', winnerId: null, winnerUsername: null, winningBid: null, discordMessageId: null,
+      sessionId: session.id,
+      guildId,
+      startedById: req.session.userId!,
+      durationSecs,
+      closesAt,
+      status: 'OPEN',
+      winnerId: null,
+      winnerUsername: null,
+      winningBid: null,
+      discordMessageId: null,
     },
     include: { bids: true },
   });
@@ -270,7 +288,9 @@ auctionRouter.post('/:guildId/events/:eventId/loot/items/:itemId/auction/bid', r
   const eventRow = await prisma.event.findFirst({ where: { id: eventId }, select: { confirmedAttendees: true } });
   const confirmedAttendees: string[] = eventRow?.confirmedAttendees ? JSON.parse(eventRow.confirmedAttendees) : [];
   if (!isManager && !confirmedAttendees.includes(userId)) {
-    res.status(403).json({ success: false, error: 'You are not a confirmed attendee for this loot session' } satisfies ApiResponse);
+    res
+      .status(403)
+      .json({ success: false, error: 'You are not a confirmed attendee for this loot session' } satisfies ApiResponse);
     return;
   }
 

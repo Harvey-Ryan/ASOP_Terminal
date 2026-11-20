@@ -2,12 +2,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  applyCorrections, checkCorrectionValue, correctionActions, correctionIndex, gameNumber, getPath, isBigChange,
-  recheckOnNewBuild, shortBuild, withPath,
+  applyCorrections,
+  checkCorrectionValue,
+  correctionActions,
+  correctionIndex,
+  gameNumber,
+  getPath,
+  isBigChange,
+  recheckOnNewBuild,
+  shortBuild,
+  withPath,
 } from '../dist/index.js';
 
 test('only listed stats, sensible values; big changes are flagged', () => {
-  assert.deepEqual(checkCorrectionValue('mining-laser', 'power', 2340, '2,400'), { ok: true, value: 2400, bigChange: false });
+  assert.deepEqual(checkCorrectionValue('mining-laser', 'power', 2340, '2,400'), {
+    ok: true,
+    value: 2400,
+    bigChange: false,
+  });
   assert.equal(checkCorrectionValue('mining-laser', 'name', null, 1).ok, false);
   assert.equal(checkCorrectionValue('nope', 'power', null, 1).ok, false);
   assert.match(checkCorrectionValue('mining-laser', 'moduleSlots', 1, 1.5).error, /whole number/);
@@ -21,7 +33,7 @@ test('only listed stats, sensible values; big changes are flagged', () => {
   assert.equal(isBigChange(null, 1), true);
 });
 
-test('game values: a percent change the files don\'t list is 0', () => {
+test("game values: a percent change the files don't list is 0", () => {
   const laser = { power: 2340, modifiers: { Resistance: 25 } };
   assert.equal(gameNumber(laser, 'power'), 2340);
   assert.equal(gameNumber(laser, 'modifiers.Resistance'), 25);
@@ -45,7 +57,11 @@ test('separation of duties', () => {
   const review = { ...c, status: 'REVIEW', confirmedBy: ['a', 'r1'] };
   assert.deepEqual(correctionActions(review, reviewer('r1')), ['reject'], 'a confirmer can’t approve');
   assert.deepEqual(correctionActions(review, reviewer('r2')), ['approve', 'reject']);
-  assert.deepEqual(correctionActions({ ...review, submittedBy: 'r2' }, reviewer('r2')), ['withdraw'], 'nor the submitter');
+  assert.deepEqual(
+    correctionActions({ ...review, submittedBy: 'r2' }, reviewer('r2')),
+    ['withdraw'],
+    'nor the submitter',
+  );
   const live = { ...c, status: 'LIVE', confirmedBy: ['a', 'b'], disputedBy: ['d'] };
   assert.deepEqual(correctionActions(live, member('c')), ['dispute']);
   assert.deepEqual(correctionActions(live, member('d')), [], 'one dispute each');
@@ -62,10 +78,37 @@ test('a new build: fixed in the files → retire, moved → re-check, same → k
 });
 
 test('applying corrections to records', () => {
-  const lasers = [{ uuid: 'a', power: 1, modifiers: {} }, { uuid: 'b', power: 2, modifiers: {} }];
+  const lasers = [
+    { uuid: 'a', power: 1, modifiers: {} },
+    { uuid: 'b', power: 2, modifiers: {} },
+  ];
   const index = correctionIndex([
-    { id: '1', kind: 'mining-laser', recordKey: 'a', field: 'power', gameValue: 1, value: 5, credit: null, confirmations: 2, disputed: false, build: null, approvedAt: null },
-    { id: '2', kind: 'mining-laser', recordKey: 'a', field: 'modifiers.Resistance', gameValue: 0, value: -10, credit: null, confirmations: 2, disputed: false, build: null, approvedAt: null },
+    {
+      id: '1',
+      kind: 'mining-laser',
+      recordKey: 'a',
+      field: 'power',
+      gameValue: 1,
+      value: 5,
+      credit: null,
+      confirmations: 2,
+      disputed: false,
+      build: null,
+      approvedAt: null,
+    },
+    {
+      id: '2',
+      kind: 'mining-laser',
+      recordKey: 'a',
+      field: 'modifiers.Resistance',
+      gameValue: 0,
+      value: -10,
+      credit: null,
+      confirmations: 2,
+      disputed: false,
+      build: null,
+      approvedAt: null,
+    },
   ]);
   const out = applyCorrections(lasers, 'mining-laser', (l) => l.uuid, index);
   assert.deepEqual(out[0], { uuid: 'a', power: 5, modifiers: { Resistance: -10 } });

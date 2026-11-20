@@ -32,10 +32,17 @@ export interface ResourceLocationRow {
   provider_name: string | null;
   data: {
     Locations?: { Name?: string | null; Type?: string | null; System?: string | null }[] | null;
-    Groups?: {
-      GroupName?: string | null;
-      Deposits?: { RelativeProbability?: number | null; ResourceQualities?: { ResourceKey?: string | null; MaxPercentage?: number | null }[] | null }[] | null;
-    }[] | null;
+    Groups?:
+      | {
+          GroupName?: string | null;
+          Deposits?:
+            | {
+                RelativeProbability?: number | null;
+                ResourceQualities?: { ResourceKey?: string | null; MaxPercentage?: number | null }[] | null;
+              }[]
+            | null;
+        }[]
+      | null;
   };
 }
 
@@ -47,7 +54,8 @@ const METHOD_BY_GROUP: Record<string, MiningMethod> = {
 };
 
 /** Providers that aren't a place you'd go to mine: events, loot, wrecks, vague clusters. */
-const SKIP = /^(Loot_|HPP_ResourceRush|HPP_ShipGraveyard|HPP_SpaceDerelict|AsteroidCluster_|HPP_Lagrange_(G|Occupied)$)/;
+const SKIP =
+  /^(Loot_|HPP_ResourceRush|HPP_ShipGraveyard|HPP_SpaceDerelict|AsteroidCluster_|HPP_Lagrange_(G|Occupied)$)/;
 
 /** Places the game data names badly or too broadly. */
 const PLACE_OVERRIDES: Record<string, { place: string; kind: string; system: string }> = {
@@ -58,7 +66,10 @@ const PLACE_OVERRIDES: Record<string, { place: string; kind: string; system: str
 
 /** "Ore_Iron" → "iron", "Raw_Ice" → "pressurized ice", "Glacosite" → "glacosite". */
 export function materialKey(resourceKeyOrName: string): string {
-  const k = resourceKeyOrName.replace(/^(Ore_|Raw_|Raw)/, '').trim().toLowerCase();
+  const k = resourceKeyOrName
+    .replace(/^(Ore_|Raw_|Raw)/, '')
+    .trim()
+    .toLowerCase();
   return k === 'ice' ? 'pressurized ice' : k;
 }
 
@@ -92,8 +103,13 @@ export function groupedPlaceName(names: readonly string[]): string {
     if (m) points.set(m[1]!, [...(points.get(m[1]!) ?? []), Number(m[2])]);
     else other.push(n);
   }
-  const rank = (body: string) => { const i = BODY_ORDER.indexOf(body); return i < 0 ? BODY_ORDER.length : i; };
-  const bodies = [...points.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true }));
+  const rank = (body: string) => {
+    const i = BODY_ORDER.indexOf(body);
+    return i < 0 ? BODY_ORDER.length : i;
+  };
+  const bodies = [...points.keys()].sort(
+    (a, b) => rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true }),
+  );
   const pointsLabel = (ls: number[]) => {
     const sorted = [...new Set(ls)].sort((a, b) => a - b);
     return sorted.length === 5 ? 'L1–L5' : `L${sorted.join(', L')}`;
@@ -137,13 +153,20 @@ export function buildMaterialSources(rows: readonly ResourceLocationRow[]): Mate
         }
       }
       for (const [k, f] of found) {
-        (out[k] ??= []).push({ ...where, method, chance: Math.min(1, Math.round(f.chance * 1000) / 1000), maxPercent: f.maxPercent });
+        (out[k] ??= []).push({
+          ...where,
+          method,
+          chance: Math.min(1, Math.round(f.chance * 1000) / 1000),
+          maxPercent: f.maxPercent,
+        });
       }
     }
   }
   const methodOrder: Record<MiningMethod, number> = { ship: 0, roc: 1, hand: 2 };
   for (const list of Object.values(out)) {
-    list.sort((a, b) => b.chance - a.chance || methodOrder[a.method] - methodOrder[b.method] || a.place.localeCompare(b.place));
+    list.sort(
+      (a, b) => b.chance - a.chance || methodOrder[a.method] - methodOrder[b.method] || a.place.localeCompare(b.place),
+    );
   }
   return out;
 }
@@ -173,7 +196,8 @@ export interface MaterialRoute {
 export function routeSystems(materials: readonly string[], sources: MaterialSources): string[] {
   const count = new Map<string, number>();
   for (const m of materials) {
-    for (const s of new Set((sources[materialKey(m)] ?? []).map((x) => x.system))) count.set(s, (count.get(s) ?? 0) + 1);
+    for (const s of new Set((sources[materialKey(m)] ?? []).map((x) => x.system)))
+      count.set(s, (count.get(s) ?? 0) + 1);
   }
   return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([s]) => s);
 }
@@ -191,7 +215,8 @@ export function planRoute(materials: readonly string[], sources: MaterialSources
     const here = (sources[materialKey(m)] ?? []).filter((s) => s.system === system);
     const decent = here.filter((s) => s.chance >= 0.05);
     const use = decent.length ? decent : here;
-    if (use.length) options.set(m, use); else missing.push(m);
+    if (use.length) options.set(m, use);
+    else missing.push(m);
   }
   const stops: RouteStop[] = [];
   const left = new Set(options.keys());
@@ -200,17 +225,20 @@ export function planRoute(materials: readonly string[], sources: MaterialSources
     for (const m of left) {
       // best way to get m at each place
       const best = new Map<string, MaterialSource>();
-      for (const s of options.get(m)!) if (!best.has(s.place) || best.get(s.place)!.chance < s.chance) best.set(s.place, s);
+      for (const s of options.get(m)!)
+        if (!best.has(s.place) || best.get(s.place)!.chance < s.chance) best.set(s.place, s);
       for (const [place, s] of best) {
         const p = byPlace.get(place) ?? { kind: s.kind, got: [] };
         p.got.push({ name: m, method: s.method, chance: s.chance });
         byPlace.set(place, p);
       }
     }
-    const [place, pick] = [...byPlace].sort((a, b) =>
-      b[1].got.length - a[1].got.length
-      || b[1].got.reduce((x, g) => x + g.chance, 0) - a[1].got.reduce((x, g) => x + g.chance, 0)
-      || a[0].localeCompare(b[0]))[0]!;
+    const [place, pick] = [...byPlace].sort(
+      (a, b) =>
+        b[1].got.length - a[1].got.length ||
+        b[1].got.reduce((x, g) => x + g.chance, 0) - a[1].got.reduce((x, g) => x + g.chance, 0) ||
+        a[0].localeCompare(b[0]),
+    )[0]!;
     stops.push({ place, kind: pick.kind, materials: pick.got });
     for (const g of pick.got) left.delete(g.name);
   }
@@ -230,7 +258,10 @@ export function formatMaterialAmount(scu: number | null, units: number | null): 
 }
 
 export interface BuildListEntry {
-  bp: { craftTimeSecs: number; components: readonly { material: { name: string; quantityScu: number | null; quantity: number | null } }[] };
+  bp: {
+    craftTimeSecs: number;
+    components: readonly { material: { name: string; quantityScu: number | null; quantity: number | null } }[];
+  };
   qty: number;
 }
 
@@ -254,6 +285,8 @@ export function buildListTotals(entries: readonly BuildListEntry[]): BuildListTo
       mats.set(c.material.name, m);
     }
   }
-  const materials = [...mats.values()].sort((a, b) => (b.scu ?? 0) - (a.scu ?? 0) || (b.units ?? 0) - (a.units ?? 0) || a.name.localeCompare(b.name));
+  const materials = [...mats.values()].sort(
+    (a, b) => (b.scu ?? 0) - (a.scu ?? 0) || (b.units ?? 0) - (a.units ?? 0) || a.name.localeCompare(b.name),
+  );
   return { craftTimeSecs, materials };
 }

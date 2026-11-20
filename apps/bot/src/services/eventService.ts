@@ -18,7 +18,16 @@ import { buildRosterEmbed, buildRoleButtons, buildPostEventEmbed } from '../util
 import { WAITLIST_ORDER } from './waitlistService.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 import type { EventPoll, EventRole } from '@dem/shared';
-import { nextOccurrence, isRecurType, isValidTimeZone, planShares, serverLabel, parseBriefing, remapBriefingRoles, sanitizeBriefing } from '@dem/shared';
+import {
+  nextOccurrence,
+  isRecurType,
+  isValidTimeZone,
+  planShares,
+  serverLabel,
+  parseBriefing,
+  remapBriefingRoles,
+  sanitizeBriefing,
+} from '@dem/shared';
 import { handleShareNotice } from './shareNoticeService.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -47,14 +56,23 @@ async function buildServerTags(eventId: string, hostGuildId: string): Promise<Re
   const allies = await prisma.eventAllianceGuild.findMany({ where: { eventId }, select: { discordGuildId: true } });
   if (allies.length === 0) return undefined;
   const ids = [hostGuildId, ...allies.map((a) => a.discordGuildId)];
-  const guilds = await prisma.guild.findMany({ where: { guildId: { in: ids } }, select: { guildId: true, name: true, settings: { select: { allianceTag: true } } } });
-  return Object.fromEntries(ids.map((id) => {
-    const g = guilds.find((x) => x.guildId === id);
-    return [id, serverLabel(g?.settings?.allianceTag, g?.name)];
-  }));
+  const guilds = await prisma.guild.findMany({
+    where: { guildId: { in: ids } },
+    select: { guildId: true, name: true, settings: { select: { allianceTag: true } } },
+  });
+  return Object.fromEntries(
+    ids.map((id) => {
+      const g = guilds.find((x) => x.guildId === id);
+      return [id, serverLabel(g?.settings?.allianceTag, g?.name)];
+    }),
+  );
 }
 
-function buildScheduledEventDescription(description: string | null, guildId: string, threadId: string | null): string | undefined {
+function buildScheduledEventDescription(
+  description: string | null,
+  guildId: string,
+  threadId: string | null,
+): string | undefined {
   const link = threadId ? `https://discord.com/channels/${guildId}/${threadId}` : null;
   const suffix = link ? `\n\n📋 Discussion: ${link}` : '';
   let desc = description;
@@ -142,7 +160,9 @@ async function _setupDiscordForEvent(eventId: string) {
     where: { id: eventId },
     include: { rsvps: true, waitlist: WAITLIST_ORDER },
   });
-  console.log(`[setupDiscordForEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} threadId=${event.threadId ?? 'null'} discordEventId=${event.discordEventId ?? 'null'}`);
+  console.log(
+    `[setupDiscordForEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} threadId=${event.threadId ?? 'null'} discordEventId=${event.discordEventId ?? 'null'}`,
+  );
 
   const guild = await client.guilds.fetch(event.guildId);
   const roles = JSON.parse(event.roles) as EventRole[];
@@ -161,7 +181,9 @@ async function _setupDiscordForEvent(eventId: string) {
         if (ch?.type === ChannelType.GuildForum) {
           console.log(`[setupDiscordForEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
           const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
-          console.log(`[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
+          console.log(
+            `[setupDiscordForEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`,
+          );
           const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
           const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt);
           const thread = await (ch as ForumChannel).threads.create({
@@ -211,7 +233,9 @@ async function _setupDiscordForEvent(eventId: string) {
       let imageDataUri: string | undefined;
       if (event.imageUrl) {
         imageDataUri = await fetchImageAsDataUri(event.imageUrl);
-        console.log(`[setupDiscordForEvent] imageDataUri for scheduled event: ${imageDataUri ? `ok (${imageDataUri.length} chars)` : 'undefined'}`);
+        console.log(
+          `[setupDiscordForEvent] imageDataUri for scheduled event: ${imageDataUri ? `ok (${imageDataUri.length} chars)` : 'undefined'}`,
+        );
       }
 
       // External events require an end time — default to start + 2 hours
@@ -235,7 +259,9 @@ async function _setupDiscordForEvent(eventId: string) {
       console.error('[bot] Failed to create Discord scheduled event:', err);
     }
   } else {
-    console.log(`[setupDiscordForEvent] skipping scheduled event creation — discordEventId=${discordEventId ?? 'null'} startTime=${event.startTime.toISOString()} now=${new Date().toISOString()}`);
+    console.log(
+      `[setupDiscordForEvent] skipping scheduled event creation — discordEventId=${discordEventId ?? 'null'} startTime=${event.startTime.toISOString()} now=${new Date().toISOString()}`,
+    );
   }
 
   await prisma.event.update({
@@ -265,8 +291,13 @@ export async function syncDiscordEvent(eventId: string) {
     where: { id: eventId },
     include: { rsvps: true, waitlist: WAITLIST_ORDER },
   });
-  if (!event) { console.warn(`[syncDiscordEvent] event not found — ${eventId}`); return; }
-  console.log(`[syncDiscordEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} discordEventId=${event.discordEventId ?? 'null'} threadId=${event.threadId ?? 'null'} status=${event.status}`);
+  if (!event) {
+    console.warn(`[syncDiscordEvent] event not found — ${eventId}`);
+    return;
+  }
+  console.log(
+    `[syncDiscordEvent] event loaded — name="${event.name}" imageUrl=${event.imageUrl ?? 'null'} discordEventId=${event.discordEventId ?? 'null'} threadId=${event.threadId ?? 'null'} status=${event.status}`,
+  );
 
   // ── Update Discord Scheduled Event ───────────────────────────────────────
   if (event.discordEventId && event.status !== 'COMPLETED' && event.status !== 'CANCELLED') {
@@ -285,11 +316,16 @@ export async function syncDiscordEvent(eventId: string) {
         // Discord API error code 10070 = Unknown Guild Scheduled Event (genuine 404)
         if (fetchErr instanceof DiscordAPIError && fetchErr.code === 10070) {
           genuinelyDeleted = true;
-          console.warn(`[syncDiscordEvent] scheduled event ${event.discordEventId} confirmed deleted (10070) — clearing stored id for recreation`);
+          console.warn(
+            `[syncDiscordEvent] scheduled event ${event.discordEventId} confirmed deleted (10070) — clearing stored id for recreation`,
+          );
         } else {
           // Transient error (rate limit, network, permissions) — log and skip the update.
           // Do NOT clear discordEventId; that would break GuildScheduledEventUserAdd lookups.
-          console.error(`[syncDiscordEvent] transient error fetching scheduled event ${event.discordEventId}:`, fetchErr);
+          console.error(
+            `[syncDiscordEvent] transient error fetching scheduled event ${event.discordEventId}:`,
+            fetchErr,
+          );
         }
       }
 
@@ -308,9 +344,8 @@ export async function syncDiscordEvent(eventId: string) {
         }
         // Discord rejects scheduledStartTime edits on already-active events.
         // Only include time fields when the event hasn't started yet.
-        const timeFields = event.startTime > new Date()
-          ? { scheduledStartTime: event.startTime, scheduledEndTime }
-          : {};
+        const timeFields =
+          event.startTime > new Date() ? { scheduledStartTime: event.startTime, scheduledEndTime } : {};
         await scheduled.edit({
           name: event.name,
           description: buildScheduledEventDescription(event.description, event.guildId, event.threadId),
@@ -327,7 +362,9 @@ export async function syncDiscordEvent(eventId: string) {
       console.error('[bot] Failed to update Discord scheduled event:', err);
     }
   } else {
-    console.log(`[syncDiscordEvent] skipping scheduled event update — discordEventId=${event.discordEventId ?? 'null'} status=${event.status}`);
+    console.log(
+      `[syncDiscordEvent] skipping scheduled event update — discordEventId=${event.discordEventId ?? 'null'} status=${event.status}`,
+    );
   }
 
   // ── Update forum thread name + roster embed ───────────────────────────────
@@ -340,21 +377,23 @@ export async function syncDiscordEvent(eventId: string) {
       const thread = await client.channels.fetch(event.threadId);
       if (thread?.isThread()) {
         if (thread.name !== event.name) {
-          await thread.setName(event.name).catch((err) =>
-            console.error('[bot] Failed to rename forum thread:', err),
-          );
+          await thread.setName(event.name).catch((err) => console.error('[bot] Failed to rename forum thread:', err));
         }
 
         console.log(`[syncDiscordEvent] fetching image attachment — imageUrl=${event.imageUrl ?? 'null'}`);
         const imageAttachment = event.imageUrl ? await fetchImageAttachment(event.imageUrl) : null;
-        console.log(`[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`);
+        console.log(
+          `[syncDiscordEvent] imageAttachment=${imageAttachment ? `ok (${imageAttachment.filename})` : 'null'}`,
+        );
         const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
         const components = buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt);
 
         const rosterMsg = event.rosterMessageId
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
-        console.log(`[syncDiscordEvent] rosterMsg=${rosterMsg ? rosterMsg.id : 'null'} existingAttachments=${rosterMsg?.attachments.size ?? 0} existingEmbedImage=${rosterMsg?.embeds[0]?.image?.url ?? 'none'}`);
+        console.log(
+          `[syncDiscordEvent] rosterMsg=${rosterMsg ? rosterMsg.id : 'null'} existingAttachments=${rosterMsg?.attachments.size ?? 0} existingEmbedImage=${rosterMsg?.embeds[0]?.image?.url ?? 'none'}`,
+        );
 
         if (rosterMsg) {
           let files: AttachmentBuilder[] = [];
@@ -367,7 +406,9 @@ export async function syncDiscordEvent(eventId: string) {
             keepAttachments = [...rosterMsg.attachments.values()].map((a) => ({ id: a.id }));
             const existingImageUrl = rosterMsg.embeds[0]?.image?.url;
             if (existingImageUrl) embed.setImage(existingImageUrl);
-            console.log(`[syncDiscordEvent] fetch failed — preserving ${keepAttachments.length} existing attachment(s), existingImageUrl=${existingImageUrl ?? 'none'}`);
+            console.log(
+              `[syncDiscordEvent] fetch failed — preserving ${keepAttachments.length} existing attachment(s), existingImageUrl=${existingImageUrl ?? 'none'}`,
+            );
           } else {
             console.log(`[syncDiscordEvent] no imageUrl — clearing attachments`);
           }
@@ -404,16 +445,19 @@ export async function syncDiscordEvent(eventId: string) {
         const memberGuild = await client.guilds.fetch(ag.discordGuildId).catch(() => null);
         const scheduled = await memberGuild?.scheduledEvents.fetch(ag.discordEventId).catch(() => null);
         if (scheduled) {
-          const timeFields = event.startTime > new Date()
-            ? { scheduledStartTime: event.startTime, scheduledEndTime }
-            : {};
-          await scheduled.edit({
-            name: event.name,
-            description: buildScheduledEventDescription(event.description, ag.discordGuildId, ag.threadId),
-            entityMetadata: { location: event.musterPoint ?? event.name },
-            ...timeFields,
-            ...(imageDataUriSync ? { image: imageDataUriSync } : { image: null }),
-          }).catch((err: unknown) => console.error(`[bot] Failed to update alliance scheduled event in ${ag.discordGuildId}:`, err));
+          const timeFields =
+            event.startTime > new Date() ? { scheduledStartTime: event.startTime, scheduledEndTime } : {};
+          await scheduled
+            .edit({
+              name: event.name,
+              description: buildScheduledEventDescription(event.description, ag.discordGuildId, ag.threadId),
+              entityMetadata: { location: event.musterPoint ?? event.name },
+              ...timeFields,
+              ...(imageDataUriSync ? { image: imageDataUriSync } : { image: null }),
+            })
+            .catch((err: unknown) =>
+              console.error(`[bot] Failed to update alliance scheduled event in ${ag.discordGuildId}:`, err),
+            );
         }
       }
 
@@ -425,7 +469,13 @@ export async function syncDiscordEvent(eventId: string) {
           await thread.setName(event.name).catch(() => null);
         }
         const embed = buildRosterEmbed(event, undefined, imageAttachmentSync?.filename, guildTagMap, serverTags);
-        const components = buildRoleButtons(event.id, roles, event.rsvps, ag.discordGuildId, !!event.briefingPublishedAt);
+        const components = buildRoleButtons(
+          event.id,
+          roles,
+          event.rsvps,
+          ag.discordGuildId,
+          !!event.briefingPublishedAt,
+        );
         const rosterMsg = ag.rosterMessageId
           ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
@@ -465,7 +515,11 @@ export function scheduleRosterRefresh(eventId: string): Promise<void> {
     queuedRefresh.delete(eventId); // changes from now on need another refresh
     const run = updateRosterEmbed(eventId);
     runningRefresh.set(eventId, run);
-    try { await run; } finally { if (runningRefresh.get(eventId) === run) runningRefresh.delete(eventId); }
+    try {
+      await run;
+    } finally {
+      if (runningRefresh.get(eventId) === run) runningRefresh.delete(eventId);
+    }
   })();
   queuedRefresh.set(eventId, p);
   return p;
@@ -514,7 +568,8 @@ export async function updateRosterEmbed(eventId: string) {
           keepAttachments = [...msg.attachments.values()].map((a) => ({ id: a.id }));
           toSend = EmbedBuilder.from(embed.toJSON());
           const existingImageUrl = msg.embeds[0]?.image?.url;
-          if (existingImageUrl) toSend.setImage(existingImageUrl); else toSend.setImage(null);
+          if (existingImageUrl) toSend.setImage(existingImageUrl);
+          else toSend.setImage(null);
         }
       }
     }
@@ -524,13 +579,20 @@ export async function updateRosterEmbed(eventId: string) {
   // Compared without the embed's timestamp (it's the time of building, which changes every time).
   const { timestamp: _builtAt, ...embedContent } = embed.toJSON();
   const embedJson = JSON.stringify(embedContent);
-  const contentHash = (components: Components) => createHash('sha256')
-    .update(JSON.stringify([embedJson, components.map((c) => c.toJSON()), filename ?? null]))
-    .digest('hex');
-  const upToDate = (threadId: string, components: Components) => lastRosterWrite.get(`${eventId}:${threadId}`) === contentHash(components);
+  const contentHash = (components: Components) =>
+    createHash('sha256')
+      .update(JSON.stringify([embedJson, components.map((c) => c.toJSON()), filename ?? null]))
+      .digest('hex');
+  const upToDate = (threadId: string, components: Components) =>
+    lastRosterWrite.get(`${eventId}:${threadId}`) === contentHash(components);
 
   /** Edits one thread's roster message, unless it already shows exactly this. */
-  async function refreshThread(threadId: string, rosterMessageId: string | null, components: Components, label: string) {
+  async function refreshThread(
+    threadId: string,
+    rosterMessageId: string | null,
+    components: Components,
+    label: string,
+  ) {
     const key = `${eventId}:${threadId}`;
     const content = contentHash(components);
     if (lastRosterWrite.get(key) === content) return; // nothing new to show: no Discord call
@@ -550,7 +612,12 @@ export async function updateRosterEmbed(eventId: string) {
 
   // Host guild thread
   if (event.threadId) {
-    await refreshThread(event.threadId, event.rosterMessageId, buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt), 'host thread');
+    await refreshThread(
+      event.threadId,
+      event.rosterMessageId,
+      buildRoleButtons(event.id, roles, event.rsvps, event.guildId, !!event.briefingPublishedAt),
+      'host thread',
+    );
   }
 
   // Alliance guild threads — one after another with a 1 s gap, skipping any already up to date
@@ -596,9 +663,7 @@ export async function postEventLive(eventId: string) {
 
   // Also broadcast to alliance guild threads (without VC mentions — VCs are host-only).
   // Sequential with 500 ms gap to avoid concurrent API bursts hitting the global rate limit.
-  const allianceContent = vcMentions
-    ? content.replace(`\nJoin a voice channel: ${vcMentions}`, '')
-    : content;
+  const allianceContent = vcMentions ? content.replace(`\nJoin a voice channel: ${vcMentions}`, '') : content;
   const allianceGuilds = await prisma.eventAllianceGuild.findMany({ where: { eventId } });
   for (const ag of allianceGuilds.filter((ag) => ag.threadId)) {
     await sleep(500);
@@ -703,7 +768,13 @@ export async function endEvent(eventId: string) {
           ? await thread.messages.fetch(event.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
         if (rosterMsg) {
-          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap, serverTags);
+          const updatedEmbed = buildRosterEmbed(
+            event,
+            activeUserIds,
+            imageAttachment?.filename,
+            guildTagMap,
+            serverTags,
+          );
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
@@ -716,9 +787,9 @@ export async function endEvent(eventId: string) {
           .setTitle(`🏁 ${event.name} has ended`)
           .setDescription(
             '**Will this event have loot to distribute?**\n' +
-            `*Only the event creator or officers who can create events can respond. ` +
-            `This prompt expires in 2 hours — no response defaults to No Loot.*\n\n` +
-            `📋 [Loot dashboard](${lootUrl})`,
+              `*Only the event creator or officers who can create events can respond. ` +
+              `This prompt expires in 2 hours — no response defaults to No Loot.*\n\n` +
+              `📋 [Loot dashboard](${lootUrl})`,
           )
           .setColor(0xfee75c);
         const lootRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -755,7 +826,13 @@ export async function endEvent(eventId: string) {
           ? await thread.messages.fetch(ag.rosterMessageId).catch(() => null)
           : await thread.fetchStarterMessage().catch(() => null);
         if (rosterMsg) {
-          const updatedEmbed = buildRosterEmbed(event, activeUserIds, imageAttachment?.filename, guildTagMap, serverTags);
+          const updatedEmbed = buildRosterEmbed(
+            event,
+            activeUserIds,
+            imageAttachment?.filename,
+            guildTagMap,
+            serverTags,
+          );
           const files = imageAttachment ? [imageAttachment.builder] : [];
           await rosterMsg.edit({ embeds: [updatedEmbed], components: [], files }).catch(() => null);
         }
@@ -851,9 +928,7 @@ export async function updatePostEventEmbed(eventId: string) {
   });
   if (!event?.threadId) return;
 
-  const confirmedIds: string[] = event.confirmedAttendees
-    ? JSON.parse(event.confirmedAttendees)
-    : [];
+  const confirmedIds: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
 
   // Build the post-event embed when there are confirmed attendees or after-action notes (v1.19.0)
   let embed: ReturnType<typeof buildPostEventEmbed> | null = null;
@@ -929,11 +1004,27 @@ export async function guildTimezone(discordGuildId: string): Promise<string> {
 }
 
 /** A template's briefing → an unpublished draft on a new event (roster groups re-linked by role). */
-export async function copyTemplateBriefing(templateId: string, eventId: string, eventRoles: string, byDiscordId: string): Promise<void> {
-  const tmpl = await prisma.eventTemplate.findUnique({ where: { id: templateId }, select: { briefing: true, roles: true, isActive: true } });
+export async function copyTemplateBriefing(
+  templateId: string,
+  eventId: string,
+  eventRoles: string,
+  byDiscordId: string,
+): Promise<void> {
+  const tmpl = await prisma.eventTemplate.findUnique({
+    where: { id: templateId },
+    select: { briefing: true, roles: true, isActive: true },
+  });
   if (!tmpl?.isActive || !tmpl.briefing) return;
-  const roles = (json: string) => { try { return JSON.parse(json || '[]') as { id: string; name: string }[]; } catch { return []; } };
-  const content = sanitizeBriefing(remapBriefingRoles(parseBriefing(tmpl.briefing), roles(tmpl.roles), roles(eventRoles)));
+  const roles = (json: string) => {
+    try {
+      return JSON.parse(json || '[]') as { id: string; name: string }[];
+    } catch {
+      return [];
+    }
+  };
+  const content = sanitizeBriefing(
+    remapBriefingRoles(parseBriefing(tmpl.briefing), roles(tmpl.roles), roles(eventRoles)),
+  );
   await prisma.eventBriefing.upsert({
     where: { eventId },
     create: { eventId, content: JSON.stringify(content), updatedBy: byDiscordId },
@@ -945,7 +1036,9 @@ export async function spawnNextRecurrence(eventId: string) {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   if (!event.recurType) return;
   if (!isRecurType(event.recurType)) {
-    console.error(`[bot] spawnNextRecurrence: unknown recurType "${event.recurType}" on ${event.id}; series not continued`);
+    console.error(
+      `[bot] spawnNextRecurrence: unknown recurType "${event.recurType}" on ${event.id}; series not continued`,
+    );
     return;
   }
 
@@ -953,16 +1046,21 @@ export async function spawnNextRecurrence(eventId: string) {
   // occurrence's local date/time pattern in the organiser's time zone; series
   // from before this existed use this occurrence and the guild's time zone.
   const anchor = event.recurAnchor ?? event.startTime;
-  const timeZone = event.recurTimezone && isValidTimeZone(event.recurTimezone)
-    ? event.recurTimezone
-    : await guildTimezone(event.guildId);
+  const timeZone =
+    event.recurTimezone && isValidTimeZone(event.recurTimezone)
+      ? event.recurTimezone
+      : await guildTimezone(event.guildId);
   const nextStart = nextOccurrence(event.startTime, { type: event.recurType, anchor, timeZone });
   // Same length as this occurrence (stays right across daylight saving changes).
-  const nextEnd = event.endTime ? new Date(nextStart.getTime() + (event.endTime.getTime() - event.startTime.getTime())) : null;
+  const nextEnd = event.endTime
+    ? new Date(nextStart.getTime() + (event.endTime.getTime() - event.startTime.getTime()))
+    : null;
 
   // Stop the chain if the next occurrence would fall after the configured end date.
   if (event.recurEndsAt && nextStart > event.recurEndsAt) {
-    console.log(`[bot] spawnNextRecurrence: recurrence chain for ${event.id} ends — nextStart ${nextStart.toISOString()} is past recurEndsAt ${event.recurEndsAt.toISOString()}`);
+    console.log(
+      `[bot] spawnNextRecurrence: recurrence chain for ${event.id} ends — nextStart ${nextStart.toISOString()} is past recurEndsAt ${event.recurEndsAt.toISOString()}`,
+    );
     return;
   }
   const now = new Date();
@@ -1031,30 +1129,65 @@ export async function spawnNextRecurrence(eventId: string) {
 }
 
 /** Shares a new occurrence with the allies that accepted the previous one. Exported for tests. */
-export async function shareNextOccurrence(previousEventId: string, nextEventId: string, hostDiscordId: string): Promise<void> {
-  const accepted = await prisma.eventGuildShare.findMany({ where: { eventId: previousEventId, status: 'ACCEPTED' }, select: { guildId: true } });
+export async function shareNextOccurrence(
+  previousEventId: string,
+  nextEventId: string,
+  hostDiscordId: string,
+): Promise<void> {
+  const accepted = await prisma.eventGuildShare.findMany({
+    where: { eventId: previousEventId, status: 'ACCEPTED' },
+    select: { guildId: true },
+  });
   if (accepted.length === 0) return;
   const host = await prisma.guild.findUnique({ where: { guildId: hostDiscordId }, select: { id: true } });
   if (!host) return;
-  const links = await prisma.guildAlly.findMany({ where: { status: 'ACCEPTED', OR: [{ guildAId: host.id }, { guildBId: host.id }] } });
-  const plan = planShares(host.id, accepted.map((s) => s.guildId), links);
+  const links = await prisma.guildAlly.findMany({
+    where: { status: 'ACCEPTED', OR: [{ guildAId: host.id }, { guildBId: host.id }] },
+  });
+  const plan = planShares(
+    host.id,
+    accepted.map((s) => s.guildId),
+    links,
+  );
   const now = new Date();
   await prisma.eventGuildShare.createMany({
     data: [
-      ...plan.accepted.map((guildId) => ({ eventId: nextEventId, guildId, sourceType: 'DIRECT' as const, status: 'ACCEPTED' as const, autoAccepted: true, respondedAt: now })),
-      ...plan.pending.map((guildId) => ({ eventId: nextEventId, guildId, sourceType: 'DIRECT' as const, status: 'PENDING' as const })),
+      ...plan.accepted.map((guildId) => ({
+        eventId: nextEventId,
+        guildId,
+        sourceType: 'DIRECT' as const,
+        status: 'ACCEPTED' as const,
+        autoAccepted: true,
+        respondedAt: now,
+      })),
+      ...plan.pending.map((guildId) => ({
+        eventId: nextEventId,
+        guildId,
+        sourceType: 'DIRECT' as const,
+        status: 'PENDING' as const,
+      })),
     ],
     skipDuplicates: true,
   });
-  console.log(`[bot] shareNextOccurrence: ${nextEventId} posted to ${plan.accepted.length} ally(s), invited ${plan.pending.length}, dropped ${plan.notAllies.length} no longer allied`);
+  console.log(
+    `[bot] shareNextOccurrence: ${nextEventId} posted to ${plan.accepted.length} ally(s), invited ${plan.pending.length}, dropped ${plan.notAllies.length} no longer allied`,
+  );
   const shares = await prisma.eventGuildShare.findMany({ where: { eventId: nextEventId } });
   for (const s of shares) {
     if (s.status === 'ACCEPTED') {
-      await setupDiscordForShare(s.id).catch((err) => console.error(`[bot] shareNextOccurrence: posting share ${s.id} failed (the scheduler retries):`, err));
+      await setupDiscordForShare(s.id).catch((err) =>
+        console.error(`[bot] shareNextOccurrence: posting share ${s.id} failed (the scheduler retries):`, err),
+      );
     } else if (s.status === 'PENDING') {
       await handleShareNotice({
-        event: 'pending', shareId: s.id, eventId: nextEventId, hostGuildId: host.id, receiverGuildId: s.guildId,
-        actorUserId: null, noticeChannelId: null, noticeMessageId: null,
+        event: 'pending',
+        shareId: s.id,
+        eventId: nextEventId,
+        hostGuildId: host.id,
+        receiverGuildId: s.guildId,
+        actorUserId: null,
+        noticeChannelId: null,
+        noticeMessageId: null,
       });
     }
   }
@@ -1106,7 +1239,9 @@ interface ImageCacheEntry {
 const imageCache = new Map<string, ImageCacheEntry>();
 const IMAGE_CACHE_TTL_MS = 60_000;
 
-async function fetchImageAttachment(imageUrl: string): Promise<{ builder: AttachmentBuilder; filename: string } | null> {
+async function fetchImageAttachment(
+  imageUrl: string,
+): Promise<{ builder: AttachmentBuilder; filename: string } | null> {
   const now = Date.now();
   const cached = imageCache.get(imageUrl);
   if (cached && cached.expiresAt > now) {
@@ -1153,7 +1288,9 @@ export async function revokeDiscordShare(shareId: string): Promise<void> {
   });
 
   if (!ag) {
-    console.log(`[revokeDiscordShare] no EventAllianceGuild record found for ${receivingDiscordGuildId} — nothing to clean up`);
+    console.log(
+      `[revokeDiscordShare] no EventAllianceGuild record found for ${receivingDiscordGuildId} — nothing to clean up`,
+    );
     return;
   }
 
@@ -1161,9 +1298,11 @@ export async function revokeDiscordShare(shareId: string): Promise<void> {
   if (ag.discordEventId) {
     const memberGuild = await client.guilds.fetch(receivingDiscordGuildId).catch(() => null);
     if (memberGuild) {
-      await memberGuild.scheduledEvents.delete(ag.discordEventId).catch((err: unknown) =>
-        console.error(`[revokeDiscordShare] failed to delete scheduled event in ${receivingDiscordGuildId}:`, err),
-      );
+      await memberGuild.scheduledEvents
+        .delete(ag.discordEventId)
+        .catch((err: unknown) =>
+          console.error(`[revokeDiscordShare] failed to delete scheduled event in ${receivingDiscordGuildId}:`, err),
+        );
     }
   }
 
@@ -1178,12 +1317,16 @@ export async function revokeDiscordShare(shareId: string): Promise<void> {
   }
 
   // Remove the EventAllianceGuild record so the receiving guild has no residual access
-  await prisma.eventAllianceGuild.delete({ where: { id: ag.id } }).catch((err) =>
-    console.error(`[revokeDiscordShare] failed to delete EventAllianceGuild for ${receivingDiscordGuildId}:`, err),
-  );
+  await prisma.eventAllianceGuild
+    .delete({ where: { id: ag.id } })
+    .catch((err) =>
+      console.error(`[revokeDiscordShare] failed to delete EventAllianceGuild for ${receivingDiscordGuildId}:`, err),
+    );
   // The host's roster drops that server's tag (joint ops, v1.20.0).
   forgetRosterWrites(ag.eventId);
-  scheduleRosterRefresh(ag.eventId).catch((err) => console.error(`[revokeDiscordShare] Roster refresh failed for ${ag.eventId}:`, err));
+  scheduleRosterRefresh(ag.eventId).catch((err) =>
+    console.error(`[revokeDiscordShare] Roster refresh failed for ${ag.eventId}:`, err),
+  );
 
   console.log(`[revokeDiscordShare] done — shareId=${shareId}, guild=${receivingDiscordGuildId}`);
 }
@@ -1194,9 +1337,7 @@ async function fetchImageAsDataUri(imageUrl: string): Promise<string | undefined
   const now = Date.now();
   const cached = imageCache.get(imageUrl);
   if (cached && cached.expiresAt > now) {
-    const mime = imageUrl.match(/\.png$/i) ? 'image/png'
-                : imageUrl.match(/\.webp$/i) ? 'image/webp'
-                : 'image/jpeg';
+    const mime = imageUrl.match(/\.png$/i) ? 'image/png' : imageUrl.match(/\.webp$/i) ? 'image/webp' : 'image/jpeg';
     return `data:${mime};base64,${cached.buffer.toString('base64')}`;
   }
 
@@ -1268,17 +1409,21 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
     // crashed before it could delete this row. Treat it as replaceable — delete it and fall through
     // so fresh Discord entities get created for the new acceptance.
     if (existing.shareId && existing.share?.status === 'DECLINED') {
-      console.log(`[setupDiscordForShare] stale EventAllianceGuild found for guild ${receivingDiscordGuildId} (linked share DECLINED) — removing and re-creating`);
+      console.log(
+        `[setupDiscordForShare] stale EventAllianceGuild found for guild ${receivingDiscordGuildId} (linked share DECLINED) — removing and re-creating`,
+      );
       await prisma.eventAllianceGuild.delete({ where: { id: existing.id } }).catch(() => null);
       // Fall through to the setup logic below
     } else {
       // Legitimately set up. Backfill shareId on legacy rows that predate the shareId field
       // so they stop appearing as orphaned in the scheduler backstop (checkPendingShareSetup).
       if (!existing.shareId) {
-        await prisma.eventAllianceGuild.update({
-          where: { id: existing.id },
-          data: { shareId },
-        }).catch(() => null); // concurrent update from another tick is fine — same value
+        await prisma.eventAllianceGuild
+          .update({
+            where: { id: existing.id },
+            data: { shareId },
+          })
+          .catch(() => null); // concurrent update from another tick is fine — same value
       }
       console.log(`[setupDiscordForShare] already set up for guild ${receivingDiscordGuildId}, skipping`);
       return;
@@ -1306,7 +1451,13 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
     const ch = await client.channels.fetch(forumChannelId).catch(() => null);
     if (ch?.type === ChannelType.GuildForum) {
       const embed = buildRosterEmbed(event, undefined, imageAttachment?.filename, guildTagMap, serverTags);
-      const components = buildRoleButtons(event.id, roles, event.rsvps, receivingDiscordGuildId, !!event.briefingPublishedAt);
+      const components = buildRoleButtons(
+        event.id,
+        roles,
+        event.rsvps,
+        receivingDiscordGuildId,
+        !!event.briefingPublishedAt,
+      );
       const thread = await (ch as ForumChannel).threads.create({
         name: event.name,
         message: {
@@ -1323,19 +1474,21 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
   }
 
   if (event.startTime > new Date()) {
-    const scheduled = await discordGuild.scheduledEvents.create({
-      name: event.name,
-      description: buildScheduledEventDescription(event.description, receivingDiscordGuildId, threadId),
-      scheduledStartTime: event.startTime,
-      scheduledEndTime,
-      privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
-      entityType: GuildScheduledEventEntityType.External,
-      entityMetadata: { location: event.musterPoint ?? event.name },
-      ...(imageDataUri ? { image: imageDataUri } : {}),
-    }).catch((err) => {
-      console.error(`[setupDiscordForShare] failed to create scheduled event in ${receivingDiscordGuildId}:`, err);
-      return null;
-    });
+    const scheduled = await discordGuild.scheduledEvents
+      .create({
+        name: event.name,
+        description: buildScheduledEventDescription(event.description, receivingDiscordGuildId, threadId),
+        scheduledStartTime: event.startTime,
+        scheduledEndTime,
+        privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
+        entityType: GuildScheduledEventEntityType.External,
+        entityMetadata: { location: event.musterPoint ?? event.name },
+        ...(imageDataUri ? { image: imageDataUri } : {}),
+      })
+      .catch((err) => {
+        console.error(`[setupDiscordForShare] failed to create scheduled event in ${receivingDiscordGuildId}:`, err);
+        return null;
+      });
     discordEventId = scheduled?.id ?? null;
     if (discordEventId) {
       await postEventLink(receivingDiscordGuildId, discordEventId).catch((err) =>
@@ -1356,7 +1509,9 @@ async function _setupDiscordForShare(shareId: string): Promise<void> {
   });
   // Every thread's roster now shows server tags, including this server (joint ops, v1.20.0).
   forgetRosterWrites(event.id);
-  scheduleRosterRefresh(event.id).catch((err) => console.error(`[setupDiscordForShare] Roster refresh failed for ${event.id}:`, err));
+  scheduleRosterRefresh(event.id).catch((err) =>
+    console.error(`[setupDiscordForShare] Roster refresh failed for ${event.id}:`, err),
+  );
 
   console.log(`[setupDiscordForShare] done — shareId=${shareId}, guild=${receivingDiscordGuildId}`);
 }

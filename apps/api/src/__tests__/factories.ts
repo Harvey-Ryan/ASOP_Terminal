@@ -3,7 +3,9 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 let seq = 0;
-function uid() { return `${Date.now()}-${++seq}`; }
+function uid() {
+  return `${Date.now()}-${++seq}`;
+}
 
 export async function createUser(overrides: Record<string, unknown> = {}) {
   return prisma.user.create({
@@ -26,10 +28,7 @@ export async function createGuild(overrides: Record<string, unknown> = {}) {
   });
 }
 
-export async function createGuildSettings(
-  guildInternalId: string,
-  overrides: Record<string, unknown> = {},
-) {
+export async function createGuildSettings(guildInternalId: string, overrides: Record<string, unknown> = {}) {
   return prisma.guildSettings.create({
     data: {
       guildId: guildInternalId,
@@ -69,10 +68,7 @@ export async function createLootSession(
   });
 }
 
-export async function createLootItem(
-  sessionId: string,
-  overrides: Record<string, unknown> = {},
-) {
+export async function createLootItem(sessionId: string, overrides: Record<string, unknown> = {}) {
   return prisma.lootItem.create({
     data: {
       sessionId,

@@ -62,7 +62,11 @@ export function refinedCscu(oreCscu: number, bonusPct: number, method: RefineryM
 // ── The data the page gets (API GET /api/game-tools/refinery) ────────────────
 
 /** A sell price at one terminal (aUEC per SCU), with when it was reported (unix seconds). */
-export interface RefineryPrice { terminalId: number; sell: number; at: number }
+export interface RefineryPrice {
+  terminalId: number;
+  sell: number;
+  at: number;
+}
 
 export interface RefineryOre {
   /** UEX id of the raw ore ("Laranite (Raw)") */
@@ -98,16 +102,50 @@ export interface RefineryDataDto {
 
 // ── Building it from UEX (pure, so it can be tested) ─────────────────────────
 
-export interface UexRefineryCommodity { id: number; id_parent: number | null; name: string; is_raw: number; is_refined: number; is_refinable?: number; is_available_live: number; is_visible?: number }
-export interface UexRefineryYield {
-  id_commodity: number; id_terminal: number; value: number; value_week?: number | null; value_month?: number | null;
-  date_modified: number; commodity_name: string; terminal_name: string;
-  star_system_name: string | null; planet_name?: string | null; orbit_name?: string | null; moon_name?: string | null; space_station_name?: string | null; city_name?: string | null; outpost_name?: string | null;
+export interface UexRefineryCommodity {
+  id: number;
+  id_parent: number | null;
+  name: string;
+  is_raw: number;
+  is_refined: number;
+  is_refinable?: number;
+  is_available_live: number;
+  is_visible?: number;
 }
-export interface UexRefineryPriceRow { id_commodity: number; id_terminal: number; price_sell: number; date_modified: number }
+export interface UexRefineryYield {
+  id_commodity: number;
+  id_terminal: number;
+  value: number;
+  value_week?: number | null;
+  value_month?: number | null;
+  date_modified: number;
+  commodity_name: string;
+  terminal_name: string;
+  star_system_name: string | null;
+  planet_name?: string | null;
+  orbit_name?: string | null;
+  moon_name?: string | null;
+  space_station_name?: string | null;
+  city_name?: string | null;
+  outpost_name?: string | null;
+}
+export interface UexRefineryPriceRow {
+  id_commodity: number;
+  id_terminal: number;
+  price_sell: number;
+  date_modified: number;
+}
 export interface UexRefineryTerminal {
-  id: number; name: string; star_system_name: string | null; planet_name?: string | null; orbit_name?: string | null; moon_name?: string | null;
-  space_station_name?: string | null; city_name?: string | null; outpost_name?: string | null; is_available_live?: number;
+  id: number;
+  name: string;
+  star_system_name: string | null;
+  planet_name?: string | null;
+  orbit_name?: string | null;
+  moon_name?: string | null;
+  space_station_name?: string | null;
+  city_name?: string | null;
+  outpost_name?: string | null;
+  is_available_live?: number;
 }
 
 /** Price and bonus reports older than this are left out (they change every patch). */
@@ -117,7 +155,18 @@ export const REFINERY_MAX_AGE_DAYS = 45;
 export const refineryShortName = (terminalName: string): string =>
   terminalName.replace(/^Refine(?:ment|ry)\s+(?:Processing|Center|Centre)\s*[-–]\s*/i, '').trim() || terminalName;
 
-function placeOf(t: { name: string; star_system_name: string | null; planet_name?: string | null; orbit_name?: string | null; moon_name?: string | null; space_station_name?: string | null; city_name?: string | null }, short: string): string {
+function placeOf(
+  t: {
+    name: string;
+    star_system_name: string | null;
+    planet_name?: string | null;
+    orbit_name?: string | null;
+    moon_name?: string | null;
+    space_station_name?: string | null;
+    city_name?: string | null;
+  },
+  short: string,
+): string {
   const body = t.city_name ?? t.space_station_name ?? t.moon_name ?? t.planet_name ?? t.orbit_name ?? null;
   const parts = [body && !short.includes(body) ? body : null, t.star_system_name].filter((x): x is string => !!x);
   return parts.length ? `${short} · ${parts.join(', ')}` : short;
@@ -159,13 +208,22 @@ export function buildRefineryData(input: {
     let s = sites.get(y.id_terminal);
     if (!s) {
       const short = refineryShortName(y.terminal_name);
-      s = { id: y.id_terminal, name: short, system: y.star_system_name, place: placeOf({ ...y, name: y.terminal_name }, short), bonus: {}, updatedAt: null };
+      s = {
+        id: y.id_terminal,
+        name: short,
+        system: y.star_system_name,
+        place: placeOf({ ...y, name: y.terminal_name }, short),
+        bonus: {},
+        updatedAt: null,
+      };
       sites.set(y.id_terminal, s);
     }
     s.bonus[y.id_commodity] = { now: y.value, week: y.value_week ?? null, month: y.value_month ?? null };
     s.updatedAt = Math.max(s.updatedAt ?? 0, y.date_modified);
   }
-  const refineries = [...sites.values()].sort((a, b) => (a.system ?? '').localeCompare(b.system ?? '') || a.name.localeCompare(b.name));
+  const refineries = [...sites.values()].sort(
+    (a, b) => (a.system ?? '').localeCompare(b.system ?? '') || a.name.localeCompare(b.name),
+  );
 
   const wanted = new Set([...ores.map((o) => o.refinedId), ...ores.map((o) => o.id)]);
   const prices: Record<number, RefineryPrice[]> = {};
@@ -173,12 +231,22 @@ export function buildRefineryData(input: {
     if (!wanted.has(r.id_commodity) || !(r.price_sell > 0) || !fresh(r.date_modified)) continue;
     const list = (prices[r.id_commodity] ??= []);
     const same = list.find((p) => p.terminalId === r.id_terminal);
-    if (same) { if (r.date_modified > same.at) { same.sell = r.price_sell; same.at = r.date_modified; } continue; }
+    if (same) {
+      if (r.date_modified > same.at) {
+        same.sell = r.price_sell;
+        same.at = r.date_modified;
+      }
+      continue;
+    }
     list.push({ terminalId: r.id_terminal, sell: r.price_sell, at: r.date_modified });
   }
   for (const list of Object.values(prices)) list.sort((a, b) => b.sell - a.sell);
 
-  const used = new Set(Object.values(prices).flat().map((p) => p.terminalId));
+  const used = new Set(
+    Object.values(prices)
+      .flat()
+      .map((p) => p.terminalId),
+  );
   const terminals: RefineryDataDto['terminals'] = {};
   for (const t of input.terminals) {
     if (!used.has(t.id)) continue;
@@ -189,7 +257,10 @@ export function buildRefineryData(input: {
 
 // ── A work order ─────────────────────────────────────────────────────────────
 
-export interface WorkOrderLine { oreId: number; scu: number }
+export interface WorkOrderLine {
+  oreId: number;
+  scu: number;
+}
 
 export interface WorkOrderLineResult {
   ore: RefineryOre;
@@ -222,8 +293,14 @@ export interface WorkOrderResult {
  * One work order at one refinery with one method. Prices: the best sell price
  * in `sellSystem` (any system when null). The fee is the terminal's quote.
  */
-export function workOrder(data: RefineryDataDto, lines: readonly WorkOrderLine[], refineryId: number | null, method: RefineryMethod, opts: { sellSystem?: string | null; fee?: number | null } = {}): WorkOrderResult {
-  const site = refineryId === null ? null : data.refineries.find((r) => r.id === refineryId) ?? null;
+export function workOrder(
+  data: RefineryDataDto,
+  lines: readonly WorkOrderLine[],
+  refineryId: number | null,
+  method: RefineryMethod,
+  opts: { sellSystem?: string | null; fee?: number | null } = {},
+): WorkOrderResult {
+  const site = refineryId === null ? null : (data.refineries.find((r) => r.id === refineryId) ?? null);
   const best = (commodityId: number): RefineryPrice | null => {
     const list = data.prices[commodityId] ?? [];
     const sys = opts.sellSystem ?? null;
@@ -238,7 +315,12 @@ export function workOrder(data: RefineryDataDto, lines: readonly WorkOrderLine[]
     const refinedPrice = best(ore.refinedId);
     const rawPrice = best(ore.id);
     out.push({
-      ore, inScu: line.scu, outScu, bonusPct, refinedPrice, rawPrice,
+      ore,
+      inScu: line.scu,
+      outScu,
+      bonusPct,
+      refinedPrice,
+      rawPrice,
       refinedValue: refinedPrice ? outScu * refinedPrice.sell : null,
       rawValue: rawPrice ? line.scu * rawPrice.sell : null,
     });
@@ -261,7 +343,12 @@ export function workOrder(data: RefineryDataDto, lines: readonly WorkOrderLine[]
  * method everywhere, prices in each refinery's own system. Refineries with no
  * reported bonus for an ore count it at 0 %.
  */
-export function rankRefineries(data: RefineryDataDto, lines: readonly WorkOrderLine[], method: RefineryMethod, opts: { system?: string | null } = {}): { site: RefinerySite; result: WorkOrderResult; known: number }[] {
+export function rankRefineries(
+  data: RefineryDataDto,
+  lines: readonly WorkOrderLine[],
+  method: RefineryMethod,
+  opts: { system?: string | null } = {},
+): { site: RefinerySite; result: WorkOrderResult; known: number }[] {
   return data.refineries
     .filter((s) => !opts.system || s.system === opts.system)
     .map((site) => ({
@@ -269,16 +356,25 @@ export function rankRefineries(data: RefineryDataDto, lines: readonly WorkOrderL
       result: workOrder(data, lines, site.id, method, { sellSystem: site.system }),
       known: lines.filter((l) => site.bonus[l.oreId] !== undefined).length,
     }))
-    .sort((a, b) => b.result.outScu - a.result.outScu || b.result.refinedValue - a.result.refinedValue || a.site.name.localeCompare(b.site.name));
+    .sort(
+      (a, b) =>
+        b.result.outScu - a.result.outScu ||
+        b.result.refinedValue - a.result.refinedValue ||
+        a.site.name.localeCompare(b.site.name),
+    );
 }
 
 /** "48:32,59:12.5" ⇄ lines, for the page's address (ore ids, SCU; 0 = still being typed). */
 export function parseWorkOrder(value: string | null | undefined): WorkOrderLine[] {
   if (!value) return [];
-  return value.split(',').map((part) => {
-    const [id, scu] = part.split(':');
-    return { oreId: Number(id), scu: Number(scu) };
-  }).filter((l) => Number.isInteger(l.oreId) && l.oreId > 0 && Number.isFinite(l.scu) && l.scu >= 0 && l.scu <= 100_000).slice(0, 20);
+  return value
+    .split(',')
+    .map((part) => {
+      const [id, scu] = part.split(':');
+      return { oreId: Number(id), scu: Number(scu) };
+    })
+    .filter((l) => Number.isInteger(l.oreId) && l.oreId > 0 && Number.isFinite(l.scu) && l.scu >= 0 && l.scu <= 100_000)
+    .slice(0, 20);
 }
 export const workOrderParam = (lines: readonly WorkOrderLine[]): string =>
   lines.map((l) => `${l.oreId}:${Math.round(l.scu * 100) / 100}`).join(',');

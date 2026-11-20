@@ -42,7 +42,10 @@ export interface AdminModuleDto {
 }
 
 /** A server's settings as everything else should read them: hidden modules switched off. */
-export function withHiddenModules<T extends Record<string, unknown> | null>(settings: T, hidden: ReadonlySet<ModuleSetting>): T {
+export function withHiddenModules<T extends Record<string, unknown> | null>(
+  settings: T,
+  hidden: ReadonlySet<ModuleSetting>,
+): T {
   if (!settings || hidden.size === 0) return settings;
   const out: Record<string, unknown> = { ...settings };
   for (const m of hidden) out[m] = false;

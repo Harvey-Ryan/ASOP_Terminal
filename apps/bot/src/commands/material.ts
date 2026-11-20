@@ -38,7 +38,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const materialName = interaction.options.getString('name', true).trim();
 
   // Find all blueprints using any material name containing the search term
-  const search  = materialName.toLowerCase();
+  const search = materialName.toLowerCase();
   const matches = getMaterialNames().filter((n) => n.includes(search));
 
   if (matches.length === 0) {
@@ -49,7 +49,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // Collect all matching blueprints (de-duped)
   const bpSet = new Set(matches.flatMap((n) => getBlueprintsForMaterial(n)));
   const blueprints = [...bpSet].sort((a, b) => a.outputName.localeCompare(b.outputName));
-  const total   = blueprints.length;
+  const total = blueprints.length;
   const showing = blueprints.slice(0, 20);
 
   // For the title, prefer an exact match
@@ -82,9 +82,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   // Show matched variant names when the search hit multiple distinct names
   if (matches.length > 1) {
-    const variantLines = matches
-      .slice(0, 5)
-      .map((n) => `• ${n} (${getBlueprintsForMaterial(n).length})`);
+    const variantLines = matches.slice(0, 5).map((n) => `• ${n} (${getBlueprintsForMaterial(n).length})`);
     embed.addFields([{ name: 'Matched variants', value: variantLines.join('\n'), inline: false }]);
   }
 

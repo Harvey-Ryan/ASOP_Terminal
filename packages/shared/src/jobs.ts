@@ -25,9 +25,20 @@ export type JobStatus = 'OPEN' | 'DONE' | 'CANCELLED' | 'EXPIRED';
 
 /** Open jobs close by themselves after this long. */
 export const JOB_EXPIRY_DAYS = 7;
-export const JOB_LIMITS = { title: 100, details: 1000, reward: 60, location: 80, whenText: 60, maxSlots: 20, openPerPerson: 10 } as const;
+export const JOB_LIMITS = {
+  title: 100,
+  details: 1000,
+  reward: 60,
+  location: 80,
+  whenText: 60,
+  maxSlots: 20,
+  openPerPerson: 10,
+} as const;
 
-export interface JobCrewDto { userId: string; username: string }
+export interface JobCrewDto {
+  userId: string;
+  username: string;
+}
 
 export interface JobDto {
   id: string;
@@ -66,7 +77,11 @@ export interface JobInput {
  * Whether people in `viewerGuildId` can see (and take) a job. `alliesOfJobServer`
  * is the set of servers allied with the server the job was posted from.
  */
-export function jobVisibleTo(job: { guildId: string; visibility: string }, viewerGuildId: string, alliesOfJobServer: ReadonlySet<string>): boolean {
+export function jobVisibleTo(
+  job: { guildId: string; visibility: string },
+  viewerGuildId: string,
+  alliesOfJobServer: ReadonlySet<string>,
+): boolean {
   if (job.guildId === viewerGuildId || job.visibility === 'GLOBAL') return true;
   return job.visibility === 'ALLIES' && alliesOfJobServer.has(viewerGuildId);
 }
@@ -85,8 +100,8 @@ export function jobTakeProblem(
 
 export const JOB_TAKE_MESSAGES = {
   closed: 'This job is closed.',
-  own: 'That\'s your own job.',
-  taken: 'You\'re already on this job.',
+  own: "That's your own job.",
+  taken: "You're already on this job.",
   full: 'This job already has its crew.',
 } as const;
 
@@ -104,16 +119,28 @@ export function parseJobInput(raw: unknown): { error: string } | { job: Required
   };
   if (typeof b['kind'] !== 'string' || !(b['kind'] in JOB_KINDS)) return { error: 'Pick a kind of job.' };
   const slots = b['slots'] == null ? 1 : Number(b['slots']);
-  if (!Number.isInteger(slots) || slots < 1 || slots > JOB_LIMITS.maxSlots) return { error: `Crew must be between 1 and ${JOB_LIMITS.maxSlots}.` };
+  if (!Number.isInteger(slots) || slots < 1 || slots > JOB_LIMITS.maxSlots)
+    return { error: `Crew must be between 1 and ${JOB_LIMITS.maxSlots}.` };
   const visibility = b['visibility'] == null ? 'SERVER' : String(b['visibility']);
   if (!(visibility in JOB_VISIBILITY)) return { error: 'Pick who can see the job.' };
-  const fields = { title: text('title', true), details: text('details'), reward: text('reward'), location: text('location'), whenText: text('whenText') };
+  const fields = {
+    title: text('title', true),
+    details: text('details'),
+    reward: text('reward'),
+    location: text('location'),
+    whenText: text('whenText'),
+  };
   for (const v of Object.values(fields)) if (v && typeof v === 'object') return v;
   return {
     job: {
-      kind: b['kind'] as JobKind, slots, visibility: visibility as JobVisibility,
-      title: fields.title as string, details: fields.details as string | null, reward: fields.reward as string | null,
-      location: fields.location as string | null, whenText: fields.whenText as string | null,
+      kind: b['kind'] as JobKind,
+      slots,
+      visibility: visibility as JobVisibility,
+      title: fields.title as string,
+      details: fields.details as string | null,
+      reward: fields.reward as string | null,
+      location: fields.location as string | null,
+      whenText: fields.whenText as string | null,
     },
   };
 }

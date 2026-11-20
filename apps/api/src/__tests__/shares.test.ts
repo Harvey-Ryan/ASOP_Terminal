@@ -19,17 +19,30 @@ async function org(name: string) {
   const user = await createUser();
   const agent = request.agent(app);
   await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [guild.guildId] });
-  return { guild, user, agent, events: `/api/guilds/${guild.guildId}/events`, allies: `/api/guilds/${guild.guildId}/allies` };
+  return {
+    guild,
+    user,
+    agent,
+    events: `/api/guilds/${guild.guildId}/events`,
+    allies: `/api/guilds/${guild.guildId}/allies`,
+  };
 }
 type Org = Awaited<ReturnType<typeof org>>;
 
 /** Makes x and y allies. `autoX`: x posts y's events automatically (and the reverse for autoY). */
-async function ally(x: Org, y: Org, opts: { autoX?: boolean; autoY?: boolean; status?: 'ACCEPTED' | 'PENDING' | 'REJECTED' } = {}) {
+async function ally(
+  x: Org,
+  y: Org,
+  opts: { autoX?: boolean; autoY?: boolean; status?: 'ACCEPTED' | 'PENDING' | 'REJECTED' } = {},
+) {
   const xFirst = x.guild.id < y.guild.id;
   const [a, b] = xFirst ? [x, y] : [y, x];
   return prisma.guildAlly.create({
     data: {
-      guildAId: a.guild.id, guildBId: b.guild.id, requestedByGuildId: x.guild.id, status: opts.status ?? 'ACCEPTED',
+      guildAId: a.guild.id,
+      guildBId: b.guild.id,
+      requestedByGuildId: x.guild.id,
+      status: opts.status ?? 'ACCEPTED',
       autoAcceptA: xFirst ? !!opts.autoX : !!opts.autoY,
       autoAcceptB: xFirst ? !!opts.autoY : !!opts.autoX,
     },
@@ -71,10 +84,16 @@ beforeEach(async () => {
 
 /** The share notice for `event` on `shareId`, waiting for the fire-and-forget POST. */
 async function noticeFor(event: string, shareId: string) {
-  const find = () => [...received].reverse().find((r) => r.path === '/trigger/share-notice' && r.body['event'] === event && r.body['shareId'] === shareId);
+  const find = () =>
+    [...received]
+      .reverse()
+      .find((r) => r.path === '/trigger/share-notice' && r.body['event'] === event && r.body['shareId'] === shareId);
   for (let i = 0; i < 50 && !find(); i++) await new Promise((r) => setTimeout(r, 20));
   const hit = find();
-  if (!hit) throw new Error(`no '${event}' notice for ${shareId}; got ${received.map((r) => `${r.path} ${r.body['event'] ?? ''}`).join(', ')}`);
+  if (!hit)
+    throw new Error(
+      `no '${event}' notice for ${shareId}; got ${received.map((r) => `${r.path} ${r.body['event'] ?? ''}`).join(', ')}`,
+    );
   return hit.body;
 }
 async function triggered(path: string) {
@@ -93,7 +112,9 @@ describe('creating an event shared with allies', () => {
     await ally(a, b);
     await ally(a, c, { status: 'PENDING' });
     const res = await newEvent(a, { directGuildIds: [b.guild.guildId, c.guild.guildId] }).expect(403);
-    expect(res.body.error).toBe("You can only share events with your allies, and Charlie isn't one yet. Add them on the Allies page first.");
+    expect(res.body.error).toBe(
+      "You can only share events with your allies, and Charlie isn't one yet. Add them on the Allies page first.",
+    );
     expect(await prisma.event.count({ where: { guildId: a.guild.guildId } })).toBe(0);
   });
 
@@ -110,7 +131,12 @@ describe('creating an event shared with allies', () => {
     const ev = (await newEvent(a, { directGuildIds: [b.guild.guildId] }).expect(201)).body.data;
     const share = await shareOf(ev.id, b);
     expect(share).toMatchObject({ status: 'PENDING', autoAccepted: false, sourceType: 'DIRECT' });
-    expect(await noticeFor('pending', share!.id)).toMatchObject({ eventId: ev.id, hostGuildId: a.guild.id, receiverGuildId: b.guild.id, actorUserId: null });
+    expect(await noticeFor('pending', share!.id)).toMatchObject({
+      eventId: ev.id,
+      hostGuildId: a.guild.id,
+      receiverGuildId: b.guild.id,
+      actorUserId: null,
+    });
     expect(received.some((r) => r.path === `/trigger/share-accepted/${share!.id}`)).toBe(false);
   });
 
@@ -127,7 +153,7 @@ describe('creating an event shared with allies', () => {
     expect(received.some((r) => r.path === '/trigger/share-notice')).toBe(false);
   });
 
-  it('only the receiving side\'s setting counts', async () => {
+  it("only the receiving side's setting counts", async () => {
     const a = await org('Alpha');
     const b = await org('Bravo');
     await ally(a, b, { autoX: true }); // Alpha posts Bravo's events automatically, not the other way
@@ -143,10 +169,21 @@ describe('creating an event shared with allies', () => {
     const c = await org('Charlie');
     await ally(a, b, { autoY: true });
     await ally(a, c);
-    const ev = (await newEvent(a, { directGuildIds: [b.guild.guildId, c.guild.guildId, b.guild.guildId] }).expect(201)).body.data;
+    const ev = (await newEvent(a, { directGuildIds: [b.guild.guildId, c.guild.guildId, b.guild.guildId] }).expect(201))
+      .body.data;
     const shares = (await a.agent.get(`${a.events}/${ev.id}`).expect(200)).body.data.shares;
-    expect(shares.map((s: { guildName: string; status: string; autoAccepted: boolean }) => [s.guildName, s.status, s.autoAccepted]).sort())
-      .toEqual([['Bravo', 'ACCEPTED', true], ['Charlie', 'PENDING', false]]);
+    expect(
+      shares
+        .map((s: { guildName: string; status: string; autoAccepted: boolean }) => [
+          s.guildName,
+          s.status,
+          s.autoAccepted,
+        ])
+        .sort(),
+    ).toEqual([
+      ['Bravo', 'ACCEPTED', true],
+      ['Charlie', 'PENDING', false],
+    ]);
   });
 
   it('no allies picked: no shares, nothing sent', async () => {
@@ -154,7 +191,6 @@ describe('creating an event shared with allies', () => {
     const ev = (await newEvent(a).expect(201)).body.data;
     expect(await prisma.eventGuildShare.count({ where: { eventId: ev.id } })).toBe(0);
   });
-
 });
 
 // ── Sharing an existing event ─────────────────────────────────────────────────
@@ -165,7 +201,9 @@ describe('sharing an existing event', () => {
     const b = await org('Bravo');
     const ev = (await newEvent(a).expect(201)).body.data;
     const url = `${a.events}/${ev.id}/shares/direct`;
-    expect((await a.agent.post(url).send({ targetDiscordGuildId: b.guild.guildId }).expect(403)).body.error).toContain('Bravo');
+    expect((await a.agent.post(url).send({ targetDiscordGuildId: b.guild.guildId }).expect(403)).body.error).toContain(
+      'Bravo',
+    );
     await ally(a, b);
     const share = (await a.agent.post(url).send({ targetDiscordGuildId: b.guild.guildId }).expect(201)).body.data;
     expect(share).toMatchObject({ guildName: 'Bravo', status: 'PENDING', autoAccepted: false });
@@ -180,7 +218,12 @@ describe('sharing an existing event', () => {
     const b = await org('Bravo');
     await ally(a, b, { autoY: true });
     const ev = (await newEvent(a).expect(201)).body.data;
-    const share = (await a.agent.post(`${a.events}/${ev.id}/shares/direct`).send({ targetDiscordGuildId: b.guild.guildId }).expect(201)).body.data;
+    const share = (
+      await a.agent
+        .post(`${a.events}/${ev.id}/shares/direct`)
+        .send({ targetDiscordGuildId: b.guild.guildId })
+        .expect(201)
+    ).body.data;
     expect(share).toMatchObject({ status: 'ACCEPTED', autoAccepted: true });
     expect(await triggered(`/trigger/share-accepted/${share.id}`)).toBe(true);
   });
@@ -190,8 +233,23 @@ describe('sharing an existing event', () => {
     const b = await org('Bravo');
     await ally(a, b, { autoY: true });
     const ev = (await newEvent(a).expect(201)).body.data;
-    const row = await prisma.eventGuildShare.create({ data: { eventId: ev.id, guildId: b.guild.id, sourceType: 'DIRECT', status: 'DECLINED', respondedBy: 'u-old', noticeChannelId: 'c-old', noticeMessageId: 'm-old' } });
-    const share = (await a.agent.post(`${a.events}/${ev.id}/shares/direct`).send({ targetDiscordGuildId: b.guild.guildId }).expect(201)).body.data;
+    const row = await prisma.eventGuildShare.create({
+      data: {
+        eventId: ev.id,
+        guildId: b.guild.id,
+        sourceType: 'DIRECT',
+        status: 'DECLINED',
+        respondedBy: 'u-old',
+        noticeChannelId: 'c-old',
+        noticeMessageId: 'm-old',
+      },
+    });
+    const share = (
+      await a.agent
+        .post(`${a.events}/${ev.id}/shares/direct`)
+        .send({ targetDiscordGuildId: b.guild.guildId })
+        .expect(201)
+    ).body.data;
     expect(share).toMatchObject({ id: row.id, status: 'PENDING', autoAccepted: false });
     const after = await prisma.eventGuildShare.findUniqueOrThrow({ where: { id: row.id } });
     expect([after.respondedBy, after.noticeChannelId, after.noticeMessageId]).toEqual([null, null, null]);
@@ -203,7 +261,9 @@ describe('sharing an existing event', () => {
     const b = await org('Bravo');
     const link = await ally(a, b);
     const ev = (await newEvent(a).expect(201)).body.data;
-    const row = await prisma.eventGuildShare.create({ data: { eventId: ev.id, guildId: b.guild.id, sourceType: 'DIRECT', status: 'DECLINED' } });
+    const row = await prisma.eventGuildShare.create({
+      data: { eventId: ev.id, guildId: b.guild.id, sourceType: 'DIRECT', status: 'DECLINED' },
+    });
     await prisma.guildAlly.delete({ where: { id: link.id } });
     await a.agent.patch(`${a.events}/${ev.id}/shares/${row.id}/reinvite`).expect(403);
     await ally(a, b);
@@ -212,12 +272,15 @@ describe('sharing an existing event', () => {
     await noticeFor('pending', row.id);
   });
 
-  it('only the host\'s event creators can share', async () => {
+  it("only the host's event creators can share", async () => {
     const a = await org('Alpha');
     const b = await org('Bravo');
     await ally(a, b);
     const ev = (await newEvent(a).expect(201)).body.data;
-    await b.agent.post(`${a.events}/${ev.id}/shares/direct`).send({ targetDiscordGuildId: b.guild.guildId }).expect(403);
+    await b.agent
+      .post(`${a.events}/${ev.id}/shares/direct`)
+      .send({ targetDiscordGuildId: b.guild.guildId })
+      .expect(403);
   });
 });
 
@@ -233,7 +296,13 @@ describe('answering an invitation', () => {
       where: { eventId_guildId: { eventId: ev.id, guildId: b.guild.id } },
       data: { noticeChannelId: 'chan-b', noticeMessageId: 'msg-1' }, // as if the bot had posted it
     });
-    return { a, b, ev, share, respond: (action: string) => b.agent.patch(`${b.events}/${ev.id}/shares/respond`).send({ action }) };
+    return {
+      a,
+      b,
+      ev,
+      share,
+      respond: (action: string) => b.agent.patch(`${b.events}/${ev.id}/shares/respond`).send({ action }),
+    };
   }
 
   it('accept: recorded with who answered; the bot posts the event and updates the notice', async () => {
@@ -243,30 +312,50 @@ describe('answering an invitation', () => {
     const row = await prisma.eventGuildShare.findUniqueOrThrow({ where: { id: share.id } });
     expect(row.respondedBy).toBe(b.user.discordId);
     expect(await triggered(`/trigger/share-accepted/${share.id}`)).toBe(true);
-    expect(await noticeFor('accepted', share.id)).toMatchObject({ actorUserId: b.user.discordId, noticeChannelId: 'chan-b', noticeMessageId: 'msg-1' });
+    expect(await noticeFor('accepted', share.id)).toMatchObject({
+      actorUserId: b.user.discordId,
+      noticeChannelId: 'chan-b',
+      noticeMessageId: 'msg-1',
+    });
     await respond('accept').expect(409);
   });
 
   it('decline: the notice is updated; nothing is posted', async () => {
     const { b, share, respond } = await invited();
     await respond('decline').expect(200);
-    expect(await noticeFor('declined', share.id)).toMatchObject({ actorUserId: b.user.discordId, noticeMessageId: 'msg-1' });
+    expect(await noticeFor('declined', share.id)).toMatchObject({
+      actorUserId: b.user.discordId,
+      noticeMessageId: 'msg-1',
+    });
     await settle();
     expect(received.some((r) => r.path === `/trigger/share-accepted/${share.id}`)).toBe(false);
   });
 
-  it('only the invited server\'s managers can answer', async () => {
+  it("only the invited server's managers can answer", async () => {
     const { a, ev } = await invited();
-    await a.agent.patch(`/api/guilds/${a.guild.guildId}/events/${ev.id}/shares/respond`).send({ action: 'accept' }).expect(404);
+    await a.agent
+      .patch(`/api/guilds/${a.guild.guildId}/events/${ev.id}/shares/respond`)
+      .send({ action: 'accept' })
+      .expect(404);
     const stranger = await org('Stranger');
-    await stranger.agent.patch(`/api/guilds/${(await prisma.guild.findFirstOrThrow({ where: { name: 'Bravo' } })).guildId}/events/${ev.id}/shares/respond`).send({ action: 'accept' }).expect(403);
+    await stranger.agent
+      .patch(
+        `/api/guilds/${(await prisma.guild.findFirstOrThrow({ where: { name: 'Bravo' } })).guildId}/events/${ev.id}/shares/respond`,
+      )
+      .send({ action: 'accept' })
+      .expect(403);
   });
 
   it('the host cancelling a waiting invitation withdraws the notice', async () => {
     const { a, ev, share } = await invited();
     await a.agent.delete(`${a.events}/${ev.id}/shares/${share.id}`).expect(200);
     expect(await prisma.eventGuildShare.findUnique({ where: { id: share.id } })).toBeNull();
-    expect(await noticeFor('withdrawn', share.id)).toMatchObject({ actorUserId: a.user.discordId, noticeChannelId: 'chan-b', noticeMessageId: 'msg-1', hostGuildId: a.guild.id });
+    expect(await noticeFor('withdrawn', share.id)).toMatchObject({
+      actorUserId: a.user.discordId,
+      noticeChannelId: 'chan-b',
+      noticeMessageId: 'msg-1',
+      hostGuildId: a.guild.id,
+    });
   });
 
   it('the receiving side sees who is inviting it', async () => {
@@ -284,9 +373,9 @@ describe('ending an alliance', () => {
     const ab = await ally(a, b);
     await ally(a, c);
     const e1 = (await newEvent(a, { directGuildIds: [b.guild.guildId, c.guild.guildId] }).expect(201)).body.data; // a → b pending, a → c pending
-    const e2 = (await newEvent(b, { directGuildIds: [a.guild.guildId] }).expect(201)).body.data;                  // b → a pending
-    const e3 = (await newEvent(a, { directGuildIds: [b.guild.guildId] }).expect(201)).body.data;                  // a → b, accepted below
-    const e4 = (await newEvent(a, { directGuildIds: [b.guild.guildId] }).expect(201)).body.data;                  // a → b, declined below
+    const e2 = (await newEvent(b, { directGuildIds: [a.guild.guildId] }).expect(201)).body.data; // b → a pending
+    const e3 = (await newEvent(a, { directGuildIds: [b.guild.guildId] }).expect(201)).body.data; // a → b, accepted below
+    const e4 = (await newEvent(a, { directGuildIds: [b.guild.guildId] }).expect(201)).body.data; // a → b, declined below
     await b.agent.patch(`${b.events}/${e3.id}/shares/respond`).send({ action: 'accept' }).expect(200);
     await b.agent.patch(`${b.events}/${e4.id}/shares/respond`).send({ action: 'decline' }).expect(200);
     const gone1 = (await shareOf(e1.id, b))!;
@@ -296,11 +385,18 @@ describe('ending an alliance', () => {
 
     expect(await shareOf(e1.id, b)).toBeNull();
     expect(await shareOf(e2.id, a)).toBeNull();
-    expect((await shareOf(e1.id, c))!.status).toBe('PENDING');   // Charlie is still an ally
-    expect((await shareOf(e3.id, b))!.status).toBe('ACCEPTED');  // stays until the event ends
+    expect((await shareOf(e1.id, c))!.status).toBe('PENDING'); // Charlie is still an ally
+    expect((await shareOf(e3.id, b))!.status).toBe('ACCEPTED'); // stays until the event ends
     expect((await shareOf(e4.id, b))!.status).toBe('DECLINED');
-    expect(await noticeFor('withdrawn', gone1.id)).toMatchObject({ hostGuildId: a.guild.id, receiverGuildId: b.guild.id, actorUserId: a.user.discordId });
-    expect(await noticeFor('withdrawn', gone2.id)).toMatchObject({ hostGuildId: b.guild.id, receiverGuildId: a.guild.id });
+    expect(await noticeFor('withdrawn', gone1.id)).toMatchObject({
+      hostGuildId: a.guild.id,
+      receiverGuildId: b.guild.id,
+      actorUserId: a.user.discordId,
+    });
+    expect(await noticeFor('withdrawn', gone2.id)).toMatchObject({
+      hostGuildId: b.guild.id,
+      receiverGuildId: a.guild.id,
+    });
   });
 
   it('after that, the old ally can no longer be invited', async () => {
@@ -325,11 +421,18 @@ describe('the ally picker', () => {
     await ally(a, d, { status: 'PENDING' });
     const data = (await a.agent.get(`${a.allies}/shareable`).expect(200)).body.data;
     expect(data.host.name).toBe('Alpha');
-    expect(data.allies.map((x: { guild: { name: string }; postsAutomatically: boolean }) => [x.guild.name, x.postsAutomatically]))
-      .toEqual([['Bravo', false], ['Charlie', true]]);
+    expect(
+      data.allies.map((x: { guild: { name: string }; postsAutomatically: boolean }) => [
+        x.guild.name,
+        x.postsAutomatically,
+      ]),
+    ).toEqual([
+      ['Bravo', false],
+      ['Charlie', true],
+    ]);
   });
 
-  it('is for that server\'s event organisers', async () => {
+  it("is for that server's event organisers", async () => {
     const a = await org('Alpha');
     const b = await org('Bravo');
     await b.agent.get(`${a.allies}/shareable`).expect(403);

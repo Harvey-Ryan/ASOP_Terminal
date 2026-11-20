@@ -25,10 +25,17 @@ myDataRouter.get('/me/data', requireAuth, async (req, res) => {
 
 myDataRouter.post('/me/delete', requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { username: true } });
-  if (!user) { res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse); return; }
+  if (!user) {
+    res.status(401).json({ success: false, error: 'Unauthorized' } satisfies ApiResponse);
+    return;
+  }
   const confirm = (req.body as { confirm?: unknown }).confirm;
   if (typeof confirm !== 'string' || confirm.trim().toLowerCase() !== user.username.toLowerCase()) {
-    res.status(400).json({ success: false, error: `Type your Discord username (${user.username}) to confirm.` } satisfies ApiResponse); return;
+    res.status(400).json({
+      success: false,
+      error: `Type your Discord username (${user.username}) to confirm.`,
+    } satisfies ApiResponse);
+    return;
   }
 
   await deleteMyData(req.session.userId!);

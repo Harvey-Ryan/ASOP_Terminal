@@ -71,10 +71,19 @@ export const WAITLIST_MESSAGES = {
 } as const;
 
 /** A waitlist entry, in line order. */
-export interface WaitlistRow { userId: string; role: string; guildId: string }
+export interface WaitlistRow {
+  userId: string;
+  role: string;
+  guildId: string;
+}
 
 /** Someone moved off the waitlist into a role; guildId is the server they joined from. */
-export interface WaitlistMove { userId: string; role: string; from: string | null; guildId: string }
+export interface WaitlistMove {
+  userId: string;
+  role: string;
+  from: string | null;
+  guildId: string;
+}
 
 /**
  * Who moves off the waitlist into the open slots, first in line first. Only
@@ -90,15 +99,24 @@ export function planWaitlistMoves(
   const roster = new Map(rsvps.map((r) => [r.userId, r.role]));
   const waiting = [...waitlist];
   const moves: WaitlistMove[] = [];
-  const taken = (key: string) => { let n = 0; for (const r of roster.values()) if (r === key) n++; return n; };
+  const taken = (key: string) => {
+    let n = 0;
+    for (const r of roster.values()) if (r === key) n++;
+    return n;
+  };
 
   for (let changed = true; changed;) {
     changed = false;
     for (const role of roles) {
       const key = roleKeyOf(role);
       while (taken(key) < role.count) {
-        const i = waiting.findIndex((w) => w.role === key && roster.has(w.userId) && roster.get(w.userId) !== key
-          && (!role.guildId || role.guildId === w.guildId));
+        const i = waiting.findIndex(
+          (w) =>
+            w.role === key &&
+            roster.has(w.userId) &&
+            roster.get(w.userId) !== key &&
+            (!role.guildId || role.guildId === w.guildId),
+        );
         if (i < 0) break;
         const [w] = waiting.splice(i, 1);
         moves.push({ userId: w!.userId, role: key, from: roster.get(w!.userId) ?? null, guildId: w!.guildId });
@@ -136,7 +154,11 @@ export function serverHeadcount(
 }
 
 /** The tag to show next to someone on a shared event (unknown servers count as the host). */
-export function serverTagOf(rsvp: { guildId: string | null }, hostGuildId: string, tags: Readonly<Record<string, string>>): string | undefined {
+export function serverTagOf(
+  rsvp: { guildId: string | null },
+  hostGuildId: string,
+  tags: Readonly<Record<string, string>>,
+): string | undefined {
   return tags[rsvp.guildId ?? hostGuildId] ?? tags[hostGuildId];
 }
 
@@ -162,6 +184,10 @@ export function canRunEventFromDiscord(p: {
   if (!p.inHostServer) return false;
   if (p.isOwner || p.manageGuild || p.administrator) return true;
   let allowed: string[] = [];
-  try { allowed = JSON.parse(p.eventCreatorRoles || '[]') as string[]; } catch { allowed = []; }
+  try {
+    allowed = JSON.parse(p.eventCreatorRoles || '[]') as string[];
+  } catch {
+    allowed = [];
+  }
   return Array.isArray(allowed) && allowed.some((r) => p.memberRoleIds.includes(r));
 }

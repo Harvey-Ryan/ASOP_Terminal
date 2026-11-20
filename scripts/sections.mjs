@@ -26,8 +26,13 @@ export function globToRegExp(glob) {
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
     if (c === '*' && glob[i + 1] === '*') {
-      if (glob[i + 2] === '/') { re += '(?:.*/)?'; i += 2; }
-      else { re += '.*'; i += 1; }
+      if (glob[i + 2] === '/') {
+        re += '(?:.*/)?';
+        i += 2;
+      } else {
+        re += '.*';
+        i += 1;
+      }
     } else if (c === '*') re += '[^/]*';
     else re += c.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
   }
@@ -68,12 +73,15 @@ export function classify(path, config = defaultConfig) {
 
 /** `git diff --numstat` output → [{ path, lines }] (binary files count as Infinity lines). */
 export function parseNumstat(text) {
-  return String(text).split('\n').filter((l) => l.trim()).map((line) => {
-    const [added, removed, ...rest] = line.split('\t');
-    const path = rest.join('\t');
-    const lines = added === '-' || removed === '-' ? Infinity : Number(added) + Number(removed);
-    return { path, lines };
-  });
+  return String(text)
+    .split('\n')
+    .filter((l) => l.trim())
+    .map((line) => {
+      const [added, removed, ...rest] = line.split('\t');
+      const path = rest.join('\t');
+      const lines = added === '-' || removed === '-' ? Infinity : Number(added) + Number(removed);
+      return { path, lines };
+    });
 }
 
 /**
@@ -100,7 +108,8 @@ export function checkScope(changes, labels = [], config = defaultConfig) {
   if (core.length) {
     problems.push(
       `It changes ${core.length} core file${core.length === 1 ? '' : 's'} that only the maintainer changes: ` +
-        core.map((r) => `\`${r.path}\`${r.unmapped ? ' (not in any section yet)' : ''}`).join(', ') + '.',
+        core.map((r) => `\`${r.path}\`${r.unmapped ? ' (not in any section yet)' : ''}`).join(', ') +
+        '.',
     );
   }
   for (const r of bigWiring) {
@@ -119,9 +128,13 @@ export function checkScope(changes, labels = [], config = defaultConfig) {
 export function renderSummary(result, config = defaultConfig) {
   const name = (id) => config.SECTIONS.find((s) => s.id === id)?.name ?? id;
   const where = (r) =>
-    r.kind === 'section' ? name(r.section)
-      : r.kind === 'wiring' ? `wiring (≤ ${r.limit} lines)`
-        : r.unmapped ? 'core (unmapped)' : 'core';
+    r.kind === 'section'
+      ? name(r.section)
+      : r.kind === 'wiring'
+        ? `wiring (≤ ${r.limit} lines)`
+        : r.unmapped
+          ? 'core (unmapped)'
+          : 'core';
   const lines = [];
   if (result.problems.length === 0) lines.push('### ✅ Scope check passed');
   else if (result.overridden) lines.push(`### ⚠️ Scope check overridden by the \`${config.LABELS.override}\` label`);
@@ -135,7 +148,8 @@ export function renderSummary(result, config = defaultConfig) {
     );
   }
   lines.push('', '| File | Lines | Section |', '| --- | ---: | --- |');
-  for (const r of result.rows) lines.push(`| \`${r.path}\` | ${r.lines === Infinity ? 'binary' : r.lines} | ${where(r)} |`);
+  for (const r of result.rows)
+    lines.push(`| \`${r.path}\` | ${r.lines === Infinity ? 'binary' : r.lines} | ${where(r)} |`);
   return lines.join('\n');
 }
 
@@ -162,19 +176,37 @@ export function renderCodeowners(config = defaultConfig) {
     '',
     `* ${maint}`,
   ];
-  const block = (title, lines) => { if (lines.length) out.push('', `# ${title}`, ...lines); };
-  for (const s of rev) block(`${s.id}: folders`, (s.dirs ?? []).map((g) => `${anchored(g)} ${ownersOf(s)}`));
+  const block = (title, lines) => {
+    if (lines.length) out.push('', `# ${title}`, ...lines);
+  };
+  for (const s of rev)
+    block(
+      `${s.id}: folders`,
+      (s.dirs ?? []).map((g) => `${anchored(g)} ${ownersOf(s)}`),
+    );
   for (const s of rev) {
-    block(`${s.id}: file names`, (s.keywords ?? []).flatMap((k) => keywordPatterns(k).map((p) => `${p} ${ownersOf(s)}`)));
+    block(
+      `${s.id}: file names`,
+      (s.keywords ?? []).flatMap((k) => keywordPatterns(k).map((p) => `${p} ${ownersOf(s)}`)),
+    );
   }
   for (const s of rev) {
-    block(`${s.id}: files and docs`, [...(s.files ?? []), `docs/features/${s.id}/**`].map((f) => `${anchored(f)} ${ownersOf(s)}`));
+    block(
+      `${s.id}: files and docs`,
+      [...(s.files ?? []), `docs/features/${s.id}/**`].map((f) => `${anchored(f)} ${ownersOf(s)}`),
+    );
   }
   // In CODEOWNERS a trailing `*` also matches folders (and so everything in
   // them); `*.*` keeps "files in this folder" to files.
   const coreLine = (g) => anchored(g === '*' || g.endsWith('/*') ? `${g}.*` : g);
-  block('core (maintainers only)', config.CORE.map((g) => `${coreLine(g)} ${maint}`));
-  block('shared wiring (maintainers review)', config.WIRING.map((w) => `${anchored(w.path)} ${maint}`));
+  block(
+    'core (maintainers only)',
+    config.CORE.map((g) => `${coreLine(g)} ${maint}`),
+  );
+  block(
+    'shared wiring (maintainers review)',
+    config.WIRING.map((w) => `${anchored(w.path)} ${maint}`),
+  );
   return `${out.join('\n')}\n`;
 }
 
@@ -186,7 +218,13 @@ if (isMain) {
   const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   const label = (path) => {
     const r = classify(path);
-    return r.kind === 'section' ? r.section : r.kind === 'wiring' ? `wiring(${r.limit})` : r.unmapped ? 'core (unmapped)' : 'core';
+    return r.kind === 'section'
+      ? r.section
+      : r.kind === 'wiring'
+        ? `wiring(${r.limit})`
+        : r.unmapped
+          ? 'core (unmapped)'
+          : 'core';
   };
 
   if (cmd === 'report') {
@@ -197,15 +235,28 @@ if (isMain) {
       counts[l] = (counts[l] ?? 0) + 1;
       if (!args.includes('--summary')) console.log(`${l.padEnd(18)} ${f}`);
     }
-    console.log('\n' + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${String(v).padStart(4)}  ${k}`).join('\n'));
+    console.log(
+      '\n' +
+        Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, v]) => `${String(v).padStart(4)}  ${k}`)
+          .join('\n'),
+    );
   } else if (cmd === 'which') {
     for (const f of args) console.log(`${label(f).padEnd(18)} ${f}`);
   } else if (cmd === 'check') {
     const [base, head] = args;
-    if (!base || !head) { console.error('usage: sections.mjs check <base> <head>'); process.exit(2); }
+    if (!base || !head) {
+      console.error('usage: sections.mjs check <base> <head>');
+      process.exit(2);
+    }
     const changes = parseNumstat(git('diff', '--numstat', '--no-renames', `${base}...${head}`));
     let labels = [];
-    try { labels = JSON.parse(process.env.PR_LABELS || '[]'); } catch { /* none */ }
+    try {
+      labels = JSON.parse(process.env.PR_LABELS || '[]');
+    } catch {
+      /* none */
+    }
     const result = checkScope(changes, labels);
     const summary = renderSummary(result);
     console.log(summary);
@@ -219,9 +270,15 @@ if (isMain) {
     const want = renderCodeowners();
     if (args.includes('--check')) {
       let have = '';
-      try { have = readFileSync(file, 'utf8'); } catch { /* missing */ }
+      try {
+        have = readFileSync(file, 'utf8');
+      } catch {
+        /* missing */
+      }
       if (have !== want) {
-        console.error('::error::.github/CODEOWNERS is out of date: run `node scripts/sections.mjs codeowners` and commit it.');
+        console.error(
+          '::error::.github/CODEOWNERS is out of date: run `node scripts/sections.mjs codeowners` and commit it.',
+        );
         process.exit(1);
       }
       console.log('.github/CODEOWNERS matches scripts/sections.config.mjs.');
@@ -230,7 +287,9 @@ if (isMain) {
       console.log('Wrote .github/CODEOWNERS.');
     }
   } else {
-    console.error('usage: sections.mjs report [--summary] | which <file>… | check <base> <head> | codeowners [--check]');
+    console.error(
+      'usage: sections.mjs report [--summary] | which <file>… | check <base> <head> | codeowners [--check]',
+    );
     process.exit(2);
   }
 }

@@ -2,7 +2,43 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { pageTitle } from '@/lib/pageTitle';
 import { CrashScreen } from '@/components/CrashScreen';
 import { NavLink, Link, Outlet, useNavigate, useMatch, useLocation } from 'react-router-dom';
-import { LogOut, List, LayoutDashboard, ExternalLink, ChevronDown, Settings, Puzzle, CalendarDays, Gavel, Coins, Database, ArrowLeftRight, ShoppingCart, Rocket, Package, Gift, Ship, KanbanSquare, Menu, Users, Crosshair, BookOpen, Calculator, Palmtree, Pickaxe, ChevronsLeft, ChevronsRight, Trophy, Swords, Globe2, Handshake, ShieldCheck, History, Briefcase, Bot } from 'lucide-react';
+import {
+  LogOut,
+  List,
+  LayoutDashboard,
+  ExternalLink,
+  ChevronDown,
+  Settings,
+  Puzzle,
+  CalendarDays,
+  Gavel,
+  Coins,
+  Database,
+  ArrowLeftRight,
+  ShoppingCart,
+  Rocket,
+  Package,
+  Gift,
+  Ship,
+  KanbanSquare,
+  Menu,
+  Users,
+  Crosshair,
+  BookOpen,
+  Calculator,
+  Palmtree,
+  Pickaxe,
+  ChevronsLeft,
+  ChevronsRight,
+  Trophy,
+  Swords,
+  Globe2,
+  Handshake,
+  ShieldCheck,
+  History,
+  Briefcase,
+  Bot,
+} from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -140,7 +176,9 @@ export function DashboardLayout() {
   const activeGuild = guilds.find((g) => g.id === activeGuildId);
 
   // Tab title per page (lib/pageTitle.ts).
-  useEffect(() => { document.title = pageTitle(location.pathname, activeGuild?.name); }, [location.pathname, activeGuild?.name]);
+  useEffect(() => {
+    document.title = pageTitle(location.pathname, activeGuild?.name);
+  }, [location.pathname, activeGuild?.name]);
   const showAdminNav = !!activeGuild && canManageGuild(activeGuild);
   const dkpLabel = useDkpLabel(activeGuildId);
 
@@ -168,17 +206,22 @@ export function DashboardLayout() {
       <Handshake className="h-4 w-4 shrink-0" />
       {!navCollapsed && <span className="flex-1">Allies</span>}
       {!navCollapsed && pendingAllyCount > 0 && (
-        <span aria-label={`${pendingAllyCount} ally requests waiting`} className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+        <span
+          aria-label={`${pendingAllyCount} ally requests waiting`}
+          className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
+        >
           {pendingAllyCount > 99 ? '99+' : pendingAllyCount}
         </span>
       )}
-      {navCollapsed && pendingAllyCount > 0 && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />}
+      {navCollapsed && pendingAllyCount > 0 && (
+        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
+      )}
     </NavLink>
   );
-  const eventBotEnabled = myPerms?.eventBotEnabled  ?? true;
+  const eventBotEnabled = myPerms?.eventBotEnabled ?? true;
   const jobsEnabled = myPerms?.jobsEnabled ?? true;
-  const dkpEnabled      = myPerms?.dkpEnabled      ?? true;
-  const exchangeEnabled = myPerms?.exchangeEnabled  ?? true;
+  const dkpEnabled = myPerms?.dkpEnabled ?? true;
+  const exchangeEnabled = myPerms?.exchangeEnabled ?? true;
 
   const { data: pendingTradeCount = 0 } = useQuery({
     queryKey: ['marketplace-pending-count', activeGuildId],
@@ -194,42 +237,38 @@ export function DashboardLayout() {
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
-  const lootEnabled       = myPerms?.lootEnabled      ?? true;
-  const fleetEnabled      = myPerms?.fleetEnabled     ?? true;
+  const lootEnabled = myPerms?.lootEnabled ?? true;
+  const fleetEnabled = myPerms?.fleetEnabled ?? true;
   const blueprintsEnabled = myPerms?.blueprintsEnabled ?? true;
-  const craftingEnabled   = myPerms?.craftingEnabled  ?? true;
-  const wikeloEnabled     = myPerms?.wikeloEnabled    ?? true;
-  const activityEnabled   = myPerms?.activityEnabled  ?? true;
+  const craftingEnabled = myPerms?.craftingEnabled ?? true;
+  const wikeloEnabled = myPerms?.wikeloEnabled ?? true;
+  const activityEnabled = myPerms?.activityEnabled ?? true;
   const tournamentsEnabled = myPerms?.tournamentsEnabled ?? true;
 
-  const [sidebarOpen,      setSidebarOpen]      = useState(false);
-  const [profileOpen,      setProfileOpen]      = useState(false);
-  const [navCollapsed,     setNavCollapsed]     = useState(() =>
-    localStorage.getItem('nav-collapsed') === 'true',
-  );
-  const [toolsOpen,        setToolsOpen]        = useState(() =>
-    localStorage.getItem('nav-tools-open') !== 'false',
-  );
-  const [orgSettingsOpen,  setOrgSettingsOpen]  = useState(() =>
-    localStorage.getItem('nav-orgsettings-open') !== 'false',
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('nav-collapsed') === 'true');
+  const [toolsOpen, setToolsOpen] = useState(() => localStorage.getItem('nav-tools-open') !== 'false');
+  const [orgSettingsOpen, setOrgSettingsOpen] = useState(
+    () => localStorage.getItem('nav-orgsettings-open') !== 'false',
   );
 
   function toggleNav() {
-    setNavCollapsed(prev => {
+    setNavCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem('nav-collapsed', String(next));
       return next;
     });
   }
   function toggleTools() {
-    setToolsOpen(prev => {
+    setToolsOpen((prev) => {
       const next = !prev;
       localStorage.setItem('nav-tools-open', String(next));
       return next;
     });
   }
   function toggleOrgSettings() {
-    setOrgSettingsOpen(prev => {
+    setOrgSettingsOpen((prev) => {
       const next = !prev;
       localStorage.setItem('nav-orgsettings-open', String(next));
       return next;
@@ -351,11 +390,7 @@ export function DashboardLayout() {
               </button>
 
               {profileOpen && (
-                <ProfileDropdown
-                  user={user}
-                  onSave={handleSaveDisplayName}
-                  onClose={() => setProfileOpen(false)}
-                />
+                <ProfileDropdown user={user} onSave={handleSaveDisplayName} onClose={() => setProfileOpen(false)} />
               )}
             </div>
           ) : (
@@ -378,415 +413,402 @@ export function DashboardLayout() {
       <div className="flex flex-1 overflow-hidden">
         {/* Mobile overlay backdrop */}
         {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
         )}
 
         {/* ── Sidebar ── */}
-        <aside className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-all duration-300 lg:relative lg:z-auto lg:translate-x-0',
-          navCollapsed ? 'lg:w-14' : 'lg:w-56',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-        )}>
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card transition-all duration-300 lg:relative lg:z-auto lg:translate-x-0',
+            navCollapsed ? 'lg:w-14' : 'lg:w-56',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          )}
+        >
           {/* Collapse toggle — desktop only, sits on the right edge */}
           <button
             onClick={toggleNav}
             title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className="absolute -right-3 top-6 z-50 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground shadow-sm transition-colors"
           >
-            {navCollapsed
-              ? <ChevronsRight className="h-3.5 w-3.5" />
-              : <ChevronsLeft  className="h-3.5 w-3.5" />
-            }
+            {navCollapsed ? <ChevronsRight className="h-3.5 w-3.5" /> : <ChevronsLeft className="h-3.5 w-3.5" />}
           </button>
 
           {/* Server list */}
           <nav className="flex-1 overflow-y-auto p-2 space-y-0.5" onClick={() => setSidebarOpen(false)}>
-          {guilds.length === 0 ? (
-            <div className="px-3 py-3">
-              {!navCollapsed && <p className="text-xs text-muted-foreground mb-2">No servers with the bot installed.</p>}
-              <a
-                href={INVITE_URL}
-                target="_blank"
-                rel="noreferrer"
-                title="Add to a server"
-                className={cn(
-                  navCollapsed
-                    ? 'flex items-center justify-center rounded-md p-2 text-xs text-primary hover:bg-accent transition-colors'
-                    : 'flex items-center gap-1.5 text-xs text-primary hover:underline',
+            {guilds.length === 0 ? (
+              <div className="px-3 py-3">
+                {!navCollapsed && (
+                  <p className="text-xs text-muted-foreground mb-2">No servers with the bot installed.</p>
                 )}
-              >
-                <ExternalLink className="h-3 w-3 shrink-0" />
-                {!navCollapsed && 'Add to a server'}
-              </a>
-            </div>
-          ) : activeGuild ? (
-            <>
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}`}
-                end
-                title={navCollapsed ? 'Dashboard' : undefined}
-                className={serverNavCls}
-              >
-                <LayoutDashboard className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'Dashboard'}
-              </NavLink>
-
-              {lootEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/loot`}
-                  title={navCollapsed ? 'Loot' : undefined}
-                  className={serverNavCls}
-                >
-                  <Package className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Loot'}
-                </NavLink>
-              )}
-
-              {exchangeEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/marketplace`}
-                  title={navCollapsed ? 'Marketplace' : undefined}
-                  className={cn(serverNavCls, 'relative')}
-                >
-                  <ArrowLeftRight className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && (
-                    <>
-                      Marketplace
-                      {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
-                        <span className="ml-auto flex items-center gap-1 shrink-0">
-                          {pendingTradeCount > 0 && (
-                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
-                              {pendingTradeCount}
-                            </span>
-                          )}
-                          {unreadMessageCount > 0 && (
-                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                              {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
-                            </span>
-                          )}
-                        </span>
-                      )}
-                    </>
+                <a
+                  href={INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Add to a server"
+                  className={cn(
+                    navCollapsed
+                      ? 'flex items-center justify-center rounded-md p-2 text-xs text-primary hover:bg-accent transition-colors'
+                      : 'flex items-center gap-1.5 text-xs text-primary hover:underline',
                   )}
-                  {navCollapsed && (pendingTradeCount > 0 || unreadMessageCount > 0) && (
-                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
-                  )}
-                </NavLink>
-              )}
-
-              {dkpEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/auctions`}
-                  title={navCollapsed ? 'Auction' : undefined}
-                  className={serverNavCls}
                 >
-                  <Gavel className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Auction'}
-                </NavLink>
-              )}
-
-              {dkpEnabled && (
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                  {!navCollapsed && 'Add to a server'}
+                </a>
+              </div>
+            ) : activeGuild ? (
+              <>
                 <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/dkp`}
-                  title={navCollapsed ? dkpLabel : undefined}
-                  className={serverNavCls}
-                >
-                  <Coins className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && dkpLabel}
-                </NavLink>
-              )}
-
-              {fleetEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/fleet`}
-                  title={navCollapsed ? 'Fleet' : undefined}
-                  className={serverNavCls}
-                >
-                  <Ship className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Fleet'}
-                </NavLink>
-              )}
-
-              {activityEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/activity`}
-                  title={navCollapsed ? 'Activity' : undefined}
-                  className={serverNavCls}
-                >
-                  <Trophy className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Activity'}
-                </NavLink>
-              )}
-
-              {/* Job board (v1.21.0) */}
-              {jobsEnabled && (showAdminNav || myPerms?.canViewEvents) && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/jobs`}
-                  title={navCollapsed ? 'Jobs' : undefined}
-                  className={serverNavCls}
-                >
-                  <Briefcase className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Jobs'}
-                </NavLink>
-              )}
-
-              {/* Member history (v1.18.0): officers see everyone, others their own */}
-              {eventBotEnabled && (showAdminNav || myPerms?.canManageEvents) ? (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/members`}
-                  title={navCollapsed ? 'Members' : undefined}
-                  className={serverNavCls}
-                >
-                  <History className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Members'}
-                </NavLink>
-              ) : eventBotEnabled && myPerms?.canViewEvents ? (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/members/me`}
-                  title={navCollapsed ? 'My history' : undefined}
-                  className={serverNavCls}
-                >
-                  <History className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'My history'}
-                </NavLink>
-              ) : null}
-
-              {/* Traffic is hidden while request logging is off (v1.21.1). */}
-
-              {tournamentsEnabled && (
-                <NavLink
-                  to={`/dashboard/servers/${activeGuild.id}/tournaments`}
-                  title={navCollapsed ? 'Tournaments' : undefined}
-                  className={serverNavCls}
-                >
-                  <Swords className="h-4 w-4 shrink-0" />
-                  {!navCollapsed && 'Tournaments'}
-                </NavLink>
-              )}
-
-              <NavLink
-                to={`/dashboard/servers/${activeGuild.id}/map`}
-                title={navCollapsed ? 'Member Map' : undefined}
-                className={serverNavCls}
-              >
-                <Globe2 className="h-4 w-4 shrink-0" />
-                {!navCollapsed && 'Member Map'}
-              </NavLink>
-
-              {/* Tools (v1.46.0: back in the sidebar, with Ships; the public /tools site has the same tools). */}
-              {!navCollapsed && (
-                <button
-                  type="button"
-                  onClick={toggleTools}
-                  className="w-full flex items-center justify-between px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Tools</span>
-                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${toolsOpen ? '' : '-rotate-90'}`} />
-                </button>
-              )}
-              {(navCollapsed || toolsOpen) && (
-                <>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/ships`}
-                    title={navCollapsed ? 'Ships & Loadouts' : undefined}
-                    className={serverNavCls}
-                  >
-                    <Crosshair className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'Ships & Loadouts'}
-                  </NavLink>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild.id}/mining`}
-                    title={navCollapsed ? 'Mining' : undefined}
-                    className={serverNavCls}
-                  >
-                    <Pickaxe className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'Mining'}
-                  </NavLink>
-                  {craftingEnabled && (
-                    <NavLink
-                      to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
-                      title={navCollapsed ? 'Crafting Calc' : undefined}
-                      className={serverNavCls}
-                    >
-                      <Calculator className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'Crafting Calc'}
-                    </NavLink>
-                  )}
-                  {blueprintsEnabled && (
-                    <NavLink
-                      to={`/dashboard/servers/${activeGuild.id}/blueprints`}
-                      title={navCollapsed ? 'Blueprints' : undefined}
-                      className={serverNavCls}
-                    >
-                      <BookOpen className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'Blueprints'}
-                    </NavLink>
-                  )}
-                  {wikeloEnabled && (
-                    <NavLink
-                      to={`/dashboard/servers/${activeGuild.id}/wikelo`}
-                      title={navCollapsed ? 'Wikelo' : undefined}
-                      className={serverNavCls}
-                    >
-                      <Palmtree className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'Wikelo'}
-                    </NavLink>
-                  )}
-                </>
-              )}
-
-            </>
-          ) : (
-            <>
-              {guilds.map((guild) => (
-                <NavLink
-                  key={guild.id}
-                  to={`/dashboard/servers/${guild.id}`}
+                  to={`/dashboard/servers/${activeGuild.id}`}
                   end
-                  title={navCollapsed ? guild.name : undefined}
-                  className={navCls}
+                  title={navCollapsed ? 'Dashboard' : undefined}
+                  className={serverNavCls}
                 >
-                  <GuildIcon guild={guild} />
-                  {!navCollapsed && <span className="truncate">{guild.name}</span>}
-                  {!navCollapsed && guild.hasBotInstalled && (
-                    <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Bot installed" />
-                  )}
+                  <LayoutDashboard className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Dashboard'}
                 </NavLink>
-              ))}
-            </>
-          )}
 
-          {/* Allies for officers with an alliance manager role who don't see Org Settings */}
-          {activeGuild && !showAdminNav && canManageAllies && alliesLink(serverNavCls)}
+                {lootEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/loot`}
+                    title={navCollapsed ? 'Loot' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Package className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Loot'}
+                  </NavLink>
+                )}
 
-          {/* ── Org Settings section ── */}
-          {showAdminNav && (
-            <>
-              {!navCollapsed && (
-                <button
-                  type="button"
-                  onClick={toggleOrgSettings}
-                  className="w-full flex items-center justify-between px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                {exchangeEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/marketplace`}
+                    title={navCollapsed ? 'Marketplace' : undefined}
+                    className={cn(serverNavCls, 'relative')}
+                  >
+                    <ArrowLeftRight className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && (
+                      <>
+                        Marketplace
+                        {(pendingTradeCount > 0 || unreadMessageCount > 0) && (
+                          <span className="ml-auto flex items-center gap-1 shrink-0">
+                            {pendingTradeCount > 0 && (
+                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-black">
+                                {pendingTradeCount}
+                              </span>
+                            )}
+                            {unreadMessageCount > 0 && (
+                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                                {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {navCollapsed && (pendingTradeCount > 0 || unreadMessageCount > 0) && (
+                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
+                    )}
+                  </NavLink>
+                )}
+
+                {dkpEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/auctions`}
+                    title={navCollapsed ? 'Auction' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Gavel className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Auction'}
+                  </NavLink>
+                )}
+
+                {dkpEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/dkp`}
+                    title={navCollapsed ? dkpLabel : undefined}
+                    className={serverNavCls}
+                  >
+                    <Coins className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && dkpLabel}
+                  </NavLink>
+                )}
+
+                {fleetEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/fleet`}
+                    title={navCollapsed ? 'Fleet' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Ship className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Fleet'}
+                  </NavLink>
+                )}
+
+                {activityEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/activity`}
+                    title={navCollapsed ? 'Activity' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Trophy className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Activity'}
+                  </NavLink>
+                )}
+
+                {/* Job board (v1.21.0) */}
+                {jobsEnabled && (showAdminNav || myPerms?.canViewEvents) && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/jobs`}
+                    title={navCollapsed ? 'Jobs' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Briefcase className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Jobs'}
+                  </NavLink>
+                )}
+
+                {/* Member history (v1.18.0): officers see everyone, others their own */}
+                {eventBotEnabled && (showAdminNav || myPerms?.canManageEvents) ? (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/members`}
+                    title={navCollapsed ? 'Members' : undefined}
+                    className={serverNavCls}
+                  >
+                    <History className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Members'}
+                  </NavLink>
+                ) : eventBotEnabled && myPerms?.canViewEvents ? (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/members/me`}
+                    title={navCollapsed ? 'My history' : undefined}
+                    className={serverNavCls}
+                  >
+                    <History className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'My history'}
+                  </NavLink>
+                ) : null}
+
+                {/* Traffic is hidden while request logging is off (v1.21.1). */}
+
+                {tournamentsEnabled && (
+                  <NavLink
+                    to={`/dashboard/servers/${activeGuild.id}/tournaments`}
+                    title={navCollapsed ? 'Tournaments' : undefined}
+                    className={serverNavCls}
+                  >
+                    <Swords className="h-4 w-4 shrink-0" />
+                    {!navCollapsed && 'Tournaments'}
+                  </NavLink>
+                )}
+
+                <NavLink
+                  to={`/dashboard/servers/${activeGuild.id}/map`}
+                  title={navCollapsed ? 'Member Map' : undefined}
+                  className={serverNavCls}
                 >
-                  <span>Org Settings</span>
-                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${orgSettingsOpen ? '' : '-rotate-90'}`} />
-                </button>
-              )}
+                  <Globe2 className="h-4 w-4 shrink-0" />
+                  {!navCollapsed && 'Member Map'}
+                </NavLink>
 
-              {(navCollapsed || orgSettingsOpen) && (
-                <>
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild!.id}/roster`}
-                    title={navCollapsed ? 'RSI Roster' : undefined}
-                    className={navCls}
+                {/* Tools (v1.46.0: back in the sidebar, with Ships; the public /tools site has the same tools). */}
+                {!navCollapsed && (
+                  <button
+                    type="button"
+                    onClick={toggleTools}
+                    className="w-full flex items-center justify-between px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Users className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'RSI Roster'}
-                  </NavLink>
-
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild!.id}/settings/modules`}
-                    title={navCollapsed ? 'Module Settings' : undefined}
-                    className={navCls}
-                  >
-                    <Puzzle className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'Module Settings'}
-                  </NavLink>
-
-                  {myPerms?.assistantAvailable && (
+                    <span>Tools</span>
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform duration-200 ${toolsOpen ? '' : '-rotate-90'}`}
+                    />
+                  </button>
+                )}
+                {(navCollapsed || toolsOpen) && (
+                  <>
                     <NavLink
-                      to={`/dashboard/servers/${activeGuild!.id}/settings/assistant`}
-                      title={navCollapsed ? 'AI Assistant' : undefined}
+                      to={`/dashboard/servers/${activeGuild.id}/ships`}
+                      title={navCollapsed ? 'Ships & Loadouts' : undefined}
+                      className={serverNavCls}
+                    >
+                      <Crosshair className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'Ships & Loadouts'}
+                    </NavLink>
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild.id}/mining`}
+                      title={navCollapsed ? 'Mining' : undefined}
+                      className={serverNavCls}
+                    >
+                      <Pickaxe className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'Mining'}
+                    </NavLink>
+                    {craftingEnabled && (
+                      <NavLink
+                        to={`/dashboard/servers/${activeGuild.id}/crafting-calculator`}
+                        title={navCollapsed ? 'Crafting Calc' : undefined}
+                        className={serverNavCls}
+                      >
+                        <Calculator className="h-4 w-4 shrink-0" />
+                        {!navCollapsed && 'Crafting Calc'}
+                      </NavLink>
+                    )}
+                    {blueprintsEnabled && (
+                      <NavLink
+                        to={`/dashboard/servers/${activeGuild.id}/blueprints`}
+                        title={navCollapsed ? 'Blueprints' : undefined}
+                        className={serverNavCls}
+                      >
+                        <BookOpen className="h-4 w-4 shrink-0" />
+                        {!navCollapsed && 'Blueprints'}
+                      </NavLink>
+                    )}
+                    {wikeloEnabled && (
+                      <NavLink
+                        to={`/dashboard/servers/${activeGuild.id}/wikelo`}
+                        title={navCollapsed ? 'Wikelo' : undefined}
+                        className={serverNavCls}
+                      >
+                        <Palmtree className="h-4 w-4 shrink-0" />
+                        {!navCollapsed && 'Wikelo'}
+                      </NavLink>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {guilds.map((guild) => (
+                  <NavLink
+                    key={guild.id}
+                    to={`/dashboard/servers/${guild.id}`}
+                    end
+                    title={navCollapsed ? guild.name : undefined}
+                    className={navCls}
+                  >
+                    <GuildIcon guild={guild} />
+                    {!navCollapsed && <span className="truncate">{guild.name}</span>}
+                    {!navCollapsed && guild.hasBotInstalled && (
+                      <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Bot installed" />
+                    )}
+                  </NavLink>
+                ))}
+              </>
+            )}
+
+            {/* Allies for officers with an alliance manager role who don't see Org Settings */}
+            {activeGuild && !showAdminNav && canManageAllies && alliesLink(serverNavCls)}
+
+            {/* ── Org Settings section ── */}
+            {showAdminNav && (
+              <>
+                {!navCollapsed && (
+                  <button
+                    type="button"
+                    onClick={toggleOrgSettings}
+                    className="w-full flex items-center justify-between px-3 pb-1 pt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>Org Settings</span>
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform duration-200 ${orgSettingsOpen ? '' : '-rotate-90'}`}
+                    />
+                  </button>
+                )}
+
+                {(navCollapsed || orgSettingsOpen) && (
+                  <>
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild!.id}/roster`}
+                      title={navCollapsed ? 'RSI Roster' : undefined}
                       className={navCls}
                     >
-                      <Bot className="h-4 w-4 shrink-0" />
-                      {!navCollapsed && 'AI Assistant'}
+                      <Users className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'RSI Roster'}
                     </NavLink>
-                  )}
 
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild!.id}/settings/game-data`}
-                    title={navCollapsed ? 'Game Data' : undefined}
-                    className={navCls}
-                  >
-                    <Database className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'Game Data'}
-                  </NavLink>
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild!.id}/settings/modules`}
+                      title={navCollapsed ? 'Module Settings' : undefined}
+                      className={navCls}
+                    >
+                      <Puzzle className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'Module Settings'}
+                    </NavLink>
 
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild!.id}/settings/sc-data`}
-                    title={navCollapsed ? 'SC Database' : undefined}
-                    className={navCls}
-                  >
-                    <Rocket className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'SC Database'}
-                  </NavLink>
+                    {myPerms?.assistantAvailable && (
+                      <NavLink
+                        to={`/dashboard/servers/${activeGuild!.id}/settings/assistant`}
+                        title={navCollapsed ? 'AI Assistant' : undefined}
+                        className={navCls}
+                      >
+                        <Bot className="h-4 w-4 shrink-0" />
+                        {!navCollapsed && 'AI Assistant'}
+                      </NavLink>
+                    )}
 
-                  {alliesLink(navCls)}
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild!.id}/settings/game-data`}
+                      title={navCollapsed ? 'Game Data' : undefined}
+                      className={navCls}
+                    >
+                      <Database className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'Game Data'}
+                    </NavLink>
 
-                  <NavLink
-                    to={`/dashboard/servers/${activeGuild!.id}/settings/bot`}
-                    title={navCollapsed ? 'Org Settings' : undefined}
-                    className={navCls}
-                  >
-                    <Settings className="h-4 w-4 shrink-0" />
-                    {!navCollapsed && 'Org Settings'}
-                  </NavLink>
-                </>
-              )}
-            </>
-          )}
-        </nav>
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild!.id}/settings/sc-data`}
+                      title={navCollapsed ? 'SC Database' : undefined}
+                      className={navCls}
+                    >
+                      <Rocket className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'SC Database'}
+                    </NavLink>
 
-        {/* Sidebar footer – help + dashboard link */}
-        <div className="border-t border-border p-2 space-y-0.5">
-          {!navCollapsed && (
-            <HelpPanel
-              isManager={showAdminNav}
-              dkpLabel={dkpLabel}
-              eventBotEnabled={eventBotEnabled}
-              dkpEnabled={dkpEnabled}
-              lootEnabled={lootEnabled}
-              exchangeEnabled={exchangeEnabled}
-              fleetEnabled={fleetEnabled}
-              rsiOrgRequired={myPerms?.rsiOrgRequired ?? false}
-              tournamentsEnabled={tournamentsEnabled}
-              activityEnabled={activityEnabled}
-            />
-          )}
-          <NavLink
-            to="/dashboard"
-            end
-            title={navCollapsed ? 'Server List' : undefined}
-            className={navCls}
-          >
-            <List className="h-4 w-4 shrink-0" />
-            {!navCollapsed && 'Server List'}
-          </NavLink>
-          <NavLink
-            to="/dashboard/kanban"
-            title={navCollapsed ? 'Roadmap' : undefined}
-            className={navCls}
-          >
-            <KanbanSquare className="h-4 w-4 shrink-0" />
-            {!navCollapsed && 'Roadmap'}
-          </NavLink>
-          {isPlatformAdmin && (
-            <NavLink
-              to="/dashboard/admin"
-              title={navCollapsed ? 'Admin' : undefined}
-              className={navCls}
-            >
-              <ShieldCheck className="h-4 w-4 shrink-0" />
-              {!navCollapsed && 'Admin'}
+                    {alliesLink(navCls)}
+
+                    <NavLink
+                      to={`/dashboard/servers/${activeGuild!.id}/settings/bot`}
+                      title={navCollapsed ? 'Org Settings' : undefined}
+                      className={navCls}
+                    >
+                      <Settings className="h-4 w-4 shrink-0" />
+                      {!navCollapsed && 'Org Settings'}
+                    </NavLink>
+                  </>
+                )}
+              </>
+            )}
+          </nav>
+
+          {/* Sidebar footer – help + dashboard link */}
+          <div className="border-t border-border p-2 space-y-0.5">
+            {!navCollapsed && (
+              <HelpPanel
+                isManager={showAdminNav}
+                dkpLabel={dkpLabel}
+                eventBotEnabled={eventBotEnabled}
+                dkpEnabled={dkpEnabled}
+                lootEnabled={lootEnabled}
+                exchangeEnabled={exchangeEnabled}
+                fleetEnabled={fleetEnabled}
+                rsiOrgRequired={myPerms?.rsiOrgRequired ?? false}
+                tournamentsEnabled={tournamentsEnabled}
+                activityEnabled={activityEnabled}
+              />
+            )}
+            <NavLink to="/dashboard" end title={navCollapsed ? 'Server List' : undefined} className={navCls}>
+              <List className="h-4 w-4 shrink-0" />
+              {!navCollapsed && 'Server List'}
             </NavLink>
-          )}
-        </div>
-
-      </aside>
+            <NavLink to="/dashboard/kanban" title={navCollapsed ? 'Roadmap' : undefined} className={navCls}>
+              <KanbanSquare className="h-4 w-4 shrink-0" />
+              {!navCollapsed && 'Roadmap'}
+            </NavLink>
+            {isPlatformAdmin && (
+              <NavLink to="/dashboard/admin" title={navCollapsed ? 'Admin' : undefined} className={navCls}>
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                {!navCollapsed && 'Admin'}
+              </NavLink>
+            )}
+          </div>
+        </aside>
 
         {/* ── Main area ── */}
         <main className="flex-1 overflow-hidden flex flex-col min-h-0">
@@ -805,7 +827,8 @@ export function DashboardLayout() {
       <footer className="shrink-0 border-t border-border bg-card px-4 py-2 flex items-center justify-between gap-6">
         <p className="text-[11px] leading-tight text-muted-foreground text-center opacity-40">
           {appVersion && <span className="font-mono mr-2">ASOP v{appVersion}</span>}
-          Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
+          Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium
+          Rights LLC
         </p>
         <img
           src="/MadeByTheCommunity_White.png"
@@ -813,7 +836,6 @@ export function DashboardLayout() {
           className="h-6 object-contain shrink-0 opacity-40 hover:opacity-100 hover:scale-[3] origin-bottom-right transition-all duration-200 cursor-pointer z-50"
         />
       </footer>
-
     </div>
   );
 }

@@ -19,7 +19,10 @@ export function JobsSettingsPage() {
   const [channelId, setChannelId] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
-    if (saved.data) { setEnabled(saved.data.jobsEnabled ?? true); setChannelId(saved.data.jobsChannelId ?? null); }
+    if (saved.data) {
+      setEnabled(saved.data.jobsEnabled ?? true);
+      setChannelId(saved.data.jobsChannelId ?? null);
+    }
   }, [saved.data]);
 
   const save = useMutation({
@@ -32,31 +35,59 @@ export function JobsSettingsPage() {
     },
   });
   const loading = saved.isLoading || channels.isLoading;
-  const dirty = !!saved.data && (enabled !== (saved.data.jobsEnabled ?? true) || channelId !== (saved.data.jobsChannelId ?? null));
+  const dirty =
+    !!saved.data && (enabled !== (saved.data.jobsEnabled ?? true) || channelId !== (saved.data.jobsChannelId ?? null));
 
   return (
     <div className="max-w-2xl space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Job Board</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Members post small jobs (hauling, escort, crafting…) and others take them.</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Members post small jobs (hauling, escort, crafting…) and others take them.
+        </p>
       </div>
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Settings</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Settings</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-5">
-          {loading ? <Skeleton className="h-24" /> : (
+          {loading ? (
+            <Skeleton className="h-24" />
+          ) : (
             <>
-              <ToggleSwitch label="Enable the job board" description="Shows Jobs in the sidebar for everyone who can see events." checked={enabled}
-                onChange={(v) => { setEnabled(v); setNote(null); }} />
+              <ToggleSwitch
+                label="Enable the job board"
+                description="Shows Jobs in the sidebar for everyone who can see events."
+                checked={enabled}
+                onChange={(v) => {
+                  setEnabled(v);
+                  setNote(null);
+                }}
+              />
               <div className="space-y-1">
-                <label htmlFor="jobs-channel" className="text-sm font-medium">Discord channel <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <label htmlFor="jobs-channel" className="text-sm font-medium">
+                  Discord channel <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
                 <p className="text-xs text-muted-foreground">
-                  New jobs are posted here with Take and Leave buttons, and update as people take them. Jobs your allies share with you are posted here too. Without a channel, jobs are on the website only.
+                  New jobs are posted here with Take and Leave buttons, and update as people take them. Jobs your allies
+                  share with you are posted here too. Without a channel, jobs are on the website only.
                 </p>
-                <ChannelSelect id="jobs-channel" channels={(channels.data?.channels ?? []).filter((c) => c.type === 0 || c.type === 4 || c.type === 5)}
-                  value={channelId} onChange={(v) => { setChannelId(v); setNote(null); }} />
+                <ChannelSelect
+                  id="jobs-channel"
+                  channels={(channels.data?.channels ?? []).filter((c) => c.type === 0 || c.type === 4 || c.type === 5)}
+                  value={channelId}
+                  onChange={(v) => {
+                    setChannelId(v);
+                    setNote(null);
+                  }}
+                />
               </div>
               <div className="flex items-center gap-3">
-                <Button size="sm" disabled={!dirty || save.isPending} onClick={() => save.mutate({ jobsEnabled: enabled, jobsChannelId: channelId })}>
+                <Button
+                  size="sm"
+                  disabled={!dirty || save.isPending}
+                  onClick={() => save.mutate({ jobsEnabled: enabled, jobsChannelId: channelId })}
+                >
                   {save.isPending ? 'Saving…' : 'Save'}
                 </Button>
                 {note && <span className="text-sm text-emerald-400">{note}</span>}

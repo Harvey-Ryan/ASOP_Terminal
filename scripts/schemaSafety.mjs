@@ -30,7 +30,9 @@ export const SCHEMA_PATH = 'apps/api/prisma/schema.prisma';
  */
 export function findings(sql) {
   const out = [];
-  const add = (line) => { if (line && !out.includes(line)) out.push(line); };
+  const add = (line) => {
+    if (line && !out.includes(line)) out.push(line);
+  };
   const text = String(sql).replace(/\r\n/g, '\n');
   for (const block of text.matchAll(/\/\*([\s\S]*?)\*\//g)) {
     if (!/Warnings:/.test(block[1])) continue;
@@ -59,10 +61,17 @@ export function findings(sql) {
       // One ALTER TABLE can hold several clauses, one per line, comma-separated.
       for (const clause of m[2].split(/,\s*\n/).map((c) => c.trim())) {
         let c;
-        if ((c = /^DROP COLUMN\s+("[^"]+"|\S+)/i.exec(clause))) add(`Drops column ${c[1]} from ${table}, with its data.`);
-        else if ((c = /^ALTER COLUMN\s+("[^"]+"|\S+)\s+SET DATA TYPE/i.exec(clause))) add(`Changes the type of ${table}.${c[1]}.`);
-        else if ((c = /^ALTER COLUMN\s+("[^"]+"|\S+)\s+SET NOT NULL/i.exec(clause))) add(`Makes ${table}.${c[1]} required: fails if any row has no value.`);
-        else if ((c = /^ADD COLUMN\s+("[^"]+"|\S+)\s/i.exec(clause)) && /\bNOT NULL\b/i.test(clause) && !/\bDEFAULT\b/i.test(clause)) {
+        if ((c = /^DROP COLUMN\s+("[^"]+"|\S+)/i.exec(clause)))
+          add(`Drops column ${c[1]} from ${table}, with its data.`);
+        else if ((c = /^ALTER COLUMN\s+("[^"]+"|\S+)\s+SET DATA TYPE/i.exec(clause)))
+          add(`Changes the type of ${table}.${c[1]}.`);
+        else if ((c = /^ALTER COLUMN\s+("[^"]+"|\S+)\s+SET NOT NULL/i.exec(clause)))
+          add(`Makes ${table}.${c[1]} required: fails if any row has no value.`);
+        else if (
+          (c = /^ADD COLUMN\s+("[^"]+"|\S+)\s/i.exec(clause)) &&
+          /\bNOT NULL\b/i.test(clause) &&
+          !/\bDEFAULT\b/i.test(clause)
+        ) {
           add(`Adds required column ${table}.${c[1]} without a default: fails if the table has rows.`);
         }
       }
@@ -104,9 +113,24 @@ if (isMain) {
   try {
     sql = execFileSync(
       'npx',
-      ['--yes', `prisma@${prismaVersion}`, 'migrate', 'diff', '--from-schema-datamodel', before, '--to-schema-datamodel', after, '--script'],
+      [
+        '--yes',
+        `prisma@${prismaVersion}`,
+        'migrate',
+        'diff',
+        '--from-schema-datamodel',
+        before,
+        '--to-schema-datamodel',
+        after,
+        '--script',
+      ],
       // Run outside the checkout, with a placeholder URL: nothing connects to a database.
-      { cwd: dir, encoding: 'utf8', env: { ...process.env, DATABASE_URL: 'postgresql://check:check@localhost:5432/check' }, maxBuffer: 64 * 1024 * 1024 },
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        env: { ...process.env, DATABASE_URL: 'postgresql://check:check@localhost:5432/check' },
+        maxBuffer: 64 * 1024 * 1024,
+      },
     );
   } catch (err) {
     summary(`### ❌ Schema safety: \`prisma migrate diff\` failed\n\n\`\`\`\n${err.stderr || err.message}\n\`\`\``);
@@ -114,7 +138,11 @@ if (isMain) {
   }
 
   let labels = [];
-  try { labels = JSON.parse(process.env.PR_LABELS || '[]'); } catch { /* none */ }
+  try {
+    labels = JSON.parse(process.env.PR_LABELS || '[]');
+  } catch {
+    /* none */
+  }
   const found = findings(sql);
   const reviewed = labels.includes(LABELS.schemaReviewed);
   const sqlBlock = `<details><summary>SQL this change would run</summary>\n\n\`\`\`sql\n${sql.trim()}\n\`\`\`\n</details>`;
@@ -125,7 +153,9 @@ if (isMain) {
   }
   const list = found.map((f) => `- ${f}`).join('\n');
   if (reviewed) {
-    summary(`### ⚠️ Schema safety: risky change accepted with the \`${LABELS.schemaReviewed}\` label\n\n${list}\n\n${sqlBlock}`);
+    summary(
+      `### ⚠️ Schema safety: risky change accepted with the \`${LABELS.schemaReviewed}\` label\n\n${list}\n\n${sqlBlock}`,
+    );
     process.exit(0);
   }
   summary(

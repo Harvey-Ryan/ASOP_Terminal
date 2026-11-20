@@ -3,11 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { runUexSync } from '../../lib/uexSync.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { assertGuildManager } from '../../lib/assertGuildManager.js';
-import type {
-  ApiResponse,
-  UexSyncStatusDto,
-  UexSyncLogDto,
-} from '@dem/shared';
+import type { ApiResponse, UexSyncStatusDto, UexSyncLogDto } from '@dem/shared';
 
 export const uexRouter = Router();
 
@@ -26,25 +22,25 @@ uexRouter.get('/uex/sync/status', requireAuth, async (_req, res) => {
   const toDto = (row: typeof lastSync): UexSyncLogDto | null => {
     if (!row) return null;
     return {
-      id:                 row.id,
-      trigger:            row.trigger,
-      status:             row.status,
-      categoriesAdded:    row.categoriesAdded,
-      categoriesUpdated:  row.categoriesUpdated,
-      itemsAdded:         row.itemsAdded,
-      itemsUpdated:       row.itemsUpdated,
-      commoditiesAdded:   row.commoditiesAdded,
+      id: row.id,
+      trigger: row.trigger,
+      status: row.status,
+      categoriesAdded: row.categoriesAdded,
+      categoriesUpdated: row.categoriesUpdated,
+      itemsAdded: row.itemsAdded,
+      itemsUpdated: row.itemsUpdated,
+      commoditiesAdded: row.commoditiesAdded,
       commoditiesUpdated: row.commoditiesUpdated,
-      error:              row.error,
-      startedAt:          row.startedAt.toISOString(),
-      completedAt:        row.completedAt?.toISOString() ?? null,
+      error: row.error,
+      startedAt: row.startedAt.toISOString(),
+      completedAt: row.completedAt?.toISOString() ?? null,
     };
   };
 
   const data: UexSyncStatusDto = {
     isRunning: !!isRunning,
-    lastSync:  toDto(lastSync),
-    counts:    { commodities },
+    lastSync: toDto(lastSync),
+    counts: { commodities },
   };
 
   res.json({ success: true, data } satisfies ApiResponse<UexSyncStatusDto>);

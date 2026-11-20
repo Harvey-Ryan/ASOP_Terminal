@@ -7,6 +7,15 @@ let cache: { raw: string; ids: Set<string> } | null = null;
 
 export function activityAvailable(guildId: string): boolean {
   const raw = process.env['ACTIVITY_SERVER_IDS'] ?? DEFAULT_IDS;
-  if (cache?.raw !== raw) cache = { raw, ids: new Set(raw.split(',').map((s) => s.trim()).filter(Boolean)) };
+  if (cache?.raw !== raw)
+    cache = {
+      raw,
+      ids: new Set(
+        raw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    };
   return cache.ids.has(guildId);
 }

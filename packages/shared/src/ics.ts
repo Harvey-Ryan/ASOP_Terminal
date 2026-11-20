@@ -17,7 +17,10 @@ export interface IcsEvent {
 
 /** 20261113T150000Z */
 export function icsDate(d: Date): string {
-  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return d
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '');
 }
 
 /** Text values: backslash, semicolon, comma and newlines escaped. */
@@ -30,12 +33,18 @@ export function icsFold(line: string): string {
   const enc = new TextEncoder();
   if (enc.encode(line).length <= 75) return line;
   const parts: string[] = [];
-  let cur = '', bytes = 0;
+  let cur = '',
+    bytes = 0;
   for (const ch of line) {
     const n = enc.encode(ch).length;
     const max = parts.length ? 74 : 75; // continuation lines start with a space
-    if (bytes + n > max) { parts.push(cur); cur = ''; bytes = 0; }
-    cur += ch; bytes += n;
+    if (bytes + n > max) {
+      parts.push(cur);
+      cur = '';
+      bytes = 0;
+    }
+    cur += ch;
+    bytes += n;
   }
   parts.push(cur);
   return parts.join('\r\n ');

@@ -8,20 +8,37 @@ import { createUser, createGuild, createGuildSettings } from './factories.js';
 
 const app = createServer();
 const prevToken = process.env['DISCORD_TOKEN'];
-afterEach(() => { vi.unstubAllGlobals(); if (prevToken === undefined) delete process.env['DISCORD_TOKEN']; else process.env['DISCORD_TOKEN'] = prevToken; });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (prevToken === undefined) delete process.env['DISCORD_TOKEN'];
+  else process.env['DISCORD_TOKEN'] = prevToken;
+});
 
 /** Discord says the person holds these roles; timeapi.io and Nominatim answer too. */
 function stubFetch(roles: string[]) {
   resetDiscordRest();
   process.env['DISCORD_TOKEN'] = 'test-token';
   const calls: string[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    calls.push(String(url));
-    const json = (b: unknown) => new Response(JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } });
-    if (String(url).includes('timeapi.io')) return json({ timeZone: 'Europe/London' });
-    if (String(url).includes('nominatim')) return json([{ display_name: 'Leeds, England', lat: '53.8', lon: '-1.5', name: 'Leeds', address: { city: 'Leeds', country: 'UK' } }]);
-    return json({ user: { id: 'x' }, roles });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      calls.push(String(url));
+      const json = (b: unknown) =>
+        new Response(JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } });
+      if (String(url).includes('timeapi.io')) return json({ timeZone: 'Europe/London' });
+      if (String(url).includes('nominatim'))
+        return json([
+          {
+            display_name: 'Leeds, England',
+            lat: '53.8',
+            lon: '-1.5',
+            name: 'Leeds',
+            address: { city: 'Leeds', country: 'UK' },
+          },
+        ]);
+      return json({ user: { id: 'x' }, roles });
+    }),
+  );
   return calls;
 }
 
@@ -52,7 +69,12 @@ describe('Member map access', () => {
     expect(found.body.data[0].municipality).toBe('Leeds, UK');
 
     stubFetch([]);
-    for (const path of ['member-pins', 'member-pins/mine', 'member-pins/search?q=leeds', 'member-pins/geocode?lat=1&lng=1']) {
+    for (const path of [
+      'member-pins',
+      'member-pins/mine',
+      'member-pins/search?q=leeds',
+      'member-pins/geocode?lat=1&lng=1',
+    ]) {
       await outsider.get(`/api/guilds/${g.guildId}/${path}`).expect(403);
     }
     await outsider.put(`/api/guilds/${g.guildId}/member-pins`).send(pin).expect(403);
@@ -76,10 +98,19 @@ describe('Member map access', () => {
     resetDiscordRest();
     process.env['DISCORD_TOKEN'] = 'test-token';
     let tz = 0;
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (String(url).includes('timeapi.io')) { tz++; return new Response('down', { status: 503 }); }
-      return new Response(JSON.stringify({ user: { id: 'x' }, roles: ['viewer'] }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('timeapi.io')) {
+          tz++;
+          return new Response('down', { status: 503 });
+        }
+        return new Response(JSON.stringify({ user: { id: 'x' }, roles: ['viewer'] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
     await member.get(`/api/guilds/${g.guildId}/member-pins`).expect(200);
     await member.get(`/api/guilds/${g.guildId}/member-pins`).expect(200);
     expect(tz).toBe(1);

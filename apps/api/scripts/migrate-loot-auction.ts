@@ -124,10 +124,7 @@ async function main() {
   });
 
   // ── 3. Verify both tables exist ───────────────────────────────────────────
-  const [auctionOk, bidOk] = await Promise.all([
-    tableExists('LootAuction'),
-    tableExists('LootAuctionBid'),
-  ]);
+  const [auctionOk, bidOk] = await Promise.all([tableExists('LootAuction'), tableExists('LootAuctionBid')]);
 
   if (!auctionOk || !bidOk) {
     throw new Error(

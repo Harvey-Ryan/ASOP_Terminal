@@ -10,11 +10,9 @@ import type { ApiResponse } from '@dem/shared';
 
 export const roleCallRouter = Router();
 
-const _rawUrl  = process.env.ROLECALL_API_URL?.trim();
-const BASE_URL = _rawUrl
-  ? _rawUrl.startsWith('http') ? _rawUrl : `https://${_rawUrl}`
-  : undefined;
-const API_KEY  = process.env.ROLECALL_API_KEY  ?? '';
+const _rawUrl = process.env.ROLECALL_API_URL?.trim();
+const BASE_URL = _rawUrl ? (_rawUrl.startsWith('http') ? _rawUrl : `https://${_rawUrl}`) : undefined;
+const API_KEY = process.env.ROLECALL_API_KEY ?? '';
 
 async function proxyGet(subpath: string, query: Record<string, string>) {
   if (!BASE_URL) return { ok: false as const, status: 503, error: 'RoleCall service not configured' };
@@ -28,10 +26,10 @@ async function proxyGet(subpath: string, query: Record<string, string>) {
       signal: AbortSignal.timeout(10_000),
     });
     if (!r.ok) {
-      const err = await r.json().catch(() => null) as { error?: string } | null;
+      const err = (await r.json().catch(() => null)) as { error?: string } | null;
       return { ok: false as const, status: r.status, error: err?.error ?? `RoleCall ${r.status}` };
     }
-    return { ok: true as const, body: await r.json() as unknown };
+    return { ok: true as const, body: (await r.json()) as unknown };
   } catch (err) {
     console.error('[rolecall] proxy error:', err);
     return { ok: false as const, status: 502, error: 'RoleCall service unreachable' };
@@ -55,10 +53,10 @@ async function proxyPatch(subpath: string, query: Record<string, string>, body: 
       signal: AbortSignal.timeout(10_000),
     });
     if (!r.ok) {
-      const err = await r.json().catch(() => null) as { error?: string } | null;
+      const err = (await r.json().catch(() => null)) as { error?: string } | null;
       return { ok: false as const, status: r.status, error: err?.error ?? `RoleCall ${r.status}` };
     }
-    return { ok: true as const, body: await r.json() as unknown };
+    return { ok: true as const, body: (await r.json()) as unknown };
   } catch (err) {
     console.error('[rolecall] proxy error:', err);
     return { ok: false as const, status: 502, error: 'RoleCall service unreachable' };
@@ -82,10 +80,13 @@ async function allowed(req: Request, res: Response, access: Access): Promise<Rec
     res.status(400).json({ success: false, error: 'guildId required' } satisfies ApiResponse);
     return null;
   }
-  const deny = () => { res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse); return null; };
+  const deny = () => {
+    res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+    return null;
+  };
   // RoleCall only tracks some servers (v1.25.0): elsewhere nothing, settings included.
   if (!activityAvailable(guildId)) {
-    res.status(404).json({ success: false, error: 'Activity isn\'t available for this server.' } satisfies ApiResponse);
+    res.status(404).json({ success: false, error: "Activity isn't available for this server." } satisfies ApiResponse);
     return null;
   }
 
@@ -111,7 +112,10 @@ async function allowed(req: Request, res: Response, access: Access): Promise<Rec
 }
 
 async function heatmapsPublic(guildId: string): Promise<boolean> {
-  const g = await prisma.guild.findUnique({ where: { guildId }, select: { settings: { select: { activityHeatmapPublic: true } } } });
+  const g = await prisma.guild.findUnique({
+    where: { guildId },
+    select: { settings: { select: { activityHeatmapPublic: true } } },
+  });
   return g?.settings?.activityHeatmapPublic ?? true;
 }
 

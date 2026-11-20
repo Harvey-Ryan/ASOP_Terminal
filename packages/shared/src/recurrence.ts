@@ -60,8 +60,15 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
   let f = fmtCache.get(timeZone);
   if (!f) {
     f = new Intl.DateTimeFormat('en-US', {
-      timeZone, hourCycle: 'h23', weekday: 'short',
-      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+      timeZone,
+      hourCycle: 'h23',
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
     });
     fmtCache.set(timeZone, f);
   }
@@ -72,8 +79,12 @@ export function localParts(date: Date, timeZone: string): LocalParts {
   const p: Record<string, string> = {};
   for (const { type, value } of formatter(timeZone).formatToParts(date)) p[type] = value;
   return {
-    year: Number(p['year']), month: Number(p['month']), day: Number(p['day']),
-    hour: Number(p['hour']) % 24, minute: Number(p['minute']), second: Number(p['second']),
+    year: Number(p['year']),
+    month: Number(p['month']),
+    day: Number(p['day']),
+    hour: Number(p['hour']) % 24,
+    minute: Number(p['minute']),
+    second: Number(p['second']),
     weekday: WEEKDAYS.indexOf(p['weekday'] ?? 'Sun'),
   };
 }
@@ -90,7 +101,14 @@ function offsetAt(date: Date, timeZone: string): number {
  * Times that don't exist (spring-forward gap) land just after the gap; times
  * that happen twice (fall-back overlap) resolve to the first.
  */
-export function zonedTimeToUtc(year: number, month: number, day: number, hour: number, minute: number, timeZone: string): Date {
+export function zonedTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string,
+): Date {
   const guess = Date.UTC(year, month - 1, day, hour, minute);
   // The answer is guess minus the zone's offset at the answer. Try the offsets
   // in effect around the guess (they differ only near a DST change).
@@ -216,23 +234,40 @@ function ordinalSuffix(n: number): string {
 /** Short label, e.g. "Monthly on the 2nd Tuesday". Without an anchor, a generic one. */
 export function describeRecurrence(type: string, anchor?: Date | null, timeZone?: string | null): string {
   if (!anchor || !timeZone || !isValidTimeZone(timeZone)) {
-    return ({ DAILY: 'Daily', WEEKLY: 'Weekly', BIWEEKLY: 'Every 2 weeks', MONTHLY: 'Monthly',
-      MONTHLY_WEEKDAY: 'Monthly (same weekday)', MONTHLY_LAST_WEEKDAY: 'Monthly (last weekday)' } as Record<string, string>)[type] ?? type;
+    return (
+      (
+        {
+          DAILY: 'Daily',
+          WEEKLY: 'Weekly',
+          BIWEEKLY: 'Every 2 weeks',
+          MONTHLY: 'Monthly',
+          MONTHLY_WEEKDAY: 'Monthly (same weekday)',
+          MONTHLY_LAST_WEEKDAY: 'Monthly (last weekday)',
+        } as Record<string, string>
+      )[type] ?? type
+    );
   }
   const a = localParts(anchor, timeZone);
   const day = DAY_NAMES[a.weekday];
   switch (type) {
-    case 'DAILY': return 'Daily';
-    case 'WEEKLY': return `Weekly on ${day}`;
-    case 'BIWEEKLY': return `Every 2 weeks on ${day}`;
+    case 'DAILY':
+      return 'Daily';
+    case 'WEEKLY':
+      return `Weekly on ${day}`;
+    case 'BIWEEKLY':
+      return `Every 2 weeks on ${day}`;
     case 'MONTHLY':
-      return a.day > 28 ? `Monthly on the ${ordinalSuffix(a.day)} (last day in shorter months)` : `Monthly on the ${ordinalSuffix(a.day)}`;
+      return a.day > 28
+        ? `Monthly on the ${ordinalSuffix(a.day)} (last day in shorter months)`
+        : `Monthly on the ${ordinalSuffix(a.day)}`;
     case 'MONTHLY_WEEKDAY': {
       const n = weekdayOrdinal(a.day);
       return n === 5 ? `Monthly on the last ${day}` : `Monthly on the ${ORDINAL_WORDS[n]} ${day}`;
     }
-    case 'MONTHLY_LAST_WEEKDAY': return `Monthly on the last ${day}`;
-    default: return type;
+    case 'MONTHLY_LAST_WEEKDAY':
+      return `Monthly on the last ${day}`;
+    default:
+      return type;
   }
 }
 

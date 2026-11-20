@@ -6,8 +6,20 @@
 
 import { Router, type Request, type Response } from 'express';
 import {
-  outcomeFor, parseHistoryRange, rangeWhere, recordedAttendees, rolesPlayed, statsFor, summarizeMembers, tournamentResult,
-  type ApiResponse, type HistoryRange, type EventRole, type HistoryEvent, type MemberHistoryDto, type MemberSummaryDto,
+  outcomeFor,
+  parseHistoryRange,
+  rangeWhere,
+  recordedAttendees,
+  rolesPlayed,
+  statsFor,
+  summarizeMembers,
+  tournamentResult,
+  type ApiResponse,
+  type HistoryRange,
+  type EventRole,
+  type HistoryEvent,
+  type MemberHistoryDto,
+  type MemberSummaryDto,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -27,8 +39,17 @@ async function historyEvents(guildId: string, range: HistoryRange, userId?: stri
     orderBy: { startTime: 'desc' },
     take: MAX_EVENTS,
     select: {
-      id: true, name: true, startTime: true, status: true, roles: true, confirmedAttendees: true, vcAttendees: true,
-      rsvps: { ...(userId ? { where: { userId } } : {}), select: { userId: true, username: true, role: true, tentative: true } },
+      id: true,
+      name: true,
+      startTime: true,
+      status: true,
+      roles: true,
+      confirmedAttendees: true,
+      vcAttendees: true,
+      rsvps: {
+        ...(userId ? { where: { userId } } : {}),
+        select: { userId: true, username: true, role: true, tentative: true },
+      },
     },
   });
   return events.map((e) => ({ ...e, roles: JSON.parse(e.roles) as EventRole[], attendees: recordedAttendees(e) }));
@@ -37,7 +58,10 @@ async function historyEvents(guildId: string, range: HistoryRange, userId?: stri
 /** Names for people we only know by id (they turned up without signing up). */
 async function namesFor(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map();
-  const users = await prisma.user.findMany({ where: { discordId: { in: ids } }, select: { discordId: true, globalName: true, username: true } });
+  const users = await prisma.user.findMany({
+    where: { discordId: { in: ids } },
+    select: { discordId: true, globalName: true, username: true },
+  });
   return new Map(users.map((u) => [u.discordId, u.globalName ?? u.username]));
 }
 
@@ -52,7 +76,8 @@ function rangeOf(req: Request, res: Response): HistoryRange | null {
 }
 
 async function myDiscordId(req: Express.Request): Promise<string> {
-  return (await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true } })).discordId;
+  return (await prisma.user.findUniqueOrThrow({ where: { id: req.session.userId! }, select: { discordId: true } }))
+    .discordId;
 }
 
 membersRouter.get('/:guildId/members', requireAuth, async (req, res) => {
@@ -74,7 +99,8 @@ membersRouter.get('/:guildId/members/:userId', requireAuth, async (req, res) => 
   const { guildId } = req.params as { guildId: string; userId: string };
   const me = await myDiscordId(req);
   const userId = req.params['userId'] === 'me' ? me : String(req.params['userId']);
-  const allowed = (await assertEventCreator(req, guildId)) || (userId === me && (await assertEventViewer(req, guildId)));
+  const allowed =
+    (await assertEventCreator(req, guildId)) || (userId === me && (await assertEventViewer(req, guildId)));
   if (!allowed) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
@@ -86,40 +112,79 @@ membersRouter.get('/:guildId/members/:userId', requireAuth, async (req, res) => 
   const [events, guild, user] = await Promise.all([
     historyEvents(guildId, range, userId),
     prisma.guild.findUnique({ where: { guildId }, select: { id: true } }),
-    prisma.user.findUnique({ where: { discordId: userId }, select: { id: true, globalName: true, username: true, rsiHandle: true } }),
+    prisma.user.findUnique({
+      where: { discordId: userId },
+      select: { id: true, globalName: true, username: true, rsiHandle: true },
+    }),
   ]);
   const mine = events.map((e) => outcomeFor(e, userId)).filter((o) => o !== null);
 
   const [lootCount, loot, balance, tournaments, member] = await Promise.all([
-    prisma.lootAssignment.count({ where: { userId, item: { session: { guildId } }, ...(when ? { assignedAt: when } : {}) } }),
+    prisma.lootAssignment.count({
+      where: { userId, item: { session: { guildId } }, ...(when ? { assignedAt: when } : {}) },
+    }),
     prisma.lootAssignment.findMany({
       where: { userId, item: { session: { guildId } }, ...(when ? { assignedAt: when } : {}) },
       orderBy: { assignedAt: 'desc' },
       take: 10,
-      select: { assignedAt: true, username: true, item: { select: { name: true, quantity: true, session: { select: { name: true, eventId: true } } } } },
+      select: {
+        assignedAt: true,
+        username: true,
+        item: { select: { name: true, quantity: true, session: { select: { name: true, eventId: true } } } },
+      },
     }),
     prisma.dkpBalance.findUnique({
       where: { guildId_userId: { guildId, userId } },
       // The balance is always today's; the changes listed follow the range.
-      select: { balance: true, username: true, transactions: { ...(when ? { where: { createdAt: when } } : {}), orderBy: { createdAt: 'desc' }, take: 10, select: { amount: true, reason: true, createdAt: true } } },
+      select: {
+        balance: true,
+        username: true,
+        transactions: {
+          ...(when ? { where: { createdAt: when } } : {}),
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: { amount: true, reason: true, createdAt: true },
+        },
+      },
     }),
     prisma.tournamentParticipant.findMany({
-      where: { tournament: { guildId, ...(when ? { createdAt: when } : {}) }, OR: [{ discordId: userId }, { teamMembers: { some: { discordId: userId } } }] },
+      where: {
+        tournament: { guildId, ...(when ? { createdAt: when } : {}) },
+        OR: [{ discordId: userId }, { teamMembers: { some: { discordId: userId } } }],
+      },
       orderBy: { createdAt: 'desc' },
       take: 20,
-      select: { placement: true, status: true, tournament: { select: { id: true, name: true, status: true, createdAt: true } } },
+      select: {
+        placement: true,
+        status: true,
+        tournament: { select: { id: true, name: true, status: true, createdAt: true } },
+      },
     }),
-    guild && user ? prisma.guildMember.findUnique({ where: { userId_guildId: { userId: user.id, guildId: guild.id } }, select: { rsiHandle: true } }) : null,
+    guild && user
+      ? prisma.guildMember.findUnique({
+          where: { userId_guildId: { userId: user.id, guildId: guild.id } },
+          select: { rsiHandle: true },
+        })
+      : null,
   ]);
 
   // Loot from an event's session is named after the event.
-  const eventNames = new Map((await prisma.event.findMany({
-    where: { id: { in: loot.map((l) => l.item.session.eventId).filter((id): id is string => !!id) } },
-    select: { id: true, name: true },
-  })).map((e) => [e.id, e.name]));
+  const eventNames = new Map(
+    (
+      await prisma.event.findMany({
+        where: { id: { in: loot.map((l) => l.item.session.eventId).filter((id): id is string => !!id) } },
+        select: { id: true, name: true },
+      })
+    ).map((e) => [e.id, e.name]),
+  );
 
   const latestRsvpName = events.flatMap((e) => e.rsvps).at(0)?.username; // events are newest first
-  const name = latestRsvpName ?? (user ? user.globalName ?? user.username : null) ?? loot[0]?.username ?? balance?.username ?? userId;
+  const name =
+    latestRsvpName ??
+    (user ? (user.globalName ?? user.username) : null) ??
+    loot[0]?.username ??
+    balance?.username ??
+    userId;
 
   const data: MemberHistoryDto = {
     userId,
@@ -131,14 +196,29 @@ membersRouter.get('/:guildId/members/:userId', requireAuth, async (req, res) => 
     loot: {
       total: lootCount,
       recent: loot.map((l) => ({
-        name: l.item.name, quantity: l.item.quantity, at: l.assignedAt.toISOString(),
-        session: l.item.session.name ?? (l.item.session.eventId ? eventNames.get(l.item.session.eventId) ?? 'Event' : 'Loot session'),
+        name: l.item.name,
+        quantity: l.item.quantity,
+        at: l.assignedAt.toISOString(),
+        session:
+          l.item.session.name ??
+          (l.item.session.eventId ? (eventNames.get(l.item.session.eventId) ?? 'Event') : 'Loot session'),
       })),
     },
-    dkp: balance ? { balance: balance.balance, recent: balance.transactions.map((t) => ({ amount: t.amount, reason: t.reason, at: t.createdAt.toISOString() })) } : null,
+    dkp: balance
+      ? {
+          balance: balance.balance,
+          recent: balance.transactions.map((t) => ({
+            amount: t.amount,
+            reason: t.reason,
+            at: t.createdAt.toISOString(),
+          })),
+        }
+      : null,
     tournaments: tournaments.map((t) => ({
-      id: t.tournament.id, name: t.tournament.name,
-      result: tournamentResult(t.status, t.placement, t.tournament.status), at: t.tournament.createdAt.toISOString(),
+      id: t.tournament.id,
+      name: t.tournament.name,
+      result: tournamentResult(t.status, t.placement, t.tournament.status),
+      at: t.tournament.createdAt.toISOString(),
     })),
   };
   res.json({ success: true, data } satisfies ApiResponse<MemberHistoryDto>);

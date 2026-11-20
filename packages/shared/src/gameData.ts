@@ -81,7 +81,13 @@ export interface GameDataStatus {
   /** Typical minutes between scheduled checks (null until measurable) */
   checkIntervalMin: number | null;
   running: { startedAt: string; trigger: string } | null;
-  lastRun: { status: 'success' | 'failed'; trigger: string; startedAt: string; finishedAt: string | null; error: string | null } | null;
+  lastRun: {
+    status: 'success' | 'failed';
+    trigger: string;
+    startedAt: string;
+    finishedAt: string | null;
+    error: string | null;
+  } | null;
   /** The last sync that actually changed something (forced re-checks that found nothing don't count) */
   lastChange: { finishedAt: string | null; added: number; changed: number; removed: number } | null;
   pendingRequest: { requestedAt: string; requestedBy: string | null } | null;
@@ -89,8 +95,18 @@ export interface GameDataStatus {
 }
 
 export const GAME_DATA_NOT_SET_UP: GameDataStatus = {
-  health: 'not_set_up', commit: null, build: null, committedAt: null, syncedAt: null, lastCheckAt: null, checkIntervalMin: null,
-  running: null, lastRun: null, lastChange: null, pendingRequest: null, counts: null,
+  health: 'not_set_up',
+  commit: null,
+  build: null,
+  committedAt: null,
+  syncedAt: null,
+  lastCheckAt: null,
+  checkIntervalMin: null,
+  running: null,
+  lastRun: null,
+  lastChange: null,
+  pendingRequest: null,
+  counts: null,
 };
 
 interface RawStatus {
@@ -98,8 +114,19 @@ interface RawStatus {
   last_check: string | null;
   check_gaps_sec: number[] | null;
   running: { started_at: string; trigger: string } | null;
-  last_run: { status: 'success' | 'failed'; trigger: string; started_at: string; finished_at: string | null; error: string | null } | null;
-  last_success: { finished_at: string | null; files_added: number | null; files_changed: number | null; files_removed: number | null } | null;
+  last_run: {
+    status: 'success' | 'failed';
+    trigger: string;
+    started_at: string;
+    finished_at: string | null;
+    error: string | null;
+  } | null;
+  last_success: {
+    finished_at: string | null;
+    files_added: number | null;
+    files_changed: number | null;
+    files_removed: number | null;
+  } | null;
   pending: { requested_at: string; requested_by: string | null } | null;
   counts: Record<string, number | string> | null;
 }
@@ -134,9 +161,17 @@ export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameD
       checkIntervalMin: inferCheckIntervalMin(r?.check_gaps_sec),
       running: r?.running ? { startedAt: iso(r.running.started_at)!, trigger: r.running.trigger } : null,
       lastRun: r?.last_run
-        ? { status: r.last_run.status, trigger: r.last_run.trigger, startedAt: iso(r.last_run.started_at)!, finishedAt: iso(r.last_run.finished_at), error: r.last_run.error }
+        ? {
+            status: r.last_run.status,
+            trigger: r.last_run.trigger,
+            startedAt: iso(r.last_run.started_at)!,
+            finishedAt: iso(r.last_run.finished_at),
+            error: r.last_run.error,
+          }
         : null,
-      pendingRequest: r?.pending ? { requestedAt: iso(r.pending.requested_at)!, requestedBy: r.pending.requested_by } : null,
+      pendingRequest: r?.pending
+        ? { requestedAt: iso(r.pending.requested_at)!, requestedBy: r.pending.requested_by }
+        : null,
     };
     empty.health = judgeHealth(empty, now);
     return empty;
@@ -152,14 +187,33 @@ export function parseGameDataStatus(raw: unknown, now: Date = new Date()): GameD
     checkIntervalMin: inferCheckIntervalMin(r.check_gaps_sec),
     running: r.running ? { startedAt: iso(r.running.started_at)!, trigger: r.running.trigger } : null,
     lastRun: r.last_run
-      ? { status: r.last_run.status, trigger: r.last_run.trigger, startedAt: iso(r.last_run.started_at)!, finishedAt: iso(r.last_run.finished_at), error: r.last_run.error }
+      ? {
+          status: r.last_run.status,
+          trigger: r.last_run.trigger,
+          startedAt: iso(r.last_run.started_at)!,
+          finishedAt: iso(r.last_run.finished_at),
+          error: r.last_run.error,
+        }
       : null,
     lastChange: r.last_success
-      ? { finishedAt: iso(r.last_success.finished_at), added: n(r.last_success.files_added), changed: n(r.last_success.files_changed), removed: n(r.last_success.files_removed) }
+      ? {
+          finishedAt: iso(r.last_success.finished_at),
+          added: n(r.last_success.files_added),
+          changed: n(r.last_success.files_changed),
+          removed: n(r.last_success.files_removed),
+        }
       : null,
-    pendingRequest: r.pending ? { requestedAt: iso(r.pending.requested_at)!, requestedBy: r.pending.requested_by } : null,
+    pendingRequest: r.pending
+      ? { requestedAt: iso(r.pending.requested_at)!, requestedBy: r.pending.requested_by }
+      : null,
     counts: r.counts
-      ? { items: n(r.counts['items']), ships: n(r.counts['ships']), contracts: n(r.counts['contracts']), blueprints: n(r.counts['blueprints']), commodities: n(r.counts['commodities']) }
+      ? {
+          items: n(r.counts['items']),
+          ships: n(r.counts['ships']),
+          contracts: n(r.counts['contracts']),
+          blueprints: n(r.counts['blueprints']),
+          commodities: n(r.counts['commodities']),
+        }
       : null,
   };
   status.health = judgeHealth(status, now);

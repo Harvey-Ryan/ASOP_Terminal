@@ -14,7 +14,9 @@ import { prisma } from './prisma.js';
 
 const store = createCatalogStore(prisma, {
   onLoad: (index, version, previous) => {
-    console.log(`[catalog] Loaded ${index.entries.length} items and commodities from game data ${version.slice(0, 12)}`);
+    console.log(
+      `[catalog] Loaded ${index.entries.length} items and commodities from game data ${version.slice(0, 12)}`,
+    );
     // New game data can make older inventory entries linkable.
     if (previous) void linkInventory().catch((err) => console.error('[catalog] Linking inventory failed:', err));
   },
@@ -44,7 +46,10 @@ export async function linkInventory(entryId: string | null = null): Promise<numb
 }
 
 export async function inventoryLinkStatus(): Promise<InventoryLinkStatus> {
-  const rows = await prisma.$queryRawUnsafe<{ total: number; linked: number; unlinked_names: string[] }[]>(INVENTORY_LINK_STATUS_SQL);
+  const rows =
+    await prisma.$queryRawUnsafe<{ total: number; linked: number; unlinked_names: string[] }[]>(
+      INVENTORY_LINK_STATUS_SQL,
+    );
   const r = rows[0] ?? { total: 0, linked: 0, unlinked_names: [] };
   return { total: r.total, linked: r.linked, unlinkedNames: r.unlinked_names };
 }
@@ -56,8 +61,12 @@ export async function linkInventoryOnStartup(): Promise<void> {
     const linked = await linkInventory();
     const s = await inventoryLinkStatus();
     const missing = s.total - s.linked;
-    console.log(`[catalog] Inventory linked to game items: ${s.linked}/${s.total}${linked ? ` (${linked} just now)` : ''}` +
-      (missing ? `; not linked: ${s.unlinkedNames.slice(0, 20).join(', ')}${s.unlinkedNames.length > 20 ? ` +${s.unlinkedNames.length - 20} more` : ''}` : ''));
+    console.log(
+      `[catalog] Inventory linked to game items: ${s.linked}/${s.total}${linked ? ` (${linked} just now)` : ''}` +
+        (missing
+          ? `; not linked: ${s.unlinkedNames.slice(0, 20).join(', ')}${s.unlinkedNames.length > 20 ? ` +${s.unlinkedNames.length - 20} more` : ''}`
+          : ''),
+    );
   } catch (err) {
     console.error('[catalog] Start-up inventory linking failed:', err instanceof Error ? err.message : err);
   }

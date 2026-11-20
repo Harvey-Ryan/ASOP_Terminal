@@ -86,14 +86,18 @@ export function RsiVerifyGate({ guildId, children }: { guildId: string; children
         {/* Step 1 — enter handle */}
         <div className="rounded-lg border border-border bg-card p-5 space-y-4">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              1
+            </span>
             <p className="text-sm font-medium">Enter your RSI citizen handle</p>
           </div>
           <div className="flex gap-2">
             <input
               value={handle || status.handle || ''}
               onChange={(e) => setHandle(e.target.value.trim())}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (handle || status.handle)) startMutation.mutate(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (handle || status.handle)) startMutation.mutate();
+              }}
               placeholder="e.g. Destrokk"
               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
             />
@@ -106,7 +110,9 @@ export function RsiVerifyGate({ guildId, children }: { guildId: string; children
             </Button>
           </div>
           {hasHandle && !token && (
-            <p className="text-xs text-muted-foreground">Handle: <span className="font-mono font-medium text-foreground">{status.handle}</span></p>
+            <p className="text-xs text-muted-foreground">
+              Handle: <span className="font-mono font-medium text-foreground">{status.handle}</span>
+            </p>
           )}
         </div>
 
@@ -114,7 +120,9 @@ export function RsiVerifyGate({ guildId, children }: { guildId: string; children
         {token && (
           <div className="rounded-lg border border-border bg-card p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                2
+              </span>
               <p className="text-sm font-medium">Paste this token anywhere in your RSI bio</p>
             </div>
             <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
@@ -140,18 +148,20 @@ export function RsiVerifyGate({ guildId, children }: { guildId: string; children
         {token && (
           <div className="rounded-lg border border-border bg-card p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                3
+              </span>
               <p className="text-sm font-medium">Click Verify once your bio is saved</p>
             </div>
-            <Button
-              className="w-full"
-              onClick={() => completeMutation.mutate()}
-              disabled={completeMutation.isPending}
-            >
+            <Button className="w-full" onClick={() => completeMutation.mutate()} disabled={completeMutation.isPending}>
               {completeMutation.isPending ? (
-                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Checking RSI…</>
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Checking RSI…
+                </>
               ) : (
-                <><ShieldCheck className="h-4 w-4 mr-2" /> Verify My Account</>
+                <>
+                  <ShieldCheck className="h-4 w-4 mr-2" /> Verify My Account
+                </>
               )}
             </Button>
           </div>

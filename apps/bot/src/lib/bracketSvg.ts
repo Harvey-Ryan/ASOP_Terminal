@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs';
 
 const FONTS_DIR = '/fonts';
 const FONT_REGULAR = `${FONTS_DIR}/DejaVuSans.ttf`;
-const FONT_BOLD    = `${FONTS_DIR}/DejaVuSans-Bold.ttf`;
+const FONT_BOLD = `${FONTS_DIR}/DejaVuSans-Bold.ttf`;
 
 const containerFonts = [FONT_REGULAR, FONT_BOLD].filter(existsSync);
 
@@ -18,9 +18,9 @@ const FONT_CONFIG: NonNullable<ConstructorParameters<typeof Resvg>[1]>['font'] =
         fontFiles: containerFonts,
         loadSystemFonts: false,
         defaultFontFamily: 'DejaVu Sans',
-        sansSerifFamily:   'DejaVu Sans',
+        sansSerifFamily: 'DejaVu Sans',
       }
-    : { loadSystemFonts: true };         // dev (Windows/macOS)
+    : { loadSystemFonts: true }; // dev (Windows/macOS)
 
 // ── resvg-js wrapper ──────────────────────────────────────────────────────────
 
@@ -38,18 +38,18 @@ export function svgToPng(svg: string, widthPx = 1200): Buffer {
 const SLOT_W = 180;
 const SLOT_H = 40;
 const SLOT_R = 6;
-const COL_GAP = 80;  // horizontal gap between rounds
-const ROW_GAP = 14;  // vertical gap between slots within a column
-const PAD = 32;      // outer padding
+const COL_GAP = 80; // horizontal gap between rounds
+const ROW_GAP = 14; // vertical gap between slots within a column
+const PAD = 32; // outer padding
 
-const COLOR_BG        = '#1e1f22';
-const COLOR_SLOT      = '#2b2d31';
-const COLOR_SLOT_WIN  = '#1e3a28'; // winner slot fill
-const COLOR_TEXT      = '#f2f3f5';
-const COLOR_DIMMED    = '#72767d';
-const COLOR_LINE      = '#404249';
+const COLOR_BG = '#1e1f22';
+const COLOR_SLOT = '#2b2d31';
+const COLOR_SLOT_WIN = '#1e3a28'; // winner slot fill
+const COLOR_TEXT = '#f2f3f5';
+const COLOR_DIMMED = '#72767d';
+const COLOR_LINE = '#404249';
 const COLOR_WIN_BORDER = '#57f287'; // Discord green
-const COLOR_ACTIVE    = '#5865f2'; // Discord blurple
+const COLOR_ACTIVE = '#5865f2'; // Discord blurple
 const COLOR_HEADER_BG = '#111214';
 
 // ── Types mirroring Prisma shapes (no prisma import needed in this lib) ───────
@@ -139,7 +139,8 @@ export function buildBracketSvg(
       const pA = match.participantAId ? byId.get(match.participantAId) : null;
       const pB = match.participantBId ? byId.get(match.participantBId) : null;
       const isComplete = match.status === 'COMPLETED' || match.status === 'BYE';
-      const isCurrent = match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS' || match.status === 'READY_CHECK';
+      const isCurrent =
+        match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS' || match.status === 'READY_CHECK';
 
       const matchTopY = topOffset + mi * cellH + (cellH - slotPairH) / 2;
       const yA = matchTopY;
@@ -160,9 +161,7 @@ export function buildBracketSvg(
         const nextCellH = bracketH / nextNMatches;
         const nextMi = Math.floor(mi / 2);
         const nextMatchTopY = topOffset + nextMi * nextCellH + (nextCellH - slotPairH) / 2;
-        const targetY = mi % 2 === 0
-          ? nextMatchTopY + SLOT_H / 2
-          : nextMatchTopY + SLOT_H + ROW_GAP + SLOT_H / 2;
+        const targetY = mi % 2 === 0 ? nextMatchTopY + SLOT_H / 2 : nextMatchTopY + SLOT_H + ROW_GAP + SLOT_H / 2;
 
         connectors.push(svgLine(xRight, midY, xRight + COL_GAP / 2, midY, COLOR_LINE));
         connectors.push(svgLine(xRight + COL_GAP / 2, midY, xRight + COL_GAP / 2, targetY, COLOR_LINE));
@@ -191,7 +190,8 @@ export function buildBracketSvg(
     const tpA = thirdPlace.participantAId ? byId.get(thirdPlace.participantAId) : null;
     const tpB = thirdPlace.participantBId ? byId.get(thirdPlace.participantBId) : null;
     const tpComplete = thirdPlace.status === 'COMPLETED';
-    const tpCurrent = thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
+    const tpCurrent =
+      thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
 
     const tpWonA = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantAId;
     const tpWonB = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantBId;
@@ -208,18 +208,19 @@ export function buildBracketSvg(
 
 function renderParticipantSlot(
   out: string[],
-  x: number, y: number,
+  x: number,
+  y: number,
   participant: BracketParticipantInfo | null | undefined,
   isWinner: boolean,
   isComplete: boolean,
-  _isCurrent: boolean,   // kept for signature compat; no blurple highlight — winners only
+  _isCurrent: boolean, // kept for signature compat; no blurple highlight — winners only
   score: number | null | undefined,
 ): void {
   // Only winners get a special treatment; everything else is plain grey
   const borderColor = isWinner ? COLOR_WIN_BORDER : COLOR_LINE;
-  const fillColor   = isWinner ? COLOR_SLOT_WIN   : COLOR_SLOT;
-  const textColor   = isWinner ? COLOR_TEXT : (isComplete ? COLOR_DIMMED : COLOR_TEXT);
-  const weight      = isWinner ? 'bold' : 'normal';
+  const fillColor = isWinner ? COLOR_SLOT_WIN : COLOR_SLOT;
+  const textColor = isWinner ? COLOR_TEXT : isComplete ? COLOR_DIMMED : COLOR_TEXT;
+  const weight = isWinner ? 'bold' : 'normal';
 
   out.push(svgRect(x, y, SLOT_W, SLOT_H, SLOT_R, fillColor, borderColor));
 
@@ -231,7 +232,17 @@ function renderParticipantSlot(
   }
 
   if (score != null) {
-    out.push(svgText(x + SLOT_W - 22, y + SLOT_H / 2 + 5, String(score), isWinner ? COLOR_WIN_BORDER : COLOR_DIMMED, 12, 'bold', 'middle'));
+    out.push(
+      svgText(
+        x + SLOT_W - 22,
+        y + SLOT_H / 2 + 5,
+        String(score),
+        isWinner ? COLOR_WIN_BORDER : COLOR_DIMMED,
+        12,
+        'bold',
+        'middle',
+      ),
+    );
   }
 }
 
@@ -241,7 +252,15 @@ function svgRect(x: number, y: number, w: number, h: number, r: number, fill: st
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
 }
 
-function svgText(x: number, y: number, text: string, fill: string, size: number, weight = 'normal', anchor = 'start'): string {
+function svgText(
+  x: number,
+  y: number,
+  text: string,
+  fill: string,
+  size: number,
+  weight = 'normal',
+  anchor = 'start',
+): string {
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}" font-family="'DejaVu Sans',Arial,sans-serif">${escaped}</text>`;
 }

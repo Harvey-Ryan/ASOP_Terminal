@@ -3,7 +3,15 @@ import assert from 'node:assert/strict';
 import { outcomeFor, statsFor, summarizeMembers, rolesPlayed } from '../dist/index.js';
 
 const roles = [{ id: 'p', name: 'Pilot', count: 2 }];
-const ev = (id, day, status, rsvps, attendees) => ({ id, name: `Op ${id}`, startTime: new Date(`2026-10-${String(day).padStart(2, '0')}T20:00:00Z`), status, roles, rsvps, attendees });
+const ev = (id, day, status, rsvps, attendees) => ({
+  id,
+  name: `Op ${id}`,
+  startTime: new Date(`2026-10-${String(day).padStart(2, '0')}T20:00:00Z`),
+  status,
+  roles,
+  rsvps,
+  attendees,
+});
 const r = (userId, role = null, tentative = false) => ({ userId, username: userId.toUpperCase(), role, tentative });
 
 const events = [
@@ -14,7 +22,10 @@ const events = [
 ];
 
 test('outcomes: attended, no-show, maybe, walk-in, not recorded, upcoming', () => {
-  assert.deepEqual(['a', 'b', 'c', 'w'].map((u) => outcomeFor(events[0], u).outcome), ['attended', 'no-show', 'attended', 'attended']);
+  assert.deepEqual(
+    ['a', 'b', 'c', 'w'].map((u) => outcomeFor(events[0], u).outcome),
+    ['attended', 'no-show', 'attended', 'attended'],
+  );
   assert.equal(outcomeFor(events[0], 'a').role, 'Pilot');
   assert.equal(outcomeFor(events[0], 'b').role, 'Unassigned');
   assert.equal(outcomeFor(events[0], 'c').walkIn, true); // a maybe who came
@@ -40,7 +51,14 @@ test('stats and the members list', () => {
   assert.equal(list.a.name, 'A');
   assert.equal(list.w.name, 'w');
   assert.equal(summarizeMembers(events, new Map([['w', 'Walker']])).find((m) => m.userId === 'w').name, 'Walker');
-  assert.deepEqual(statsFor([]), { attended: 0, signedUp: 0, noShows: 0, showRate: null, firstSeen: null, lastSeen: null });
+  assert.deepEqual(statsFor([]), {
+    attended: 0,
+    signedUp: 0,
+    noShows: 0,
+    showRate: null,
+    firstSeen: null,
+    lastSeen: null,
+  });
 });
 
 test('roles played counts attended events only', () => {
@@ -51,18 +69,40 @@ test('roles played counts attended events only', () => {
 test('tournament results in words', async () => {
   const { tournamentResult: t } = await import('../dist/index.js');
   assert.deepEqual(
-    [t('WINNER', 1, 'COMPLETED'), t('RUNNER_UP', 2, 'COMPLETED'), t('ELIMINATED', 4, 'COMPLETED'), t('ELIMINATED', 11, 'COMPLETED'), t('ELIMINATED', 22, 'COMPLETED'),
-     t('ELIMINATED', null, 'IN_PROGRESS'), t('ACTIVE', null, 'IN_PROGRESS'), t('ACTIVE', null, 'REGISTRATION'), t('ACTIVE', null, 'CANCELLED')],
+    [
+      t('WINNER', 1, 'COMPLETED'),
+      t('RUNNER_UP', 2, 'COMPLETED'),
+      t('ELIMINATED', 4, 'COMPLETED'),
+      t('ELIMINATED', 11, 'COMPLETED'),
+      t('ELIMINATED', 22, 'COMPLETED'),
+      t('ELIMINATED', null, 'IN_PROGRESS'),
+      t('ACTIVE', null, 'IN_PROGRESS'),
+      t('ACTIVE', null, 'REGISTRATION'),
+      t('ACTIVE', null, 'CANCELLED'),
+    ],
     ['Winner', 'Runner-up', '4th place', '11th place', '22nd place', 'Eliminated', 'Playing', 'Signed up', 'Cancelled'],
   );
 });
 
 test('who can comment on after-action notes', async () => {
   const { canComment, recordedAttendees } = await import('../dist/index.js');
-  const base = { status: 'COMPLETED', confirmedAttendees: JSON.stringify(['a']), vcAttendees: '[]', rsvps: [{ userId: 'b', tentative: false }] };
+  const base = {
+    status: 'COMPLETED',
+    confirmedAttendees: JSON.stringify(['a']),
+    vcAttendees: '[]',
+    rsvps: [{ userId: 'b', tentative: false }],
+  };
   assert.equal(canComment(base, 'a'), true);
   assert.equal(canComment(base, 'b'), false); // attendance recorded and b wasn't there
-  const unrecorded = { ...base, status: 'ENDED', confirmedAttendees: null, rsvps: [{ userId: 'b', tentative: false }, { userId: 'm', tentative: true }] };
+  const unrecorded = {
+    ...base,
+    status: 'ENDED',
+    confirmedAttendees: null,
+    rsvps: [
+      { userId: 'b', tentative: false },
+      { userId: 'm', tentative: true },
+    ],
+  };
   assert.equal(canComment(unrecorded, 'b'), true);
   assert.equal(canComment(unrecorded, 'm'), false);
   assert.equal(canComment({ ...base, status: 'PENDING' }, 'a'), false);
@@ -71,7 +111,8 @@ test('who can comment on after-action notes', async () => {
 
 test('date range: parsed from the query, checked, and turned into a filter', async () => {
   const { parseHistoryRange, rangeWhere } = await import('../dist/index.js');
-  const from = '2026-01-01T06:00:00.000Z', to = '2026-02-01T05:59:59.999Z';
+  const from = '2026-01-01T06:00:00.000Z',
+    to = '2026-02-01T05:59:59.999Z';
   const ok = parseHistoryRange(from, to);
   assert.deepEqual(ok, { range: { from: new Date(from), to: new Date(to) } });
   assert.deepEqual(rangeWhere(ok.range), { gte: new Date(from), lte: new Date(to) });
