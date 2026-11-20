@@ -784,15 +784,6 @@ export function DashboardLayout() {
               {!navCollapsed && 'Admin'}
             </NavLink>
           )}
-          <a
-            href="https://buymeacoffee.com/asopterminal"
-            target="_blank"
-            rel="noreferrer"
-            className="lg:hidden flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-          >
-            <span className="shrink-0">🍺</span>
-            Buy Me a Beer
-          </a>
         </div>
 
       </aside>
@@ -812,14 +803,6 @@ export function DashboardLayout() {
 
       {/* ── Bottom branding bar ── */}
       <footer className="shrink-0 border-t border-border bg-card px-4 py-2 flex items-center justify-between gap-6">
-        <a
-          href="https://buymeacoffee.com/asopterminal"
-          target="_blank"
-          rel="noreferrer"
-          className="shrink-0 opacity-60 hover:opacity-100 transition-opacity whitespace-nowrap text-xs font-medium text-muted-foreground hover:text-foreground"
-        >
-          🍺 Buy Me a Beer
-        </a>
         <p className="text-[11px] leading-tight text-muted-foreground text-center opacity-40">
           {appVersion && <span className="font-mono mr-2">ASOP v{appVersion}</span>}
           Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC
