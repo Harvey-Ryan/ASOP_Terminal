@@ -18,6 +18,12 @@ import type { ApiResponse } from '@dem/shared';
 
 export const tournamentRouter = Router();
 
+/** The signed-in person's Discord id: participants, ratings and the bot all key on it, never on User.id. */
+async function sessionDiscordId(userId: string): Promise<string> {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { discordId: true } });
+  return user.discordId;
+}
+
 // v1.21.1: everything about a server's tournaments is for people who can see
 // its events (managers always can). Tournaments switched off: not found, except
 // for managers, who can still look back at them. Previously the lists,
@@ -283,7 +289,8 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
   if (!VALID_SEEDING.includes(seedingMode as (typeof VALID_SEEDING)[number]))
     return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING.join(', ')}`);
 
-  const userId = req.session.userId!;
+  // By Discord id, like events (v1.59.1: was the internal User.id, which Your data didn't find).
+  const creatorDiscordId = await sessionDiscordId(req.session.userId!);
 
   try {
     const tournament = await prisma.$transaction(async (tx) => {
@@ -300,7 +307,7 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
           seedingMode,
           channelId: channelId ?? null,
           registrationEndsAt: registrationEndsAt ? new Date(registrationEndsAt) : null,
-          createdById: userId,
+          createdById: creatorDiscordId,
         },
       });
       if (seasonId) {
@@ -529,8 +536,9 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
 
     if (tournament.participantMode === 'INDIVIDUAL') {
       // Managers can specify a discordId and/or displayName.
-      // If neither is provided, or a non-manager is registering, default to the session user.
-      const targetDiscordId: string | null = isManager ? discordId?.trim() || null : userId;
+      // A non-manager always registers themselves, by their Discord id (v1.59.1:
+      // this used to store the session's internal user id instead).
+      const targetDiscordId: string | null = isManager ? discordId?.trim() || null : await sessionDiscordId(userId);
       const targetName = displayName?.trim() || targetDiscordId || 'Unknown';
 
       // Duplicate check: only apply when a discordId is set (null discordIds are allowed to coexist)
@@ -592,7 +600,7 @@ tournamentRouter.delete('/:guildId/tournaments/:id/register', requireAuth, async
     if (tournament.status !== 'REGISTRATION') return badRequest(res, 'You can only leave during registration');
 
     const participant = await prisma.tournamentParticipant.findFirst({
-      where: { tournamentId: id, discordId: userId },
+      where: { tournamentId: id, discordId: await sessionDiscordId(userId) },
     });
     if (!participant) return badRequest(res, 'You are not registered for this tournament');
 

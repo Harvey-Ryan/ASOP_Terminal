@@ -7,6 +7,7 @@ import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
 import { getCraftingPayload } from './lib/craftingData.js';
 import { linkInventoryOnStartup } from './lib/catalog.js';
+import { repairTournamentSignups } from './lib/tournamentRepair.js';
 import { prisma } from './lib/prisma.js';
 import { apiHeartbeat, captureApiConsole, flushErrors, pruneOldErrors } from './lib/errorLog.js';
 
@@ -91,6 +92,16 @@ app.listen(PORT, async () => {
 
   // Link saved inventory entries to game items (sc-data); logs what couldn't be linked.
   void linkInventoryOnStartup();
+
+  // Website tournament sign-ups before v1.59.1 were stored under User.id: move them to the Discord id.
+  void repairTournamentSignups()
+    .then((r) => {
+      if (r.participants + r.creators + r.ratings + r.standings > 0)
+        console.log(
+          `[tournaments] Repaired ${r.participants} sign-up(s), ${r.creators} creator(s), ${r.ratings} rating(s), ${r.standings} standing(s)`,
+        );
+    })
+    .catch((err) => console.error('[tournaments] Sign-up repair failed:', err));
 
   // Build the Blueprints / Crafting Calculator data now, so the first visitor doesn't wait (v1.11.2).
   void getCraftingPayload().catch((err) =>
