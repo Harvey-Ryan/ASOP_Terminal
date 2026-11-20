@@ -760,8 +760,22 @@ Patch Notes — v1.1.0 — November 10
   flow and integrity come from the pod's description: the files'
   `ResourceContainer` size disagrees with it for every pod. Address:
   `?sv0_1=<scraper>`, `?sf0=<pod>` (`cv`/`cf` when compared).
-- Next: tractor beams, UEX prices and refinery yields. Power pips are on
-  hold.
+- Refinery calculator (v1.58.0): Mining → Refinery (`?view=refinery`,
+  `pages/tools/RefineryView.tsx`; shared bay pieces in `bay.tsx`). Rules in
+  `packages/shared/src/refinery.ts`: refined cSCU = ore cSCU × 0.85 ×
+  (1 + refinery bonus %) × method yield (1 / 0.85 / 0.7), rounded
+  (`refinedCscu`; Regolith's formula, checked against UEX's reported work
+  orders in the tests). `REFINERY_METHODS` carries UEX's codes and CIG's
+  relative time/cost via Regolith (MIT). Fees and timers have no formula that
+  matches reports, so the page takes the terminal's quoted fee and never
+  estimates them. Data: public `GET /api/game-tools/refinery`
+  (`lib/refineryData.ts`: UEX `commodities` (raw ↔ refined by `id_parent`),
+  `refineries_yields`, `commodities_prices_all`, `commodities_raw_prices_all`,
+  `terminals`; joined by `buildRefineryData`, reports older than
+  `REFINERY_MAX_AGE_DAYS` dropped; refreshed every 30 min, last copy served
+  when UEX fails). The order is in the address (`o=<oreId>:<SCU>,…`, `r`,
+  `m`, `sell`, `fee`). Always say the bonuses and prices are player-reported.
+- Next: tractor beams. Power pips are on hold.
 
 ## AI assistant (v1.56.0)
 

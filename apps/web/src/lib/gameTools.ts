@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { gunFitsSlot, type ApiResponse, type MiningDataDto, type CombatGun, type GameToolsDataDto, type GameToolsShip, type GunSlot } from '@dem/shared';
+import { gunFitsSlot, type ApiResponse, type MiningDataDto, type RefineryDataDto, type CombatGun, type GameToolsDataDto, type GameToolsShip, type GunSlot } from '@dem/shared';
 import { api } from '../api/client';
 
 export function useGameTools() {
@@ -41,6 +41,17 @@ export function useMiningData() {
     queryFn: async () => (await api.get<ApiResponse<MiningDataDto>>(`/game-tools/mining?v=${encodeURIComponent(__APP_VERSION__)}`)).data!,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
+  });
+}
+
+/** Refinery calculator data (v1.58.0): UEX's player-reported refinery bonuses and prices, refreshed every 30 min. */
+export function useRefineryData(enabled = true) {
+  return useQuery({
+    queryKey: ['game-tools', 'refinery'],
+    queryFn: async () => (await api.get<ApiResponse<RefineryDataDto>>('/game-tools/refinery')).data!,
+    staleTime: 10 * 60_000,
+    gcTime: 60 * 60_000,
+    enabled,
   });
 }
 

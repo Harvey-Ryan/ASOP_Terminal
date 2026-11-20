@@ -15,12 +15,13 @@ import {
   buildOreSpots, miningLaserFromItem, miningModuleFromItem, miningGadgetFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL, MINING_GADGETS_SQL,
   type MiningDataDto, type MiningGadget, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
   GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
-  type ApiResponse, type CombatGun, type GameBuildDto, type GameToolsDataDto, type GameToolsShip, type MissileItem, type ShipComponent,
+  type ApiResponse, type CombatGun, type GameBuildDto, type GameToolsDataDto, type GameToolsShip, type MissileItem, type RefineryDataDto, type ShipComponent,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { listShips } from '../../lib/shipCatalog.js';
 import { hiddenModules } from '../../lib/hiddenModules.js';
 import { checkUpstreamNow } from '../../lib/gameDataCheck.js';
+import { refineryData } from '../../lib/refineryData.js';
 
 export const gameToolsRouter = Router();
 
@@ -308,6 +309,21 @@ gameToolsRouter.get('/game-tools/mining', async (req, res) => {
   } else {
     res.json({ success: true, data: b.data } satisfies ApiResponse<MiningDataDto>);
   }
+});
+
+// ── Refinery calculator (v1.58.0) ───────────────────────────────────────────
+// GET /api/game-tools/refinery: UEX's player-reported refinery yield bonuses
+// and raw/refined sell prices (lib/refineryData.ts, refreshed every 30 min).
+// Public, like the rest of Mining.
+
+gameToolsRouter.get('/game-tools/refinery', async (_req, res) => {
+  const data = await refineryData();
+  if (!data) {
+    res.status(503).json({ success: false, error: "UEX's refinery data can't be reached right now. Try again in a few minutes." } satisfies ApiResponse);
+    return;
+  }
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ success: true, data } satisfies ApiResponse<RefineryDataDto>);
 });
 
 // ── Build badge (v1.53.0) ────────────────────────────────────────────────────
