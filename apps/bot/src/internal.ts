@@ -545,8 +545,17 @@ export function startInternalServer() {
     res.writeHead(404).end();
   });
 
-  // Bind to 0.0.0.0 so Railway's private network can reach this from the API service
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[bot] Internal server listening on 0.0.0.0:${PORT}`);
+  // Only this container can call it unless BOT_INTERNAL_SECRET is set (v1.59.1).
+  // Railway's private network reaches 0.0.0.0, which a split bot service
+  // (RAILWAY.md) needs; it must then have the secret. ASOP runs the bot in the
+  // API's container, where 127.0.0.1 is enough.
+  const host = process.env['BOT_INTERNAL_HOST'] ?? (INTERNAL_SECRET ? '0.0.0.0' : '127.0.0.1');
+  if (host !== '127.0.0.1' && host !== 'localhost' && !INTERNAL_SECRET) {
+    console.warn(
+      `[bot] Internal server on ${host} without BOT_INTERNAL_SECRET: anyone who can reach it can trigger it`,
+    );
+  }
+  server.listen(PORT, host, () => {
+    console.log(`[bot] Internal server listening on ${host}:${PORT}`);
   });
 }

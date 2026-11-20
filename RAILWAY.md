@@ -76,9 +76,13 @@ https://<your-api-web-domain>/api/auth/callback
 ## 4. Bot service
 
 > **Note:** the main `Dockerfile` already starts the bot in the same container as
-> the API (`BOT_INTERNAL_URL=http://localhost:3002`), which is how ASOP runs today:
-> one service. A separate bot service from `apps/bot/Dockerfile` is only needed if
-> you split them; then the bot's variables below go on that service instead.
+> the API (`BOT_INTERNAL_URL=http://127.0.0.1:3002`), which is how ASOP runs today:
+> one service. Its start script (`scripts/start.mjs`) runs `prisma db push`
+> first, then the bot and the API, and stops the container if either one stops,
+> so Railway restarts both. A separate bot service from `apps/bot/Dockerfile` is
+> only needed if you split them; then the bot's variables below go on that
+> service instead, and `BOT_INTERNAL_SECRET` is required: without it the bot's
+> internal server only listens on 127.0.0.1 (`BOT_INTERNAL_HOST` overrides).
 
 ### 4a. Create the service
 

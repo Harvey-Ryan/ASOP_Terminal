@@ -96,6 +96,14 @@ app.listen(PORT, async () => {
     console.error('[crafting] Warm-up failed (built on first request instead):', err),
   );
 
+  // Email addresses (v1.59.1): ASOP no longer asks Discord for them; clear any stored before.
+  void prisma.user
+    .updateMany({ where: { email: { not: null } }, data: { email: null } })
+    .then((r) => {
+      if (r.count > 0) console.log(`[auth] Cleared ${r.count} stored email address(es)`);
+    })
+    .catch((err) => console.error('[auth] Clearing stored email addresses failed:', err));
+
   console.log(`[API] CORS origin: ${process.env.WEB_URL ?? 'http://localhost:5173'}`);
 
   // Admin panel (v1.13.0): "API is up" every minute, and old errors pruned daily (04:15 UTC).

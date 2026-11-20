@@ -30,12 +30,12 @@ RUN npx turbo run build --force --filter=@dem/api... --filter=@dem/web... --filt
 
 ENV NODE_ENV=production
 # Bot runs in the same container — no inter-service networking needed
-ENV BOT_INTERNAL_URL=http://localhost:3002
+ENV BOT_INTERNAL_URL=http://127.0.0.1:3002
 
 EXPOSE 3001
 
-# Start bot in background, then run API (with migration) in foreground.
-# Guard: refuse to start (and never touch the database) without the app's own
-# secrets. A Railway service pointed at this Dockerfile by mistake has none,
-# and `prisma db push --accept-data-loss` must not run from it.
-CMD ["sh", "-c", "if [ -z \"$DISCORD_TOKEN\" ] || [ -z \"$SESSION_SECRET\" ]; then echo '[startup] DISCORD_TOKEN or SESSION_SECRET is not set: refusing to start and leaving the database untouched. Is this service using the wrong Dockerfile?' >&2; exit 1; fi; node apps/bot/dist/index.js & cd apps/api && npx prisma db push --accept-data-loss && node dist/index.js"]
+# scripts/start.mjs: refuses to start (and never touches the database) without
+# the app's own secrets, runs `prisma db push`, then the bot and the API; if
+# either stops, the container exits so Railway restarts it.
+COPY scripts/start.mjs scripts/start.mjs
+CMD ["node", "scripts/start.mjs"]
