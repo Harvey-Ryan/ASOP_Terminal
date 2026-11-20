@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma.js';
 import { isPlatformAdminId } from '../../lib/platformAdmin.js';
 import { buildOAuthUrl, exchangeCode, fetchDiscordUser } from '../../lib/discord-oauth.js';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { encryptToken } from '../../lib/discordTokens.js';
 import { getGuildIconUrl, resolveAvatarUrl, canManageGuild, safeReturnPath } from '@dem/shared';
 import { getUserGuilds, GuildsUnavailableError } from '../../lib/userGuilds.js';
 import type { ApiResponse, DiscordUser, ManagedGuild, MeResponse } from '@dem/shared';
@@ -82,8 +83,8 @@ authRouter.get('/callback', async (req, res) => {
     await prisma.account.upsert({
       where: { provider_providerAccountId: { provider: 'discord', providerAccountId: discordUser.id } },
       update: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        accessToken: encryptToken(tokens.access_token, discordUser.id),
+        refreshToken: tokens.refresh_token ? encryptToken(tokens.refresh_token, discordUser.id) : null,
         expiresAt,
         tokenType: tokens.token_type,
         scope: tokens.scope,
@@ -92,8 +93,8 @@ authRouter.get('/callback', async (req, res) => {
         userId: user.id,
         provider: 'discord',
         providerAccountId: discordUser.id,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        accessToken: encryptToken(tokens.access_token, discordUser.id),
+        refreshToken: tokens.refresh_token ? encryptToken(tokens.refresh_token, discordUser.id) : null,
         expiresAt,
         tokenType: tokens.token_type,
         scope: tokens.scope,
