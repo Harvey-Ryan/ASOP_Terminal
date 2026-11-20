@@ -8,6 +8,7 @@
 // correctable stat has a subtle ✎ to submit one (pages/tools/corrections.tsx).
 // Since v1.54.0 it sits in the Crafting Calculator's "bay" frame (fabrication.css,
 // `.fab.gt`) like Crafting and Blueprints: the ore finder is list · ore · scanner.
+// The Refinery view (v1.58.0, RefineryView.tsx) is a work-order calculator on UEX's data.
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -19,10 +20,13 @@ import { fmt, useMiningData } from '../../lib/gameTools';
 import { ToolsDataState } from './ToolsLayout';
 import { GADGET_MOD_COLUMNS, LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell } from './miningBits';
 import { BuildBadge, CorrectionsProvider, DataViewToggle, Fix, useCorrections } from './corrections';
+import { Heading, Plate } from './bay';
+import { RefineryView } from './RefineryView';
 
-type View = 'ores' | 'signatures' | 'lasers' | 'modules' | 'gadgets';
+type View = 'ores' | 'refinery' | 'signatures' | 'lasers' | 'modules' | 'gadgets';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'ores', label: 'Ore finder' },
+  { id: 'refinery', label: 'Refinery' },
   { id: 'signatures', label: 'Rock signatures' },
   { id: 'lasers', label: 'Lasers' },
   { id: 'modules', label: 'Modules' },
@@ -90,11 +94,12 @@ export function MiningPage() {
         </nav>
         <div className="px-5 pt-6 sm:px-8">
           {view === 'ores' && <OreFinder spots={data.spots} ores={data.ores} signatures={data.signatures} ore={params.get('ore') ?? 'quantainium'} picked={params.has('ore')} setOre={(o) => set('ore', o)} place={params.get('at')} setPlace={(p) => set('at', p)} />}
+          {view === 'refinery' && <RefineryView get={(k) => params.get(k)} set={set} />}
           {view === 'signatures' && <Signatures signatures={data.signatures} spots={data.spots} place={params.get('at')} setPlace={(p) => set('at', p)} />}
           {view === 'lasers' && <Lasers lasers={data.lasers} />}
           {view === 'modules' && <Modules modules={data.modules} />}
           {view === 'gadgets' && <Gadgets gadgets={data.gadgets ?? []} />}
-          <p className="m-0 pt-5 text-xs text-[var(--fab-muted)]">From the game files{data.build ? <>, build <span className="fab-mono">{data.build}</span></> : null}, with members&rsquo; corrections where they found the files wrong (dotted underline; hover for who). Prices and refinery yields are coming.</p>
+          <p className="m-0 pt-5 text-xs text-[var(--fab-muted)]">From the game files{data.build ? <>, build <span className="fab-mono">{data.build}</span></> : null}, with members&rsquo; corrections where they found the files wrong (dotted underline; hover for who). Refinery bonuses and prices are player-reported on UEX.</p>
         </div>
       </div>
     </CorrectionsProvider>
@@ -131,16 +136,6 @@ function RockCrawlerStrip() {
   );
 }
 
-/** The bay's riveted plate. */
-function Plate({ label, className, children }: { label?: string; className?: string; children: ReactNode }) {
-  return (
-    <section aria-label={label} className={cn('fab-plate relative flex min-w-0 flex-col gap-4 px-5 pb-5 pt-6 sm:px-7', className)}>
-      {[{ top: 10, left: 10 }, { top: 10, right: 10 }, { bottom: 10, left: 10 }, { bottom: 10, right: 10 }].map((pos, i) => <span key={i} aria-hidden="true" className="fab-rivet" style={pos} />)}
-      {children}
-    </section>
-  );
-}
-
 /** The right-hand panel, as the calculator's build list. */
 function ScannerPanel({ children }: { children: ReactNode }) {
   return (
@@ -154,7 +149,6 @@ function ScannerPanel({ children }: { children: ReactNode }) {
   );
 }
 
-const Heading = ({ children }: { children: ReactNode }) => <h3 className="fab-stencil m-0 text-base text-[var(--fab-gold-text)]">{children}</h3>;
 
 // ── A sortable table ─────────────────────────────────────────────────────────
 
