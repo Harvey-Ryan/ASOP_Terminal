@@ -53,6 +53,17 @@ import { discordBusyAsServiceUnavailable } from '../lib/memberRoles.js';
 
 const PgSession = ConnectPgSimple(session);
 
+/**
+ * Rate-limit bucket: the signed-in person, so people behind one address don't
+ * share a bucket; anyone signed out by address. (Before v1.59.1 this was the
+ * session id, which express-session makes up afresh for every request without
+ * a cookie, so a script that dropped cookies was never limited.)
+ */
+export function rateLimitKey(req: express.Request): string {
+  const userId = req.session?.userId;
+  return userId ? `user:${userId}` : ipKeyGenerator(req.ip ?? '');
+}
+
 export function createServer(): express.Express {
   const app = express();
   const isProd = process.env.NODE_ENV === 'production';
@@ -144,18 +155,18 @@ export function createServer(): express.Express {
   if (isProd) {
     const rateLimitMessage = { success: false, error: 'Too many requests, please try again later' };
 
-    // Key by session ID when authenticated so each user gets their own bucket
-    // rather than sharing a bucket with everyone behind the same IP/proxy.
-    const keyGenerator = (req: express.Request) =>
-      (req.sessionID as string | undefined) ?? ipKeyGenerator(req.ip ?? '');
+    const keyGenerator = rateLimitKey;
 
-    // Stricter limit on auth routes (login/callback initiation)
+    // Stricter limit on signing in (login/callback), by address: nobody is
+    // signed in yet. /me and /logout fall under the general limit below.
     app.use(
-      '/api/auth',
+      ['/api/auth/login', '/api/auth/callback'],
       rateLimit({
         windowMs: 15 * 60 * 1000,
-        max: 20,
-        keyGenerator,
+        // A sign-in is two requests; players sharing an address (one house,
+        // mobile carriers) each need a few.
+        max: 40,
+        keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
         standardHeaders: true,
         legacyHeaders: false,
         message: rateLimitMessage,
@@ -209,6 +220,23 @@ export function createServer(): express.Express {
         windowMs: 15 * 60 * 1000,
         max: 2000,
         keyGenerator,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: rateLimitMessage,
+      }),
+    );
+
+    // Everything else under /api (v1.59.1: corrections, marketplace, fleet,
+    // Your data, /auth/me … had no limit at all). Routes with their own
+    // limiter above are left to it.
+    const ownLimiter = ['/auth/login', '/auth/callback', '/calendar', '/live', '/game-tools', '/guilds'];
+    app.use(
+      '/api',
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 1000,
+        keyGenerator,
+        skip: (req) => ownLimiter.some((p) => req.path === p || req.path.startsWith(`${p}/`)),
         standardHeaders: true,
         legacyHeaders: false,
         message: rateLimitMessage,
