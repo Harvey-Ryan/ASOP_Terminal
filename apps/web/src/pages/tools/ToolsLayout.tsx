@@ -85,9 +85,11 @@ export function ToolsLayout() {
                 <span className="font-bold tracking-[0.12em] gt-hi">ASOP</span>
                 <span className="gt-label gt-label-acc">Game Tools</span>
               </Link>
+              {/* Its own row below the header until everything fits on one line
+                  (about 1300px; v1.59.1: at laptop widths it was squeezed to a few tabs). */}
               <nav
                 aria-label="Game Tools"
-                className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0"
+                className="flex gap-x-5 overflow-x-auto order-last w-full min-[1320px]:order-none min-[1320px]:w-auto min-[1320px]:flex-1 min-w-0"
               >
                 {tabs.map((t) => (
                   <Link key={t.to} to={t.to} className="gt-tab" aria-current={t.on ? 'page' : undefined}>
@@ -105,7 +107,10 @@ export function ToolsLayout() {
                   Dashboard
                 </a>
               ) : (
-                <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">
+                <a
+                  href={authApi.loginUrl(location.pathname + location.search)}
+                  className="gt-btn gt-btn-primary whitespace-nowrap"
+                >
                   Sign in<span className="hidden sm:inline"> with Discord</span>
                 </a>
               )}
@@ -153,7 +158,7 @@ export function SignInForTool({ name, children }: { name: string; children: Reac
         <span className="gt-label gt-label-acc">{name}</span>
         <h1 className="m-0 text-3xl font-bold gt-hi">Sign in to use {name}</h1>
         <p className="m-0 gt-dim leading-relaxed">
-          {name} is part of ASOP Terminal. Sign in with your Discord account to open it. Ships and loadouts stay open to
+          {name} is part of ASOP Terminal. Sign in with your Discord account to open it. Ships and Mining stay open to
           everyone.
         </p>
         <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">

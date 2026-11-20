@@ -52,7 +52,10 @@ export function CorrectionsPage() {
           the name of who spotted it; switch to &ldquo;Game files&rdquo; at the top to see the files&rsquo; own numbers.
           When a game update brings the files in line, the fix retires by itself and keeps its credit.
         </p>
-        <p className="m-0 text-sm gt-dim">To send one, hover over a number on the Mining page and click ✎.</p>
+        <p className="m-0 text-sm gt-dim">
+          To send one, click the ✎ next to a number on the Mining page (it shows when you hover over the number, and
+          always on a phone).
+        </p>
         {!user && (
           <div>
             <a className="gt-btn gt-btn-primary" href={authApi.loginUrl('/tools/corrections')}>

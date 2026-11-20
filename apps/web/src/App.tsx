@@ -1,6 +1,7 @@
 import { Suspense, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ServerPage } from './pages/ServerPage';
 import { CraftingDataGate } from './components/CraftingDataGate';
@@ -489,8 +490,10 @@ export default function App() {
             <Route path="settings/notifications" element={<NotificationSettingsPage />} />
           </Route>
 
-          {/* Catch-all → dashboard (ProtectedRoute will redirect to /login if needed) */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* The bare domain → dashboard (ProtectedRoute sends signed-out people to /login) */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Anything else: say so (v1.59.1; it used to redirect silently to the dashboard / sign-in) */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

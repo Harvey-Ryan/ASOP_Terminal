@@ -74,7 +74,7 @@ export function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground">
-          Only servers where you have Manage Server permission will appear.
+          You&apos;ll see the servers with ASOP where you have Manage Server, or a role the server&apos;s admins let in.
         </p>
       </div>
     </div>
