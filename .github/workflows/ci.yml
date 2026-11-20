@@ -1,6 +1,8 @@
-# Checks every push and pull request: the shared package builds and its tests
-# pass, every app type-checks, the API's tests pass against a real Postgres, and
-# the website builds. A red check on a pull request means don't merge yet.
+# Checks every push and pull request: the code is formatted (Prettier), the
+# shared package builds and its tests pass, the scripts' tests pass (release
+# notes, section map and CODEOWNERS, schema safety), every app type-checks,
+# the API's tests pass against a real Postgres, and the website builds. A red
+# check on a pull request means don't merge yet.
 name: Checks
 
 on:
@@ -41,13 +43,16 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Formatting
+        run: npm run format:check
+
       - name: Build the shared package
         run: npm run build -w @dem/shared
 
       - name: Shared tests
         run: node --test packages/shared/test/*.test.mjs
 
-      - name: Release-notes tests
+      - name: Script tests (release notes, sections, schema safety)
         run: node --test scripts/test/*.test.mjs
 
       - name: Type-check every app
