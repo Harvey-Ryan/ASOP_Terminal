@@ -66,7 +66,7 @@ authRouter.get('/callback', async (req, res) => {
         discriminator: discordUser.discriminator,
         globalName: discordUser.global_name,
         avatar: discordUser.avatar,
-        email: discordUser.email ?? null,
+        email: null, // not asked for since v1.59.1
       },
       create: {
         discordId: discordUser.id,
@@ -74,7 +74,7 @@ authRouter.get('/callback', async (req, res) => {
         discriminator: discordUser.discriminator,
         globalName: discordUser.global_name,
         avatar: discordUser.avatar,
-        email: discordUser.email ?? null,
+        email: null, // not asked for since v1.59.1
       },
     });
 
@@ -214,7 +214,6 @@ authRouter.get('/me', requireAuth, async (req, res) => {
       globalName: dbUser.globalName,
       avatar: dbUser.avatar,
       avatarUrl: resolveAvatarUrl(dbUser.discordId, dbUser.discriminator, dbUser.avatar),
-      email: dbUser.email ?? undefined,
     };
 
     res.json({

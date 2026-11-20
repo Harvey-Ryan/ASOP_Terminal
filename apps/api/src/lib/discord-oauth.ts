@@ -38,7 +38,8 @@ export function buildOAuthUrl(state: string): string {
     client_id: process.env.DISCORD_CLIENT_ID ?? '',
     redirect_uri: process.env.DISCORD_REDIRECT_URI ?? '',
     response_type: 'code',
-    scope: 'identify guilds email',
+    // No email (v1.59.1): ASOP never used it.
+    scope: 'identify guilds',
     prompt: 'none',
     state,
   });
