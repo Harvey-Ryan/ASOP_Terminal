@@ -33,6 +33,7 @@ import * as helpCommand from './commands/help.js';
 import * as marketplaceCommand from './commands/marketplace.js';
 import { registerCommands } from './services/commandService.js';
 import { forgetAssistantKey, handleAssistantMessage, isForAssistant } from './services/assistantService.js';
+import { handleActionButton } from './services/assistantActions.js';
 import { joinRoster, setRosterRole, leaveRoster, notifyThreadJoin } from './services/rsvpService.js';
 import { clickWaitlist } from './services/waitlistService.js';
 import { clickJob } from './services/jobService.js';
@@ -262,6 +263,9 @@ client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction
       }
       return;
     }
+
+    // AI assistant: Confirm / Cancel on a prepared change (v1.57.0).
+    if (interaction.customId.startsWith('ai:')) { await handleActionButton(interaction); return; }
 
     const parts = interaction.customId.split(':');
     const [prefix, entityId, value] = parts as [string, string, string];

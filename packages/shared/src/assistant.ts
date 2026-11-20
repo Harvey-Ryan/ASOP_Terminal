@@ -1,3 +1,5 @@
+import { localParts, zonedTimeToUtc } from './recurrence.js';
+
 // AI assistant (v1.56.0): members tag ASOP Terminal in Discord with a plain
 // question; the server's own AI model (their key, their provider) answers it
 // with ASOP's lookups. The rules here are pure so the API, the bot and the
@@ -293,11 +295,17 @@ export interface AssistantToolSpec {
   topic: 'events' | 'dkp' | 'fleet' | 'game' | 'always';
   /** Depends on who is asking, so its answers are never cached. */
   personal?: boolean;
+  /**
+   * Changes something (v1.57.0). Never done by the model: the bot prepares it,
+   * shows what will happen, and does it only when the person who asked presses
+   * Confirm. 'self' = their own sign-up; 'officer' = needs event-creator rights.
+   */
+  action?: 'self' | 'officer';
 }
 
 const noArgs: ToolSchema = { type: 'object', properties: {} };
 
-/** Lookups only (v1.56.0). Each returns plain facts, with a link where there is a page. */
+/** Lookups (v1.56.0) return plain facts, with a link where there is a page; changes (v1.57.0) are prepared for the asker to confirm. */
 export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
   {
     name: 'upcoming_events', topic: 'events',
@@ -342,6 +350,53 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
     description: 'Missions that can reward a crafting blueprint, and what the blueprint needs.',
     parameters: { type: 'object', properties: { blueprint: { type: 'string', description: 'Blueprint or item name.' } }, required: ['blueprint'] },
   },
+  // ── Changes (v1.57.0): prepared here, done only when the asker presses Confirm ──
+  {
+    name: 'sign_up', topic: 'events', personal: true, action: 'self',
+    description: 'Prepare signing the asking member up for an event: for a role, without a role, or as maybe. A full role puts them on its waitlist. Only prepares it; they confirm with a button.',
+    parameters: { type: 'object', properties: {
+      event: { type: 'string', description: 'Part of the event name.' },
+      role: { type: 'string', description: 'Optional: the role name, e.g. "Pilot". Leave out for no role.' },
+      maybe: { type: 'boolean', description: 'Optional: true for "maybe".' },
+    }, required: ['event'] },
+  },
+  {
+    name: 'leave_event', topic: 'events', personal: true, action: 'self',
+    description: 'Prepare taking the asking member off an event roster (and any waitlist). Only prepares it; they confirm with a button.',
+    parameters: { type: 'object', properties: { event: { type: 'string', description: 'Part of the event name.' } }, required: ['event'] },
+  },
+  {
+    name: 'create_event', topic: 'events', personal: true, action: 'officer',
+    description: "Officers: prepare a new event from one of the server's event templates. Only prepares it; they confirm with a button.",
+    parameters: { type: 'object', properties: {
+      template: { type: 'string', description: 'Template name.' },
+      start: { type: 'string', description: 'Start in the asker\'s local time, "YYYY-MM-DDTHH:mm".' },
+      name: { type: 'string', description: "Optional: the event's name (default: the template's)." },
+    }, required: ['template', 'start'] },
+  },
+  {
+    name: 'edit_event', topic: 'events', personal: true, action: 'officer',
+    description: "Officers: prepare changing an event's start time, name or description. Only prepares it; they confirm with a button.",
+    parameters: { type: 'object', properties: {
+      event: { type: 'string', description: 'Part of the current event name.' },
+      start: { type: 'string', description: 'Optional: new start in the asker\'s local time, "YYYY-MM-DDTHH:mm".' },
+      name: { type: 'string', description: 'Optional: new name.' },
+      description: { type: 'string', description: 'Optional: new description.' },
+    }, required: ['event'] },
+  },
+  {
+    name: 'cancel_event', topic: 'events', personal: true, action: 'officer',
+    description: 'Officers: prepare cancelling an upcoming event (a repeating one also stops repeating). Only prepares it; they confirm with a button.',
+    parameters: { type: 'object', properties: { event: { type: 'string', description: 'Part of the event name.' } }, required: ['event'] },
+  },
+  {
+    name: 'share_event', topic: 'events', personal: true, action: 'officer',
+    description: "Officers: prepare sharing one of this server's events with an allied server. Only prepares it; they confirm with a button.",
+    parameters: { type: 'object', properties: {
+      event: { type: 'string', description: 'Part of the event name.' },
+      ally: { type: 'string', description: "The ally's name or tag." },
+    }, required: ['event', 'ally'] },
+  },
   {
     name: 'flag_question', topic: 'always',
     description: 'Call this instead of answering when the question is abusive, hateful, sexual, harassing, or asks for help to cause harm. Do not call it for ordinary game questions about combat or piracy.',
@@ -350,7 +405,7 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
 ];
 
 const TOPIC_WORDS: Record<'events' | 'dkp' | 'fleet' | 'game', RegExp> = {
-  events: /\b(event|events|op|ops|operation|briefing|brief|sign(ed)?[\s-]?up|signups|roster|rsvp|attend|going|tonight|tomorrow|weekend|next|when|schedule|scheduled|calendar|raid|mission brief)\b/i,
+  events: /\b(event|events|op|ops|operation|briefing|brief|sign(ed)?[\s-]?(me\s)?up|signups|roster|rsvp|attend|going|tonight|tomorrow|weekend|next|when|schedule|scheduled|reschedule|calendar|raid|mission brief|join|leave|drop|maybe|waitlist|cancel|create|template|move|rename|share|ally|allies)\b/i,
   dkp: /\b(dkp|points?|balance|wallet|credits?|bids?|auction)\b/i,
   fleet: /\b(fleet|who has|who owns|owns?|anyone (have|with)|ships?)\b/i,
   game: /\b(mine|mining|ore|ores|rock|quantanium|laranite|agricium|taranite|bexalite|gold|hadanite|blueprints?|craft|crafting|recipe|missions?|ship|ships|loadout|cargo|crew|scu|weapon|gun)\b/i,
@@ -359,18 +414,21 @@ const TOPIC_WORDS: Record<'events' | 'dkp' | 'fleet' | 'game', RegExp> = {
 /**
  * The tools for a question: those whose topic it mentions (plus flag_question),
  * or every tool when it mentions none. Fewer tools = fewer tokens per question.
- * `dkpLabel` is the server's own name for DKP ("Credits").
+ * `dkpLabel` is the server's own name for DKP ("Credits"); officer changes
+ * only for `officer` (they're checked again when run).
  */
-export function pickTools(question: string, dkpLabel = 'DKP'): AssistantToolSpec[] {
+export function pickTools(question: string, dkpLabel = 'DKP', opts: { officer?: boolean } = {}): AssistantToolSpec[] {
   const topics = new Set<string>();
   for (const [topic, re] of Object.entries(TOPIC_WORDS)) if (re.test(question)) topics.add(topic);
   if (dkpLabel && new RegExp(`\\b${dkpLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(question)) topics.add('dkp');
-  if (!topics.size) return [...ASSISTANT_TOOLS];
-  return ASSISTANT_TOOLS.filter((t) => t.topic === 'always' || topics.has(t.topic));
+  // Officer changes are only offered to people who can make them (fewer tokens for everyone else).
+  const usable = ASSISTANT_TOOLS.filter((t) => t.action !== 'officer' || opts.officer);
+  if (!topics.size) return usable;
+  return usable.filter((t) => t.topic === 'always' || topics.has(t.topic));
 }
 
 /** The instructions sent with every question: short on purpose. */
-export function assistantSystemPrompt(input: { serverName: string; answerChars: number; today: string; dkpLabel: string }): string {
+export function assistantSystemPrompt(input: { serverName: string; answerChars: number; today: string; dkpLabel: string; timeZone?: string; localNow?: string }): string {
   return [
     `You are ASOP Terminal, the assistant of the Star Citizen org Discord server "${input.serverName}".`,
     'Answer members using the tools; never invent events, people, numbers or game facts. If the tools have nothing, say "I couldn\'t find that."',
@@ -378,8 +436,11 @@ export function assistantSystemPrompt(input: { serverName: string; answerChars: 
     `Reply in plain Discord text under ${input.answerChars} characters. Include the link a tool gives when there is one.`,
     'Copy times exactly as tools give them (<t:…> timestamps show in each reader\'s own time).',
     `"${input.dkpLabel}" is this server's name for DKP.`,
-    'You can only look things up; you cannot sign people up or change anything yet. Say so if asked.',
-    `Today is ${input.today} (UTC).`,
+    'Changes (sign-ups, creating, editing, cancelling or sharing events) are only prepared by their tools: the member must press Confirm under your reply. Never say a change is done; say what will happen when they confirm. One change per question.',
+    'You cannot hand out loot, change DKP, roles or server settings.',
+    input.timeZone && input.localNow
+      ? `The member's time zone is ${input.timeZone}; it is now ${input.localNow} there. Give times for tools in that local time.`
+      : `Today is ${input.today} (UTC).`,
   ].join('\n');
 }
 
@@ -581,6 +642,36 @@ export const KEY_TEST_REQUEST: ModelRequest = {
   tools: [{ name: 'noop', description: 'Does nothing.', parameters: { type: 'object', properties: { note: { type: 'string', description: 'Ignored.' } } } }],
   maxTokens: 32,
 };
+
+// ── Times for changes (v1.57.0) ──────────────────────────────────────────────
+
+/**
+ * "2026-11-21T20:00" (or with a space, seconds ignored) in a time zone → the
+ * moment, or null when it isn't a real date and time there.
+ */
+export function parseLocalDateTime(value: unknown, timeZone: string): Date | null {
+  if (typeof value !== 'string') return null;
+  const m = /^\s*(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2})?\s*$/.exec(value);
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number) as [number, number, number, number, number];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+  const at = zonedTimeToUtc(y, mo, d, h, mi, timeZone);
+  if (isNaN(at.getTime())) return null;
+  // February 30th and the like roll into the next month: refuse them.
+  const back = localParts(at, timeZone);
+  return back.year === y && back.month === mo && back.day === d ? at : null;
+}
+
+/** "2026-11-19 16:45 (Thursday)" in a time zone, for the system prompt. */
+export function localNowText(now: Date, timeZone: string): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'long', hourCycle: 'h23',
+  }).formatToParts(now).map((p) => [p.type, p.value]));
+  return `${parts['year']}-${parts['month']}-${parts['day']} ${parts['hour']}:${parts['minute']} (${parts['weekday']})`;
+}
+
+/** How long a prepared change waits for Confirm. */
+export const ACTION_CONFIRM_MS = 15 * 60_000;
 
 /** The most model calls one question may make (each tool round is one). */
 export const MAX_MODEL_ROUNDS = 4;
