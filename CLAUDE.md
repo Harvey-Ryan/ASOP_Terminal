@@ -8,24 +8,69 @@ whole app (web, API, bot, workers).
 - **Source of truth:** `"version"` in the root `package.json`. The API serves
   it at `/api/health`, the web footer shows it, and the bot's status embed
   shows it with the commit and when it was first deployed.
-- **A release is a merge to `master`** (Railway deploys it). Bump the version
-  in the same PR, based on everything in it since the last release:
+- **Only the maintainer changes the version** (it's a core file; see
+  "Contributions and sections"). Bump it with
+  `npm run version:bump -- <patch|minor|major>` (root `package.json` and
+  `package-lock.json` together), based on everything merged since the last
+  release:
   - `PATCH` (1.1.0 → 1.1.1): only fixes to existing behaviour.
   - `MINOR` (1.1.1 → 1.2.0): any new feature, command, setting or page.
   - `MAJOR` (1.2.0 → 2.0.0): big overhauls, or anything that needs server
     admins to do something (re-invite the bot, reconfigure channels…).
-  - Internal-only PRs (`Patch notes: none` throughout) don't bump.
+  - Internal-only changes (`Patch notes: none` throughout) don't bump.
+- **Where the bump goes:** in the maintainer's own feature PR, as before; for
+  contributors' PRs, in the next release PR (or the maintainer's next PR)
+  after merging them. Every merge to `master` deploys (Railway), so merged
+  contributor work runs under the previous version number until that bump;
+  its patch notes are collected into the next release automatically.
+  Contributors never edit `package.json`, `package-lock.json` or this file.
 - **Tags and Releases are automatic** (after v1.55.0): `.github/workflows/release.yml`
   runs `scripts/release.mjs` on every push to `master`. Each version from
   v1.28.1 on that lacks its tag or its GitHub Release gets both: the tag on
-  the merge commit where the version first appeared, the Release titled
-  "Patch Notes — vX.Y.Z — <date>" with the commits' patch notes collected by
-  the batching rules below (`scripts/releaseNotes.mjs`, tested in
-  `scripts/test/`). Commits with no block are listed for checking. Don't tag
-  by hand; `node scripts/release.mjs --dry-run` shows what it would do, and
+  the commit where the version first appeared, the Release titled
+  "Patch Notes — vX.Y.Z — <date>" with the patch notes of every commit since
+  the version before, collected by the batching rules below
+  (`scripts/releaseNotes.mjs`, tested in `scripts/test/`). Commits with no
+  block are listed for checking. Don't tag by hand;
+  `node scripts/release.mjs --dry-run` shows what it would do, and
   re-running the workflow from the Actions tab finishes a partial run.
 - History: v1.0.0 = PR #15 (loot fixes, draft queue), the first versioned
   release. Everything before it is unversioned.
+
+## Contributions and sections
+
+The repo is open to contributors; the rules for them are in `CONTRIBUTING.md`
+and are checked on every pull request to `master` (`.github/workflows/guardrails.yml`).
+
+- **Sections:** `scripts/sections.config.mjs` maps every file to one of the
+  feature sections (loot, events, game-tools, …), to **core** (maintainer
+  only: root files, `.github/`, `scripts/`, `package.json`s, `prisma/`, app
+  infrastructure, sign-in and permission checks) or to **wiring** (shared
+  registration files such as `App.tsx`, `server/app.ts`, the bot's `index.ts`,
+  `shared/src/index.ts`, `myData.ts`, where a feature may change a few
+  lines). `node scripts/sections.mjs report` lists where everything goes;
+  `which <file>` checks one file.
+- **Scope check** (`Guardrails / Scope`): one section per PR, no core files,
+  wiring within its allowance, at most 30 files. The maintainer's
+  `scope-override` label accepts a PR that has to do more (most of the
+  maintainer's own feature work, schema changes, refactors).
+- **Schema safety** (`Guardrails / Schema safety`): diffs `schema.prisma`
+  with `prisma migrate diff` and fails on anything that drops or retypes data
+  or would fail on a table with rows, until the `schema-reviewed` label is
+  added. Production runs `db push --accept-data-loss` (see Railway), so that
+  label means "the data has been moved first".
+- **A new file** gets its section from its name (keywords) or folder; a file
+  no rule claims is core. Name new files after their feature, and add new
+  areas to `sections.config.mjs`.
+- **CODEOWNERS** is generated from the same map: after changing
+  `sections.config.mjs`, run `node scripts/sections.mjs codeowners` (CI
+  fails if it's stale). Add a section's reviewers in its `owners`.
+- **Feature notes** live in `docs/features/<section>/` (imported below), so a
+  feature PR documents itself without touching this file. Keep this file for
+  rules that apply across sections.
+- **Formatting:** Prettier (`.prettierrc.json`, width 120). `npm run format`
+  formats, `npm run format:check` is part of CI. The one-time formatting
+  commit is listed in `.git-blame-ignore-revs`.
 
 ## Patch notes in every commit
 
@@ -60,6 +105,10 @@ Rules:
 - Internal-only changes (refactors, tests, CI, deps, docs) get
   `Patch notes: none` on its own line.
 - No secrets, internal URLs, guild IDs or user names in patch notes.
+- Contributors put the block in the pull request description (the template
+  asks for it). Merge their PRs with **Squash and merge**: the squash commit
+  message is the PR title and description, so the block lands in `master`'s
+  history where the release script finds it.
 
 ## Batching patch notes (only when asked)
 
@@ -112,10 +161,12 @@ Patch Notes — v1.1.0 — November 10
 
 ## Checks
 
-- `.github/workflows/ci.yml` runs on every push and pull request: shared
-  build and tests, `lint` (type-check) of api, bot, web and sc-data, the API
-  tests against Postgres, and the website build. Wait for it to pass before
-  merging a pull request.
+- `.github/workflows/ci.yml` runs on every push and pull request: formatting
+  (`npm run format:check`), shared build and tests, the scripts' tests,
+  `lint` (type-check) of api, bot, web and sc-data, the API tests against
+  Postgres, and the website build. Wait for it to pass before merging a pull
+  request. Pull requests also run the Guardrails (see "Contributions and
+  sections").
 - The API tests build their database with `prisma db push` (like production),
   not the migrations folder, which stopped being updated at v1.21.0.
 
@@ -133,43 +184,6 @@ Patch Notes — v1.1.0 — November 10
 - Because `db push` runs before any app code, data has to be moved out of a
   table one release before the release that removes its model (the old
   alliances: converted at start-up, then dropped in a later release).
-
-## Star Citizen game data (`apps/sc-data`)
-
-- Our copy of StarCitizenWiki/scunpacked-data lives in Postgres schemas
-  `scdata` (clean tables; use these in the app) and `scdata_raw` (every
-  upstream file + sync history). Details: `apps/sc-data/README.md`.
-- These schemas are owned by the sc-data worker's own migrations, not Prisma.
-  The API starts with `prisma db push --accept-data-loss`, which drops anything
-  Prisma manages but doesn't see in `schema.prisma`. So:
-  - read them with `prisma.$queryRaw` (or a small typed helper), or
-  - if they're ever added to Prisma (`multiSchema`), list only `scdata`, model
-    every table exactly as it exists, and never add `scdata_raw`.
-- Filter `items.is_placeholder = false` for anything players see.
-- The API can't start the worker (it's a Railway cron job). "Check now"
-  (v1.38.0, `POST /api/game-data/check`, `lib/gameDataCheck.ts`) asks GitHub
-  for the head commit and compares it with `scdata_raw.state`, downloading and
-  writing nothing; a moved head is synced by the next scheduled run anyway.
-  "Full re-sync" queues a forced run (`sync_request`); `DELETE
-  /api/game-data/sync` cancels it before it starts.
-- The older `Sc*` Prisma tables (a copy of scunpacked in `public`) were
-  removed from `schema.prisma` after v1.11.2, so `db push` dropped them. Don't
-  bring them back; read `scdata`.
-- Everything that shows game data reads `scdata` (v1.11.2): the bot's
-  `/blueprint`, `/item` and `/material`, the SC Database page, and the
-  Blueprints and Crafting Calculator pages (via `GET /api/game-data/crafting`,
-  built by `packages/shared/src/crafting.ts`). The frozen JSON snapshot
-  (`packages/shared/src/Filtered Data/`) is gone; don't bring it back.
-
-## Role waitlists (v1.14.0)
-
-- A full role gets a waitlist (`EventWaitlist`, one line per person per event,
-  line order = id). People waiting stay on the roster with their current role.
-- Rules are in `packages/shared/src/roster.ts` (`planWaitlistMoves`). Every
-  roster change runs `fillFromWaitlist` inside the transaction that holds the
-  event row (`lockEvent`): API `lib/waitlist.ts`, bot
-  `services/waitlistService.ts` (keep the two in step). The bot DMs whoever
-  moved in; the API asks it to with `/trigger/waitlist-moved/:eventId`.
 
 ## Setup checklist (v1.15.0)
 
@@ -196,85 +210,6 @@ Patch Notes — v1.1.0 — November 10
     button: `POST /api/guilds/:guildId/setup/create/:key` makes the channel
     with the bot token (`discordPost`, never retried) and saves it through
     `applySettingsPatch`.
-
-## Uploaded images (v1.40.0)
-
-- One folder per server under `UPLOADS_DIR` (`ServerImage` rows), served
-  publicly at `/uploads/<guild>/<file>`. Everything about them is in
-  `apps/api/src/lib/uploads.ts`:
-  - `optimiseUpload` re-encodes every upload with sharp: turned upright, fit
-    inside 2560 px, WebP (animations kept), metadata dropped. SVGs are turned
-    into pictures, so nothing we serve can run script. Unreadable files are
-    refused and nothing is kept.
-  - Each server's cap is `UPLOADS_SERVER_CAP_MB` (default 200), measured from
-    the files on disk (`guildUsage`); `GET /:guildId/images/usage` feeds the
-    "X of Y used" bar (`components/ImageUsage.tsx`).
-  - `storageReport()` (1-minute cache, cleared by uploads and deletes) is
-    Admin → Overview → Image storage (`GET /api/admin/storage`).
-- Images uploaded before v1.40.0 were stored as sent and aren't converted.
-
-## Calendar feed (v1.16.0)
-
-- Each person's events (the ones they're on the roster for, from 30 days ago
-  on, not cancelled) are an iCalendar feed at `/api/calendar/<token>.ics`
-  (`routes/calendar.ts`, built by `packages/shared/src/ics.ts`). Calendar apps
-  fetch it without signing in, so `User.calendarToken` is the key: keep it out
-  of logs (the request log masks it) and let people reset it (Notification
-  Settings).
-
-## Maybe sign-ups (v1.17.0)
-
-- `EventRsvp.tentative` = "Maybe": on the roster, always without a role, so a
-  maybe never takes a slot. Picking a role or Unassigned (or joining a
-  waitlist) makes it a yes; saying maybe leaves any waitlist. Maybes get the
-  reminder DM (worded for them) and show as tentative in the calendar feed.
-
-## Member history (v1.18.0)
-
-- `GET /api/guilds/:guildId/members` (officers who can create events) and
-  `/members/:userId` (them, or anyone for `me`): `routes/members.ts`, rules in
-  `packages/shared/src/memberHistory.ts`. Only the server's own events count.
-- `?from=&to=` (ISO moments, `parseHistoryRange` / `rangeWhere`) limit the list
-  and a member's history to a date range (v1.23.0): events by start time, loot,
-  DKP changes and tournaments by date; the DKP balance is always today's. The
-  website keeps the range in the URL (`DateRangeFilter.tsx`) in the viewer's
-  own days.
-- Attendance counts only where it was recorded: `confirmedAttendees` (the
-  check after an event), else `vcAttendees` if anyone was in voice. Events
-  with neither are "not recorded", never no-shows; maybes are never no-shows.
-
-## After-action notes (v1.19.0)
-
-- `Event.aarOutcome` (SUCCESS | PARTIAL | FAILED) and `aarNotes`, written by
-  the host's event creators once an event has ended (on the attendance check
-  or later: `PUT …/after-action`). Shown on the event and in the final
-  summary embed in Discord (`/trigger/after-action/:eventId` redoes it).
-- `EventComment`: one comment per person who attended (or signed up, where
-  attendance wasn't recorded: `canComment` in `memberHistory.ts`); officers
-  can remove any.
-
-## Joint ops: server tags (v1.20.0)
-
-- `EventRsvp.guildId` is the Discord server someone signed up from (website
-  viewing server, button's server, the Discord event they clicked Interested
-  on; null from a voice-channel join = treated as the host).
-- On an event shared with allies (`EventAllianceGuild` rows in the bot,
-  accepted `EventGuildShare` in the API), rosters tag everyone with their
-  server (`serverLabel`: ally tag, else name) and show a headcount per server
-  (`serverHeadcount` / `serverTagOf` in `roster.ts`). Not shared = no tags.
-
-## Job board (v1.21.0)
-
-- `Job` / `JobCrew` (`routes/jobs.ts`, rules in `packages/shared/src/jobs.ts`):
-  any member posts; a job is seen by its server (SERVER), its allies too
-  (ALLIES) or every ASOP server (GLOBAL); taking is checked with the job row
-  held so crews never overfill; the poster closes it (DONE/CANCELLED), the
-  home server's managers can take it down; open jobs expire after 7 days
-  (bot `expireJobs`).
-- The bot posts jobs in `GuildSettings.jobsChannelId` (optional) of the home
-  server and, for ALLIES/GLOBAL jobs, of its allies (never unrelated servers;
-  they see GLOBAL jobs on the website). `/trigger/job/:id` re-syncs the posts
-  (`Job.messages`) and, with `{ taken }`, DMs the poster.
 
 ## Module audit (v1.21.1)
 
@@ -305,43 +240,6 @@ Patch Notes — v1.1.0 — November 10
 - `GuildSettings.timezone` is only the fallback for repeating events without
   `recurTimezone` (made before v1.12); it isn't a setup step.
 
-## Loot results and the event thread (v1.22.0)
-
-- Every way a loot session completes goes through `completeLootSession()` in
-  `routes/loot.ts` (sets `LootSession.completedAt`, triggers `/trigger/loot`
-  and `/trigger/loot-complete`). Don't set `status: 'COMPLETED'` directly.
-- Event loot posts in the event's thread (and ally threads), which stay open
-  until every winner is marked delivered or 72 h after `completedAt`
-  (`closeLootThreadIfDone` / `checkLootThreadHolds` in the bot's
-  `lootService.ts`; `threadClosedAt` marks it done). Nothing else should
-  archive an event thread while that hold is running (see `checkAutoComplete`).
-- Standalone sessions post in `GuildSettings.lootChannelId`, which is
-  optional and not a setup step.
-- The end-of-event "Start Loot / No Loot" buttons (bot `event_loot_*`) follow
-  the website's event-creator rule via `canRunEventFromDiscord` (`roster.ts`,
-  v1.40.1): the event's creator, or in the host server the owner, Manage
-  Server / Administrator, or an event creator role. Don't use the old
-  `GuildMember.role` for permissions.
-
-## Activity heat maps (v1.24.0)
-
-- Activity (RoleCall, its heat maps included) exists only for the servers in
-  `ACTIVITY_SERVER_IDS` (default: Fleet 919), via `activityAvailable()` in
-  `apps/api/src/lib/activityAvailable.ts` (v1.25.0). Elsewhere
-  `my-permissions` says `activityEnabled: false, activityAvailable: false`, the
-  module is off in `assertModuleEnabled`, and the RoleCall proxy and the event
-  heat map answer 404 (settings included). The website hides the link and the
-  Module Settings tile, and asks RoleCall nothing until availability is known.
-
-- Week × hour grids (row 0 = Sunday) in the viewer's time zone (default: the
-  browser's). Server and member maps come from RoleCall (no unit: read them
-  relative to the busiest hour); the event map is ours:
-  `buildEventHeatmap` in `packages/shared/src/heatmap.ts`, with the
-  member-history rules (recorded attendance only, average per event, show-up
-  rate over sign-ups). `bestTimes` makes the "Busiest: …" lines.
-- `HeatMap.tsx` takes `describe` (words for a square, shown on hover or tap)
-  and `legend`; in ratio mode null = no events (grey), 0 = a real 0%.
-
 ## Your Discord servers (v1.25.1)
 
 - A person's server list (`GET /users/@me/guilds`, tightly rate-limited per
@@ -351,55 +249,6 @@ Patch Notes — v1.1.0 — November 10
   `assertGuildManager` (30 min, plus the session copy) both use it; never call
   `fetchDiscordGuilds` directly. If nothing is cached and Discord says wait,
   `assertGuildManager` marks the request so its 403 becomes a 503 "try again".
-
-## Crafting Calculator (v1.26.0)
-
-- One screen (`pages/CraftingCalculatorPage.tsx`, both routes): blueprints,
-  the selected blueprint (a quality slider per part), and the build list
-  (`lib/buildList.ts`, localStorage). Theme B "fabrication bay", scoped to
-  `.fab` in `pages/crafting/fabrication.css`; keep other pages on the
-  site's normal look.
-- One workbench (v1.54.0): Crafting, Blueprints and Mining share the bay
-  frame (hazard strip, lettered badge F/B/M, stencil title, count stamp) and
-  three columns: a list (search + filter) · the picked item on a riveted
-  plate · a working panel. The panel is the build list on Crafting and on
-  Blueprints (`BuildListPanel`, exported from `CraftingCalculatorPage.tsx`;
-  one shared list) and the scanner on Mining. Keep the three in step; Wikelo
-  and Ships keep their own looks.
-- Where materials are mined: `packages/shared/src/materialSources.ts`
-  (from `scdata.resource_locations`; main ore of each rock only), shipped in
-  the crafting data as `materialSources`. When the crafting payload's shape or contents
-  change, bump `DATA_VERSION` in `apps/api/src/lib/craftingData.ts` so
-  browsers drop their cached copy.
-- Place names (v1.26.1): mining places come from the location records, with
-  Lagrange points named in full by body (`groupedPlaceName`, never "+N");
-  mission places go through `cleanMissionLocations` in `crafting.ts` (rooms
-  and sentences dropped, "the clinic inside X" → X, one name per place).
-- The website knows its own version (`__APP_VERSION__`, from the root
-  `package.json` via Vite) and sends it with error reports, so errors from a
-  tab opened before a release can be told apart.
-
-
-## Blueprints page (v1.27.0)
-
-- `pages/BlueprintsPage.tsx` (`/blueprints` and `/blueprints/:blueprintUuid`):
-  the calculator's blueprint list (`pages/crafting/browser.tsx`), then every
-  mission that can give the picked blueprint (`pages/crafting/missions.tsx`,
-  also the calculator's mission "Details"). Same `.fab` look.
-- Mission rewards are only what the game files hold: `rewardItems` (scrip,
-  gear), reputation, `enemies` (CombatSummary), `shareable`, `onceOnly`.
-  aUEC payouts aren't in the files (the game sets them on accept): never
-  estimate them.
-- Difficulty words come from `difficultyWords()` in `crafting.ts`; title
-  placeholders the game fills in ("[Location]") show as "‹location›".
-- Blueprint search (`searchBlueprints`) matches every word in any order
-  across name, type, subtype and maker, ignoring quotes.
-- Quality curves (v1.28.1): most stats come in pieces (`ValueSegments`:
-  0–500 ×0.8→×1.0, then 501–1000 ×1.0→×1.2); `QualityRange`/`ModifierRange`
-  only describe the first piece. `adaptModifier()` keeps every piece and
-  spans the whole range; read a stat with `statAt()`. `linear_integer_additive`
-  curves (Power Pips) add whole numbers (`curve: 'additive'`); modifiers with
-  no range and no pieces are dropped.
 
 ## Modules hidden for every server (v1.28.0)
 
@@ -457,423 +306,50 @@ Patch Notes — v1.1.0 — November 10
 - Not covered: messages already posted in Discord, and RoleCall's activity
   data (a separate service).
 
-## Fleets (v1.32.0)
+## Feature notes
 
-- One fleet per person (`FleetOwner` by Discord id, `FleetShip` rows), shown
-  in every ASOP server they're in (members from `getGuildMemberList()`),
-  except servers in `hiddenGuildIds`; ships marked `available: false` never
-  show to officers. Website: `routes/fleet.ts` (`/api/me/fleet…`,
-  `/api/guilds/:guildId/fleet`, `/api/ships`), `pages/FleetPage.tsx`
-  (`/dashboard/servers/:guildId/fleet` and `/dashboard/fleet`). Bot: `/fleet
-  add | remove | mine | search` (`commands/fleet.ts`, `services/fleetService.ts`).
-- The ship list is the `Ship` table: RSI's Ship Matrix (images, role, crew),
-  refreshed at API start-up and daily by `refreshShipCatalog()`
-  (`lib/shipCatalog.ts`); with RSI unreachable and no list, the game files
-  (`scdata.ships`, no images) stand in. Ships RSI drops are `retired`, never
-  deleted. After each refresh, `rematchFleetShips()` moves unmatched or
-  game-file ships to RSI's entries.
-- Names → ships, imports (Hangar Export / hangar.link JSON, FleetViewer
-  layouts (`canvasItems` of type SHIP, v1.32.1), RSI hangar lists (Hangar
-  XPLOR style: `ship_name` → nickname when `isCustomShipName`, `ship_code`
-  tried when `name` doesn't match, v1.33.2), FleetYards-style JSON, plain text) and the check-in rule are in
-  `packages/shared/src/ships.ts` (`matchShip`, `parseFleetImport`,
-  `fleetCheckDue`). Unmatched imports are kept as `customName` for the owner
-  to fix; they don't count in a server's fleet.
-- Every change (or "Still correct") sets `checkedAt`. The bot DMs a
-  "Still flying these?" check-in at most every `FLEET_CHECK_DAYS`
-  (`checkFleetNudges`, posting loop, hourly); `FleetOwner.nudges` turns it
-  off (Notification Settings, or the DM's "Stop asking").
-- FleetYards linking is gone. The old per-server `FleetEntry` and
-  `FleetyardsLink` tables were converted in v1.32.0 and dropped in v1.35.1.
-- Fleets for one event (v1.33.0): `GET /api/guilds/:guildId/fleet?eventId=`
-  (the event must be the server's own or shared into it) and `/fleet search
-  … event:` count the people signed up, allies included, never maybes, minus
-  fleets hidden from the server each signed up from (`eventFleetPeople` in
-  `ships.ts`). The website keeps the choice in `?event=`. Deliberately not on
-  the event page or its Discord posts (fleets are too long there).
-- Ship images load from `media.robertsspaceindustries.com` (allowed in the
-  CSP `imgSrc`), credited on the page.
+One file per feature, by section (imported, so they load with this file).
 
+### Events
+- Role waitlists (v1.14.0): @docs/features/events/waitlists.md
+- Calendar feed (v1.16.0): @docs/features/events/calendar-feed.md
+- Maybe sign-ups (v1.17.0): @docs/features/events/maybe-sign-ups.md
+- After-action notes (v1.19.0): @docs/features/events/after-action.md
+- Mission briefings (v1.36.0): @docs/features/events/briefings.md
+- Event templates (v1.41.0): @docs/features/events/templates.md
 
-## Wikelo (v1.34.0)
+### Loot
+- Loot results and the event thread (v1.22.0): @docs/features/loot/loot-results.md
 
-- Wikelo's missions (scdata.contracts, mission giver "Wikelo"): reward and
-  turn-in list built by `packages/shared/src/wikelo.ts` (`buildWikeloMissions`;
-  turn-in keys are item uuids, SCU for resources). The API serves them at
-  `GET /api/wikelo` (`routes/wikelo.ts`, cached per sc-data commit, base-ship
-  pictures from the ship list); the bot's `/wikelo` reads the same
-  (`services/wikeloService.ts`).
-- A module like any other (`wikeloEnabled`): page `pages/WikeloPage.tsx` at
-  `/dashboard/servers/:guildId/wikelo[/:missionId]`, its own look scoped to
-  `.wk` (`pages/wikelo/wikelo.css`). The page's words are plain; Wikelo's own
-  text appears only as the mission's "Mission text".
-- Checklists: `WikeloProgress` (one row per person per mission, by Discord id),
-  `GET /api/me/wikelo`, `PUT /api/me/wikelo/:missionId { ticked, completed }`.
-  Private to the person, and never filter or reorder what anyone is shown
-  (the "Mine" tab is the only place they narrow the list). In "Your data"
-  export and delete.
+### Allies
+- Joint ops: server tags (v1.20.0): @docs/features/allies/joint-ops-tags.md
 
-## StarStrings (v1.35.0)
+### Members
+- Member history (v1.18.0): @docs/features/members/member-history.md
 
-- MrKraken's StarStrings (community text fixes for Star Citizen) republishes
-  its rolling `latest` release (the LIVE build) every patch. The bot reads it
-  from GitHub's public API at most every 30 min with the last ETag
-  (`services/starStringsService.ts`; optional `GITHUB_TOKEN` raises the
-  limit), parsing in `packages/shared/src/starStrings.ts`.
-- Servers choose `GuildSettings.starStringsChannelId` (Bot settings, optional;
-  in the setup checklist only when the bot can't use it). The posting loop
-  (`announceStarStrings`) posts each new build where
-  `starStringsPosted` isn't `"<channel>|<build key>"`, so a newly chosen
-  channel gets the current build (`/trigger/starstrings`). In an announcement
-  channel the post is also crossposted. `/starstrings` shows the current build.
-- We only link to their GitHub (download, release notes); never re-host the
-  files.
+### Job board
+- Job board (v1.21.0): @docs/features/jobs/job-board.md
 
-## Mission briefings (v1.36.0)
+### Fleets
+- Fleets (v1.32.0): @docs/features/fleet/fleets.md
 
-- One per event: `EventBriefing` (the whole briefing is one JSON document,
-  checked by `sanitizeBriefing` in `packages/shared/src/briefing.ts`; image
-  links must be our uploads or https, `safeImageUrl`). Routes in
-  `routes/briefings.ts`: the host's event creators edit, save, publish and
-  delete; anyone who can see the event in the host or an accepting ally, or is
-  on its roster, reads it once published. `GET /:guildId/briefings` lists the
-  server's past briefings to copy from.
-- Website: `pages/events/BriefingPage.tsx` at
-  `/dashboard/servers/:guildId/events/:eventId/briefing` (`?mode=edit`,
-  `?present=N`): read view, editor with slide preview, present mode (1280×720
-  slides scaled to the screen, arrow keys) and Print / PDF (`.brf-print`).
-  Slides use ASOP's charcoal and gold, scoped to `.brf-slide`
-  (`briefing.css`).
-- Ship sections (v1.36.1) hold only the ships the organisers picked
-  (`BriefingSection.ships`: a copy of name, crew, count and a note). Never
-  fill them in automatically, and don't load the fleet until the organiser
-  asks (`ShipChooser`: the signed-up fleets via
-  `GET /guilds/:guildId/fleet?eventId=`, or any ship from `/ships`). Readers
-  never load the fleet.
-- Roster sections (v1.37.0): up to 8 groups on one slide
-  (`BriefingSection.groups`), each with a title, an event role (`roleId`;
-  the view's `event.roles`, built by `briefingRoles`, lists each role's
-  sign-ups, never maybes), typed names, a note and a picture (an upload, or a
-  ship's RSI picture). `groupPeople` merges the two lists. Any section can
-  have a background picture (`bgUrl`, `bgOpacity`).
-- Image sections (v1.39.0) can have a second picture with its own text
-  (`imageUrl2`, `body2`): the slide shows picture | text, then text | picture
-  (`imageRows`). With one picture the old split layout stays.
-- Logos: `GuildSettings.logoUrl` (Bot Settings → Org Logo, picked from the
-  server's image library, `components/ServerImagePicker.tsx`); a briefing can
-  use its own, and shows accepting allies' logos on joint ops.
-- Discord: publishing sets `Event.briefingPublishedAt` / `briefingSummary`
-  (the objective), so the roster shows "📋 Briefing ready" and a Briefing link
-  button (`buildRoleButtons(…, briefing)`, opened as the server viewing the
-  roster), and `/trigger/briefing/:eventId` posts a notice in the host and ally
-  threads (`services/briefingService.ts`).
+### Activity
+- Activity heat maps (v1.24.0): @docs/features/activity/heat-maps.md
 
-## Event templates (v1.41.0)
+### Trading
+- UEX prices and routes (v1.42.0): @docs/features/trading/uex.md
 
-- `EventTemplate` rows come in two kinds (`curated`): Repeat's own (made
-  silently by Repeat, keyed on `sourceEventId`, refreshed from each event made
-  from them) and curated ones (made or edited on the Templates page, or with
-  "Save as template"), which nothing overwrites except someone editing them.
-  Deleting is soft (`isActive = false`).
-- Routes: `routes/eventTemplates.ts` (event creators, `assertEventCreator`),
-  rules in `lib/eventTemplates.ts`. Website: `pages/events/EventTemplatesPage.tsx`
-  (`/dashboard/servers/:guildId/templates`, and `…/templates/:id/briefing` for
-  a template's briefing, using `BriefingPage`'s `Editor` with the template
-  standing in for an event). "Use" opens the new-event form via `?newFrom=`.
-- `EventTemplate.briefing` (BriefingContent JSON) is copied into every event
-  made from the template as an unpublished draft (`applyTemplateToNewEvent`;
-  the bot's `copyTemplateBriefing` does the same for repeating events'
-  next occurrence). `Event.templateId` records the template. Roster groups
-  point at roles by id, so moving a briefing between a template and an event
-  goes through `remapBriefingRoles` (by id, then by name).
-- The event briefing editor's "Save to template" puts a briefing on a
-  template (`PUT …/event-templates/:id/briefing` with `fromEventId`).
+### Game Tools and game data
+- Star Citizen game data (`apps/sc-data`): @docs/features/game-tools/game-data.md
+- Crafting Calculator (v1.26.0): @docs/features/game-tools/crafting-calculator.md
+- Blueprints page (v1.27.0): @docs/features/game-tools/blueprints.md
+- Wikelo (v1.34.0): @docs/features/game-tools/wikelo.md
+- StarStrings (v1.35.0): @docs/features/game-tools/starstrings.md
+- Game Tools (v1.44.0, ship-first since v1.45.0, in the dashboard since v1.46.0): @docs/features/game-tools/game-tools.md
+- Community corrections (v1.53.0): @docs/features/game-tools/corrections.md
 
-## UEX prices and routes (v1.42.0)
+### AI assistant
+- AI assistant (v1.56.0): @docs/features/assistant/assistant.md
 
-- UEX Corp (uexcorp.space, API 2.0 at `api.uexcorp.uk/2.0`) is
-  community-reported prices and trade routes. Types and the pure rules
-  (best places to sell/buy, best routes, search, wording) are in
-  `packages/shared/src/uex.ts`; always say the data is player-reported
-  and how old it is (reports older than `UEX_MAX_AGE_DAYS` are left out).
-- The bot's client is `services/uexService.ts`: `UEX_KEY` (on the main ASOP
-  service: the bot runs in the API's container) as a
-  Bearer token, answers cached as long as UEX caches them (prices/routes
-  30 min, commodities 1 h, terminals 12 h, star systems 1 day), at most 100
-  requests a minute (UEX allows 120), and the last copy served when UEX is
-  busy or failing. Autocomplete only reads the cache (`peek…`); the lists are
-  warmed when the bot starts.
-- Commands: `/price <commodity> [system]` (raw ores use
-  `commodities_raw_prices`), `/route find [commodity] [from] [budget]`
-  (UEX's routes) and `/route best [scu] [budget] [system] [cross_system]`
-  (v1.43.0): every price at every terminal in one request
-  (`commodities_prices_all`), ranked by `uexBestRuns`: one run per
-  commodity, profit for the load = margin × the least of hold, stock for
-  sale, the buyer's demand and what the budget buys (margin per SCU without
-  a hold or budget); same system unless `cross_system`.
-- Earmarked, not built: mining/briefing data (refinery yields, ore prices,
-  routes for ops) and importing a player's UEX fleet with their own UEX
-  secret key (which would need storing encrypted and covering in Your data).
-
-## Game Tools (v1.44.0, ship-first since v1.45.0, in the dashboard since v1.46.0)
-
-- The tools (Ships, Crafting, Blueprints, Wikelo) live in two places, and
-  every page builds its links with `useToolsPaths()` (`lib/toolsPaths.ts`) so
-  people stay where they are:
-  - Inside a server's dashboard, under the sidebar's Tools group: Ships at
-    `/dashboard/servers/:guildId/ships[/:className]` (wrapped in
-    `DashboardToolsFrame`: theme menu, "Open on its own page"), and the
-    existing module pages for Crafting, Blueprints and Wikelo.
-  - The public site at `/tools` (`ToolsLayout`): Ships needs no sign-in;
-    `/tools/crafting`, `/tools/blueprints`, `/tools/wikelo` ask people to sign
-    in (`SignInForTool`; sign-in may return to `/tools…`, `safeReturnPath`).
-    Their tabs hide when a platform admin hid the module for every server
-    (`GET /api/game-tools/hidden`, public).
-- Ship pages (`apps/web/src/pages/tools/`, their own look scoped to `.gt` in
-  `tools.css`, maker-inspired themes in a menu, saved in the browser):
-  - Home: the ship picker (`ShipSearch`), recently viewed (this browser),
-    common ships and a sortable list of every ship (`ShipsHomePage`).
-  - One ship (`ShipPage`), Erkul-style since v1.47.0: a summary bar that
-    stays on screen (`SummaryBar`), cards grouped by system (`LoadoutCards`:
-    Armament with each gun's mount, Ordnance, Components), the ship's
-    Defense / Flight / Hull / Quantum panels (`ShipPanels`) and what it can
-    kill (`KillTable`). Clicking a card opens the swap window for that slot
-    (`SwapWindow.tsx`, wrapped per kind by `Swap` in `ShipLoadout.tsx`):
-    every stat as a sortable column (shift-click adds a second sort),
-    filters, search and "vs fitted". The loadout is in the address
-    (`?s0=<gun>`, `?sk0=<component>`, `?sm0=<missile>`). Compare
-    (`?vs=<className>`, its loadout `c0`/`ck0`/`cm0`) puts a second ship
-    beside it (narrow cards, `SummaryGrid`), with one kill table that has a
-    column per ship.
-  - Switching ships (v1.48.0): a `ShipSearch` bar at the top of the ship
-    page, and "Change ship" on each side when comparing (`switchShip`; the
-    compared ship and its loadout stay). Search results rank the exact name,
-    then names starting with what was typed, then shorter names.
-  - Old `/tools/loadout/:c` and `/tools/optimizer/:c` links open the ship page.
-    The Optimizer page is hidden until its scoring accounts for rate of fire,
-    projectile speed and ammo; `bestGunFits` stays in `combat.ts` with tests.
-  - No "Add ASOP to your server" pitch until we go public.
-- Data: `GET /api/game-tools/data` (`routes/gameTools.ts`), every flying ship
-  and ship gun from `scdata`, built once per sc-data commit, sent gzipped with
-  an ETag, rate-limited per IP. Building it (and the Mining data) takes
-  several seconds, so nobody waits on it (v1.51.1): `warmGameTools()` builds
-  both at start-up and after each ship-list refresh, and a moved sc-data
-  commit (checked at most once a minute) or a day-old copy is rebuilt in
-  the background while the old copy is served. Only a request before the
-  very first build waits. Skins with identical numbers are grouped
-  (`dedupeGuns`, `variants`) and stock guns point at the shown gun.
-- The maths is `packages/shared/src/combat.ts`, run in the browser:
-  `killTime` (shields absorb/resist per damage type, ballistic passes through,
-  armour multiplier, a pellet at or below the armour's deflection does no hull
-  damage, main body = the part named "body", else the biggest), `killVerdict`,
-  `bestGunFits`. Every page that shows a kill time states the assumptions
-  (every shot hits, no shield regen, the deflection reading still to be
-  confirmed in game). Comparisons are computed from numbers, never written by AI.
-- Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
-  RequiredTags against the gun's tags, and the gun's RequiredTags against the
-  PortTags of the port, its mounts and the ship. Use it for every "what fits".
-- Records players can't get are left out by `UNAVAILABLE_GUNS` / `isUnavailableGun`
-  (`combat.ts`, each with its reason; e.g. the untagged copy of the Nova's
-  Slayer Cannon). There's no reliable automatic rule: many real guns aren't
-  stock on any ship, so wait for shop data (UEX) before filtering on that.
-- Pilot guns only (turret guns are listed, not counted). Turret-only copies
-  of guns (class name ending `_Turret`, e.g. a second Attrition-4) never fit
-  pilot slots (`gunFitsSlot`). Gun extras for the swap window (family,
-  penetration, spread, power, EM, ammo/capacitor, HP) are on `CombatGun`.
-- Missiles (v1.47.0, `packages/shared/src/missiles.ts`): every missile
-  (grouped like guns) and each ship's racks (`missileRacks`). Racks stay as
-  the ship comes with them (rack names are reused across racks that hold
-  different missiles, so swapping racks would mislead); the missiles in a
-  rack swap for any missile of its size, and identical racks show as one
-  card and swap together. Countermeasures are counted from the launchers'
-  items (Flare = decoy, Chaff = noise). Ship panels: `flight` (speeds,
-  turn rates, 0→SCM/top, hydrogen), `hull` (every part's HP added up:
-  Erkul's "hull"), `armourHp`, `distortion`. Checked against Erkul's M80.
-- Mining tab (v1.49.0): `/tools/mining` and `/dashboard/servers/:id/mining`
-  (sidebar Tools → Mining), `pages/tools/MiningPage.tsx`, data from public
-  `GET /api/game-tools/mining` (built per game build, gzipped). Rules in
-  `packages/shared/src/mining.ts`: the ore finder lists only rocks where the
-  ore is the main ore (side ores are left out, as asked), with both quality
-  bands (small share at high quality, large share at low), the rock's spawn
-  chance, signature and cluster size; places are named by `resourcePlace`
-  (`materialSources.ts`). Scanner lookup: signature = one rock × cluster
-  size (`matchSignature`). Lasers leave out template/test copies and the
-  MPUV arm.
-- Mining in the bay (v1.54.0): `MiningPage` renders its own `.fab.gt`
-  frame (no `DashboardToolsFrame`; in the dashboard it carries the build
-  badge, the Corrected/Game files toggle and "Open on its own page").
-  `.fab.gt` in `fabrication.css` maps the `--gt-*` colours to the bay so the
-  sortable tables, the scanner and `<Fix>` keep working. Ore finder = ore
-  list (`OreList`) · ore plate · scanner panel (on a phone a picked `?ore=`
-  hides the list, "All ores" brings it back); the other views are plates
-  around their sortable tables.
-- RockCrawler download (v1.55.0): a strip under the Mining header links to
-  `releases/latest/download/RockCrawler-Setup.exe` in the public
-  Harvey-Ryan/ASOP_RockCrawler repo (its release workflow always uploads the
-  installer under that name), plus "How it works" and "What's new". Keep the
-  file name in step if that workflow changes.
-- Scanner accuracy (v1.52.0): each `RockSignature` carries `maxCluster` (the
-  biggest `Clustering.MaxSize` of that rock anywhere: ship ores 2–6 by
-  rarity, ROC/hand gems 21–25) and `places`. `matchSignature` never counts
-  more rocks than `maxCluster`, which leaves exactly one answer for every
-  ship-ore reading; rock types sharing a signature (ROC gems, hand gems) are
-  one `ScanHit`. With a place (`?at=` on the Mining page) rocks not found
-  there are dropped and the rest ranked by spawn chance. Salvage signatures
-  (`method: 'salvage'`) come from every provider's `Salvage_*` groups.
-  ASOP RockCrawler (the desktop overlay) reads `maxCluster` and `places`
-  from `/api/game-tools/mining` and must keep the same rule (its `core.py`).
-- Inert filter (v1.52.0): the game files have one `filterModifier` per laser
-  or module; scunpacked writes it twice (`AllChargeRates` and
-  `InertMaterials`, with opposite signs for lasers and modules). `filterFix`
-  turns the pair into one `InertMaterials` change (negative = less inert
-  collected). There is no all-charge-rates stat; don't bring it back.
-- Size 0 (ROC/hand) lasers and gadgets (`miningGadgetFromItem`,
-  `Mining_Gadget_*`, numbers from `MiningModule.Modifiers`, which can differ
-  from the item's description text) are on the Mining page (v1.52.0); ship
-  pages still only take size 1+ lasers. `OreSpot.groupChance` is the
-  group's `GroupProbability` (how often a place spawns that method's rocks). Modules are
-  `Mining_Modules_(Active|Passive)_…` (Deluge, Overrun and Clearcut have no
-  item type in the files: may not be sold). Lower resistance, instability,
-  inert, overcharge and shatter are good for the miner.
-- Mining loadouts on ship pages (v1.50.0): `shipMiningHeads` (`mining.ts`)
-  finds each laser mount of size 1+ (Mole crew turrets, Prospector/Golem
-  arm); a head is `locked` when a port between the ship's hardpoint and the
-  laser can't change (the Golem). Lasers needing a ship tag (`bespokeFor`,
-  the Pitman) fit only where they're stock (`laserFitsHead`). Lasers and
-  modules ride in the game-tools data (`miningLasers`, `miningModules`).
-  Address: `?sl0=<laser>`, `?sd0_1=<module>` (`cl`/`cd` when compared); no
-  ship comes with modules, so empty = stock. `miningHeadTotals` multiplies
-  laser power by module power and combines percent changes as
-  (1+a)(1+b)−1 with active modules on: still to be checked against
-  Regolith, and the page says so. "What this loadout can break" is a
-  placeholder until that check.
-- Salvage and refuelling (v1.51.0, `packages/shared/src/industry.ts`):
-  `shipSalvageHeads` lists each salvage head and its module slots (a slot
-  holding the ReadyGrip/typed `SalvageModifier_TractorBeam` is the tractor
-  slot, fixed; the rest take any scraper module, `salvageModuleFitsSlot`).
-  Heads aren't swapped (Baler and Salvation heads hold different numbers of
-  modules). Scraper figures are `SalvageModifier` (radius, speed,
-  efficiency); one scraper works at a time, so nothing is added up.
-  Fuel pods: `shipFuelPodSlots` (Starfarer, Starlite) and `fuelPodFromItem`,
-  one per pod (filled copies, AI/template pods and the Eriesium cargo pods
-  left out; a ship's filled copy points at the plain pod by name). Capacity,
-  flow and integrity come from the pod's description: the files'
-  `ResourceContainer` size disagrees with it for every pod. Address:
-  `?sv0_1=<scraper>`, `?sf0=<pod>` (`cv`/`cf` when compared).
-- Refinery calculator (v1.58.0): Mining → Refinery (`?view=refinery`,
-  `pages/tools/RefineryView.tsx`; shared bay pieces in `bay.tsx`). Rules in
-  `packages/shared/src/refinery.ts`: refined cSCU = ore cSCU × 0.85 ×
-  (1 + refinery bonus %) × method yield (1 / 0.85 / 0.7), rounded
-  (`refinedCscu`; Regolith's formula, checked against UEX's reported work
-  orders in the tests). `REFINERY_METHODS` carries UEX's codes and CIG's
-  relative time/cost via Regolith (MIT). Fees and timers have no formula that
-  matches reports, so the page takes the terminal's quoted fee and never
-  estimates them. Data: public `GET /api/game-tools/refinery`
-  (`lib/refineryData.ts`: UEX `commodities` (raw ↔ refined by `id_parent`),
-  `refineries_yields`, `commodities_prices_all`, `commodities_raw_prices_all`,
-  `terminals`; joined by `buildRefineryData`, reports older than
-  `REFINERY_MAX_AGE_DAYS` dropped; refreshed every 30 min, last copy served
-  when UEX fails). The order is in the address (`o=<oreId>:<SCU>,…`, `r`,
-  `m`, `sell`, `fee`). Always say the bonuses and prices are player-reported.
-- Next: tractor beams. Power pips are on hold.
-
-## AI assistant (v1.56.0)
-
-- Members tag the bot with a plain question; the server's own model answers
-  with ASOP's lookups. Plan and decisions: the "ASOP Terminal AI Assistant
-  Plan" doc. Rules, provider formats (OpenAI-style, Anthropic, Google) and the
-  tool list are in `packages/shared/src/assistant.ts` (`ASSISTANT_TOOLS`,
-  `pickTools`, `buildModelRequest`/`parseModelResponse`, `callModel`).
-- Settings (`AiAssistant`, one row per Discord server): `routes/assistant.ts`,
-  `lib/assistant.ts`, page `pages/settings/AssistantSettingsPage.tsx` at
-  `/dashboard/servers/:guildId/settings/assistant` (sidebar "AI Assistant").
-  Server admins only (`assertGuildManager`); servers outside `AI_SERVER_IDS`
-  (default Fleet 919, `*` = all) get 404 and no link.
-- Keys are write-only: checked with one tiny call (`KEY_TEST_REQUEST`), then
-  stored AES-256-GCM encrypted with `AI_KEY_SECRET` (env only), bound to the
-  server id (API `lib/aiKeys.ts`, bot `utils/aiKeys.ts`; keep them in step).
-  Never return a key, its cipher text, or put it in logs, errors, the admin
-  panel or exports; only `keyLast4`. Changing provider/address drops the key;
-  the bot leaving a server deletes it.
-- Bot: `services/assistantService.ts` (checks in order: rollout, global off,
-  switched on with key, channel, role, limits; then the model loop, at most
-  `MAX_MODEL_ROUNDS`/`MAX_TOOL_CALLS`), lookups in `services/assistantTools.ts`
-  (only what the asker could see in that server; Discord timestamps for
-  times; member-written text passed as quoted data). Only a typed mention
-  triggers it (a reply ping doesn't). Answers never ping (`allowedMentions`).
-- Stored about people: `AiUsage` (counts per person per server per UTC day),
-  `AiFlag` (questions the model flagged via `flag_question`; that server's
-  admins only, not platform admins; 90 days), `AiNoticeSeen` (privacy notice
-  shown once). All three are in Your data. Questions and answers aren't stored.
-- Admin → Modules has the emergency switch (`AdminConfig.aiDisabled`,
-  `PUT /api/admin/ai`, needs "TURN OFF AI" typed); each server keeps its own
-  setting and key.
-- Changes (v1.57.0): `sign_up`, `leave_event` (anyone) and `create_event`
-  (from a template), `edit_event`, `cancel_event`, `share_event` (event
-  creators: `isEventOfficer` = `canRunEventFromDiscord`; officer tools aren't
-  even offered to others). Specs have `action`; runners are
-  `ACTION_RUNNERS` in `services/assistantActions.ts`. A runner only checks
-  and *prepares* (`prepare()`: one per question, a bot-written preview,
-  kept `ACTION_CONFIRM_MS` in memory); the reply shows the preview with
-  Confirm/Cancel (`ai:ok:<id>` / `ai:no:<id>`), only the asker can press
-  them, and Confirm re-checks permission and runs the same code as the
-  buttons and website (`setRosterRole`, `clickWaitlist`, `leaveRoster`,
-  `setupDiscordForEvent`, `syncDiscordEvent`, `cancelEvent`,
-  `setupDiscordForShare` / `handleShareNotice`). Times the model gives are
-  the asker's local time (`parseLocalDateTime`; their member-map pin's zone,
-  else the server's) and previews show `<t:…>` timestamps. Cancelling works
-  for one-off events too (the website only cancels repeating ones). Loot,
-  DKP changes, roles and settings stay out (auction/loot start: next).
-  A new lookup goes into `ASSISTANT_TOOLS` (with its topic) and
-  `TOOL_RUNNERS`; a new change also gets `action` and an `ACTION_RUNNERS`
-  entry that only prepares.
-- The model guide on the settings page is general guidance only: no model
-  names, prices or recommendations.
-
-## Community corrections (v1.53.0)
-
-- Members fix numbers the game files get wrong; corrections never change
-  `scdata`. Rules and the lifecycle are in `packages/shared/src/corrections.ts`
-  (`CORRECTION_KINDS` = the only stats that can be corrected, with ranges;
-  `correctionActions` = who may do what; `recheckOnNewBuild`). Models:
-  `DataCorrection`, `CorrectionConfirmation`, `CorrectionEvent` (every
-  action, in order), `DataReviewer`. API: `routes/corrections.ts`, helpers in
-  `lib/corrections.ts`; reviewers in `routes/admin.ts` (`/api/admin/reviewers`).
-- Checks and balances: submit needs ASOP membership, an uploaded screenshot
-  (`/uploads/corrections/…`, re-encoded like every upload) and a note; the
-  game value is read by the server (`gameDataFor`), never sent by the
-  browser; `CONFIRMATIONS_NEEDED` (2) other members confirm; then a data
-  reviewer (or platform admin) who is neither the submitter nor a confirmer
-  approves (big changes, `isBigChange`, need `acknowledgeBigChange`). Reject,
-  dispute and revert need a reason. One applied correction per stat (approving
-  supersedes the old one). Daily limits per person. Each action holds the row
-  (`FOR UPDATE`). Ready / approved / disputed / reverted / re-check / retired
-  go to the admin Discord feed.
-- New game build: `recheckForBuild()` (run by `GET /api/corrections/live`)
-  retires a correction the files now agree with (credit kept) and sends one
-  whose game value moved to RECHECK (not shown until re-approved, which makes
-  the new game value the baseline).
-- Website: `pages/tools/corrections.tsx` — `<Fix>` wraps a correctable stat
-  (dotted underline + credit when corrected, a hover ✎ to submit),
-  `CorrectionsProvider`, `DataViewToggle` ("Corrected · Game files", kept in
-  the browser, default Corrected; `useDataView`) and `BuildBadge` (`GET
-  /api/game-tools/build`, amber when newer data is waiting upstream) in the
-  tools header. Pages apply corrections with `applyCorrections` before sorting
-  or matching. Queue: `/tools/corrections` (`CorrectionsPage.tsx`), with the
-  reviewer list for platform admins. Wired into Mining (lasers, modules,
-  gadgets, rock signatures); a new correctable stat goes into
-  `CORRECTION_KINDS` and `findGameRecord` (`lib/corrections.ts`).
-- Credit is the submitter's Discord display name unless they untick it.
-  Corrections are in Your data: export lists them; delete keeps the
-  corrections but drops who sent, confirmed or reviewed them.
-- Components (v1.46.0): shields, power plants, coolers, quantum drives and
-  radars (`packages/shared/src/components.ts`; `componentSlots` on each ship,
-  `components` in the data, `?sk0=` / `?ck0=` in the address). Base stats
-  only (= crafted quality 500). Only parts with a class and an A–D grade can
-  be swapped in; bespoke and placeholder parts show only where a ship comes
-  with them, and `Editable: false` slots are fixed. Rules checked against
-  Erkul: only the two strongest shields are up (every ship's shield pool is
-  2; `ACTIVE_SHIELDS`); quantum range = tank (mSCU) ÷ the drive's
-  `FuelRequirement10GM` × 100 (the ships file's own `Range` uses an older
-  formula); a power plant's output depends on pips, so there's no ship
-  "total power" figure.
+### Admin
+- Uploaded images (v1.40.0): @docs/features/admin/uploaded-images.md

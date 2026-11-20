@@ -1,0 +1,51 @@
+name: Idea or improvement
+description: Suggest a change to one part of ASOP.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One section per issue, please. If an idea touches several parts of ASOP, open one issue for each, or describe it and the maintainer will split it.
+  - type: dropdown
+    id: section
+    attributes:
+      label: Section
+      description: Which part of ASOP? (CONTRIBUTING.md, "Sections")
+      options:
+        - events
+        - loot
+        - allies
+        - members
+        - jobs
+        - fleet
+        - activity
+        - trading
+        - game-tools
+        - tournaments
+        - assistant
+        - admin
+        - not sure
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should change, for whom, and why.
+    validations:
+      required: true
+  - type: checkboxes
+    id: needs
+    attributes:
+      label: Does it need
+      description: These are maintainer-only, so they're planned before anyone starts.
+      options:
+        - label: A database change (new table or column)
+        - label: A new package / dependency
+        - label: A new Discord permission for the bot
+  - type: checkboxes
+    id: claim
+    attributes:
+      label: Working on it
+      options:
+        - label: I'd like to build this myself.

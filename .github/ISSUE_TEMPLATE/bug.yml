@@ -1,0 +1,50 @@
+name: Bug
+description: Something in ASOP doesn't work as it should.
+labels: [bug]
+body:
+  - type: dropdown
+    id: section
+    attributes:
+      label: Section
+      description: Which part of ASOP? (CONTRIBUTING.md, "Sections")
+      options:
+        - events
+        - loot
+        - allies
+        - members
+        - jobs
+        - fleet
+        - activity
+        - trading
+        - game-tools
+        - tournaments
+        - assistant
+        - admin
+        - not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      placeholder: On the fleet page, importing a FleetViewer layout skipped every ship with a custom name…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to see it
+      placeholder: |
+        1. Go to …
+        2. Click …
+  - type: input
+    id: ref
+    attributes:
+      label: Error ref
+      description: If ASOP showed "Ref XXXXXX", paste it here.
+  - type: checkboxes
+    id: claim
+    attributes:
+      label: Working on it
+      options:
+        - label: I'd like to fix this myself.

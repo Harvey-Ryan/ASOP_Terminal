@@ -23,29 +23,49 @@ export const SCHEMA_PATH = 'apps/api/prisma/schema.prisma';
 
 /**
  * What in a `prisma migrate diff --script` result can lose data or fail on a
- * non-empty table: Prisma's own "Warnings" block, plus the statements that
- * drop or retype things (in case a warning is ever missing).
+ * table that already has rows. Diffing two schema files (no database) gives
+ * no "Warnings" block, so the statements themselves are read; a Warnings
+ * block, when there is one, is reported too.
  * @returns {string[]} one line per finding, empty when the change is additive
  */
 export function findings(sql) {
   const out = [];
+  const add = (line) => { if (line && !out.includes(line)) out.push(line); };
   const text = String(sql).replace(/\r\n/g, '\n');
   for (const block of text.matchAll(/\/\*([\s\S]*?)\*\//g)) {
     if (!/Warnings:/.test(block[1])) continue;
     // Bullets may wrap onto the next line; join them back up.
-    const bullets = block[1].split(/\n\s*-\s+/).slice(1);
-    for (const b of bullets) out.push(b.replace(/\s+/g, ' ').trim());
+    for (const b of block[1].split(/\n\s*-\s+/).slice(1)) add(b.replace(/\s+/g, ' ').trim());
   }
-  const statements = [
-    [/DROP TABLE\s+("?[\w.]+"?)/gi, (m) => `Drops table ${m[1]}.`],
-    [/ALTER TABLE\s+("?[\w.]+"?)[^;]*?DROP COLUMN\s+("?\w+"?)/gi, (m) => `Drops column ${m[2]} from ${m[1]}.`],
-    [/ALTER TABLE\s+("?[\w.]+"?)[^;]*?ALTER COLUMN\s+("?\w+"?)\s+SET DATA TYPE/gi, (m) => `Changes the type of ${m[1]}.${m[2]}.`],
-    [/DROP TYPE\s+("?\w+"?)/gi, (m) => (/_old"?$/.test(m[1]) ? null : `Drops type ${m[1]}.`)],
-  ];
-  for (const [re, say] of statements) {
-    for (const m of text.matchAll(re)) {
-      const line = say(m);
-      if (line && !out.includes(line)) out.push(line);
+  const statements = text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*--.*$/gm, '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const created = new Set(statements.map((s) => /^CREATE TABLE\s+("[^"]+"|\S+)/i.exec(s)?.[1]).filter(Boolean));
+
+  for (const s of statements) {
+    let m;
+    if ((m = /^DROP TABLE\s+("[^"]+"|\S+)/i.exec(s))) add(`Drops table ${m[1]} and all its rows.`);
+    else if ((m = /^DROP TYPE\s+("[^"]+"|\S+)/i.exec(s))) {
+      if (!/_old"?$/.test(m[1])) add(`Drops type ${m[1]}.`);
+    } else if ((m = /^ALTER TYPE\s+("[^"]+"|\S+)\s+RENAME TO\s+("[^"]+"|\S+)/i.exec(s))) {
+      if (/_old"?$/.test(m[2])) add(`Rewrites enum ${m[1]} (values removed or renamed): fails if rows still use them.`);
+    } else if ((m = /^CREATE UNIQUE INDEX\s+("[^"]+"|\S+)\s+ON\s+("[^"]+"|[^\s(]+)/i.exec(s))) {
+      if (!created.has(m[2])) add(`Adds unique index ${m[1]} on ${m[2]}: fails if existing rows have duplicates.`);
+    } else if ((m = /^ALTER TABLE\s+("[^"]+"|\S+)\s+([\s\S]*)$/i.exec(s))) {
+      const table = m[1];
+      // One ALTER TABLE can hold several clauses, one per line, comma-separated.
+      for (const clause of m[2].split(/,\s*\n/).map((c) => c.trim())) {
+        let c;
+        if ((c = /^DROP COLUMN\s+("[^"]+"|\S+)/i.exec(clause))) add(`Drops column ${c[1]} from ${table}, with its data.`);
+        else if ((c = /^ALTER COLUMN\s+("[^"]+"|\S+)\s+SET DATA TYPE/i.exec(clause))) add(`Changes the type of ${table}.${c[1]}.`);
+        else if ((c = /^ALTER COLUMN\s+("[^"]+"|\S+)\s+SET NOT NULL/i.exec(clause))) add(`Makes ${table}.${c[1]} required: fails if any row has no value.`);
+        else if ((c = /^ADD COLUMN\s+("[^"]+"|\S+)\s/i.exec(clause)) && /\bNOT NULL\b/i.test(clause) && !/\bDEFAULT\b/i.test(clause)) {
+          add(`Adds required column ${table}.${c[1]} without a default: fails if the table has rows.`);
+        }
+      }
     }
   }
   return out;
