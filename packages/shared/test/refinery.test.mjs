@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  REFINERY_METHODS, methodByCode, refinedCscu, buildRefineryData, workOrder, rankRefineries,
-  parseWorkOrder, workOrderParam, refineryShortName, methodSpeedWord,
+  REFINERY_METHODS,
+  methodByCode,
+  refinedCscu,
+  buildRefineryData,
+  workOrder,
+  rankRefineries,
+  parseWorkOrder,
+  workOrderParam,
+  refineryShortName,
+  methodSpeedWord,
 } from '../dist/index.js';
 
 const DIN = methodByCode('DIN');
@@ -10,8 +18,8 @@ const DIN = methodByCode('DIN');
 test('yield formula matches work orders players reported to UEX', () => {
   // refineries_audits: quantity → quantity_yield, Dinyx, the refinery's bonus at the time.
   assert.equal(refinedCscu(2872, -1, DIN), 2417); // Laranite, MIC-L2, 4.1.1
-  assert.equal(refinedCscu(588, -2, DIN), 490);   // Bexalite, Ruin Station, 4.0.1
-  assert.equal(refinedCscu(281, 2, DIN), 244);    // Laranite, Ruin Station, 4.0.1
+  assert.equal(refinedCscu(588, -2, DIN), 490); // Bexalite, Ruin Station, 4.0.1
+  assert.equal(refinedCscu(281, 2, DIN), 244); // Laranite, Ruin Station, 4.0.1
   // Lower-yield methods keep 85 % or 70 % of that.
   assert.equal(refinedCscu(1000, 0, methodByCode('EST')), 723);
   assert.equal(refinedCscu(1000, 0, methodByCode('COR')), 595);
@@ -36,15 +44,67 @@ const data = buildRefineryData({
     { id: 47, id_parent: 48, name: 'Laranite', is_raw: 0, is_refined: 1, is_available_live: 1 },
     { id: 48, id_parent: 47, name: 'Laranite (Raw)', is_raw: 1, is_refined: 0, is_refinable: 1, is_available_live: 1 },
     { id: 58, id_parent: 59, name: 'Quantainium', is_raw: 0, is_refined: 1, is_available_live: 1 },
-    { id: 59, id_parent: 58, name: 'Quantainium (Raw)', is_raw: 1, is_refined: 0, is_refinable: 1, is_available_live: 1 },
+    {
+      id: 59,
+      id_parent: 58,
+      name: 'Quantainium (Raw)',
+      is_raw: 1,
+      is_refined: 0,
+      is_refinable: 1,
+      is_available_live: 1,
+    },
     { id: 42, id_parent: 0, name: 'Inert Materials', is_raw: 1, is_refined: 0, is_refinable: 0, is_available_live: 1 },
   ],
   yields: [
-    { id_commodity: 48, id_terminal: 1, value: 4, value_week: 4, value_month: 3, date_modified: t(2), commodity_name: 'Laranite (Raw)', terminal_name: 'Refinement Processing - MIC-L1', star_system_name: 'Stanton', orbit_name: 'MIC-L1' },
-    { id_commodity: 59, id_terminal: 1, value: -6, date_modified: t(2), commodity_name: 'Quantainium (Raw)', terminal_name: 'Refinement Processing - MIC-L1', star_system_name: 'Stanton' },
-    { id_commodity: 48, id_terminal: 2, value: -1, date_modified: t(1), commodity_name: 'Laranite (Raw)', terminal_name: 'Refinement Center - Ruin Station', star_system_name: 'Pyro', space_station_name: 'Ruin Station' },
-    { id_commodity: 59, id_terminal: 2, value: 3, date_modified: t(1), commodity_name: 'Quantainium (Raw)', terminal_name: 'Refinement Center - Ruin Station', star_system_name: 'Pyro' },
-    { id_commodity: 48, id_terminal: 3, value: 50, date_modified: t(400), commodity_name: 'Laranite (Raw)', terminal_name: 'Refinement Processing - Old', star_system_name: 'Stanton' },
+    {
+      id_commodity: 48,
+      id_terminal: 1,
+      value: 4,
+      value_week: 4,
+      value_month: 3,
+      date_modified: t(2),
+      commodity_name: 'Laranite (Raw)',
+      terminal_name: 'Refinement Processing - MIC-L1',
+      star_system_name: 'Stanton',
+      orbit_name: 'MIC-L1',
+    },
+    {
+      id_commodity: 59,
+      id_terminal: 1,
+      value: -6,
+      date_modified: t(2),
+      commodity_name: 'Quantainium (Raw)',
+      terminal_name: 'Refinement Processing - MIC-L1',
+      star_system_name: 'Stanton',
+    },
+    {
+      id_commodity: 48,
+      id_terminal: 2,
+      value: -1,
+      date_modified: t(1),
+      commodity_name: 'Laranite (Raw)',
+      terminal_name: 'Refinement Center - Ruin Station',
+      star_system_name: 'Pyro',
+      space_station_name: 'Ruin Station',
+    },
+    {
+      id_commodity: 59,
+      id_terminal: 2,
+      value: 3,
+      date_modified: t(1),
+      commodity_name: 'Quantainium (Raw)',
+      terminal_name: 'Refinement Center - Ruin Station',
+      star_system_name: 'Pyro',
+    },
+    {
+      id_commodity: 48,
+      id_terminal: 3,
+      value: 50,
+      date_modified: t(400),
+      commodity_name: 'Laranite (Raw)',
+      terminal_name: 'Refinement Processing - Old',
+      star_system_name: 'Stanton',
+    },
   ],
   refinedPrices: [
     { id_commodity: 47, id_terminal: 10, price_sell: 3000, date_modified: t(1) },
@@ -60,18 +120,39 @@ const data = buildRefineryData({
 });
 
 test('data: raw ores linked to what they refine into; stale reports left out', () => {
-  assert.deepEqual(data.ores.map((o) => [o.id, o.refinedName]), [[48, 'Laranite'], [59, 'Quantainium']]);
-  assert.deepEqual(data.refineries.map((r) => r.name), ['Ruin Station', 'MIC-L1']); // Pyro before Stanton; the stale one is gone
+  assert.deepEqual(
+    data.ores.map((o) => [o.id, o.refinedName]),
+    [
+      [48, 'Laranite'],
+      [59, 'Quantainium'],
+    ],
+  );
+  assert.deepEqual(
+    data.refineries.map((r) => r.name),
+    ['Ruin Station', 'MIC-L1'],
+  ); // Pyro before Stanton; the stale one is gone
   assert.deepEqual(data.refineries[1].bonus[48], { now: 4, week: 4, month: 3 });
-  assert.deepEqual(data.prices[47].map((p) => p.sell), [3300, 3000]);
+  assert.deepEqual(
+    data.prices[47].map((p) => p.sell),
+    [3300, 3000],
+  );
   assert.equal(data.terminals[10].place, 'TDD · Area18, Stanton');
 });
 
 test('a work order: refined SCU, value where you sell, raw comparison, fee', () => {
-  const lines = [{ oreId: 48, scu: 32 }, { oreId: 59, scu: 10 }];
+  const lines = [
+    { oreId: 48, scu: 32 },
+    { oreId: 59, scu: 10 },
+  ];
   const r = workOrder(data, lines, 1, DIN, { sellSystem: 'Stanton', fee: 5000 });
   // 3200 cSCU × 0.85 × 1.04 = 2828.8 → 2829; 1000 × 0.85 × 0.94 = 799
-  assert.deepEqual(r.lines.map((l) => [l.outScu, l.bonusPct]), [[28.29, 4], [7.99, -6]]);
+  assert.deepEqual(
+    r.lines.map((l) => [l.outScu, l.bonusPct]),
+    [
+      [28.29, 4],
+      [7.99, -6],
+    ],
+  );
   assert.equal(r.outScu, 28.29 + 7.99);
   assert.equal(r.lines[0].refinedPrice.sell, 3000); // best in Stanton, not Pyro's 3300
   assert.equal(Math.round(r.refinedValue), Math.round(28.29 * 3000 + 7.99 * 20000));
@@ -84,9 +165,22 @@ test('a work order: refined SCU, value where you sell, raw comparison, fee', () 
 
 test('ranking refineries for a load, and the order in the address', () => {
   const ranked = rankRefineries(data, [{ oreId: 59, scu: 10 }], DIN);
-  assert.deepEqual(ranked.map((x) => [x.site.name, x.result.outScu]), [['Ruin Station', 8.76], ['MIC-L1', 7.99]]);
-  assert.deepEqual(rankRefineries(data, [{ oreId: 59, scu: 10 }], DIN, { system: 'Stanton' }).map((x) => x.site.name), ['MIC-L1']);
+  assert.deepEqual(
+    ranked.map((x) => [x.site.name, x.result.outScu]),
+    [
+      ['Ruin Station', 8.76],
+      ['MIC-L1', 7.99],
+    ],
+  );
+  assert.deepEqual(
+    rankRefineries(data, [{ oreId: 59, scu: 10 }], DIN, { system: 'Stanton' }).map((x) => x.site.name),
+    ['MIC-L1'],
+  );
   const lines = parseWorkOrder('48:32,59:12.5,bad,0:3,48:-1,60:0');
-  assert.deepEqual(lines, [{ oreId: 48, scu: 32 }, { oreId: 59, scu: 12.5 }, { oreId: 60, scu: 0 }]);
+  assert.deepEqual(lines, [
+    { oreId: 48, scu: 32 },
+    { oreId: 59, scu: 12.5 },
+    { oreId: 60, scu: 0 },
+  ]);
   assert.equal(workOrderParam(lines), '48:32,59:12.5,60:0');
 });

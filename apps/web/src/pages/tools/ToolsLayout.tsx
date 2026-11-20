@@ -16,12 +16,18 @@ import { PUBLIC_TOOLS_PATHS, ToolsPathsContext, useToolsPaths } from '../../lib/
 import { BuildBadge, DataViewToggle } from './corrections';
 import './tools.css';
 
-const ThemeContext = createContext<{ theme: GameToolsTheme; setTheme: (t: GameToolsTheme) => void }>({ theme: 'asop', setTheme: () => {} });
+const ThemeContext = createContext<{ theme: GameToolsTheme; setTheme: (t: GameToolsTheme) => void }>({
+  theme: 'asop',
+  setTheme: () => {},
+});
 export const useToolsTheme = () => useContext(ThemeContext);
 
 function ThemeProvider({ children }: { children: (theme: GameToolsTheme) => ReactNode }) {
   const [theme, setThemeState] = useState<GameToolsTheme>(readTheme);
-  const setTheme = (t: GameToolsTheme) => { setThemeState(t); saveTheme(t); };
+  const setTheme = (t: GameToolsTheme) => {
+    setThemeState(t);
+    saveTheme(t);
+  };
   return <ThemeContext.Provider value={{ theme, setTheme }}>{children(theme)}</ThemeContext.Provider>;
 }
 
@@ -45,47 +51,74 @@ export function ToolsLayout() {
     { to: p.ships, label: 'Ships', on: location.pathname === '/tools' || location.pathname.startsWith('/tools/ships') },
     { to: p.mining, label: 'Mining', on: location.pathname.startsWith(p.mining) },
     { to: p.crafting, label: 'Crafting', on: location.pathname.startsWith(p.crafting), module: 'craftingEnabled' },
-    { to: p.blueprints, label: 'Blueprints', on: location.pathname.startsWith(p.blueprints), module: 'blueprintsEnabled' },
+    {
+      to: p.blueprints,
+      label: 'Blueprints',
+      on: location.pathname.startsWith(p.blueprints),
+      module: 'blueprintsEnabled',
+    },
     { to: p.wikelo, label: 'Wikelo', on: location.pathname.startsWith(p.wikelo), module: 'wikeloEnabled' },
     { to: '/tools/corrections', label: 'Corrections', on: location.pathname.startsWith('/tools/corrections') },
   ].filter((t) => !t.module || !hidden.has(t.module));
 
-  useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
   useEffect(() => {
     const prev = document.title;
     document.title = 'Game Tools – ASOP Terminal';
-    return () => { document.title = prev; };
+    return () => {
+      document.title = prev;
+    };
   }, []);
 
   return (
     <ToolsPathsContext.Provider value={PUBLIC_TOOLS_PATHS}>
-      <ThemeProvider>{(theme) => (
-        <div className="gt" data-theme={theme}>
-          <header className="flex flex-wrap items-center justify-between gap-x-7 gap-y-0 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 60 }}>
-            <Link to="/tools" className="flex items-baseline gap-2.5 no-underline py-3">
-              <span className="font-bold tracking-[0.12em] gt-hi">ASOP</span>
-              <span className="gt-label gt-label-acc">Game Tools</span>
-            </Link>
-            <nav aria-label="Game Tools" className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0">
-              {tabs.map((t) => <Link key={t.to} to={t.to} className="gt-tab" aria-current={t.on ? 'page' : undefined}>{t.label}</Link>)}
-            </nav>
-            <div className="flex items-center gap-3 py-2">
-              <BuildBadge />
-              <DataViewToggle />
-            </div>
-            <ThemeMenu />
-            {user
-              ? <a href="/dashboard" className="text-sm gt-hi py-3">Dashboard</a>
-              : <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">Sign in<span className="hidden sm:inline"> with Discord</span></a>}
-          </header>
+      <ThemeProvider>
+        {(theme) => (
+          <div className="gt" data-theme={theme}>
+            <header
+              className="flex flex-wrap items-center justify-between gap-x-7 gap-y-0 px-5 sm:px-10 border-b"
+              style={{ borderColor: 'var(--gt-line)', minHeight: 60 }}
+            >
+              <Link to="/tools" className="flex items-baseline gap-2.5 no-underline py-3">
+                <span className="font-bold tracking-[0.12em] gt-hi">ASOP</span>
+                <span className="gt-label gt-label-acc">Game Tools</span>
+              </Link>
+              <nav
+                aria-label="Game Tools"
+                className="flex gap-x-5 overflow-x-auto order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0"
+              >
+                {tabs.map((t) => (
+                  <Link key={t.to} to={t.to} className="gt-tab" aria-current={t.on ? 'page' : undefined}>
+                    {t.label}
+                  </Link>
+                ))}
+              </nav>
+              <div className="flex items-center gap-3 py-2">
+                <BuildBadge />
+                <DataViewToggle />
+              </div>
+              <ThemeMenu />
+              {user ? (
+                <a href="/dashboard" className="text-sm gt-hi py-3">
+                  Dashboard
+                </a>
+              ) : (
+                <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">
+                  Sign in<span className="hidden sm:inline"> with Discord</span>
+                </a>
+              )}
+            </header>
 
-          <Suspense fallback={<p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>}>
-            <Outlet />
-          </Suspense>
+            <Suspense fallback={<p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>}>
+              <Outlet />
+            </Suspense>
 
-          <ToolsFooter build={data?.build ?? null} />
-        </div>
-      )}</ThemeProvider>
+            <ToolsFooter build={data?.build ?? null} />
+          </div>
+        )}
+      </ThemeProvider>
     </ToolsPathsContext.Provider>
   );
 }
@@ -93,7 +126,14 @@ export function ToolsLayout() {
 function ToolsFooter({ build }: { build: string | null }) {
   return (
     <footer className="px-5 sm:px-10 py-5 text-xs gt-dim border-t" style={{ borderColor: 'var(--gt-line)' }}>
-      Game data: Star Citizen Wiki (scunpacked){build ? <> · build <span className="gt-mono">{build}</span></> : null} · Prices: UEX Corp, player-reported · Not affiliated with Cloud Imperium Games
+      Game data: Star Citizen Wiki (scunpacked)
+      {build ? (
+        <>
+          {' '}
+          · build <span className="gt-mono">{build}</span>
+        </>
+      ) : null}{' '}
+      · Prices: UEX Corp, player-reported · Not affiliated with Cloud Imperium Games
     </footer>
   );
 }
@@ -112,8 +152,13 @@ export function SignInForTool({ name, children }: { name: string; children: Reac
       <section className="px-5 sm:px-10 py-16 flex flex-col items-start gap-4 max-w-[560px]">
         <span className="gt-label gt-label-acc">{name}</span>
         <h1 className="m-0 text-3xl font-bold gt-hi">Sign in to use {name}</h1>
-        <p className="m-0 gt-dim leading-relaxed">{name} is part of ASOP Terminal. Sign in with your Discord account to open it. Ships and loadouts stay open to everyone.</p>
-        <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">Sign in with Discord</a>
+        <p className="m-0 gt-dim leading-relaxed">
+          {name} is part of ASOP Terminal. Sign in with your Discord account to open it. Ships and loadouts stay open to
+          everyone.
+        </p>
+        <a href={authApi.loginUrl(location.pathname + location.search)} className="gt-btn gt-btn-primary">
+          Sign in with Discord
+        </a>
       </section>
     );
   }
@@ -132,26 +177,37 @@ export function DashboardToolsFrame() {
   const mining = location.pathname.startsWith(paths.mining);
   const prefix = mining ? paths.mining : paths.ships;
   const rest = location.pathname.startsWith(prefix) ? location.pathname.slice(prefix.length) : '';
-  const standalone = mining ? `/tools/mining${location.search}` : `${rest ? `/tools/ships${rest}` : '/tools'}${location.search}`;
+  const standalone = mining
+    ? `/tools/mining${location.search}`
+    : `${rest ? `/tools/ships${rest}` : '/tools'}${location.search}`;
   const title = mining ? 'Mining' : 'Ships & Loadouts';
   return (
-    <ThemeProvider>{(theme) => (
-      <div className="gt -m-6" data-theme={theme} style={{ minHeight: 'calc(100% + 3rem)' }}>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 sm:px-10 border-b" style={{ borderColor: 'var(--gt-line)', minHeight: 52 }}>
-          <Link to={prefix} className="no-underline py-2.5"><span className="gt-label gt-label-acc">{title}</span></Link>
-          <div className="flex flex-wrap items-center gap-4">
-            <BuildBadge />
-            <DataViewToggle />
-            <a href={standalone} className="text-sm gt-dim">Open on its own page</a>
-            <ThemeMenu />
+    <ThemeProvider>
+      {(theme) => (
+        <div className="gt -m-6" data-theme={theme} style={{ minHeight: 'calc(100% + 3rem)' }}>
+          <div
+            className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 sm:px-10 border-b"
+            style={{ borderColor: 'var(--gt-line)', minHeight: 52 }}
+          >
+            <Link to={prefix} className="no-underline py-2.5">
+              <span className="gt-label gt-label-acc">{title}</span>
+            </Link>
+            <div className="flex flex-wrap items-center gap-4">
+              <BuildBadge />
+              <DataViewToggle />
+              <a href={standalone} className="text-sm gt-dim">
+                Open on its own page
+              </a>
+              <ThemeMenu />
+            </div>
           </div>
+          <Suspense fallback={<p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>}>
+            <Outlet />
+          </Suspense>
+          <ToolsFooter build={data?.build ?? null} />
         </div>
-        <Suspense fallback={<p className="gt-dim px-5 sm:px-10 py-16">Loading…</p>}>
-          <Outlet />
-        </Suspense>
-        <ToolsFooter build={data?.build ?? null} />
-      </div>
-    )}</ThemeProvider>
+      )}
+    </ThemeProvider>
   );
 }
 
@@ -166,11 +222,22 @@ function ThemeMenu() {
         <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: current.swatch }} />
         <span className="hidden sm:inline">Theme</span>
       </summary>
-      <div className="absolute right-0 z-30 mt-2 flex flex-col p-1 min-w-[170px]" style={{ background: 'var(--gt-bg)', border: '1px solid var(--gt-line)' }}>
+      <div
+        className="absolute right-0 z-30 mt-2 flex flex-col p-1 min-w-[170px]"
+        style={{ background: 'var(--gt-bg)', border: '1px solid var(--gt-line)' }}
+      >
         {GAME_TOOLS_THEMES.map((t) => (
-          <button key={t.id} type="button" aria-pressed={theme === t.id}
-            onClick={() => { setTheme(t.id); ref.current?.removeAttribute('open'); }}
-            className="gt-slot" style={{ minHeight: 40 }}>
+          <button
+            key={t.id}
+            type="button"
+            aria-pressed={theme === t.id}
+            onClick={() => {
+              setTheme(t.id);
+              ref.current?.removeAttribute('open');
+            }}
+            className="gt-slot"
+            style={{ minHeight: 40 }}
+          >
             <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: t.swatch }} />
             <span>{t.label}</span>
           </button>
@@ -184,6 +251,11 @@ function ThemeMenu() {
 /** Loading and "not loaded yet" states shared by every tools page. */
 export function ToolsDataState({ isLoading, error }: { isLoading: boolean; error: unknown }) {
   if (isLoading) return <p className="gt-dim px-5 sm:px-10 py-16">Loading game data…</p>;
-  if (error) return <p className="gt-dim px-5 sm:px-10 py-16">Game data isn&rsquo;t available right now. Try again in a few minutes.</p>;
+  if (error)
+    return (
+      <p className="gt-dim px-5 sm:px-10 py-16">
+        Game data isn&rsquo;t available right now. Try again in a few minutes.
+      </p>
+    );
   return null;
 }

@@ -20,8 +20,20 @@ export async function shipList(): Promise<ShipCatalogEntry[]> {
   cache = {
     at: Date.now(),
     ships: rows.map((r) => ({
-      id: r.id, name: r.name, manufacturer: r.manufacturer, manufacturerCode: r.manufacturerCode, type: r.type, focus: r.focus, size: r.size,
-      minCrew: r.minCrew, maxCrew: r.maxCrew, cargo: r.cargo, status: r.status, imageUrl: r.imageUrl, thumbUrl: r.thumbUrl, storeUrl: r.storeUrl,
+      id: r.id,
+      name: r.name,
+      manufacturer: r.manufacturer,
+      manufacturerCode: r.manufacturerCode,
+      type: r.type,
+      focus: r.focus,
+      size: r.size,
+      minCrew: r.minCrew,
+      maxCrew: r.maxCrew,
+      cargo: r.cargo,
+      status: r.status,
+      imageUrl: r.imageUrl,
+      thumbUrl: r.thumbUrl,
+      storeUrl: r.storeUrl,
     })),
   };
   return cache.ships;
@@ -38,7 +50,11 @@ export async function fleetOwner(discordId: string, name: string, touch: boolean
 
 /** "Carrack ×2 · Cutlass Black ("Rust Bucket")": one line per ship, for embeds. */
 export async function fleetLines(discordId: string): Promise<string[]> {
-  const rows = await prisma.fleetShip.findMany({ where: { discordId }, include: { ship: true }, orderBy: { id: 'asc' } });
+  const rows = await prisma.fleetShip.findMany({
+    where: { discordId },
+    include: { ship: true },
+    orderBy: { id: 'asc' },
+  });
   return rows
     .map((r) => {
       const name = r.ship ? `**${r.ship.name}**` : `**${r.customName ?? 'Unknown ship'}** ⚠️ not matched`;
@@ -51,8 +67,10 @@ export async function fleetLines(discordId: string): Promise<string[]> {
     .map((x) => x.line);
 }
 
-export const confirmButton = () => new ButtonBuilder().setCustomId('fleet:confirm').setLabel('Still correct').setStyle(ButtonStyle.Success);
-export const editButton = () => new ButtonBuilder().setLabel('Update on the website').setStyle(ButtonStyle.Link).setURL(myFleetUrl());
+export const confirmButton = () =>
+  new ButtonBuilder().setCustomId('fleet:confirm').setLabel('Still correct').setStyle(ButtonStyle.Success);
+export const editButton = () =>
+  new ButtonBuilder().setLabel('Update on the website').setStyle(ButtonStyle.Link).setURL(myFleetUrl());
 
 // ── The quarterly check-in ───────────────────────────────────────────────────
 
@@ -86,21 +104,29 @@ export async function checkFleetNudges(now = new Date()): Promise<void> {
       const lines = await fleetLines(o.discordId);
       const shown = lines.slice(0, 20);
       await user.send({
-        embeds: [new EmbedBuilder()
-          .setColor(FLEET_COLOR)
-          .setTitle('🚀 Still flying these?')
-          .setDescription([
-            'Your org officers plan ops around the ships members have. A quick check keeps your fleet up to date:',
-            '',
-            ...shown,
-            ...(lines.length > shown.length ? [`…and ${lines.length - shown.length} more`] : []),
-          ].join('\n'))
-          .setFooter({ text: `Asked about once every ${Math.round(FLEET_CHECK_DAYS / 30)} months. "Stop asking" turns this off.` })],
-        components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
-          confirmButton(),
-          editButton(),
-          new ButtonBuilder().setCustomId('fleet:stop').setLabel('Stop asking').setStyle(ButtonStyle.Secondary),
-        )],
+        embeds: [
+          new EmbedBuilder()
+            .setColor(FLEET_COLOR)
+            .setTitle('🚀 Still flying these?')
+            .setDescription(
+              [
+                'Your org officers plan ops around the ships members have. A quick check keeps your fleet up to date:',
+                '',
+                ...shown,
+                ...(lines.length > shown.length ? [`…and ${lines.length - shown.length} more`] : []),
+              ].join('\n'),
+            )
+            .setFooter({
+              text: `Asked about once every ${Math.round(FLEET_CHECK_DAYS / 30)} months. "Stop asking" turns this off.`,
+            }),
+        ],
+        components: [
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            confirmButton(),
+            editButton(),
+            new ButtonBuilder().setCustomId('fleet:stop').setLabel('Stop asking').setStyle(ButtonStyle.Secondary),
+          ),
+        ],
       });
     } catch (err) {
       console.warn(`[fleet] Couldn't DM a fleet check-in (${o.discordId}):`, err instanceof Error ? err.message : err);
@@ -113,12 +139,18 @@ export async function handleFleetButton(interaction: ButtonInteraction): Promise
   const name = interaction.user.globalName ?? interaction.user.username;
   if (interaction.customId === 'fleet:confirm') {
     await fleetOwner(interaction.user.id, name, true);
-    await interaction.update({ components: [new ActionRowBuilder<ButtonBuilder>().addComponents(editButton())], content: '✅ Thanks, your fleet is marked as checked.' });
+    await interaction.update({
+      components: [new ActionRowBuilder<ButtonBuilder>().addComponents(editButton())],
+      content: '✅ Thanks, your fleet is marked as checked.',
+    });
     return;
   }
   if (interaction.customId === 'fleet:stop') {
     await fleetOwner(interaction.user.id, name, false);
     await prisma.fleetOwner.update({ where: { discordId: interaction.user.id }, data: { nudges: false } });
-    await interaction.update({ components: [new ActionRowBuilder<ButtonBuilder>().addComponents(editButton())], content: 'Okay, no more check-ins. You can turn them back on in Notification Settings on the website.' });
+    await interaction.update({
+      components: [new ActionRowBuilder<ButtonBuilder>().addComponents(editButton())],
+      content: 'Okay, no more check-ins. You can turn them back on in Notification Settings on the website.',
+    });
   }
 }

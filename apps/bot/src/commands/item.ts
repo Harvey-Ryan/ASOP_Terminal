@@ -30,7 +30,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const raw = interaction.options.getString('name', true).trim();
   const entry = await resolveCatalogOption(raw);
   if (!entry) {
-    await interaction.reply({ content: `Nothing found for **${raw}**. Pick a name from the suggestions.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: `Nothing found for **${raw}**. Pick a name from the suggestions.`,
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
   await interaction.deferReply();
@@ -49,9 +52,12 @@ export function buildItemEmbed(d: CatalogDetail): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle(d.name)
     .setColor(d.kind === 'COMMODITY' ? 0xf59e0b : 0x5865f2)
-    .setFooter({ text: d.commodity && (d.commodity.avgBuy != null || d.commodity.avgSell != null)
-      ? 'Game data: Star Citizen Wiki · Prices: UEX Corp (player reported) · /price for where to trade'
-      : 'Game data: Star Citizen Wiki' });
+    .setFooter({
+      text:
+        d.commodity && (d.commodity.avgBuy != null || d.commodity.avgSell != null)
+          ? 'Game data: Star Citizen Wiki · Prices: UEX Corp (player reported) · /price for where to trade'
+          : 'Game data: Star Citizen Wiki',
+    });
 
   if (d.description) embed.setDescription(clip(d.description, 1000));
 
@@ -71,9 +77,10 @@ export function buildItemEmbed(d: CatalogDetail): EmbedBuilder {
 
   const c = d.commodity;
   if (c) {
-    if (c.avgBuy != null)  fields.push({ name: 'Avg Buy',  value: aUEC(c.avgBuy),  inline: true });
+    if (c.avgBuy != null) fields.push({ name: 'Avg Buy', value: aUEC(c.avgBuy), inline: true });
     if (c.avgSell != null) fields.push({ name: 'Avg Sell', value: aUEC(c.avgSell), inline: true });
-    if (c.avgBuy == null && c.avgSell == null) fields.push({ name: 'Prices', value: 'No UEX price data', inline: true });
+    if (c.avgBuy == null && c.avgSell == null)
+      fields.push({ name: 'Prices', value: 'No UEX price data', inline: true });
     if (c.refinedName) fields.push({ name: 'Refines into', value: c.refinedName, inline: true });
     if (c.code) fields.push({ name: 'Code', value: c.code, inline: true });
   }

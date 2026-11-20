@@ -30,15 +30,56 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import type { KanbanColumnDto, KanbanCardDto } from '@dem/shared';
 
-
 const COLORS: { key: string; label: string; header: string; border: string; badge: string }[] = [
-  { key: 'slate',  label: 'Default', header: 'text-slate-400',  border: 'border-slate-500/40',  badge: 'bg-slate-500/20 text-slate-300' },
-  { key: 'blue',   label: 'Blue',    header: 'text-blue-400',   border: 'border-blue-500/40',   badge: 'bg-blue-500/20 text-blue-300' },
-  { key: 'green',  label: 'Green',   header: 'text-green-400',  border: 'border-green-500/40',  badge: 'bg-green-500/20 text-green-300' },
-  { key: 'yellow', label: 'Yellow',  header: 'text-yellow-400', border: 'border-yellow-500/40', badge: 'bg-yellow-500/20 text-yellow-300' },
-  { key: 'red',    label: 'Red',     header: 'text-red-400',    border: 'border-red-500/40',    badge: 'bg-red-500/20 text-red-300' },
-  { key: 'purple', label: 'Purple',  header: 'text-purple-400', border: 'border-purple-500/40', badge: 'bg-purple-500/20 text-purple-300' },
-  { key: 'orange', label: 'Orange',  header: 'text-orange-400', border: 'border-orange-500/40', badge: 'bg-orange-500/20 text-orange-300' },
+  {
+    key: 'slate',
+    label: 'Default',
+    header: 'text-slate-400',
+    border: 'border-slate-500/40',
+    badge: 'bg-slate-500/20 text-slate-300',
+  },
+  {
+    key: 'blue',
+    label: 'Blue',
+    header: 'text-blue-400',
+    border: 'border-blue-500/40',
+    badge: 'bg-blue-500/20 text-blue-300',
+  },
+  {
+    key: 'green',
+    label: 'Green',
+    header: 'text-green-400',
+    border: 'border-green-500/40',
+    badge: 'bg-green-500/20 text-green-300',
+  },
+  {
+    key: 'yellow',
+    label: 'Yellow',
+    header: 'text-yellow-400',
+    border: 'border-yellow-500/40',
+    badge: 'bg-yellow-500/20 text-yellow-300',
+  },
+  {
+    key: 'red',
+    label: 'Red',
+    header: 'text-red-400',
+    border: 'border-red-500/40',
+    badge: 'bg-red-500/20 text-red-300',
+  },
+  {
+    key: 'purple',
+    label: 'Purple',
+    header: 'text-purple-400',
+    border: 'border-purple-500/40',
+    badge: 'bg-purple-500/20 text-purple-300',
+  },
+  {
+    key: 'orange',
+    label: 'Orange',
+    header: 'text-orange-400',
+    border: 'border-orange-500/40',
+    badge: 'bg-orange-500/20 text-orange-300',
+  },
 ];
 
 function colorMeta(key: string) {
@@ -84,7 +125,10 @@ function InlineInput({
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); onSave(val.trim()); }
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onSave(val.trim());
+            }
             if (e.key === 'Escape') onCancel();
           }}
           placeholder={placeholder}
@@ -112,9 +156,7 @@ function CardPreview({ card }: { card: KanbanCardDto }) {
         <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
         <div className="flex-1 min-w-0 space-y-1.5">
           <p className="text-sm font-medium leading-snug">{card.title}</p>
-          {card.description && (
-            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{card.description}</p>
-          )}
+          {card.description && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{card.description}</p>}
         </div>
       </div>
     </div>
@@ -163,7 +205,12 @@ function SortableCard({
       {...attributes}
       className={cn(isDragging && 'opacity-25')}
     >
-      <div className={cn('group rounded-md border border-border bg-background p-3 space-y-1.5', editing && 'ring-1 ring-ring')}>
+      <div
+        className={cn(
+          'group rounded-md border border-border bg-background p-3 space-y-1.5',
+          editing && 'ring-1 ring-ring',
+        )}
+      >
         <div className="flex items-start gap-1.5">
           {isAdmin && (
             <button
@@ -180,7 +227,10 @@ function SortableCard({
               <InlineInput
                 value={card.title}
                 placeholder="Card title"
-                onSave={(v) => { if (v) updateMut.mutate({ title: v }); setEditTitle(false); }}
+                onSave={(v) => {
+                  if (v) updateMut.mutate({ title: v });
+                  setEditTitle(false);
+                }}
                 onCancel={() => setEditTitle(false)}
               />
             ) : (
@@ -192,7 +242,10 @@ function SortableCard({
                 value={card.description ?? ''}
                 placeholder="Description (optional)"
                 multiline
-                onSave={(v) => { updateMut.mutate({ description: v || null }); setEditDesc(false); }}
+                onSave={(v) => {
+                  updateMut.mutate({ description: v || null });
+                  setEditDesc(false);
+                }}
                 onCancel={() => setEditDesc(false)}
               />
             ) : card.description ? (
@@ -202,16 +255,33 @@ function SortableCard({
             ) : null}
 
             {isAdmin && (
-              <div className={cn('flex flex-wrap items-center gap-1.5 pt-0.5', !editing && 'opacity-0 group-hover:opacity-100 transition-opacity')}>
+              <div
+                className={cn(
+                  'flex flex-wrap items-center gap-1.5 pt-0.5',
+                  !editing && 'opacity-0 group-hover:opacity-100 transition-opacity',
+                )}
+              >
                 <button onClick={() => setEditing((e) => !e)} className="text-muted-foreground hover:text-foreground">
                   <Pencil className="h-3 w-3" />
                 </button>
                 {editing && (
                   <>
-                    <button onClick={() => { setEditTitle(true); setEditing(false); }} className="text-xs text-muted-foreground hover:text-foreground">
+                    <button
+                      onClick={() => {
+                        setEditTitle(true);
+                        setEditing(false);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
                       Edit title
                     </button>
-                    <button onClick={() => { setEditDesc(true); setEditing(false); }} className="text-xs text-muted-foreground hover:text-foreground">
+                    <button
+                      onClick={() => {
+                        setEditDesc(true);
+                        setEditing(false);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
                       Edit desc
                     </button>
                     {otherColumns.length > 0 && (
@@ -225,9 +295,13 @@ function SortableCard({
                         }}
                         className="text-xs rounded border border-input bg-background px-1 py-0.5 text-muted-foreground outline-none"
                       >
-                        <option value="" disabled>Move to…</option>
+                        <option value="" disabled>
+                          Move to…
+                        </option>
                         {otherColumns.map((c) => (
-                          <option key={c.id} value={c.id}>{c.title}</option>
+                          <option key={c.id} value={c.id}>
+                            {c.title}
+                          </option>
                         ))}
                       </select>
                     )}
@@ -288,7 +362,12 @@ function KanbanColumnView({
 
   const addCardMut = useMutation({
     mutationFn: () => kanbanApi.createCard(column.id, newCardTitle.trim(), newCardDesc.trim() || undefined),
-    onSuccess: () => { invalidate(); setAddingCard(false); setNewCardTitle(''); setNewCardDesc(''); },
+    onSuccess: () => {
+      invalidate();
+      setAddingCard(false);
+      setNewCardTitle('');
+      setNewCardDesc('');
+    },
   });
 
   const moveColMut = useMutation({
@@ -303,7 +382,10 @@ function KanbanColumnView({
         {editingTitle ? (
           <InlineInput
             value={column.title}
-            onSave={(v) => { if (v) updateColMut.mutate({ title: v }); setEditingTitle(false); }}
+            onSave={(v) => {
+              if (v) updateColMut.mutate({ title: v });
+              setEditingTitle(false);
+            }}
             onCancel={() => setEditingTitle(false)}
             className="flex-1"
           />
@@ -319,19 +401,30 @@ function KanbanColumnView({
         {isAdmin && !editingTitle && (
           <div className="flex items-center gap-1 opacity-0 group-hover/col:opacity-100 transition-opacity">
             {!isFirst && (
-              <button onClick={() => moveColMut.mutate(-1)} className="text-muted-foreground hover:text-foreground" title="Move left">
+              <button
+                onClick={() => moveColMut.mutate(-1)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Move left"
+              >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
             )}
             {!isLast && (
-              <button onClick={() => moveColMut.mutate(1)} className="text-muted-foreground hover:text-foreground" title="Move right">
+              <button
+                onClick={() => moveColMut.mutate(1)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Move right"
+              >
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             )}
             <button onClick={() => setEditingTitle(true)} className="text-muted-foreground hover:text-foreground">
               <Pencil className="h-3 w-3" />
             </button>
-            <button onClick={() => setEditingColor((v) => !v)} className="text-muted-foreground hover:text-foreground text-xs">
+            <button
+              onClick={() => setEditingColor((v) => !v)}
+              className="text-muted-foreground hover:text-foreground text-xs"
+            >
               ●
             </button>
             <button
@@ -351,8 +444,15 @@ function KanbanColumnView({
           {COLORS.map((c) => (
             <button
               key={c.key}
-              onClick={() => { updateColMut.mutate({ color: c.key }); setEditingColor(false); }}
-              className={cn('h-5 w-5 rounded-full border-2 transition-opacity hover:opacity-80', c.header, column.color === c.key ? 'border-foreground' : 'border-transparent')}
+              onClick={() => {
+                updateColMut.mutate({ color: c.key });
+                setEditingColor(false);
+              }}
+              className={cn(
+                'h-5 w-5 rounded-full border-2 transition-opacity hover:opacity-80',
+                c.header,
+                column.color === c.key ? 'border-foreground' : 'border-transparent',
+              )}
               title={c.label}
             >
               <span className="sr-only">{c.label}</span>
@@ -379,7 +479,13 @@ function KanbanColumnView({
                 autoFocus
                 value={newCardTitle}
                 onChange={(e) => setNewCardTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Escape') { setAddingCard(false); setNewCardTitle(''); setNewCardDesc(''); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setAddingCard(false);
+                    setNewCardTitle('');
+                    setNewCardDesc('');
+                  }
+                }}
                 placeholder="Card title"
                 className="w-full rounded border border-input bg-card px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
               />
@@ -391,10 +497,22 @@ function KanbanColumnView({
                 className="w-full resize-none rounded border border-input bg-card px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
               />
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => addCardMut.mutate()} disabled={!newCardTitle.trim() || addCardMut.isPending}>
+                <Button
+                  size="sm"
+                  onClick={() => addCardMut.mutate()}
+                  disabled={!newCardTitle.trim() || addCardMut.isPending}
+                >
                   {addCardMut.isPending ? 'Adding…' : 'Add'}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { setAddingCard(false); setNewCardTitle(''); setNewCardDesc(''); }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setAddingCard(false);
+                    setNewCardTitle('');
+                    setNewCardDesc('');
+                  }}
+                >
                   Cancel
                 </Button>
               </div>
@@ -493,9 +611,7 @@ export function KanbanPage() {
         const oldIdx = col.cards.findIndex((c) => c.id === activeId);
         const newIdx = col.cards.findIndex((c) => c.id === overId);
         if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return prev;
-        return prev.map((c, i) =>
-          i === activeColIdx ? { ...c, cards: arrayMove(col.cards, oldIdx, newIdx) } : c,
-        );
+        return prev.map((c, i) => (i === activeColIdx ? { ...c, cards: arrayMove(col.cards, oldIdx, newIdx) } : c));
       }
 
       // Cross-column – move card to destination
@@ -617,7 +733,10 @@ export function KanbanPage() {
                     onChange={(e) => setNewColTitle(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newColTitle.trim()) addColMut.mutate();
-                      if (e.key === 'Escape') { setAddingCol(false); setNewColTitle(''); }
+                      if (e.key === 'Escape') {
+                        setAddingCol(false);
+                        setNewColTitle('');
+                      }
                     }}
                     placeholder="Column title"
                     className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
@@ -629,17 +748,32 @@ export function KanbanPage() {
                         <button
                           key={c.key}
                           onClick={() => setNewColColor(c.key)}
-                          className={cn('h-5 w-5 rounded-full border-2 transition-opacity hover:opacity-80', c.header, newColColor === c.key ? 'border-foreground' : 'border-transparent')}
+                          className={cn(
+                            'h-5 w-5 rounded-full border-2 transition-opacity hover:opacity-80',
+                            c.header,
+                            newColColor === c.key ? 'border-foreground' : 'border-transparent',
+                          )}
                           title={c.label}
                         />
                       ))}
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => addColMut.mutate()} disabled={!newColTitle.trim() || addColMut.isPending}>
+                    <Button
+                      size="sm"
+                      onClick={() => addColMut.mutate()}
+                      disabled={!newColTitle.trim() || addColMut.isPending}
+                    >
                       {addColMut.isPending ? 'Adding…' : 'Add Column'}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setAddingCol(false); setNewColTitle(''); }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setAddingCol(false);
+                        setNewColTitle('');
+                      }}
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -648,9 +782,7 @@ export function KanbanPage() {
             )}
           </div>
 
-          <DragOverlay dropAnimation={null}>
-            {activeCard ? <CardPreview card={activeCard} /> : null}
-          </DragOverlay>
+          <DragOverlay dropAnimation={null}>{activeCard ? <CardPreview card={activeCard} /> : null}</DragOverlay>
         </DndContext>
       )}
     </div>

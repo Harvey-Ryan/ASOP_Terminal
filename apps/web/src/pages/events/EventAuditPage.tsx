@@ -67,9 +67,7 @@ function AttendeeRow({
           <span className={`text-sm font-medium truncate ${checked ? '' : 'line-through text-muted-foreground'}`}>
             {name}
           </span>
-          {roleName && (
-            <span className="text-xs text-muted-foreground truncate">{roleName}</span>
-          )}
+          {roleName && <span className="text-xs text-muted-foreground truncate">{roleName}</span>}
         </div>
         {wasInVc && (
           <span className="shrink-0 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-600">
@@ -113,7 +111,11 @@ export function EventAuditPage() {
     enabled: !!guildId && !!eventId,
   });
 
-  const { data: event, isLoading, isError } = useQuery({
+  const {
+    data: event,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['event', guildId, eventId],
     queryFn: () => eventsApi.get(guildId!, eventId!),
     enabled: !!guildId && !!eventId,
@@ -181,7 +183,10 @@ export function EventAuditPage() {
 
   const start = new Date(event.startTime);
   const dateStr = start.toLocaleDateString('en', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
   const timeStr = start.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
 
@@ -237,7 +242,8 @@ export function EventAuditPage() {
           </div>
           {event.vcAttendees.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              Members marked <span className="text-green-600 font-medium">VC Active</span> were present in a voice channel at event end. Toggles default to their status — adjust as needed.
+              Members marked <span className="text-green-600 font-medium">VC Active</span> were present in a voice
+              channel at event end. Toggles default to their status — adjust as needed.
             </p>
           )}
           {!event.botCleanedUp && event.vcIds.length > 0 && (
@@ -255,7 +261,13 @@ export function EventAuditPage() {
                 <AttendeeRow
                   key={rsvp.userId}
                   rsvp={rsvp}
-                  roleName={rsvp.tentative ? 'Maybe' : rsvp.role ? (event.roles.find((r) => (r.id ?? r.name) === rsvp.role)?.name ?? rsvp.role) : undefined}
+                  roleName={
+                    rsvp.tentative
+                      ? 'Maybe'
+                      : rsvp.role
+                        ? (event.roles.find((r) => (r.id ?? r.name) === rsvp.role)?.name ?? rsvp.role)
+                        : undefined
+                  }
                   currentUserId={user?.id}
                   checked={attendance[rsvp.userId] ?? false}
                   wasInVc={event.vcAttendees.includes(rsvp.userId)}
@@ -266,9 +278,7 @@ export function EventAuditPage() {
                 <button
                   type="button"
                   className="text-xs text-primary hover:underline"
-                  onClick={() =>
-                    setAttendance(Object.fromEntries(event.rsvps.map((r: RsvpDto) => [r.userId, true])))
-                  }
+                  onClick={() => setAttendance(Object.fromEntries(event.rsvps.map((r: RsvpDto) => [r.userId, true])))}
                 >
                   Select all
                 </button>
@@ -276,9 +286,7 @@ export function EventAuditPage() {
                 <button
                   type="button"
                   className="text-xs text-primary hover:underline"
-                  onClick={() =>
-                    setAttendance(Object.fromEntries(event.rsvps.map((r: RsvpDto) => [r.userId, false])))
-                  }
+                  onClick={() => setAttendance(Object.fromEntries(event.rsvps.map((r: RsvpDto) => [r.userId, false])))}
                 >
                   Deselect all
                 </button>
@@ -290,92 +298,94 @@ export function EventAuditPage() {
 
       {/* Loot prompt */}
       <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Gift className="h-4 w-4" />
-                Loot
-              </CardTitle>
-              {!existingSession && hadLoot !== null && (
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => { setHadLoot(null); setLootItems([]); setNewLootItem(''); }}
-                >
-                  Change
-                </button>
-              )}
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Loot
+            </CardTitle>
+            {!existingSession && hadLoot !== null && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setHadLoot(null);
+                  setLootItems([]);
+                  setNewLootItem('');
+                }}
+              >
+                Change
+              </button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {existingSession ? (
+            <p className="text-sm text-muted-foreground">
+              A loot session is already in progress — you can continue it after completing the audit.
+            </p>
+          ) : hadLoot === null ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => setHadLoot(true)}>
+                <Gift className="h-3.5 w-3.5" />
+                Yes, there was loot
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => setHadLoot(false)}>
+                <PackageX className="h-3.5 w-3.5" />
+                No loot
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            {existingSession ? (
-              <p className="text-sm text-muted-foreground">
-                A loot session is already in progress — you can continue it after completing the audit.
+          ) : hadLoot ? (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Add items to the loot list before moving to the distribution page.
               </p>
-            ) : hadLoot === null ? (
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1"
-                  onClick={() => setHadLoot(true)}
-                >
-                  <Gift className="h-3.5 w-3.5" />
-                  Yes, there was loot
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1"
-                  onClick={() => setHadLoot(false)}
-                >
-                  <PackageX className="h-3.5 w-3.5" />
-                  No loot
-                </Button>
-              </div>
-            ) : hadLoot ? (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">Add items to the loot list before moving to the distribution page.</p>
-                {lootItems.length > 0 && (
-                  <ul className="space-y-1">
-                    {lootItems.map((item, i) => (
-                      <li key={i} className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 text-sm">
-                        <span>{item}</span>
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          onClick={() => setLootItems((prev) => prev.filter((_, idx) => idx !== i))}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const trimmed = newLootItem.trim();
-                    if (trimmed) {
-                      setLootItems((prev) => [...prev, trimmed]);
-                      setNewLootItem('');
-                    }
-                  }}
-                >
-                  <div className="relative flex-1">
-                    <input
-                      ref={lootInputRef}
-                      type="text"
-                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      placeholder="Item name…"
-                      value={newLootItem}
-                      onChange={(e) => setNewLootItem(e.target.value)}
-                      onFocus={() => setLootInputFocused(true)}
-                      onBlur={() => setLootInputFocused(false)}
-                      autoComplete="off"
-                    />
-                    {lootInputFocused && newLootItem === debouncedLootItem && newLootItem.length >= 2 && (lootSuggestQuery.data?.length ?? 0) > 0 && (
+              {lootItems.length > 0 && (
+                <ul className="space-y-1">
+                  {lootItems.map((item, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 text-sm"
+                    >
+                      <span>{item}</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => setLootItems((prev) => prev.filter((_, idx) => idx !== i))}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const trimmed = newLootItem.trim();
+                  if (trimmed) {
+                    setLootItems((prev) => [...prev, trimmed]);
+                    setNewLootItem('');
+                  }
+                }}
+              >
+                <div className="relative flex-1">
+                  <input
+                    ref={lootInputRef}
+                    type="text"
+                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Item name…"
+                    value={newLootItem}
+                    onChange={(e) => setNewLootItem(e.target.value)}
+                    onFocus={() => setLootInputFocused(true)}
+                    onBlur={() => setLootInputFocused(false)}
+                    autoComplete="off"
+                  />
+                  {lootInputFocused &&
+                    newLootItem === debouncedLootItem &&
+                    newLootItem.length >= 2 &&
+                    (lootSuggestQuery.data?.length ?? 0) > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                         {lootSuggestQuery.data!.map((s) => (
                           <button
@@ -391,24 +401,26 @@ export function EventAuditPage() {
                           >
                             <span className="flex-1 truncate">{s.name}</span>
                             {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
-                            <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                            <span
+                              className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}
+                            >
                               {s.type}
                             </span>
                           </button>
                         ))}
                       </div>
                     )}
-                  </div>
-                  <Button type="submit" size="sm" variant="outline" className="gap-1">
-                    <Plus className="h-3.5 w-3.5" />
-                    Add
-                  </Button>
-                </form>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No loot for this event.</p>
-            )}
-          </CardContent>
+                </div>
+                <Button type="submit" size="sm" variant="outline" className="gap-1">
+                  <Plus className="h-3.5 w-3.5" />
+                  Add
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No loot for this event.</p>
+          )}
+        </CardContent>
       </Card>
 
       {/* After action (v1.19.0) */}
@@ -416,37 +428,40 @@ export function EventAuditPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <NotebookPen className="h-4 w-4" />
-            After action <span className="text-xs font-normal text-muted-foreground">optional, can be written later</span>
+            After action{' '}
+            <span className="text-xs font-normal text-muted-foreground">optional, can be written later</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <OutcomePicker value={aarOutcome} onChange={setAarOutcome} />
-          <textarea aria-label="After-action notes" rows={3} maxLength={2000} value={aarNotes} onChange={(e) => setAarNotes(e.target.value)}
+          <textarea
+            aria-label="After-action notes"
+            rows={3}
+            maxLength={2000}
+            value={aarNotes}
+            onChange={(e) => setAarNotes(e.target.value)}
             placeholder="How did it go? What worked, and what should change next time?"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-          <p className="text-xs text-muted-foreground">Shown on the event and in its final summary in Discord. Attendees can add comments under it.</p>
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-muted-foreground">
+            Shown on the event and in its final summary in Discord. Attendees can add comments under it.
+          </p>
         </CardContent>
       </Card>
 
       {/* Complete */}
       <div className="flex items-center justify-between">
-          {completeMutation.isError && (
-            <p className="text-sm text-destructive">Failed to complete event. Please try again.</p>
-          )}
-          <div className="ml-auto flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/dashboard/servers/${guildId}`)}
-            >
-              Save for later
-            </Button>
-            <Button
-              disabled={!canComplete || completeMutation.isPending}
-              onClick={() => completeMutation.mutate()}
-            >
-              {completeMutation.isPending ? 'Completing…' : 'Complete Event'}
-            </Button>
-          </div>
+        {completeMutation.isError && (
+          <p className="text-sm text-destructive">Failed to complete event. Please try again.</p>
+        )}
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/dashboard/servers/${guildId}`)}>
+            Save for later
+          </Button>
+          <Button disabled={!canComplete || completeMutation.isPending} onClick={() => completeMutation.mutate()}>
+            {completeMutation.isPending ? 'Completing…' : 'Complete Event'}
+          </Button>
+        </div>
       </div>
     </div>
   );

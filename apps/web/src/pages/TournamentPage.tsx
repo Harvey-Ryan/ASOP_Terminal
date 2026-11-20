@@ -18,18 +18,18 @@ import type { EloSummaryEntry } from '../api/tournament';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TAB_STATUS: Record<string, string | undefined> = {
-  upcoming:    'DRAFT,REGISTRATION',
-  active:      'IN_PROGRESS',
-  completed:   'COMPLETED,CANCELLED',
-  rankings:    undefined,
+  upcoming: 'DRAFT,REGISTRATION',
+  active: 'IN_PROGRESS',
+  completed: 'COMPLETED,CANCELLED',
+  rankings: undefined,
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT:       'bg-zinc-700 text-zinc-300',
-  REGISTRATION:'bg-blue-700/30 text-blue-300',
+  DRAFT: 'bg-zinc-700 text-zinc-300',
+  REGISTRATION: 'bg-blue-700/30 text-blue-300',
   IN_PROGRESS: 'bg-yellow-700/30 text-yellow-300',
-  COMPLETED:   'bg-green-700/30 text-green-300',
-  CANCELLED:   'bg-red-700/30 text-red-300',
+  COMPLETED: 'bg-green-700/30 text-green-300',
+  CANCELLED: 'bg-red-700/30 text-red-300',
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ export function TournamentPage() {
     onSuccess: (_, deletedId) => {
       setSelectedId(null);
       qc.setQueriesData<Tournament[]>({ queryKey: ['tournaments', guildId] }, (old) =>
-        old ? old.filter((t) => t.id !== deletedId) : []
+        old ? old.filter((t) => t.id !== deletedId) : [],
       );
     },
   });
@@ -116,15 +116,29 @@ export function TournamentPage() {
       setSelectedId(null);
       qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
       qc.setQueriesData<Tournament[]>({ queryKey: ['tournaments', guildId] }, (old) =>
-        old ? old.filter((t) => t.id !== cancelledId) : []
+        old ? old.filter((t) => t.id !== cancelledId) : [],
       );
     },
   });
 
   const resultMutation = useMutation({
-    mutationFn: ({ matchId, winnerId, scoreA, scoreB, forfeit }: { matchId: string; winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean }) =>
-      tournamentApi.submitResult(guildId!, detail!.id, matchId, { winnerId, scoreA, scoreB, forfeit }),
-    onSuccess: () => { setResultMatch(null); invalidate(); },
+    mutationFn: ({
+      matchId,
+      winnerId,
+      scoreA,
+      scoreB,
+      forfeit,
+    }: {
+      matchId: string;
+      winnerId: string;
+      scoreA?: number;
+      scoreB?: number;
+      forfeit?: boolean;
+    }) => tournamentApi.submitResult(guildId!, detail!.id, matchId, { winnerId, scoreA, scoreB, forfeit }),
+    onSuccess: () => {
+      setResultMatch(null);
+      invalidate();
+    },
   });
 
   const addParticipantMutation = useMutation({
@@ -134,8 +148,7 @@ export function TournamentPage() {
   });
 
   const removeParticipantMutation = useMutation({
-    mutationFn: ({ id, pid }: { id: string; pid: string }) =>
-      tournamentApi.removeParticipant(guildId!, id, pid),
+    mutationFn: ({ id, pid }: { id: string; pid: string }) => tournamentApi.removeParticipant(guildId!, id, pid),
     onSuccess: invalidate,
   });
 
@@ -166,9 +179,14 @@ export function TournamentPage() {
         {(['upcoming', 'active', 'completed', ...(!hideElo ? ['rankings'] : [])] as const).map((t) => (
           <button
             key={t}
-            onClick={() => { setParams({ tab: t }); setSelectedId(null); }}
+            onClick={() => {
+              setParams({ tab: t });
+              setSelectedId(null);
+            }}
             className={`px-4 py-2 text-sm capitalize transition-colors border-b-2 -mb-px ${
-              tab === t ? 'border-indigo-500 text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t
+                ? 'border-indigo-500 text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t === 'active' ? 'In Progress' : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -208,9 +226,16 @@ export function TournamentPage() {
                 onClick={() => setSelectedId(t.id)}
                 onOpen={() => openMutation.mutate(t.id)}
                 onStart={() => startMutation.mutate(t.id)}
-                onDelete={() => { if (confirm(`Delete "${t.name}"?`)) deleteMutation.mutate(t.id); }}
-                onComplete={() => { if (confirm(`Mark "${t.name}" as completed? This will lock the results.`)) completeMutation.mutate(t.id); }}
-                onCancel={() => { if (confirm(`Cancel "${t.name}"? This cannot be undone.`)) cancelMutation.mutate(t.id); }}
+                onDelete={() => {
+                  if (confirm(`Delete "${t.name}"?`)) deleteMutation.mutate(t.id);
+                }}
+                onComplete={() => {
+                  if (confirm(`Mark "${t.name}" as completed? This will lock the results.`))
+                    completeMutation.mutate(t.id);
+                }}
+                onCancel={() => {
+                  if (confirm(`Cancel "${t.name}"? This cannot be undone.`)) cancelMutation.mutate(t.id);
+                }}
               />
             ))}
           </div>
@@ -227,9 +252,7 @@ export function TournamentPage() {
               onAddParticipant={(discordId, displayName) =>
                 addParticipantMutation.mutate({ id: detail.id, discordId, displayName })
               }
-              onRemoveParticipant={(pid) =>
-                removeParticipantMutation.mutate({ id: detail.id, pid })
-              }
+              onRemoveParticipant={(pid) => removeParticipantMutation.mutate({ id: detail.id, pid })}
               onUnregister={() => {
                 if (confirm('Leave this tournament? You will lose your spot.')) {
                   unregisterMutation.mutate(detail.id);
@@ -256,7 +279,10 @@ export function TournamentPage() {
         <CreateTournamentDialog
           guildId={guildId!}
           onClose={() => setCreateOpen(false)}
-          onCreated={() => { setCreateOpen(false); invalidate(); }}
+          onCreated={() => {
+            setCreateOpen(false);
+            invalidate();
+          }}
         />
       )}
 
@@ -290,17 +316,31 @@ interface TournamentCardProps {
   onCancel: () => void;
 }
 
-function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen, onStart, onDelete, onComplete, onCancel }: TournamentCardProps) {
+function TournamentCard({
+  tournament: t,
+  isSelected,
+  isManager,
+  onClick,
+  onOpen,
+  onStart,
+  onDelete,
+  onComplete,
+  onCancel,
+}: TournamentCardProps) {
   return (
     <button
       onClick={onClick}
       className={`w-full text-left rounded-lg border p-3 transition-colors ${
-        isSelected ? 'border-indigo-500 bg-indigo-500/10' : 'border-border hover:border-indigo-500/50 hover:bg-accent/40'
+        isSelected
+          ? 'border-indigo-500 bg-indigo-500/10'
+          : 'border-border hover:border-indigo-500/50 hover:bg-accent/40'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-medium text-sm truncate">{t.name}</span>
-        <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${STATUS_COLORS[t.status] ?? 'bg-zinc-700 text-zinc-300'}`}>
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${STATUS_COLORS[t.status] ?? 'bg-zinc-700 text-zinc-300'}`}
+        >
           {t.status.replace('_', ' ')}
         </span>
       </div>
@@ -316,18 +356,33 @@ function TournamentCard({ tournament: t, isSelected, isManager, onClick, onOpen,
       {isManager && (
         <div className="mt-2 flex gap-1.5" onClick={(e) => e.stopPropagation()}>
           {t.status === 'DRAFT' && (
-              <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onOpen}>Open Reg</Button>
-            )}
-            {(t.status === 'DRAFT' || t.status === 'REGISTRATION') && (
-              <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onDelete}>Delete</Button>
-            )}
+            <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onOpen}>
+              Open Reg
+            </Button>
+          )}
+          {(t.status === 'DRAFT' || t.status === 'REGISTRATION') && (
+            <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onDelete}>
+              Delete
+            </Button>
+          )}
           {t.status === 'REGISTRATION' && (
-            <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onStart}>Start Bracket</Button>
+            <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={onStart}>
+              Start Bracket
+            </Button>
           )}
           {t.status === 'IN_PROGRESS' && (
             <>
-              <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-green-400 border-green-500/40 hover:bg-green-500/10" onClick={onComplete}>Complete</Button>
-              <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onCancel}>Cancel</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-xs px-2 text-green-400 border-green-500/40 hover:bg-green-500/10"
+                onClick={onComplete}
+              >
+                Complete
+              </Button>
+              <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive" onClick={onCancel}>
+                Cancel
+              </Button>
             </>
           )}
         </div>
@@ -353,7 +408,20 @@ interface TournamentDetailProps {
   isUnregistering: boolean;
 }
 
-function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo = false, onSubmitResult, onAddParticipant, onRemoveParticipant, onUnregister, isAddingParticipant, isRemovingParticipant, isUnregistering }: TournamentDetailProps) {
+function TournamentDetail({
+  detail,
+  isManager,
+  guildId,
+  currentUserId,
+  hideElo = false,
+  onSubmitResult,
+  onAddParticipant,
+  onRemoveParticipant,
+  onUnregister,
+  isAddingParticipant,
+  isRemovingParticipant,
+  isUnregistering,
+}: TournamentDetailProps) {
   const [activeTab, setActiveTab] = useState<'bracket' | 'participants' | 'schedule'>('bracket');
   const [addName, setAddName] = useState('');
   const [addDiscordId, setAddDiscordId] = useState('');
@@ -373,7 +441,8 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
     onSuccess: () => qcDetail.invalidateQueries({ queryKey: ['tournament-detail', detail.id] }),
   });
 
-  const canManualSeed = isManager && ['DRAFT', 'REGISTRATION'].includes(detail.status) && detail.seedingMode === 'MANUAL';
+  const canManualSeed =
+    isManager && ['DRAFT', 'REGISTRATION'].includes(detail.status) && detail.seedingMode === 'MANUAL';
 
   // Keep seedOrder in sync when participants are added/removed (merge: preserve user-set
   // positions for existing IDs, append new arrivals, drop removed ones).
@@ -409,7 +478,8 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
   const isFull = detail.openRoster ? false : detail.participants.length >= detail.size;
   const alreadyRegistered = !!currentUserId && detail.participants.some((p) => p.discordId === currentUserId);
   const deadlinePassed = !!detail.registrationEndsAt && new Date(detail.registrationEndsAt) < new Date();
-  const canSelfRegister = !isManager && detail.status === 'REGISTRATION' && !alreadyRegistered && !isFull && !deadlinePassed;
+  const canSelfRegister =
+    !isManager && detail.status === 'REGISTRATION' && !alreadyRegistered && !isFull && !deadlinePassed;
 
   const handleAdd = () => {
     if (!addName.trim() && !addDiscordId.trim()) return;
@@ -467,11 +537,7 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
               {detail.registrationEndsAt ? ` · Closes ${new Date(detail.registrationEndsAt).toLocaleString()}` : ''}
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={() => onAddParticipant()}
-            disabled={isAddingParticipant}
-          >
+          <Button size="sm" onClick={() => onAddParticipant()} disabled={isAddingParticipant}>
             {isAddingParticipant ? '…' : 'Join Tournament'}
           </Button>
         </div>
@@ -521,9 +587,7 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
             onSubmitResult={isManager ? onSubmitResult : undefined}
             isManager={isManager}
           />
-          {!hideElo && eloSummary && eloSummary.length > 0 && (
-            <EloSummaryTable entries={eloSummary} />
-          )}
+          {!hideElo && eloSummary && eloSummary.length > 0 && <EloSummaryTable entries={eloSummary} />}
         </div>
       )}
 
@@ -558,10 +622,21 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
                   onClick={handleAdd}
                   disabled={(!addName.trim() && !addDiscordId.trim()) || isAddingParticipant || isFull}
                 >
-                  {isAddingParticipant ? '…' : <><Plus className="h-3.5 w-3.5 mr-1" />Add</>}
+                  {isAddingParticipant ? (
+                    '…'
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add
+                    </>
+                  )}
                 </Button>
               </div>
-              {isFull && <p className="text-xs text-amber-500">Bracket is full ({detail.size}/{detail.size})</p>}
+              {isFull && (
+                <p className="text-xs text-amber-500">
+                  Bracket is full ({detail.size}/{detail.size})
+                </p>
+              )}
             </div>
           )}
 
@@ -580,7 +655,9 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
           {canManualSeed && detail.participants.length > 0 && (
             <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Seed Order <span className="text-xs text-muted-foreground font-normal">(#1 is top seed)</span></p>
+                <p className="text-sm font-medium">
+                  Seed Order <span className="text-xs text-muted-foreground font-normal">(#1 is top seed)</span>
+                </p>
                 <Button
                   size="sm"
                   className="h-7 text-xs"
@@ -595,8 +672,13 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
                   const p = detail.participants.find((x) => x.id === pid);
                   if (!p) return null;
                   return (
-                    <div key={pid} className="flex items-center gap-2 rounded bg-background/60 px-2 py-1.5 border border-border">
-                      <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">#{idx + 1}</span>
+                    <div
+                      key={pid}
+                      className="flex items-center gap-2 rounded bg-background/60 px-2 py-1.5 border border-border"
+                    >
+                      <span className="w-6 text-center text-xs text-muted-foreground font-mono shrink-0">
+                        #{idx + 1}
+                      </span>
                       <span className="flex-1 text-sm truncate">{p.displayName}</span>
                       <div className="flex gap-0.5 shrink-0">
                         <button
@@ -655,7 +737,9 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[p.status] ?? 'bg-zinc-700 text-zinc-300'}`}>
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[p.status] ?? 'bg-zinc-700 text-zinc-300'}`}
+                        >
                           {p.status}
                         </span>
                       </td>
@@ -684,7 +768,13 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
       )}
 
       {activeTab === 'schedule' && (
-        <MatchScheduleView matches={detail.matches} participants={detail.participants} isManager={isManager} guildId={detail.guildId} tournamentId={detail.id} />
+        <MatchScheduleView
+          matches={detail.matches}
+          participants={detail.participants}
+          isManager={isManager}
+          guildId={detail.guildId}
+          tournamentId={detail.id}
+        />
       )}
     </div>
   );
@@ -692,7 +782,13 @@ function TournamentDetail({ detail, isManager, guildId, currentUserId, hideElo =
 
 // ── Team registration form ────────────────────────────────────────────────────
 
-function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoster = false }: {
+function AddTeamForm({
+  guildId,
+  tournamentId,
+  slotsFilled,
+  totalSlots,
+  openRoster = false,
+}: {
   guildId: string;
   tournamentId: string;
   slotsFilled: number;
@@ -708,10 +804,11 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoste
   const isFull = openRoster ? false : slotsFilled >= totalSlots;
 
   const addMutation = useMutation({
-    mutationFn: () => tournamentApi.register(guildId, tournamentId, {
-      teamName: teamName.trim(),
-      teamMembers: members.filter((m) => m.displayName.trim()),
-    }),
+    mutationFn: () =>
+      tournamentApi.register(guildId, tournamentId, {
+        teamName: teamName.trim(),
+        teamMembers: members.filter((m) => m.displayName.trim()),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tournament-detail', tournamentId] });
       setTeamName('');
@@ -720,7 +817,7 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoste
   });
 
   const updateMember = (i: number, field: 'discordId' | 'displayName', val: string) => {
-    setMembers((prev) => prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m));
+    setMembers((prev) => prev.map((m, idx) => (idx === i ? { ...m, [field]: val } : m)));
   };
 
   const canSubmit = teamName.trim() && members.some((m) => m.displayName.trim());
@@ -728,9 +825,7 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoste
   return (
     <div className="rounded-lg border border-border p-3 flex flex-col gap-3">
       <p className="text-sm font-medium text-muted-foreground">
-        {openRoster
-          ? `Add Team (${slotsFilled} registered · Open)`
-          : `Add Team (${slotsFilled} / ${totalSlots})`}
+        {openRoster ? `Add Team (${slotsFilled} registered · Open)` : `Add Team (${slotsFilled} / ${totalSlots})`}
       </p>
       <div className="flex gap-2">
         <Input
@@ -781,7 +876,14 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoste
           onClick={() => addMutation.mutate()}
           disabled={!canSubmit || addMutation.isPending || isFull}
         >
-          {addMutation.isPending ? '…' : <><Plus className="h-3.5 w-3.5 mr-1" />Add Team</>}
+          {addMutation.isPending ? (
+            '…'
+          ) : (
+            <>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Team
+            </>
+          )}
         </Button>
         {isFull && <p className="text-xs text-amber-500">Bracket is full</p>}
       </div>
@@ -791,7 +893,13 @@ function AddTeamForm({ guildId, tournamentId, slotsFilled, totalSlots, openRoste
 
 // ── Match schedule view ───────────────────────────────────────────────────────
 
-function MatchScheduleView({ matches, participants, isManager, guildId, tournamentId }: {
+function MatchScheduleView({
+  matches,
+  participants,
+  isManager,
+  guildId,
+  tournamentId,
+}: {
   matches: TournamentMatch[];
   participants: TournamentDetail['participants'];
   isManager: boolean;
@@ -814,7 +922,9 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
   const [scheduling, setScheduling] = useState<string | null>(null);
   const [schedDate, setSchedDate] = useState('');
 
-  const ready = matches.filter((m) => m.participantAId && m.participantBId && m.status !== 'COMPLETED' && m.status !== 'BYE');
+  const ready = matches.filter(
+    (m) => m.participantAId && m.participantBId && m.status !== 'COMPLETED' && m.status !== 'BYE',
+  );
 
   if (ready.length === 0) {
     return <p className="text-muted-foreground text-sm">No matches ready to schedule.</p>;
@@ -829,15 +939,19 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
           <div key={m.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
             <div className="flex-1 text-sm">
               <span className="font-medium">
-                {m.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place' : getRoundLabel(m.round, maxRound, m.bracketSide, m.position)}
+                {m.bracketSide === 'THIRD_PLACE'
+                  ? '🥉 3rd Place'
+                  : getRoundLabel(m.round, maxRound, m.bracketSide, m.position)}
               </span>
-              <span className="text-muted-foreground ml-2">{pA?.displayName ?? '?'} vs {pB?.displayName ?? '?'}</span>
+              <span className="text-muted-foreground ml-2">
+                {pA?.displayName ?? '?'} vs {pB?.displayName ?? '?'}
+              </span>
             </div>
             {m.scheduledAt && (
               <span className="text-xs text-muted-foreground">{new Date(m.scheduledAt).toLocaleString()}</span>
             )}
-            {isManager && (
-              scheduling === m.id ? (
+            {isManager &&
+              (scheduling === m.id ? (
                 <div className="flex items-center gap-1">
                   <input
                     type="datetime-local"
@@ -848,23 +962,32 @@ function MatchScheduleView({ matches, participants, isManager, guildId, tourname
                   <Button
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={() => { scheduleMutation.mutate({ matchId: m.id, scheduledAt: fromLocalInputValue(schedDate)! }); setScheduling(null); }}
+                    onClick={() => {
+                      scheduleMutation.mutate({ matchId: m.id, scheduledAt: fromLocalInputValue(schedDate)! });
+                      setScheduling(null);
+                    }}
                     disabled={!schedDate}
                   >
                     Save
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setScheduling(null)}>✕</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setScheduling(null)}>
+                    ✕
+                  </Button>
                 </div>
               ) : (
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                  setScheduling(m.id);
-                  // Pre-populate with the existing scheduled time so the manager only needs to adjust
-                  setSchedDate(toLocalInputValue(m.scheduledAt));
-                }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setScheduling(m.id);
+                    // Pre-populate with the existing scheduled time so the manager only needs to adjust
+                    setSchedDate(toLocalInputValue(m.scheduledAt));
+                  }}
+                >
                   {m.scheduledAt ? 'Reschedule' : 'Schedule'}
                 </Button>
-              )
-            )}
+              ))}
           </div>
         );
       })}
@@ -891,11 +1014,21 @@ interface H2HPlayerSlotProps {
 }
 
 function H2HPlayerSlot({
-  label, players, excludeDiscordId, discordId, displayName, unranked,
-  onDiscordId, onDisplayName, onUnrankedToggle, onChange,
+  label,
+  players,
+  excludeDiscordId,
+  discordId,
+  displayName,
+  unranked,
+  onDiscordId,
+  onDisplayName,
+  onUnrankedToggle,
+  onChange,
 }: H2HPlayerSlotProps) {
-  const selectCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
-  const inputCls  = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
+  const selectCls =
+    'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
+  const inputCls =
+    'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -904,7 +1037,12 @@ function H2HPlayerSlot({
         <button
           type="button"
           className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-          onClick={() => { onUnrankedToggle(!unranked); onDiscordId(''); onDisplayName(''); onChange(); }}
+          onClick={() => {
+            onUnrankedToggle(!unranked);
+            onDiscordId('');
+            onDisplayName('');
+            onChange();
+          }}
         >
           {unranked ? 'Pick ranked player' : 'Enter Discord ID'}
         </button>
@@ -916,28 +1054,39 @@ function H2HPlayerSlot({
             type="text"
             placeholder="Discord ID (snowflake)"
             value={discordId}
-            onChange={(e) => { onDiscordId(e.target.value.trim()); onChange(); }}
+            onChange={(e) => {
+              onDiscordId(e.target.value.trim());
+              onChange();
+            }}
             className={inputCls + ' font-mono'}
           />
           <input
             type="text"
             placeholder="Display name (required)"
             value={displayName}
-            onChange={(e) => { onDisplayName(e.target.value); onChange(); }}
+            onChange={(e) => {
+              onDisplayName(e.target.value);
+              onChange();
+            }}
             className={inputCls}
           />
         </div>
       ) : (
         <select
           value={discordId}
-          onChange={(e) => { onDiscordId(e.target.value); onChange(); }}
+          onChange={(e) => {
+            onDiscordId(e.target.value);
+            onChange();
+          }}
           className={selectCls}
         >
           <option value="">Select player…</option>
           {players
             .filter((p) => p.discordId !== excludeDiscordId)
             .map((p) => (
-              <option key={p.discordId} value={p.discordId}>{p.displayName} ({p.rating})</option>
+              <option key={p.discordId} value={p.discordId}>
+                {p.displayName} ({p.rating})
+              </option>
             ))}
         </select>
       )}
@@ -948,53 +1097,67 @@ function H2HPlayerSlot({
 function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[] }) {
   const qc = useQueryClient();
 
-  const [playerAId, setPlayerAId]           = useState('');
-  const [playerAName, setPlayerAName]       = useState('');
+  const [playerAId, setPlayerAId] = useState('');
+  const [playerAName, setPlayerAName] = useState('');
   const [playerAUnranked, setPlayerAUnranked] = useState(false);
 
-  const [playerBId, setPlayerBId]           = useState('');
-  const [playerBName, setPlayerBName]       = useState('');
+  const [playerBId, setPlayerBId] = useState('');
+  const [playerBName, setPlayerBName] = useState('');
   const [playerBUnranked, setPlayerBUnranked] = useState(false);
 
   const [winnerId, setWinnerId] = useState('');
   const [announce, setAnnounce] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Derive display names: for ranked players, look up from the players array
   const rankedA = players.find((p) => p.discordId === playerAId);
   const rankedB = players.find((p) => p.discordId === playerBId);
-  const nameA   = playerAUnranked ? playerAName : (rankedA?.displayName ?? '');
-  const nameB   = playerBUnranked ? playerBName : (rankedB?.displayName ?? '');
+  const nameA = playerAUnranked ? playerAName : (rankedA?.displayName ?? '');
+  const nameB = playerBUnranked ? playerBName : (rankedB?.displayName ?? '');
 
   // Keep winner in sync: if it no longer refers to one of the two selected players, clear it
   const validWinnerIds = [playerAId, playerBId].filter(Boolean);
   const effectiveWinnerId = validWinnerIds.includes(winnerId) ? winnerId : '';
 
   function reset() {
-    setPlayerAId(''); setPlayerAName(''); setPlayerAUnranked(false);
-    setPlayerBId(''); setPlayerBName(''); setPlayerBUnranked(false);
-    setWinnerId(''); setAnnounce(false); setError(null);
+    setPlayerAId('');
+    setPlayerAName('');
+    setPlayerAUnranked(false);
+    setPlayerBId('');
+    setPlayerBName('');
+    setPlayerBUnranked(false);
+    setWinnerId('');
+    setAnnounce(false);
+    setError(null);
   }
 
   const mutation = useMutation({
-    mutationFn: () => tournamentApi.submitH2H(guildId, {
-      playerADiscordId:  playerAId,
-      playerBDiscordId:  playerBId,
-      winnerDiscordId:   effectiveWinnerId,
-      announce,
-      ...(playerAUnranked ? { playerADisplayName: playerAName.trim() } : {}),
-      ...(playerBUnranked ? { playerBDisplayName: playerBName.trim() } : {}),
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] }); reset(); },
-    onError:   (e: Error) => setError(e.message),
+    mutationFn: () =>
+      tournamentApi.submitH2H(guildId, {
+        playerADiscordId: playerAId,
+        playerBDiscordId: playerBId,
+        winnerDiscordId: effectiveWinnerId,
+        announce,
+        ...(playerAUnranked ? { playerADisplayName: playerAName.trim() } : {}),
+        ...(playerBUnranked ? { playerBDisplayName: playerBName.trim() } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tournament-rankings', guildId] });
+      reset();
+    },
+    onError: (e: Error) => setError(e.message),
   });
 
   const canSubmit =
-    playerAId && playerBId && effectiveWinnerId && !mutation.isPending &&
-    (!playerAUnranked || playerAName.trim()) &&   // unranked A needs a name
-    (!playerBUnranked || playerBName.trim());      // unranked B needs a name
+    playerAId &&
+    playerBId &&
+    effectiveWinnerId &&
+    !mutation.isPending &&
+    (!playerAUnranked || playerAName.trim()) && // unranked A needs a name
+    (!playerBUnranked || playerBName.trim()); // unranked B needs a name
 
-  const selectCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
+  const selectCls =
+    'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring';
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -1003,7 +1166,6 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
         <span className="text-sm font-medium">Head to Head</span>
       </div>
       <div className="p-4 flex flex-col gap-3">
-
         <H2HPlayerSlot
           label="Player A"
           players={players}
@@ -1035,7 +1197,10 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Winner</label>
           <select
             value={effectiveWinnerId}
-            onChange={(e) => { setWinnerId(e.target.value); setError(null); }}
+            onChange={(e) => {
+              setWinnerId(e.target.value);
+              setError(null);
+            }}
             disabled={!playerAId || !playerBId}
             className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
@@ -1058,11 +1223,7 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
-        <Button
-          className="w-full mt-1"
-          disabled={!canSubmit}
-          onClick={() => mutation.mutate()}
-        >
+        <Button className="w-full mt-1" disabled={!canSubmit} onClick={() => mutation.mutate()}>
           {mutation.isPending ? 'Submitting…' : 'Submit Result'}
         </Button>
       </div>
@@ -1074,7 +1235,10 @@ function H2HCard({ guildId, players }: { guildId: string; players: PlayerRating[
 
 import type { SeasonStanding } from '../api/tournament';
 
-function SeasonStandingsSection({ guildId, seasons }: {
+function SeasonStandingsSection({
+  guildId,
+  seasons,
+}: {
   guildId: string;
   seasons: Array<{ season: { id: string; name: string; status: string } }>;
 }) {
@@ -1094,15 +1258,11 @@ function SeasonStandingsSection({ guildId, seasons }: {
             }`}
           >
             🏆 {season.name}
-            {season.status !== 'ACTIVE' && (
-              <span className="ml-1 opacity-60">({season.status.toLowerCase()})</span>
-            )}
+            {season.status !== 'ACTIVE' && <span className="ml-1 opacity-60">({season.status.toLowerCase()})</span>}
           </button>
         ))}
       </div>
-      {openSeasonId && (
-        <SeasonStandingsPanel guildId={guildId} seasonId={openSeasonId} />
-      )}
+      {openSeasonId && <SeasonStandingsPanel guildId={guildId} seasonId={openSeasonId} />}
     </div>
   );
 }
@@ -1115,7 +1275,8 @@ function SeasonStandingsPanel({ guildId, seasonId }: { guildId: string; seasonId
   const medals = ['🥇', '🥈', '🥉'];
 
   if (isLoading) return <p className="text-xs text-muted-foreground">Loading standings…</p>;
-  if (!standings || standings.length === 0) return <p className="text-xs text-muted-foreground">No standings recorded for this season yet.</p>;
+  if (!standings || standings.length === 0)
+    return <p className="text-xs text-muted-foreground">No standings recorded for this season yet.</p>;
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -1149,7 +1310,15 @@ function SeasonStandingsPanel({ guildId, seasonId }: { guildId: string; seasonId
 
 // ── Rankings view ─────────────────────────────────────────────────────────────
 
-function RankingsView({ players, isLoading, guildId }: { players: PlayerRating[]; isLoading: boolean; guildId: string }) {
+function RankingsView({
+  players,
+  isLoading,
+  guildId,
+}: {
+  players: PlayerRating[];
+  isLoading: boolean;
+  guildId: string;
+}) {
   const medals = ['🥇', '🥈', '🥉'];
   const [selectedDiscordId, setSelectedDiscordId] = useState<string | null>(null);
 
@@ -1188,7 +1357,8 @@ function RankingsView({ players, isLoading, guildId }: { players: PlayerRating[]
                     <Tooltip>
                       <TooltipTrigger>
                         <span className={isProvisional ? 'text-muted-foreground' : ''}>
-                          {isProvisional ? '~' : ''}{p.rating}
+                          {isProvisional ? '~' : ''}
+                          {p.rating}
                         </span>
                       </TooltipTrigger>
                       {isProvisional && <TooltipContent>Provisional (fewer than 10 matches)</TooltipContent>}
@@ -1219,7 +1389,15 @@ function RankingsView({ players, isLoading, guildId }: { players: PlayerRating[]
 
 import type { RatingHistoryEntry } from '../api/tournament';
 
-function PlayerHistoryPanel({ guildId, player, onClose }: { guildId: string; player: PlayerRating; onClose: () => void }) {
+function PlayerHistoryPanel({
+  guildId,
+  player,
+  onClose,
+}: {
+  guildId: string;
+  player: PlayerRating;
+  onClose: () => void;
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ['player-history', guildId, player.discordId],
     queryFn: () => tournamentApi.getPlayerHistory(guildId, player.discordId),
@@ -1234,7 +1412,9 @@ function PlayerHistoryPanel({ guildId, player, onClose }: { guildId: string; pla
           <span className="font-semibold">{player.displayName}</span>
           <span className="ml-2 text-xs text-muted-foreground font-mono">{player.discordId}</span>
         </div>
-        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClose}>✕</Button>
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClose}>
+          ✕
+        </Button>
       </div>
 
       <div className="grid grid-cols-4 gap-3 text-sm">
@@ -1248,7 +1428,10 @@ function PlayerHistoryPanel({ guildId, player, onClose }: { guildId: string; pla
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground uppercase tracking-wide">W / L</span>
-          <span><span className="text-green-400">{player.wins}</span> / <span className="text-red-400">{player.losses}</span></span>
+          <span>
+            <span className="text-green-400">{player.wins}</span> /{' '}
+            <span className="text-red-400">{player.losses}</span>
+          </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground uppercase tracking-wide">Matches</span>
@@ -1257,7 +1440,9 @@ function PlayerHistoryPanel({ guildId, player, onClose }: { guildId: string; pla
       </div>
 
       {isLoading && <p className="text-xs text-muted-foreground">Loading history…</p>}
-      {!isLoading && history.length === 0 && <p className="text-xs text-muted-foreground">No match history recorded yet.</p>}
+      {!isLoading && history.length === 0 && (
+        <p className="text-xs text-muted-foreground">No match history recorded yet.</p>
+      )}
       {history.length > 0 && (
         <>
           <RatingSparkline history={history} />
@@ -1273,19 +1458,27 @@ function PlayerHistoryPanel({ guildId, player, onClose }: { guildId: string; pla
                 </tr>
               </thead>
               <tbody>
-                {history.slice().reverse().map((h) => (
-                  <tr key={h.id} className="border-t border-border">
-                    <td className="px-2 py-1.5 text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</td>
-                    <td className="px-2 py-1.5">{h.opponentName ?? '—'}</td>
-                    <td className="px-2 py-1.5 text-right">
-                      <span className={h.won ? 'text-green-400' : 'text-red-400'}>{h.won ? 'Win' : 'Loss'}</span>
-                    </td>
-                    <td className={`px-2 py-1.5 text-right font-mono ${h.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {h.delta >= 0 ? '+' : ''}{h.delta}
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-mono">{h.ratingAfter}</td>
-                  </tr>
-                ))}
+                {history
+                  .slice()
+                  .reverse()
+                  .map((h) => (
+                    <tr key={h.id} className="border-t border-border">
+                      <td className="px-2 py-1.5 text-muted-foreground">
+                        {new Date(h.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-2 py-1.5">{h.opponentName ?? '—'}</td>
+                      <td className="px-2 py-1.5 text-right">
+                        <span className={h.won ? 'text-green-400' : 'text-red-400'}>{h.won ? 'Win' : 'Loss'}</span>
+                      </td>
+                      <td
+                        className={`px-2 py-1.5 text-right font-mono ${h.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                      >
+                        {h.delta >= 0 ? '+' : ''}
+                        {h.delta}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-mono">{h.ratingAfter}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -1323,10 +1516,22 @@ function RatingSparkline({ history }: { history: RatingHistoryEntry[] }) {
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: W }}>
       <polygon points={fillPoints} fill="rgba(88,101,242,0.15)" />
-      <polyline points={polyline} fill="none" stroke="#5865f2" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline
+        points={polyline}
+        fill="none"
+        stroke="#5865f2"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
       {/* Start and end dots */}
       <circle cx={points[0]!.split(',')[0]} cy={points[0]!.split(',')[1]} r={2.5} fill="#5865f2" />
-      <circle cx={points[points.length - 1]!.split(',')[0]} cy={points[points.length - 1]!.split(',')[1]} r={2.5} fill="#5865f2" />
+      <circle
+        cx={points[points.length - 1]!.split(',')[0]}
+        cy={points[points.length - 1]!.split(',')[1]}
+        r={2.5}
+        fill="#5865f2"
+      />
     </svg>
   );
 }
@@ -1356,16 +1561,20 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
   const qc = useQueryClient();
   const createMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
-    mutationFn: () => tournamentApi.create(guildId, {
-      name: name.trim(),
-      openRoster,
-      // Size is ignored (stored as 0) for open-roster tournaments; the server derives it at start.
-      size: openRoster ? 0 : Number(size),
-      seedingMode,
-      participantMode,
-      ...(seasonId ? { seasonId } : {}),
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tournaments', guildId] }); onCreated(); },
+    mutationFn: () =>
+      tournamentApi.create(guildId, {
+        name: name.trim(),
+        openRoster,
+        // Size is ignored (stored as 0) for open-roster tournaments; the server derives it at start.
+        size: openRoster ? 0 : Number(size),
+        seedingMode,
+        participantMode,
+        ...(seasonId ? { seasonId } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
+      onCreated();
+    },
   });
 
   return (
@@ -1376,13 +1585,24 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="t-name" className="text-sm font-medium">Tournament Name</label>
-            <Input id="t-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring Invitational" />
+            <label htmlFor="t-name" className="text-sm font-medium">
+              Tournament Name
+            </label>
+            <Input
+              id="t-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Spring Invitational"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">Participant Mode</label>
-              <select value={participantMode} onChange={(e) => setParticipantMode(e.target.value as 'INDIVIDUAL' | 'TEAM')} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+              <select
+                value={participantMode}
+                onChange={(e) => setParticipantMode(e.target.value as 'INDIVIDUAL' | 'TEAM')}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+              >
                 <option value="INDIVIDUAL">Individual</option>
                 <option value="TEAM">Team</option>
               </select>
@@ -1394,8 +1614,16 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
                   Auto (set at start)
                 </div>
               ) : (
-                <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
-                  {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} {participantMode === 'TEAM' ? 'teams' : 'participants'}</option>)}
+                <select
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                >
+                  {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => (
+                    <option key={s} value={String(s)}>
+                      {s} {participantMode === 'TEAM' ? 'teams' : 'participants'}
+                    </option>
+                  ))}
                 </select>
               )}
             </div>
@@ -1414,7 +1642,11 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">Seeding</label>
-              <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+              <select
+                value={seedingMode}
+                onChange={(e) => setSeedingMode(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+              >
                 <option value="RANDOM">Random</option>
                 <option value="ACTIVITY">Activity</option>
                 <option value="ELO_RANK">ELO Rating</option>
@@ -1424,9 +1656,17 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
             {seasons && seasons.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium">Season (optional)</label>
-                <select value={seasonId} onChange={(e) => setSeasonId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                <select
+                  value={seasonId}
+                  onChange={(e) => setSeasonId(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                >
                   <option value="">None</option>
-                  {seasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {seasons.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -1437,11 +1677,10 @@ function CreateTournamentDialog({ guildId, onClose, onCreated }: CreateDialogPro
             <p className="text-sm text-red-500 w-full text-left">{(createMutation.error as Error).message}</p>
           )}
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button
-              disabled={!name.trim() || createMutation.isPending}
-              onClick={() => createMutation.mutate()}
-            >
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button disabled={!name.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
               {createMutation.isPending ? 'Creating…' : 'Create Tournament'}
             </Button>
           </div>
@@ -1468,27 +1707,24 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
   const [seedingMode, setSeedingMode] = useState(tournament.seedingMode);
   const [openRoster, setOpenRoster] = useState(tournament.openRoster);
   // When toggling open roster off, default the size picker to 8 (or the stored size if valid)
-  const [size, setSize] = useState(
-    tournament.openRoster || tournament.size < 4 ? '8' : String(tournament.size),
-  );
-  const [registrationEndsAt, setRegistrationEndsAt] = useState(
-    toLocalInputValue(tournament.registrationEndsAt),
-  );
+  const [size, setSize] = useState(tournament.openRoster || tournament.size < 4 ? '8' : String(tournament.size));
+  const [registrationEndsAt, setRegistrationEndsAt] = useState(toLocalInputValue(tournament.registrationEndsAt));
 
   const qc = useQueryClient();
   const updateMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
-    mutationFn: () => tournamentApi.update(guildId, tournament.id, {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      registrationEndsAt: fromLocalInputValue(registrationEndsAt),
-      ...(isDraft && {
-        seedingMode,
-        openRoster,
-        // Only send size when closed-roster; server ignores it (and blocks it) for open-roster.
-        ...(!openRoster && { size: Number(size) }),
-      }),
-    } as Parameters<typeof tournamentApi.update>[2]),
+    mutationFn: () =>
+      tournamentApi.update(guildId, tournament.id, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        registrationEndsAt: fromLocalInputValue(registrationEndsAt),
+        ...(isDraft && {
+          seedingMode,
+          openRoster,
+          // Only send size when closed-roster; server ignores it (and blocks it) for open-roster.
+          ...(!openRoster && { size: Number(size) }),
+        }),
+      } as Parameters<typeof tournamentApi.update>[2]),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tournament-detail', tournament.id] });
       qc.invalidateQueries({ queryKey: ['tournaments', guildId] });
@@ -1538,14 +1774,26 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
                       Auto (set at start)
                     </div>
                   ) : (
-                    <select value={size} onChange={(e) => setSize(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
-                      {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => <option key={s} value={String(s)}>{s} participants</option>)}
+                    <select
+                      value={size}
+                      onChange={(e) => setSize(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                    >
+                      {[4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64].map((s) => (
+                        <option key={s} value={String(s)}>
+                          {s} participants
+                        </option>
+                      ))}
                     </select>
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium">Seeding</label>
-                  <select value={seedingMode} onChange={(e) => setSeedingMode(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                  <select
+                    value={seedingMode}
+                    onChange={(e) => setSeedingMode(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                  >
                     <option value="RANDOM">Random</option>
                     <option value="ACTIVITY">Activity</option>
                     <option value="ELO_RANK">ELO Rating</option>
@@ -1570,11 +1818,10 @@ function EditTournamentDialog({ guildId, tournament, onClose, onSaved }: EditDia
             <p className="text-sm text-red-500 w-full text-left">{(updateMutation.error as Error).message}</p>
           )}
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button
-              disabled={!name.trim() || updateMutation.isPending}
-              onClick={() => updateMutation.mutate()}
-            >
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button disabled={!name.trim() || updateMutation.isPending} onClick={() => updateMutation.mutate()}>
               {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
           </div>
@@ -1613,13 +1860,19 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
-          {match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Result' : `${getRoundLabel(match.round, dialogMaxRound, match.bracketSide, match.position)} Result`}
-        </DialogTitle>
+            {match.bracketSide === 'THIRD_PLACE'
+              ? '🥉 3rd Place Result'
+              : `${getRoundLabel(match.round, dialogMaxRound, match.bracketSide, match.position)} Result`}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">Winner</label>
-            <select value={winnerId} onChange={(e) => setWinnerId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+            <select
+              value={winnerId}
+              onChange={(e) => setWinnerId(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            >
               {pA && <option value={pA.id}>{pA.displayName}</option>}
               {pB && <option value={pB.id}>{pB.displayName}</option>}
             </select>
@@ -1627,12 +1880,30 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
           {!forfeit && (
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="scoreA" className="text-sm font-medium">{pA?.displayName ?? 'Player A'} Score</label>
-                <Input id="scoreA" type="number" min="0" value={scoreA} onChange={(e) => setScoreA(e.target.value)} placeholder="Optional" />
+                <label htmlFor="scoreA" className="text-sm font-medium">
+                  {pA?.displayName ?? 'Player A'} Score
+                </label>
+                <Input
+                  id="scoreA"
+                  type="number"
+                  min="0"
+                  value={scoreA}
+                  onChange={(e) => setScoreA(e.target.value)}
+                  placeholder="Optional"
+                />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="scoreB" className="text-sm font-medium">{pB?.displayName ?? 'Player B'} Score</label>
-                <Input id="scoreB" type="number" min="0" value={scoreB} onChange={(e) => setScoreB(e.target.value)} placeholder="Optional" />
+                <label htmlFor="scoreB" className="text-sm font-medium">
+                  {pB?.displayName ?? 'Player B'} Score
+                </label>
+                <Input
+                  id="scoreB"
+                  type="number"
+                  min="0"
+                  value={scoreB}
+                  onChange={(e) => setScoreB(e.target.value)}
+                  placeholder="Optional"
+                />
               </div>
             </div>
           )}
@@ -1643,7 +1914,9 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
               onChange={(e) => setForfeit(e.target.checked)}
               className="rounded"
             />
-            <span>Forfeit <span className="text-muted-foreground">(no ELO change)</span></span>
+            <span>
+              Forfeit <span className="text-muted-foreground">(no ELO change)</span>
+            </span>
           </label>
           {forfeit && (
             <p className="text-xs text-amber-500 -mt-2">
@@ -1652,15 +1925,19 @@ function SubmitResultDialog({ match, detail, isPending, onClose, onSubmit }: Sub
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
             disabled={!winnerId || isPending}
-            onClick={() => onSubmit({
-              winnerId,
-              scoreA: !forfeit && scoreA !== '' ? Number(scoreA) : undefined,
-              scoreB: !forfeit && scoreB !== '' ? Number(scoreB) : undefined,
-              forfeit: forfeit || undefined,
-            })}
+            onClick={() =>
+              onSubmit({
+                winnerId,
+                scoreA: !forfeit && scoreA !== '' ? Number(scoreA) : undefined,
+                scoreB: !forfeit && scoreB !== '' ? Number(scoreB) : undefined,
+                forfeit: forfeit || undefined,
+              })
+            }
           >
             {isPending ? 'Saving…' : forfeit ? 'Record Forfeit' : 'Submit Result'}
           </Button>
@@ -1703,8 +1980,16 @@ function EloSummaryTable({ entries }: { entries: EloSummaryEntry[] }) {
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-muted-foreground">{e.ratingBefore}</td>
                 <td className="px-3 py-2 text-right font-mono font-semibold">
-                  <span className={`flex items-center justify-end gap-1 ${up ? 'text-green-400' : down ? 'text-red-400' : 'text-muted-foreground'}`}>
-                    {up ? <TrendingUp className="h-3.5 w-3.5" /> : down ? <TrendingDown className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+                  <span
+                    className={`flex items-center justify-end gap-1 ${up ? 'text-green-400' : down ? 'text-red-400' : 'text-muted-foreground'}`}
+                  >
+                    {up ? (
+                      <TrendingUp className="h-3.5 w-3.5" />
+                    ) : down ? (
+                      <TrendingDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <Minus className="h-3.5 w-3.5" />
+                    )}
                     {e.totalDelta >= 0 ? `+${e.totalDelta}` : e.totalDelta}
                   </span>
                 </td>

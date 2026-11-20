@@ -43,7 +43,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('assistant settings', () => {
-  it('only the server\'s admins, and only servers in the rollout', async () => {
+  it("only the server's admins, and only servers in the rollout", async () => {
     const guild = await createGuild();
     await request(app).get(`/api/guilds/${guild.guildId}/assistant`).expect(401);
     const member = await signedIn([]);
@@ -76,7 +76,11 @@ describe('assistant settings', () => {
     expect(decryptAiKey(row.keyCipher!, 'another-server')).toBeNull(); // bound to its server
 
     // Nothing the website can fetch holds the key.
-    for (const res of [saved, await admin.get(base).expect(200), await admin.put(base).send({ enabled: true, answerChars: 900 }).expect(200)]) {
+    for (const res of [
+      saved,
+      await admin.get(base).expect(200),
+      await admin.put(base).send({ enabled: true, answerChars: 900 }).expect(200),
+    ]) {
       expect(JSON.stringify(res.body)).not.toContain(KEY);
       expect(JSON.stringify(res.body)).not.toContain(row.keyCipher!);
     }
@@ -119,28 +123,41 @@ describe('assistant settings', () => {
     const base = `/api/guilds/${guild.guildId}/assistant`;
     await admin.put(base).send({ baseUrl: 'https://localhost:8080/v1' }).expect(400);
     await admin.put(base).send({ baseUrl: 'https://10.0.0.1/v1' }).expect(400);
-    const res = await admin.put(base).send({ baseUrl: 'https://openrouter.ai/api/v1', dailyQuestionLimit: 0, answerChars: 5000 }).expect(200);
-    expect(res.body.data).toMatchObject({ baseUrl: 'https://openrouter.ai/api/v1', dailyQuestionLimit: 1, answerChars: 2000 });
+    const res = await admin
+      .put(base)
+      .send({ baseUrl: 'https://openrouter.ai/api/v1', dailyQuestionLimit: 0, answerChars: 5000 })
+      .expect(200);
+    expect(res.body.data).toMatchObject({
+      baseUrl: 'https://openrouter.ai/api/v1',
+      dailyQuestionLimit: 1,
+      answerChars: 2000,
+    });
   });
 
-  it('usage is counts per server; flags are that server\'s admins\' only', async () => {
+  it("usage is counts per server; flags are that server's admins' only", async () => {
     const guild = await createGuild();
     const other = await createGuild();
     const admin = await signedIn([guild.guildId]);
     const today = new Date().toISOString().slice(0, 10);
-    await prisma.aiUsage.createMany({ data: [
-      { guildId: guild.guildId, discordId: 'a', day: today, questions: 2, inputTokens: 1000, outputTokens: 200 },
-      { guildId: guild.guildId, discordId: 'b', day: today, questions: 1, inputTokens: 500, outputTokens: 100 },
-      { guildId: other.guildId, discordId: 'a', day: today, questions: 9, inputTokens: 9000, outputTokens: 900 },
-    ] });
+    await prisma.aiUsage.createMany({
+      data: [
+        { guildId: guild.guildId, discordId: 'a', day: today, questions: 2, inputTokens: 1000, outputTokens: 200 },
+        { guildId: guild.guildId, discordId: 'b', day: today, questions: 1, inputTokens: 500, outputTokens: 100 },
+        { guildId: other.guildId, discordId: 'a', day: today, questions: 9, inputTokens: 9000, outputTokens: 900 },
+      ],
+    });
     await admin.put(`/api/guilds/${guild.guildId}/assistant`).send({ priceInPerM: 1, priceOutPerM: 4 }).expect(200);
     const res = await admin.get(`/api/guilds/${guild.guildId}/assistant`).expect(200);
     expect(res.body.data.usage).toMatchObject({ monthQuestions: 3, monthTokensIn: 1500, monthTokensOut: 300 });
     expect(res.body.data.usage.monthCostEstimate).toBeCloseTo(0.0027);
     expect(res.body.data.usage.days.at(-1)).toEqual({ day: today, questions: 3, tokens: 1800 });
 
-    const flag = await prisma.aiFlag.create({ data: { guildId: guild.guildId, discordId: 'a', username: 'A', question: 'rude', reason: 'abusive' } });
-    await prisma.aiFlag.create({ data: { guildId: other.guildId, discordId: 'a', username: 'A', question: 'elsewhere', reason: 'x' } });
+    const flag = await prisma.aiFlag.create({
+      data: { guildId: guild.guildId, discordId: 'a', username: 'A', question: 'rude', reason: 'abusive' },
+    });
+    await prisma.aiFlag.create({
+      data: { guildId: other.guildId, discordId: 'a', username: 'A', question: 'elsewhere', reason: 'x' },
+    });
     const flags = await admin.get(`/api/guilds/${guild.guildId}/assistant/flags`).expect(200);
     expect(flags.body.data.map((f: { question: string }) => f.question)).toEqual(['rude']);
     await admin.delete(`/api/guilds/${guild.guildId}/assistant/flags/${flag.id}`).expect(200);
@@ -152,9 +169,17 @@ describe('assistant settings', () => {
 });
 
 describe('off for every server', () => {
-  it('needs TURN OFF AI typed, keeps each server\'s setting', async () => {
+  it("needs TURN OFF AI typed, keeps each server's setting", async () => {
     const guild = await createGuild();
-    await prisma.aiAssistant.create({ data: { guildId: guild.guildId, enabled: true, model: 'm', keyCipher: encryptAiKey(KEY, guild.guildId), keyLast4: '1234' } });
+    await prisma.aiAssistant.create({
+      data: {
+        guildId: guild.guildId,
+        enabled: true,
+        model: 'm',
+        keyCipher: encryptAiKey(KEY, guild.guildId),
+        keyLast4: '1234',
+      },
+    });
     const platform = await signedIn([], ADMIN_DISCORD_ID);
     await platform.put('/api/admin/ai').send({ disabled: true }).expect(400);
     await platform.put('/api/admin/ai').send({ disabled: true, confirm: 'turn off ai' }).expect(400);

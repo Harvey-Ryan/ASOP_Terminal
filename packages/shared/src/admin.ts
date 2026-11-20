@@ -20,7 +20,14 @@ export interface AdminOverviewDto {
   database: { ok: boolean; latencyMs: number };
   gameData: { build: string | null; syncedAt: string | null; checkedAt: string | null } | null;
   servers: { total: number; joined7d: number; left7d: number };
-  errors: { lastHour: number; last24h: number; warnings24h: number; bySource24h: Partial<Record<ErrorSource, number>>; newKinds24h: number; openKinds: number };
+  errors: {
+    lastHour: number;
+    last24h: number;
+    warnings24h: number;
+    bySource24h: Partial<Record<ErrorSource, number>>;
+    newKinds24h: number;
+    openKinds: number;
+  };
   /** null while request logging is switched off (REQUEST_LOG, v1.21.1) */
   requests: { last24h: number; failed24h: number; slowest24hMs: number } | null;
   activity: { upcomingEvents: number; liveEvents: number; openLootSessions: number; activeUsers7d: number };
@@ -125,13 +132,27 @@ export interface AdminGuildDto {
 export interface AdminGuildDetailDto extends AdminGuildDto {
   settings: Record<string, unknown>;
   /** From Discord, when it answers */
-  discord: { memberCount: number | null; ownerId: string | null; channels: AdminChannelDto[]; roles: AdminRoleDto[] } | null;
+  discord: {
+    memberCount: number | null;
+    ownerId: string | null;
+    channels: AdminChannelDto[];
+    roles: AdminRoleDto[];
+  } | null;
   recentErrors: ErrorEventDto[];
   log: AdminLogDto[];
 }
 
-export interface AdminChannelDto { id: string; name: string; type: number; parentId: string | null }
-export interface AdminRoleDto { id: string; name: string; color: number }
+export interface AdminChannelDto {
+  id: string;
+  name: string;
+  type: number;
+  parentId: string | null;
+}
+export interface AdminRoleDto {
+  id: string;
+  name: string;
+  color: number;
+}
 
 /** A setting the admin panel can edit; the field list drives the form and the audit log labels. */
 export interface AdminSettingField {
@@ -159,22 +180,59 @@ export const ADMIN_SETTING_FIELDS: readonly AdminSettingField[] = [
   { key: 'tournamentsEnabled', label: 'Tournaments', group: 'Modules', type: 'boolean' },
   { key: 'jobsEnabled', label: 'Job Board', group: 'Modules', type: 'boolean' },
 
-  { key: 'forumChannelId', label: 'Event forum', group: 'Channels', type: 'forum', help: 'Where event threads are posted. Without it, events aren\'t posted in Discord.' },
+  {
+    key: 'forumChannelId',
+    label: 'Event forum',
+    group: 'Channels',
+    type: 'forum',
+    help: "Where event threads are posted. Without it, events aren't posted in Discord.",
+  },
   { key: 'eventChannelId', label: 'Scheduled events channel', group: 'Channels', type: 'channel' },
-  { key: 'voiceCategoryId', label: 'Voice channel category', group: 'Channels', type: 'category', help: 'Where event voice channels are created.' },
+  {
+    key: 'voiceCategoryId',
+    label: 'Voice channel category',
+    group: 'Channels',
+    type: 'category',
+    help: 'Where event voice channels are created.',
+  },
   { key: 'lootChannelId', label: 'Loot results', group: 'Channels', type: 'channel' },
   { key: 'dkpAnnouncementChannelId', label: 'Auction announcements', group: 'Channels', type: 'channel' },
   { key: 'tournamentChannelId', label: 'Tournament forum', group: 'Channels', type: 'forum' },
   { key: 'h2hChannelId', label: 'Head-to-head results', group: 'Channels', type: 'channel' },
   { key: 'allyNoticeChannelId', label: 'Ally notices', group: 'Channels', type: 'channel' },
   { key: 'statusChannelId', label: 'ASOP status message', group: 'Channels', type: 'channel' },
-  { key: 'starStringsChannelId', label: 'StarStrings updates', group: 'Channels', type: 'channel', help: 'Optional. New LIVE builds of StarStrings are announced here.' },
-  { key: 'jobsChannelId', label: 'Job board posts', group: 'Channels', type: 'channel', help: 'Optional. Jobs are always on the website.' },
+  {
+    key: 'starStringsChannelId',
+    label: 'StarStrings updates',
+    group: 'Channels',
+    type: 'channel',
+    help: 'Optional. New LIVE builds of StarStrings are announced here.',
+  },
+  {
+    key: 'jobsChannelId',
+    label: 'Job board posts',
+    group: 'Channels',
+    type: 'channel',
+    help: 'Optional. Jobs are always on the website.',
+  },
 
   { key: 'timezone', label: 'Time zone', group: 'General', type: 'timezone' },
   { key: 'dkpLabel', label: 'DKP currency name', group: 'General', type: 'text', maxLength: 30 },
-  { key: 'lootDefaultMethod', label: 'Default loot method', group: 'General', type: 'enum', options: ['RANDOM_ROLL', 'DKP', 'SNAKE_DRAFT'] },
-  { key: 'dkpDefaultAuctionDuration', label: 'Default auction length (hours)', group: 'General', type: 'int', min: 1, max: 168 },
+  {
+    key: 'lootDefaultMethod',
+    label: 'Default loot method',
+    group: 'General',
+    type: 'enum',
+    options: ['RANDOM_ROLL', 'DKP', 'SNAKE_DRAFT'],
+  },
+  {
+    key: 'dkpDefaultAuctionDuration',
+    label: 'Default auction length (hours)',
+    group: 'General',
+    type: 'int',
+    min: 1,
+    max: 168,
+  },
   { key: 'dkpMinBid', label: 'Minimum bid', group: 'General', type: 'int', min: 0 },
   { key: 'rsiOrgTag', label: 'RSI org tag', group: 'General', type: 'text', maxLength: 20 },
   { key: 'logoUrl', label: 'Briefing logo (image link)', group: 'General', type: 'text', maxLength: 1000 },

@@ -65,13 +65,18 @@ function belongs(item: { session: { id: string; eventId: string | null } } | nul
 }
 
 export const lootItemParam: ParamHandler = (req, res, next, itemId) => {
-  prisma.lootItem.findUnique({ where: { id: itemId }, select: { session: { select: { id: true, eventId: true } } } })
+  prisma.lootItem
+    .findUnique({ where: { id: itemId }, select: { session: { select: { id: true, eventId: true } } } })
     .then((item) => (belongs(item, req.params) ? next() : notFound(res, 'Item')))
     .catch(next);
 };
 
 export const lootAssignmentParam: ParamHandler = (req, res, next, assignmentId) => {
-  prisma.lootAssignment.findUnique({ where: { id: assignmentId }, select: { item: { select: { session: { select: { id: true, eventId: true } } } } } })
+  prisma.lootAssignment
+    .findUnique({
+      where: { id: assignmentId },
+      select: { item: { select: { session: { select: { id: true, eventId: true } } } } },
+    })
     .then((a) => (belongs(a?.item ?? null, req.params) ? next() : notFound(res, 'Award')))
     .catch(next);
 };

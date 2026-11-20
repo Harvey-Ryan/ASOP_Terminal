@@ -25,7 +25,7 @@ export function ExchangeSettingsPage() {
   });
 
   const [form, setForm] = useState<ExchangeForm>({ exchangeEnabled: true });
-  const [dirty, setDirty]           = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
@@ -74,8 +74,15 @@ export function ExchangeSettingsPage() {
 
   if (!guildId) return null;
 
-  function startWipe() { setPhase('typing'); setInput(''); setWipeResult(null); }
-  function cancel()    { setPhase('idle'); setInput(''); }
+  function startWipe() {
+    setPhase('typing');
+    setInput('');
+    setWipeResult(null);
+  }
+  function cancel() {
+    setPhase('idle');
+    setInput('');
+  }
 
   const phraseMatches = input === CONFIRM_PHRASE;
 
@@ -92,7 +99,6 @@ export function ExchangeSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-
           {/* Module toggle */}
           <Card>
             <CardContent className="pt-4">
@@ -100,9 +106,11 @@ export function ExchangeSettingsPage() {
                 checked={form.exchangeEnabled}
                 onChange={(v) => setField('exchangeEnabled', v)}
                 label="Marketplace enabled"
-                description={form.exchangeEnabled
-                  ? 'Members can manage their inventory and list items for sale on the cross-guild marketplace.'
-                  : 'Marketplace is disabled. The nav link will be hidden for all members.'}
+                description={
+                  form.exchangeEnabled
+                    ? 'Members can manage their inventory and list items for sale on the cross-guild marketplace.'
+                    : 'Marketplace is disabled. The nav link will be hidden for all members.'
+                }
                 tooltip="Controls whether the cross-guild Marketplace is active for this server. When disabled, the Marketplace nav link is hidden, inventory management is unavailable, and this server's listings are hidden from the platform-wide Browse page."
               />
             </CardContent>
@@ -118,9 +126,7 @@ export function ExchangeSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {settingsMutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {settingsMutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
 
           {/* Danger zone */}
@@ -149,7 +155,8 @@ export function ExchangeSettingsPage() {
                 {phase === 'typing' && (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Type <span className="font-mono font-semibold text-foreground">{CONFIRM_PHRASE}</span> to continue.
+                      Type <span className="font-mono font-semibold text-foreground">{CONFIRM_PHRASE}</span> to
+                      continue.
                     </p>
                     <input
                       autoFocus
@@ -198,13 +205,10 @@ export function ExchangeSettingsPage() {
                   </div>
                 )}
 
-                {wipeResult && (
-                  <p className="text-xs text-muted-foreground">{wipeResult}</p>
-                )}
+                {wipeResult && <p className="text-xs text-muted-foreground">{wipeResult}</p>}
               </div>
             </CardContent>
           </Card>
-
         </div>
       )}
     </div>

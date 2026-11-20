@@ -3,17 +3,7 @@ import { itemSuggestions } from '@/api/catalog';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  Gavel,
-  Timer,
-  X,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
-  Users,
-  Globe,
-} from 'lucide-react';
+import { ArrowLeft, Gavel, Timer, X, CheckCircle2, AlertTriangle, Plus, Users, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -88,8 +78,7 @@ function AuctionCard({
 
   const bidMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
-    mutationFn: () =>
-      auctionsApi.placeBid(guildId, auction.id, { maxBid: Number(bidInput) }),
+    mutationFn: () => auctionsApi.placeBid(guildId, auction.id, { maxBid: Number(bidInput) }),
     onSuccess: () => {
       setBidInput('');
       onChanged();
@@ -119,15 +108,11 @@ function AuctionCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <CardTitle className="text-base truncate">{auction.title}</CardTitle>
-            {auction.description && (
-              <p className="text-sm text-muted-foreground mt-0.5">{auction.description}</p>
-            )}
+            {auction.description && <p className="text-sm text-muted-foreground mt-0.5">{auction.description}</p>}
           </div>
           <span
             className={`flex items-center gap-1 shrink-0 text-sm font-mono font-semibold tabular-nums ${
-              urgentTime
-                ? 'text-destructive animate-pulse'
-                : 'text-muted-foreground'
+              urgentTime ? 'text-destructive animate-pulse' : 'text-muted-foreground'
             }`}
           >
             <Timer className="h-3.5 w-3.5" />
@@ -151,71 +136,72 @@ function AuctionCard({
                 <span className="flex items-center gap-1.5">
                   <span>{MEDALS[i] ?? `${i + 1}.`}</span>
                   <span>{resolveUsername(b.userId, b.username, currentUserId)}</span>
-                  {b.userId === currentUserId && (
-                    <span className="text-xs text-muted-foreground">(you)</span>
-                  )}
+                  {b.userId === currentUserId && <span className="text-xs text-muted-foreground">(you)</span>}
                 </span>
-                <span className="font-mono tabular-nums">{b.amount} {dkpLabel}</span>
+                <span className="font-mono tabular-nums">
+                  {b.amount} {dkpLabel}
+                </span>
               </div>
             ))
           )}
         </div>
 
         {/* Bid input — guild members only */}
-        {canBid && <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Max Bid
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={myBid ? myBid.maxBid + 1 : 1}
-              max={myRawBalance}
-              value={bidInput}
-              onChange={(e) => setBidInput(e.target.value)}
-              placeholder="e.g. 250"
-              className={`flex-1 rounded-md border px-2 py-1.5 text-sm ${
-                overBid || belowCurrent
-                  ? 'border-destructive bg-destructive/10 text-destructive'
-                  : 'border-input bg-background'
-              }`}
-            />
-            <Button
-              size="sm"
-              className="gap-1 shrink-0"
-              onClick={() => bidMutation.mutate()}
-              disabled={bidInvalid || bidMutation.isPending}
-            >
-              {bidMutation.isPending ? 'Bidding…' : myBid ? 'Raise Max' : 'Bid'}
-            </Button>
-          </div>
-          {myBid && (
+        {canBid && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Max Bid</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={myBid ? myBid.maxBid + 1 : 1}
+                max={myRawBalance}
+                value={bidInput}
+                onChange={(e) => setBidInput(e.target.value)}
+                placeholder="e.g. 250"
+                className={`flex-1 rounded-md border px-2 py-1.5 text-sm ${
+                  overBid || belowCurrent
+                    ? 'border-destructive bg-destructive/10 text-destructive'
+                    : 'border-input bg-background'
+                }`}
+              />
+              <Button
+                size="sm"
+                className="gap-1 shrink-0"
+                onClick={() => bidMutation.mutate()}
+                disabled={bidInvalid || bidMutation.isPending}
+              >
+                {bidMutation.isPending ? 'Bidding…' : myBid ? 'Raise Max' : 'Bid'}
+              </Button>
+            </div>
+            {myBid && (
+              <p className="text-xs text-muted-foreground">
+                Your max:{' '}
+                <span className="font-medium">
+                  {myBid.maxBid} {dkpLabel}
+                </span>
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
-              Your max: <span className="font-medium">{myBid.maxBid} {dkpLabel}</span>
+              Your available {dkpLabel}:{' '}
+              <span className={myRawBalance <= 0 ? 'text-destructive' : ''}>{myRawBalance}</span>
             </p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Your available {dkpLabel}:{' '}
-            <span className={myRawBalance <= 0 ? 'text-destructive' : ''}>{myRawBalance}</span>
-          </p>
-          {overBid && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Max bid exceeds your available balance
-            </p>
-          )}
-          {belowCurrent && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Must exceed your current max of{' '}
-              {myBid!.maxBid} {dkpLabel}
-            </p>
-          )}
-          {bidMutation.isError && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />{' '}
-              {(bidMutation.error as Error).message}
-            </p>
-          )}
-        </div>}
+            {overBid && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Max bid exceeds your available balance
+              </p>
+            )}
+            {belowCurrent && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Must exceed your current max of {myBid!.maxBid} {dkpLabel}
+              </p>
+            )}
+            {bidMutation.isError && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> {(bidMutation.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Manager controls */}
         {isManager && (
@@ -284,9 +270,16 @@ export function AuctionsPage() {
     enabled: !!guildId,
     // Bids, new auctions and results arrive as they happen (v1.30.0). Without
     // live updates: every 3 s while an auction is open, else every 30 s.
-    refetchInterval: (q) => (liveRef.current ? LIVE_SAFETY_MS : q.state.data?.some((a) => a.status === 'OPEN') ? 3000 : 30_000),
+    refetchInterval: (q) =>
+      liveRef.current ? LIVE_SAFETY_MS : q.state.data?.some((a) => a.status === 'OPEN') ? 3000 : 30_000,
   });
-  liveRef.current = useLiveQueries([guildId && `auctions:${guildId}`], [['auctions', guildId], ['dkp-me', guildId]]);
+  liveRef.current = useLiveQueries(
+    [guildId && `auctions:${guildId}`],
+    [
+      ['auctions', guildId],
+      ['dkp-me', guildId],
+    ],
+  );
 
   const eventsQuery = useQuery({
     queryKey: ['events', guildId, 'upcoming'],
@@ -328,9 +321,7 @@ export function AuctionsPage() {
 
   const auctions = auctionsQuery.data ?? [];
   const openAuctions = auctions.filter((a) => a.status === 'OPEN');
-  const pastAuctions = auctions.filter(
-    (a) => a.status === 'CLOSED' || a.status === 'CANCELLED',
-  );
+  const pastAuctions = auctions.filter((a) => a.status === 'CLOSED' || a.status === 'CANCELLED');
   const myRawBalance = myDkpQuery.data?.balance ?? 0;
   const canBid = isManager || myDkpQuery.isSuccess;
 
@@ -358,9 +349,7 @@ export function AuctionsPage() {
           <Gavel className="h-6 w-6" />
           {dkpLabel} Auctions
         </h1>
-        <p className="text-muted-foreground mt-0.5">
-          Standalone {dkpLabel} auctions — open to all guild members.
-        </p>
+        <p className="text-muted-foreground mt-0.5">Standalone {dkpLabel} auctions — open to all guild members.</p>
       </div>
 
       {/* Create form (managers only) */}
@@ -371,9 +360,7 @@ export function AuctionsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Item / Title
-              </label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Item / Title</label>
               <div className="relative">
                 <input
                   ref={titleInputRef}
@@ -403,7 +390,9 @@ export function AuctionsPage() {
                       >
                         <span className="flex-1 truncate">{s.name}</span>
                         {s.detail && <span className="text-xs text-muted-foreground shrink-0">{s.detail}</span>}
-                        <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                        <span
+                          className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${s.type === 'item' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}
+                        >
                           {s.type}
                         </span>
                       </button>
@@ -462,7 +451,9 @@ export function AuctionsPage() {
                 >
                   <option value="">— select an event —</option>
                   {upcomingEvents.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.name}</option>
+                    <option key={ev.id} value={ev.id}>
+                      {ev.name}
+                    </option>
                   ))}
                 </select>
               )}
@@ -470,9 +461,7 @@ export function AuctionsPage() {
 
             <div className="flex items-center gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Duration
-                </label>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration</label>
                 <select
                   value={durationSecs}
                   onChange={(e) => setDurationSecs(Number(e.target.value))}
@@ -503,8 +492,7 @@ export function AuctionsPage() {
             </div>
             {createMutation.isError && (
               <p className="text-xs text-destructive flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />{' '}
-                {(createMutation.error as Error).message}
+                <AlertTriangle className="h-3 w-3" /> {(createMutation.error as Error).message}
               </p>
             )}
           </CardContent>
@@ -550,16 +538,11 @@ export function AuctionsPage() {
       {/* Past auctions */}
       {pastAuctions.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">
-            Past Auctions
-          </h2>
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Past Auctions</h2>
           <Card>
             <CardContent className="pt-3 divide-y divide-border">
               {pastAuctions.map((auction) => (
-                <div
-                  key={auction.id}
-                  className="flex items-center justify-between py-2.5 gap-3"
-                >
+                <div key={auction.id} className="flex items-center justify-between py-2.5 gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{auction.title}</p>
                     {auction.status === 'CLOSED' ? (
@@ -571,13 +554,10 @@ export function AuctionsPage() {
                             auction.winnerId,
                             auction.winnerUsername ?? auction.winnerId,
                             user?.id,
-                          )}{' '}
-                          for {auction.winningBid} {dkpLabel}
+                          )} for {auction.winningBid} {dkpLabel}
                         </p>
                       ) : (
-                        <p className="text-xs text-muted-foreground mt-0.5 italic">
-                          No bids received
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 italic">No bids received</p>
                       )
                     ) : (
                       <p className="text-xs text-muted-foreground mt-0.5 italic">Cancelled</p>

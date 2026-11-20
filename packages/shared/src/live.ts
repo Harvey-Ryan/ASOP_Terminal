@@ -34,17 +34,32 @@ interface LiveModelSpec {
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
-const t = (prefix: string, v: unknown) => { const s = str(v); return s ? `${prefix}:${s}` : null; };
+const t = (prefix: string, v: unknown) => {
+  const s = str(v);
+  return s ? `${prefix}:${s}` : null;
+};
 
 export const LIVE_MODELS: Record<string, LiveModelSpec> = {
-  LootSession: { keys: ['id', 'guildId', 'eventId'], topics: async (r) => [t('loot', r.id), t('loot-guild', r.guildId), t('loot-event', r.eventId)] },
+  LootSession: {
+    keys: ['id', 'guildId', 'eventId'],
+    topics: async (r) => [t('loot', r.id), t('loot-guild', r.guildId), t('loot-event', r.eventId)],
+  },
   LootItem: { keys: ['sessionId'], topics: async (r) => [t('loot', r.sessionId)] },
   LootDraftQueue: { keys: ['sessionId'], topics: async (r) => [t('loot', r.sessionId)] },
   LootAuction: { keys: ['sessionId'], topics: async (r) => [t('loot', r.sessionId)] },
-  LootAssignment: { keys: ['itemId'], topics: async (r, look) => [t('loot', str(r.itemId) && await look.itemSession(r.itemId as string))] },
-  LootAuctionBid: { keys: ['auctionId'], topics: async (r, look) => [t('loot', str(r.auctionId) && await look.lootAuctionSession(r.auctionId as string))] },
+  LootAssignment: {
+    keys: ['itemId'],
+    topics: async (r, look) => [t('loot', str(r.itemId) && (await look.itemSession(r.itemId as string)))],
+  },
+  LootAuctionBid: {
+    keys: ['auctionId'],
+    topics: async (r, look) => [t('loot', str(r.auctionId) && (await look.lootAuctionSession(r.auctionId as string)))],
+  },
   Auction: { keys: ['guildId'], topics: async (r) => [t('auctions', r.guildId)] },
-  AuctionBid: { keys: ['auctionId'], topics: async (r, look) => [t('auctions', str(r.auctionId) && await look.auctionGuild(r.auctionId as string))] },
+  AuctionBid: {
+    keys: ['auctionId'],
+    topics: async (r, look) => [t('auctions', str(r.auctionId) && (await look.auctionGuild(r.auctionId as string)))],
+  },
   Trade: { keys: ['id'], topics: async (r) => [t('trade', r.id)] },
   TradeMessage: { keys: ['tradeId'], topics: async (r) => [t('trade', r.tradeId)] },
 };
@@ -67,7 +82,10 @@ export function liveTopicGuild(topic: string): string | null {
  * one notice. A write inside a transaction may be published before the
  * transaction commits, so those topics are sent once more a little later.
  */
-export function createLiveQueue(publish: (topics: string[]) => Promise<void>, opts: { delayMs?: number; txFollowUpMs?: number } = {}) {
+export function createLiveQueue(
+  publish: (topics: string[]) => Promise<void>,
+  opts: { delayMs?: number; txFollowUpMs?: number } = {},
+) {
   const delayMs = opts.delayMs ?? 250;
   const followUpMs = opts.txFollowUpMs ?? 2_000;
   const pending = new Set<string>();
@@ -85,10 +103,18 @@ export function createLiveQueue(publish: (topics: string[]) => Promise<void>, op
     add(topics: string[], inTransaction: boolean) {
       if (!topics.length) return;
       for (const x of topics) pending.add(x);
-      if (!timer) timer = setTimeout(() => { timer = null; flush(pending); }, delayMs);
+      if (!timer)
+        timer = setTimeout(() => {
+          timer = null;
+          flush(pending);
+        }, delayMs);
       if (inTransaction) {
         for (const x of topics) later.add(x);
-        if (!laterTimer) laterTimer = setTimeout(() => { laterTimer = null; flush(later); }, followUpMs);
+        if (!laterTimer)
+          laterTimer = setTimeout(() => {
+            laterTimer = null;
+            flush(later);
+          }, followUpMs);
       }
     },
   };
@@ -96,9 +122,23 @@ export function createLiveQueue(publish: (topics: string[]) => Promise<void>, op
 
 // ── Prisma middleware ────────────────────────────────────────────────────────
 
-const WRITES = new Set(['create', 'createMany', 'createManyAndReturn', 'update', 'updateMany', 'upsert', 'delete', 'deleteMany']);
+const WRITES = new Set([
+  'create',
+  'createMany',
+  'createManyAndReturn',
+  'update',
+  'updateMany',
+  'upsert',
+  'delete',
+  'deleteMany',
+]);
 
-interface MiddlewareParams { model?: string; action: string; args?: any; runInTransaction?: boolean }
+interface MiddlewareParams {
+  model?: string;
+  action: string;
+  args?: any;
+  runInTransaction?: boolean;
+}
 
 export interface LiveMiddlewareDeps {
   /** Reads `keys` of the rows matching `where` (at most a few hundred). */
@@ -118,9 +158,16 @@ export function liveMiddleware(deps: LiveMiddlewareDeps) {
     // updateMany/deleteMany return a count, and a deleted row can't be read
     // afterwards: read the keys first.
     let rows: Row[] | null = null;
-    const before = params.action === 'updateMany' || params.action === 'deleteMany' || (params.action === 'delete' && params.args?.select);
+    const before =
+      params.action === 'updateMany' ||
+      params.action === 'deleteMany' ||
+      (params.action === 'delete' && params.args?.select);
     if (before) {
-      try { rows = await deps.findKeys(model, params.args?.where ?? {}, spec.keys); } catch (err) { deps.onError(err); }
+      try {
+        rows = await deps.findKeys(model, params.args?.where ?? {}, spec.keys);
+      } catch (err) {
+        deps.onError(err);
+      }
     }
 
     const result = await next(params);
@@ -135,7 +182,7 @@ export function liveMiddleware(deps: LiveMiddlewareDeps) {
         if (missing.length) {
           const ids = missing.map((r) => str(r.id)).filter((x): x is string => !!x);
           rows = rows.filter((r) => !missing.includes(r));
-          if (ids.length) rows.push(...await deps.findKeys(model, { id: { in: ids } }, spec.keys));
+          if (ids.length) rows.push(...(await deps.findKeys(model, { id: { in: ids } }, spec.keys)));
         }
       }
       const topics = new Set<string>();
@@ -163,7 +210,10 @@ function cached(load: (id: string) => Promise<string | null>) {
     const hit = map.get(id);
     if (hit) return hit;
     const v = await load(id);
-    if (v) { if (map.size > 5_000) map.clear(); map.set(id, v); }
+    if (v) {
+      if (map.size > 5_000) map.clear();
+      map.set(id, v);
+    }
     return v;
   };
 }
@@ -172,25 +222,36 @@ function cached(load: (id: string) => Promise<string | null>) {
  * Sends a live notice for every watched write made through `prisma` (API
  * and bot both call this once at start-up).
  */
-export function installLiveUpdates(prisma: LivePrismaLike, onError: (err: unknown) => void = (err) => console.warn('[live] notice not sent:', err)) {
+export function installLiveUpdates(
+  prisma: LivePrismaLike,
+  onError: (err: unknown) => void = (err) => console.warn('[live] notice not sent:', err),
+) {
   const db = prisma as any;
-  const findUniqueField = (model: string, field: string) => cached(async (id) => {
-    const row = await db[delegateOf(model)].findUnique({ where: { id }, select: { [field]: true } });
-    return str(row?.[field]);
-  });
+  const findUniqueField = (model: string, field: string) =>
+    cached(async (id) => {
+      const row = await db[delegateOf(model)].findUnique({ where: { id }, select: { [field]: true } });
+      return str(row?.[field]);
+    });
   const queue = createLiveQueue(async (topics) => {
-    try { await prisma.$executeRawUnsafe('SELECT pg_notify($1, $2)', LIVE_CHANNEL, JSON.stringify({ t: topics })); } catch (err) { onError(err); }
+    try {
+      await prisma.$executeRawUnsafe('SELECT pg_notify($1, $2)', LIVE_CHANNEL, JSON.stringify({ t: topics }));
+    } catch (err) {
+      onError(err);
+    }
   });
-  prisma.$use(liveMiddleware({
-    findKeys: (model, where, keys) => db[delegateOf(model)].findMany({ where, select: Object.fromEntries(keys.map((k) => [k, true])), take: 500 }),
-    lookups: {
-      itemSession: findUniqueField('LootItem', 'sessionId'),
-      lootAuctionSession: findUniqueField('LootAuction', 'sessionId'),
-      auctionGuild: findUniqueField('Auction', 'guildId'),
-    },
-    queue,
-    onError,
-  }));
+  prisma.$use(
+    liveMiddleware({
+      findKeys: (model, where, keys) =>
+        db[delegateOf(model)].findMany({ where, select: Object.fromEntries(keys.map((k) => [k, true])), take: 500 }),
+      lookups: {
+        itemSession: findUniqueField('LootItem', 'sessionId'),
+        lootAuctionSession: findUniqueField('LootAuction', 'sessionId'),
+        auctionGuild: findUniqueField('Auction', 'guildId'),
+      },
+      queue,
+      onError,
+    }),
+  );
 }
 
 /** Reads a notice sent on LIVE_CHANNEL; [] if it isn't one. */

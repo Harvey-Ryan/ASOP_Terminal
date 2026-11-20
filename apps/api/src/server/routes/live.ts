@@ -18,9 +18,17 @@ export const liveRouter = Router();
 const PING_MS = 25_000;
 
 liveRouter.get('/live', requireAuth, async (req, res) => {
-  const asked = [...new Set(String(req.query.topics ?? '').split(',').map((t) => t.trim()).filter(isLiveTopic))].slice(0, LIVE_MAX_TOPICS);
+  const asked = [
+    ...new Set(
+      String(req.query.topics ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(isLiveTopic),
+    ),
+  ].slice(0, LIVE_MAX_TOPICS);
   if (!asked.length) {
-    res.status(400).json({ success: false, error: 'No topics' } satisfies ApiResponse); return;
+    res.status(400).json({ success: false, error: 'No topics' } satisfies ApiResponse);
+    return;
   }
 
   let topics = asked;
@@ -33,11 +41,15 @@ liveRouter.get('/live', requireAuth, async (req, res) => {
     } catch {
       // Discord busy: those topics fall back to polling for now.
     }
-    topics = asked.filter((t) => { const g = liveTopicGuild(t); return !g || mine.has(g); });
+    topics = asked.filter((t) => {
+      const g = liveTopicGuild(t);
+      return !g || mine.has(g);
+    });
   }
 
   if (!(await ensureListening())) {
-    res.status(503).json({ success: false, error: 'Live updates are unavailable right now' } satisfies ApiResponse); return;
+    res.status(503).json({ success: false, error: 'Live updates are unavailable right now' } satisfies ApiResponse);
+    return;
   }
 
   res.writeHead(200, {
@@ -56,7 +68,13 @@ liveRouter.get('/live', requireAuth, async (req, res) => {
     unsubscribe();
     res.end();
   };
-  const unsubscribe = subscribe(topics, (hits) => { if (!closed) res.write(`data: ${JSON.stringify({ topics: hits })}\n\n`); }, close);
+  const unsubscribe = subscribe(
+    topics,
+    (hits) => {
+      if (!closed) res.write(`data: ${JSON.stringify({ topics: hits })}\n\n`);
+    },
+    close,
+  );
   const ping = setInterval(() => res.write(': ping\n\n'), PING_MS);
   req.on('close', close);
 });

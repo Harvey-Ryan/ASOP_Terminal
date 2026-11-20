@@ -3,7 +3,14 @@
 // understands (the shapes of the old JSON snapshot), shared with the API.
 
 import { prisma } from './db.js';
-import { adaptBlueprint, adaptContract, CRAFTING_CONTRACTS_SQL, type RawMission, type ScBlueprintJson, type ScContractJson } from '@dem/shared';
+import {
+  adaptBlueprint,
+  adaptContract,
+  CRAFTING_CONTRACTS_SQL,
+  type RawMission,
+  type ScBlueprintJson,
+  type ScContractJson,
+} from '@dem/shared';
 import type { RawGameData, RawResource } from './gamedata.js';
 
 /** Commit of the data currently in scdata, or null if the worker hasn't run. */

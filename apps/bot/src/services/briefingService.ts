@@ -13,10 +13,21 @@ export async function announceBriefing(eventId: string): Promise<void> {
   await queueRosterUpdate(eventId);
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true, name: true, guildId: true, threadId: true, status: true, briefingPublishedAt: true, briefingSummary: true },
+    select: {
+      id: true,
+      name: true,
+      guildId: true,
+      threadId: true,
+      status: true,
+      briefingPublishedAt: true,
+      briefingSummary: true,
+    },
   });
   if (!event?.briefingPublishedAt || !['PENDING', 'ACTIVE'].includes(event.status)) return;
-  const allies = await prisma.eventAllianceGuild.findMany({ where: { eventId, threadId: { not: null } }, select: { discordGuildId: true, threadId: true } });
+  const allies = await prisma.eventAllianceGuild.findMany({
+    where: { eventId, threadId: { not: null } },
+    select: { discordGuildId: true, threadId: true },
+  });
   const targets = [
     ...(event.threadId ? [{ guildId: event.guildId, threadId: event.threadId }] : []),
     ...allies.map((a) => ({ guildId: a.discordGuildId, threadId: a.threadId! })),
@@ -26,7 +37,10 @@ export async function announceBriefing(eventId: string): Promise<void> {
       const thread = await client.channels.fetch(t.threadId).catch(() => null);
       if (!thread?.isThread()) continue;
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Open the briefing').setEmoji('📋')
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel('Open the briefing')
+          .setEmoji('📋')
           .setURL(`${webUrl()}/dashboard/servers/${t.guildId}/events/${event.id}/briefing`),
       );
       await thread.send({
@@ -35,7 +49,10 @@ export async function announceBriefing(eventId: string): Promise<void> {
         allowedMentions: { parse: [] },
       });
     } catch (err) {
-      console.warn(`[briefing] Couldn't post the briefing notice in thread ${t.threadId}:`, err instanceof Error ? err.message : err);
+      console.warn(
+        `[briefing] Couldn't post the briefing notice in thread ${t.threadId}:`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 }

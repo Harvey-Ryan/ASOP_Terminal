@@ -8,7 +8,10 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
-interface Notice { id: number; text: string }
+interface Notice {
+  id: number;
+  text: string;
+}
 
 let notices: Notice[] = [];
 let nextId = 1;
@@ -29,7 +32,10 @@ export function showError(text: string): void {
 
 function useNotices(): Notice[] {
   return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l); },
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
     () => notices,
   );
 }
@@ -43,8 +49,12 @@ function NoticeCard({ notice }: { notice: Notice }) {
     <div className="pointer-events-auto flex items-start gap-2.5 rounded-lg border border-destructive/50 bg-card px-3.5 py-3 text-sm text-foreground shadow-lg shadow-black/40">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
       <p className="flex-1 break-words">{notice.text}</p>
-      <button type="button" onClick={() => dismissError(notice.id)} aria-label="Dismiss"
-        className="-mr-1 -mt-0.5 rounded p-0.5 text-muted-foreground hover:text-foreground">
+      <button
+        type="button"
+        onClick={() => dismissError(notice.id)}
+        aria-label="Dismiss"
+        className="-mr-1 -mt-0.5 rounded p-0.5 text-muted-foreground hover:text-foreground"
+      >
         <X className="h-4 w-4" />
       </button>
     </div>
@@ -54,9 +64,14 @@ function NoticeCard({ notice }: { notice: Notice }) {
 export function ErrorNotices() {
   const list = useNotices();
   return (
-    <div role="alert" aria-live="assertive"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:w-96">
-      {list.map((n) => <NoticeCard key={n.id} notice={n} />)}
+    <div
+      role="alert"
+      aria-live="assertive"
+      className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:w-96"
+    >
+      {list.map((n) => (
+        <NoticeCard key={n.id} notice={n} />
+      ))}
     </div>
   );
 }

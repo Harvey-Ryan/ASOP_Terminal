@@ -42,7 +42,7 @@ describe('role limits on sign-up', () => {
     expect(await prisma.eventRsvp.count({ where: { eventId: ev.id, role: 'r1' } })).toBe(1);
   });
 
-  it('a role for another server\'s members, and a role that no longer exists, are refused', async () => {
+  it("a role for another server's members, and a role that no longer exists, are refused", async () => {
     const { guild, url } = await eventWithRoles([{ id: 'r1', name: 'Pilot', count: 5, guildId: 'some-other-server' }]);
     const a = await member(guild.guildId);
     expect((await a.agent.put(url).send({ role: 'r1' }).expect(400)).body.error).toMatch(/another server/);

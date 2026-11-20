@@ -65,9 +65,7 @@ function LeaderboardRowItem({
         clickable ? 'hover:bg-accent cursor-pointer' : 'cursor-default',
       )}
     >
-      <span className="w-6 text-center text-sm shrink-0">
-        {rank <= 3 ? MEDALS[rank - 1] : rank}
-      </span>
+      <span className="w-6 text-center text-sm shrink-0">{rank <= 3 ? MEDALS[rank - 1] : rank}</span>
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={row.avatar} alt={row.displayName} />
         <AvatarFallback className="text-xs">{row.displayName[0]?.toUpperCase() ?? '?'}</AvatarFallback>
@@ -133,7 +131,11 @@ export function RoleCallPage() {
   });
 
   const [showInactive, setShowInactive] = useState(false);
-  const { data: lb, isLoading: lbLoading, isError: lbError } = useQuery({
+  const {
+    data: lb,
+    isLoading: lbLoading,
+    isError: lbError,
+  } = useQuery({
     queryKey: ['rolecall-leaderboard', guildId, page, showInactive],
     queryFn: () => roleCallApi.getLeaderboard(guildId!, page, showInactive),
     enabled: !!guildId && hasActivity && !selectedUserId,
@@ -188,210 +190,210 @@ export function RoleCallPage() {
         <OrgHealthPage />
       ) : (
         <>
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {statsLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}><CardContent className="pt-4"><Skeleton className="h-10 w-full" /></CardContent></Card>
-          ))
-        ) : stats ? (
-          <>
-            <StatCard label="Members" value={Number(stats.total_members).toLocaleString()} />
-            <StatCard label="Messages" value={Number(stats.total_messages).toLocaleString()} />
-            <StatCard label="Voice" value={fmtVoice(Number(stats.total_voice_minutes))} />
-            <StatCard label="Top Streak" value={`${stats.top_streak}d`} />
-          </>
-        ) : null}
-      </div>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {statsLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="pt-4">
+                    <Skeleton className="h-10 w-full" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : stats ? (
+              <>
+                <StatCard label="Members" value={Number(stats.total_members).toLocaleString()} />
+                <StatCard label="Messages" value={Number(stats.total_messages).toLocaleString()} />
+                <StatCard label="Voice" value={fmtVoice(Number(stats.total_voice_minutes))} />
+                <StatCard label="Top Streak" value={`${stats.top_streak}d`} />
+              </>
+            ) : null}
+          </div>
 
-      {/* Member detail */}
-      {selectedUserId && (
-        <div className="space-y-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearMember}
-            className="gap-1 text-muted-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to leaderboard
-          </Button>
+          {/* Member detail */}
+          {selectedUserId && (
+            <div className="space-y-4">
+              <Button variant="ghost" size="sm" onClick={clearMember} className="gap-1 text-muted-foreground">
+                <ChevronLeft className="h-4 w-4" />
+                Back to leaderboard
+              </Button>
 
-          {memberLoading && (
-            <Card><CardContent className="pt-6 space-y-3">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </CardContent></Card>
-          )}
-
-          {member && (
-            <>
-              {/* Member header */}
-              <Card>
-                <CardContent className="pt-5 flex items-center gap-4">
-                  <Avatar className="h-14 w-14 shrink-0">
-                    <AvatarImage src={member.member.avatar} alt={member.member.displayName} />
-                    <AvatarFallback>{member.member.displayName[0]?.toUpperCase() ?? '?'}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-base">{member.member.displayName}</p>
-                    <p className="text-xs text-muted-foreground">@{member.member.username}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">{Number(member.activity.score).toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">Rank #{member.rank}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3">
-                <StatCard label="Messages" value={member.activity.message_count.toLocaleString()} />
-                <StatCard label="Voice" value={fmtVoice(member.activity.voice_minutes)} />
-                <StatCard label="Streak" value={`${member.activity.streak_days}d`} />
-              </div>
-
-              {/* Achievements */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                    Achievements
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 divide-y divide-border">
-                  {member.achievements.length === 0 && (
-                    <p className="py-3 text-sm text-muted-foreground">No achievements yet.</p>
-                  )}
-                  {member.achievements.map((a) => (
-                    <div key={a.id} className="py-3 flex items-center gap-3">
-                      <span className="text-lg shrink-0">{a.earned_at ? a.emoji : '⬜'}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn('text-sm font-medium', !a.earned_at && 'text-muted-foreground')}>
-                          {a.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{a.description}</p>
-                      </div>
-                      {a.earned_at && (
-                        <span className="text-xs text-muted-foreground shrink-0">{timeAgo(a.earned_at)}</span>
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Role history */}
-              {member.history.length > 0 && (
+              {memberLoading && (
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                      Role History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 divide-y divide-border">
-                    {member.history.map((h) => (
-                      <div key={h.id} className="py-3 pl-3 border-l-2 border-primary ml-1 space-y-0.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium capitalize">
-                            {h.change_type.replace(/_/g, ' ')}
-                          </span>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {new Date(h.changed_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {h.reason && (
-                          <p className="text-xs text-muted-foreground">{h.reason}</p>
-                        )}
-                      </div>
-                    ))}
+                  <CardContent className="pt-6 space-y-3">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-24 w-full" />
                   </CardContent>
                 </Card>
               )}
-            </>
+
+              {member && (
+                <>
+                  {/* Member header */}
+                  <Card>
+                    <CardContent className="pt-5 flex items-center gap-4">
+                      <Avatar className="h-14 w-14 shrink-0">
+                        <AvatarImage src={member.member.avatar} alt={member.member.displayName} />
+                        <AvatarFallback>{member.member.displayName[0]?.toUpperCase() ?? '?'}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-base">{member.member.displayName}</p>
+                        <p className="text-xs text-muted-foreground">@{member.member.username}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold">{Number(member.activity.score).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Rank #{member.rank}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <StatCard label="Messages" value={member.activity.message_count.toLocaleString()} />
+                    <StatCard label="Voice" value={fmtVoice(member.activity.voice_minutes)} />
+                    <StatCard label="Streak" value={`${member.activity.streak_days}d`} />
+                  </div>
+
+                  {/* Achievements */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                        Achievements
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 divide-y divide-border">
+                      {member.achievements.length === 0 && (
+                        <p className="py-3 text-sm text-muted-foreground">No achievements yet.</p>
+                      )}
+                      {member.achievements.map((a) => (
+                        <div key={a.id} className="py-3 flex items-center gap-3">
+                          <span className="text-lg shrink-0">{a.earned_at ? a.emoji : '⬜'}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn('text-sm font-medium', !a.earned_at && 'text-muted-foreground')}>
+                              {a.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{a.description}</p>
+                          </div>
+                          {a.earned_at && (
+                            <span className="text-xs text-muted-foreground shrink-0">{timeAgo(a.earned_at)}</span>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  {/* Role history */}
+                  {member.history.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          Role History
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0 divide-y divide-border">
+                        {member.history.map((h) => (
+                          <div key={h.id} className="py-3 pl-3 border-l-2 border-primary ml-1 space-y-0.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium capitalize">{h.change_type.replace(/_/g, ' ')}</span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {new Date(h.changed_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {h.reason && <p className="text-xs text-muted-foreground">{h.reason}</p>}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Leaderboard */}
-      {!selectedUserId && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Leaderboard
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 px-0">
-            {lbLoading && (
-              <div className="space-y-2 px-4 py-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
+          {/* Leaderboard */}
+          {!selectedUserId && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 px-0">
+                {lbLoading && (
+                  <div className="space-y-2 px-4 py-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                )}
+
+                {lbError && (
+                  <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                    Activity service unavailable. Check that <code>ROLECALL_API_URL</code> is configured.
+                  </p>
+                )}
+
+                {lb?.rows.map((row, i) => (
+                  <LeaderboardRowItem
+                    key={row.user_id}
+                    row={row}
+                    rank={(page - 1) * 25 + i + 1}
+                    onClick={() => handleRowClick(row.user_id)}
+                    clickable={isPrivileged || row.user_id === user?.id}
+                  />
                 ))}
-              </div>
-            )}
 
-            {lbError && (
-              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
-                Activity service unavailable. Check that <code>ROLECALL_API_URL</code> is configured.
-              </p>
-            )}
+                {/* Inactive members are hidden by RoleCallBot unless asked for */}
+                {lb && (lb.inactiveCount ?? 0) > 0 && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-border text-xs text-muted-foreground">
+                    <span>
+                      {showInactive
+                        ? `Showing ${lb.inactiveCount} inactive member${lb.inactiveCount === 1 ? '' : 's'} (greyed out).`
+                        : `${lb.inactiveCount} inactive member${lb.inactiveCount === 1 ? '' : 's'} hidden.`}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setShowInactive((v) => !v);
+                        setPage(1);
+                      }}
+                    >
+                      {showInactive ? 'Hide inactive' : 'Show inactive'}
+                    </Button>
+                  </div>
+                )}
 
-            {lb?.rows.map((row, i) => (
-              <LeaderboardRowItem
-                key={row.user_id}
-                row={row}
-                rank={(page - 1) * 25 + i + 1}
-                onClick={() => handleRowClick(row.user_id)}
-                clickable={isPrivileged || row.user_id === user?.id}
-              />
-            ))}
-
-            {/* Inactive members are hidden by RoleCallBot unless asked for */}
-            {lb && (lb.inactiveCount ?? 0) > 0 && (
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-border text-xs text-muted-foreground">
-                <span>
-                  {showInactive
-                    ? `Showing ${lb.inactiveCount} inactive member${lb.inactiveCount === 1 ? '' : 's'} (greyed out).`
-                    : `${lb.inactiveCount} inactive member${lb.inactiveCount === 1 ? '' : 's'} hidden.`}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => { setShowInactive((v) => !v); setPage(1); }}
-                >
-                  {showInactive ? 'Hide inactive' : 'Show inactive'}
-                </Button>
-              </div>
-            )}
-
-            {/* Pagination */}
-            {lb && lb.totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  Page {lb.page} of {lb.totalPages}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(lb.totalPages, p + 1))}
-                  disabled={page === lb.totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                {/* Pagination */}
+                {lb && lb.totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {lb.page} of {lb.totalPages}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.min(lb.totalPages, p + 1))}
+                      disabled={page === lb.totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

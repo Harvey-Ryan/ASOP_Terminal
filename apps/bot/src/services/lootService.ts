@@ -52,11 +52,17 @@ async function buildDraftUserTagMap(eventId: string, draftOrder: string[]): Prom
     const hostMembership = u.guildMembers.find((m) => m.guildId === hostGuildDbId);
     if (hostMembership) {
       const tag = guildDbIdToTag.get(hostMembership.guildId);
-      if (tag) { result.set(u.discordId, tag); continue; }
+      if (tag) {
+        result.set(u.discordId, tag);
+        continue;
+      }
     }
     for (const m of u.guildMembers) {
       const tag = guildDbIdToTag.get(m.guildId);
-      if (tag) { result.set(u.discordId, tag); break; }
+      if (tag) {
+        result.set(u.discordId, tag);
+        break;
+      }
     }
   }
   return result;
@@ -107,10 +113,12 @@ export async function announceDraftOrder(eventId: string) {
   if (draftOrder.length === 0) return;
 
   const tagMap = await buildDraftUserTagMap(eventId, draftOrder);
-  const lines = draftOrder.map((userId, i) => {
-    const tag = tagMap.get(userId);
-    return tag ? `${i + 1}. <@${userId}> [${tag}]` : `${i + 1}. <@${userId}>`;
-  }).join('\n');
+  const lines = draftOrder
+    .map((userId, i) => {
+      const tag = tagMap.get(userId);
+      return tag ? `${i + 1}. <@${userId}> [${tag}]` : `${i + 1}. <@${userId}>`;
+    })
+    .join('\n');
 
   const embed = new EmbedBuilder()
     .setTitle('🐍 Snake Draft Order Updated')
@@ -160,11 +168,14 @@ async function handleSnakeTurnNotification(
   // Find or create the "Loot Picker" role
   let pickerRole = guild.roles.cache.find((r) => r.name === LOOT_PICKER_ROLE);
   if (!pickerRole) {
-    pickerRole = await guild.roles.create({
-      name: LOOT_PICKER_ROLE,
-      color: 0xf59e0b,
-      reason: 'Snake draft loot picker indicator',
-    }).catch(() => null) ?? undefined;
+    pickerRole =
+      (await guild.roles
+        .create({
+          name: LOOT_PICKER_ROLE,
+          color: 0xf59e0b,
+          reason: 'Snake draft loot picker indicator',
+        })
+        .catch(() => null)) ?? undefined;
   }
 
   // Remove role from any current holders — fetch only the role's members, not the whole guild
@@ -191,10 +202,7 @@ async function handleSnakeTurnNotification(
   }
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('View Loot Pool')
-      .setStyle(ButtonStyle.Link)
-      .setURL(lootUrl),
+    new ButtonBuilder().setLabel('View Loot Pool').setStyle(ButtonStyle.Link).setURL(lootUrl),
   );
 
   let dmSent = false;
@@ -293,7 +301,14 @@ export async function notifyLootComplete(sessionId: string) {
   });
   if (!session) return;
 
-  type RawEntry = { name: string; qualityLevel: number | null; quantity: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
+  type RawEntry = {
+    name: string;
+    qualityLevel: number | null;
+    quantity: number;
+    pickNumber: number | null;
+    rollValue: number | null;
+    dkpSpent: number | null;
+  };
   type WinnerEntry = { username: string; entries: RawEntry[] };
   const winners = new Map<string, WinnerEntry>();
 
@@ -331,47 +346,58 @@ export async function notifyLootComplete(sessionId: string) {
   // DM five winners at a time with a 1 s gap (as the event reminders do): opening
   // many DMs at once is what Discord's anti-spam watches for.
   const sendOne = async ([userId, { entries }]: [string, WinnerEntry]) => {
-      const prefs = prefsMap.get(userId);
-      // Unknown user (no DB record) or no saved prefs → default opt-in
-      if (prefs !== undefined && prefs !== null && prefs.dmLootComplete === false) return;
-      // Stack entries with identical name+QL — keep first pick number, sum count
-      type StackedEntry = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null; rollValue: number | null; dkpSpent: number | null };
-      const stacked: StackedEntry[] = [];
-      for (const e of entries) {
-        const key = `${e.name}__${e.qualityLevel ?? ''}`;
-        const existing = stacked.find((s) => `${s.name}__${s.qualityLevel ?? ''}` === key);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          stacked.push({ name: e.name, qualityLevel: e.qualityLevel, count: 1, pickNumber: e.pickNumber, rollValue: e.rollValue, dkpSpent: e.dkpSpent });
-        }
+    const prefs = prefsMap.get(userId);
+    // Unknown user (no DB record) or no saved prefs → default opt-in
+    if (prefs !== undefined && prefs !== null && prefs.dmLootComplete === false) return;
+    // Stack entries with identical name+QL — keep first pick number, sum count
+    type StackedEntry = {
+      name: string;
+      qualityLevel: number | null;
+      count: number;
+      pickNumber: number | null;
+      rollValue: number | null;
+      dkpSpent: number | null;
+    };
+    const stacked: StackedEntry[] = [];
+    for (const e of entries) {
+      const key = `${e.name}__${e.qualityLevel ?? ''}`;
+      const existing = stacked.find((s) => `${s.name}__${s.qualityLevel ?? ''}` === key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        stacked.push({
+          name: e.name,
+          qualityLevel: e.qualityLevel,
+          count: 1,
+          pickNumber: e.pickNumber,
+          rollValue: e.rollValue,
+          dkpSpent: e.dkpSpent,
+        });
       }
+    }
 
-      const lines = stacked.map((e) => {
-        const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
-        const ct = e.count > 1 ? ` ×${e.count}` : '';
-        let suffix = '';
-        if (e.rollValue != null) suffix = ` (rolled ${e.rollValue})`;
-        else if (e.dkpSpent != null && e.dkpSpent > 0) suffix = ` (${e.dkpSpent} DKP)`;
-        else if (e.pickNumber != null) suffix = ` (pick #${e.pickNumber + 1})`;
-        return `• ${e.name}${ql}${ct}${suffix}`;
-      });
+    const lines = stacked.map((e) => {
+      const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
+      const ct = e.count > 1 ? ` ×${e.count}` : '';
+      let suffix = '';
+      if (e.rollValue != null) suffix = ` (rolled ${e.rollValue})`;
+      else if (e.dkpSpent != null && e.dkpSpent > 0) suffix = ` (${e.dkpSpent} DKP)`;
+      else if (e.pickNumber != null) suffix = ` (pick #${e.pickNumber + 1})`;
+      return `• ${e.name}${ql}${ct}${suffix}`;
+    });
 
-      const content = [
-        `🎁 **Loot Session Complete — ${sessionLabel}**`,
-        '',
-        'Your items:',
-        ...lines,
-      ].join('\n');
+    const content = [`🎁 **Loot Session Complete — ${sessionLabel}**`, '', 'Your items:', ...lines].join('\n');
 
-      const discordUser = await client.users.fetch(userId);
-      await discordUser.send({ content });
+    const discordUser = await client.users.fetch(userId);
+    await discordUser.send({ content });
   };
   const all = [...winners.entries()];
   for (let i = 0; i < all.length; i += LOOT_DM_CHUNK) {
     if (i > 0) await sleep(1_000);
     const results = await Promise.allSettled(all.slice(i, i + LOOT_DM_CHUNK).map(sendOne));
-    for (const r of results) if (r.status === 'rejected') console.warn('[loot] Loot-complete DM failed:', r.reason instanceof Error ? r.reason.message : r.reason);
+    for (const r of results)
+      if (r.status === 'rejected')
+        console.warn('[loot] Loot-complete DM failed:', r.reason instanceof Error ? r.reason.message : r.reason);
   }
 }
 
@@ -391,13 +417,10 @@ export async function announceLootSessionStart(sessionId: string) {
 
   const dkpLabel = await getGuildDkpLabel(session.guildId);
 
-  const methodLabel = session.method === 'DKP'
-    ? `🪙 ${dkpLabel} Bid`
-    : METHOD_LABELS[session.method] ?? session.method;
+  const methodLabel =
+    session.method === 'DKP' ? `🪙 ${dkpLabel} Bid` : (METHOD_LABELS[session.method] ?? session.method);
 
-  const attendeeCount = event.confirmedAttendees
-    ? (JSON.parse(event.confirmedAttendees) as string[]).length
-    : 0;
+  const attendeeCount = event.confirmedAttendees ? (JSON.parse(event.confirmedAttendees) as string[]).length : 0;
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
   const lootUrl = `${webUrl}/dashboard/servers/${session.guildId}/events/${event.id}/loot`;
@@ -422,10 +445,7 @@ export async function announceLootSessionStart(sessionId: string) {
     .setTimestamp();
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Open Loot Session')
-      .setStyle(ButtonStyle.Link)
-      .setURL(lootUrl),
+    new ButtonBuilder().setLabel('Open Loot Session').setStyle(ButtonStyle.Link).setURL(lootUrl),
   );
 
   try {
@@ -478,7 +498,12 @@ export async function announceLootResults(sessionId: string) {
           if (existing) {
             existing.count += 1;
           } else {
-            member.items.push({ name: item.name, qualityLevel: item.qualityLevel ?? null, count: 1, pickNumber: a.pickNumber });
+            member.items.push({
+              name: item.name,
+              qualityLevel: item.qualityLevel ?? null,
+              count: 1,
+              pickNumber: a.pickNumber,
+            });
           }
         }
       }
@@ -507,9 +532,7 @@ export async function announceLootResults(sessionId: string) {
       description = lines.join('\n');
     }
 
-    const methodLabel = session.method === 'DKP'
-      ? `🪙 ${dkpLabel}`
-      : METHOD_LABELS[session.method] ?? session.method;
+    const methodLabel = session.method === 'DKP' ? `🪙 ${dkpLabel}` : (METHOD_LABELS[session.method] ?? session.method);
 
     embed = new EmbedBuilder()
       .setTitle(`🎁 Loot — ${label}`)
@@ -519,9 +542,7 @@ export async function announceLootResults(sessionId: string) {
       .setTimestamp();
 
     if (event && session.dkpAward > 0) {
-      const confirmedIds: string[] = event.confirmedAttendees
-        ? JSON.parse(event.confirmedAttendees)
-        : [];
+      const confirmedIds: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
       embed.addFields({
         name: `🪙 ${dkpLabel} Awarded`,
         value: `+${session.dkpAward} ${dkpLabel} to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
@@ -556,7 +577,9 @@ export async function announceLootResults(sessionId: string) {
 
   if (embed) await postToAllianceThreads(session.eventId!, embed, undefined, holding);
   if (!holding) {
-    await prisma.lootSession.update({ where: { id: session.id }, data: { threadClosedAt: new Date() } }).catch(() => null);
+    await prisma.lootSession
+      .update({ where: { id: session.id }, data: { threadClosedAt: new Date() } })
+      .catch(() => null);
   } else {
     await closeLootThreadIfDone(session.id); // everything already delivered
   }
@@ -564,7 +587,10 @@ export async function announceLootResults(sessionId: string) {
 
 /** Standalone sessions: the loot results channel (GuildSettings.lootChannelId), if set. */
 async function postToLootChannel(guildId: string, embed: EmbedBuilder): Promise<void> {
-  const g = await prisma.guild.findUnique({ where: { guildId }, select: { settings: { select: { lootChannelId: true } } } });
+  const g = await prisma.guild.findUnique({
+    where: { guildId },
+    select: { settings: { select: { lootChannelId: true } } },
+  });
   const channelId = g?.settings?.lootChannelId;
   if (!channelId) return;
   try {
@@ -593,7 +619,7 @@ export function lootThreadCloseReason(
 
 const CLOSE_NOTICE = {
   delivered: '📦 All loot has been delivered. Closing this thread.',
-  expired: '🔒 Closing this thread: it\'s been 72 hours since the loot was handed out.',
+  expired: "🔒 Closing this thread: it's been 72 hours since the loot was handed out.",
 } as const;
 
 /** Closes the event's thread (and allies' threads) if the session's loot is delivered or the hold is over. */
@@ -602,23 +628,40 @@ export async function closeLootThreadIfDone(sessionId: string, now = Date.now())
     where: { id: sessionId },
     include: { items: { include: { assignments: { select: { delivered: true } } } } },
   });
-  if (!session?.eventId || session.status !== 'COMPLETED' || !session.completedAt || session.threadClosedAt) return false;
-  const why = lootThreadCloseReason(session.completedAt, session.items.flatMap((i) => i.assignments), now);
+  if (!session?.eventId || session.status !== 'COMPLETED' || !session.completedAt || session.threadClosedAt)
+    return false;
+  const why = lootThreadCloseReason(
+    session.completedAt,
+    session.items.flatMap((i) => i.assignments),
+    now,
+  );
   if (!why) return false;
 
   // Claim it first, so two ticks (or a tick and a delivery) don't both post.
-  const claimed = await prisma.lootSession.updateMany({ where: { id: sessionId, threadClosedAt: null }, data: { threadClosedAt: new Date(now) } });
+  const claimed = await prisma.lootSession.updateMany({
+    where: { id: sessionId, threadClosedAt: null },
+    data: { threadClosedAt: new Date(now) },
+  });
   if (claimed.count === 0) return false;
 
   const event = await prisma.event.findUnique({ where: { id: session.eventId }, select: { threadId: true } });
-  const allies = await prisma.eventAllianceGuild.findMany({ where: { eventId: session.eventId, threadId: { not: null } }, select: { threadId: true } });
-  await Promise.allSettled([event?.threadId, ...allies.map((a) => a.threadId)].filter((t): t is string => !!t).map(async (threadId) => {
-    const thread = await client.channels.fetch(threadId).catch(() => null);
-    if (!thread?.isThread()) return;
-    if (thread.archived) return; // already closed (by hand, or by Discord)
-    await thread.send(CLOSE_NOTICE[why]).catch(() => null);
-    await thread.setArchived(true).catch((err) => console.warn(`[bot] Couldn't close thread ${threadId} after loot:`, err));
-  }));
+  const allies = await prisma.eventAllianceGuild.findMany({
+    where: { eventId: session.eventId, threadId: { not: null } },
+    select: { threadId: true },
+  });
+  await Promise.allSettled(
+    [event?.threadId, ...allies.map((a) => a.threadId)]
+      .filter((t): t is string => !!t)
+      .map(async (threadId) => {
+        const thread = await client.channels.fetch(threadId).catch(() => null);
+        if (!thread?.isThread()) return;
+        if (thread.archived) return; // already closed (by hand, or by Discord)
+        await thread.send(CLOSE_NOTICE[why]).catch(() => null);
+        await thread
+          .setArchived(true)
+          .catch((err) => console.warn(`[bot] Couldn't close thread ${threadId} after loot:`, err));
+      }),
+  );
   return true;
 }
 

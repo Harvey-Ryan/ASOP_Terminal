@@ -94,7 +94,7 @@ describe('GuildSettings JSON role fields — Prisma queries', () => {
       data: {
         eventCreatorRoles: JSON.stringify(['r1']),
         moduleEditorRoles: JSON.stringify(['r2']),
-        viewerRoles:       JSON.stringify(['r3']),
+        viewerRoles: JSON.stringify(['r3']),
       },
     });
 
@@ -168,9 +168,7 @@ describe('PATCH /:guildId/settings', () => {
     const [agent] = await makeManagerAgent(guild.guildId);
     const roles = ['role-a', 'role-b'];
 
-    const res = await agent
-      .patch(`/api/guilds/${guild.guildId}/settings`)
-      .send({ eventCreatorRoles: roles });
+    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ eventCreatorRoles: roles });
 
     expect(res.status).toBe(200);
     expect(res.body.data.eventCreatorRoles).toEqual(roles);
@@ -184,9 +182,7 @@ describe('PATCH /:guildId/settings', () => {
     const [agent] = await makeManagerAgent(guild.guildId);
     const roles = ['mod-role-1'];
 
-    const res = await agent
-      .patch(`/api/guilds/${guild.guildId}/settings`)
-      .send({ moduleEditorRoles: roles });
+    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ moduleEditorRoles: roles });
 
     expect(res.status).toBe(200);
     expect(res.body.data.moduleEditorRoles).toEqual(roles);
@@ -197,9 +193,7 @@ describe('PATCH /:guildId/settings', () => {
     const [agent] = await makeManagerAgent(guild.guildId);
     const roles = ['viewer-role-1', 'viewer-role-2', 'viewer-role-3'];
 
-    const res = await agent
-      .patch(`/api/guilds/${guild.guildId}/settings`)
-      .send({ viewerRoles: roles });
+    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ viewerRoles: roles });
 
     expect(res.status).toBe(200);
     expect(res.body.data.viewerRoles).toEqual(roles);
@@ -221,7 +215,9 @@ describe('PATCH /:guildId/settings', () => {
   it('writes and reads back the StarStrings channel (v1.35.0)', async () => {
     const guild = await createGuild();
     const [agent] = await makeManagerAgent(guild.guildId);
-    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ starStringsChannelId: '100000000000000003' });
+    const res = await agent
+      .patch(`/api/guilds/${guild.guildId}/settings`)
+      .send({ starStringsChannelId: '100000000000000003' });
     expect(res.status).toBe(200);
     expect(res.body.data.starStringsChannelId).toBe('100000000000000003');
     const cleared = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ starStringsChannelId: null });
@@ -269,9 +265,7 @@ describe('PATCH /:guildId/settings', () => {
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
 
-    const res = await agent
-      .patch(`/api/guilds/${guild.guildId}/settings`)
-      .send({ moduleEditorRoles: ['some-role'] });
+    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ moduleEditorRoles: ['some-role'] });
 
     expect(res.status).toBe(403);
   });
@@ -282,9 +276,7 @@ describe('PATCH /:guildId/settings', () => {
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
 
-    const res = await agent
-      .patch(`/api/guilds/${guild.guildId}/settings`)
-      .send({ viewerRoles: ['some-role'] });
+    const res = await agent.patch(`/api/guilds/${guild.guildId}/settings`).send({ viewerRoles: ['some-role'] });
 
     expect(res.status).toBe(403);
   });
@@ -303,8 +295,15 @@ describe('Role-based event access (assertEventViewer)', () => {
       data: { viewerRoles: JSON.stringify([viewerRoleId]) },
     });
 
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () =>
-      new Response(JSON.stringify({ user: { id: user.discordId, username: 'u' }, roles: [viewerRoleId] }), { status: 200 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ user: { id: user.discordId, username: 'u' }, roles: [viewerRoleId] }), {
+            status: 200,
+          }),
+      ),
+    );
 
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });
@@ -318,8 +317,18 @@ describe('Role-based event access (assertEventViewer)', () => {
     const user = await createUser();
     await createGuildSettings(guild.id);
 
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () =>
-      new Response(JSON.stringify({ user: { id: user.discordId, username: 'u' }, roles: ['unrelated-role-id'] }), { status: 200 })));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementation(
+          async () =>
+            new Response(
+              JSON.stringify({ user: { id: user.discordId, username: 'u' }, roles: ['unrelated-role-id'] }),
+              { status: 200 },
+            ),
+        ),
+    );
 
     const agent = request.agent(app);
     await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [] });

@@ -8,10 +8,13 @@ import { cn } from '@/lib/utils';
 // could stretch the page near the bottom, move the trigger out from under the
 // cursor and close again, which made it flicker.)
 
-const GAP = 4;    // between trigger and card
+const GAP = 4; // between trigger and card
 const MARGIN = 8; // kept clear of the window edges
 
-interface Pos { top: number; left: number }
+interface Pos {
+  top: number;
+  left: number;
+}
 
 export function HoverPopover({
   trigger,
@@ -44,9 +47,7 @@ export function HoverPopover({
     const w = card.offsetWidth;
     const below = window.innerHeight - t.bottom - GAP - MARGIN;
     const above = t.top - GAP - MARGIN;
-    const top = h <= below || below >= above
-      ? t.bottom + GAP
-      : Math.max(MARGIN, t.top - GAP - h);
+    const top = h <= below || below >= above ? t.bottom + GAP : Math.max(MARGIN, t.top - GAP - h);
     const left = Math.min(Math.max(MARGIN, t.left), window.innerWidth - w - MARGIN);
     setPos((p) => (p && p.top === top && p.left === left ? p : { top, left }));
   }, []);
@@ -71,17 +72,26 @@ export function HoverPopover({
   return (
     <div ref={triggerRef} className="relative" onMouseEnter={() => setShown(true)} onMouseLeave={() => setShown(false)}>
       {trigger}
-      {open && createPortal(
-        <div
-          ref={cardRef}
-          role="tooltip"
-          style={{ position: 'fixed', top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
-          className={cn('z-50 rounded-lg border border-border bg-card p-3 shadow-xl text-xs pointer-events-none', className)}
-        >
-          {children}
-        </div>,
-        document.body,
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={cardRef}
+            role="tooltip"
+            style={{
+              position: 'fixed',
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              visibility: pos ? 'visible' : 'hidden',
+            }}
+            className={cn(
+              'z-50 rounded-lg border border-border bg-card p-3 shadow-xl text-xs pointer-events-none',
+              className,
+            )}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

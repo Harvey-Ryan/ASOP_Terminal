@@ -24,7 +24,7 @@ describe.skipIf(!hasScData)('SC Database search (sc-data)', () => {
     await request(app).get('/api/sc/blueprints').query({ q: 'magazine' }).expect(401);
   });
 
-  it('blueprints: by the crafted item\'s name, with type, tiers and dismantle info', async () => {
+  it("blueprints: by the crafted item's name, with type, tiers and dismantle info", async () => {
     const a = await signedIn();
     const rows = await search(a, 'blueprints', 'S-38 Magazine');
     expect(rows.length).toBeGreaterThan(0);
@@ -56,14 +56,20 @@ describe.skipIf(!hasScData)('SC Database search (sc-data)', () => {
     const rows = await search(a, 'ship-items', 'shield');
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((r) => r['name'] !== '<= PLACEHOLDER =>')).toBe(true);
-    expect(Object.keys(rows[0]!)).toEqual(expect.arrayContaining(['uuid', 'name', 'className', 'type', 'subType', 'size', 'grade', 'manufacturer']));
+    expect(Object.keys(rows[0]!)).toEqual(
+      expect.arrayContaining(['uuid', 'name', 'className', 'type', 'subType', 'size', 'grade', 'manufacturer']),
+    );
   });
 
   it('every tab answers for a common word', async () => {
     const a = await signedIn();
     const cases: [string, string, string][] = [
-      ['commodities', 'agri', 'name'], ['resources', 'quant', 'name'], ['starmap', 'microtech', 'name'],
-      ['trade-locations', 'lorville', 'displayName'], ['manufacturers', 'aegis', 'name'], ['labels', 'ballistic', 'value'],
+      ['commodities', 'agri', 'name'],
+      ['resources', 'quant', 'name'],
+      ['starmap', 'microtech', 'name'],
+      ['trade-locations', 'lorville', 'displayName'],
+      ['manufacturers', 'aegis', 'name'],
+      ['labels', 'ballistic', 'value'],
     ];
     for (const [path, q, field] of cases) {
       const rows = await search(a, path, q);
@@ -86,14 +92,16 @@ describe.skipIf(!hasScData)('SC Database search (sc-data)', () => {
     for (const q of ['__', '%%']) {
       const rows = await search(a, 'labels', q);
       expect(rows.length, q).toBeGreaterThan(0);
-      expect(rows.every((r) => `${r['key']} ${r['value']}`.includes(q)), q).toBe(true);
+      expect(
+        rows.every((r) => `${r['key']} ${r['value']}`.includes(q)),
+        q,
+      ).toBe(true);
     }
   });
-
 });
 
 describe.skipIf(hasScData)('SC Database search without sc-data', () => {
-  it('answers [] when the game data hasn\'t been set up yet', async () => {
+  it("answers [] when the game data hasn't been set up yet", async () => {
     const a = await signedIn();
     expect(await search(a, 'blueprints', 'magazine')).toEqual([]);
   });

@@ -57,7 +57,9 @@ export function catalogRef(kind: CatalogKind, uuid: string): string {
 }
 
 export function parseCatalogRef(ref: string | null | undefined): { kind: CatalogKind; uuid: string } | null {
-  const m = /^(ITEM|COMMODITY):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(ref?.trim() ?? '');
+  const m = /^(ITEM|COMMODITY):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+    ref?.trim() ?? '',
+  );
   return m ? { kind: m[1]!.toUpperCase() as CatalogKind, uuid: m[2]!.toLowerCase() } : null;
 }
 
@@ -69,14 +71,29 @@ export function parseCatalogRef(ref: string | null | undefined): { kind: Catalog
  * turrets and countermeasure launchers, thrusters, hull armour.
  */
 export const CATALOG_EXCLUDED_CLASSES = [
-  'Ship.FuelTank', 'Ship.QuantumFuelTank', 'Ship.FlightController', 'Ship.Turret',
-  'Ship.WeaponDefensive', 'Ship.Armor', 'Ship.SelfDestruct', 'Ship.FuelIntake',
-  'Ship.MainThruster', 'Ship.ManneuverThruster',
+  'Ship.FuelTank',
+  'Ship.QuantumFuelTank',
+  'Ship.FlightController',
+  'Ship.Turret',
+  'Ship.WeaponDefensive',
+  'Ship.Armor',
+  'Ship.SelfDestruct',
+  'Ship.FuelIntake',
+  'Ship.MainThruster',
+  'Ship.ManneuverThruster',
 ] as const;
 
 /** Unclassified item types players do carry: collectibles, food, chips, gadgets, storage boxes, scrip. */
 export const CATALOG_EXTRA_TYPES = [
-  'Misc', 'Food', 'Drink', 'Gadget', 'RemovableChip', 'Grenade', 'InventoryContainer', 'FPS_Consumable', 'Currency',
+  'Misc',
+  'Food',
+  'Drink',
+  'Gadget',
+  'RemovableChip',
+  'Grenade',
+  'InventoryContainer',
+  'FPS_Consumable',
+  'Currency',
 ] as const;
 
 const sqlList = (xs: readonly string[]) => xs.map((x) => `'${x}'`).join(', ');
@@ -143,17 +160,45 @@ export interface CatalogListRow {
 // ── Labels ───────────────────────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<string, string> = {
-  'FPS.Armor': 'Armour', 'FPS.Clothing': 'Clothing', 'FPS.Weapon': 'Personal Weapon',
-  'FPS.WeaponAttachment': 'Weapon Attachment', 'FPS.Consumable': 'Consumable', 'FPS.MobiGlas': 'mobiGlas',
-  'FPS.Accessory': 'Accessory', 'FPS.Jetpack': 'Jetpack',
-  'Ship.Paints': 'Ship Paint', 'Ship.Weapon': 'Ship Weapon', 'Ship.MissileLauncher': 'Missile Rack',
-  'Ship.Flair': 'Ship Flair', 'Ship.PowerPlant': 'Power Plant', 'Ship.Cooler': 'Cooler', 'Ship.Shield': 'Shield Generator',
-  'Ship.Missile': 'Missile', 'Ship.Radar': 'Radar', 'Ship.QuantumDrive': 'Quantum Drive', 'Ship.Mining': 'Mining Laser',
-  'Ship.Container': 'Cargo Container', 'Ship.Salvage': 'Salvage', 'Ship.BombRack': 'Bomb Rack', 'Ship.Beam': 'Tractor Beam',
-  'Ship.LifeSupportGenerator': 'Life Support', 'Ship.EMP': 'EMP', 'Ship.QuantumInterdictionGenerator': 'Quantum Interdiction',
-  'Ship.JumpDrive': 'Jump Drive', 'Ship.Bomb': 'Bomb', 'Mining.Module': 'Mining Module', 'Mining.Gadget': 'Mining Gadget',
-  Misc: 'Misc', Food: 'Food', Drink: 'Drink', Gadget: 'Gadget', RemovableChip: 'Chip', Grenade: 'Grenade',
-  InventoryContainer: 'Storage', FPS_Consumable: 'Consumable', Currency: 'Scrip',
+  'FPS.Armor': 'Armour',
+  'FPS.Clothing': 'Clothing',
+  'FPS.Weapon': 'Personal Weapon',
+  'FPS.WeaponAttachment': 'Weapon Attachment',
+  'FPS.Consumable': 'Consumable',
+  'FPS.MobiGlas': 'mobiGlas',
+  'FPS.Accessory': 'Accessory',
+  'FPS.Jetpack': 'Jetpack',
+  'Ship.Paints': 'Ship Paint',
+  'Ship.Weapon': 'Ship Weapon',
+  'Ship.MissileLauncher': 'Missile Rack',
+  'Ship.Flair': 'Ship Flair',
+  'Ship.PowerPlant': 'Power Plant',
+  'Ship.Cooler': 'Cooler',
+  'Ship.Shield': 'Shield Generator',
+  'Ship.Missile': 'Missile',
+  'Ship.Radar': 'Radar',
+  'Ship.QuantumDrive': 'Quantum Drive',
+  'Ship.Mining': 'Mining Laser',
+  'Ship.Container': 'Cargo Container',
+  'Ship.Salvage': 'Salvage',
+  'Ship.BombRack': 'Bomb Rack',
+  'Ship.Beam': 'Tractor Beam',
+  'Ship.LifeSupportGenerator': 'Life Support',
+  'Ship.EMP': 'EMP',
+  'Ship.QuantumInterdictionGenerator': 'Quantum Interdiction',
+  'Ship.JumpDrive': 'Jump Drive',
+  'Ship.Bomb': 'Bomb',
+  'Mining.Module': 'Mining Module',
+  'Mining.Gadget': 'Mining Gadget',
+  Misc: 'Misc',
+  Food: 'Food',
+  Drink: 'Drink',
+  Gadget: 'Gadget',
+  RemovableChip: 'Chip',
+  Grenade: 'Grenade',
+  InventoryContainer: 'Storage',
+  FPS_Consumable: 'Consumable',
+  Currency: 'Scrip',
 };
 
 const spaced = (s: string) => s.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -169,7 +214,8 @@ export function categoryLabel(category: string | null | undefined): string | nul
 }
 
 /** Ship parts whose size matters when picking (not paints or flair). */
-const showsSize = (category: string | null) => !!category && category.startsWith('Ship.') && !/^Ship\.(Paints|Flair)/.test(category);
+const showsSize = (category: string | null) =>
+  !!category && category.startsWith('Ship.') && !/^Ship\.(Paints|Flair)/.test(category);
 
 export function commodityFlags(groups: string[] | null | undefined, raw: boolean | null | undefined) {
   const g = (groups ?? []).map((x) => x.toLowerCase());
@@ -185,10 +231,14 @@ export function toCatalogEntry(r: CatalogListRow): CatalogEntry {
     const detail = ['Commodity', f.raw ? 'Raw' : null, f.illegal ? 'Illegal' : null].filter(Boolean).join(' · ');
     return { ref: catalogRef('COMMODITY', r.uuid), kind: 'COMMODITY', uuid: r.uuid, name: r.name, detail };
   }
-  const label = r.item_type && r.item_type !== r.name ? r.item_type : categoryLabel(r.category) ?? 'Item';
+  const label = r.item_type && r.item_type !== r.name ? r.item_type : (categoryLabel(r.category) ?? 'Item');
   const size = showsSize(r.category) && r.size != null && r.size > 0 ? ` · S${r.size}` : '';
   return {
-    ref: catalogRef('ITEM', r.uuid), kind: 'ITEM', uuid: r.uuid, name: r.name, detail: `${label}${size}`,
+    ref: catalogRef('ITEM', r.uuid),
+    kind: 'ITEM',
+    uuid: r.uuid,
+    name: r.name,
+    detail: `${label}${size}`,
     ...(r.minor ? { minor: true } : {}),
   };
 }
@@ -271,15 +321,29 @@ export const CATALOG_COMMODITY_DETAIL_SQL = `
   WHERE c.uuid = $1`;
 
 export interface CatalogItemDetailRow {
-  uuid: string; name: string; category: string | null; size: number | null; grade: number | null;
-  is_ship_item: boolean; manufacturer: string | null; description: string | null;
-  stats: Record<string, string> | null; item_type: string | null;
+  uuid: string;
+  name: string;
+  category: string | null;
+  size: number | null;
+  grade: number | null;
+  is_ship_item: boolean;
+  manufacturer: string | null;
+  description: string | null;
+  stats: Record<string, string> | null;
+  item_type: string | null;
 }
 
 export interface CatalogCommodityDetailRow {
-  uuid: string; name: string; groups: string[]; raw: boolean; refined_name: string | null;
+  uuid: string;
+  name: string;
+  groups: string[];
+  raw: boolean;
+  refined_name: string | null;
   description: string | null;
-  avg_buy: number | null; avg_sell: number | null; code: string | null; uex_illegal: boolean | null;
+  avg_buy: number | null;
+  avg_sell: number | null;
+  code: string | null;
+  uex_illegal: boolean | null;
 }
 
 const cleanText = (s: string | null | undefined) => {
@@ -288,27 +352,60 @@ const cleanText = (s: string | null | undefined) => {
 };
 
 export function itemDetailFromRow(r: CatalogItemDetailRow): CatalogDetail {
-  const { minor: _minor, ...entry } = toCatalogEntry({ kind: 'ITEM', uuid: r.uuid, name: r.name, category: r.category,
-    size: r.size, is_ship_item: r.is_ship_item, item_type: r.item_type, groups: null, raw: null });
+  const { minor: _minor, ...entry } = toCatalogEntry({
+    kind: 'ITEM',
+    uuid: r.uuid,
+    name: r.name,
+    category: r.category,
+    size: r.size,
+    is_ship_item: r.is_ship_item,
+    item_type: r.item_type,
+    groups: null,
+    raw: null,
+  });
   const stats = Object.entries(r.stats ?? {})
     .filter(([k, v]) => !['Manufacturer', 'Item Type', 'Size'].includes(k) && typeof v === 'string' && v.trim() !== '')
     .map(([name, value]) => ({ name, value: String(value) }));
   return {
-    ...entry, category: categoryLabel(r.category), manufacturer: r.manufacturer, size: r.size, grade: r.grade,
-    description: cleanText(r.description), stats, commodity: null,
+    ...entry,
+    category: categoryLabel(r.category),
+    manufacturer: r.manufacturer,
+    size: r.size,
+    grade: r.grade,
+    description: cleanText(r.description),
+    stats,
+    commodity: null,
   };
 }
 
 export function commodityDetailFromRow(r: CatalogCommodityDetailRow): CatalogDetail {
-  const entry = toCatalogEntry({ kind: 'COMMODITY', uuid: r.uuid, name: r.name, category: null, size: null,
-    is_ship_item: null, item_type: null, groups: r.groups, raw: r.raw });
+  const entry = toCatalogEntry({
+    kind: 'COMMODITY',
+    uuid: r.uuid,
+    name: r.name,
+    category: null,
+    size: null,
+    is_ship_item: null,
+    item_type: null,
+    groups: r.groups,
+    raw: r.raw,
+  });
   const f = commodityFlags(r.groups, r.raw);
   return {
-    ...entry, category: 'Commodity', manufacturer: null, size: null, grade: null,
-    description: cleanText(r.description), stats: [],
+    ...entry,
+    category: 'Commodity',
+    manufacturer: null,
+    size: null,
+    grade: null,
+    description: cleanText(r.description),
+    stats: [],
     commodity: {
-      raw: f.raw, illegal: f.illegal || !!r.uex_illegal, refinedName: r.raw ? r.refined_name : null,
-      avgBuy: r.avg_buy, avgSell: r.avg_sell, code: r.code || null,
+      raw: f.raw,
+      illegal: f.illegal || !!r.uex_illegal,
+      refinedName: r.raw ? r.refined_name : null,
+      avgBuy: r.avg_buy,
+      avgSell: r.avg_sell,
+      code: r.code || null,
     },
   };
 }
@@ -404,7 +501,9 @@ export function createCatalogStore(
   return {
     async get() {
       if (index && Date.now() - checkedAt < recheckMs) return index;
-      loading ??= load().finally(() => { loading = null; });
+      loading ??= load().finally(() => {
+        loading = null;
+      });
       return loading;
     },
     async detail(ref) {

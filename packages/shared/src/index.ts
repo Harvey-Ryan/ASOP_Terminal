@@ -41,8 +41,8 @@ export function getAvatarUrl(
 export function getDefaultAvatarUrl(userId: string, discriminator: string): string {
   const index =
     discriminator === '0'
-      ? Number(BigInt(userId) >> BigInt(22)) % 6  // new username system
-      : parseInt(discriminator, 10) % 5;           // legacy discriminator system
+      ? Number(BigInt(userId) >> BigInt(22)) % 6 // new username system
+      : parseInt(discriminator, 10) % 5; // legacy discriminator system
   return `${DISCORD_CDN}/embed/avatars/${index}.png`;
 }
 
@@ -439,7 +439,6 @@ export interface ImageUsageDto {
   capBytes: number;
 }
 
-
 // ── Snake draft my-pick ───────────────────────────────────────────────────────
 
 /** Returned by GET /api/guilds/loot/my-picks for every active loot session the user participates in */
@@ -553,9 +552,7 @@ export function resolveProxy(
 ): Map<string, number> {
   if (bids.length === 0) return new Map();
   const sorted = [...bids].sort((a, b) =>
-    b.maxBid !== a.maxBid
-      ? b.maxBid - a.maxBid
-      : a.placedAt.getTime() - b.placedAt.getTime(),
+    b.maxBid !== a.maxBid ? b.maxBid - a.maxBid : a.placedAt.getTime() - b.placedAt.getTime(),
   );
   const result = new Map<string, number>();
   const winner = sorted[0]!;
@@ -863,12 +860,7 @@ export function prevPow2(n: number): number {
  * Human-readable label for a single bracket match.
  * e.g. "Grand Final", "Semifinal 1", "Quarterfinal 3", "Round 1 — Match 4"
  */
-export function getRoundLabel(
-  round: number,
-  maxRound: number,
-  bracketSide: string,
-  position: number,
-): string {
+export function getRoundLabel(round: number, maxRound: number, bracketSide: string, position: number): string {
   if (bracketSide === 'THIRD_PLACE') return '3rd Place Match';
   const fromFinal = maxRound - round;
   if (fromFinal === 0) return 'Grand Final';

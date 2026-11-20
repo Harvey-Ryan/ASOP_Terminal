@@ -40,12 +40,19 @@ async function commitInfo(sha: string): Promise<{ build: string | null; committe
   try {
     const token = process.env['GITHUB_TOKEN'];
     const res = await fetch(`https://api.github.com/repos/${repo()}/commits/${sha}`, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'asop-api', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'asop-api',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = (await res.json()) as { commit?: { message?: string; committer?: { date?: string } } };
-    return { build: body.commit?.message?.split('\n')[0]?.trim() || null, committedAt: body.commit?.committer?.date ?? null };
+    return {
+      build: body.commit?.message?.split('\n')[0]?.trim() || null,
+      committedAt: body.commit?.committer?.date ?? null,
+    };
   } catch (err) {
     console.warn(`[game-data/check] Could not read commit details: ${(err as Error).message}`);
     return { build: null, committedAt: null };
@@ -67,7 +74,10 @@ export async function checkUpstreamNow(): Promise<GameDataCheckResult> {
   const state = held[0];
   const upToDate = !!state?.commit && state.commit === head;
   const info = upToDate
-    ? { build: state?.build ?? null, committedAt: state?.committed_at ? new Date(state.committed_at).toISOString() : null }
+    ? {
+        build: state?.build ?? null,
+        committedAt: state?.committed_at ? new Date(state.committed_at).toISOString() : null,
+      }
     : await commitInfo(head);
   const result: GameDataCheckResult = {
     checkedAt: new Date().toISOString(),

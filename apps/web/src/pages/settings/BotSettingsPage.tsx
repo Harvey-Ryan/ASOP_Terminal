@@ -92,7 +92,8 @@ function ImageBucket({ guildId }: { guildId: string }) {
             Image Bucket
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manage uploaded images available to event creators. Drag to reorder. Uploads are shrunk and saved as WebP to save space.
+            Manage uploaded images available to event creators. Drag to reorder. Uploads are shrunk and saved as WebP to
+            save space.
           </p>
           <ImageUsage guildId={guildId} className="mt-1.5" />
         </div>
@@ -113,14 +114,19 @@ function ImageBucket({ guildId }: { guildId: string }) {
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) { uploadMutation.mutate(f); e.target.value = ''; }
+            if (f) {
+              uploadMutation.mutate(f);
+              e.target.value = '';
+            }
           }}
         />
       </div>
 
       {imagesQuery.isLoading && (
         <div className="grid grid-cols-4 gap-2">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-lg" />
+          ))}
         </div>
       )}
 
@@ -152,11 +158,7 @@ function ImageBucket({ guildId }: { guildId: string }) {
                   isDragTarget ? 'border-primary' : 'border-transparent hover:border-border'
                 }`}
               >
-                <img
-                  src={`${API_BASE}${img.url}`}
-                  alt={img.filename}
-                  className="h-24 w-full object-cover"
-                />
+                <img src={`${API_BASE}${img.url}`} alt={img.filename} className="h-24 w-full object-cover" />
 
                 {/* Drag handle overlay */}
                 <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -171,7 +173,10 @@ function ImageBucket({ guildId }: { guildId: string }) {
                     <div className="flex gap-1">
                       <button
                         type="button"
-                        onClick={() => { deleteMutation.mutate(id); setConfirmDeleteId(null); }}
+                        onClick={() => {
+                          deleteMutation.mutate(id);
+                          setConfirmDeleteId(null);
+                        }}
                         className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground"
                       >
                         Delete
@@ -278,8 +283,7 @@ export function BotSettingsPage() {
   });
 
   const botConfigMutation = useMutation({
-    mutationFn: (data: { globalCommandsEnabled: boolean }) =>
-      settingsApi.updateBotConfig(guildId!, data),
+    mutationFn: (data: { globalCommandsEnabled: boolean }) => settingsApi.updateBotConfig(guildId!, data),
     onSuccess: (data) => {
       queryClient.setQueryData(['bot-config', guildId], data);
     },
@@ -288,7 +292,14 @@ export function BotSettingsPage() {
   const mutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
     mutationFn: () =>
-      settingsApi.updateSettings(guildId!, { moduleEditorRoles, viewerRoles, rsiOrgTag, statusChannelId, starStringsChannelId, logoUrl } as Partial<GuildSettingsData>),
+      settingsApi.updateSettings(guildId!, {
+        moduleEditorRoles,
+        viewerRoles,
+        rsiOrgTag,
+        statusChannelId,
+        starStringsChannelId,
+        logoUrl,
+      } as Partial<GuildSettingsData>),
     onSuccess: (data) => {
       if (data) queryClient.setQueryData(['settings', guildId], data);
       setDirty(false);
@@ -341,20 +352,24 @@ export function BotSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-
           {/* RSI Org Tag */}
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium">RSI Org Tag</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Your organization's tag on Roberts Space Industries (e.g. <span className="font-mono">ASOP</span>).
-                Used to cross-reference members with the RSI roster.
+                Your organization's tag on Roberts Space Industries (e.g. <span className="font-mono">ASOP</span>). Used
+                to cross-reference members with the RSI roster.
               </p>
             </div>
             <input
               value={rsiOrgTag ?? ''}
               onChange={(e) => {
-                setRsiOrgTag(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20) || null);
+                setRsiOrgTag(
+                  e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9_-]/g, '')
+                    .slice(0, 20) || null,
+                );
                 setDirty(true);
                 setSavedFlash(false);
               }}
@@ -370,21 +385,26 @@ export function BotSettingsPage() {
             <div>
               <p className="text-sm font-medium">Status Channel</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                The bot keeps one live status message here: ASOP version, when it was deployed, the game data
-                build, when the Star Citizen Wiki published it and when we synced it. The message is edited in
-                place, so it never spams the channel.
+                The bot keeps one live status message here: ASOP version, when it was deployed, the game data build,
+                when the Star Citizen Wiki published it and when we synced it. The message is edited in place, so it
+                never spams the channel.
               </p>
             </div>
             <ChannelSelect
               id="status-channel"
               channels={channels}
               value={statusChannelId}
-              onChange={(v) => { setStatusChannelId(v); setDirty(true); setSavedFlash(false); }}
+              onChange={(v) => {
+                setStatusChannelId(v);
+                setDirty(true);
+                setSavedFlash(false);
+              }}
               types={[0, 5]}
             />
             <p className="text-xs text-muted-foreground">
-              The bot needs <span className="font-medium">View Channel</span>, <span className="font-medium">Send Messages</span> and{' '}
-              <span className="font-medium">Embed Links</span> there. A read-only channel for members works best.
+              The bot needs <span className="font-medium">View Channel</span>,{' '}
+              <span className="font-medium">Send Messages</span> and <span className="font-medium">Embed Links</span>{' '}
+              there. A read-only channel for members works best.
             </p>
           </div>
 
@@ -393,13 +413,24 @@ export function BotSettingsPage() {
           {/* Org logo for briefings (v1.36.0) */}
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium">Org Logo <span className="font-normal text-muted-foreground">(optional)</span></p>
+              <p className="text-sm font-medium">
+                Org Logo <span className="font-normal text-muted-foreground">(optional)</span>
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Shown on your mission briefings and their slides (and as a faint watermark), and next to yours on
                 allies' briefings for joint ops. A square PNG with a transparent background works best.
               </p>
             </div>
-            <ServerImagePicker guildId={guildId!} value={logoUrl} onChange={(v) => { setLogoUrl(v); setDirty(true); setSavedFlash(false); }} emptyLabel="Remove logo" />
+            <ServerImagePicker
+              guildId={guildId!}
+              value={logoUrl}
+              onChange={(v) => {
+                setLogoUrl(v);
+                setDirty(true);
+                setSavedFlash(false);
+              }}
+              emptyLabel="Remove logo"
+            />
           </div>
 
           <div className="border-t border-border" />
@@ -407,24 +438,30 @@ export function BotSettingsPage() {
           {/* StarStrings updates (v1.35.0) */}
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium">StarStrings Updates <span className="font-normal text-muted-foreground">(optional)</span></p>
+              <p className="text-sm font-medium">
+                StarStrings Updates <span className="font-normal text-muted-foreground">(optional)</span>
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                When MrKraken publishes a new LIVE build of StarStrings (community text fixes for Star Citizen,
-                updated every patch), the bot posts it here with the download link. The current build is posted
-                as soon as you choose a channel. Anyone can also use <span className="font-mono">/starstrings</span>.
+                When MrKraken publishes a new LIVE build of StarStrings (community text fixes for Star Citizen, updated
+                every patch), the bot posts it here with the download link. The current build is posted as soon as you
+                choose a channel. Anyone can also use <span className="font-mono">/starstrings</span>.
               </p>
             </div>
             <ChannelSelect
               id="starstrings-channel"
               channels={channels}
               value={starStringsChannelId}
-              onChange={(v) => { setStarStringsChannelId(v); setDirty(true); setSavedFlash(false); }}
+              onChange={(v) => {
+                setStarStringsChannelId(v);
+                setDirty(true);
+                setSavedFlash(false);
+              }}
               types={[0, 5]}
             />
             <p className="text-xs text-muted-foreground">
-              The bot needs <span className="font-medium">View Channel</span>, <span className="font-medium">Send Messages</span> and{' '}
-              <span className="font-medium">Embed Links</span> there. In an announcement channel, posts are also published
-              to servers that follow it.
+              The bot needs <span className="font-medium">View Channel</span>,{' '}
+              <span className="font-medium">Send Messages</span> and <span className="font-medium">Embed Links</span>{' '}
+              there. In an announcement channel, posts are also published to servers that follow it.
             </p>
           </div>
 
@@ -441,7 +478,8 @@ export function BotSettingsPage() {
             <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>
-                Server admins can always edit module settings. If no roles are selected, only admins can access Module Settings.
+                Server admins can always edit module settings. If no roles are selected, only admins can access Module
+                Settings.
               </span>
             </div>
 
@@ -481,7 +519,9 @@ export function BotSettingsPage() {
                 {unselectedRoles.length > 0 ? (
                   <select
                     value=""
-                    onChange={(e) => { if (e.target.value) addRole(e.target.value); }}
+                    onChange={(e) => {
+                      if (e.target.value) addRole(e.target.value);
+                    }}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="">Add a role…</option>
@@ -512,7 +552,8 @@ export function BotSettingsPage() {
             <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>
-                Server admins and event creators can always view. If no roles are selected, only they can access the dashboard.
+                Server admins and event creators can always view. If no roles are selected, only they can access the
+                dashboard.
               </span>
             </div>
 
@@ -551,7 +592,9 @@ export function BotSettingsPage() {
                 {unselectedViewerRoles.length > 0 ? (
                   <select
                     value=""
-                    onChange={(e) => { if (e.target.value) addViewerRole(e.target.value); }}
+                    onChange={(e) => {
+                      if (e.target.value) addViewerRole(e.target.value);
+                    }}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="">Add a role…</option>
@@ -569,10 +612,7 @@ export function BotSettingsPage() {
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={!dirty || mutation.isPending}
-            >
+            <Button onClick={() => mutation.mutate()} disabled={!dirty || mutation.isPending}>
               {mutation.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
             {savedFlash && (
@@ -581,9 +621,7 @@ export function BotSettingsPage() {
                 Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
 
           <div className="border-t border-border" />
@@ -633,11 +671,7 @@ export function BotSettingsPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => registerMutation.mutate()}
-                disabled={registerMutation.isPending}
-              >
+              <Button variant="outline" onClick={() => registerMutation.mutate()} disabled={registerMutation.isPending}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${registerMutation.isPending ? 'animate-spin' : ''}`} />
                 {registerMutation.isPending ? 'Registering…' : 'Re-register Commands'}
               </Button>
@@ -647,9 +681,7 @@ export function BotSettingsPage() {
                   Queued
                 </span>
               )}
-              {registerMutation.isError && (
-                <span className="text-sm text-destructive">Failed to register.</span>
-              )}
+              {registerMutation.isError && <span className="text-sm text-destructive">Failed to register.</span>}
             </div>
           </div>
         </div>

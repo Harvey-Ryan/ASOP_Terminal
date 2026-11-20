@@ -25,16 +25,14 @@ function buildEmbed(auction: AuctionForEmbed, lootUrl: string, dkpLabel: string)
   const sorted = [...auction.bids].sort((a, b) => b.amount - a.amount);
 
   if (auction.status === 'CANCELLED') {
-    return new EmbedBuilder()
-      .setTitle(`❌ Auction Cancelled — ${auction.item.name}`)
-      .setColor(0x6b7280)
-      .setTimestamp();
+    return new EmbedBuilder().setTitle(`❌ Auction Cancelled — ${auction.item.name}`).setColor(0x6b7280).setTimestamp();
   }
 
   if (isOpen) {
-    const bidLines = sorted.length > 0
-      ? sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
-      : '*No bids yet — be the first!*';
+    const bidLines =
+      sorted.length > 0
+        ? sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
+        : '*No bids yet — be the first!*';
 
     return new EmbedBuilder()
       .setTitle(`🔨 LIVE AUCTION — ${auction.item.name}`)
@@ -52,9 +50,11 @@ function buildEmbed(auction: AuctionForEmbed, lootUrl: string, dkpLabel: string)
     ? `🏆 <@${auction.winnerId}> with **${auction.winningBid} ${dkpLabel}**`
     : '*No bids received — item unawarded*';
 
-  const finalStandings = sorted.length > 0
-    ? '\n\n**Final standings:**\n' + sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
-    : '';
+  const finalStandings =
+    sorted.length > 0
+      ? '\n\n**Final standings:**\n' +
+        sorted.map((b, i) => `${MEDALS[i] ?? `${i + 1}.`} **${b.username}** — ${b.amount} ${dkpLabel}`).join('\n')
+      : '';
 
   return new EmbedBuilder()
     .setTitle(`✅ Auction Closed — ${auction.item.name}`)
@@ -146,10 +146,7 @@ function buildStandaloneEmbed(auction: StandaloneAuctionForEmbed, auctionUrl: st
   const sorted = [...auction.bids].sort((a, b) => b.amount - a.amount);
 
   if (auction.status === 'CANCELLED') {
-    return new EmbedBuilder()
-      .setTitle(`❌ Auction Cancelled — ${auction.title}`)
-      .setColor(0x6b7280)
-      .setTimestamp();
+    return new EmbedBuilder().setTitle(`❌ Auction Cancelled — ${auction.title}`).setColor(0x6b7280).setTimestamp();
   }
 
   if (isOpen) {
@@ -368,13 +365,7 @@ export async function closeExpiredStandaloneAuctions(): Promise<void> {
       if (count === 0) continue; // already closed by a concurrent path
 
       if (top) {
-        await applyDkpForStandaloneAuction(
-          auction.guildId,
-          top.userId,
-          top.username,
-          top.amount,
-          auction.title,
-        );
+        await applyDkpForStandaloneAuction(auction.guildId, top.userId, top.username, top.amount, auction.title);
       }
 
       await postOrUpdateStandaloneAuctionMessage(auction.id);

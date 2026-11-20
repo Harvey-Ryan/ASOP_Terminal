@@ -40,7 +40,11 @@ type GuildWithSettings = Guild & { settings: GuildSettings | null };
 
 /** A refused action: `status` is the HTTP status to answer with. */
 export class AllyError extends Error {
-  constructor(public status: number, message: string, public refusal?: AllyRefusal) {
+  constructor(
+    public status: number,
+    message: string,
+    public refusal?: AllyRefusal,
+  ) {
     super(message);
   }
 }
@@ -83,7 +87,10 @@ async function loadOwnLink(guild: Guild, linkId: string): Promise<GuildAlly> {
 
 /** Applies an update only if the row is still in the state it was read in; a race answers 409. */
 async function updateIf(link: GuildAlly, data: Prisma.GuildAllyUpdateManyMutationInput): Promise<void> {
-  const r = await prisma.guildAlly.updateMany({ where: { id: link.id, status: link.status, requestedByGuildId: link.requestedByGuildId }, data });
+  const r = await prisma.guildAlly.updateMany({
+    where: { id: link.id, status: link.status, requestedByGuildId: link.requestedByGuildId },
+    data,
+  });
   if (r.count === 0) throw new AllyError(409, 'This changed while you were looking at it. Refresh and try again.');
 }
 
@@ -93,10 +100,21 @@ async function deleteIf(link: GuildAlly): Promise<void> {
 }
 
 /** Tells the bot to post or update the Discord ally notices (v1.10.0). */
-function notify(event: AllyNoticeEvent, link: Pick<GuildAlly, 'id' | 'noticeChannelId' | 'noticeMessageId'>, actorGuildId: string, otherGuildId: string, actor: Actor | null): void {
+function notify(
+  event: AllyNoticeEvent,
+  link: Pick<GuildAlly, 'id' | 'noticeChannelId' | 'noticeMessageId'>,
+  actorGuildId: string,
+  otherGuildId: string,
+  actor: Actor | null,
+): void {
   const payload: AllyNoticePayload = {
-    event, linkId: link.id, actorGuildId, otherGuildId, actorUserId: actor?.userId ?? null,
-    noticeChannelId: link.noticeChannelId, noticeMessageId: link.noticeMessageId,
+    event,
+    linkId: link.id,
+    actorGuildId,
+    otherGuildId,
+    actorUserId: actor?.userId ?? null,
+    noticeChannelId: link.noticeChannelId,
+    noticeMessageId: link.noticeMessageId,
   };
   triggerBot('/trigger/ally', payload);
 }
@@ -147,7 +165,9 @@ export async function alliesOverview(guild: GuildWithSettings): Promise<AlliesOv
     const mine = l.requestedByGuildId === guild.id;
     if (l.status === 'ACCEPTED') {
       allies.push({
-        id: l.id, guild: other(l), since: (l.acceptedAt ?? l.respondedAt ?? l.requestedAt).toISOString(),
+        id: l.id,
+        guild: other(l),
+        since: (l.acceptedAt ?? l.respondedAt ?? l.requestedAt).toISOString(),
         autoAcceptTheirEvents: l[autoAcceptField(l, guild.id)],
       });
     } else if (l.status === 'PENDING') {
@@ -157,7 +177,14 @@ export async function alliesOverview(guild: GuildWithSettings): Promise<AlliesOv
     } else if (l.status === 'REJECTED') {
       // Only the rejected org sees it, and only while its wait lasts.
       if (mine && l.retryAfter && l.retryAfter > now) {
-        outgoing.push({ id: l.id, guild: other(l), message: l.message, requestedAt: l.requestedAt.toISOString(), status: 'REJECTED', retryAfter: l.retryAfter.toISOString() });
+        outgoing.push({
+          id: l.id,
+          guild: other(l),
+          message: l.message,
+          requestedAt: l.requestedAt.toISOString(),
+          status: 'REJECTED',
+          retryAfter: l.retryAfter.toISOString(),
+        });
       }
     } else if (l.status === 'BLOCKED' && l.blockedByGuildId === guild.id) {
       // The blocked org is never told.
@@ -166,7 +193,10 @@ export async function alliesOverview(guild: GuildWithSettings): Promise<AlliesOv
   }
   allies.sort((a, b) => a.guild.name.localeCompare(b.guild.name));
   return {
-    allies, incoming, outgoing, blocked,
+    allies,
+    incoming,
+    outgoing,
+    blocked,
     listing: { listed: guild.settings?.allyDirectoryListed ?? false, code: await ensureAllyCode(guild) },
     pendingCount: incoming.length,
   };
@@ -175,7 +205,11 @@ export async function alliesOverview(guild: GuildWithSettings): Promise<AlliesOv
 /** Incoming requests waiting for an answer (the nav badge), without building the whole overview. */
 export async function pendingAllyRequestCount(guild: Guild): Promise<number> {
   return prisma.guildAlly.count({
-    where: { status: 'PENDING', NOT: { requestedByGuildId: guild.id }, OR: [{ guildAId: guild.id }, { guildBId: guild.id }] },
+    where: {
+      status: 'PENDING',
+      NOT: { requestedByGuildId: guild.id },
+      OR: [{ guildAId: guild.id }, { guildBId: guild.id }],
+    },
   });
 }
 
@@ -210,7 +244,11 @@ export async function searchDirectory(guild: Guild, q: string): Promise<AllyDire
     if (link && (link.status === 'ACCEPTED' || link.status === 'PENDING')) continue;
     if (link?.status === 'BLOCKED' && link.blockedByGuildId === g.id) continue; // they blocked you
     const d = decideRequest(link, guild.id, g.id, now);
-    out.push({ guild: toGuildDto(g), requestable: d.ok, reason: d.ok ? null : allyRefusalMessage(d.refusal, d.retryAfter) });
+    out.push({
+      guild: toGuildDto(g),
+      requestable: d.ok,
+      reason: d.ok ? null : allyRefusalMessage(d.refusal, d.retryAfter),
+    });
     if (out.length >= 20) break;
   }
   return out;
@@ -231,13 +269,18 @@ export async function sendAllyRequest(
   actor: Actor,
 ): Promise<SendAllyRequestResult> {
   const message = typeof rawMessage === 'string' && rawMessage.trim() ? rawMessage.trim() : null;
-  if (message && message.length > ALLY_MESSAGE_MAX) throw new AllyError(400, `The message can be at most ${ALLY_MESSAGE_MAX} characters.`);
+  if (message && message.length > ALLY_MESSAGE_MAX)
+    throw new AllyError(400, `The message can be at most ${ALLY_MESSAGE_MAX} characters.`);
 
   let to: GuildWithSettings | null = null;
   if (target.code !== undefined) {
     const code = normalizeAllyCode(target.code);
-    if (!code) throw new AllyError(400, 'That isn\'t a valid ally code. Codes are 8 letters and numbers, like ABCD-EFGH.');
-    const s = await prisma.guildSettings.findUnique({ where: { allyCode: code }, include: { guild: { include: { settings: true } } } });
+    if (!code)
+      throw new AllyError(400, "That isn't a valid ally code. Codes are 8 letters and numbers, like ABCD-EFGH.");
+    const s = await prisma.guildSettings.findUnique({
+      where: { allyCode: code },
+      include: { guild: { include: { settings: true } } },
+    });
     to = s?.guild ?? null;
     if (!to) throw new AllyError(404, 'No org has that ally code.');
   } else if (target.targetGuildId) {
@@ -264,13 +307,25 @@ export async function sendAllyRequest(
 
     const open = await prisma.guildAlly.count({ where: { status: 'PENDING', requestedByGuildId: guild.id } });
     if (open >= ALLY_MAX_OUTGOING) {
-      throw new AllyError(429, `You have ${ALLY_MAX_OUTGOING} requests waiting for an answer. Cancel one or wait for replies before sending more.`);
+      throw new AllyError(
+        429,
+        `You have ${ALLY_MAX_OUTGOING} requests waiting for an answer. Cancel one or wait for replies before sending more.`,
+      );
     }
 
     const fields = {
-      status: 'PENDING' as const, requestedByGuildId: guild.id, message, requestedBy: actor.userId, requestedAt: now,
-      respondedAt: null, respondedBy: null, retryAfter: null, blockedByGuildId: null, acceptedAt: null,
-      noticeChannelId: null, noticeMessageId: null,
+      status: 'PENDING' as const,
+      requestedByGuildId: guild.id,
+      message,
+      requestedBy: actor.userId,
+      requestedAt: now,
+      respondedAt: null,
+      respondedBy: null,
+      retryAfter: null,
+      blockedByGuildId: null,
+      acceptedAt: null,
+      noticeChannelId: null,
+      noticeMessageId: null,
     };
     if (d.action === 'reopen') {
       await updateIf(link!, fields);
@@ -324,7 +379,8 @@ export async function removeAlly(guild: Guild, linkId: string, actor: Actor): Pr
   notify('removed', link, guild.id, otherGuild(link, guild.id), actor);
   // Invitations still waiting between the two orgs go too; accepted shares stay.
   const withdrawn = await withdrawPendingShares(link, actor.userId);
-  if (withdrawn > 0) console.log(`[allies] ${guild.name} ended alliance ${link.id}: withdrew ${withdrawn} pending event invitation(s)`);
+  if (withdrawn > 0)
+    console.log(`[allies] ${guild.name} ended alliance ${link.id}: withdrew ${withdrawn} pending event invitation(s)`);
 }
 
 /** Your own setting for one ally: post their shared events without asking (used from v1.11.0). */

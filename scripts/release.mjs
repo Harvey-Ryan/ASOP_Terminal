@@ -23,21 +23,35 @@ const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', maxBuffer
 const git = (...args) => run('git', args);
 
 const tags = new Set(git('tag', '--list', 'v*').split('\n').filter(Boolean));
-const released = new Set(dry ? [] : JSON.parse(run('gh', ['release', 'list', '--limit', '1000', '--json', 'tagName'])).map((r) => r.tagName));
+const released = new Set(
+  dry ? [] : JSON.parse(run('gh', ['release', 'list', '--limit', '1000', '--json', 'tagName'])).map((r) => r.tagName),
+);
 const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 // The merge commits on master that changed package.json, oldest first, with the version each one set.
-const changes = git('log', '--first-parent', '--reverse', '--format=%H %cI', 'HEAD', '--', 'package.json').split('\n').filter(Boolean).map((line) => {
-  const [sha, date] = line.split(' ');
-  let version = null;
-  try { version = JSON.parse(git('show', `${sha}:package.json`)).version ?? null; } catch { /* unreadable: skip */ }
-  return { sha, date, version };
-});
+const changes = git('log', '--first-parent', '--reverse', '--format=%H %cI', 'HEAD', '--', 'package.json')
+  .split('\n')
+  .filter(Boolean)
+  .map((line) => {
+    const [sha, date] = line.split(' ');
+    let version = null;
+    try {
+      version = JSON.parse(git('show', `${sha}:package.json`)).version ?? null;
+    } catch {
+      /* unreadable: skip */
+    }
+    return { sha, date, version };
+  });
 const starts = versionStarts(changes);
 
-const todo = starts.filter((s) => compareVersions(s.version, FIRST_VERSION) >= 0 && !(tags.has(`v${s.version}`) && released.has(`v${s.version}`)));
+const todo = starts.filter(
+  (s) =>
+    compareVersions(s.version, FIRST_VERSION) >= 0 && !(tags.has(`v${s.version}`) && released.has(`v${s.version}`)),
+);
 if (!todo.length) {
-  console.log(`Nothing to release: v${starts.at(-1)?.version ?? '?'} and everything before it are tagged and released.`);
+  console.log(
+    `Nothing to release: v${starts.at(-1)?.version ?? '?'} and everything before it are tagged and released.`,
+  );
   process.exit(0);
 }
 
@@ -51,8 +65,13 @@ for (const [i, rel] of todo.entries()) {
   const notes = collectNotes(commits);
   const title = releaseTitle(rel.version, rel.date);
   const body = renderNotes(notes);
-  console.log(`\n${tag} at ${rel.sha.slice(0, 7)} (${commits.length} commits since ${before ? `v${before.version}` : 'the start'})`);
-  if (dry) { console.log(`# ${title}\n\n${body}`); continue; }
+  console.log(
+    `\n${tag} at ${rel.sha.slice(0, 7)} (${commits.length} commits since ${before ? `v${before.version}` : 'the start'})`,
+  );
+  if (dry) {
+    console.log(`# ${title}\n\n${body}`);
+    continue;
+  }
 
   if (!tags.has(tag)) {
     git('tag', '-a', tag, rel.sha, '-m', title);
@@ -62,7 +81,17 @@ for (const [i, rel] of todo.entries()) {
     const file = join(dir, `${tag}.md`);
     writeFileSync(file, body);
     // Only the newest is marked latest, so a back-fill doesn't jump around.
-    run('gh', ['release', 'create', tag, '--verify-tag', '--title', title, '--notes-file', file, `--latest=${i === todo.length - 1}`]);
+    run('gh', [
+      'release',
+      'create',
+      tag,
+      '--verify-tag',
+      '--title',
+      title,
+      '--notes-file',
+      file,
+      `--latest=${i === todo.length - 1}`,
+    ]);
   }
   console.log(`Released ${tag}.`);
   // GitHub limits how fast content is created; a back-fill makes dozens.

@@ -5,13 +5,13 @@ import { cn } from '@/lib/utils';
 export type HeatmapStyle = 'block' | 'dots' | 'hour-chart' | 'day-chart' | 'contour';
 
 interface HeatMapProps {
-  grid: number[][];       // [7][24] — row=day(0=Sun), col=hour
+  grid: number[][]; // [7][24] — row=day(0=Sun), col=hour
   max: number;
   style: HeatmapStyle;
   className?: string;
   // Optional second overlay for ratio (used in event panel)
   ratioGrid?: (number | null)[][];
-  showRatio?: boolean;    // if true, color by ratioGrid instead of grid
+  showRatio?: boolean; // if true, color by ratioGrid instead of grid
   // Dual-layer contour: when provided, grid = text (orange), overlayGrid = voice (yellow)
   overlayGrid?: number[][];
   /** What a square means, in words ("Saturday 8 PM: 12 people on average · 3 events"); shown on hover or tap (v1.24.0) */
@@ -23,30 +23,32 @@ interface HeatMapProps {
 // 2-D separable Gaussian: horizontal pass (wrapping) then vertical pass (clamping).
 // Ratios are not smoothed since they aren't linearly additive.
 function gaussianSmooth(grid: number[][]): number[][] {
-  const HOURS = 24, DAYS = 7;
+  const HOURS = 24,
+    DAYS = 7;
 
   const makeWeights = (sigma: number, radius: number) =>
     Array.from({ length: radius * 2 + 1 }, (_, i) => Math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)));
 
   // Horizontal pass — sigma=1, radius=3, wrapping at hour boundaries
   const hWeights = makeWeights(1.0, 3);
-  const hTotal   = hWeights.reduce((a, b) => a + b, 0);
+  const hTotal = hWeights.reduce((a, b) => a + b, 0);
   const hSmoothed = grid.map((row) =>
     Array.from({ length: HOURS }, (_, h) => {
       let sum = 0;
       for (let k = -3; k <= 3; k++) {
-        const srcH = ((h + k) % HOURS + HOURS) % HOURS;
+        const srcH = (((h + k) % HOURS) + HOURS) % HOURS;
         sum += (row[srcH] ?? 0) * (hWeights[k + 3] ?? 0);
       }
       return sum / hTotal;
-    })
+    }),
   );
 
   // Vertical pass — sigma=1, radius=2, clamping at day boundaries
   const vWeights = makeWeights(1.0, 2);
   return Array.from({ length: DAYS }, (_, d) =>
     Array.from({ length: HOURS }, (_, h) => {
-      let sum = 0, total = 0;
+      let sum = 0,
+        total = 0;
       for (let k = -2; k <= 2; k++) {
         const srcD = Math.max(0, Math.min(DAYS - 1, d + k));
         const w = vWeights[k + 2] ?? 0;
@@ -54,22 +56,26 @@ function gaussianSmooth(grid: number[][]): number[][] {
         total += w;
       }
       return sum / total;
-    })
+    }),
   );
 }
 
 // Converts GeoJSON MultiPolygon coordinates to an SVG path string.
 function geoJsonToPath(coordinates: [number, number][][][]): string {
-  return coordinates.map((polygon) =>
-    polygon.map((ring) =>
-      ring.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(3)} ${y.toFixed(3)}`).join(' ') + ' Z'
-    ).join(' ')
-  ).join(' ');
+  return coordinates
+    .map((polygon) =>
+      polygon
+        .map(
+          (ring) => ring.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(3)} ${y.toFixed(3)}`).join(' ') + ' Z',
+        )
+        .join(' '),
+    )
+    .join(' ');
 }
 
-const DAY_LABELS  = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => {
-  if (i === 0)  return '12a';
+  if (i === 0) return '12a';
   if (i === 12) return '12p';
   return i < 12 ? `${i}a` : `${i - 12}p`;
 });
@@ -88,11 +94,27 @@ function Key({ legend, readout, ratio }: { legend?: HeatMapProps['legend']; read
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-10 text-[11px] text-muted-foreground">
       <span className="flex items-center gap-1">
         {legend?.low ?? 'Less'}
-        {LEGEND_STEPS.map((a) => <span key={a} className={cn('inline-block h-3 w-3 rounded-sm', ratio && 'ring-1 ring-inset ring-foreground/30')} style={{ backgroundColor: cellColor(a) }} />)}
+        {LEGEND_STEPS.map((a) => (
+          <span
+            key={a}
+            className={cn('inline-block h-3 w-3 rounded-sm', ratio && 'ring-1 ring-inset ring-foreground/30')}
+            style={{ backgroundColor: cellColor(a) }}
+          />
+        ))}
         {legend?.high ?? 'More'}
       </span>
-      {legend?.empty && <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--muted))', opacity: 0.3 }} />{legend.empty}</span>}
-      <span aria-live="polite" className="min-w-0 basis-full text-xs text-foreground/80 sm:basis-auto">{readout}</span>
+      {legend?.empty && (
+        <span className="flex items-center gap-1">
+          <span
+            className="inline-block h-3 w-3 rounded-sm"
+            style={{ backgroundColor: 'hsl(var(--muted))', opacity: 0.3 }}
+          />
+          {legend.empty}
+        </span>
+      )}
+      <span aria-live="polite" className="min-w-0 basis-full text-xs text-foreground/80 sm:basis-auto">
+        {readout}
+      </span>
     </div>
   );
 }
@@ -101,12 +123,27 @@ function cellColor(alpha: number): string {
   return `hsl(var(--primary) / ${alpha})`;
 }
 
-export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, overlayGrid, describe, legend }: HeatMapProps) {
+export function HeatMap({
+  grid,
+  max,
+  style,
+  className,
+  ratioGrid,
+  showRatio,
+  overlayGrid,
+  describe,
+  legend,
+}: HeatMapProps) {
   const uid = useId().replace(/:/g, '');
   const [at, setAt] = useState<{ d: number; h: number } | null>(null);
   const [bar, setBar] = useState<string | null>(null);
-  const barReadout = <p aria-live="polite" className="mt-1 text-xs text-foreground/80">{bar ?? 'Hover over or tap a bar to see its value.'}</p>;
-  const readout = at && describe ? describe(at.d, at.h) : describe ? 'Hover over or tap a square to see what it means.' : '';
+  const barReadout = (
+    <p aria-live="polite" className="mt-1 text-xs text-foreground/80">
+      {bar ?? 'Hover over or tap a bar to see its value.'}
+    </p>
+  );
+  const readout =
+    at && describe ? describe(at.d, at.h) : describe ? 'Hover over or tap a square to see what it means.' : '';
   /** In ratio mode a square with no events (null) is empty; 0% is a real value and still shows. */
   const hasValue = (d: number, h: number) => !(showRatio && ratioGrid) || ratioGrid[d]?.[h] != null;
 
@@ -125,10 +162,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
     () => (style === 'contour' && overlayGrid ? gaussianSmooth(overlayGrid) : null),
     [overlayGrid, style],
   );
-  const overlayPeak = useMemo(
-    () => (smoothedOverlay ? Math.max(1, ...smoothedOverlay.flat()) : 1),
-    [smoothedOverlay],
-  );
+  const overlayPeak = useMemo(() => (smoothedOverlay ? Math.max(1, ...smoothedOverlay.flat()) : 1), [smoothedOverlay]);
   const effectiveMax = showRatio ? 1 : activeMax;
 
   function cellValue(d: number, h: number): number {
@@ -154,22 +188,31 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
             <div key={d} className="flex items-center mb-0.5">
               <div className="w-10 text-xs text-muted-foreground text-right pr-2 shrink-0">{day}</div>
               {Array.from({ length: 24 }, (_, h) => {
-                const val   = cellValue(d, h);
+                const val = cellValue(d, h);
                 const present = hasValue(d, h);
                 // A real 0% (events, nobody came) still shows, faintly, with an outline.
-                const alpha = present && showRatio ? Math.max(0.08, intensity(val, effectiveMax)) : intensity(val, effectiveMax);
+                const alpha =
+                  present && showRatio ? Math.max(0.08, intensity(val, effectiveMax)) : intensity(val, effectiveMax);
                 const selected = at?.d === d && at?.h === h;
                 return (
                   <div
                     key={h}
                     className="flex-1 mx-px cursor-pointer"
-                    title={describe ? describe(d, h) : `${day} ${HOUR_LABELS[h]}: ${Number.isInteger(val) ? val : val.toFixed(1)}`}
+                    title={
+                      describe
+                        ? describe(d, h)
+                        : `${day} ${HOUR_LABELS[h]}: ${Number.isInteger(val) ? val : val.toFixed(1)}`
+                    }
                     onMouseEnter={() => setAt({ d, h })}
                     onClick={() => setAt({ d, h })}
                   >
                     {isBlock ? (
                       <div
-                        className={cn('w-full rounded-sm', selected && 'ring-2 ring-foreground', !selected && present && showRatio && 'ring-1 ring-inset ring-foreground/30')}
+                        className={cn(
+                          'w-full rounded-sm',
+                          selected && 'ring-2 ring-foreground',
+                          !selected && present && showRatio && 'ring-1 ring-inset ring-foreground/30',
+                        )}
                         style={{
                           height: '20px',
                           backgroundColor: alpha > 0 ? cellColor(alpha) : 'hsl(var(--muted))',
@@ -182,7 +225,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
                           <div
                             className="rounded-full"
                             style={{
-                              width:  `${Math.max(4, alpha * 18)}px`,
+                              width: `${Math.max(4, alpha * 18)}px`,
                               height: `${Math.max(4, alpha * 18)}px`,
                               backgroundColor: cellColor(alpha),
                             }}
@@ -206,19 +249,29 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
   if (style === 'hour-chart') {
     // Totals per hour; for a show-up rate, the average of the squares with events.
     const hourTotals = Array.from({ length: 24 }, (_, h) => {
-      const cells = DAY_LABELS.map((_, d) => d).filter((d) => hasValue(d, h)).map((d) => cellValue(d, h));
+      const cells = DAY_LABELS.map((_, d) => d)
+        .filter((d) => hasValue(d, h))
+        .map((d) => cellValue(d, h));
       const sum = cells.reduce((a, b) => a + b, 0);
       return showRatio ? (cells.length ? sum / cells.length : 0) : sum;
     });
     const barMax = Math.max(showRatio ? 0.0001 : 1, ...hourTotals);
-    const barText = (label: string, v: number) => (showRatio ? `${label}: ${Math.round(v * 100)}% showed up` : `${label}: ${Math.round((v / barMax) * 100)}% of the busiest`);
+    const barText = (label: string, v: number) =>
+      showRatio
+        ? `${label}: ${Math.round(v * 100)}% showed up`
+        : `${label}: ${Math.round((v / barMax) * 100)}% of the busiest`;
     return (
       <div className={cn('w-full overflow-x-auto', className)}>
         <div className="min-w-[400px]">
           <div className="flex items-end gap-px" style={{ height: '100px' }}>
             {hourTotals.map((val, h) => (
-              <div key={h} className="flex-1 flex flex-col items-center justify-end cursor-pointer" title={barText(HOUR_LABELS[h]!, val)}
-                onMouseEnter={() => setBar(barText(HOUR_LABELS[h]!, val))} onClick={() => setBar(barText(HOUR_LABELS[h]!, val))}>
+              <div
+                key={h}
+                className="flex-1 flex flex-col items-center justify-end cursor-pointer"
+                title={barText(HOUR_LABELS[h]!, val)}
+                onMouseEnter={() => setBar(barText(HOUR_LABELS[h]!, val))}
+                onClick={() => setBar(barText(HOUR_LABELS[h]!, val))}
+              >
                 <div
                   className="w-full rounded-t-sm"
                   style={{
@@ -246,18 +299,28 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
 
   if (style === 'day-chart') {
     const dayTotals = DAY_LABELS.map((_, d) => {
-      const cells = Array.from({ length: 24 }, (__, h) => h).filter((h) => hasValue(d, h)).map((h) => cellValue(d, h));
+      const cells = Array.from({ length: 24 }, (__, h) => h)
+        .filter((h) => hasValue(d, h))
+        .map((h) => cellValue(d, h));
       const sum = cells.reduce((a, b) => a + b, 0);
       return showRatio ? (cells.length ? sum / cells.length : 0) : sum;
     });
     const barMax = Math.max(showRatio ? 0.0001 : 1, ...dayTotals);
-    const barText = (label: string, v: number) => (showRatio ? `${label}: ${Math.round(v * 100)}% showed up` : `${label}: ${Math.round((v / barMax) * 100)}% of the busiest`);
+    const barText = (label: string, v: number) =>
+      showRatio
+        ? `${label}: ${Math.round(v * 100)}% showed up`
+        : `${label}: ${Math.round((v / barMax) * 100)}% of the busiest`;
     return (
       <div className={cn('w-full', className)}>
         <div className="flex items-end gap-2" style={{ height: '100px' }}>
           {dayTotals.map((val, d) => (
-            <div key={d} className="flex-1 flex flex-col items-center justify-end cursor-pointer" title={barText(DAY_LABELS[d]!, val)}
-                onMouseEnter={() => setBar(barText(DAY_LABELS[d]!, val))} onClick={() => setBar(barText(DAY_LABELS[d]!, val))}>
+            <div
+              key={d}
+              className="flex-1 flex flex-col items-center justify-end cursor-pointer"
+              title={barText(DAY_LABELS[d]!, val)}
+              onMouseEnter={() => setBar(barText(DAY_LABELS[d]!, val))}
+              onClick={() => setBar(barText(DAY_LABELS[d]!, val))}
+            >
               <div
                 className="w-full rounded-t-sm"
                 style={{
@@ -270,7 +333,9 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
         </div>
         <div className="flex mt-1 gap-2">
           {DAY_LABELS.map((label, d) => (
-            <div key={d} className="flex-1 text-center text-xs text-muted-foreground">{label}</div>
+            <div key={d} className="flex-1 text-center text-xs text-muted-foreground">
+              {label}
+            </div>
           ))}
         </div>
         {barReadout}
@@ -281,7 +346,9 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
   // ── Contour map ────────────────────────────────────────────────────────────
 
   if (style === 'contour') {
-    const HOURS = 24, DAYS = 7, LEVELS = 12;
+    const HOURS = 24,
+      DAYS = 7,
+      LEVELS = 12;
 
     const baseValues: number[] = new Array(DAYS * HOURS).fill(0);
     for (let d = 0; d < DAYS; d++) {
@@ -308,9 +375,9 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
         })()
       : null;
 
-    const filterId  = `cf-${uid}`;
-    const clipId    = `cc-${uid}`;
-    const isDual    = !!overlayContourData;
+    const filterId = `cf-${uid}`;
+    const clipId = `cc-${uid}`;
+    const isDual = !!overlayContourData;
 
     return (
       <div className={cn('w-full overflow-x-auto', className)}>
@@ -333,12 +400,7 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
               ))}
             </div>
             {/* SVG contour map — viewBox matches grid coords (24 wide × 7 tall) */}
-            <svg
-              viewBox="0 0 24 7"
-              preserveAspectRatio="none"
-              className="flex-1"
-              style={{ height: '140px' }}
-            >
+            <svg viewBox="0 0 24 7" preserveAspectRatio="none" className="flex-1" style={{ height: '140px' }}>
               <defs>
                 <filter id={filterId} x="-5%" y="-10%" width="110%" height="120%">
                   <feGaussianBlur in="SourceGraphic" stdDeviation="0.28" />
@@ -354,16 +416,8 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
                 <g filter={`url(#${filterId})`}>
                   {baseContourData.map((c, i) => {
                     const alpha = 0.15 + (i / (LEVELS - 1)) * 0.8;
-                    const fill = isDual
-                      ? `rgba(255,155,50,${alpha})`
-                      : cellColor(alpha);
-                    return (
-                      <path
-                        key={i}
-                        d={geoJsonToPath(c.coordinates as [number, number][][][])}
-                        fill={fill}
-                      />
-                    );
+                    const fill = isDual ? `rgba(255,155,50,${alpha})` : cellColor(alpha);
+                    return <path key={i} d={geoJsonToPath(c.coordinates as [number, number][][][])} fill={fill} />;
                   })}
                 </g>
               </g>
@@ -388,7 +442,10 @@ export function HeatMap({ grid, max, style, className, ratioGrid, showRatio, ove
               {Array.from({ length: 6 }, (_, d) => (
                 <line
                   key={d}
-                  x1={0} y1={d + 1} x2={24} y2={d + 1}
+                  x1={0}
+                  y1={d + 1}
+                  x2={24}
+                  y2={d + 1}
                   stroke="hsl(var(--background))"
                   strokeWidth="0.04"
                   opacity={0.6}

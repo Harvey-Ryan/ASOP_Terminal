@@ -4,7 +4,11 @@ import type { ApiResponse, BriefingContent, BriefingDto, BriefingViewDto } from 
 const data = <T>(r: ApiResponse<T>) => r.data as T;
 const base = (guildId: string, eventId: string) => `/guilds/${guildId}/events/${eventId}/briefing`;
 
-export interface PastBriefing extends BriefingDto { eventName: string; startTime: string; outcome: string | null }
+export interface PastBriefing extends BriefingDto {
+  eventName: string;
+  startTime: string;
+  outcome: string | null;
+}
 
 /** Mission briefings (v1.36.0). */
 export const briefingsApi = {

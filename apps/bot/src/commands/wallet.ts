@@ -7,10 +7,7 @@ export const data = new SlashCommandBuilder()
   .setName('wallet')
   .setDescription('Check your DKP balance and recent transactions')
   .addUserOption((opt) =>
-    opt
-      .setName('user')
-      .setDescription('Check another member\'s balance (visible to everyone)')
-      .setRequired(false),
+    opt.setName('user').setDescription("Check another member's balance (visible to everyone)").setRequired(false),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -34,16 +31,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (targetUser) {
     targetDiscordId = targetUser.id;
     // Try to get guild display name
-    const member = interaction.guild?.members.cache.get(targetUser.id)
-      ?? await interaction.guild?.members.fetch(targetUser.id).catch(() => null);
-    targetDisplayName = member instanceof GuildMember
-      ? member.displayName
-      : targetUser.username;
+    const member =
+      interaction.guild?.members.cache.get(targetUser.id) ??
+      (await interaction.guild?.members.fetch(targetUser.id).catch(() => null));
+    targetDisplayName = member instanceof GuildMember ? member.displayName : targetUser.username;
   } else {
     targetDiscordId = interaction.user.id;
-    targetDisplayName = interaction.member instanceof GuildMember
-      ? interaction.member.displayName
-      : interaction.user.username;
+    targetDisplayName =
+      interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
   }
 
   // Fetch balance and leaderboard rank in parallel
@@ -68,14 +63,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const rankDisplay = rank > 0 ? `#${rank} of ${allBalances.length}` : `Unranked`;
 
   // Recent transactions field
-  const txLines = recentTx.length > 0
-    ? recentTx.map((t) => {
-        const sign = t.amount >= 0 ? '+' : '';
-        const icon = t.amount >= 0 ? '📈' : '📉';
-        const date = new Date(t.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' });
-        return `${icon} **${sign}${t.amount.toLocaleString()}** — ${t.reason} *(${date})*`;
-      }).join('\n')
-    : '*No transactions yet.*';
+  const txLines =
+    recentTx.length > 0
+      ? recentTx
+          .map((t) => {
+            const sign = t.amount >= 0 ? '+' : '';
+            const icon = t.amount >= 0 ? '📈' : '📉';
+            const date = new Date(t.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+            return `${icon} **${sign}${t.amount.toLocaleString()}** — ${t.reason} *(${date})*`;
+          })
+          .join('\n')
+      : '*No transactions yet.*';
 
   const embed = new EmbedBuilder()
     .setTitle(`🪙 ${dkpLabel} Wallet — ${targetDisplayName}`)

@@ -3,7 +3,13 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { prisma } from '../../lib/prisma.js';
 import { ValidationError } from '../../lib/validate.js';
-import type { ApiResponse, MemberPinDto, UpsertMemberPinBody, GeocodeResult, MunicipalitySearchResult } from '@dem/shared';
+import type {
+  ApiResponse,
+  MemberPinDto,
+  UpsertMemberPinBody,
+  GeocodeResult,
+  MunicipalitySearchResult,
+} from '@dem/shared';
 
 export const memberPinsRouter = Router();
 
@@ -13,8 +19,12 @@ export const memberPinsRouter = Router();
 async function canViewServer(req: Request, res: Response, next: NextFunction) {
   try {
     if (await assertEventViewer(req, (req.params as { guildId: string }).guildId)) return next();
-    res.status(403).json({ success: false, error: 'You don\'t have access to this server\'s map.' } satisfies ApiResponse);
-  } catch (err) { next(err); }
+    res
+      .status(403)
+      .json({ success: false, error: "You don't have access to this server's map." } satisfies ApiResponse);
+  } catch (err) {
+    next(err);
+  }
 }
 
 // ── Nominatim (OpenStreetMap geocoding) ───────────────────────────────────────
@@ -36,7 +46,7 @@ export async function nominatim(url: string): Promise<unknown> {
         signal: AbortSignal.timeout(8000),
       });
       if (!r.ok) throw new Error(`Nominatim ${r.status}`);
-      const body = await r.json() as unknown;
+      const body = (await r.json()) as unknown;
       if (nominatimCache.size >= 500) nominatimCache.delete(nominatimCache.keys().next().value!);
       nominatimCache.set(url, { at: Date.now(), body });
       return body;
@@ -77,12 +87,14 @@ async function backfillTimezones(pins: PinWithTimezone[]): Promise<void> {
           },
         );
         if (!tzRes.ok) return;
-        const tzJson = await tzRes.json() as { timeZone?: string };
+        const tzJson = (await tzRes.json()) as { timeZone?: string };
         if (typeof tzJson.timeZone === 'string' && tzJson.timeZone) {
           await prisma.memberPin.update({ where: { id: pin.id }, data: { timezone: tzJson.timeZone } });
           pin.timezone = tzJson.timeZone; // mutate so the current response carries the real timezone
         }
-      } catch { /* ignore — pin.timezone stays null; client falls back to longitude estimate */ }
+      } catch {
+        /* ignore — pin.timezone stays null; client falls back to longitude estimate */
+      }
     }),
   );
 }
@@ -172,15 +184,12 @@ memberPinsRouter.put('/:guildId/member-pins', requireAuth, canViewServer, async 
     // unavailable we save null and the client falls back to a longitude estimate.
     let timezone: string | null = null;
     try {
-      const tzRes = await fetch(
-        `https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lng}`,
-        {
-          headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal/1.0' },
-          signal: AbortSignal.timeout(4000),
-        },
-      );
+      const tzRes = await fetch(`https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lng}`, {
+        headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal/1.0' },
+        signal: AbortSignal.timeout(4000),
+      });
       if (tzRes.ok) {
-        const tzJson = await tzRes.json() as { timeZone?: string };
+        const tzJson = (await tzRes.json()) as { timeZone?: string };
         if (typeof tzJson.timeZone === 'string' && tzJson.timeZone) {
           timezone = tzJson.timeZone; // e.g. "America/Chicago"
         }
@@ -255,11 +264,12 @@ memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, canViewServer,
 
   try {
     const url =
-      `https://nominatim.openstreetmap.org/search` +
-      `?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`;
+      `https://nominatim.openstreetmap.org/search` + `?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`;
 
     let found: unknown;
-    try { found = await nominatim(url); } catch (err) {
+    try {
+      found = await nominatim(url);
+    } catch (err) {
       console.warn('[GET member-pins/search] Nominatim unavailable', err);
       res.status(502).json({ success: false, error: 'Geocoding service unavailable' } satisfies ApiResponse);
       return;
@@ -277,12 +287,12 @@ memberPinsRouter.get('/:guildId/member-pins/search', requireAuth, canViewServer,
     const data: MunicipalitySearchResult[] = [];
 
     for (const r of raw) {
-      const addr  = r.address ?? {};
-      const city  = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? r.name;
+      const addr = r.address ?? {};
+      const city = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? r.name;
       if (!city) continue;
       // Include state + country so results are unambiguous ("Joplin, Missouri, United States"
       // rather than just "Joplin") and match the format the geocode endpoint returns.
-      const state   = addr['state']   ?? '';
+      const state = addr['state'] ?? '';
       const country = addr['country'] ?? '';
       const municipality = [city, state, country].filter(Boolean).join(', ');
       const key = municipality.toLowerCase();
@@ -321,10 +331,14 @@ memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, canViewServer
   try {
     // Step 1: reverse geocode to get city/town name
     const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`;
-    const reverseData = await nominatim(reverseUrl) as {
+    const reverseData = (await nominatim(reverseUrl)) as {
       address?: {
-        city?: string; town?: string; village?: string; county?: string;
-        state?: string; country?: string;
+        city?: string;
+        town?: string;
+        village?: string;
+        county?: string;
+        state?: string;
+        country?: string;
       };
     };
 
@@ -349,7 +363,7 @@ memberPinsRouter.get('/:guildId/member-pins/geocode', requireAuth, canViewServer
     // resolve to the first matching county in any other state.
     const forwardQuery = [city, state, country].filter(Boolean).join(', ');
     const forwardUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(forwardQuery)}&format=json&limit=1&addressdetails=0`;
-    const forwardData = await nominatim(forwardUrl).catch(() => null) as Array<{ lat: string; lon: string }> | null;
+    const forwardData = (await nominatim(forwardUrl).catch(() => null)) as Array<{ lat: string; lon: string }> | null;
     {
       if (Array.isArray(forwardData) && forwardData[0]) {
         res.json({

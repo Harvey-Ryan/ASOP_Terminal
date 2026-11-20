@@ -11,16 +11,13 @@ import { ChannelSelect, ToggleSwitch, RolePicker, SettingTooltip } from '@/compo
 
 const LOOT_METHODS = [
   { value: 'RANDOM_ROLL', label: '🎲 Random Roll — items are distributed by dice roll' },
-  { value: 'DKP',         label: '🪙 DKP Auction — members bid using their DKP balance' },
+  { value: 'DKP', label: '🪙 DKP Auction — members bid using their DKP balance' },
   { value: 'SNAKE_DRAFT', label: '🐍 Snake Draft — turn-based draft in a snake order' },
 ];
 
 type LootForm = Pick<
   GuildSettingsData,
-  | 'lootEnabled'
-  | 'lootChannelId'
-  | 'lootDefaultMethod'
-  | 'lootDraftCreatorRoles'
+  'lootEnabled' | 'lootChannelId' | 'lootDefaultMethod' | 'lootDraftCreatorRoles'
 >;
 
 export function LootSettingsPage() {
@@ -46,20 +43,20 @@ export function LootSettingsPage() {
   });
 
   const [form, setForm] = useState<LootForm>({
-    lootEnabled:          true,
-    lootChannelId:        null,
-    lootDefaultMethod:    'RANDOM_ROLL',
+    lootEnabled: true,
+    lootChannelId: null,
+    lootDefaultMethod: 'RANDOM_ROLL',
     lootDraftCreatorRoles: [],
   });
-  const [dirty, setDirty]           = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
       setForm({
-        lootEnabled:           saved.lootEnabled           ?? true,
-        lootChannelId:         saved.lootChannelId         ?? null,
-        lootDefaultMethod:     saved.lootDefaultMethod     ?? 'RANDOM_ROLL',
+        lootEnabled: saved.lootEnabled ?? true,
+        lootChannelId: saved.lootChannelId ?? null,
+        lootDefaultMethod: saved.lootDefaultMethod ?? 'RANDOM_ROLL',
         lootDraftCreatorRoles: saved.lootDraftCreatorRoles ?? [],
       });
       setDirty(false);
@@ -84,10 +81,10 @@ export function LootSettingsPage() {
     setSavedFlash(false);
   }
 
-  const channels    = channelData?.channels ?? [];
+  const channels = channelData?.channels ?? [];
   const textChannels = channels.filter((c) => [0, 4, 5].includes(c.type));
-  const roles       = rolesData ?? [];
-  const isLoading   = channelsLoading || settingsLoading || rolesLoading;
+  const roles = rolesData ?? [];
+  const isLoading = channelsLoading || settingsLoading || rolesLoading;
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -104,7 +101,6 @@ export function LootSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-
           {/* Module toggle */}
           <Card>
             <CardContent className="pt-4">
@@ -112,9 +108,11 @@ export function LootSettingsPage() {
                 checked={form.lootEnabled}
                 onChange={(v) => setField('lootEnabled', v)}
                 label="Loot Module enabled"
-                description={form.lootEnabled
-                  ? 'Members can create and participate in loot sessions.'
-                  : 'Loot is disabled. The Loot nav link will be hidden for all members.'}
+                description={
+                  form.lootEnabled
+                    ? 'Members can create and participate in loot sessions.'
+                    : 'Loot is disabled. The Loot nav link will be hidden for all members.'
+                }
                 tooltip="Controls whether loot sessions are active for this server. When disabled, the Loot nav link is hidden and no new sessions can be started. Existing completed sessions remain accessible to admins."
               />
             </CardContent>
@@ -130,7 +128,8 @@ export function LootSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Optional. Results of standalone loot sessions are posted here. Event loot is posted in the event's own forum post.
+                Optional. Results of standalone loot sessions are posted here. Event loot is posted in the event's own
+                forum post.
               </p>
               <ChannelSelect
                 id="lootChannel"
@@ -160,7 +159,9 @@ export function LootSettingsPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {LOOT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </CardContent>
@@ -178,7 +179,8 @@ export function LootSettingsPage() {
               <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 <span>
-                  Server admins can always create loot sessions. Select roles below to restrict session creation to specific roles. If no roles are selected, any member can create a session.
+                  Server admins can always create loot sessions. Select roles below to restrict session creation to
+                  specific roles. If no roles are selected, any member can create a session.
                 </span>
               </div>
               {roles.length === 0 ? (
@@ -203,9 +205,7 @@ export function LootSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
         </div>
       )}

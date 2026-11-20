@@ -38,15 +38,15 @@ async function uexFetch<T>(endpoint: string): Promise<T[]> {
 
   const res = await fetch(`${UEX_BASE}${endpoint}`, {
     headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${key}`,
+      Accept: 'application/json',
+      Authorization: `Bearer ${key}`,
     },
   });
 
   if (res.status === 429) throw new Error('UEX rate limit reached — try again later');
   if (!res.ok) throw new Error(`UEX API ${endpoint} returned HTTP ${res.status}`);
 
-  const json = await res.json() as {
+  const json = (await res.json()) as {
     status: string;
     data?: T | T[];
     message?: string;
@@ -66,7 +66,9 @@ function normDate(v: number | string): string {
 
 // ── Commodities ───────────────────────────────────────────────────────────────
 
-async function syncCommodities(raw: UexRawCommodity[]): Promise<Pick<SyncCounts, 'commoditiesAdded' | 'commoditiesUpdated'>> {
+async function syncCommodities(
+  raw: UexRawCommodity[],
+): Promise<Pick<SyncCounts, 'commoditiesAdded' | 'commoditiesUpdated'>> {
   const existing = await prisma.uexCommodity.findMany({ select: { id: true, dateModified: true } });
   const existingMap = new Map(existing.map((c) => [c.id, c.dateModified]));
   const freshIds = new Set(raw.map((c) => c.id));
@@ -77,20 +79,20 @@ async function syncCommodities(raw: UexRawCommodity[]): Promise<Pick<SyncCounts,
   for (const com of raw) {
     const prev = existingMap.get(com.id);
     const data = {
-      name:          com.name,
-      code:          com.code ?? '',
-      slug:          com.slug ?? '',
-      weightScu:     com.weight_scu ?? null,
-      priceAvgBuy:   com.price_buy_avg ?? null,
-      priceAvgSell:  com.price_sell_avg ?? null,
-      isMineral:     com.is_mineral === 1,
-      isRaw:         com.is_raw === 1,
-      isRefined:     com.is_refined === 1,
+      name: com.name,
+      code: com.code ?? '',
+      slug: com.slug ?? '',
+      weightScu: com.weight_scu ?? null,
+      priceAvgBuy: com.price_buy_avg ?? null,
+      priceAvgSell: com.price_sell_avg ?? null,
+      isMineral: com.is_mineral === 1,
+      isRaw: com.is_raw === 1,
+      isRefined: com.is_refined === 1,
       isHarvestable: com.is_harvestable === 1,
-      isFuel:        com.is_fuel === 1,
-      isIllegal:     com.is_illegal === 1,
-      dateModified:  normDate(com.date_modified),
-      isActive:      true,
+      isFuel: com.is_fuel === 1,
+      isIllegal: com.is_illegal === 1,
+      dateModified: normDate(com.date_modified),
+      isActive: true,
     };
 
     if (prev === undefined) {
@@ -131,10 +133,7 @@ async function doSync(): Promise<SyncCounts> {
  *
  * Throws synchronously if a sync is already running.
  */
-export async function runUexSync(
-  trigger: 'SCHEDULED' | 'MANUAL',
-  triggeredById?: string,
-): Promise<string> {
+export async function runUexSync(trigger: 'SCHEDULED' | 'MANUAL', triggeredById?: string): Promise<string> {
   // Reject if a sync started in the last hour is still marked RUNNING
   const inFlight = await prisma.uexSyncLog.findFirst({
     where: {

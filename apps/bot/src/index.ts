@@ -1,6 +1,16 @@
 import 'dotenv/config';
 import { handleFleetButton } from './services/fleetService.js';
-import { Events, EmbedBuilder, GuildMember, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import {
+  Events,
+  EmbedBuilder,
+  GuildMember,
+  ChannelType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+  PermissionFlagsBits,
+} from 'discord.js';
 import { ROLE_SIGNUP_MESSAGES, WAITLIST_MESSAGES, canRunEventFromDiscord, type EventRole } from '@dem/shared';
 import type { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { client } from './client.js';
@@ -68,13 +78,17 @@ const commands = new Map<string, Command>([
 // Validate API_URL at startup so misconfiguration is caught immediately.
 const apiUrl = process.env['API_URL'];
 if (!apiUrl) {
-  console.warn('[bot] WARNING: API_URL is not set — image fetching will fall back to http://localhost:3001 and will likely fail in production');
+  console.warn(
+    '[bot] WARNING: API_URL is not set — image fetching will fall back to http://localhost:3001 and will likely fail in production',
+  );
 } else {
   try {
     new URL(apiUrl);
     console.log(`[bot] API_URL=${apiUrl}`);
   } catch {
-    console.error(`[bot] FATAL: API_URL="${apiUrl}" is not a valid URL (missing http:// scheme?). Image fetching will fail.`);
+    console.error(
+      `[bot] FATAL: API_URL="${apiUrl}" is not a valid URL (missing http:// scheme?). Image fetching will fail.`,
+    );
   }
 }
 
@@ -88,21 +102,26 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`[bot] Ready! Logged in as ${c.user.tag}`);
   // Admin panel (v1.13.0): "bot is up" every minute with gateway numbers, and the admin Discord feed.
   const startedAt = new Date();
-  const beat = () => botHeartbeat(startedAt, { guilds: client.guilds.cache.size, wsPingMs: client.ws.ping })
-    .catch((err) => console.warn('[bot] Heartbeat failed:', err));
+  const beat = () =>
+    botHeartbeat(startedAt, { guilds: client.guilds.cache.size, wsPingMs: client.ws.ping }).catch((err) =>
+      console.warn('[bot] Heartbeat failed:', err),
+    );
   void beat();
   setInterval(beat, 60_000).unref();
-  setInterval(() => { void adminFeedTick(); }, 60_000).unref();
+  setInterval(() => {
+    void adminFeedTick();
+  }, 60_000).unref();
   await registerCommands(c.user.id);
   await syncAllGuilds();
   // Blueprints, materials and mission rewards for /blueprint and
   // /material. Re-checked every 10 minutes; it only reloads when sc-data has
   // synced a new commit.
   await loadGameData();
-  setInterval(() => { loadGameData().catch((err) => console.error('[gamedata] reload failed:', err)); }, 10 * 60_000).unref();
+  setInterval(() => {
+    loadGameData().catch((err) => console.error('[gamedata] reload failed:', err));
+  }, 10 * 60_000).unref();
   await startScheduler();
 });
-
 
 // ── Guild presence sync ───────────────────────────────────────────────────────
 
@@ -128,17 +147,27 @@ client.on(Events.GuildCreate, async (guild) => {
     // A server new to ASOP starts with the modules that need no extra channels
     // (v1.29.0): DKP auctions and Tournaments each need a channel of their own,
     // so they start switched off and the setup checklist doesn't ask for them.
-    const row = await prisma.guild.findUnique({ where: { guildId: guild.id }, select: { id: true, settings: { select: { id: true } } } });
+    const row = await prisma.guild.findUnique({
+      where: { guildId: guild.id },
+      select: { id: true, settings: { select: { id: true } } },
+    });
     if (row && !row.settings) {
-      await prisma.guildSettings.create({ data: { guildId: row.id, dkpEnabled: false, tournamentsEnabled: false } })
+      await prisma.guildSettings
+        .create({ data: { guildId: row.id, dkpEnabled: false, tournamentsEnabled: false } })
         .catch((err) => console.error(`[bot] Default settings for ${guild.id} failed:`, err));
     }
     console.log(`[bot] Joined new guild: ${guild.name} (${guild.id}) — DB record created, ready to operate`);
-    await prisma.adminLog.create({ data: {
-      kind: 'guild.joined', guildId: guild.id, guildName: guild.name,
-      summary: `${guild.memberCount} members. Owner ${guild.ownerId}.`,
-      details: JSON.stringify({ memberCount: guild.memberCount, ownerId: guild.ownerId }),
-    } }).catch((err) => console.error('[bot] Admin log (joined) failed:', err));
+    await prisma.adminLog
+      .create({
+        data: {
+          kind: 'guild.joined',
+          guildId: guild.id,
+          guildName: guild.name,
+          summary: `${guild.memberCount} members. Owner ${guild.ownerId}.`,
+          details: JSON.stringify({ memberCount: guild.memberCount, ownerId: guild.ownerId }),
+        },
+      })
+      .catch((err) => console.error('[bot] Admin log (joined) failed:', err));
     void adminFeedTick();
     // Instant slash commands for the new server (only it is sent; v1.11.1).
     await registerCommands().catch((err) => console.error(`[bot] Registering commands for ${guild.id} failed:`, err));
@@ -156,10 +185,16 @@ client.on(Events.GuildDelete, async (guild) => {
   invalidateStatusTargets(); // its settings (and status channel) went with it
   console.log(`[bot] Left guild: ${guild.name} (${guild.id})`);
   // (discord.js reports outages as GuildUnavailable, not here.)
-  await prisma.adminLog.create({ data: {
-    kind: 'guild.left', guildId: guild.id, guildName: guild.name ?? null,
-    summary: 'The bot was removed, or the server was deleted. Its ASOP settings were deleted with it.',
-  } }).catch((err) => console.error('[bot] Admin log (left) failed:', err));
+  await prisma.adminLog
+    .create({
+      data: {
+        kind: 'guild.left',
+        guildId: guild.id,
+        guildName: guild.name ?? null,
+        summary: 'The bot was removed, or the server was deleted. Its ASOP settings were deleted with it.',
+      },
+    })
+    .catch((err) => console.error('[bot] Admin log (left) failed:', err));
   void adminFeedTick();
 });
 
@@ -191,562 +226,633 @@ client.on(Events.GuildMemberAdd, async (member) => {
 
 // ── Slash commands & autocomplete ─────────────────────────────────────────────
 
-client.on(Events.InteractionCreate, (interaction) => withInteraction(interaction, async () => {
-  if (interaction.isChatInputCommand()) {
-    const cmd = commands.get(interaction.commandName);
-    if (!cmd) return;
-    try {
-      await cmd.execute(interaction);
-    } catch (err) {
-      console.error('[bot] Command error:', err);
-      const payload = { content: withRef('❌ An error occurred.'), flags: MessageFlags.Ephemeral } as const;
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(payload).catch(() => null);
-      } else {
-        await interaction.reply(payload).catch(() => null);
-      }
-    }
-    return;
-  }
-
-  if (interaction.isAutocomplete()) {
-    const cmd = commands.get(interaction.commandName);
-    if (!cmd?.autocomplete) return;
-    await cmd.autocomplete(interaction).catch((err) => console.error('[bot] Autocomplete error:', err));
-    return;
-  }
-
-  if (interaction.isButton()) {
-    // ── /blueprint "Show missions" button ────────────────────────────────────
-    if (interaction.customId.startsWith(`${blueprintCommand.MISSIONS_BUTTON}:`)) {
-      await blueprintCommand.handleMissionsButton(interaction).catch((err) => console.error('[bot] Missions button error:', err));
-      return;
-    }
-
-    // ── Fleet check-in buttons (v1.32.0): fleet:confirm / fleet:stop ─────────
-    if (interaction.customId.startsWith('fleet:')) {
-      await handleFleetButton(interaction).catch(async (err) => {
-        console.error('[bot] Fleet button error:', err);
-        await interaction.reply({ content: withRef('Something went wrong. Try again, or check your fleet on the website.'), flags: MessageFlags.Ephemeral }).catch(() => {});
-      });
-      return;
-    }
-
-    // ── Ally request buttons (Accept / Reject / Reject and block) ────────────
-    if (interaction.customId.startsWith('ally:')) {
-      await handleAllyButton(interaction).catch(async (err) => {
-        console.error('[bot] Ally button error:', err);
-        if (interaction.deferred) await interaction.editReply({ content: withRef('Something went wrong. Try again, or answer on the Allies page.') }).catch(() => {});
-      });
-      return;
-    }
-
-    // ── Shared-event buttons (Accept / Decline) ──────────────────────────────
-    if (interaction.customId.startsWith('share:')) {
-      await handleShareButton(interaction).catch(async (err) => {
-        console.error('[bot] Share button error:', err);
-        if (interaction.deferred) await interaction.editReply({ content: withRef('Something went wrong. Try again, or answer on the website.') }).catch(() => {});
-      });
-      return;
-    }
-
-    // ── Job board buttons (v1.21.0): job:take:<id> / job:leave:<id> ─────────
-    if (interaction.customId.startsWith('job:')) {
-      const [, action, jobId] = interaction.customId.split(':') as [string, 'take' | 'leave', string];
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+client.on(Events.InteractionCreate, (interaction) =>
+  withInteraction(interaction, async () => {
+    if (interaction.isChatInputCommand()) {
+      const cmd = commands.get(interaction.commandName);
+      if (!cmd) return;
       try {
-        const name = (interaction.member instanceof GuildMember) ? interaction.member.displayName : interaction.user.username;
-        await interaction.editReply({ content: await clickJob(action, jobId, interaction.user.id, name, interaction.guildId) });
+        await cmd.execute(interaction);
       } catch (err) {
-        console.error('[bot] Job button error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong. Try again, or use the job board on the website.') });
+        console.error('[bot] Command error:', err);
+        const payload = { content: withRef('❌ An error occurred.'), flags: MessageFlags.Ephemeral } as const;
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(payload).catch(() => null);
+        } else {
+          await interaction.reply(payload).catch(() => null);
+        }
       }
       return;
     }
 
-    // AI assistant: Confirm / Cancel on a prepared change (v1.57.0).
-    if (interaction.customId.startsWith('ai:')) { await handleActionButton(interaction); return; }
-
-    const parts = interaction.customId.split(':');
-    const [prefix, entityId, value] = parts as [string, string, string];
-
-    // ── Role roster buttons ───────────────────────────────────────────────────
-    if (prefix === 'role') {
-      const roleKey = value === '__unassigned__' ? null : value;
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const event = await prisma.event.findFirst({
-          where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
-        });
-        if (!event) {
-          await interaction.editReply({ content: 'This event has already ended.' });
-          return;
-        }
-        let label = 'Unassigned';
-        if (roleKey) {
-          const roles = JSON.parse(event.roles) as EventRole[];
-          const found = roles.find((r) => (r.id ?? r.name) === roleKey);
-          label = found?.name ?? roleKey;
-        }
-        const displayName = (interaction.member instanceof GuildMember)
-          ? interaction.member.displayName
-          : interaction.user.username;
-        const problem = await setRosterRole(entityId, interaction.user.id, displayName, roleKey, interaction.guildId ?? event.guildId);
-        if (problem) {
-          await interaction.editReply({ content: `⚠️ ${ROLE_SIGNUP_MESSAGES[problem]}` });
-          return;
-        }
-        await interaction.editReply({
-          content: `✅ You are marked as **${label}** for **${event.name}**.`,
-        });
-      } catch (err) {
-        console.error('[bot] Role button error:', err);
-        await interaction.editReply({ content: '❌ Failed to update roster.' });
-      }
+    if (interaction.isAutocomplete()) {
+      const cmd = commands.get(interaction.commandName);
+      if (!cmd?.autocomplete) return;
+      await cmd.autocomplete(interaction).catch((err) => console.error('[bot] Autocomplete error:', err));
       return;
     }
 
-    // ── Maybe button (v1.17.0): on the roster without a role ──────────────────
-    if (prefix === 'maybe') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const event = await prisma.event.findFirst({
-          where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
-        });
-        if (!event) {
-          await interaction.editReply({ content: 'This event has already ended.' });
-          return;
-        }
-        const displayName = (interaction.member instanceof GuildMember)
-          ? interaction.member.displayName
-          : interaction.user.username;
-        await setRosterRole(entityId, interaction.user.id, displayName, null, interaction.guildId ?? event.guildId, true);
-        await interaction.editReply({
-          content: `❔ You're down as **maybe** for **${event.name}**. Pick a role or Unassigned when you're sure.`,
-        });
-      } catch (err) {
-        console.error('[bot] Maybe button error:', err);
-        await interaction.editReply({ content: withRef('❌ Failed to update roster.') });
+    if (interaction.isButton()) {
+      // ── /blueprint "Show missions" button ────────────────────────────────────
+      if (interaction.customId.startsWith(`${blueprintCommand.MISSIONS_BUTTON}:`)) {
+        await blueprintCommand
+          .handleMissionsButton(interaction)
+          .catch((err) => console.error('[bot] Missions button error:', err));
+        return;
       }
-      return;
-    }
 
-    // ── "· waitlist" buttons on full roles (v1.14.0) ─────────────────────────
-    if (prefix === 'wait') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const event = await prisma.event.findFirst({
-          where: { id: entityId, status: { in: ['PENDING', 'ACTIVE'] } },
+      // ── Fleet check-in buttons (v1.32.0): fleet:confirm / fleet:stop ─────────
+      if (interaction.customId.startsWith('fleet:')) {
+        await handleFleetButton(interaction).catch(async (err) => {
+          console.error('[bot] Fleet button error:', err);
+          await interaction
+            .reply({
+              content: withRef('Something went wrong. Try again, or check your fleet on the website.'),
+              flags: MessageFlags.Ephemeral,
+            })
+            .catch(() => {});
         });
-        if (!event) {
-          await interaction.editReply({ content: 'This event has already ended.' });
-          return;
-        }
-        const displayName = (interaction.member instanceof GuildMember)
-          ? interaction.member.displayName
-          : interaction.user.username;
-        const r = await clickWaitlist(entityId, interaction.user.id, displayName, value, interaction.guildId ?? event.guildId);
-        if (r.joinedRoster) notifyThreadJoin(entityId, interaction.user.id).catch((err) => console.error('[bot] Join notice failed:', err));
-        scheduleRosterRefresh(entityId).catch((err) => console.error(`[bot] Roster refresh failed for ${entityId}:`, err));
-        let reply: string;
-        switch (r.result) {
-          case 'joined': reply = `⏳ You're **#${r.position}** in line for **${r.roleName}**. You keep your current spot until a slot opens; then you're moved in and DMed. Click the button again to leave the line.`; break;
-          case 'left': reply = `You've left the **${r.roleName}** waitlist. Your roster spot is unchanged.`; break;
-          case 'has-role': reply = `You're already **${r.roleName}**.`; break;
-          case 'open': reply = `A **${r.roleName}** slot is free now. Take it with its button.`; break;
-          default: reply = `⚠️ ${WAITLIST_MESSAGES[r.result]}`;
-        }
-        await interaction.editReply({ content: reply });
-      } catch (err) {
-        console.error('[bot] Waitlist button error:', err);
-        await interaction.editReply({ content: withRef('❌ Failed to update the waitlist.') });
+        return;
       }
-      return;
-    }
 
-    // ── Leave Roster button ───────────────────────────────────────────────────
-    if (prefix === 'leave') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const event = await prisma.event.findFirst({
-          where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+      // ── Ally request buttons (Accept / Reject / Reject and block) ────────────
+      if (interaction.customId.startsWith('ally:')) {
+        await handleAllyButton(interaction).catch(async (err) => {
+          console.error('[bot] Ally button error:', err);
+          if (interaction.deferred)
+            await interaction
+              .editReply({ content: withRef('Something went wrong. Try again, or answer on the Allies page.') })
+              .catch(() => {});
         });
-        if (!event) {
-          await interaction.editReply({ content: 'This event has already ended.' });
-          return;
-        }
-        await leaveRoster(entityId, interaction.user.id);
-        await interaction.editReply({
-          content: `✅ You have been removed from the roster for **${event.name}**.`,
-        });
-      } catch (err) {
-        console.error('[bot] Leave roster button error:', err);
-        await interaction.editReply({ content: '❌ Failed to leave roster.' });
+        return;
       }
-      return;
-    }
 
-    // ── Loot / No-Loot decision prompt ────────────────────────────────────────
-    if (prefix === 'event_loot_start' || prefix === 'event_loot_none') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const event = await prisma.event.findUnique({ where: { id: entityId } });
-        if (!event) {
-          await interaction.editReply({ content: '❌ Event not found.' });
-          return;
-        }
-        if (event.hadLoot !== null) {
-          await interaction.editReply({ content: 'ℹ️ The loot decision has already been made.' });
-          return;
-        }
-
-        // Permission (v1.40.1): the event's creator, or anyone who can create
-        // events in the host server (owner, Manage Server / Administrator, or an
-        // event creator role) — the website's rule. Previously this read the old
-        // GuildMember table, which refused most real managers.
-        const hostSettings = await prisma.guildSettings.findFirst({
-          where: { guild: { guildId: event.guildId } },
-          select: { eventCreatorRoles: true },
+      // ── Shared-event buttons (Accept / Decline) ──────────────────────────────
+      if (interaction.customId.startsWith('share:')) {
+        await handleShareButton(interaction).catch(async (err) => {
+          console.error('[bot] Share button error:', err);
+          if (interaction.deferred)
+            await interaction
+              .editReply({ content: withRef('Something went wrong. Try again, or answer on the website.') })
+              .catch(() => {});
         });
-        const roles = interaction.member?.roles;
-        const memberRoleIds: string[] = !roles ? [] : Array.isArray(roles) ? roles : [...roles.cache.keys()];
-        const allowed = canRunEventFromDiscord({
-          isCreator: event.createdById === interaction.user.id, // Event.createdById is a Discord id
-          inHostServer: interaction.guildId === event.guildId,
-          isOwner: !!interaction.guild && interaction.guild.ownerId === interaction.user.id,
-          manageGuild: !!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),
-          administrator: !!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator),
-          memberRoleIds,
-          eventCreatorRoles: hostSettings?.eventCreatorRoles,
-        });
+        return;
+      }
 
-        if (!allowed) {
+      // ── Job board buttons (v1.21.0): job:take:<id> / job:leave:<id> ─────────
+      if (interaction.customId.startsWith('job:')) {
+        const [, action, jobId] = interaction.customId.split(':') as [string, 'take' | 'leave', string];
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const name =
+            interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
           await interaction.editReply({
-            content: interaction.guildId === event.guildId
-              ? '❌ Only the event creator, or someone who can create events in this server (Manage Server or an event creator role), can make the loot decision.'
-              : '❌ Only the event creator, or someone who can create events in the host server, can make the loot decision.',
+            content: await clickJob(action, jobId, interaction.user.id, name, interaction.guildId),
           });
-          return;
+        } catch (err) {
+          console.error('[bot] Job button error:', err);
+          await interaction.editReply({
+            content: withRef('❌ Something went wrong. Try again, or use the job board on the website.'),
+          });
         }
+        return;
+      }
 
-        if (prefix === 'event_loot_start') {
-          await prisma.event.update({ where: { id: entityId }, data: { hadLoot: true } });
+      // AI assistant: Confirm / Cancel on a prepared change (v1.57.0).
+      if (interaction.customId.startsWith('ai:')) {
+        await handleActionButton(interaction);
+        return;
+      }
 
-          // Update the prompt embed to show who made the call
-          const confirmedEmbed = new EmbedBuilder()
-            .setTitle(`🏁 ${event.name} has ended`)
-            .setDescription(`✅ **Loot session** — decision by <@${interaction.user.id}>.\nOpen the dashboard to create and manage the loot session.`)
-            .setColor(0x57f287);
-          await interaction.message.edit({ embeds: [confirmedEmbed], components: [] }).catch(() => null);
+      const parts = interaction.customId.split(':');
+      const [prefix, entityId, value] = parts as [string, string, string];
 
-          const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
-          const lootUrl = `${webUrl}/dashboard/servers/${event.guildId}/events/${entityId}/loot`;
-          const dashRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setLabel('Open Loot Dashboard')
-              .setStyle(ButtonStyle.Link)
-              .setURL(lootUrl),
+      // ── Role roster buttons ───────────────────────────────────────────────────
+      if (prefix === 'role') {
+        const roleKey = value === '__unassigned__' ? null : value;
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const event = await prisma.event.findFirst({
+            where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          });
+          if (!event) {
+            await interaction.editReply({ content: 'This event has already ended.' });
+            return;
+          }
+          let label = 'Unassigned';
+          if (roleKey) {
+            const roles = JSON.parse(event.roles) as EventRole[];
+            const found = roles.find((r) => (r.id ?? r.name) === roleKey);
+            label = found?.name ?? roleKey;
+          }
+          const displayName =
+            interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
+          const problem = await setRosterRole(
+            entityId,
+            interaction.user.id,
+            displayName,
+            roleKey,
+            interaction.guildId ?? event.guildId,
+          );
+          if (problem) {
+            await interaction.editReply({ content: `⚠️ ${ROLE_SIGNUP_MESSAGES[problem]}` });
+            return;
+          }
+          await interaction.editReply({
+            content: `✅ You are marked as **${label}** for **${event.name}**.`,
+          });
+        } catch (err) {
+          console.error('[bot] Role button error:', err);
+          await interaction.editReply({ content: '❌ Failed to update roster.' });
+        }
+        return;
+      }
+
+      // ── Maybe button (v1.17.0): on the roster without a role ──────────────────
+      if (prefix === 'maybe') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const event = await prisma.event.findFirst({
+            where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          });
+          if (!event) {
+            await interaction.editReply({ content: 'This event has already ended.' });
+            return;
+          }
+          const displayName =
+            interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
+          await setRosterRole(
+            entityId,
+            interaction.user.id,
+            displayName,
+            null,
+            interaction.guildId ?? event.guildId,
+            true,
           );
           await interaction.editReply({
-            content: '✅ Loot flagged. Create and manage the session from the dashboard.',
-            components: [dashRow],
+            content: `❔ You're down as **maybe** for **${event.name}**. Pick a role or Unassigned when you're sure.`,
           });
-        } else {
-          // event_loot_none
-          await prisma.event.update({ where: { id: entityId }, data: { hadLoot: false } });
+        } catch (err) {
+          console.error('[bot] Maybe button error:', err);
+          await interaction.editReply({ content: withRef('❌ Failed to update roster.') });
+        }
+        return;
+      }
 
-          // Update the prompt embed to show who made the call
-          const confirmedEmbed = new EmbedBuilder()
-            .setTitle(`🏁 ${event.name} has ended`)
-            .setDescription(`⛔ **No loot** — closed by <@${interaction.user.id}>.`)
-            .setColor(0x747f8d);
-          await interaction.message.edit({ embeds: [confirmedEmbed], components: [] }).catch(() => null);
+      // ── "· waitlist" buttons on full roles (v1.14.0) ─────────────────────────
+      if (prefix === 'wait') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const event = await prisma.event.findFirst({
+            where: { id: entityId, status: { in: ['PENDING', 'ACTIVE'] } },
+          });
+          if (!event) {
+            await interaction.editReply({ content: 'This event has already ended.' });
+            return;
+          }
+          const displayName =
+            interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
+          const r = await clickWaitlist(
+            entityId,
+            interaction.user.id,
+            displayName,
+            value,
+            interaction.guildId ?? event.guildId,
+          );
+          if (r.joinedRoster)
+            notifyThreadJoin(entityId, interaction.user.id).catch((err) =>
+              console.error('[bot] Join notice failed:', err),
+            );
+          scheduleRosterRefresh(entityId).catch((err) =>
+            console.error(`[bot] Roster refresh failed for ${entityId}:`, err),
+          );
+          let reply: string;
+          switch (r.result) {
+            case 'joined':
+              reply = `⏳ You're **#${r.position}** in line for **${r.roleName}**. You keep your current spot until a slot opens; then you're moved in and DMed. Click the button again to leave the line.`;
+              break;
+            case 'left':
+              reply = `You've left the **${r.roleName}** waitlist. Your roster spot is unchanged.`;
+              break;
+            case 'has-role':
+              reply = `You're already **${r.roleName}**.`;
+              break;
+            case 'open':
+              reply = `A **${r.roleName}** slot is free now. Take it with its button.`;
+              break;
+            default:
+              reply = `⚠️ ${WAITLIST_MESSAGES[r.result]}`;
+          }
+          await interaction.editReply({ content: reply });
+        } catch (err) {
+          console.error('[bot] Waitlist button error:', err);
+          await interaction.editReply({ content: withRef('❌ Failed to update the waitlist.') });
+        }
+        return;
+      }
 
-          // Archive host thread
-          if (event.threadId) {
-            try {
-              const hostThread = await client.channels.fetch(event.threadId);
-              if (hostThread?.isThread()) {
-                await hostThread.setArchived(true).catch(() => null);
+      // ── Leave Roster button ───────────────────────────────────────────────────
+      if (prefix === 'leave') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const event = await prisma.event.findFirst({
+            where: { id: entityId, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          });
+          if (!event) {
+            await interaction.editReply({ content: 'This event has already ended.' });
+            return;
+          }
+          await leaveRoster(entityId, interaction.user.id);
+          await interaction.editReply({
+            content: `✅ You have been removed from the roster for **${event.name}**.`,
+          });
+        } catch (err) {
+          console.error('[bot] Leave roster button error:', err);
+          await interaction.editReply({ content: '❌ Failed to leave roster.' });
+        }
+        return;
+      }
+
+      // ── Loot / No-Loot decision prompt ────────────────────────────────────────
+      if (prefix === 'event_loot_start' || prefix === 'event_loot_none') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const event = await prisma.event.findUnique({ where: { id: entityId } });
+          if (!event) {
+            await interaction.editReply({ content: '❌ Event not found.' });
+            return;
+          }
+          if (event.hadLoot !== null) {
+            await interaction.editReply({ content: 'ℹ️ The loot decision has already been made.' });
+            return;
+          }
+
+          // Permission (v1.40.1): the event's creator, or anyone who can create
+          // events in the host server (owner, Manage Server / Administrator, or an
+          // event creator role) — the website's rule. Previously this read the old
+          // GuildMember table, which refused most real managers.
+          const hostSettings = await prisma.guildSettings.findFirst({
+            where: { guild: { guildId: event.guildId } },
+            select: { eventCreatorRoles: true },
+          });
+          const roles = interaction.member?.roles;
+          const memberRoleIds: string[] = !roles ? [] : Array.isArray(roles) ? roles : [...roles.cache.keys()];
+          const allowed = canRunEventFromDiscord({
+            isCreator: event.createdById === interaction.user.id, // Event.createdById is a Discord id
+            inHostServer: interaction.guildId === event.guildId,
+            isOwner: !!interaction.guild && interaction.guild.ownerId === interaction.user.id,
+            manageGuild: !!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild),
+            administrator: !!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator),
+            memberRoleIds,
+            eventCreatorRoles: hostSettings?.eventCreatorRoles,
+          });
+
+          if (!allowed) {
+            await interaction.editReply({
+              content:
+                interaction.guildId === event.guildId
+                  ? '❌ Only the event creator, or someone who can create events in this server (Manage Server or an event creator role), can make the loot decision.'
+                  : '❌ Only the event creator, or someone who can create events in the host server, can make the loot decision.',
+            });
+            return;
+          }
+
+          if (prefix === 'event_loot_start') {
+            await prisma.event.update({ where: { id: entityId }, data: { hadLoot: true } });
+
+            // Update the prompt embed to show who made the call
+            const confirmedEmbed = new EmbedBuilder()
+              .setTitle(`🏁 ${event.name} has ended`)
+              .setDescription(
+                `✅ **Loot session** — decision by <@${interaction.user.id}>.\nOpen the dashboard to create and manage the loot session.`,
+              )
+              .setColor(0x57f287);
+            await interaction.message.edit({ embeds: [confirmedEmbed], components: [] }).catch(() => null);
+
+            const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
+            const lootUrl = `${webUrl}/dashboard/servers/${event.guildId}/events/${entityId}/loot`;
+            const dashRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder().setLabel('Open Loot Dashboard').setStyle(ButtonStyle.Link).setURL(lootUrl),
+            );
+            await interaction.editReply({
+              content: '✅ Loot flagged. Create and manage the session from the dashboard.',
+              components: [dashRow],
+            });
+          } else {
+            // event_loot_none
+            await prisma.event.update({ where: { id: entityId }, data: { hadLoot: false } });
+
+            // Update the prompt embed to show who made the call
+            const confirmedEmbed = new EmbedBuilder()
+              .setTitle(`🏁 ${event.name} has ended`)
+              .setDescription(`⛔ **No loot** — closed by <@${interaction.user.id}>.`)
+              .setColor(0x747f8d);
+            await interaction.message.edit({ embeds: [confirmedEmbed], components: [] }).catch(() => null);
+
+            // Archive host thread
+            if (event.threadId) {
+              try {
+                const hostThread = await client.channels.fetch(event.threadId);
+                if (hostThread?.isThread()) {
+                  await hostThread.setArchived(true).catch(() => null);
+                }
+              } catch (err) {
+                console.error('[bot] event_loot_none: failed to archive host thread:', err);
               }
-            } catch (err) {
-              console.error('[bot] event_loot_none: failed to archive host thread:', err);
+            }
+
+            // Archive alliance guild threads
+            const allianceGuilds = await prisma.eventAllianceGuild.findMany({
+              where: { eventId: entityId, threadId: { not: null } },
+            });
+            await Promise.allSettled(
+              allianceGuilds.map(async (ag) => {
+                const agThread = await client.channels.fetch(ag.threadId!).catch(() => null);
+                if (!agThread?.isThread()) return;
+                await agThread.setArchived(true).catch(() => null);
+              }),
+            );
+
+            await interaction.editReply({ content: '✅ Event closed — no loot.' });
+          }
+        } catch (err) {
+          console.error('[bot] Loot prompt button error:', err);
+          await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
+        }
+        return;
+      }
+
+      // ── Tournament: Ready check ───────────────────────────────────────────────
+      if (prefix === 'bracket_ready') {
+        const matchId = entityId;
+        const side = value as 'A' | 'B';
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const match = await prisma.tournamentMatch.findUnique({
+            where: { id: matchId },
+            include: { participantA: true, participantB: true },
+          });
+          if (!match) {
+            await interaction.editReply({ content: '❌ Match not found.' });
+            return;
+          }
+          if (match.status === 'COMPLETED') {
+            await interaction.editReply({ content: 'ℹ️ This match is already complete.' });
+            return;
+          }
+
+          const participant = side === 'A' ? match.participantA : match.participantB;
+          if (!participant?.discordId || participant.discordId !== interaction.user.id) {
+            await interaction.editReply({ content: '❌ You are not a participant in this match.' });
+            return;
+          }
+
+          const update: Record<string, boolean> = side === 'A' ? { readyA: true } : { readyB: true };
+          const updated = await prisma.tournamentMatch.update({ where: { id: matchId }, data: update });
+
+          if (updated.readyA && updated.readyB) {
+            await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
+            await interaction.message.edit({ components: [] }).catch(() => null);
+            // Public ping so everyone watching the thread sees the match is live
+            const pAName = match.participantA?.discordId
+              ? `<@${match.participantA.discordId}>`
+              : `**${match.participantA?.displayName ?? '?'}**`;
+            const pBName = match.participantB?.discordId
+              ? `<@${match.participantB.discordId}>`
+              : `**${match.participantB?.displayName ?? '?'}**`;
+            if (interaction.channel?.isThread()) {
+              await interaction.channel
+                .send(
+                  `⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`,
+                )
+                .catch(() => null);
+            }
+            await interaction.editReply({ content: '✅ Both players ready — match is live!' });
+          } else {
+            await interaction.editReply({ content: '✅ You are marked as ready. Waiting for your opponent.' });
+          }
+        } catch (err) {
+          console.error('[bot] bracket_ready error:', err);
+          await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
+        }
+        return;
+      }
+
+      // ── Tournament: Check-in ──────────────────────────────────────────────────
+      if (prefix === 'bracket_checkin') {
+        const matchId = entityId;
+        const side = value as 'A' | 'B';
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const match = await prisma.tournamentMatch.findUnique({
+            where: { id: matchId },
+            include: { participantA: true, participantB: true },
+          });
+          if (!match) {
+            await interaction.editReply({ content: '❌ Match not found.' });
+            return;
+          }
+
+          const participant = side === 'A' ? match.participantA : match.participantB;
+          if (!participant?.discordId || participant.discordId !== interaction.user.id) {
+            await interaction.editReply({ content: '❌ You are not a participant in this match.' });
+            return;
+          }
+
+          const update: Record<string, boolean> = side === 'A' ? { checkedInA: true } : { checkedInB: true };
+          const updated = await prisma.tournamentMatch.update({ where: { id: matchId }, data: update });
+
+          if (updated.checkedInA && updated.checkedInB) {
+            await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
+            // Clear the check-in buttons so they can't be clicked again after the match goes live
+            await interaction.message.edit({ components: [] }).catch(() => null);
+            // Public ping so everyone watching the thread sees the match is live
+            const pAName = match.participantA?.discordId
+              ? `<@${match.participantA.discordId}>`
+              : `**${match.participantA?.displayName ?? '?'}**`;
+            const pBName = match.participantB?.discordId
+              ? `<@${match.participantB.discordId}>`
+              : `**${match.participantB?.displayName ?? '?'}**`;
+            if (interaction.channel?.isThread()) {
+              await interaction.channel
+                .send(
+                  `⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`,
+                )
+                .catch(() => null);
+            }
+            await interaction.editReply({ content: '✅ Both players checked in — match is live!' });
+          } else {
+            await interaction.editReply({ content: '✅ You are checked in. Waiting for your opponent.' });
+          }
+        } catch (err) {
+          console.error('[bot] bracket_checkin error:', err);
+          await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
+        }
+        return;
+      }
+
+      // ── Tournament: Self-register ─────────────────────────────────────────────
+      if (prefix === 'bracket_register') {
+        const tournamentId = entityId;
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+          if (!tournament) {
+            await interaction.editReply({ content: '❌ Tournament not found.' });
+            return;
+          }
+          if (tournament.status !== 'REGISTRATION') {
+            await interaction.editReply({ content: 'ℹ️ Registration is no longer open.' });
+            return;
+          }
+
+          const existing = await prisma.tournamentParticipant.findFirst({
+            where: { tournamentId, discordId: interaction.user.id },
+          });
+          if (existing) {
+            await interaction.editReply({ content: 'ℹ️ You are already registered.' });
+            return;
+          }
+
+          const count = await prisma.tournamentParticipant.count({ where: { tournamentId } });
+          // Open-roster tournaments have no cap (size=0); only enforce the limit for fixed-size ones.
+          if (!tournament.openRoster && count >= tournament.size) {
+            await interaction.editReply({ content: '❌ Tournament is full.' });
+            return;
+          }
+
+          const displayName =
+            interaction.member instanceof GuildMember ? interaction.member.displayName : interaction.user.username;
+
+          await prisma.tournamentParticipant.create({
+            data: { tournamentId, discordId: interaction.user.id, displayName },
+          });
+
+          // Add user to the registration/tournament thread
+          if (tournament.threadId) {
+            const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
+            if (thread?.isThread()) {
+              await thread.members.add(interaction.user.id).catch(() => null);
             }
           }
 
-          // Archive alliance guild threads
-          const allianceGuilds = await prisma.eventAllianceGuild.findMany({
-            where: { eventId: entityId, threadId: { not: null } },
+          // Refresh the live registration embed so the new participant appears immediately
+          await updateRegistrationEmbed(tournamentId).catch(() => null);
+
+          await interaction.editReply({ content: `✅ You are registered for **${tournament.name}**!` });
+        } catch (err) {
+          console.error('[bot] bracket_register error:', err);
+          await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
+        }
+        return;
+      }
+
+      // ── Tournament: Self-unregister ───────────────────────────────────────────
+      if (prefix === 'bracket_leave') {
+        const tournamentId = entityId;
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+          if (!tournament) {
+            await interaction.editReply({ content: '❌ Tournament not found.' });
+            return;
+          }
+          if (tournament.status !== 'REGISTRATION') {
+            await interaction.editReply({
+              content: 'ℹ️ Registration is no longer open — you cannot leave at this stage.',
+            });
+            return;
+          }
+
+          const participant = await prisma.tournamentParticipant.findFirst({
+            where: { tournamentId, discordId: interaction.user.id },
           });
-          await Promise.allSettled(
-            allianceGuilds.map(async (ag) => {
-              const agThread = await client.channels.fetch(ag.threadId!).catch(() => null);
-              if (!agThread?.isThread()) return;
-              await agThread.setArchived(true).catch(() => null);
-            }),
-          );
+          if (!participant) {
+            await interaction.editReply({ content: 'ℹ️ You are not registered for this tournament.' });
+            return;
+          }
 
-          await interaction.editReply({ content: '✅ Event closed — no loot.' });
+          await prisma.tournamentParticipant.delete({ where: { id: participant.id } });
+
+          // Refresh the registration embed so the spot shows as available
+          await updateRegistrationEmbed(tournamentId).catch(() => null);
+
+          await interaction.editReply({
+            content: `✅ You have left **${tournament.name}**. Your spot is now available again.`,
+          });
+        } catch (err) {
+          console.error('[bot] bracket_leave error:', err);
+          await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
         }
-      } catch (err) {
-        console.error('[bot] Loot prompt button error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
+        return;
       }
-      return;
-    }
 
-    // ── Tournament: Ready check ───────────────────────────────────────────────
-    if (prefix === 'bracket_ready') {
-      const matchId = entityId;
-      const side = value as 'A' | 'B';
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const match = await prisma.tournamentMatch.findUnique({
-          where: { id: matchId },
-          include: { participantA: true, participantB: true },
-        });
-        if (!match) {
-          await interaction.editReply({ content: '❌ Match not found.' });
-          return;
-        }
-        if (match.status === 'COMPLETED') {
-          await interaction.editReply({ content: 'ℹ️ This match is already complete.' });
-          return;
-        }
+      // ── Tournament: Auto-forfeit (manager-only, from no-show escalation) ──────
+      if (prefix === 'bracket_autoforfeit') {
+        const matchId = entityId;
+        const winnerId = value;
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          // Only managers may click this button — check guild permissions
+          const member = interaction.member;
+          if (!(member instanceof GuildMember)) {
+            await interaction.editReply({ content: '❌ Unable to verify your permissions.' });
+            return;
+          }
+          const isManager = member.permissions.has('ManageGuild') || member.permissions.has('Administrator');
+          if (!isManager) {
+            await interaction.editReply({ content: '❌ Only managers can record a forfeit.' });
+            return;
+          }
 
-        const participant = side === 'A' ? match.participantA : match.participantB;
-        if (!participant?.discordId || participant.discordId !== interaction.user.id) {
-          await interaction.editReply({ content: '❌ You are not a participant in this match.' });
-          return;
-        }
+          // Confirm the match still needs a result
+          const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
+          if (!match) {
+            await interaction.editReply({ content: '❌ Match not found.' });
+            return;
+          }
+          if (match.status === 'COMPLETED') {
+            await interaction.editReply({ content: 'ℹ️ This match has already been recorded.' });
+            return;
+          }
 
-        const update: Record<string, boolean> = side === 'A' ? { readyA: true } : { readyB: true };
-        const updated = await prisma.tournamentMatch.update({ where: { id: matchId }, data: update });
+          await recordMatchForfeit(matchId, winnerId);
 
-        if (updated.readyA && updated.readyB) {
-          await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
+          // Disable the button on the original escalation message
           await interaction.message.edit({ components: [] }).catch(() => null);
-          // Public ping so everyone watching the thread sees the match is live
-          const pAName = match.participantA?.discordId ? `<@${match.participantA.discordId}>` : `**${match.participantA?.displayName ?? '?'}**`;
-          const pBName = match.participantB?.discordId ? `<@${match.participantB.discordId}>` : `**${match.participantB?.displayName ?? '?'}**`;
-          if (interaction.channel?.isThread()) {
-            await interaction.channel.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
-          }
-          await interaction.editReply({ content: '✅ Both players ready — match is live!' });
-        } else {
-          await interaction.editReply({ content: '✅ You are marked as ready. Waiting for your opponent.' });
+
+          const winner = await prisma.tournamentParticipant.findUnique({ where: { id: winnerId } });
+          await interaction.editReply({
+            content: `✅ Forfeit recorded — **${winner?.displayName ?? 'winner'}** advances. The result card has been posted in the thread.`,
+          });
+        } catch (err) {
+          console.error('[bot] bracket_autoforfeit error:', err);
+          await interaction
+            .editReply({ content: withRef('❌ Something went wrong recording the forfeit.') })
+            .catch(() => null);
         }
-      } catch (err) {
-        console.error('[bot] bracket_ready error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
+        return;
       }
-      return;
     }
-
-    // ── Tournament: Check-in ──────────────────────────────────────────────────
-    if (prefix === 'bracket_checkin') {
-      const matchId = entityId;
-      const side = value as 'A' | 'B';
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const match = await prisma.tournamentMatch.findUnique({
-          where: { id: matchId },
-          include: { participantA: true, participantB: true },
-        });
-        if (!match) {
-          await interaction.editReply({ content: '❌ Match not found.' });
-          return;
-        }
-
-        const participant = side === 'A' ? match.participantA : match.participantB;
-        if (!participant?.discordId || participant.discordId !== interaction.user.id) {
-          await interaction.editReply({ content: '❌ You are not a participant in this match.' });
-          return;
-        }
-
-        const update: Record<string, boolean> = side === 'A' ? { checkedInA: true } : { checkedInB: true };
-        const updated = await prisma.tournamentMatch.update({ where: { id: matchId }, data: update });
-
-        if (updated.checkedInA && updated.checkedInB) {
-          await prisma.tournamentMatch.update({ where: { id: matchId }, data: { status: 'IN_PROGRESS' } });
-          // Clear the check-in buttons so they can't be clicked again after the match goes live
-          await interaction.message.edit({ components: [] }).catch(() => null);
-          // Public ping so everyone watching the thread sees the match is live
-          const pAName = match.participantA?.discordId ? `<@${match.participantA.discordId}>` : `**${match.participantA?.displayName ?? '?'}**`;
-          const pBName = match.participantB?.discordId ? `<@${match.participantB.discordId}>` : `**${match.participantB?.displayName ?? '?'}**`;
-          if (interaction.channel?.isThread()) {
-            await interaction.channel.send(`⚔️ Round ${match.round} — Match ${match.position + 1} is **now live**! ${pAName} vs ${pBName} — good luck!`).catch(() => null);
-          }
-          await interaction.editReply({ content: '✅ Both players checked in — match is live!' });
-        } else {
-          await interaction.editReply({ content: '✅ You are checked in. Waiting for your opponent.' });
-        }
-      } catch (err) {
-        console.error('[bot] bracket_checkin error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
-      }
-      return;
-    }
-
-    // ── Tournament: Self-register ─────────────────────────────────────────────
-    if (prefix === 'bracket_register') {
-      const tournamentId = entityId;
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-        if (!tournament) {
-          await interaction.editReply({ content: '❌ Tournament not found.' });
-          return;
-        }
-        if (tournament.status !== 'REGISTRATION') {
-          await interaction.editReply({ content: 'ℹ️ Registration is no longer open.' });
-          return;
-        }
-
-        const existing = await prisma.tournamentParticipant.findFirst({
-          where: { tournamentId, discordId: interaction.user.id },
-        });
-        if (existing) {
-          await interaction.editReply({ content: 'ℹ️ You are already registered.' });
-          return;
-        }
-
-        const count = await prisma.tournamentParticipant.count({ where: { tournamentId } });
-        // Open-roster tournaments have no cap (size=0); only enforce the limit for fixed-size ones.
-        if (!tournament.openRoster && count >= tournament.size) {
-          await interaction.editReply({ content: '❌ Tournament is full.' });
-          return;
-        }
-
-        const displayName = (interaction.member instanceof GuildMember)
-          ? interaction.member.displayName
-          : interaction.user.username;
-
-        await prisma.tournamentParticipant.create({
-          data: { tournamentId, discordId: interaction.user.id, displayName },
-        });
-
-        // Add user to the registration/tournament thread
-        if (tournament.threadId) {
-          const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
-          if (thread?.isThread()) {
-            await thread.members.add(interaction.user.id).catch(() => null);
-          }
-        }
-
-        // Refresh the live registration embed so the new participant appears immediately
-        await updateRegistrationEmbed(tournamentId).catch(() => null);
-
-        await interaction.editReply({ content: `✅ You are registered for **${tournament.name}**!` });
-      } catch (err) {
-        console.error('[bot] bracket_register error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
-      }
-      return;
-    }
-
-    // ── Tournament: Self-unregister ───────────────────────────────────────────
-    if (prefix === 'bracket_leave') {
-      const tournamentId = entityId;
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-        if (!tournament) {
-          await interaction.editReply({ content: '❌ Tournament not found.' });
-          return;
-        }
-        if (tournament.status !== 'REGISTRATION') {
-          await interaction.editReply({ content: 'ℹ️ Registration is no longer open — you cannot leave at this stage.' });
-          return;
-        }
-
-        const participant = await prisma.tournamentParticipant.findFirst({
-          where: { tournamentId, discordId: interaction.user.id },
-        });
-        if (!participant) {
-          await interaction.editReply({ content: 'ℹ️ You are not registered for this tournament.' });
-          return;
-        }
-
-        await prisma.tournamentParticipant.delete({ where: { id: participant.id } });
-
-        // Refresh the registration embed so the spot shows as available
-        await updateRegistrationEmbed(tournamentId).catch(() => null);
-
-        await interaction.editReply({ content: `✅ You have left **${tournament.name}**. Your spot is now available again.` });
-      } catch (err) {
-        console.error('[bot] bracket_leave error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong.') }).catch(() => null);
-      }
-      return;
-    }
-
-    // ── Tournament: Auto-forfeit (manager-only, from no-show escalation) ──────
-    if (prefix === 'bracket_autoforfeit') {
-      const matchId  = entityId;
-      const winnerId = value;
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      try {
-        // Only managers may click this button — check guild permissions
-        const member = interaction.member;
-        if (!(member instanceof GuildMember)) {
-          await interaction.editReply({ content: '❌ Unable to verify your permissions.' });
-          return;
-        }
-        const isManager =
-          member.permissions.has('ManageGuild') ||
-          member.permissions.has('Administrator');
-        if (!isManager) {
-          await interaction.editReply({ content: '❌ Only managers can record a forfeit.' });
-          return;
-        }
-
-        // Confirm the match still needs a result
-        const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
-        if (!match) {
-          await interaction.editReply({ content: '❌ Match not found.' });
-          return;
-        }
-        if (match.status === 'COMPLETED') {
-          await interaction.editReply({ content: 'ℹ️ This match has already been recorded.' });
-          return;
-        }
-
-        await recordMatchForfeit(matchId, winnerId);
-
-        // Disable the button on the original escalation message
-        await interaction.message.edit({ components: [] }).catch(() => null);
-
-        const winner = await prisma.tournamentParticipant.findUnique({ where: { id: winnerId } });
-        await interaction.editReply({
-          content: `✅ Forfeit recorded — **${winner?.displayName ?? 'winner'}** advances. The result card has been posted in the thread.`,
-        });
-      } catch (err) {
-        console.error('[bot] bracket_autoforfeit error:', err);
-        await interaction.editReply({ content: withRef('❌ Something went wrong recording the forfeit.') }).catch(() => null);
-      }
-      return;
-    }
-
-  }
-}));
+  }),
+);
 
 // ── !asop prefix command ──────────────────────────────────────────────────────
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
   // A question for the AI assistant (v1.56.0): someone tagged the bot.
-  if (isForAssistant(message)) { await handleAssistantMessage(message); return; }
+  if (isForAssistant(message)) {
+    await handleAssistantMessage(message);
+    return;
+  }
   if (message.content.trim().toLowerCase() !== '!asop') return;
 
   const webUrl = process.env['WEB_URL'] ?? 'http://localhost:5173';
   const loginUrl = `${webUrl}/api/auth/login`;
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Log in to ASOP')
-      .setStyle(ButtonStyle.Link)
-      .setURL(loginUrl),
+    new ButtonBuilder().setLabel('Log in to ASOP').setStyle(ButtonStyle.Link).setURL(loginUrl),
   );
 
   await message.reply({ content: 'Click below to log in to the event manager:', components: [row] });
@@ -759,7 +865,12 @@ client.on(Events.GuildScheduledEventUserAdd, async (scheduledEvent, user) => {
   try {
     // The host's Discord event, or an ally's copy of a shared one (v1.20.0: allies' were missed before).
     const event = await prisma.event.findFirst({
-      where: { OR: [{ discordEventId: scheduledEvent.id }, { allianceGuilds: { some: { discordEventId: scheduledEvent.id } } }] },
+      where: {
+        OR: [
+          { discordEventId: scheduledEvent.id },
+          { allianceGuilds: { some: { discordEventId: scheduledEvent.id } } },
+        ],
+      },
     });
     if (!event) {
       console.warn(`[bot] No event found for discordEventId=${scheduledEvent.id}`);

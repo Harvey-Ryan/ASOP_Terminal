@@ -31,7 +31,9 @@ export async function adminFeedTick(now = new Date()): Promise<void> {
     if (!cfg?.feedChannelId) return;
     const channel = await client.channels.fetch(cfg.feedChannelId).catch(() => null);
     if (!channel || !channel.isSendable()) {
-      console.warn(`[adminFeed] Can't post in the admin feed channel ${cfg.feedChannelId} (missing, or no permission).`);
+      console.warn(
+        `[adminFeed] Can't post in the admin feed channel ${cfg.feedChannelId} (missing, or no permission).`,
+      );
       return;
     }
     await postLogEntries(channel);
@@ -47,9 +49,16 @@ export async function adminFeedTick(now = new Date()): Promise<void> {
 // ── Servers joining / leaving, tests ────────────────────────────────────────
 
 const POSTED_NOW = [
-  'guild.joined', 'guild.left', 'admin.test',
+  'guild.joined',
+  'guild.left',
+  'admin.test',
   // Community corrections (v1.53.0): the reviewers' to-do and what changed on the site.
-  'corrections.ready', 'corrections.approved', 'corrections.disputed', 'corrections.reverted', 'corrections.recheck', 'corrections.retired',
+  'corrections.ready',
+  'corrections.approved',
+  'corrections.disputed',
+  'corrections.reverted',
+  'corrections.recheck',
+  'corrections.retired',
 ];
 const CORRECTION_TITLES: Record<string, string> = {
   'corrections.ready': '📝 Correction ready for review',
@@ -61,16 +70,33 @@ const CORRECTION_TITLES: Record<string, string> = {
 };
 
 async function postLogEntries(channel: SendableChannels): Promise<void> {
-  const entries = await prisma.adminLog.findMany({ where: { posted: false, kind: { in: POSTED_NOW } }, orderBy: { id: 'asc' }, take: 10 });
+  const entries = await prisma.adminLog.findMany({
+    where: { posted: false, kind: { in: POSTED_NOW } },
+    orderBy: { id: 'asc' },
+    take: 10,
+  });
   for (const e of entries) {
     const embed = new EmbedBuilder().setTimestamp(e.createdAt);
-    if (e.kind === 'guild.joined') embed.setColor(COLORS.good).setTitle('➕ Bot added to a server').setDescription(`**${e.guildName ?? e.guildId}**\n${e.summary}`);
-    else if (e.kind === 'guild.left') embed.setColor(COLORS.warn).setTitle('➖ Bot removed from a server').setDescription(`**${e.guildName ?? e.guildId}**\n${e.summary}`);
+    if (e.kind === 'guild.joined')
+      embed
+        .setColor(COLORS.good)
+        .setTitle('➕ Bot added to a server')
+        .setDescription(`**${e.guildName ?? e.guildId}**\n${e.summary}`);
+    else if (e.kind === 'guild.left')
+      embed
+        .setColor(COLORS.warn)
+        .setTitle('➖ Bot removed from a server')
+        .setDescription(`**${e.guildName ?? e.guildId}**\n${e.summary}`);
     else if (CORRECTION_TITLES[e.kind]) {
-      embed.setColor(e.kind === 'corrections.disputed' || e.kind === 'corrections.recheck' ? COLORS.warn : COLORS.info)
-        .setTitle(CORRECTION_TITLES[e.kind]!).setDescription(`${e.summary.slice(0, 3800)}\nReview queue: Tools → Corrections`);
-    }
-    else embed.setColor(COLORS.info).setTitle('✅ Admin feed test').setDescription(`Sent by ${e.actorName ?? 'an admin'}. Alerts and the daily digest will be posted here.`);
+      embed
+        .setColor(e.kind === 'corrections.disputed' || e.kind === 'corrections.recheck' ? COLORS.warn : COLORS.info)
+        .setTitle(CORRECTION_TITLES[e.kind]!)
+        .setDescription(`${e.summary.slice(0, 3800)}\nReview queue: Tools → Corrections`);
+    } else
+      embed
+        .setColor(COLORS.info)
+        .setTitle('✅ Admin feed test')
+        .setDescription(`Sent by ${e.actorName ?? 'an admin'}. Alerts and the daily digest will be posted here.`);
     await channel.send({ embeds: [embed] });
     await prisma.adminLog.update({ where: { id: e.id }, data: { posted: true } });
   }
@@ -93,7 +119,11 @@ async function postAlerts(channel: SendableChannels, cursor: number, now: Date):
   const fps = [...byKind.keys()];
   const [states, seenBefore] = await Promise.all([
     prisma.errorGroupState.findMany({ where: { fingerprint: { in: fps } } }),
-    prisma.errorEvent.groupBy({ by: ['fingerprint'], where: { fingerprint: { in: fps }, id: { lte: cursor } }, _count: { _all: true } }),
+    prisma.errorEvent.groupBy({
+      by: ['fingerprint'],
+      where: { fingerprint: { in: fps }, id: { lte: cursor } },
+      _count: { _all: true },
+    }),
   ]);
   const stateBy = new Map(states.map((s) => [s.fingerprint, s]));
   const known = new Set(seenBefore.map((s) => s.fingerprint));
@@ -104,16 +134,23 @@ async function postAlerts(channel: SendableChannels, cursor: number, now: Date):
     if (st?.status === 'ignored') continue;
     if (st?.alertedAt && now.getTime() - st.alertedAt.getTime() < ALERT_EVERY_MS) continue;
     if (!known.has(fp)) worth.push({ fp, reason: 'new', events });
-    else if (st?.status === 'resolved' && st.resolvedAt && events.some((e) => e.createdAt > st.resolvedAt!)) worth.push({ fp, reason: 'back', events });
+    else if (st?.status === 'resolved' && st.resolvedAt && events.some((e) => e.createdAt > st.resolvedAt!))
+      worth.push({ fp, reason: 'back', events });
   }
 
   const shown = worth.slice(0, MAX_ALERTS_PER_TICK);
   if (shown.length > 0) {
     const guildIds = [...new Set(shown.flatMap((w) => w.events.map((e) => e.guildId)).filter((g): g is string => !!g))];
-    const guilds = new Map((await prisma.guild.findMany({ where: { guildId: { in: guildIds } }, select: { guildId: true, name: true } })).map((g) => [g.guildId, g.name]));
+    const guilds = new Map(
+      (
+        await prisma.guild.findMany({ where: { guildId: { in: guildIds } }, select: { guildId: true, name: true } })
+      ).map((g) => [g.guildId, g.name]),
+    );
     const embeds = shown.map(({ reason, events }) => {
       const e = events[events.length - 1]!;
-      const servers = [...new Set(events.map((x) => x.guildId).filter((g): g is string => !!g))].map((g) => guilds.get(g) ?? g);
+      const servers = [...new Set(events.map((x) => x.guildId).filter((g): g is string => !!g))].map(
+        (g) => guilds.get(g) ?? g,
+      );
       const link = adminLink(`/errors/${e.id}`);
       return new EmbedBuilder()
         .setColor(reason === 'new' ? COLORS.bad : COLORS.warn)
@@ -121,17 +158,32 @@ async function postAlerts(channel: SendableChannels, cursor: number, now: Date):
         .setDescription(`\`\`\`${e.message.slice(0, 900).replace(/```/g, "'''")}\`\`\``)
         .addFields(
           { name: 'Times', value: String(events.length), inline: true },
-          { name: 'Servers', value: servers.length ? servers.slice(0, 3).join(', ') + (servers.length > 3 ? ` +${servers.length - 3}` : '') : '—', inline: true },
+          {
+            name: 'Servers',
+            value: servers.length
+              ? servers.slice(0, 3).join(', ') + (servers.length > 3 ? ` +${servers.length - 3}` : '')
+              : '—',
+            inline: true,
+          },
           { name: 'Ref', value: e.ref ?? '—', inline: true },
         )
         .setTimestamp(e.createdAt)
         .setURL(link ?? null);
     });
     const more = worth.length - shown.length;
-    await channel.send({ content: more > 0 ? `…and ${more} more new kind(s) of error. See the admin panel.` : undefined, embeds });
-    await prisma.$transaction(shown.map(({ fp }) => prisma.errorGroupState.upsert({
-      where: { fingerprint: fp }, create: { fingerprint: fp, alertedAt: now }, update: { alertedAt: now },
-    })));
+    await channel.send({
+      content: more > 0 ? `…and ${more} more new kind(s) of error. See the admin panel.` : undefined,
+      embeds,
+    });
+    await prisma.$transaction(
+      shown.map(({ fp }) =>
+        prisma.errorGroupState.upsert({
+          where: { fingerprint: fp },
+          create: { fingerprint: fp, alertedAt: now },
+          update: { alertedAt: now },
+        }),
+      ),
+    );
   }
   await prisma.adminConfig.update({ where: { id: 1 }, data: { alertCursor: newCursor } });
 }
@@ -140,12 +192,26 @@ async function postAlerts(channel: SendableChannels, cursor: number, now: Date):
 
 /** Date ("2026-11-11") and hour in a time zone. */
 export function localDateHour(now: Date, timeZone: string): { date: string; hour: number } {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
-    .formatToParts(now).map((p) => [p.type, p.value]));
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
   return { date: `${parts['year']}-${parts['month']}-${parts['day']}`, hour: Number(parts['hour']) };
 }
 
-async function maybePostDigest(channel: SendableChannels, cfg: { digestHour: number; digestTimezone: string; lastDigestDate: string | null }, now: Date): Promise<void> {
+async function maybePostDigest(
+  channel: SendableChannels,
+  cfg: { digestHour: number; digestTimezone: string; lastDigestDate: string | null },
+  now: Date,
+): Promise<void> {
   const { date, hour } = localDateHour(now, cfg.digestTimezone);
   if (hour !== cfg.digestHour || cfg.lastDigestDate === date) return;
   // Claim today's digest first, so a restart in the same hour doesn't post twice.
@@ -156,16 +222,35 @@ async function maybePostDigest(channel: SendableChannels, cfg: { digestHour: num
 export async function buildDigest(now: Date): Promise<EmbedBuilder> {
   const since = new Date(now.getTime() - 24 * HOUR);
   const [bySource, warnings, kinds, firstSeen, log, beats, guilds] = await Promise.all([
-    prisma.errorEvent.groupBy({ by: ['source'], where: { level: 'error', createdAt: { gte: since } }, _count: { _all: true } }),
+    prisma.errorEvent.groupBy({
+      by: ['source'],
+      where: { level: 'error', createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
     prisma.errorEvent.count({ where: { level: 'warn', createdAt: { gte: since } } }),
-    prisma.errorEvent.groupBy({ by: ['fingerprint'], where: { level: 'error', createdAt: { gte: since } }, _count: { _all: true }, _max: { id: true }, orderBy: { _count: { fingerprint: 'desc' } }, take: 5 }),
-    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM (SELECT fingerprint FROM "ErrorEvent" WHERE level = 'error' GROUP BY fingerprint HAVING min("createdAt") >= ${since}) k`,
-    prisma.adminLog.findMany({ where: { createdAt: { gte: since }, kind: { in: ['guild.joined', 'guild.left', 'admin.settings'] } }, orderBy: { id: 'asc' } }),
+    prisma.errorEvent.groupBy({
+      by: ['fingerprint'],
+      where: { level: 'error', createdAt: { gte: since } },
+      _count: { _all: true },
+      _max: { id: true },
+      orderBy: { _count: { fingerprint: 'desc' } },
+      take: 5,
+    }),
+    prisma.$queryRaw<
+      { n: bigint }[]
+    >`SELECT count(*) AS n FROM (SELECT fingerprint FROM "ErrorEvent" WHERE level = 'error' GROUP BY fingerprint HAVING min("createdAt") >= ${since}) k`,
+    prisma.adminLog.findMany({
+      where: { createdAt: { gte: since }, kind: { in: ['guild.joined', 'guild.left', 'admin.settings'] } },
+      orderBy: { id: 'asc' },
+    }),
     prisma.serviceHeartbeat.findMany(),
     prisma.guild.count(),
   ]);
   const total = bySource.reduce((a, r) => a + r._count._all, 0);
-  const samples = await prisma.errorEvent.findMany({ where: { id: { in: kinds.map((k) => k._max.id!).filter(Boolean) } }, select: { id: true, fingerprint: true, message: true, source: true } });
+  const samples = await prisma.errorEvent.findMany({
+    where: { id: { in: kinds.map((k) => k._max.id!).filter(Boolean) } },
+    select: { id: true, fingerprint: true, message: true, source: true },
+  });
   const sampleBy = new Map(samples.map((s) => [s.fingerprint, s]));
   const top = kinds.map((k) => {
     const s = sampleBy.get(k.fingerprint);
@@ -176,21 +261,50 @@ export async function buildDigest(now: Date): Promise<EmbedBuilder> {
   const changes = log.filter((l) => l.kind === 'admin.settings');
   const svc = (name: string) => {
     const b = beats.find((x) => x.service === name);
-    return b && now.getTime() - b.beatAt.getTime() < 3 * 60_000 ? `🟢 ${name} ${b.release}` : `🔴 ${name} not reporting`;
+    return b && now.getTime() - b.beatAt.getTime() < 3 * 60_000
+      ? `🟢 ${name} ${b.release}`
+      : `🔴 ${name} not reporting`;
   };
   const link = adminLink('');
   return new EmbedBuilder()
     .setColor(total === 0 ? COLORS.good : COLORS.info)
     .setTitle('📋 ASOP daily digest')
-    .setDescription([
-      total === 0 ? 'No errors in the last 24 hours.' : `**${total}** error(s) in the last 24 hours (${bySource.map((r) => `${r.source} ${r._count._all}`).join(', ')}), ${warnings} warning(s).`,
-      `New kinds of error: **${Number(firstSeen[0]?.n ?? 0)}**.`,
-      link ? `[Open the admin panel](${link})` : '',
-    ].filter(Boolean).join('\n'))
+    .setDescription(
+      [
+        total === 0
+          ? 'No errors in the last 24 hours.'
+          : `**${total}** error(s) in the last 24 hours (${bySource.map((r) => `${r.source} ${r._count._all}`).join(', ')}), ${warnings} warning(s).`,
+        `New kinds of error: **${Number(firstSeen[0]?.n ?? 0)}**.`,
+        link ? `[Open the admin panel](${link})` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    )
     .addFields(
       ...(top.length ? [{ name: 'Most frequent', value: top.join('\n').slice(0, 1024) }] : []),
-      { name: 'Servers', value: [`${guilds} in total`, joined.length ? `➕ ${joined.join(', ')}` : '', left.length ? `➖ ${left.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 1024) },
-      ...(changes.length ? [{ name: 'Admin changes', value: changes.slice(-5).map((c) => `${c.guildName ?? ''}: ${c.summary}`).join('\n').slice(0, 1024) }] : []),
+      {
+        name: 'Servers',
+        value: [
+          `${guilds} in total`,
+          joined.length ? `➕ ${joined.join(', ')}` : '',
+          left.length ? `➖ ${left.join(', ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+          .slice(0, 1024),
+      },
+      ...(changes.length
+        ? [
+            {
+              name: 'Admin changes',
+              value: changes
+                .slice(-5)
+                .map((c) => `${c.guildName ?? ''}: ${c.summary}`)
+                .join('\n')
+                .slice(0, 1024),
+            },
+          ]
+        : []),
       { name: 'Services', value: `${svc('api')}\n${svc('bot')}` },
     )
     .setFooter({ text: `Bot ${RELEASE}` })

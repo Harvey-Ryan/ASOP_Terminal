@@ -28,7 +28,7 @@ rsiRouter.get('/:guildId/rsi/verify-status', requireAuth, async (req, res) => {
       handle: member?.rsiHandle ?? null,
       verified: member?.rsiVerified ?? false,
       token: member?.rsiVerifyToken ?? null,
-      orgRequired: !!(guild.settings?.rsiOrgTag),
+      orgRequired: !!guild.settings?.rsiOrgTag,
     } satisfies RsiVerifyStatusDto,
   } satisfies ApiResponse<RsiVerifyStatusDto>);
 });
@@ -96,7 +96,9 @@ rsiRouter.post('/:guildId/rsi/complete-verify', requireAuth, async (req, res) =>
   });
 
   if (!member?.rsiHandle || !member.rsiVerifyToken) {
-    res.status(400).json({ success: false, error: 'No pending verification — start the flow first' } satisfies ApiResponse);
+    res
+      .status(400)
+      .json({ success: false, error: 'No pending verification — start the flow first' } satisfies ApiResponse);
     return;
   }
 
@@ -106,14 +108,17 @@ rsiRouter.post('/:guildId/rsi/complete-verify', requireAuth, async (req, res) =>
   try {
     const response = await fetch(profileUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml',
       },
       signal: AbortSignal.timeout(10_000),
     });
 
     if (response.status === 404) {
-      res.status(400).json({ success: false, error: `RSI citizen "${member.rsiHandle}" not found` } satisfies ApiResponse);
+      res
+        .status(400)
+        .json({ success: false, error: `RSI citizen "${member.rsiHandle}" not found` } satisfies ApiResponse);
       return;
     }
 
@@ -130,7 +135,10 @@ rsiRouter.post('/:guildId/rsi/complete-verify', requireAuth, async (req, res) =>
   }
 
   if (!pageHtml.includes(member.rsiVerifyToken)) {
-    res.status(400).json({ success: false, error: 'Token not found in bio — make sure you saved the bio on RSI' } satisfies ApiResponse);
+    res.status(400).json({
+      success: false,
+      error: 'Token not found in bio — make sure you saved the bio on RSI',
+    } satisfies ApiResponse);
     return;
   }
 

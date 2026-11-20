@@ -12,12 +12,19 @@ const prisma = new PrismaClient();
 const hasScData = process.env['DATABASE_URL']?.includes('asop_sc');
 
 const f7: WikeloMission = {
-  id: 'test-f7', title: 'Wikelo Navy F7', category: 'ships', rewards: [[{ name: 'Anvil F7 Hornet Mk Wikelo', amount: 1 }]],
+  id: 'test-f7',
+  title: 'Wikelo Navy F7',
+  category: 'ships',
+  rewards: [[{ name: 'Anvil F7 Hornet Mk Wikelo', amount: 1 }]],
   turnIn: [
     { key: 'favor', name: 'Wikelo Favor', amount: 16, scu: null },
     { key: 'board', name: 'DCHS-05 Orbital Positioning Comp-Board', amount: 3, scu: null },
   ],
-  favors: 16, description: 'Bring me things.', stations: ['Kinga Station'], onceOnly: false, shareable: false,
+  favors: 16,
+  description: 'Bring me things.',
+  stations: ['Kinga Station'],
+  onceOnly: false,
+  shareable: false,
 };
 const fake: WikeloDataDto = { build: 'test', missions: [f7] };
 
@@ -45,7 +52,12 @@ describe('Wikelo checklist', () => {
     expect(missions).toHaveLength(1);
 
     // Unknown keys are dropped; a ticked item is kept.
-    const saved = (await a.agent.put('/api/me/wikelo/test-f7').send({ ticked: ['favor', 'nope', 'favor'], completed: false }).expect(200)).body.data;
+    const saved = (
+      await a.agent
+        .put('/api/me/wikelo/test-f7')
+        .send({ ticked: ['favor', 'nope', 'favor'], completed: false })
+        .expect(200)
+    ).body.data;
     expect(saved).toEqual({ missionId: 'test-f7', ticked: ['favor'], completedAt: null });
     expect((await a.agent.get('/api/me/wikelo').expect(200)).body.data).toEqual([saved]);
     expect((await b.agent.get('/api/me/wikelo').expect(200)).body.data).toEqual([]);
@@ -56,9 +68,19 @@ describe('Wikelo checklist', () => {
   it('complete keeps its first time; clearing everything forgets the mission', async () => {
     useWikeloDataForTests(fake);
     const a = await signedIn();
-    const done = (await a.agent.put('/api/me/wikelo/test-f7').send({ ticked: ['favor', 'board'], completed: true }).expect(200)).body.data;
+    const done = (
+      await a.agent
+        .put('/api/me/wikelo/test-f7')
+        .send({ ticked: ['favor', 'board'], completed: true })
+        .expect(200)
+    ).body.data;
     expect(done.completedAt).toBeTruthy();
-    const again = (await a.agent.put('/api/me/wikelo/test-f7').send({ ticked: ['favor'], completed: true }).expect(200)).body.data;
+    const again = (
+      await a.agent
+        .put('/api/me/wikelo/test-f7')
+        .send({ ticked: ['favor'], completed: true })
+        .expect(200)
+    ).body.data;
     expect(again.completedAt).toBe(done.completedAt);
     await a.agent.put('/api/me/wikelo/test-f7').send({ ticked: [], completed: false }).expect(200);
     expect(await prisma.wikeloProgress.count({ where: { discordId: a.user.discordId } })).toBe(0);

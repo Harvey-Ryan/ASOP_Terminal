@@ -33,12 +33,12 @@ export function SettingTooltip({ content }: { content: React.ReactNode }) {
 // ── Channel type icons ────────────────────────────────────────────────────────
 
 const CH_ICON: Record<number, string> = {
-  0: '#',    // GUILD_TEXT
-  2: '🔊',   // GUILD_VOICE
-  4: '📁',   // GUILD_CATEGORY
-  5: '📢',   // GUILD_ANNOUNCEMENT
-  13: '🎭',  // GUILD_STAGE_VOICE
-  15: '📋',  // GUILD_FORUM
+  0: '#', // GUILD_TEXT
+  2: '🔊', // GUILD_VOICE
+  4: '📁', // GUILD_CATEGORY
+  5: '📢', // GUILD_ANNOUNCEMENT
+  13: '🎭', // GUILD_STAGE_VOICE
+  15: '📋', // GUILD_FORUM
   16: '🖼️', // GUILD_MEDIA
 };
 
@@ -65,12 +65,10 @@ export function ChannelSelect({
   onChange: (val: string | null) => void;
   types?: number[];
 }) {
-  const visible = types
-    ? channels.filter((c) => c.type === 4 || types.includes(c.type))
-    : channels;
-  const categories    = visible.filter((c) => c.type === 4);
+  const visible = types ? channels.filter((c) => c.type === 4 || types.includes(c.type)) : channels;
+  const categories = visible.filter((c) => c.type === 4);
   const uncategorised = visible.filter((c) => c.type !== 4 && !c.parent_id);
-  const childrenOf    = (catId: string) => visible.filter((c) => c.parent_id === catId);
+  const childrenOf = (catId: string) => visible.filter((c) => c.parent_id === catId);
 
   return (
     <select
@@ -81,7 +79,9 @@ export function ChannelSelect({
     >
       <option value="">— Not set —</option>
       {uncategorised.map((ch) => (
-        <option key={ch.id} value={ch.id}>{channelLabel(ch)}</option>
+        <option key={ch.id} value={ch.id}>
+          {channelLabel(ch)}
+        </option>
       ))}
       {categories.map((cat) => {
         const children = childrenOf(cat.id);
@@ -89,7 +89,9 @@ export function ChannelSelect({
           <optgroup key={cat.id} label={`📁  ${cat.name}`}>
             <option value={cat.id}>{channelLabel(cat)}</option>
             {children.map((ch) => (
-              <option key={ch.id} value={ch.id}>{channelLabel(ch)}</option>
+              <option key={ch.id} value={ch.id}>
+                {channelLabel(ch)}
+              </option>
             ))}
           </optgroup>
         );
@@ -153,10 +155,14 @@ export function RolePicker({
   onChange: (ids: string[]) => void;
 }) {
   const selectedSet = new Set(selected);
-  const unselected  = roles.filter((r) => !selectedSet.has(r.id));
+  const unselected = roles.filter((r) => !selectedSet.has(r.id));
 
-  function add(id: string)    { onChange([...selected, id]); }
-  function remove(id: string) { onChange(selected.filter((s) => s !== id)); }
+  function add(id: string) {
+    onChange([...selected, id]);
+  }
+  function remove(id: string) {
+    onChange(selected.filter((s) => s !== id));
+  }
 
   return (
     <div className="space-y-2">
@@ -191,12 +197,16 @@ export function RolePicker({
       {unselected.length > 0 ? (
         <select
           value=""
-          onChange={(e) => { if (e.target.value) add(e.target.value); }}
+          onChange={(e) => {
+            if (e.target.value) add(e.target.value);
+          }}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Add a role…</option>
           {unselected.map((role) => (
-            <option key={role.id} value={role.id}>{role.name}</option>
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
           ))}
         </select>
       ) : selected.length > 0 ? (

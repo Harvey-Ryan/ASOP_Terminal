@@ -13,13 +13,16 @@ heatmapRouter.get('/:guildId/heatmap/events', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   // Part of Activity, which only some servers have (v1.25.0).
   if (!(await assertModuleEnabled(guildId, 'activityEnabled'))) {
-    res.status(404).json({ success: false, error: 'Activity isn\'t available for this server.' } satisfies ApiResponse);
+    res.status(404).json({ success: false, error: "Activity isn't available for this server." } satisfies ApiResponse);
     return;
   }
   // Officers, or members when the server lets them see heat maps (v1.21.1: there was no check).
   const officer = await assertEventCreator(req, guildId);
   if (!officer) {
-    const g = await prisma.guild.findUnique({ where: { guildId }, select: { settings: { select: { activityHeatmapPublic: true } } } });
+    const g = await prisma.guild.findUnique({
+      where: { guildId },
+      select: { settings: { select: { activityHeatmapPublic: true } } },
+    });
     if (!(await assertEventViewer(req, guildId)) || g?.settings?.activityHeatmapPublic === false) {
       res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
       return;
@@ -40,7 +43,10 @@ heatmapRouter.get('/:guildId/heatmap/events', requireAuth, async (req, res) => {
         status: { in: ['ENDED', 'COMPLETED'] },
       },
       select: {
-        startTime: true, status: true, vcAttendees: true, confirmedAttendees: true,
+        startTime: true,
+        status: true,
+        vcAttendees: true,
+        confirmedAttendees: true,
         rsvps: { select: { userId: true, tentative: true } },
       },
     });

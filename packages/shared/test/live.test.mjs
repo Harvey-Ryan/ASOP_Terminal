@@ -9,7 +9,8 @@ function harness(tables = {}) {
     findKeys: async (model, where, keys) => {
       reads.push(model);
       const ids = where?.id?.in;
-      return (tables[model] ?? []).filter((r) => (ids ? ids.includes(r.id) : Object.entries(where).every(([k, v]) => r[k] === v)))
+      return (tables[model] ?? [])
+        .filter((r) => (ids ? ids.includes(r.id) : Object.entries(where).every(([k, v]) => r[k] === v)))
         .map((r) => Object.fromEntries(keys.map((k) => [k, r[k]])));
     },
     lookups: {
@@ -18,18 +19,30 @@ function harness(tables = {}) {
       auctionGuild: async (id) => ({ a1: 'g9' })[id] ?? null,
     },
     queue: { add: (topics, tx) => sent.push({ topics: topics.sort(), tx }) },
-    onError: (err) => { throw err; },
+    onError: (err) => {
+      throw err;
+    },
   };
   return { mw: liveMiddleware(deps), sent, reads };
 }
 
-test('writes to watched models become topics; reads and other models don\'t', async () => {
+test("writes to watched models become topics; reads and other models don't", async () => {
   const { mw, sent } = harness();
-  await mw({ model: 'LootSession', action: 'update', args: {} }, async () => ({ id: 's1', guildId: 'g1', eventId: 'e1' }));
+  await mw({ model: 'LootSession', action: 'update', args: {} }, async () => ({
+    id: 's1',
+    guildId: 'g1',
+    eventId: 'e1',
+  }));
   await mw({ model: 'LootAssignment', action: 'create', args: {} }, async () => ({ id: 'x', itemId: 'i1' }));
-  await mw({ model: 'LootAuctionBid', action: 'create', args: {}, runInTransaction: true }, async () => ({ id: 'b', auctionId: 'la1' }));
+  await mw({ model: 'LootAuctionBid', action: 'create', args: {}, runInTransaction: true }, async () => ({
+    id: 'b',
+    auctionId: 'la1',
+  }));
   await mw({ model: 'AuctionBid', action: 'create', args: {} }, async () => ({ id: 'b', auctionId: 'a1' }));
-  await mw({ model: 'TradeMessage', action: 'createMany', args: { data: [{ tradeId: 't1' }, { tradeId: 't1' }] } }, async () => ({ count: 2 }));
+  await mw(
+    { model: 'TradeMessage', action: 'createMany', args: { data: [{ tradeId: 't1' }, { tradeId: 't1' }] } },
+    async () => ({ count: 2 }),
+  );
   await mw({ model: 'LootSession', action: 'findMany', args: {} }, async () => []);
   await mw({ model: 'Event', action: 'update', args: {} }, async () => ({ id: 'e1' }));
   assert.deepEqual(sent, [
@@ -42,22 +55,42 @@ test('writes to watched models become topics; reads and other models don\'t', as
 });
 
 test('updateMany and deleteMany read the keys before writing; a select reads them after', async () => {
-  const { mw, sent, reads } = harness({ LootItem: [{ id: 'i1', sessionId: 's1' }, { id: 'i2', sessionId: 's2' }] });
-  await mw({ model: 'LootItem', action: 'deleteMany', args: { where: { id: { in: ['i1', 'i2'] } } } }, async () => ({ count: 2 }));
+  const { mw, sent, reads } = harness({
+    LootItem: [
+      { id: 'i1', sessionId: 's1' },
+      { id: 'i2', sessionId: 's2' },
+    ],
+  });
+  await mw({ model: 'LootItem', action: 'deleteMany', args: { where: { id: { in: ['i1', 'i2'] } } } }, async () => ({
+    count: 2,
+  }));
   await mw({ model: 'LootItem', action: 'update', args: { select: { id: true } } }, async () => ({ id: 'i2' }));
-  assert.deepEqual(sent.map((s) => s.topics), [['loot:s1', 'loot:s2'], ['loot:s2']]);
+  assert.deepEqual(
+    sent.map((s) => s.topics),
+    [['loot:s1', 'loot:s2'], ['loot:s2']],
+  );
   assert.deepEqual(reads, ['LootItem', 'LootItem']);
 });
 
 test('a failed write sends nothing and still fails', async () => {
   const { mw, sent } = harness();
-  await assert.rejects(mw({ model: 'Trade', action: 'update', args: {} }, async () => { throw new Error('nope'); }), /nope/);
+  await assert.rejects(
+    mw({ model: 'Trade', action: 'update', args: {} }, async () => {
+      throw new Error('nope');
+    }),
+    /nope/,
+  );
   assert.deepEqual(sent, []);
 });
 
 test('the queue batches a burst and repeats transaction topics later', async () => {
   const out = [];
-  const q = createLiveQueue(async (t) => { out.push(t.sort()); }, { delayMs: 10, txFollowUpMs: 40 });
+  const q = createLiveQueue(
+    async (t) => {
+      out.push(t.sort());
+    },
+    { delayMs: 10, txFollowUpMs: 40 },
+  );
   q.add(['loot:a'], false);
   q.add(['loot:b', 'loot:a'], true);
   await new Promise((r) => setTimeout(r, 25));

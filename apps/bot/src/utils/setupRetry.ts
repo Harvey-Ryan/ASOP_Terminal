@@ -14,7 +14,11 @@ export function setupRetryDelayMs(attempts: number): number {
 }
 
 /** The fields to save after an attempt: reset when it worked, otherwise count it and schedule the next. */
-export function afterSetupAttempt(done: boolean, attemptsBefore: number, now: Date): { setupAttempts: number; nextSetupAt: Date | null; gaveUp: boolean } {
+export function afterSetupAttempt(
+  done: boolean,
+  attemptsBefore: number,
+  now: Date,
+): { setupAttempts: number; nextSetupAt: Date | null; gaveUp: boolean } {
   if (done) return { setupAttempts: 0, nextSetupAt: null, gaveUp: false };
   const attempts = attemptsBefore + 1;
   return {

@@ -36,7 +36,9 @@ let building: Promise<CraftingPayload | null> | null = null;
 
 async function currentSource(): Promise<{ commit: string; build: string | null } | null> {
   try {
-    const rows = await prisma.$queryRawUnsafe<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1');
+    const rows = await prisma.$queryRawUnsafe<{ commit: string | null; build: string | null }[]>(
+      'SELECT commit, build FROM scdata.source LIMIT 1',
+    );
     return rows[0]?.commit ? { commit: rows[0].commit, build: rows[0].build } : null;
   } catch (err) {
     if (isGameDataMissingError(err)) return null;
@@ -50,15 +52,26 @@ async function build(source: { commit: string; build: string | null }): Promise<
     prisma.$queryRawUnsafe<{ data: ScBlueprintJson }[]>('SELECT data FROM scdata.blueprints'),
     prisma.$queryRawUnsafe<{ uuid: string; name: string }[]>('SELECT uuid, name FROM scdata.resources'),
     prisma.$queryRawUnsafe<{ data: ScContractJson }[]>(CRAFTING_CONTRACTS_SQL),
-    prisma.$queryRawUnsafe<{ uuid: string; type: string | null; name: string | null; manufacturer: string | null; mass: number | null; std: unknown }[]>(
+    prisma.$queryRawUnsafe<
+      {
+        uuid: string;
+        type: string | null;
+        name: string | null;
+        manufacturer: string | null;
+        mass: number | null;
+        std: unknown;
+      }[]
+    >(
       `SELECT uuid, type, name, manufacturer_name AS manufacturer, mass, data->'stdItem' AS std
        FROM scdata.items WHERE uuid IN (SELECT output_uuid FROM scdata.blueprints WHERE output_uuid IS NOT NULL)`,
     ),
     // Where materials are mined (v1.26.0). An older sc-data without the table: no sources.
-    prisma.$queryRawUnsafe<ResourceLocationRow[]>('SELECT provider_name, data FROM scdata.resource_locations').catch((err: unknown) => {
-      if (isGameDataMissingError(err)) return [] as ResourceLocationRow[];
-      throw err;
-    }),
+    prisma
+      .$queryRawUnsafe<ResourceLocationRow[]>('SELECT provider_name, data FROM scdata.resource_locations')
+      .catch((err: unknown) => {
+        if (isGameDataMissingError(err)) return [] as ResourceLocationRow[];
+        throw err;
+      }),
   ]);
   const data = buildCraftingData({
     build: source.build,
@@ -71,9 +84,11 @@ async function build(source: { commit: string; build: string | null }): Promise<
   });
   const json = Buffer.from(JSON.stringify({ success: true, data }));
   const payload = { etag: etagFor(source.commit), json, gzip: gzipSync(json), data };
-  console.log(`[crafting] Built crafting data for ${source.build ?? source.commit.slice(0, 12)}: ${data.blueprints.length} blueprints `
-    + `(${data.obtainableUuids.length} from missions), ${data.missions.length} contracts; ${Math.round(json.length / 1024)} KB, `
-    + `${Math.round(payload.gzip.length / 1024)} KB gzipped, ${Date.now() - started} ms`);
+  console.log(
+    `[crafting] Built crafting data for ${source.build ?? source.commit.slice(0, 12)}: ${data.blueprints.length} blueprints ` +
+      `(${data.obtainableUuids.length} from missions), ${data.missions.length} contracts; ${Math.round(json.length / 1024)} KB, ` +
+      `${Math.round(payload.gzip.length / 1024)} KB gzipped, ${Date.now() - started} ms`,
+  );
   return payload;
 }
 
@@ -84,8 +99,13 @@ export async function getCraftingPayload(): Promise<CraftingPayload | null> {
   if (cached && cached.etag === etagFor(source.commit)) return cached;
   if (!building) {
     building = build(source)
-      .then((p) => { cached = p; return p; })
-      .finally(() => { building = null; });
+      .then((p) => {
+        cached = p;
+        return p;
+      })
+      .finally(() => {
+        building = null;
+      });
   }
   return building;
 }

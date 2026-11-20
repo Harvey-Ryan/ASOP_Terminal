@@ -13,7 +13,10 @@ import { LIVE_MAX_TOPICS } from '@dem/shared';
 /** Polling while the stream is up, just in case a notice is missed. */
 export const LIVE_SAFETY_MS = 60_000;
 
-interface Listener { topics: string[]; onChange(topics: string[]): void }
+interface Listener {
+  topics: string[];
+  onChange(topics: string[]): void;
+}
 
 const listeners = new Set<Listener>();
 const statusSubs = new Set<() => void>();
@@ -56,7 +59,11 @@ function reconcile() {
   es.addEventListener('ready', (e) => {
     failures = 0;
     let topics: string[] = [];
-    try { topics = (JSON.parse((e as MessageEvent).data) as { topics: string[] }).topics; } catch { /* none */ }
+    try {
+      topics = (JSON.parse((e as MessageEvent).data) as { topics: string[] }).topics;
+    } catch {
+      /* none */
+    }
     setAccepted(new Set(topics));
     // Anything that changed while we weren't listening: fetch it once.
     if (hadGap) {
@@ -66,7 +73,11 @@ function reconcile() {
   });
   es.onmessage = (e) => {
     let topics: string[] = [];
-    try { topics = (JSON.parse(e.data) as { topics: string[] }).topics; } catch { return; }
+    try {
+      topics = (JSON.parse(e.data) as { topics: string[] }).topics;
+    } catch {
+      return;
+    }
     for (const l of listeners) {
       const hits = l.topics.filter((t) => topics.includes(t));
       if (hits.length) l.onChange(hits);
@@ -82,23 +93,33 @@ function reconcile() {
       closeSource();
       failures++;
       const wait = Math.min(60_000, 5_000 * 2 ** Math.min(failures - 1, 4));
-      retryTimer = setTimeout(() => { retryTimer = null; reconcile(); }, wait);
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        reconcile();
+      }, wait);
     }
   };
 }
 
 function scheduleReconcile() {
   if (reconcileTimer) clearTimeout(reconcileTimer);
-  reconcileTimer = setTimeout(() => { reconcileTimer = null; reconcile(); }, 50);
+  reconcileTimer = setTimeout(() => {
+    reconcileTimer = null;
+    reconcile();
+  }, 50);
 }
 
-const clean = (topics: (string | null | undefined | false)[]) => [...new Set(topics.filter((t): t is string => !!t))].sort();
+const clean = (topics: (string | null | undefined | false)[]) =>
+  [...new Set(topics.filter((t): t is string => !!t))].sort();
 
 /**
  * Watches `topics` while mounted and calls `onChange` with the ones that
  * changed. Returns true while all of them are being watched live.
  */
-export function useLiveTopics(topics: (string | null | undefined | false)[], onChange: (topics: string[]) => void): boolean {
+export function useLiveTopics(
+  topics: (string | null | undefined | false)[],
+  onChange: (topics: string[]) => void,
+): boolean {
   const list = clean(topics);
   const key = list.join(',');
   const cb = useRef(onChange);
@@ -109,11 +130,19 @@ export function useLiveTopics(topics: (string | null | undefined | false)[], onC
     const l: Listener = { topics: key.split(','), onChange: (t) => cb.current(t) };
     listeners.add(l);
     scheduleReconcile();
-    return () => { listeners.delete(l); scheduleReconcile(); };
+    return () => {
+      listeners.delete(l);
+      scheduleReconcile();
+    };
   }, [key]);
 
   const snapshot = useSyncExternalStore(
-    (fn) => { statusSubs.add(fn); return () => { statusSubs.delete(fn); }; },
+    (fn) => {
+      statusSubs.add(fn);
+      return () => {
+        statusSubs.delete(fn);
+      };
+    },
     () => accepted,
   );
   return list.length > 0 && list.every((t) => snapshot.has(t));

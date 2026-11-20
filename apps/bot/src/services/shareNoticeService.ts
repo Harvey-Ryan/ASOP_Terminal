@@ -15,14 +15,20 @@ import {
   PermissionFlagsBits,
   type ButtonInteraction,
 } from 'discord.js';
-import {
-  parseShareButtonId,
-  shareButtonId,
-  type ShareNoticeEvent,
-  type ShareNoticePayload,
-} from '@dem/shared';
+import { parseShareButtonId, shareButtonId, type ShareNoticeEvent, type ShareNoticePayload } from '@dem/shared';
 import { prisma } from '../db.js';
-import { COLOR, iconUrl, label, liveDiscord, loadOrg, tryDiscord, webUrl, type AllyDiscord, type NoticeMessage, type OrgInfo } from './allyNoticeService.js';
+import {
+  COLOR,
+  iconUrl,
+  label,
+  liveDiscord,
+  loadOrg,
+  tryDiscord,
+  webUrl,
+  type AllyDiscord,
+  type NoticeMessage,
+  type OrgInfo,
+} from './allyNoticeService.js';
 
 /** What the message needs to know about the event. */
 export interface SharedEventInfo {
@@ -47,13 +53,24 @@ function eventEmbed(host: OrgInfo, ev: SharedEventInfo | null, color: number, li
 }
 
 /** The invitation as first posted, with its buttons. */
-export function invitationMessage(host: OrgInfo, receiver: OrgInfo, shareId: string, ev: SharedEventInfo): NoticeMessage {
-  const embed = eventEmbed(host, ev, COLOR.request,
-    `Accept to post it in **${receiver.name}**: a forum thread with the roster, and a Discord event.${ev.recurring ? ' It repeats; each time is shared separately.' : ''}`)
-    .setFooter({ text: 'Server managers can answer here or on the website.' });
+export function invitationMessage(
+  host: OrgInfo,
+  receiver: OrgInfo,
+  shareId: string,
+  ev: SharedEventInfo,
+): NoticeMessage {
+  const embed = eventEmbed(
+    host,
+    ev,
+    COLOR.request,
+    `Accept to post it in **${receiver.name}**: a forum thread with the roster, and a Discord event.${ev.recurring ? ' It repeats; each time is shared separately.' : ''}`,
+  ).setFooter({ text: 'Server managers can answer here or on the website.' });
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(shareButtonId('accept', shareId)).setLabel('Accept').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(shareButtonId('decline', shareId)).setLabel('Decline').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(shareButtonId('decline', shareId))
+      .setLabel('Decline')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setLabel('Open').setStyle(ButtonStyle.Link).setURL(pendingTab(receiver.guildId)),
   );
   return { embeds: [embed.toJSON()], components: [row.toJSON()] };
@@ -62,20 +79,30 @@ export function invitationMessage(host: OrgInfo, receiver: OrgInfo, shareId: str
 export type ShareOutcome = Exclude<ShareNoticeEvent, 'pending'>;
 
 /** The invitation after it was answered or withdrawn: no buttons. */
-export function answeredInvitation(host: OrgInfo, ev: SharedEventInfo | null, outcome: ShareOutcome, actorUserId: string | null): NoticeMessage {
+export function answeredInvitation(
+  host: OrgInfo,
+  ev: SharedEventInfo | null,
+  outcome: ShareOutcome,
+  actorUserId: string | null,
+): NoticeMessage {
   const by = actorUserId ? ` by <@${actorUserId}>` : '';
-  const [line, color] = ({
-    accepted: [`✅ Accepted${by}. The bot is posting it in this server.`, COLOR.good],
-    declined: [`Declined${by}.`, COLOR.quiet],
-    withdrawn: [`Withdrawn. This invitation is no longer open.`, COLOR.quiet],
-  } as const)[outcome];
+  const [line, color] = (
+    {
+      accepted: [`✅ Accepted${by}. The bot is posting it in this server.`, COLOR.good],
+      declined: [`Declined${by}.`, COLOR.quiet],
+      withdrawn: [`Withdrawn. This invitation is no longer open.`, COLOR.quiet],
+    } as const
+  )[outcome];
   return { embeds: [eventEmbed(host, ev, color, line).toJSON()], components: [] };
 }
 
 // ── Handling a notice from the API ───────────────────────────────────────────
 
 async function loadEvent(eventId: string): Promise<SharedEventInfo | null> {
-  const e = await prisma.event.findUnique({ where: { id: eventId }, select: { name: true, startTime: true, musterPoint: true, recurType: true } });
+  const e = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { name: true, startTime: true, musterPoint: true, recurType: true },
+  });
   return e ? { name: e.name, startTime: e.startTime, musterPoint: e.musterPoint, recurring: !!e.recurType } : null;
 }
 
@@ -84,7 +111,11 @@ async function loadEvent(eventId: string): Promise<SharedEventInfo | null> {
  * Discord call is best-effort: a missing channel or permission is logged and skipped.
  */
 export async function handleShareNotice(p: ShareNoticePayload, discord: AllyDiscord = liveDiscord): Promise<void> {
-  const [host, receiver, ev] = await Promise.all([loadOrg(p.hostGuildId), loadOrg(p.receiverGuildId), loadEvent(p.eventId)]);
+  const [host, receiver, ev] = await Promise.all([
+    loadOrg(p.hostGuildId),
+    loadOrg(p.receiverGuildId),
+    loadEvent(p.eventId),
+  ]);
   if (!host || !receiver) return;
 
   if (p.event === 'pending') {
@@ -93,7 +124,8 @@ export async function handleShareNotice(p: ShareNoticePayload, discord: AllyDisc
     if (!share || share.status !== 'PENDING' || share.noticeMessageId || !receiver.noticeChannelId || !ev) return;
     const channelId = receiver.noticeChannelId;
     const messageId = await tryDiscord(`post a shared event in ${receiver.name}`, () =>
-      discord.send(channelId, invitationMessage(host, receiver, share.id, ev)));
+      discord.send(channelId, invitationMessage(host, receiver, share.id, ev)),
+    );
     if (!messageId) return;
     const saved = await prisma.eventGuildShare.updateMany({
       where: { id: share.id, status: 'PENDING', noticeMessageId: null },
@@ -106,7 +138,12 @@ export async function handleShareNotice(p: ShareNoticePayload, discord: AllyDisc
     if (now?.status === 'PENDING') return;
     const outcome: ShareOutcome = !now ? 'withdrawn' : now.status === 'ACCEPTED' ? 'accepted' : 'declined';
     await tryDiscord(`update the shared event message in ${receiver.name}`, () =>
-      discord.edit(channelId, messageId, answeredInvitation(host, ev, outcome, outcome === 'withdrawn' ? null : now?.respondedBy ?? null)));
+      discord.edit(
+        channelId,
+        messageId,
+        answeredInvitation(host, ev, outcome, outcome === 'withdrawn' ? null : (now?.respondedBy ?? null)),
+      ),
+    );
     return;
   }
 
@@ -114,7 +151,12 @@ export async function handleShareNotice(p: ShareNoticePayload, discord: AllyDisc
   if (p.noticeChannelId && p.noticeMessageId) {
     const [ch, msg] = [p.noticeChannelId, p.noticeMessageId];
     await tryDiscord(`update the shared event message in ${receiver.name}`, () =>
-      discord.edit(ch, msg, answeredInvitation(host, ev, p.event as ShareOutcome, p.event === 'withdrawn' ? null : p.actorUserId)));
+      discord.edit(
+        ch,
+        msg,
+        answeredInvitation(host, ev, p.event as ShareOutcome, p.event === 'withdrawn' ? null : p.actorUserId),
+      ),
+    );
   }
 }
 
@@ -132,48 +174,82 @@ const livePostShare: PostShare = async (shareId) => {
  * server managers of the invited server answer. Answers the clicker privately;
  * the message is updated through handleShareNotice.
  */
-export async function handleShareButton(interaction: ButtonInteraction, discord: AllyDiscord = liveDiscord, postShare: PostShare = livePostShare): Promise<void> {
+export async function handleShareButton(
+  interaction: ButtonInteraction,
+  discord: AllyDiscord = liveDiscord,
+  postShare: PostShare = livePostShare,
+): Promise<void> {
   const parsed = parseShareButtonId(interaction.customId);
   if (!parsed) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const reply = (content: string) => interaction.editReply({ content });
 
-  const guild = interaction.guildId ? await prisma.guild.findUnique({ where: { guildId: interaction.guildId }, select: { id: true } }) : null;
-  if (!guild) { await reply('This button only works in the server the event was shared with.'); return; }
+  const guild = interaction.guildId
+    ? await prisma.guild.findUnique({ where: { guildId: interaction.guildId }, select: { id: true } })
+    : null;
+  if (!guild) {
+    await reply('This button only works in the server the event was shared with.');
+    return;
+  }
   const perms = interaction.memberPermissions;
   if (!perms?.has(PermissionFlagsBits.ManageGuild) && !perms?.has(PermissionFlagsBits.Administrator)) {
     await reply('Only server managers can accept or decline shared events.');
     return;
   }
 
-  const share = await prisma.eventGuildShare.findUnique({ where: { id: parsed.shareId }, include: { event: { select: { name: true, guildId: true } } } });
-  if (!share || share.guildId !== guild.id) { await reply('This invitation no longer exists. It may have been withdrawn.'); return; }
-  if (share.status !== 'PENDING') { await reply('This invitation was already answered.'); return; }
+  const share = await prisma.eventGuildShare.findUnique({
+    where: { id: parsed.shareId },
+    include: { event: { select: { name: true, guildId: true } } },
+  });
+  if (!share || share.guildId !== guild.id) {
+    await reply('This invitation no longer exists. It may have been withdrawn.');
+    return;
+  }
+  if (share.status !== 'PENDING') {
+    await reply('This invitation was already answered.');
+    return;
+  }
 
   const r = await prisma.eventGuildShare.updateMany({
     where: { id: share.id, status: 'PENDING' },
-    data: { status: parsed.action === 'accept' ? 'ACCEPTED' : 'DECLINED', respondedAt: new Date(), respondedBy: interaction.user.id, setupAttempts: 0, nextSetupAt: null },
+    data: {
+      status: parsed.action === 'accept' ? 'ACCEPTED' : 'DECLINED',
+      respondedAt: new Date(),
+      respondedBy: interaction.user.id,
+      setupAttempts: 0,
+      nextSetupAt: null,
+    },
   });
-  if (r.count === 0) { await reply('This invitation was already answered.'); return; }
+  if (r.count === 0) {
+    await reply('This invitation was already answered.');
+    return;
+  }
 
-  await reply(parsed.action === 'accept'
-    ? `✅ Accepted. **${share.event.name}** is being posted in this server.`
-    : `Declined **${share.event.name}**.`);
+  await reply(
+    parsed.action === 'accept'
+      ? `✅ Accepted. **${share.event.name}** is being posted in this server.`
+      : `Declined **${share.event.name}**.`,
+  );
 
   const host = await prisma.guild.findUnique({ where: { guildId: share.event.guildId }, select: { id: true } });
   if (host) {
-    await handleShareNotice({
-      event: parsed.action === 'accept' ? 'accepted' : 'declined',
-      shareId: share.id,
-      eventId: share.eventId,
-      hostGuildId: host.id,
-      receiverGuildId: guild.id,
-      actorUserId: interaction.user.id,
-      noticeChannelId: interaction.channelId,
-      noticeMessageId: interaction.message.id,
-    }, discord);
+    await handleShareNotice(
+      {
+        event: parsed.action === 'accept' ? 'accepted' : 'declined',
+        shareId: share.id,
+        eventId: share.eventId,
+        hostGuildId: host.id,
+        receiverGuildId: guild.id,
+        actorUserId: interaction.user.id,
+        noticeChannelId: interaction.channelId,
+        noticeMessageId: interaction.message.id,
+      },
+      discord,
+    );
   }
   if (parsed.action === 'accept') {
-    await postShare(share.id).catch((err) => console.error(`[shares] Posting share ${share.id} failed (the scheduler retries):`, err));
+    await postShare(share.id).catch((err) =>
+      console.error(`[shares] Posting share ${share.id} failed (the scheduler retries):`, err),
+    );
   }
 }

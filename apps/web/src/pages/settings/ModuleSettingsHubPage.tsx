@@ -1,5 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, ShoppingCart, Gift, Ship, BookOpen, Calculator, Trophy, Swords, ChevronRight, Briefcase, Palmtree } from 'lucide-react';
+import {
+  CalendarDays,
+  Coins,
+  ShoppingCart,
+  Gift,
+  Ship,
+  BookOpen,
+  Calculator,
+  Trophy,
+  Swords,
+  ChevronRight,
+  Briefcase,
+  Palmtree,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ModuleSetting } from '@dem/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -66,7 +79,7 @@ const MODULES: ModuleTile[] = [
   },
   {
     label: 'Wikelo',
-    description: 'Wikelo\'s missions and rewards, with a turn-in checklist for each member.',
+    description: "Wikelo's missions and rewards, with a turn-in checklist for each member.",
     icon: Palmtree,
     slug: 'wikelo',
     setting: 'wikeloEnabled',
@@ -98,10 +111,17 @@ export function ModuleSettingsHubPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const navigate = useNavigate();
   // Activity (RoleCall) only exists for the servers it tracks (v1.25.0).
-  const { data: perms } = useQuery({ queryKey: ['my-permissions', guildId], queryFn: () => settingsApi.getMyPermissions(guildId!), enabled: !!guildId, staleTime: 60_000 });
+  const { data: perms } = useQuery({
+    queryKey: ['my-permissions', guildId],
+    queryFn: () => settingsApi.getMyPermissions(guildId!),
+    enabled: !!guildId,
+    staleTime: 60_000,
+  });
   // Modules a platform admin hid for every server have no settings to show (v1.28.0).
   const hidden = new Set(perms?.hiddenModules ?? []);
-  const modules = MODULES.filter((m) => !hidden.has(m.setting) && (m.slug !== 'activity' || perms?.activityAvailable !== false));
+  const modules = MODULES.filter(
+    (m) => !hidden.has(m.setting) && (m.slug !== 'activity' || perms?.activityAvailable !== false),
+  );
 
   return (
     <div className="max-w-5xl space-y-6">

@@ -127,11 +127,19 @@ export const settingsApi = {
     api.post<ApiResponse<null>>(`/guilds/${guildId}/settings/register-commands`, {}).then(requireData),
 
   getBotConfig: (guildId: string) =>
-    api.get<ApiResponse<{ globalCommandsEnabled: boolean }>>(`/guilds/${guildId}/settings/bot-config`).then(requireData),
+    api
+      .get<ApiResponse<{ globalCommandsEnabled: boolean }>>(`/guilds/${guildId}/settings/bot-config`)
+      .then(requireData),
 
   updateBotConfig: (guildId: string, data: { globalCommandsEnabled: boolean }) =>
-    api.patch<ApiResponse<{ globalCommandsEnabled: boolean }>>(`/guilds/${guildId}/settings/bot-config`, data).then(requireData),
+    api
+      .patch<ApiResponse<{ globalCommandsEnabled: boolean }>>(`/guilds/${guildId}/settings/bot-config`, data)
+      .then(requireData),
 
   getEventHeatmap: (guildId: string, params: { days?: number; timezone?: string }) =>
-    api.get<ApiResponse<EventHeatmapData>>(`/guilds/${guildId}/heatmap/events?days=${params.days ?? 180}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`).then(requireData),
+    api
+      .get<ApiResponse<EventHeatmapData>>(
+        `/guilds/${guildId}/heatmap/events?days=${params.days ?? 180}${params.timezone ? `&timezone=${encodeURIComponent(params.timezone)}` : ''}`,
+      )
+      .then(requireData),
 };

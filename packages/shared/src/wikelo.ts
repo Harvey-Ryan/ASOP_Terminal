@@ -8,15 +8,17 @@
 import { fillMissionTokens, type ScContractJson } from './crafting.js';
 
 export interface WikeloContractJson extends ScContractJson {
-  HaulingOrders?: {
-    Kind?: string;
-    Name?: string;
-    UUID?: string;
-    MinAmount?: number;
-    MaxAmount?: number;
-    MinScu?: number;
-    MaxScu?: number;
-  }[] | null;
+  HaulingOrders?:
+    | {
+        Kind?: string;
+        Name?: string;
+        UUID?: string;
+        MinAmount?: number;
+        MaxAmount?: number;
+        MinScu?: number;
+        MaxScu?: number;
+      }[]
+    | null;
   RewardItems?: { Items?: { Name?: string; UUID?: string; Amount?: number }[] }[] | null;
 }
 
@@ -46,7 +48,10 @@ export interface WikeloTurnIn {
   scu: number | null;
 }
 
-export interface WikeloRewardItem { name: string; amount: number }
+export interface WikeloRewardItem {
+  name: string;
+  amount: number;
+}
 
 export interface WikeloMission {
   /** scdata.contracts uuid */
@@ -79,13 +84,15 @@ export interface WikeloDataDto {
 const STATION = /^Wikelo Emporium (.+)$/;
 
 /** "a, b or c" */
-const listWords = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`);
+const listWords = (xs: string[]) =>
+  xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`;
 
-const clean = (s: string) => s
-  .replace(/<\/?EM\d*>/g, '')
-  .replace(/\r\n/g, '\n')
-  .replace(/\n{3,}/g, '\n\n')
-  .trim();
+const clean = (s: string) =>
+  s
+    .replace(/<\/?EM\d*>/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
 function categoryOf(type: string | undefined, rewards: WikeloRewardItem[][]): WikeloCategory {
   if (type === 'Wikelo - Vehicles') return 'ships';
@@ -108,7 +115,8 @@ export function buildWikeloMission(id: string, c: WikeloContractJson): WikeloMis
     const amount = scu === null ? Math.max(1, o.MinAmount ?? 1) : null;
     const key = o.UUID || name;
     const same = turnIn.find((t) => t.key === key);
-    if (same) { // the same item listed twice: add them up
+    if (same) {
+      // the same item listed twice: add them up
       if (same.amount !== null && amount !== null) same.amount += amount;
       if (same.scu !== null && scu !== null) same.scu += scu;
       continue;
@@ -118,9 +126,11 @@ export function buildWikeloMission(id: string, c: WikeloContractJson): WikeloMis
   if (turnIn.length === 0) return null;
 
   const rewards = (c.RewardItems ?? [])
-    .map((g) => (g.Items ?? [])
-      .filter((i) => i.Name && (i.Amount ?? 0) > 0)
-      .map((i) => ({ name: i.Name!.trim(), amount: i.Amount! })))
+    .map((g) =>
+      (g.Items ?? [])
+        .filter((i) => i.Name && (i.Amount ?? 0) > 0)
+        .map((i) => ({ name: i.Name!.trim(), amount: i.Amount! })),
+    )
     .filter((g) => g.length > 0);
 
   const stations = new Set<string>();
@@ -132,9 +142,11 @@ export function buildWikeloMission(id: string, c: WikeloContractJson): WikeloMis
   }
 
   // "Bring it to ~mission(destination|ListAll)": any of his stations.
-  const rawText = (c.Description ?? '').replace(/<\/?EM\d*>/g, '')
-    .replace(/(Wikelo Emporium (at )?)?(~mission\(destination[^)]*\)|\[destination\|[^\]]*\])/gi,
-      () => (stations.size ? `Wikelo Emporium (${listWords([...stations].sort())})` : 'a Wikelo Emporium'));
+  const rawText = (c.Description ?? '')
+    .replace(/<\/?EM\d*>/g, '')
+    .replace(/(Wikelo Emporium (at )?)?(~mission\(destination[^)]*\)|\[destination\|[^\]]*\])/gi, () =>
+      stations.size ? `Wikelo Emporium (${listWords([...stations].sort())})` : 'a Wikelo Emporium',
+    );
   const description = clean(fillMissionTokens(rawText, c));
 
   return {
@@ -190,7 +202,12 @@ export function wikeloBaseShipName(reward: string): string {
     .trim();
 }
 
-const words = (s: string) => s.toLowerCase().replace(/["'“”‘’]/g, '').split(/[^a-z0-9#]+/).filter(Boolean);
+const words = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/["'“”‘’]/g, '')
+    .split(/[^a-z0-9#]+/)
+    .filter(Boolean);
 
 /**
  * Search (v1.34.0): every word in any order, across the mission's title, its
@@ -200,7 +217,9 @@ export function searchWikelo(missions: readonly WikeloMission[], query: string):
   const q = words(query);
   if (!q.length) return [...missions];
   return missions.filter((m) => {
-    const hay = words([m.title, ...m.rewards.flat().map((r) => r.name), ...m.turnIn.map((t) => t.name)].join(' ')).join(' ');
+    const hay = words([m.title, ...m.rewards.flat().map((r) => r.name), ...m.turnIn.map((t) => t.name)].join(' ')).join(
+      ' ',
+    );
     return q.every((w) => hay.includes(w));
   });
 }
@@ -209,7 +228,10 @@ export function searchWikelo(missions: readonly WikeloMission[], query: string):
 export function wikeloDiscordText(m: WikeloMission): string {
   const lines = [`**${m.title}** (Wikelo)`];
   if (m.rewards.length > 1) lines.push(`Reward: ${m.rewards.length} possible rewards`);
-  else lines.push(`Reward: ${(m.rewards[0] ?? []).map((r) => (r.amount > 1 ? `${r.amount}× ${r.name}` : r.name)).join(', ')}`);
+  else
+    lines.push(
+      `Reward: ${(m.rewards[0] ?? []).map((r) => (r.amount > 1 ? `${r.amount}× ${r.name}` : r.name)).join(', ')}`,
+    );
   lines.push('Turn in:');
   for (const t of m.turnIn) lines.push(`• ${turnInQty(t)}${t.scu !== null ? '' : '×'} ${t.name}`);
   if (m.stations.length) lines.push(`At: ${m.stations.join(', ')}`);

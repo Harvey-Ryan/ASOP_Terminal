@@ -27,8 +27,12 @@ export function CraftingDataGate({ children }: { children: ReactNode }) {
   if (q.isError) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-        <p className="text-sm text-muted-foreground">Couldn't load the game data. {q.error instanceof Error ? q.error.message : ''}</p>
-        <Button variant="outline" size="sm" onClick={() => void q.refetch()}>Try again</Button>
+        <p className="text-sm text-muted-foreground">
+          Couldn't load the game data. {q.error instanceof Error ? q.error.message : ''}
+        </p>
+        <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
+          Try again
+        </Button>
       </div>
     );
   }

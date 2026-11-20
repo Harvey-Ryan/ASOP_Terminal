@@ -38,11 +38,17 @@ async function writeRows(rows: ErrorRow[]): Promise<void> {
   const internal = [...new Set(rows.map((r) => r.userId).filter((u): u is string => !!u && u.startsWith('user:')))];
   const discordIds = new Map<string, string>();
   if (internal.length > 0) {
-    const users = await prisma.user.findMany({ where: { id: { in: internal.map((u) => u.slice(5)) } }, select: { id: true, discordId: true } });
+    const users = await prisma.user.findMany({
+      where: { id: { in: internal.map((u) => u.slice(5)) } },
+      select: { id: true, discordId: true },
+    });
     for (const u of users) discordIds.set(`user:${u.id}`, u.discordId);
   }
   await prisma.errorEvent.createMany({
-    data: rows.map((r) => ({ ...r, userId: r.userId?.startsWith('user:') ? discordIds.get(r.userId) ?? null : r.userId })),
+    data: rows.map((r) => ({
+      ...r,
+      userId: r.userId?.startsWith('user:') ? (discordIds.get(r.userId) ?? null) : r.userId,
+    })),
   });
 }
 
@@ -52,16 +58,19 @@ function makeRecorder(source: ErrorSource, withRequestContext: boolean): ErrorRe
     release: RELEASE,
     write: writeRows,
     fallbackLog: (...args) => original.error(...args),
-    currentContext: withRequestContext ? () => {
-      const ctx = als.getStore();
-      if (!ctx) return undefined;
-      ctx.recorded = true;
-      return {
-        ref: ctx.ref, guildId: ctx.guildId,
-        userId: ctx.sessionUserId ? `user:${ctx.sessionUserId}` : null,
-        context: { method: ctx.method, route: ctx.route },
-      };
-    } : undefined,
+    currentContext: withRequestContext
+      ? () => {
+          const ctx = als.getStore();
+          if (!ctx) return undefined;
+          ctx.recorded = true;
+          return {
+            ref: ctx.ref,
+            guildId: ctx.guildId,
+            userId: ctx.sessionUserId ? `user:${ctx.sessionUserId}` : null,
+            context: { method: ctx.method, route: ctx.route },
+          };
+        }
+      : undefined,
   });
 }
 
@@ -100,7 +109,12 @@ export function requestContext(req: Request, res: Response, next: NextFunction):
   res.on('finish', () => {
     // Answered 5xx without an error being recorded (a route that returned 500 quietly).
     if (res.statusCode >= 500 && !ctx.recorded) {
-      als.run(ctx, () => recordError({ message: `${req.method} ${ctx.route} answered ${res.statusCode}`, context: { status: res.statusCode } }));
+      als.run(ctx, () =>
+        recordError({
+          message: `${req.method} ${ctx.route} answered ${res.statusCode}`,
+          context: { status: res.statusCode },
+        }),
+      );
     }
   });
   als.run(ctx, () => {
@@ -125,18 +139,24 @@ export async function pruneOldErrors(): Promise<void> {
   ]);
   let requests = 0;
   for (;;) {
-    const n = await prisma.$executeRaw`DELETE FROM "RequestLog" WHERE id IN (SELECT id FROM "RequestLog" WHERE "createdAt" < ${ninetyDays} LIMIT 20000)`;
+    const n =
+      await prisma.$executeRaw`DELETE FROM "RequestLog" WHERE id IN (SELECT id FROM "RequestLog" WHERE "createdAt" < ${ninetyDays} LIMIT 20000)`;
     requests += n;
     if (n < 20000) break;
   }
   if (errors.count + log.count + requests > 0) {
-    console.log(`[errorLog] Pruned ${errors.count} error(s), ${log.count} admin log entr(ies) and ${requests} request log row(s) past their keep time.`);
+    console.log(
+      `[errorLog] Pruned ${errors.count} error(s), ${log.count} admin log entr(ies) and ${requests} request log row(s) past their keep time.`,
+    );
   }
 }
 
 /** Every minute from index.ts: the API is alive (Overview page). */
 export async function apiHeartbeat(startedAt: Date): Promise<void> {
-  const details = JSON.stringify({ memoryMb: Math.round(process.memoryUsage().rss / 1_048_576), uptimeMin: Math.round(process.uptime() / 60) });
+  const details = JSON.stringify({
+    memoryMb: Math.round(process.memoryUsage().rss / 1_048_576),
+    uptimeMin: Math.round(process.uptime() / 60),
+  });
   await prisma.serviceHeartbeat.upsert({
     where: { service: 'api' },
     create: { service: 'api', startedAt, beatAt: new Date(), release: RELEASE, details },

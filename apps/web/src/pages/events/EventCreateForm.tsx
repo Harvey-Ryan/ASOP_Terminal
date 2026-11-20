@@ -12,17 +12,24 @@ import { RECUR_TYPES, isRecurType, recurrenceOptions, describeRecurrence, upcomi
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 function ensureRoleIds(roles: EventRole[]): EventRole[] {
-  return roles.map((r) => r.id ? r : { ...r, id: crypto.randomUUID() });
+  return roles.map((r) => (r.id ? r : { ...r, id: crypto.randomUUID() }));
 }
 
 const inputCls =
   'w-full rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40';
 
-const rowCls = 'flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
-const labelCls = 'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-2';
+const rowCls =
+  'flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-4 bg-primary text-primary-foreground px-5 py-3 border-b border-background/40';
+const labelCls =
+  'sm:w-36 shrink-0 font-condensed text-sm sm:text-base font-extrabold uppercase tracking-widest text-primary-foreground/90 sm:pt-2';
 
 function RoleRow({
-  role, onChange, onRemove, onEnter, inputRef, guildOptions,
+  role,
+  onChange,
+  onRemove,
+  onEnter,
+  inputRef,
+  guildOptions,
 }: {
   role: EventRole;
   onChange: (r: EventRole) => void;
@@ -39,12 +46,20 @@ function RoleRow({
         placeholder="Role name (e.g. Tank)"
         value={role.name}
         onChange={(e) => onChange({ ...role, name: e.target.value })}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
       />
       <input
-        type="number" min={1} max={99}
+        type="number"
+        min={1}
+        max={99}
         className="w-20 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
-        placeholder="Count" value={role.count}
+        placeholder="Count"
+        value={role.count}
         onChange={(e) => onChange({ ...role, count: Math.max(1, parseInt(e.target.value) || 1) })}
       />
       {guildOptions && (
@@ -55,12 +70,18 @@ function RoleRow({
         >
           <option value="">All servers</option>
           {guildOptions.map((g) => (
-            <option key={g.guildId} value={g.guildId}>{g.label}</option>
+            <option key={g.guildId} value={g.guildId}>
+              {g.label}
+            </option>
           ))}
         </select>
       )}
-      <button type="button" onClick={onRemove}
-        className="text-primary-foreground/60 hover:text-destructive transition-colors" title="Remove role">
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-primary-foreground/60 hover:text-destructive transition-colors"
+        title="Remove role"
+      >
         <Trash2 className="h-4 w-4" />
       </button>
     </div>
@@ -68,7 +89,11 @@ function RoleRow({
 }
 
 function VcRow({
-  name, onChange, onRemove, onEnter, inputRef,
+  name,
+  onChange,
+  onRemove,
+  onEnter,
+  inputRef,
 }: {
   name: string;
   onChange: (v: string) => void;
@@ -84,10 +109,19 @@ function VcRow({
         placeholder="VC name (e.g. Squad Alpha)"
         value={name}
         onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
       />
-      <button type="button" onClick={onRemove}
-        className="text-primary-foreground/60 hover:text-destructive transition-colors" title="Remove VC">
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-primary-foreground/60 hover:text-destructive transition-colors"
+        title="Remove VC"
+      >
         <Trash2 className="h-4 w-4" />
       </button>
     </div>
@@ -114,8 +148,11 @@ function TemplatesPanel({
         <span className="font-condensed text-sm font-extrabold uppercase tracking-widest text-primary-foreground/80">
           Templates
         </span>
-        <button type="button" onClick={onClose}
-          className="text-primary-foreground/60 hover:text-primary-foreground text-xs uppercase tracking-wide">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-primary-foreground/60 hover:text-primary-foreground text-xs uppercase tracking-wide"
+        >
           Close
         </button>
       </div>
@@ -124,14 +161,23 @@ function TemplatesPanel({
       ) : templates.length === 0 ? (
         <p className="px-5 py-3 text-sm text-primary-foreground/60 italic">
           No templates yet. Make them on the{' '}
-          <Link to={`/dashboard/servers/${guildId}/templates`} className="underline">Templates page</Link>, or with Save as template on an event.
+          <Link to={`/dashboard/servers/${guildId}/templates`} className="underline">
+            Templates page
+          </Link>
+          , or with Save as template on an event.
         </p>
       ) : (
         <ul>
           {templates.map((t) => (
             <li key={t.id}>
-              <button type="button" onClick={() => { onSelect(t); onClose(); }}
-                className="w-full text-left px-5 py-2.5 hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(t);
+                  onClose();
+                }}
+                className="w-full text-left px-5 py-2.5 hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between gap-4"
+              >
                 <div>
                   <p className="font-semibold text-base">{t.name}</p>
                   {t.description && (
@@ -139,7 +185,11 @@ function TemplatesPanel({
                   )}
                 </div>
                 <span className="shrink-0 flex items-center gap-2 text-sm font-bold text-primary-foreground/60">
-                  {t.hasBriefing && <span className="rounded-full border border-primary-foreground/40 px-2 py-0.5 text-[11px] font-semibold">Briefing</span>}
+                  {t.hasBriefing && (
+                    <span className="rounded-full border border-primary-foreground/40 px-2 py-0.5 text-[11px] font-semibold">
+                      Briefing
+                    </span>
+                  )}
                   {t.useCount > 0 && `×${t.useCount}`}
                 </span>
               </button>
@@ -200,10 +250,14 @@ export function EventCreateForm({
   })();
   const recurOptions = startPreview
     ? recurrenceOptions(startPreview, browserTimeZone)
-    : RECUR_TYPES.filter((t) => t !== 'MONTHLY_LAST_WEEKDAY').map((type) => ({ type, label: describeRecurrence(type) }));
-  const recurPreview = startPreview && isRecurType(recurType) && recurOptions.some((o) => o.type === recurType)
-    ? upcomingOccurrences(startPreview, { type: recurType, anchor: startPreview, timeZone: browserTimeZone }, 3)
-    : [];
+    : RECUR_TYPES.filter((t) => t !== 'MONTHLY_LAST_WEEKDAY').map((type) => ({
+        type,
+        label: describeRecurrence(type),
+      }));
+  const recurPreview =
+    startPreview && isRecurType(recurType) && recurOptions.some((o) => o.type === recurType)
+      ? upcomingOccurrences(startPreview, { type: recurType, anchor: startPreview, timeZone: browserTimeZone }, 3)
+      : [];
   // A changed date can rule out the chosen option (e.g. "last Friday"): fall back to plain monthly.
   const recurAvailable = !isRecurType(recurType) || recurOptions.some((o) => o.type === recurType);
   useEffect(() => {
@@ -297,23 +351,52 @@ export function EventCreateForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (!name.trim()) { setFormError('Event name is required.'); return; }
-    if (!description.trim()) { setFormError('Description is required.'); return; }
-    if (!musterPoint.trim()) { setFormError('Muster Point is required (used as the Discord event location).'); return; }
-    if (!startDate || !startTime) { setFormError('Start date and time are required.'); return; }
+    if (!name.trim()) {
+      setFormError('Event name is required.');
+      return;
+    }
+    if (!description.trim()) {
+      setFormError('Description is required.');
+      return;
+    }
+    if (!musterPoint.trim()) {
+      setFormError('Muster Point is required (used as the Discord event location).');
+      return;
+    }
+    if (!startDate || !startTime) {
+      setFormError('Start date and time are required.');
+      return;
+    }
     const startIso = new Date(`${startDate}T${startTime}:00`);
-    if (isNaN(startIso.getTime())) { setFormError('Invalid start date or time.'); return; }
+    if (isNaN(startIso.getTime())) {
+      setFormError('Invalid start date or time.');
+      return;
+    }
     const validRoles = roles.filter((r) => r.name.trim());
-    if (validRoles.length === 0) { setFormError('At least one role is required.'); return; }
+    if (validRoles.length === 0) {
+      setFormError('At least one role is required.');
+      return;
+    }
     const durationMins = parseInt(duration) || 0;
     const endIso = durationMins > 0 ? new Date(startIso.getTime() + durationMins * 60_000) : undefined;
 
     let poll: EventPoll | undefined;
     if (pollEnabled) {
       const filteredOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
-      if (!pollQuestion.trim()) { setFormError('Poll question is required when poll is enabled.'); return; }
-      if (filteredOptions.length < 2) { setFormError('Poll requires at least 2 non-empty options.'); return; }
-      poll = { question: pollQuestion.trim(), options: filteredOptions, allowMultiselect: pollMultiselect, duration: pollDuration };
+      if (!pollQuestion.trim()) {
+        setFormError('Poll question is required when poll is enabled.');
+        return;
+      }
+      if (filteredOptions.length < 2) {
+        setFormError('Poll requires at least 2 non-empty options.');
+        return;
+      }
+      poll = {
+        question: pollQuestion.trim(),
+        options: filteredOptions,
+        allowMultiselect: pollMultiselect,
+        duration: pollDuration,
+      };
     }
 
     mutate({
@@ -342,24 +425,35 @@ export function EventCreateForm({
       {/* Templates + Poll toggle (manager only) */}
       {isManager && (
         <div className="flex flex-wrap items-center gap-2 bg-primary px-5 py-2 border-b border-background/40">
-          <Button type="button" variant="outline" size="sm"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className="gap-1.5 bg-primary text-primary-foreground border-2 border-primary-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => setShowTemplates((v) => !v)}>
+            onClick={() => setShowTemplates((v) => !v)}
+          >
             <LayoutTemplate className="h-3.5 w-3.5" />
             Templates
             <ChevronDown className={`h-3 w-3 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
           </Button>
-          <Button type="button" variant="outline" size="sm"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className={`gap-1.5 bg-primary border-2 transition-colors ${
               pollEnabled
                 ? 'border-primary-foreground text-primary-foreground'
                 : 'border-primary-foreground/30 text-primary-foreground/50 hover:border-primary-foreground hover:text-primary-foreground'
             }`}
-            onClick={() => setPollEnabled((v) => !v)}>
+            onClick={() => setPollEnabled((v) => !v)}
+          >
             <BarChart2 className="h-3.5 w-3.5" />
             Poll
           </Button>
-          <Button type="button" variant="outline" size="sm"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className={`gap-1.5 bg-primary border-2 transition-colors ${
               directInviteEnabled
                 ? 'border-primary-foreground text-primary-foreground'
@@ -369,7 +463,8 @@ export function EventCreateForm({
               const next = !directInviteEnabled;
               setDirectInviteEnabled(next);
               if (!next) setDirectGuildIds([]);
-            }}>
+            }}
+          >
             <Network className="h-3.5 w-3.5" />
             Share with allies
           </Button>
@@ -385,14 +480,14 @@ export function EventCreateForm({
       {directInviteEnabled && (
         <div className="bg-primary px-5 py-3 border-b border-background/40">
           <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary-foreground/70">
-              Share with allies
-            </p>
+            <p className="text-xs font-bold uppercase tracking-widest text-primary-foreground/70">Share with allies</p>
             {allies.length > 1 && (
               <button
                 type="button"
                 className="text-xs underline text-primary-foreground/70 hover:text-primary-foreground"
-                onClick={() => setDirectGuildIds(directGuildIds.length === allies.length ? [] : allies.map((a) => a.guild.guildId))}
+                onClick={() =>
+                  setDirectGuildIds(directGuildIds.length === allies.length ? [] : allies.map((a) => a.guild.guildId))
+                }
               >
                 {directGuildIds.length === allies.length ? 'Clear all' : 'Select all'}
               </button>
@@ -401,11 +496,16 @@ export function EventCreateForm({
           {shareableQuery.isLoading ? (
             <p className="text-sm text-primary-foreground/60 italic">Loading your allies…</p>
           ) : shareableQuery.isError ? (
-            <p className="text-sm text-primary-foreground/60 italic">Couldn't load your allies. Close and reopen this to try again.</p>
+            <p className="text-sm text-primary-foreground/60 italic">
+              Couldn't load your allies. Close and reopen this to try again.
+            </p>
           ) : allies.length === 0 ? (
             <p className="text-sm text-primary-foreground/70">
               You have no allies yet. Events can only be shared with allies:{' '}
-              <Link to={`/dashboard/servers/${guildId}/settings/allies`} className="underline">add them on the Allies page</Link>.
+              <Link to={`/dashboard/servers/${guildId}/settings/allies`} className="underline">
+                add them on the Allies page
+              </Link>
+              .
             </p>
           ) : (
             <>
@@ -422,7 +522,11 @@ export function EventCreateForm({
                           selected ? prev.filter((id) => id !== a.guild.guildId) : [...prev, a.guild.guildId],
                         )
                       }
-                      title={a.postsAutomatically ? 'Posts your events in their server straight away' : 'Their officers accept or decline each event'}
+                      title={
+                        a.postsAutomatically
+                          ? 'Posts your events in their server straight away'
+                          : 'Their officers accept or decline each event'
+                      }
                       className={`inline-flex items-center gap-1 text-xs border rounded px-2 py-0.5 transition-colors ${
                         selected
                           ? 'bg-primary-foreground text-primary border-primary-foreground font-semibold'
@@ -438,7 +542,8 @@ export function EventCreateForm({
                 })}
               </div>
               <p className="text-xs text-primary-foreground/60 mt-2">
-                Allies marked auto post your events in their server straight away; the others' officers accept or decline each one.
+                Allies marked auto post your events in their server straight away; the others' officers accept or
+                decline each one.
               </p>
             </>
           )}
@@ -447,11 +552,7 @@ export function EventCreateForm({
 
       {/* Templates panel */}
       {showTemplates && (
-        <TemplatesPanel
-          guildId={guildId}
-          onSelect={applyTemplate}
-          onClose={() => setShowTemplates(false)}
-        />
+        <TemplatesPanel guildId={guildId} onSelect={applyTemplate} onClose={() => setShowTemplates(false)} />
       )}
 
       {formError && (
@@ -464,8 +565,16 @@ export function EventCreateForm({
       <div className={rowCls}>
         <span className={labelCls}>Event Name *</span>
         <div className="flex-1">
-          <input className={inputCls} value={name} required placeholder="Raid Night"
-            onChange={(e) => { setName(e.target.value); setFormError(null); }} />
+          <input
+            className={inputCls}
+            value={name}
+            required
+            placeholder="Raid Night"
+            onChange={(e) => {
+              setName(e.target.value);
+              setFormError(null);
+            }}
+          />
         </div>
       </div>
 
@@ -473,8 +582,13 @@ export function EventCreateForm({
       <div className={rowCls}>
         <span className={labelCls}>Description *</span>
         <div className="flex-1">
-          <textarea className={`${inputCls} resize-none`} rows={3} value={description}
-            onChange={(e) => setDescription(e.target.value)} placeholder="Details about this event…" />
+          <textarea
+            className={`${inputCls} resize-none`}
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Details about this event…"
+          />
         </div>
       </div>
 
@@ -485,8 +599,12 @@ export function EventCreateForm({
           <span className="block text-[10px] opacity-50 normal-case tracking-normal mt-0.5">Discord Location</span>
         </span>
         <div className="flex-1">
-          <input className={inputCls} value={musterPoint}
-            onChange={(e) => setMusterPoint(e.target.value)} placeholder="Main Gate, Zone 7, etc." />
+          <input
+            className={inputCls}
+            value={musterPoint}
+            onChange={(e) => setMusterPoint(e.target.value)}
+            placeholder="Main Gate, Zone 7, etc."
+          />
         </div>
       </div>
 
@@ -494,15 +612,31 @@ export function EventCreateForm({
       <div className={rowCls}>
         <span className={labelCls}>Start *</span>
         <div className="flex flex-1 flex-wrap gap-2">
-          <input type="date" className={`${inputCls} min-w-0 flex-1 basis-40`} value={startDate} required
-            onChange={(e) => { setStartDate(e.target.value); setFormError(null); }} />
-          <input type="time"
+          <input
+            type="date"
+            className={`${inputCls} min-w-0 flex-1 basis-40`}
+            value={startDate}
+            required
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              setFormError(null);
+            }}
+          />
+          <input
+            type="time"
             className="w-36 shrink-0 rounded-md bg-primary text-primary-foreground placeholder:text-primary-foreground/50 px-3 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
-            value={startTime} required
-            onChange={(e) => { setStartTime(e.target.value); setFormError(null); }} />
+            value={startTime}
+            required
+            onChange={(e) => {
+              setStartTime(e.target.value);
+              setFormError(null);
+            }}
+          />
           <select
             className="w-32 shrink-0 rounded-md bg-primary text-primary-foreground px-2 py-2 text-lg border-2 border-primary-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary-foreground/40"
-            value={duration} onChange={(e) => setDuration(e.target.value)}>
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          >
             <option value="30">30 min</option>
             <option value="60">1 hr</option>
             <option value="90">1.5 hr</option>
@@ -525,12 +659,25 @@ export function EventCreateForm({
           <select className={inputCls} value={recurType} onChange={(e) => setRecurType(e.target.value)}>
             <option value="">One-time event</option>
             {recurOptions.map((o) => (
-              <option key={o.type} value={o.type}>{o.label}</option>
+              <option key={o.type} value={o.type}>
+                {o.label}
+              </option>
             ))}
           </select>
           {recurPreview.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              Next: {recurPreview.map((d) => d.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })).join(' · ')}
+              Next:{' '}
+              {recurPreview
+                .map((d) =>
+                  d.toLocaleString(undefined, {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  }),
+                )
+                .join(' · ')}
             </p>
           )}
           {isRecurType(recurType) && !startPreview && (
@@ -545,27 +692,39 @@ export function EventCreateForm({
         <div className="flex-1 space-y-2">
           {(() => {
             const host = shareableQuery.data?.host;
-            const directOptions: { guildId: string; label: string }[] = (directInviteEnabled && directGuildIds.length > 0 && host)
-              ? [
-                  { guildId: host.guildId, label: `${host.name} (You)` },
-                  ...allies.filter((a) => directGuildIds.includes(a.guild.guildId)).map((a) => ({ guildId: a.guild.guildId, label: a.guild.name })),
-                ]
-              : [];
+            const directOptions: { guildId: string; label: string }[] =
+              directInviteEnabled && directGuildIds.length > 0 && host
+                ? [
+                    { guildId: host.guildId, label: `${host.name} (You)` },
+                    ...allies
+                      .filter((a) => directGuildIds.includes(a.guild.guildId))
+                      .map((a) => ({ guildId: a.guild.guildId, label: a.guild.name })),
+                  ]
+                : [];
             const guildOptions = directOptions.length > 0 ? directOptions : undefined;
             return roles.map((role, i) => (
-              <RoleRow key={i} role={role}
-                inputRef={(el) => { roleInputRefs.current[i] = el; }}
-                onChange={(r) => setRoles((prev) => prev.map((x, idx) => idx === i ? r : x))}
+              <RoleRow
+                key={i}
+                role={role}
+                inputRef={(el) => {
+                  roleInputRefs.current[i] = el;
+                }}
+                onChange={(r) => setRoles((prev) => prev.map((x, idx) => (idx === i ? r : x)))}
                 onRemove={() => setRoles((prev) => prev.filter((_, idx) => idx !== i))}
                 onEnter={addRoleAndFocus}
                 guildOptions={guildOptions}
               />
             ));
           })()}
-          <Button type="button" variant="outline" size="sm"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className="gap-1 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={addRoleAndFocus}>
-            <Plus className="h-3.5 w-3.5" />Add Role
+            onClick={addRoleAndFocus}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Role
           </Button>
         </div>
       </div>
@@ -578,17 +737,26 @@ export function EventCreateForm({
         </span>
         <div className="flex-1 space-y-2">
           {vcNames.map((vc, i) => (
-            <VcRow key={i} name={vc}
-              inputRef={(el) => { vcInputRefs.current[i] = el; }}
-              onChange={(v) => setVcNames((prev) => prev.map((x, idx) => idx === i ? v : x))}
+            <VcRow
+              key={i}
+              name={vc}
+              inputRef={(el) => {
+                vcInputRefs.current[i] = el;
+              }}
+              onChange={(v) => setVcNames((prev) => prev.map((x, idx) => (idx === i ? v : x)))}
               onRemove={() => setVcNames((prev) => prev.filter((_, idx) => idx !== i))}
               onEnter={addVcAndFocus}
             />
           ))}
-          <Button type="button" variant="outline" size="sm"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className="gap-1 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={addVcAndFocus}>
-            <Plus className="h-3.5 w-3.5" />Add VC
+            onClick={addVcAndFocus}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add VC
           </Button>
           <label className="flex items-center gap-3 cursor-pointer pt-1">
             <button
@@ -608,7 +776,9 @@ export function EventCreateForm({
             </button>
             <span className="text-sm text-primary-foreground/90">
               Briefing Channel
-              <span className="block text-[11px] text-primary-foreground/50">PTT-only VC created alongside regular channels</span>
+              <span className="block text-[11px] text-primary-foreground/50">
+                PTT-only VC created alongside regular channels
+              </span>
             </span>
           </label>
         </div>
@@ -619,9 +789,14 @@ export function EventCreateForm({
         <span className={labelCls}>Event Image</span>
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="sm"
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               className="gap-1 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+            >
               <Upload className="h-3.5 w-3.5" />
               {uploadMutation.isPending ? 'Uploading…' : 'Upload Image'}
             </Button>
@@ -630,22 +805,39 @@ export function EventCreateForm({
                 <Check className="h-3.5 w-3.5" /> Image selected
               </span>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadMutation.mutate(f);
+              }}
+            />
           </div>
           {selectedImageUrl && (
-            <img src={`${API_BASE}${selectedImageUrl}`} alt="Selected"
-              className="h-20 w-auto rounded-md border border-background/40 object-cover" />
+            <img
+              src={`${API_BASE}${selectedImageUrl}`}
+              alt="Selected"
+              className="h-20 w-auto rounded-md border border-background/40 object-cover"
+            />
           )}
           {imageLibrary.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs text-primary-foreground/60">Or select from your server library:</p>
               <div className="grid grid-cols-6 gap-1.5">
                 {imageLibrary.map((img) => (
-                  <button key={img.id} type="button" onClick={() => setSelectedImageUrl(img.url)}
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setSelectedImageUrl(img.url)}
                     className={`relative rounded overflow-hidden border-2 transition-colors ${
-                      selectedImageUrl === img.url ? 'border-primary-foreground' : 'border-transparent hover:border-background/60'
-                    }`}>
+                      selectedImageUrl === img.url
+                        ? 'border-primary-foreground'
+                        : 'border-transparent hover:border-background/60'
+                    }`}
+                  >
                     <img src={`${API_BASE}${img.url}`} alt={img.filename} className="h-12 w-full object-cover" />
                     {selectedImageUrl === img.url && (
                       <div className="absolute inset-0 bg-background/30 flex items-center justify-center">
@@ -679,30 +871,40 @@ export function EventCreateForm({
                     className={inputCls}
                     placeholder={`Option ${i + 1}`}
                     value={opt}
-                    onChange={(e) => setPollOptions((prev) => prev.map((x, idx) => idx === i ? e.target.value : x))}
+                    onChange={(e) => setPollOptions((prev) => prev.map((x, idx) => (idx === i ? e.target.value : x)))}
                     maxLength={55}
                   />
                   {pollOptions.length > 2 && (
-                    <button type="button"
+                    <button
+                      type="button"
                       onClick={() => setPollOptions((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="text-primary-foreground/60 hover:text-destructive transition-colors">
+                      className="text-primary-foreground/60 hover:text-destructive transition-colors"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
               ))}
               {pollOptions.length < 10 && (
-                <Button type="button" variant="outline" size="sm"
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   className="gap-1 bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => setPollOptions((prev) => [...prev, ''])}>
-                  <Plus className="h-3.5 w-3.5" />Add Option
+                  onClick={() => setPollOptions((prev) => [...prev, ''])}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Option
                 </Button>
               )}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-primary-foreground/80 shrink-0">Duration</span>
-              <select className={inputCls} value={pollDuration}
-                onChange={(e) => setPollDuration(Number(e.target.value))}>
+              <select
+                className={inputCls}
+                value={pollDuration}
+                onChange={(e) => setPollDuration(Number(e.target.value))}
+              >
                 <option value={1}>1 hour</option>
                 <option value={4}>4 hours</option>
                 <option value={8}>8 hours</option>
@@ -721,9 +923,11 @@ export function EventCreateForm({
                   pollMultiselect ? 'bg-primary-foreground' : 'bg-primary-foreground/20'
                 }`}
               >
-                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-primary shadow-sm transition-transform ${
-                  pollMultiselect ? 'translate-x-4' : 'translate-x-0'
-                }`} />
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-primary shadow-sm transition-transform ${
+                    pollMultiselect ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
               </button>
               <span className="text-sm text-primary-foreground/90">Allow multiple selections</span>
             </label>
@@ -733,18 +937,26 @@ export function EventCreateForm({
 
       {chosenTemplate?.hasBriefing && chosenTemplate.id === fromTemplateId && (
         <p className="bg-primary px-5 pt-3 text-sm text-primary-foreground/80">
-          The “{chosenTemplate.name}” template has a briefing: it's added to this event as an unpublished draft for you to adjust and publish.
+          The “{chosenTemplate.name}” template has a briefing: it's added to this event as an unpublished draft for you
+          to adjust and publish.
         </p>
       )}
 
       {/* Actions */}
       <div className="flex justify-end gap-2 bg-primary px-5 py-4">
-        <Button type="button" variant="outline"
+        <Button
+          type="button"
+          variant="outline"
           className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-          onClick={onCancel}>
+          onClick={onCancel}
+        >
           Cancel
         </Button>
-        <Button type="submit" className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground" disabled={isPending || uploadMutation.isPending}>
+        <Button
+          type="submit"
+          className="bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground"
+          disabled={isPending || uploadMutation.isPending}
+        >
           {isPending ? 'Creating…' : repeatSource ? 'Create Repeat Event' : 'Create Event'}
         </Button>
       </div>

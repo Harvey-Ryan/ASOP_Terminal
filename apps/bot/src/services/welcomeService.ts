@@ -9,7 +9,9 @@ async function whoAddedBot(guild: Guild): Promise<string> {
     const log = await guild.fetchAuditLogs({ type: AuditLogEvent.BotAdd, limit: 5 });
     const entry = log.entries.find((e) => e.targetId === guild.client.user.id);
     if (entry?.executorId) return entry.executorId;
-  } catch { /* no View Audit Log permission: fall back to the owner */ }
+  } catch {
+    /* no View Audit Log permission: fall back to the owner */
+  }
   return guild.ownerId;
 }
 
@@ -20,11 +22,14 @@ export function welcomeMessage(guild: { id: string; name: string }) {
     .setTitle('Welcome to ASOP!')
     .setDescription(
       `ASOP is now in **${guild.name}**. A few steps get events posting in Discord: an event forum and a voice channel category.\n\n` +
-      'The setup checklist on the website walks you through them, can create the channels for you, and checks that the bot has the permissions it needs.\n\n' +
-      'DKP auctions and Tournaments start switched off, since each needs a channel of its own. Turn them on in Module Settings when you want them.',
+        'The setup checklist on the website walks you through them, can create the channels for you, and checks that the bot has the permissions it needs.\n\n' +
+        'DKP auctions and Tournaments start switched off, since each needs a channel of its own. Turn them on in Module Settings when you want them.',
     );
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Open setup').setURL(`${webUrl}/dashboard/servers/${guild.id}/settings/modules`),
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setLabel('Open setup')
+      .setURL(`${webUrl}/dashboard/servers/${guild.id}/settings/modules`),
   );
   return { embeds: [embed], components: [row] };
 }
@@ -36,6 +41,9 @@ export async function sendWelcome(guild: Guild): Promise<void> {
     const user = await guild.client.users.fetch(userId);
     await user.send(welcomeMessage(guild));
   } catch (err) {
-    console.warn(`[welcome] Couldn't DM ${userId} for ${guild.name} (${guild.id}):`, err instanceof Error ? err.message : err);
+    console.warn(
+      `[welcome] Couldn't DM ${userId} for ${guild.name} (${guild.id}):`,
+      err instanceof Error ? err.message : err,
+    );
   }
 }

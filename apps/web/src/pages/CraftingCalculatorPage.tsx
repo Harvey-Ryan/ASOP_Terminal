@@ -33,7 +33,6 @@ import './crafting/fabrication.css';
 import { amountOf, BlueprintBrowser, fmtSecs, Rivets, typeLabel } from './crafting/browser';
 import { diffCls, fmtContractTitle, fmtMinutes, MissionModal } from './crafting/missions';
 
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** A whole number added by quality ("+1", "−2", "±0"). */
@@ -73,20 +72,20 @@ function ArmorStats({
   mults: Record<string, number>;
 }) {
   const [open, setOpen] = useState(true);
-  const toggle = useCallback(() => setOpen(o => !o), []);
+  const toggle = useCallback(() => setOpen((o) => !o), []);
 
-  const dmg  = mults['armor_damagemitigation']     ?? 1;
-  const tMin = mults['armor_temperaturemin']        ?? 1;
-  const tMax = mults['armor_temperaturemax']        ?? 1;
-  const rad  = mults['armor_radiationdissipation']  ?? 1;
+  const dmg = mults['armor_damagemitigation'] ?? 1;
+  const tMin = mults['armor_temperaturemin'] ?? 1;
+  const tMax = mults['armor_temperaturemax'] ?? 1;
+  const rad = mults['armor_radiationdissipation'] ?? 1;
 
   const resFields: [string, number][] = [
-    ['Physical',    base.resistance.physical],
-    ['Energy',      base.resistance.energy],
-    ['Distortion',  base.resistance.distortion],
-    ['Thermal',     base.resistance.thermal],
+    ['Physical', base.resistance.physical],
+    ['Energy', base.resistance.energy],
+    ['Distortion', base.resistance.distortion],
+    ['Thermal', base.resistance.thermal],
     ['Biochemical', base.resistance.biochemical],
-    ['Stun',        base.resistance.stun],
+    ['Stun', base.resistance.stun],
   ];
 
   return (
@@ -111,14 +110,16 @@ function ArmorStats({
               <div className="grid grid-cols-2 gap-1.5">
                 {resFields.map(([label, bv]) => {
                   const crafted = applyStatFormula('armor_damagemitigation', bv, dmg);
-                  const delta   = crafted - bv;
-                  const better  = crafted < bv;
+                  const delta = crafted - bv;
+                  const better = crafted < bv;
                   return (
                     <div key={label} className="rounded border border-border bg-muted/30 px-2 py-1.5 space-y-0.5">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
                       <p className="text-[11px] font-mono">{resDisplay(bv)}</p>
                       {dmg !== 1 && (
-                        <p className={cn('text-[10px] font-mono font-bold', better ? 'text-green-500' : 'text-red-500')}>
+                        <p
+                          className={cn('text-[10px] font-mono font-bold', better ? 'text-green-500' : 'text-red-500')}
+                        >
                           → {resDisplay(crafted)}
                           <span className="ml-0.5 text-[9px]">{fmtPct(delta * 100)}</span>
                         </p>
@@ -194,7 +195,7 @@ function ShieldStats({
   base: Extract<ItemBaseStats, { kind: 'shield' }>;
   mults: Record<string, number>;
 }) {
-  const mult    = mults['shield_maxhealth'] ?? mults['health_maxhealth'] ?? 1;
+  const mult = mults['shield_maxhealth'] ?? mults['health_maxhealth'] ?? 1;
   const crafted = base.maxHealth * mult;
   return (
     <div className="space-y-2">
@@ -226,10 +227,12 @@ function WeaponStats({
   base: Extract<ItemBaseStats, { kind: 'weapon' }>;
   mults: Record<string, number>;
 }) {
-  const dmgM = mults['weapon_damage']   ?? 1;
+  const dmgM = mults['weapon_damage'] ?? 1;
   const rpmM = mults['weapon_firerate'] ?? 1;
   if (base.modes.length === 0) {
-    return <p className="text-xs text-muted-foreground/60 italic">No fire mode data for this weapon in the game data.</p>;
+    return (
+      <p className="text-xs text-muted-foreground/60 italic">No fire mode data for this weapon in the game data.</p>
+    );
   }
   return (
     <div className="space-y-2">
@@ -275,7 +278,7 @@ function PowerPlantStats({
   base: Extract<ItemBaseStats, { kind: 'powerplant' }>;
   mults: Record<string, number>;
 }) {
-  const mult    = mults['itemresource_powergeneration'] ?? 1;
+  const mult = mults['itemresource_powergeneration'] ?? 1;
   const crafted = base.powerOutput * mult;
   return (
     <div className="space-y-2">
@@ -307,8 +310,8 @@ function QuantumDriveStats({
   base: Extract<ItemBaseStats, { kind: 'quantumdrive' }>;
   mults: Record<string, number>;
 }) {
-  const speedM = mults['quantum_speed']           ?? 1;
-  const fuelM  = mults['quantum_fuelrequirement'] ?? 1;
+  const speedM = mults['quantum_speed'] ?? 1;
+  const fuelM = mults['quantum_fuelrequirement'] ?? 1;
   const speedMm = base.speedMs / 1_000_000;
   return (
     <div className="space-y-2">
@@ -347,8 +350,8 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
   const baseStats = useMemo(() => getBaseStats(bp.itemUuid, bp.type), [bp.itemUuid, bp.type]);
 
   const mults = useMemo(() => {
-    const allKeys = [...new Set(bp.components.flatMap(c => c.stats.map(s => s.key)))];
-    return Object.fromEntries(allKeys.map(key => [key, combinedMultiplier(bp, key, qls)]));
+    const allKeys = [...new Set(bp.components.flatMap((c) => c.stats.map((s) => s.key)))];
+    return Object.fromEntries(allKeys.map((key) => [key, combinedMultiplier(bp, key, qls)]));
   }, [bp, qls]);
 
   if (!baseStats) return null;
@@ -364,14 +367,14 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
             </span>
           )}
           {bp.mass != null && <span className="text-[11px] text-muted-foreground">{bp.mass} kg</span>}
-          {bp.subtype    && <span className="text-[11px] text-muted-foreground capitalize">{bp.subtype}</span>}
+          {bp.subtype && <span className="text-[11px] text-muted-foreground capitalize">{bp.subtype}</span>}
         </div>
       </div>
       <div className="px-3 py-2 space-y-3">
-        {baseStats.kind === 'armor'        && <ArmorStats        base={baseStats} mults={mults} />}
-        {baseStats.kind === 'shield'       && <ShieldStats       base={baseStats} mults={mults} />}
-        {baseStats.kind === 'weapon'       && <WeaponStats       base={baseStats} mults={mults} />}
-        {baseStats.kind === 'powerplant'   && <PowerPlantStats   base={baseStats} mults={mults} />}
+        {baseStats.kind === 'armor' && <ArmorStats base={baseStats} mults={mults} />}
+        {baseStats.kind === 'shield' && <ShieldStats base={baseStats} mults={mults} />}
+        {baseStats.kind === 'weapon' && <WeaponStats base={baseStats} mults={mults} />}
+        {baseStats.kind === 'powerplant' && <PowerPlantStats base={baseStats} mults={mults} />}
         {baseStats.kind === 'quantumdrive' && <QuantumDriveStats base={baseStats} mults={mults} />}
         {baseStats.kind === 'generic' && baseStats.hp != null && (
           <p className="text-xs text-muted-foreground">
@@ -389,11 +392,20 @@ function ProductStats({ bp, qls }: { bp: LocalBlueprint; qls: number[] }) {
 // part's material quality and see the result, and collect what to craft in a
 // build list with total time, materials and where to mine them.
 
-const PRESETS: [string, number][] = [['Min', 0], ['Base', 500], ['Max', 1000]];
+const PRESETS: [string, number][] = [
+  ['Min', 0],
+  ['Base', 500],
+  ['Max', 1000],
+];
 
 // ── Centre: one blueprint ────────────────────────────────────────────────────
 
-function PartRow({ comp, index, ql, onChange }: {
+function PartRow({
+  comp,
+  index,
+  ql,
+  onChange,
+}: {
   comp: LocalBlueprint['components'][number];
   index: number;
   ql: number;
@@ -403,12 +415,16 @@ function PartRow({ comp, index, ql, onChange }: {
   return (
     <li className="fab-part-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-3.5 py-3 sm:grid-cols-[10.5rem_minmax(0,1fr)_4.25rem] sm:gap-y-1">
       <span className="flex min-w-0 flex-col gap-0.5 sm:row-span-2 sm:self-start">
-        <span className="fab-label truncate !text-[11.5px] !tracking-[0.1em]" title={comp.slot}>{comp.slot} · {String(index + 1).padStart(2, '0')}</span>
+        <span className="fab-label truncate !text-[11.5px] !tracking-[0.1em]" title={comp.slot}>
+          {comp.slot} · {String(index + 1).padStart(2, '0')}
+        </span>
         <span className="flex items-baseline gap-2">
           <span className="truncate text-[15px] font-semibold text-[var(--fab-bright)]">{comp.material.name}</span>
           <span className="fab-mono shrink-0 text-xs text-[var(--fab-gold-text)]">{amountOf(comp.material)}</span>
         </span>
-        {comp.material.minQuality > 1 && <span className="text-xs text-[var(--fab-muted)]">Needs quality {comp.material.minQuality}+</span>}
+        {comp.material.minQuality > 1 && (
+          <span className="text-xs text-[var(--fab-muted)]">Needs quality {comp.material.minQuality}+</span>
+        )}
       </span>
 
       {comp.stats.length > 0 ? (
@@ -441,14 +457,18 @@ function PartRow({ comp, index, ql, onChange }: {
               return (
                 <li key={s.key} className="flex items-baseline justify-between gap-2 text-[13px] sm:justify-start">
                   <span className="truncate text-[var(--fab-muted)]">{s.label}</span>
-                  <span className={cn('fab-mono shrink-0 font-semibold', changeCls(sign, 'text-[var(--fab-text)]'))}>{add ? fmtAdd(sign) : fmtPct(sign)}</span>
+                  <span className={cn('fab-mono shrink-0 font-semibold', changeCls(sign, 'text-[var(--fab-text)]'))}>
+                    {add ? fmtAdd(sign) : fmtPct(sign)}
+                  </span>
                 </li>
               );
             })}
           </ul>
         </>
       ) : (
-        <span className="col-span-2 text-[13px] text-[var(--fab-muted)] sm:col-span-2 sm:col-start-2 sm:row-start-1">Quality doesn't change anything for this part.</span>
+        <span className="col-span-2 text-[13px] text-[var(--fab-muted)] sm:col-span-2 sm:col-start-2 sm:row-start-1">
+          Quality doesn't change anything for this part.
+        </span>
       )}
     </li>
   );
@@ -458,9 +478,20 @@ function Fold({ title, count, children }: { title: string; count?: number; child
   const [open, setOpen] = useState(false);
   return (
     <div className="border-t border-[#0d0d0d] shadow-[0_-1px_0_#2c2c2c]">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between gap-2 py-3 text-left">
-        <span className="fab-label text-[var(--fab-text)]">{title}{count != null ? ` (${count})` : ''}</span>
-        <ChevronRight aria-hidden="true" className={cn('h-4 w-4 text-[var(--fab-faint)] transition-transform', open && 'rotate-90')} />
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 py-3 text-left"
+      >
+        <span className="fab-label text-[var(--fab-text)]">
+          {title}
+          {count != null ? ` (${count})` : ''}
+        </span>
+        <ChevronRight
+          aria-hidden="true"
+          className={cn('h-4 w-4 text-[var(--fab-faint)] transition-transform', open && 'rotate-90')}
+        />
       </button>
       {open && <div className="pb-4">{children}</div>}
     </div>
@@ -469,7 +500,15 @@ function Fold({ title, count, children }: { title: string; count?: number; child
 
 const PLACES_SHOWN = 6;
 
-function ContractCard({ contract, onSelectBlueprint, onDetails }: { contract: MissionContract; onSelectBlueprint: (uuid: string) => void; onDetails: () => void }) {
+function ContractCard({
+  contract,
+  onSelectBlueprint,
+  onDetails,
+}: {
+  contract: MissionContract;
+  onSelectBlueprint: (uuid: string) => void;
+  onDetails: () => void;
+}) {
   const others = contract.pools.flatMap((p) => p.blueprints);
   const [allPlaces, setAllPlaces] = useState(false);
   const places = allPlaces ? contract.locations : contract.locations.slice(0, PLACES_SHOWN);
@@ -477,14 +516,28 @@ function ContractCard({ contract, onSelectBlueprint, onDetails }: { contract: Mi
     <div className="fab-inset flex flex-col gap-2 px-3.5 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-[15px] font-semibold text-[var(--fab-bright)]">{fmtContractTitle(contract.title)}</span>
-        <button type="button" onClick={onDetails} className="fab-btn h-8 px-2.5 text-xs">Details</button>
+        <button type="button" onClick={onDetails} className="fab-btn h-8 px-2.5 text-xs">
+          Details
+        </button>
       </div>
       <div className="flex flex-wrap gap-1.5 text-xs">
-        {contract.missionType && <span className="border border-[#3a3a3a] px-1.5 py-0.5 text-[var(--fab-muted)]">{contract.missionType}</span>}
-        {contract.faction && <span className="border border-[#3a3a3a] px-1.5 py-0.5 text-[var(--fab-gold-text)]">{contract.faction}</span>}
+        {contract.missionType && (
+          <span className="border border-[#3a3a3a] px-1.5 py-0.5 text-[var(--fab-muted)]">{contract.missionType}</span>
+        )}
+        {contract.faction && (
+          <span className="border border-[#3a3a3a] px-1.5 py-0.5 text-[var(--fab-gold-text)]">{contract.faction}</span>
+        )}
         {contract.illegal && <span className="border border-[#7a3a32] px-1.5 py-0.5 text-[#e07a6e]">Illegal</span>}
-        {contract.difficulty && <span className={cn('border px-1.5 py-0.5', diffCls(contract.difficulty.riskOfLoss))}>Risk {contract.difficulty.riskOfLoss}/7</span>}
-        {contract.timeToCompleteMinutes != null && <span className="fab-mono border border-[#3a3a3a] px-1.5 py-0.5 text-[var(--fab-muted)]">{fmtMinutes(contract.timeToCompleteMinutes)}</span>}
+        {contract.difficulty && (
+          <span className={cn('border px-1.5 py-0.5', diffCls(contract.difficulty.riskOfLoss))}>
+            Risk {contract.difficulty.riskOfLoss}/7
+          </span>
+        )}
+        {contract.timeToCompleteMinutes != null && (
+          <span className="fab-mono border border-[#3a3a3a] px-1.5 py-0.5 text-[var(--fab-muted)]">
+            {fmtMinutes(contract.timeToCompleteMinutes)}
+          </span>
+        )}
       </div>
       {contract.locations.length > 0 && (
         <p className="flex items-start gap-1.5 text-xs text-[var(--fab-muted)]">
@@ -492,7 +545,11 @@ function ContractCard({ contract, onSelectBlueprint, onDetails }: { contract: Mi
           <span>
             {places.join(' · ')}
             {contract.locations.length > PLACES_SHOWN && (
-              <button type="button" onClick={() => setAllPlaces((v) => !v)} className="ml-1.5 text-[var(--fab-gold-text)] hover:underline">
+              <button
+                type="button"
+                onClick={() => setAllPlaces((v) => !v)}
+                className="ml-1.5 text-[var(--fab-gold-text)] hover:underline"
+              >
                 {allPlaces ? 'fewer' : `+${contract.locations.length - PLACES_SHOWN} more`}
               </button>
             )}
@@ -505,9 +562,17 @@ function ContractCard({ contract, onSelectBlueprint, onDetails }: { contract: Mi
           {others.slice(0, 6).map((e, i) => (
             <span key={e.blueprintUuid}>
               {i > 0 && ', '}
-              {getBlueprintByUuid(e.blueprintUuid)
-                ? <button type="button" onClick={() => onSelectBlueprint(e.blueprintUuid)} className="text-[var(--fab-gold-text)] underline-offset-2 hover:underline">{e.name}</button>
-                : e.name}
+              {getBlueprintByUuid(e.blueprintUuid) ? (
+                <button
+                  type="button"
+                  onClick={() => onSelectBlueprint(e.blueprintUuid)}
+                  className="text-[var(--fab-gold-text)] underline-offset-2 hover:underline"
+                >
+                  {e.name}
+                </button>
+              ) : (
+                e.name
+              )}
             </span>
           ))}
           {others.length > 6 && ` +${others.length - 6}`}
@@ -526,7 +591,8 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
   const allAt = (v: number) => qls.every((q) => q === v);
 
   const contracts = useMemo(
-    () => missionContracts().filter((mc) => mc.pools.some((p) => p.blueprints.some((e) => e.blueprintUuid === bp.uuid))),
+    () =>
+      missionContracts().filter((mc) => mc.pools.some((p) => p.blueprints.some((e) => e.blueprintUuid === bp.uuid))),
     [bp.uuid],
   );
   // Each stat, with every part that affects it at its chosen quality.
@@ -543,26 +609,54 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
     <section aria-label={bp.name} className="fab-plate flex min-w-0 flex-col gap-5 px-5 pb-4 pt-6 sm:px-7">
       <Rivets />
       {contractModal && (
-        <MissionModal contract={contractModal} currentUuid={bp.uuid} onClose={() => setContractModal(null)} onSelectBlueprint={(uuid) => { setContractModal(null); onPick(uuid); }} />
+        <MissionModal
+          contract={contractModal}
+          currentUuid={bp.uuid}
+          onClose={() => setContractModal(null)}
+          onSelectBlueprint={(uuid) => {
+            setContractModal(null);
+            onPick(uuid);
+          }}
+        />
       )}
 
-      <button type="button" onClick={onBack} className="fab-btn -mt-1 flex h-9 w-fit items-center gap-1 px-2.5 text-xs lg:hidden">
+      <button
+        type="button"
+        onClick={onBack}
+        className="fab-btn -mt-1 flex h-9 w-fit items-center gap-1 px-2.5 text-xs lg:hidden"
+      >
         <ChevronLeft aria-hidden="true" className="h-4 w-4" /> All blueprints
       </button>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="fab-label">{[typeLabel(bp.type), bp.subtype && !typeLabel(bp.type).toLowerCase().includes(bp.subtype.toLowerCase()) && bp.subtype, bp.grade && `Grade ${bp.grade}`].filter(Boolean).join(' · ')}</span>
-          <h2 className="fab-stencil m-0 text-[26px] leading-tight text-[var(--fab-bright)] sm:text-[30px]">{bp.name.toUpperCase()}</h2>
+          <span className="fab-label">
+            {[
+              typeLabel(bp.type),
+              bp.subtype && !typeLabel(bp.type).toLowerCase().includes(bp.subtype.toLowerCase()) && bp.subtype,
+              bp.grade && `Grade ${bp.grade}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+          <h2 className="fab-stencil m-0 text-[26px] leading-tight text-[var(--fab-bright)] sm:text-[30px]">
+            {bp.name.toUpperCase()}
+          </h2>
           <span className="fab-mono text-xs text-[var(--fab-muted)]">
             Craft time {fmtSecs(bp.craftTimeSecs)} · {bp.components.length} part{bp.components.length === 1 ? '' : 's'}
             {contracts.length > 0 && ` · ${contracts.length} mission${contracts.length === 1 ? '' : 's'} reward it`}
           </span>
           {(bp.manufacturer || bp.mass != null) && (
-            <span className="text-xs text-[var(--fab-muted)]">{[bp.manufacturer, bp.mass != null && `${bp.mass} kg`].filter(Boolean).join(' · ')}</span>
+            <span className="text-xs text-[var(--fab-muted)]">
+              {[bp.manufacturer, bp.mass != null && `${bp.mass} kg`].filter(Boolean).join(' · ')}
+            </span>
           )}
         </div>
-        <button type="button" onClick={() => buildList.add(bp.uuid)} className="fab-btn-primary h-11 shrink-0 px-4 text-[15px]">
+        <button
+          type="button"
+          onClick={() => buildList.add(bp.uuid)}
+          className="fab-btn-primary h-11 shrink-0 px-4 text-[15px]"
+        >
           {queued ? `+ Add another (${queued} in list)` : '+ Add to build list'}
         </button>
       </div>
@@ -571,7 +665,13 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
         <div className="flex flex-wrap items-center gap-2">
           <span className="fab-label mr-1">Set every part to</span>
           {PRESETS.map(([label, v]) => (
-            <button key={label} type="button" aria-pressed={allAt(v)} onClick={() => setQls(bp.components.map(() => v))} className="fab-btn fab-mono h-9 min-w-[3.5rem] px-3 text-xs">
+            <button
+              key={label}
+              type="button"
+              aria-pressed={allAt(v)}
+              onClick={() => setQls(bp.components.map(() => v))}
+              className="fab-btn fab-mono h-9 min-w-[3.5rem] px-3 text-xs"
+            >
               {v === 1000 ? 'MAX' : v}
             </button>
           ))}
@@ -582,7 +682,19 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
         <h3 className="fab-stencil m-0 mb-2.5 text-base text-[var(--fab-gold-text)]">PARTS &amp; MATERIALS</h3>
         <ul className="fab-inset m-0 list-none p-0">
           {bp.components.map((comp, i) => (
-            <PartRow key={`${comp.slot}-${i}`} comp={comp} index={i} ql={qls[i] ?? 500} onChange={(v) => setQls((prev) => { const n = [...prev]; n[i] = v; return n; })} />
+            <PartRow
+              key={`${comp.slot}-${i}`}
+              comp={comp}
+              index={i}
+              ql={qls[i] ?? 500}
+              onChange={(v) =>
+                setQls((prev) => {
+                  const n = [...prev];
+                  n[i] = v;
+                  return n;
+                })
+              }
+            />
           ))}
         </ul>
       </div>
@@ -593,9 +705,15 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
           <table className="w-full border-collapse text-[15px]">
             <thead>
               <tr className="fab-label text-left">
-                <th scope="col" className="border-b-2 border-[#0d0d0d] py-2 font-semibold">Stat</th>
-                <th scope="col" className="border-b-2 border-[#0d0d0d] py-2 text-right font-semibold">Multiplier</th>
-                <th scope="col" className="border-b-2 border-[#0d0d0d] py-2 text-right font-semibold">Change</th>
+                <th scope="col" className="border-b-2 border-[#0d0d0d] py-2 font-semibold">
+                  Stat
+                </th>
+                <th scope="col" className="border-b-2 border-[#0d0d0d] py-2 text-right font-semibold">
+                  Multiplier
+                </th>
+                <th scope="col" className="border-b-2 border-[#0d0d0d] py-2 text-right font-semibold">
+                  Change
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -604,8 +722,17 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
                 return (
                   <tr key={r.key}>
                     <td className="border-b border-[#262626] py-2.5">{r.label}</td>
-                    <td className="fab-mono border-b border-[#262626] py-2.5 text-right text-[var(--fab-muted)]">{r.additive ? '—' : fmtMult(r.mult)}</td>
-                    <td className={cn('fab-mono border-b border-[#262626] py-2.5 text-right', changeCls(sign, 'text-[var(--fab-gold-text)]'))}>{r.additive ? fmtAdd(r.add) : fmtPct(sign)}</td>
+                    <td className="fab-mono border-b border-[#262626] py-2.5 text-right text-[var(--fab-muted)]">
+                      {r.additive ? '—' : fmtMult(r.mult)}
+                    </td>
+                    <td
+                      className={cn(
+                        'fab-mono border-b border-[#262626] py-2.5 text-right',
+                        changeCls(sign, 'text-[var(--fab-gold-text)]'),
+                      )}
+                    >
+                      {r.additive ? fmtAdd(r.add) : fmtPct(sign)}
+                    </td>
                   </tr>
                 );
               })}
@@ -622,19 +749,30 @@ function Workspace({ bp, onPick, onBack }: { bp: LocalBlueprint; onPick: (uuid: 
         {contracts.length > 0 && (
           <Fold title="Missions that reward it" count={contracts.length}>
             <div className="flex flex-col gap-2">
-              {contracts.map((mc) => <ContractCard key={mc.title} contract={mc} onSelectBlueprint={onPick} onDetails={() => setContractModal(mc)} />)}
+              {contracts.map((mc) => (
+                <ContractCard
+                  key={mc.title}
+                  contract={mc}
+                  onSelectBlueprint={onPick}
+                  onDetails={() => setContractModal(mc)}
+                />
+              ))}
             </div>
           </Fold>
         )}
         {bp.dismantle && (
           <Fold title="Dismantle returns">
-            <p className="fab-mono mb-2 text-xs text-[var(--fab-muted)]">{fmtSecs(bp.dismantle.timeSecs)} · {(bp.dismantle.efficiency * 100).toFixed(0)}% recovered</p>
+            <p className="fab-mono mb-2 text-xs text-[var(--fab-muted)]">
+              {fmtSecs(bp.dismantle.timeSecs)} · {(bp.dismantle.efficiency * 100).toFixed(0)}% recovered
+            </p>
             <table className="w-full border-collapse text-sm">
               <tbody>
                 {bp.dismantle.returns.map((r, i) => (
                   <tr key={i}>
                     <td className="border-b border-[#262626] py-2">{r.name}</td>
-                    <td className="fab-mono border-b border-[#262626] py-2 text-right text-[var(--fab-bright)]">{formatMaterialAmount(r.quantityScu, r.quantity)}</td>
+                    <td className="fab-mono border-b border-[#262626] py-2 text-right text-[var(--fab-bright)]">
+                      {formatMaterialAmount(r.quantityScu, r.quantity)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -651,7 +789,10 @@ function EmptyWorkspace() {
     <section className="fab-plate flex min-h-[18rem] flex-col items-center justify-center gap-3 px-6 py-12 text-center">
       <Rivets />
       <span className="fab-stencil text-xl text-[var(--fab-gold-text)]">SELECT A BLUEPRINT</span>
-      <p className="max-w-sm text-sm text-[var(--fab-muted)]">Pick one from the list to set each material's quality and see what you'll get. Use + to add it to your build list.</p>
+      <p className="max-w-sm text-sm text-[var(--fab-muted)]">
+        Pick one from the list to set each material's quality and see what you'll get. Use + to add it to your build
+        list.
+      </p>
     </section>
   );
 }
@@ -662,15 +803,30 @@ const SYSTEM_KEY = 'asop-crafting-system';
 
 export function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
   const queue = useBuildList();
-  const entries = queue.map((i) => ({ item: i, bp: getBlueprintByUuid(i.uuid) })).filter((e): e is { item: BuildListItem; bp: LocalBlueprint } => !!e.bp);
+  const entries = queue
+    .map((i) => ({ item: i, bp: getBlueprintByUuid(i.uuid) }))
+    .filter((e): e is { item: BuildListItem; bp: LocalBlueprint } => !!e.bp);
   const totals = useMemo(() => buildListTotals(entries.map((e) => ({ bp: e.bp, qty: e.item.qty }))), [queue]); // eslint-disable-line react-hooks/exhaustive-deps
   const sources = materialSources();
   const names = totals.materials.map((m) => m.name);
   const systems = useMemo(() => routeSystems(names, sources), [names.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [picked, setPicked] = useState<string>(() => { try { return localStorage.getItem(SYSTEM_KEY) ?? ''; } catch { return ''; } });
-  const system = systems.includes(picked) ? picked : systems[0] ?? '';
+  const [picked, setPicked] = useState<string>(() => {
+    try {
+      return localStorage.getItem(SYSTEM_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const system = systems.includes(picked) ? picked : (systems[0] ?? '');
   const route = useMemo(() => (system ? planRoute(names, sources, system) : null), [system, names.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pickSystem = (s: string) => { setPicked(s); try { localStorage.setItem(SYSTEM_KEY, s); } catch { /* this visit only */ } };
+  const pickSystem = (s: string) => {
+    setPicked(s);
+    try {
+      localStorage.setItem(SYSTEM_KEY, s);
+    } catch {
+      /* this visit only */
+    }
+  };
   const count = entries.reduce((a, e) => a + e.item.qty, 0);
 
   return (
@@ -679,30 +835,62 @@ export function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
       <div className="flex flex-col gap-4 px-5 pb-5 pt-4">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="fab-stencil m-0 text-[22px] text-[var(--fab-gold-text)]">BUILD LIST</h2>
-          <span className="fab-mono text-xs text-[var(--fab-faint)]">{count} ITEM{count === 1 ? '' : 'S'}</span>
+          <span className="fab-mono text-xs text-[var(--fab-faint)]">
+            {count} ITEM{count === 1 ? '' : 'S'}
+          </span>
         </div>
 
         {entries.length === 0 ? (
-          <p className="text-sm text-[var(--fab-muted)]">Nothing yet. Add blueprints with <span className="text-[var(--fab-gold-text)]">+</span> to total up time and materials, and plan where to mine them.</p>
+          <p className="text-sm text-[var(--fab-muted)]">
+            Nothing yet. Add blueprints with <span className="text-[var(--fab-gold-text)]">+</span> to total up time and
+            materials, and plan where to mine them.
+          </p>
         ) : (
           <>
             <ul className="flex flex-col gap-2">
               {entries.map(({ item, bp }) => (
                 <li key={bp.uuid} className="flex items-center gap-2 border-b border-[#262626] pb-2">
-                  <button type="button" onClick={() => onPick(bp.uuid)} className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                    <span className="line-clamp-2 text-[15px] font-medium leading-snug text-[var(--fab-bright)]">{bp.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onPick(bp.uuid)}
+                    className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+                  >
+                    <span className="line-clamp-2 text-[15px] font-medium leading-snug text-[var(--fab-bright)]">
+                      {bp.name}
+                    </span>
                     <span className="fab-mono text-xs text-[var(--fab-muted)]">{fmtSecs(bp.craftTimeSecs)} each</span>
                   </button>
-                  <button type="button" aria-label={`One fewer ${bp.name}`} onClick={() => buildList.setQty(bp.uuid, item.qty - 1)} className="fab-btn h-9 w-9 text-base">−</button>
-                  <span className="fab-mono w-7 text-center text-[var(--fab-bright)]" aria-label={`${item.qty} in the list`}>{item.qty}</span>
-                  <button type="button" aria-label={`One more ${bp.name}`} onClick={() => buildList.setQty(bp.uuid, item.qty + 1)} className="fab-btn h-9 w-9 text-base">+</button>
+                  <button
+                    type="button"
+                    aria-label={`One fewer ${bp.name}`}
+                    onClick={() => buildList.setQty(bp.uuid, item.qty - 1)}
+                    className="fab-btn h-9 w-9 text-base"
+                  >
+                    −
+                  </button>
+                  <span
+                    className="fab-mono w-7 text-center text-[var(--fab-bright)]"
+                    aria-label={`${item.qty} in the list`}
+                  >
+                    {item.qty}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`One more ${bp.name}`}
+                    onClick={() => buildList.setQty(bp.uuid, item.qty + 1)}
+                    className="fab-btn h-9 w-9 text-base"
+                  >
+                    +
+                  </button>
                 </li>
               ))}
             </ul>
 
             <div className="fab-inset flex items-baseline justify-between px-3.5 py-3">
               <span className="fab-label">Total craft time</span>
-              <span className="fab-mono whitespace-nowrap text-[22px] font-semibold text-[var(--fab-gold-text)]">{fmtSecs(totals.craftTimeSecs)}</span>
+              <span className="fab-mono whitespace-nowrap text-[22px] font-semibold text-[var(--fab-gold-text)]">
+                {fmtSecs(totals.craftTimeSecs)}
+              </span>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -721,30 +909,53 @@ export function BuildListPanel({ onPick }: { onPick: (uuid: string) => void }) {
                 {systems.length > 1 && (
                   <div className="flex flex-wrap gap-1.5" role="group" aria-label="System">
                     {systems.map((s) => (
-                      <button key={s} type="button" aria-pressed={s === system} onClick={() => pickSystem(s)} className="fab-btn h-8 px-3 text-xs">{s}</button>
+                      <button
+                        key={s}
+                        type="button"
+                        aria-pressed={s === system}
+                        onClick={() => pickSystem(s)}
+                        className="fab-btn h-8 px-3 text-xs"
+                      >
+                        {s}
+                      </button>
                     ))}
                   </div>
                 )}
                 <ol className="flex flex-col gap-2.5">
                   {route.stops.map((stop, i) => (
                     <li key={stop.place} className="flex items-start gap-2.5">
-                      <span className="fab-stop fab-stencil flex h-[22px] min-w-[22px] items-center justify-center text-[13px]">{i + 1}</span>
+                      <span className="fab-stop fab-stencil flex h-[22px] min-w-[22px] items-center justify-center text-[13px]">
+                        {i + 1}
+                      </span>
                       <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-[15px] font-medium text-[var(--fab-bright)]">{stop.place} <span className="text-xs font-normal capitalize text-[var(--fab-faint)]">{stop.kind}</span></span>
+                        <span className="text-[15px] font-medium text-[var(--fab-bright)]">
+                          {stop.place}{' '}
+                          <span className="text-xs font-normal capitalize text-[var(--fab-faint)]">{stop.kind}</span>
+                        </span>
                         <span className="text-[13px] text-[var(--fab-muted)]">
-                          {stop.materials.map((m) => `${m.name} (${MINING_METHOD_LABELS[m.method]}, ${chanceLabel(m.chance).toLowerCase()})`).join(' · ')}
+                          {stop.materials
+                            .map(
+                              (m) =>
+                                `${m.name} (${MINING_METHOD_LABELS[m.method]}, ${chanceLabel(m.chance).toLowerCase()})`,
+                            )
+                            .join(' · ')}
                         </span>
                       </div>
                     </li>
                   ))}
                 </ol>
                 {route.missing.length > 0 && (
-                  <p className="text-[13px] text-[var(--fab-muted)]">Not mined in {route.system}: {route.missing.join(', ')}. Buy {route.missing.length === 1 ? 'it' : 'them'} or check another system.</p>
+                  <p className="text-[13px] text-[var(--fab-muted)]">
+                    Not mined in {route.system}: {route.missing.join(', ')}. Buy{' '}
+                    {route.missing.length === 1 ? 'it' : 'them'} or check another system.
+                  </p>
                 )}
               </div>
             )}
 
-            <button type="button" onClick={() => buildList.clear()} className="fab-btn h-9 self-start px-3 text-xs">Clear list</button>
+            <button type="button" onClick={() => buildList.clear()} className="fab-btn h-9 self-start px-3 text-xs">
+              Clear list
+            </button>
           </>
         )}
       </div>
@@ -759,12 +970,25 @@ const LIST_HIDDEN_KEY = 'asop-crafting-list-hidden';
 function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
   const paths = useToolsPaths();
   const navigate = useNavigate();
-  const bp = selectedUuid ? getBlueprintByUuid(selectedUuid) ?? null : null;
+  const bp = selectedUuid ? (getBlueprintByUuid(selectedUuid) ?? null) : null;
   const pick = (uuid: string) => navigate(`${paths.crafting}/${uuid}`);
   const back = () => navigate(paths.crafting);
   const src = craftingSource();
-  const [listHidden, setListHidden] = useState(() => { try { return localStorage.getItem(LIST_HIDDEN_KEY) === '1'; } catch { return false; } });
-  const hideList = (v: boolean) => { setListHidden(v); try { localStorage.setItem(LIST_HIDDEN_KEY, v ? '1' : '0'); } catch { /* this visit only */ } };
+  const [listHidden, setListHidden] = useState(() => {
+    try {
+      return localStorage.getItem(LIST_HIDDEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const hideList = (v: boolean) => {
+    setListHidden(v);
+    try {
+      localStorage.setItem(LIST_HIDDEN_KEY, v ? '1' : '0');
+    } catch {
+      /* this visit only */
+    }
+  };
   // Only with a blueprint open: with none, the list is all there is to use.
   const collapsed = !!bp && listHidden;
 
@@ -773,10 +997,17 @@ function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
       <div aria-hidden="true" className="fab-hazard h-2 shrink-0 opacity-85" />
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b-2 border-[#0d0d0d] px-5 pb-4 pt-5 shadow-[0_1px_0_#2c2c2c] sm:px-8">
         <div className="flex items-center gap-4">
-          <span aria-hidden="true" className="fab-stencil flex h-11 w-11 items-center justify-center border-2 border-[var(--fab-gold)] text-xl text-[var(--fab-gold-text)]">F</span>
+          <span
+            aria-hidden="true"
+            className="fab-stencil flex h-11 w-11 items-center justify-center border-2 border-[var(--fab-gold)] text-xl text-[var(--fab-gold-text)]"
+          >
+            F
+          </span>
           <div className="flex flex-col gap-0.5">
             <span className="fab-label">Fabrication bay{src.build ? ` · ${src.build}` : ''}</span>
-            <h1 className="fab-stencil m-0 text-[26px] text-[var(--fab-gold-text)] sm:text-[32px]">CRAFTING CALCULATOR</h1>
+            <h1 className="fab-stencil m-0 text-[26px] text-[var(--fab-gold-text)] sm:text-[32px]">
+              CRAFTING CALCULATOR
+            </h1>
           </div>
         </div>
         <span className="fab-mono border border-[#333] bg-[#121212] px-2.5 py-1.5 text-xs text-[var(--fab-muted)]">
@@ -786,8 +1017,14 @@ function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
 
       <div className="flex flex-wrap items-start gap-5 px-5 pt-6 sm:px-8 xl:min-h-0 xl:flex-1 xl:flex-nowrap xl:items-stretch xl:pb-6">
         {collapsed ? (
-          <button type="button" onClick={() => hideList(false)} aria-label="Show the blueprint list" aria-expanded="false" title="Show the blueprint list"
-            className="fab-plate hidden w-11 shrink-0 flex-col items-center gap-3 self-stretch py-4 text-[var(--fab-gold-text)] hover:text-[#f0c35a] lg:flex">
+          <button
+            type="button"
+            onClick={() => hideList(false)}
+            aria-label="Show the blueprint list"
+            aria-expanded="false"
+            title="Show the blueprint list"
+            className="fab-plate hidden w-11 shrink-0 flex-col items-center gap-3 self-stretch py-4 text-[var(--fab-gold-text)] hover:text-[#f0c35a] lg:flex"
+          >
             <ChevronRight aria-hidden="true" className="h-4 w-4" />
             <span className="fab-label text-[var(--fab-gold-text)] [writing-mode:vertical-rl]">Blueprints</span>
           </button>
@@ -800,13 +1037,25 @@ function CraftingWorkbench({ selectedUuid }: { selectedUuid: string | null }) {
           />
         )}
         <div className="fab-scroll min-w-0 flex-[999_1_480px] xl:min-h-0 xl:overflow-y-auto xl:pb-1">
-          {bp ? <Workspace key={bp.uuid} bp={bp} onPick={pick} onBack={back} /> : selectedUuid ? (
+          {bp ? (
+            <Workspace key={bp.uuid} bp={bp} onPick={pick} onBack={back} />
+          ) : selectedUuid ? (
             <section className="fab-plate px-6 py-10 text-center text-sm text-[var(--fab-muted)]">
-              That blueprint isn't in the current game data. <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">Back to all blueprints</button>
+              That blueprint isn't in the current game data.{' '}
+              <button type="button" onClick={back} className="text-[var(--fab-gold-text)] underline">
+                Back to all blueprints
+              </button>
             </section>
-          ) : <EmptyWorkspace />}
+          ) : (
+            <EmptyWorkspace />
+          )}
         </div>
-        <div className={cn('fab-scroll min-w-0 flex-[1_1_300px] xl:min-h-0 xl:overflow-y-auto xl:pb-1', collapsed ? 'lg:max-w-[340px]' : 'lg:max-w-[380px]')}>
+        <div
+          className={cn(
+            'fab-scroll min-w-0 flex-[1_1_300px] xl:min-h-0 xl:overflow-y-auto xl:pb-1',
+            collapsed ? 'lg:max-w-[340px]' : 'lg:max-w-[380px]',
+          )}
+        >
           <BuildListPanel onPick={pick} />
         </div>
       </div>

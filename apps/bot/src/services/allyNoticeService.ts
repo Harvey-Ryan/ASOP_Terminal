@@ -73,7 +73,8 @@ export interface OrgInfo {
 export const webUrl = () => process.env['WEB_URL'] ?? 'http://localhost:5173';
 const alliesPage = (discordGuildId: string) => `${webUrl()}/dashboard/servers/${discordGuildId}/settings/allies`;
 export const label = (o: OrgInfo) => (o.tag ? `${o.name} [${o.tag}]` : o.name);
-export const iconUrl = (o: OrgInfo) => (o.icon ? `https://cdn.discordapp.com/icons/${o.guildId}/${o.icon}.png?size=128` : null);
+export const iconUrl = (o: OrgInfo) =>
+  o.icon ? `https://cdn.discordapp.com/icons/${o.guildId}/${o.icon}.png?size=128` : null;
 const day = (d: Date) => `<t:${Math.floor(d.getTime() / 1000)}:D>`;
 
 /** The request as first posted in the asked org's channel, with its buttons. */
@@ -81,7 +82,9 @@ export function requestMessage(from: OrgInfo, to: OrgInfo, linkId: string, note:
   const embed = new EmbedBuilder()
     .setColor(COLOR.request)
     .setTitle(`🤝 Ally request from ${label(from)}`)
-    .setDescription(`**${from.name}** would like to be allies with **${to.name}**. Allies can share events with each other.`)
+    .setDescription(
+      `**${from.name}** would like to be allies with **${to.name}**. Allies can share events with each other.`,
+    )
     .setFooter({ text: 'Officers who manage allies can answer here or on the Allies page.' });
   const ic = iconUrl(from);
   if (ic) embed.setThumbnail(ic);
@@ -89,7 +92,10 @@ export function requestMessage(from: OrgInfo, to: OrgInfo, linkId: string, note:
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(allyButtonId('accept', linkId)).setLabel('Accept').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(allyButtonId('reject', linkId)).setLabel('Reject').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(allyButtonId('block', linkId)).setLabel('Reject and block').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(allyButtonId('block', linkId))
+      .setLabel('Reject and block')
+      .setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setLabel('Allies page').setStyle(ButtonStyle.Link).setURL(alliesPage(to.guildId)),
   );
   return { embeds: [embed.toJSON()], components: [row.toJSON()] };
@@ -98,12 +104,21 @@ export function requestMessage(from: OrgInfo, to: OrgInfo, linkId: string, note:
 export type RequestOutcome = 'accepted' | 'rejected' | 'blocked' | 'cancelled';
 
 /** The same request after it was answered or withdrawn: no buttons, says what happened and who did it. */
-export function answeredMessage(from: OrgInfo, to: OrgInfo, note: string | null, outcome: RequestOutcome, actorUserId: string | null): NoticeMessage {
+export function answeredMessage(
+  from: OrgInfo,
+  to: OrgInfo,
+  note: string | null,
+  outcome: RequestOutcome,
+  actorUserId: string | null,
+): NoticeMessage {
   const by = actorUserId ? ` by <@${actorUserId}>` : '';
   const text: Record<RequestOutcome, [string, number]> = {
     accepted: [`✅ Accepted${by}. ${from.name} and ${to.name} are now allies.`, COLOR.good],
     rejected: [`Rejected${by}. ${from.name} can ask again in 7 days.`, COLOR.bad],
-    blocked: [`🚫 Rejected and blocked${by}. ${from.name} can't send more requests until it's unblocked on the Allies page.`, COLOR.bad],
+    blocked: [
+      `🚫 Rejected and blocked${by}. ${from.name} can't send more requests until it's unblocked on the Allies page.`,
+      COLOR.bad,
+    ],
     cancelled: [`Withdrawn by ${from.name}.`, COLOR.quiet],
   };
   const [line, color] = text[outcome];
@@ -118,10 +133,23 @@ export function answeredMessage(from: OrgInfo, to: OrgInfo, note: string | null,
 }
 
 /** A one-off notice for the other org: an answer to its request, or an alliance ending. */
-export function infoMessage(kind: 'accepted' | 'rejected' | 'removed', actor: OrgInfo, other: OrgInfo, retryAfter: Date | null): NoticeMessage {
+export function infoMessage(
+  kind: 'accepted' | 'rejected' | 'removed',
+  actor: OrgInfo,
+  other: OrgInfo,
+  retryAfter: Date | null,
+): NoticeMessage {
   const content: Record<typeof kind, [string, string, number]> = {
-    accepted: ['🤝 Ally request accepted', `**${actor.name}** accepted your ally request. ${other.name} and ${actor.name} are now allies.`, COLOR.good],
-    rejected: ['Ally request declined', `**${actor.name}** declined your ally request.${retryAfter ? ` You can ask again from ${day(retryAfter)}.` : ''}`, COLOR.bad],
+    accepted: [
+      '🤝 Ally request accepted',
+      `**${actor.name}** accepted your ally request. ${other.name} and ${actor.name} are now allies.`,
+      COLOR.good,
+    ],
+    rejected: [
+      'Ally request declined',
+      `**${actor.name}** declined your ally request.${retryAfter ? ` You can ask again from ${day(retryAfter)}.` : ''}`,
+      COLOR.bad,
+    ],
     removed: ['Alliance ended', `**${actor.name}** is no longer allied with ${other.name}.`, COLOR.quiet],
   };
   const [title, desc, color] = content[kind];
@@ -139,7 +167,13 @@ export function infoMessage(kind: 'accepted' | 'rejected' | 'removed', actor: Or
 export async function loadOrg(internalId: string): Promise<(OrgInfo & { noticeChannelId: string | null }) | null> {
   const g = await prisma.guild.findUnique({ where: { id: internalId }, include: { settings: true } });
   if (!g) return null;
-  return { guildId: g.guildId, name: g.name, icon: g.icon, tag: g.settings?.allianceTag ?? null, noticeChannelId: g.settings?.allyNoticeChannelId ?? null };
+  return {
+    guildId: g.guildId,
+    name: g.name,
+    icon: g.icon,
+    tag: g.settings?.allianceTag ?? null,
+    noticeChannelId: g.settings?.allyNoticeChannelId ?? null,
+  };
 }
 
 /** Logs and swallows a Discord failure (missing channel, missing permission…): notices are best-effort. */
@@ -167,7 +201,8 @@ export async function handleAllyNotice(p: AllyNoticePayload, discord: AllyDiscor
       if (!link || link.status !== 'PENDING' || link.noticeMessageId || !other.noticeChannelId) return;
       const channelId = other.noticeChannelId;
       const messageId = await tryDiscord(`post an ally request in ${other.name}`, () =>
-        discord.send(channelId, requestMessage(actor, other, link.id, link.message)));
+        discord.send(channelId, requestMessage(actor, other, link.id, link.message)),
+      );
       if (!messageId) return;
       const saved = await prisma.guildAlly.updateMany({
         where: { id: link.id, status: 'PENDING', noticeMessageId: null },
@@ -178,10 +213,26 @@ export async function handleAllyNotice(p: AllyNoticePayload, discord: AllyDiscor
       // instead of leaving buttons nobody can use.
       const now = await prisma.guildAlly.findUnique({ where: { id: link.id } });
       if (now?.status === 'PENDING') return;
-      const outcome: RequestOutcome = !now ? 'cancelled'
-        : now.status === 'ACCEPTED' ? 'accepted' : now.status === 'BLOCKED' ? 'blocked' : 'rejected';
+      const outcome: RequestOutcome = !now
+        ? 'cancelled'
+        : now.status === 'ACCEPTED'
+          ? 'accepted'
+          : now.status === 'BLOCKED'
+            ? 'blocked'
+            : 'rejected';
       await tryDiscord(`update the ally request message in ${other.name}`, () =>
-        discord.edit(channelId, messageId, answeredMessage(actor, other, link.message, outcome, outcome === 'cancelled' ? null : now?.respondedBy ?? null)));
+        discord.edit(
+          channelId,
+          messageId,
+          answeredMessage(
+            actor,
+            other,
+            link.message,
+            outcome,
+            outcome === 'cancelled' ? null : (now?.respondedBy ?? null),
+          ),
+        ),
+      );
       return;
     }
     case 'accepted':
@@ -191,13 +242,19 @@ export async function handleAllyNotice(p: AllyNoticePayload, discord: AllyDiscor
       if (p.noticeChannelId && p.noticeMessageId) {
         const [ch, msg] = [p.noticeChannelId, p.noticeMessageId];
         await tryDiscord(`update the ally request message in ${actor.name}`, () =>
-          discord.edit(ch, msg, answeredMessage(other, actor, link?.message ?? null, p.event as RequestOutcome, p.actorUserId)));
+          discord.edit(
+            ch,
+            msg,
+            answeredMessage(other, actor, link?.message ?? null, p.event as RequestOutcome, p.actorUserId),
+          ),
+        );
       }
       // A block is not announced to the blocked org.
       if (p.event !== 'blocked' && other.noticeChannelId) {
         const ch = other.noticeChannelId;
         await tryDiscord(`tell ${other.name} about the answer`, () =>
-          discord.send(ch, infoMessage(p.event as 'accepted' | 'rejected', actor, other, link?.retryAfter ?? null)));
+          discord.send(ch, infoMessage(p.event as 'accepted' | 'rejected', actor, other, link?.retryAfter ?? null)),
+        );
       }
       return;
     }
@@ -206,14 +263,17 @@ export async function handleAllyNotice(p: AllyNoticePayload, discord: AllyDiscor
       if (p.noticeChannelId && p.noticeMessageId) {
         const [ch, msg] = [p.noticeChannelId, p.noticeMessageId];
         await tryDiscord(`update the withdrawn ally request in ${other.name}`, () =>
-          discord.edit(ch, msg, answeredMessage(actor, other, null, 'cancelled', p.actorUserId)));
+          discord.edit(ch, msg, answeredMessage(actor, other, null, 'cancelled', p.actorUserId)),
+        );
       }
       return;
     }
     case 'removed': {
       if (other.noticeChannelId) {
         const ch = other.noticeChannelId;
-        await tryDiscord(`tell ${other.name} the alliance ended`, () => discord.send(ch, infoMessage('removed', actor, other, null)));
+        await tryDiscord(`tell ${other.name} the alliance ended`, () =>
+          discord.send(ch, infoMessage('removed', actor, other, null)),
+        );
       }
       return;
     }
@@ -227,7 +287,11 @@ async function canManageAllies(interaction: ButtonInteraction, allianceManagerRo
   const perms = interaction.memberPermissions;
   if (perms?.has(PermissionFlagsBits.ManageGuild) || perms?.has(PermissionFlagsBits.Administrator)) return true;
   let allowed: string[] = [];
-  try { allowed = JSON.parse(allianceManagerRoles) as string[]; } catch { allowed = []; }
+  try {
+    allowed = JSON.parse(allianceManagerRoles) as string[];
+  } catch {
+    allowed = [];
+  }
   if (allowed.length === 0) return false;
   const roles = interaction.member?.roles;
   const held: string[] = !roles ? [] : Array.isArray(roles) ? roles : [...roles.cache.keys()];
@@ -241,7 +305,10 @@ const PAST: Record<AllyResponse, AllyNoticeEvent> = { accept: 'accepted', reject
  * clicker privately; the message itself is updated through handleAllyNotice,
  * the same way as when the request is answered on the website.
  */
-export async function handleAllyButton(interaction: ButtonInteraction, discord: AllyDiscord = liveDiscord): Promise<void> {
+export async function handleAllyButton(
+  interaction: ButtonInteraction,
+  discord: AllyDiscord = liveDiscord,
+): Promise<void> {
   const parsed = parseAllyButtonId(interaction.customId);
   if (!parsed) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -250,9 +317,14 @@ export async function handleAllyButton(interaction: ButtonInteraction, discord: 
   const guild = interaction.guildId
     ? await prisma.guild.findUnique({ where: { guildId: interaction.guildId }, include: { settings: true } })
     : null;
-  if (!guild) { await reply('This button only works in the server the request was sent to.'); return; }
+  if (!guild) {
+    await reply('This button only works in the server the request was sent to.');
+    return;
+  }
   if (!(await canManageAllies(interaction, guild.settings?.allianceManagerRoles ?? '[]'))) {
-    await reply('Only officers who manage allies can answer ally requests. Server managers can choose those roles on the Allies page.');
+    await reply(
+      'Only officers who manage allies can answer ally requests. Server managers can choose those roles on the Allies page.',
+    );
     return;
   }
 
@@ -263,7 +335,9 @@ export async function handleAllyButton(interaction: ButtonInteraction, discord: 
   }
   const d = decideResponse(link, guild.id);
   if (!d.ok) {
-    await reply(d.refusal === 'not-pending' ? 'This request was already answered or withdrawn.' : allyRefusalMessage(d.refusal));
+    await reply(
+      d.refusal === 'not-pending' ? 'This request was already answered or withdrawn.' : allyRefusalMessage(d.refusal),
+    );
     return;
   }
 
@@ -272,23 +346,31 @@ export async function handleAllyButton(interaction: ButtonInteraction, discord: 
     where: { id: link.id, status: 'PENDING', requestedByGuildId: link.requestedByGuildId },
     data: changes,
   });
-  if (r.count === 0) { await reply('This request was already answered or withdrawn.'); return; }
+  if (r.count === 0) {
+    await reply('This request was already answered or withdrawn.');
+    return;
+  }
 
   const otherId = link.guildAId === guild.id ? link.guildBId : link.guildAId;
   const other = await prisma.guild.findUnique({ where: { id: otherId }, select: { name: true } });
-  await reply({
-    accept: `✅ You're now allies with **${other?.name ?? 'that org'}**.`,
-    reject: `Request from **${other?.name ?? 'that org'}** rejected. They can ask again in 7 days.`,
-    block: `🚫 **${other?.name ?? 'That org'}** is blocked and can't send more requests. Unblock it on the Allies page.`,
-  }[parsed.action]);
+  await reply(
+    {
+      accept: `✅ You're now allies with **${other?.name ?? 'that org'}**.`,
+      reject: `Request from **${other?.name ?? 'that org'}** rejected. They can ask again in 7 days.`,
+      block: `🚫 **${other?.name ?? 'That org'}** is blocked and can't send more requests. Unblock it on the Allies page.`,
+    }[parsed.action],
+  );
 
-  await handleAllyNotice({
-    event: PAST[parsed.action],
-    linkId: link.id,
-    actorGuildId: guild.id,
-    otherGuildId: otherId,
-    actorUserId: interaction.user.id,
-    noticeChannelId: interaction.channelId,
-    noticeMessageId: interaction.message.id,
-  }, discord);
+  await handleAllyNotice(
+    {
+      event: PAST[parsed.action],
+      linkId: link.id,
+      actorGuildId: guild.id,
+      otherGuildId: otherId,
+      actorUserId: interaction.user.id,
+      noticeChannelId: interaction.channelId,
+      noticeMessageId: interaction.message.id,
+    },
+    discord,
+  );
 }

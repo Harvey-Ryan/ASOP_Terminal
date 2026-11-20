@@ -53,7 +53,10 @@ const SECRET_PATTERNS: [RegExp, string][] = [
   [/[A-Za-z\d_-]{23,28}\.[A-Za-z\d_-]{6,7}\.[A-Za-z\d_-]{27,40}/g, '[discord-token]'],
   [/(Bearer|Bot)\s+[A-Za-z\d._~+/=-]{16,}/gi, '$1 [redacted]'],
   [/(\w+:\/\/[^:/\s]+):[^@\s]+@/g, '$1:[redacted]@'],
-  [/((?:password|passwd|secret|token|api[_-]?key|client_secret|access_token|refresh_token)["']?\s*[:=]\s*["']?)[^"'\s,}&]+/gi, '$1[redacted]'],
+  [
+    /((?:password|passwd|secret|token|api[_-]?key|client_secret|access_token|refresh_token)["']?\s*[:=]\s*["']?)[^"'\s,}&]+/gi,
+    '$1[redacted]',
+  ],
 ];
 
 /** Removes tokens, passwords and credentials in URLs from text before it's stored. */
@@ -89,7 +92,11 @@ export function firstAppFrame(stack: string | null | undefined): string {
     const m = l.match(/^at\s+(?:(.+?)\s+\()?(.+?)\)?$/) ?? l.match(/^(.*?)@(.+)$/);
     if (!m) return l.replace(/:\d+/g, '').slice(0, 120);
     const fn = (m[1] ?? '').replace(/^async\s+/, '').replace(/\s*\[as .*\]$/, '');
-    const file = (m[2] ?? '').replace(/(:\d+)+$/, '').split(/[/\\]/).pop() ?? '';
+    const file =
+      (m[2] ?? '')
+        .replace(/(:\d+)+$/, '')
+        .split(/[/\\]/)
+        .pop() ?? '';
     const name = file.replace(/\.[cm]?[jt]sx?$/, '').replace(/-[A-Za-z0-9_-]{8}$/, ''); // build hash (Vite)
     return `${fn}@${name}`;
   }
@@ -98,7 +105,8 @@ export function firstAppFrame(stack: string | null | undefined): string {
 
 /** FNV-1a, 2 × 32 bits, as 16 hex characters. Stable everywhere; not for security. */
 function hash(text: string): string {
-  let h1 = 0x811c9dc5, h2 = 0x01000193 ^ text.length;
+  let h1 = 0x811c9dc5,
+    h2 = 0x01000193 ^ text.length;
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
     h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
@@ -178,7 +186,10 @@ export class ErrorRecorder {
       const now = Date.now();
       const w = this.window.get(fingerprint);
       if (w && now - w.start < 60_000) {
-        if (w.count >= this.opts.perKindPerMinute) { w.suppressed++; return null; }
+        if (w.count >= this.opts.perKindPerMinute) {
+          w.suppressed++;
+          return null;
+        }
         w.count++;
       } else {
         if (this.window.size > 5_000) this.window.clear();
@@ -188,14 +199,27 @@ export class ErrorRecorder {
       if (this.queue.length >= this.opts.maxQueue) return null;
 
       let context = '{}';
-      try { context = redactSecrets(JSON.stringify({ ...(ctx.context ?? {}), ...(input.context ?? {}) })).slice(0, MAX_CONTEXT); } catch { /* unserialisable */ }
+      try {
+        context = redactSecrets(JSON.stringify({ ...(ctx.context ?? {}), ...(input.context ?? {}) })).slice(
+          0,
+          MAX_CONTEXT,
+        );
+      } catch {
+        /* unserialisable */
+      }
 
       this.queue.push({
-        source: this.opts.source, level, message, stack, fingerprint,
+        source: this.opts.source,
+        level,
+        message,
+        stack,
+        fingerprint,
         ref: input.ref ?? ctx.ref ?? null,
         guildId: input.guildId ?? ctx.guildId ?? null,
         userId: input.userId ?? ctx.userId ?? null,
-        context, release: this.opts.release, suppressed,
+        context,
+        release: this.opts.release,
+        suppressed,
       });
       this.schedule();
       return fingerprint;
@@ -207,7 +231,10 @@ export class ErrorRecorder {
 
   private schedule(): void {
     if (this.timer) return;
-    this.timer = setTimeout(() => { this.timer = null; void this.flush(); }, this.opts.flushMs);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.flush();
+    }, this.opts.flushMs);
     (this.timer as { unref?: () => void }).unref?.();
   }
 
@@ -216,9 +243,12 @@ export class ErrorRecorder {
     if (this.writing) await this.writing;
     if (this.queue.length === 0) return;
     const batch = this.queue.splice(0, this.queue.length);
-    this.writing = this.opts.write(batch)
+    this.writing = this.opts
+      .write(batch)
       .catch((err) => this.opts.fallbackLog(`[errorLog] dropped ${batch.length} error(s); writing them failed:`, err))
-      .finally(() => { this.writing = null; });
+      .finally(() => {
+        this.writing = null;
+      });
     await this.writing;
   }
 }
@@ -228,20 +258,25 @@ export class ErrorRecorder {
  * warnings). Most of our code logs failures this way in its catch blocks, so
  * this captures them with no other changes. Returns the original functions.
  */
-export function captureConsole(recorder: ErrorRecorder, opts: { warn?: boolean } = {}): { error: typeof console.error; warn: typeof console.warn } {
+export function captureConsole(
+  recorder: ErrorRecorder,
+  opts: { warn?: boolean } = {},
+): { error: typeof console.error; warn: typeof console.warn } {
   const original = { error: console.error.bind(console), warn: console.warn.bind(console) };
   let inside = false;
-  const wrap = (level: ErrorLevel, orig: (...a: unknown[]) => void) => (...args: unknown[]) => {
-    orig(...args);
-    if (inside) return;
-    inside = true;
-    try {
-      const { message, stack } = fromLogArgs(args);
-      recorder.record({ level, message, stack });
-    } finally {
-      inside = false;
-    }
-  };
+  const wrap =
+    (level: ErrorLevel, orig: (...a: unknown[]) => void) =>
+    (...args: unknown[]) => {
+      orig(...args);
+      if (inside) return;
+      inside = true;
+      try {
+        const { message, stack } = fromLogArgs(args);
+        recorder.record({ level, message, stack });
+      } finally {
+        inside = false;
+      }
+    };
   console.error = wrap('error', original.error);
   if (opts.warn !== false) console.warn = wrap('warn', original.warn);
   return original;

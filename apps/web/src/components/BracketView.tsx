@@ -13,15 +13,15 @@ const ROW_GAP = 16;
 const PAD = 32;
 const TITLE_H = 56;
 
-const COLOR_BG        = '#1e1f22';
-const COLOR_SLOT      = '#2b2d31';
-const COLOR_SLOT_WIN  = '#2b3d2e';
-const COLOR_TEXT      = '#dbdee1';
-const COLOR_DIM       = '#72767d';
-const COLOR_LINE      = '#404249';
-const COLOR_WIN       = '#57f287';
-const COLOR_ACTIVE    = '#5865f2';
-const COLOR_OVERDUE   = '#faa61a'; // amber — AWAITING_RESULT / overdue matches
+const COLOR_BG = '#1e1f22';
+const COLOR_SLOT = '#2b2d31';
+const COLOR_SLOT_WIN = '#2b3d2e';
+const COLOR_TEXT = '#dbdee1';
+const COLOR_DIM = '#72767d';
+const COLOR_LINE = '#404249';
+const COLOR_WIN = '#57f287';
+const COLOR_ACTIVE = '#5865f2';
+const COLOR_OVERDUE = '#faa61a'; // amber — AWAITING_RESULT / overdue matches
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,25 +37,13 @@ interface BracketViewProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function BracketView({ matches, participants, tournamentName, onSubmitResult, isManager }: BracketViewProps) {
-  const byId = useMemo(
-    () => new Map(participants.map((p) => [p.id, p])),
-    [participants],
-  );
+  const byId = useMemo(() => new Map(participants.map((p) => [p.id, p])), [participants]);
 
-  const winners = useMemo(
-    () => matches.filter((m) => m.bracketSide === 'WINNERS'),
-    [matches],
-  );
+  const winners = useMemo(() => matches.filter((m) => m.bracketSide === 'WINNERS'), [matches]);
 
-  const thirdPlace = useMemo(
-    () => matches.find((m) => m.bracketSide === 'THIRD_PLACE') ?? null,
-    [matches],
-  );
+  const thirdPlace = useMemo(() => matches.find((m) => m.bracketSide === 'THIRD_PLACE') ?? null, [matches]);
 
-  const maxRound = useMemo(
-    () => Math.max(0, ...winners.map((m) => m.round)),
-    [winners],
-  );
+  const maxRound = useMemo(() => Math.max(0, ...winners.map((m) => m.round)), [winners]);
 
   const slotsPerRound = useMemo(() => {
     const out: number[] = [];
@@ -76,9 +64,7 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
   const slots: React.ReactElement[] = [];
 
   for (let r = 1; r <= maxRound; r++) {
-    const colMatches = winners
-      .filter((m) => m.round === r)
-      .sort((a, b) => a.position - b.position);
+    const colMatches = winners.filter((m) => m.round === r).sort((a, b) => a.position - b.position);
     const nMatches = colMatches.length;
     const cellH = bracketH / nMatches;
     const x = PAD + (r - 1) * (SLOT_W + COL_GAP);
@@ -87,8 +73,9 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
       const pA = match.participantAId ? byId.get(match.participantAId) : null;
       const pB = match.participantBId ? byId.get(match.participantBId) : null;
       const isComplete = match.status === 'COMPLETED' || match.status === 'BYE';
-      const isCurrent = match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS' || match.status === 'READY_CHECK';
-      const isOverdue  = match.status === 'AWAITING_RESULT';
+      const isCurrent =
+        match.status === 'SCHEDULED' || match.status === 'IN_PROGRESS' || match.status === 'READY_CHECK';
+      const isOverdue = match.status === 'AWAITING_RESULT';
       const canSubmit = isManager && !isComplete && pA && pB;
 
       const matchTopY = PAD + TITLE_H + mi * cellH + (cellH - slotPairH) / 2;
@@ -102,7 +89,8 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
       slots.push(
         <MatchSlot
           key={`${match.id}-A`}
-          x={x} y={yA}
+          x={x}
+          y={yA}
           participant={pA ?? null}
           isWinner={!!wonA}
           isComplete={isComplete}
@@ -115,7 +103,8 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
       slots.push(
         <MatchSlot
           key={`${match.id}-B`}
-          x={x} y={yB}
+          x={x}
+          y={yB}
           participant={pB ?? null}
           isWinner={!!wonB}
           isComplete={isComplete}
@@ -154,14 +143,13 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
         slots.push(
           <Tooltip key={`${match.id}-tip`}>
             <TooltipTrigger asChild>
-              <rect
-                x={x} y={matchTopY}
-                width={SLOT_W} height={slotPairH}
-                fill="transparent" className="cursor-help"
-              />
+              <rect x={x} y={matchTopY} width={SLOT_W} height={slotPairH} fill="transparent" className="cursor-help" />
             </TooltipTrigger>
             <TooltipContent>
-              <span>Winner: {winner?.displayName ?? '?'}{scoreText}</span>
+              <span>
+                Winner: {winner?.displayName ?? '?'}
+                {scoreText}
+              </span>
             </TooltipContent>
           </Tooltip>,
         );
@@ -175,15 +163,27 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
         const nextCellH = bracketH / nextNMatches;
         const nextMi = Math.floor(mi / 2);
         const nextMatchTopY = PAD + TITLE_H + nextMi * nextCellH + (nextCellH - slotPairH) / 2;
-        const targetY = mi % 2 === 0
-          ? nextMatchTopY + SLOT_H / 2
-          : nextMatchTopY + SLOT_H + ROW_GAP + SLOT_H / 2;
+        const targetY = mi % 2 === 0 ? nextMatchTopY + SLOT_H / 2 : nextMatchTopY + SLOT_H + ROW_GAP + SLOT_H / 2;
 
         connectors.push(
           <React.Fragment key={`conn-${match.id}`}>
             <line x1={xRight} y1={midY} x2={xRight + COL_GAP / 2} y2={midY} stroke={COLOR_LINE} strokeWidth={1.5} />
-            <line x1={xRight + COL_GAP / 2} y1={midY} x2={xRight + COL_GAP / 2} y2={targetY} stroke={COLOR_LINE} strokeWidth={1.5} />
-            <line x1={xRight + COL_GAP / 2} y1={targetY} x2={xRight + COL_GAP} y2={targetY} stroke={COLOR_LINE} strokeWidth={1.5} />
+            <line
+              x1={xRight + COL_GAP / 2}
+              y1={midY}
+              x2={xRight + COL_GAP / 2}
+              y2={targetY}
+              stroke={COLOR_LINE}
+              strokeWidth={1.5}
+            />
+            <line
+              x1={xRight + COL_GAP / 2}
+              y1={targetY}
+              x2={xRight + COL_GAP}
+              y2={targetY}
+              stroke={COLOR_LINE}
+              strokeWidth={1.5}
+            />
           </React.Fragment>,
         );
       }
@@ -228,64 +228,105 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
         {slots}
 
         {/* ── 3rd-place match ─────────────────────────────────────────── */}
-        {thirdPlace && (() => {
-          const tpX = PAD + (maxRound - 1) * (SLOT_W + COL_GAP);
-          const tpSectionY = PAD + TITLE_H + bracketH + PAD;
-          const tpYA = tpSectionY + 18;
-          const tpYB = tpYA + SLOT_H + ROW_GAP;
+        {thirdPlace &&
+          (() => {
+            const tpX = PAD + (maxRound - 1) * (SLOT_W + COL_GAP);
+            const tpSectionY = PAD + TITLE_H + bracketH + PAD;
+            const tpYA = tpSectionY + 18;
+            const tpYB = tpYA + SLOT_H + ROW_GAP;
 
-          const tpA = thirdPlace.participantAId ? byId.get(thirdPlace.participantAId) : null;
-          const tpB = thirdPlace.participantBId ? byId.get(thirdPlace.participantBId) : null;
-          const tpComplete = thirdPlace.status === 'COMPLETED';
-          const tpCurrent  = thirdPlace.status === 'SCHEDULED' || thirdPlace.status === 'IN_PROGRESS' || thirdPlace.status === 'READY_CHECK';
-          const tpOverdue  = thirdPlace.status === 'AWAITING_RESULT';
-          const tpWonA = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantAId;
-          const tpWonB = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantBId;
-          const tpCanSubmit = isManager && !tpComplete && tpA && tpB;
+            const tpA = thirdPlace.participantAId ? byId.get(thirdPlace.participantAId) : null;
+            const tpB = thirdPlace.participantBId ? byId.get(thirdPlace.participantBId) : null;
+            const tpComplete = thirdPlace.status === 'COMPLETED';
+            const tpCurrent =
+              thirdPlace.status === 'SCHEDULED' ||
+              thirdPlace.status === 'IN_PROGRESS' ||
+              thirdPlace.status === 'READY_CHECK';
+            const tpOverdue = thirdPlace.status === 'AWAITING_RESULT';
+            const tpWonA = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantAId;
+            const tpWonB = thirdPlace.winnerId != null && thirdPlace.winnerId === thirdPlace.participantBId;
+            const tpCanSubmit = isManager && !tpComplete && tpA && tpB;
 
-          return (
-            <g key="third-place">
-              {/* Divider */}
-              <line x1={0} y1={tpSectionY - 1} x2={svgW} y2={tpSectionY - 1} stroke={COLOR_LINE} strokeWidth={1} />
-              {/* Label */}
-              <text x={tpX + SLOT_W / 2} y={tpSectionY + 13} fill={COLOR_DIM} fontSize={9} fontWeight="bold" textAnchor="middle">
-                3RD PLACE
-              </text>
-              <MatchSlot x={tpX} y={tpYA} participant={tpA ?? null} isWinner={tpWonA} isComplete={tpComplete} isCurrent={tpCurrent} isOverdue={tpOverdue} score={thirdPlace.scoreA} />
-              <MatchSlot x={tpX} y={tpYB} participant={tpB ?? null} isWinner={tpWonB} isComplete={tpComplete} isCurrent={tpCurrent} isOverdue={tpOverdue} score={thirdPlace.scoreB} />
+            return (
+              <g key="third-place">
+                {/* Divider */}
+                <line x1={0} y1={tpSectionY - 1} x2={svgW} y2={tpSectionY - 1} stroke={COLOR_LINE} strokeWidth={1} />
+                {/* Label */}
+                <text
+                  x={tpX + SLOT_W / 2}
+                  y={tpSectionY + 13}
+                  fill={COLOR_DIM}
+                  fontSize={9}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  3RD PLACE
+                </text>
+                <MatchSlot
+                  x={tpX}
+                  y={tpYA}
+                  participant={tpA ?? null}
+                  isWinner={tpWonA}
+                  isComplete={tpComplete}
+                  isCurrent={tpCurrent}
+                  isOverdue={tpOverdue}
+                  score={thirdPlace.scoreA}
+                />
+                <MatchSlot
+                  x={tpX}
+                  y={tpYB}
+                  participant={tpB ?? null}
+                  isWinner={tpWonB}
+                  isComplete={tpComplete}
+                  isCurrent={tpCurrent}
+                  isOverdue={tpOverdue}
+                  score={thirdPlace.scoreB}
+                />
 
-              {/* Manager result button */}
-              {tpCanSubmit && (
-                <foreignObject x={tpX + SLOT_W - 60} y={tpYA + slotPairH / 2 - 12} width={56} height={24}>
-                  <button
-                    // @ts-expect-error xmlns required for SVG foreignObject
-                    xmlns="http://www.w3.org/1999/xhtml"
-                    onClick={() => onSubmitResult?.(thirdPlace)}
-                    className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded"
-                  >
-                    Result
-                  </button>
-                </foreignObject>
-              )}
+                {/* Manager result button */}
+                {tpCanSubmit && (
+                  <foreignObject x={tpX + SLOT_W - 60} y={tpYA + slotPairH / 2 - 12} width={56} height={24}>
+                    <button
+                      // @ts-expect-error xmlns required for SVG foreignObject
+                      xmlns="http://www.w3.org/1999/xhtml"
+                      onClick={() => onSubmitResult?.(thirdPlace)}
+                      className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded"
+                    >
+                      Result
+                    </button>
+                  </foreignObject>
+                )}
 
-              {/* Winner tooltip */}
-              {tpComplete && thirdPlace.winnerId && (() => {
-                const winner = byId.get(thirdPlace.winnerId);
-                const scoreText = thirdPlace.scoreA != null ? ` (${thirdPlace.scoreA}–${thirdPlace.scoreB})` : '';
-                return (
-                  <Tooltip key="tp-tip">
-                    <TooltipTrigger asChild>
-                      <rect x={tpX} y={tpYA} width={SLOT_W} height={slotPairH} fill="transparent" className="cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <span>🥉 3rd Place: {winner?.displayName ?? '?'}{scoreText}</span>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })()}
-            </g>
-          );
-        })()}
+                {/* Winner tooltip */}
+                {tpComplete &&
+                  thirdPlace.winnerId &&
+                  (() => {
+                    const winner = byId.get(thirdPlace.winnerId);
+                    const scoreText = thirdPlace.scoreA != null ? ` (${thirdPlace.scoreA}–${thirdPlace.scoreB})` : '';
+                    return (
+                      <Tooltip key="tp-tip">
+                        <TooltipTrigger asChild>
+                          <rect
+                            x={tpX}
+                            y={tpYA}
+                            width={SLOT_W}
+                            height={slotPairH}
+                            fill="transparent"
+                            className="cursor-help"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <span>
+                            🥉 3rd Place: {winner?.displayName ?? '?'}
+                            {scoreText}
+                          </span>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })()}
+              </g>
+            );
+          })()}
       </svg>
     </div>
   );
@@ -294,7 +335,8 @@ export function BracketView({ matches, participants, tournamentName, onSubmitRes
 // ── Participant slot ──────────────────────────────────────────────────────────
 
 interface MatchSlotProps {
-  x: number; y: number;
+  x: number;
+  y: number;
   participant: TournamentParticipant | null | undefined;
   isWinner: boolean;
   isComplete: boolean;
@@ -311,15 +353,20 @@ function MatchSlot({ x, y, participant, isWinner, isComplete, isCurrent, isOverd
 
   // Show score if present; show seed only when there is no score (avoids overlap)
   const showScore = score != null;
-  const showSeed  = participant?.seed != null && !showScore;
+  const showSeed = participant?.seed != null && !showScore;
 
   return (
     <g>
       <rect
-        x={x} y={y}
-        width={SLOT_W} height={SLOT_H}
-        rx={SLOT_R} ry={SLOT_R}
-        fill={fillColor} stroke={borderColor} strokeWidth={1.5}
+        x={x}
+        y={y}
+        width={SLOT_W}
+        height={SLOT_H}
+        rx={SLOT_R}
+        ry={SLOT_R}
+        fill={fillColor}
+        stroke={borderColor}
+        strokeWidth={1.5}
       />
       <text x={x + 8} y={y + SLOT_H / 2 + 5} fill={textColor} fontSize={12}>
         {label}
@@ -330,7 +377,14 @@ function MatchSlot({ x, y, participant, isWinner, isComplete, isCurrent, isOverd
         </text>
       )}
       {showScore && (
-        <text x={x + SLOT_W - 28} y={y + SLOT_H / 2 + 5} fill={textColor} fontSize={11} fontWeight="bold" textAnchor="middle">
+        <text
+          x={x + SLOT_W - 28}
+          y={y + SLOT_H / 2 + 5}
+          fill={textColor}
+          fontSize={11}
+          fontWeight="bold"
+          textAnchor="middle"
+        >
           {score}
         </text>
       )}

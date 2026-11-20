@@ -5,8 +5,18 @@
 
 import { Router, type Request } from 'express';
 import {
-  buildWikeloMissions, WIKELO_CONTRACTS_SQL, isGameDataMissingError, parseTicked, wikeloBaseShipName, shipIndex, matchShip,
-  type ApiResponse, type WikeloContractJson, type WikeloDataDto, type WikeloMission, type WikeloProgressDto,
+  buildWikeloMissions,
+  WIKELO_CONTRACTS_SQL,
+  isGameDataMissingError,
+  parseTicked,
+  wikeloBaseShipName,
+  shipIndex,
+  matchShip,
+  type ApiResponse,
+  type WikeloContractJson,
+  type WikeloDataDto,
+  type WikeloMission,
+  type WikeloProgressDto,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -26,13 +36,20 @@ const REBUILD_MS = 60 * 60_000;
 
 /** For tests: missions to use instead of scdata (null = back to scdata). */
 let testData: WikeloDataDto | null = null;
-export function useWikeloDataForTests(data: WikeloDataDto | null): void { testData = data; cached = null; }
+export function useWikeloDataForTests(data: WikeloDataDto | null): void {
+  testData = data;
+  cached = null;
+}
 
 export async function getWikeloData(): Promise<WikeloDataDto | null> {
   if (testData) return testData;
   let source: { commit: string | null; build: string | null } | undefined;
   try {
-    source = (await prisma.$queryRawUnsafe<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1'))[0];
+    source = (
+      await prisma.$queryRawUnsafe<{ commit: string | null; build: string | null }[]>(
+        'SELECT commit, build FROM scdata.source LIMIT 1',
+      )
+    )[0];
   } catch (err) {
     if (isGameDataMissingError(err)) return null;
     throw err;
@@ -59,18 +76,21 @@ async function addShipImages(missions: WikeloMission[]): Promise<void> {
     const main = items.find((i) => /\bWikelo\b/.test(i.name)) ?? items[0];
     if (!main) continue;
     const hit = matchShip(wikeloBaseShipName(main.name), index);
-    m.image = hit.status === 'matched' ? hit.ship.imageUrl ?? hit.ship.thumbUrl : null;
+    m.image = hit.status === 'matched' ? (hit.ship.imageUrl ?? hit.ship.thumbUrl) : null;
   }
 }
 
 wikeloRouter.get('/wikelo', requireAuth, async (_req, res) => {
   try {
     const data = await getWikeloData();
-    if (!data) { fail(res, 503, 'Game data isn\'t available yet. Try again in a few minutes.'); return; }
+    if (!data) {
+      fail(res, 503, "Game data isn't available yet. Try again in a few minutes.");
+      return;
+    }
     res.json({ success: true, data } satisfies ApiResponse<WikeloDataDto>);
   } catch (err) {
     console.error('[wikelo] GET /wikelo:', err);
-    fail(res, 500, 'Could not load Wikelo\'s missions');
+    fail(res, 500, "Could not load Wikelo's missions");
   }
 });
 
@@ -82,7 +102,9 @@ async function discordIdOf(req: Request): Promise<string> {
 }
 
 const toDto = (r: { missionId: string; ticked: string; completedAt: Date | null }): WikeloProgressDto => ({
-  missionId: r.missionId, ticked: parseTicked(r.ticked), completedAt: r.completedAt?.toISOString() ?? null,
+  missionId: r.missionId,
+  ticked: parseTicked(r.ticked),
+  completedAt: r.completedAt?.toISOString() ?? null,
 });
 
 wikeloRouter.get('/me/wikelo', requireAuth, async (req, res) => {
@@ -101,11 +123,17 @@ wikeloRouter.get('/me/wikelo', requireAuth, async (req, res) => {
  */
 wikeloRouter.put('/me/wikelo/:missionId', requireAuth, async (req, res) => {
   const body = req.body as { ticked?: unknown; completed?: unknown };
-  if (!Array.isArray(body.ticked) || typeof body.completed !== 'boolean') { fail(res, 400, 'Send ticked (a list) and completed (true or false)'); return; }
+  if (!Array.isArray(body.ticked) || typeof body.completed !== 'boolean') {
+    fail(res, 400, 'Send ticked (a list) and completed (true or false)');
+    return;
+  }
   try {
     const data = await getWikeloData();
     const mission = data?.missions.find((m) => m.id === req.params.missionId);
-    if (!mission) { fail(res, 404, 'That mission isn\'t in the game data'); return; }
+    if (!mission) {
+      fail(res, 404, "That mission isn't in the game data");
+      return;
+    }
     const keys = new Set(mission.turnIn.map((t) => t.key));
     const ticked = [...new Set(body.ticked.filter((k): k is string => typeof k === 'string' && keys.has(k)))];
     const discordId = await discordIdOf(req);
@@ -113,12 +141,15 @@ wikeloRouter.put('/me/wikelo/:missionId', requireAuth, async (req, res) => {
 
     if (!ticked.length && !body.completed) {
       await prisma.wikeloProgress.deleteMany({ where: { discordId, missionId: mission.id } });
-      res.json({ success: true, data: { missionId: mission.id, ticked: [], completedAt: null } } satisfies ApiResponse<WikeloProgressDto>);
+      res.json({
+        success: true,
+        data: { missionId: mission.id, ticked: [], completedAt: null },
+      } satisfies ApiResponse<WikeloProgressDto>);
       return;
     }
     const existing = await prisma.wikeloProgress.findUnique({ where });
     // Keep the first completion time while it stays complete.
-    const completedAt = body.completed ? existing?.completedAt ?? new Date() : null;
+    const completedAt = body.completed ? (existing?.completedAt ?? new Date()) : null;
     const row = await prisma.wikeloProgress.upsert({
       where,
       create: { discordId, missionId: mission.id, ticked: JSON.stringify(ticked), completedAt },

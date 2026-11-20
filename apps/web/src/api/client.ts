@@ -24,16 +24,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
 
   if (!res.ok) {
-    throw new ApiError(res.status, (body as { error?: string }).error ?? `Request failed (${res.status})`, res.headers.get('X-Request-Id'));
+    throw new ApiError(
+      res.status,
+      (body as { error?: string }).error ?? `Request failed (${res.status})`,
+      res.headers.get('X-Request-Id'),
+    );
   }
 
   return body as T;
 }
 
 export const api = {
-  get:    <T>(path: string)                   => request<T>(path),
-  post:   <T>(path: string, data?: unknown)   => request<T>(path, { method: 'POST',   body: data != null ? JSON.stringify(data) : undefined }),
-  put:    <T>(path: string, data?: unknown)   => request<T>(path, { method: 'PUT',    body: data != null ? JSON.stringify(data) : undefined }),
-  patch:  <T>(path: string, data?: unknown)   => request<T>(path, { method: 'PATCH',  body: data != null ? JSON.stringify(data) : undefined }),
-  delete: <T>(path: string)                   => request<T>(path, { method: 'DELETE' }),
+  get: <T>(path: string) => request<T>(path),
+  post: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: 'POST', body: data != null ? JSON.stringify(data) : undefined }),
+  put: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: 'PUT', body: data != null ? JSON.stringify(data) : undefined }),
+  patch: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: 'PATCH', body: data != null ? JSON.stringify(data) : undefined }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };

@@ -36,25 +36,52 @@ describe('calendar feed', () => {
     const token = (await agent.get('/api/me/calendar')).body.data.token as string;
     const g = await createGuild({ name: 'Northern Coalition' });
     const start = new Date('2030-01-05T20:00:00Z');
-    const roles = JSON.stringify([{ id: 'p', name: 'Pilot', count: 1 }, { id: 'm', name: 'Miner', count: 4 }]);
-    const mine = await createEvent(g.guildId, 'host', { name: 'Mining op, Aaron Halo', roles, startTime: start, musterPoint: 'Lorville', threadId: 't1', description: 'Bring a MOLE' });
-    const waiting = await createEvent(g.guildId, 'host', { name: 'Escort run', roles, startTime: new Date('2030-01-06T20:00:00Z'), endTime: new Date('2030-01-06T23:00:00Z') });
+    const roles = JSON.stringify([
+      { id: 'p', name: 'Pilot', count: 1 },
+      { id: 'm', name: 'Miner', count: 4 },
+    ]);
+    const mine = await createEvent(g.guildId, 'host', {
+      name: 'Mining op, Aaron Halo',
+      roles,
+      startTime: start,
+      musterPoint: 'Lorville',
+      threadId: 't1',
+      description: 'Bring a MOLE',
+    });
+    const waiting = await createEvent(g.guildId, 'host', {
+      name: 'Escort run',
+      roles,
+      startTime: new Date('2030-01-06T20:00:00Z'),
+      endTime: new Date('2030-01-06T23:00:00Z'),
+    });
     const notMine = await createEvent(g.guildId, 'host', { name: 'Not signed up', startTime: start });
-    const cancelled = await createEvent(g.guildId, 'host', { name: 'Called off', startTime: start, status: 'CANCELLED' });
-    const old = await createEvent(g.guildId, 'host', { name: 'Last year', startTime: new Date('2020-01-01T00:00:00Z'), status: 'COMPLETED' });
-    await prisma.eventRsvp.createMany({ data: [
-      { eventId: mine.id, userId: user.discordId, username: 'me', role: 'm' },
-      { eventId: waiting.id, userId: user.discordId, username: 'me', role: null },
-      { eventId: waiting.id, userId: 'someone', username: 'x', role: 'p' },
-      { eventId: waiting.id, userId: 'ahead', username: 'y', role: null },
-      { eventId: notMine.id, userId: 'someone', username: 'x', role: null },
-      { eventId: cancelled.id, userId: user.discordId, username: 'me', role: null },
-      { eventId: old.id, userId: user.discordId, username: 'me', role: null },
-    ] });
-    await prisma.eventWaitlist.createMany({ data: [
-      { eventId: waiting.id, userId: 'ahead', role: 'p', guildId: g.guildId },
-      { eventId: waiting.id, userId: user.discordId, role: 'p', guildId: g.guildId },
-    ] });
+    const cancelled = await createEvent(g.guildId, 'host', {
+      name: 'Called off',
+      startTime: start,
+      status: 'CANCELLED',
+    });
+    const old = await createEvent(g.guildId, 'host', {
+      name: 'Last year',
+      startTime: new Date('2020-01-01T00:00:00Z'),
+      status: 'COMPLETED',
+    });
+    await prisma.eventRsvp.createMany({
+      data: [
+        { eventId: mine.id, userId: user.discordId, username: 'me', role: 'm' },
+        { eventId: waiting.id, userId: user.discordId, username: 'me', role: null },
+        { eventId: waiting.id, userId: 'someone', username: 'x', role: 'p' },
+        { eventId: waiting.id, userId: 'ahead', username: 'y', role: null },
+        { eventId: notMine.id, userId: 'someone', username: 'x', role: null },
+        { eventId: cancelled.id, userId: user.discordId, username: 'me', role: null },
+        { eventId: old.id, userId: user.discordId, username: 'me', role: null },
+      ],
+    });
+    await prisma.eventWaitlist.createMany({
+      data: [
+        { eventId: waiting.id, userId: 'ahead', role: 'p', guildId: g.guildId },
+        { eventId: waiting.id, userId: user.discordId, role: 'p', guildId: g.guildId },
+      ],
+    });
 
     const res = await request(app).get(feedPath(token)).expect(200);
     expect(res.headers['content-type']).toMatch(/^text\/calendar/);
@@ -74,7 +101,9 @@ describe('calendar feed', () => {
   });
 
   it('a made-up or malformed link finds nothing', async () => {
-    await request(app).get(feedPath('x'.repeat(32))).expect(404);
+    await request(app)
+      .get(feedPath('x'.repeat(32)))
+      .expect(404);
     await request(app).get(feedPath('short')).expect(404);
   });
 });

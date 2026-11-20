@@ -6,12 +6,12 @@ import type { ApiResponse, UserNotificationPrefsDto, UpdateNotificationPrefsBody
 export const notificationsRouter = Router();
 
 const DEFAULTS: UserNotificationPrefsDto = {
-  dmTradeRequest:   true,
-  dmTradeStatus:    true,
+  dmTradeRequest: true,
+  dmTradeStatus: true,
   dmTradeCancelled: true,
-  dmTradeMessage:   true,
-  dmEventReminder:  true,
-  dmLootComplete:   true,
+  dmTradeMessage: true,
+  dmEventReminder: true,
+  dmLootComplete: true,
 };
 
 // ── GET /api/notifications/prefs ──────────────────────────────────────────────
@@ -37,8 +37,12 @@ notificationsRouter.put('/notifications/prefs', requireAuth, async (req, res) =>
   const body = req.body as UpdateNotificationPrefsBody;
 
   const allowed: (keyof UserNotificationPrefsDto)[] = [
-    'dmTradeRequest', 'dmTradeStatus', 'dmTradeCancelled',
-    'dmTradeMessage', 'dmEventReminder', 'dmLootComplete',
+    'dmTradeRequest',
+    'dmTradeStatus',
+    'dmTradeCancelled',
+    'dmTradeMessage',
+    'dmEventReminder',
+    'dmLootComplete',
   ];
 
   const update: Partial<UserNotificationPrefsDto> = {};

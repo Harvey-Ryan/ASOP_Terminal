@@ -12,20 +12,24 @@ import type { GuildSettingsData } from '@/api/settings';
 import { useAuth } from '@/hooks/useAuth';
 
 type StepState = 'idle' | 'running' | 'done' | 'error';
-interface TestStep { label: string; state: StepState; detail?: string; }
+interface TestStep {
+  label: string;
+  state: StepState;
+  detail?: string;
+}
 
 // Fake Discord snowflake IDs used only for the lifecycle test so ELO ratings
 // are exercised. These IDs are below the valid Discord snowflake range and will
 // never collide with real users.
 const LIFECYCLE_PARTICIPANTS = [
-  { name: 'Alice',   discordId: '999000000000001' },
-  { name: 'Bob',     discordId: '999000000000002' },
+  { name: 'Alice', discordId: '999000000000001' },
+  { name: 'Bob', discordId: '999000000000002' },
   { name: 'Charlie', discordId: '999000000000003' },
-  { name: 'Diana',   discordId: '999000000000004' },
-  { name: 'Eve',     discordId: '999000000000005' },
-  { name: 'Frank',   discordId: '999000000000006' },
-  { name: 'Grace',   discordId: '999000000000007' },
-  { name: 'Henry',   discordId: '999000000000008' },
+  { name: 'Diana', discordId: '999000000000004' },
+  { name: 'Eve', discordId: '999000000000005' },
+  { name: 'Frank', discordId: '999000000000006' },
+  { name: 'Grace', discordId: '999000000000007' },
+  { name: 'Henry', discordId: '999000000000008' },
 ];
 const PAUSE_SECONDS = 30;
 // How long real users have to self-register from Discord before the bracket starts.
@@ -110,27 +114,51 @@ export function TournamentSettingsPage() {
   });
 
   function saveEnabled() {
-    save.mutate({ tournamentsEnabled: enabled }, {
-      onSuccess: () => { setEnabledDirty(false); flash(setEnabledFlash); },
-    });
+    save.mutate(
+      { tournamentsEnabled: enabled },
+      {
+        onSuccess: () => {
+          setEnabledDirty(false);
+          flash(setEnabledFlash);
+        },
+      },
+    );
   }
 
   function saveChannel() {
-    save.mutate({ tournamentChannelId: channelId }, {
-      onSuccess: () => { setChannelDirty(false); flash(setChannelFlash); },
-    });
+    save.mutate(
+      { tournamentChannelId: channelId },
+      {
+        onSuccess: () => {
+          setChannelDirty(false);
+          flash(setChannelFlash);
+        },
+      },
+    );
   }
 
   function saveH2hChannel() {
-    save.mutate({ h2hChannelId: h2hChannelId }, {
-      onSuccess: () => { setH2hChannelDirty(false); flash(setH2hChannelFlash); },
-    });
+    save.mutate(
+      { h2hChannelId: h2hChannelId },
+      {
+        onSuccess: () => {
+          setH2hChannelDirty(false);
+          flash(setH2hChannelFlash);
+        },
+      },
+    );
   }
 
   function saveHideElo() {
-    save.mutate({ tournamentHideElo: hideElo }, {
-      onSuccess: () => { setHideEloDirty(false); flash(setHideEloFlash); },
-    });
+    save.mutate(
+      { tournamentHideElo: hideElo },
+      {
+        onSuccess: () => {
+          setHideEloDirty(false);
+          flash(setHideEloFlash);
+        },
+      },
+    );
   }
 
   function buildInitialSteps(): TestStep[] {
@@ -203,7 +231,8 @@ export function TournamentSettingsPage() {
       patchStep(idx, { state: 'done', detail: r.name });
     } catch (e) {
       patchStep(idx, { state: 'error', detail: (e as Error).message });
-      setTestRunning(false); return;
+      setTestRunning(false);
+      return;
     }
     idx++;
 
@@ -218,7 +247,8 @@ export function TournamentSettingsPage() {
       patchStep(idx, { state: 'done' });
     } catch (e) {
       patchStep(idx, { state: 'error', detail: (e as Error).message });
-      setTestRunning(false); return;
+      setTestRunning(false);
+      return;
     }
     idx++;
 
@@ -230,7 +260,8 @@ export function TournamentSettingsPage() {
         patchStep(idx, { state: 'done' });
       } catch (e) {
         patchStep(idx, { state: 'error', detail: (e as Error).message });
-        setTestRunning(false); return;
+        setTestRunning(false);
+        return;
       }
       await sleep(2_500); // rate-limit buffer between Discord embed edits
       idx++;
@@ -246,13 +277,16 @@ export function TournamentSettingsPage() {
     try {
       const snap = await tournamentApi.get(guildId!, tid);
       finalCount = snap.participants.length;
-    } catch { /* non-fatal — count is just for the step detail */ }
+    } catch {
+      /* non-fatal — count is just for the step detail */
+    }
     const realCount = finalCount - LIFECYCLE_PARTICIPANTS.length;
     patchStep(idx, {
       state: 'done',
-      detail: realCount > 0
-        ? `${finalCount} participants (${realCount} real user${realCount > 1 ? 's' : ''} joined!)`
-        : `${finalCount} participants — no real users joined`,
+      detail:
+        realCount > 0
+          ? `${finalCount} participants (${realCount} real user${realCount > 1 ? 's' : ''} joined!)`
+          : `${finalCount} participants — no real users joined`,
     });
     idx++;
 
@@ -263,7 +297,8 @@ export function TournamentSettingsPage() {
       patchStep(idx, { state: 'done' });
     } catch (e) {
       patchStep(idx, { state: 'error', detail: (e as Error).message });
-      setTestRunning(false); return;
+      setTestRunning(false);
+      return;
     }
     idx++;
 
@@ -311,7 +346,8 @@ export function TournamentSettingsPage() {
           patchStep(idx, { state: 'done', detail: '2 – 1' });
         } catch (e) {
           patchStep(idx, { state: 'error', detail: (e as Error).message });
-          setTestRunning(false); return;
+          setTestRunning(false);
+          return;
         }
         idx++;
         // 30s after each result: result card + bracket refresh (+ next-round card if applicable)
@@ -332,17 +368,29 @@ export function TournamentSettingsPage() {
           <CardTitle className="text-base">Tournaments Module</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loading ? <Skeleton className="h-8 w-full" /> : (
+          {loading ? (
+            <Skeleton className="h-8 w-full" />
+          ) : (
             <ToggleSwitch
               label="Enable Tournaments"
               description="Show the Tournaments page in the sidebar and allow managers to create and run brackets."
               checked={enabled}
-              onChange={(v) => { setEnabled(v); setEnabledDirty(true); }}
+              onChange={(v) => {
+                setEnabled(v);
+                setEnabledDirty(true);
+              }}
             />
           )}
           {enabledDirty && (
             <Button size="sm" onClick={saveEnabled} disabled={save.isPending}>
-              {enabledFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+              {enabledFlash ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Saved
+                </>
+              ) : (
+                'Save'
+              )}
             </Button>
           )}
         </CardContent>
@@ -355,27 +403,36 @@ export function TournamentSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Forum channel where tournament threads are created. Must be a Discord forum channel (📋) —
-            the bot creates one thread per tournament for announcements and match cards.
-            Each tournament can override this individually.
+            Forum channel where tournament threads are created. Must be a Discord forum channel (📋) — the bot creates
+            one thread per tournament for announcements and match cards. Each tournament can override this individually.
           </p>
-          {loading ? <Skeleton className="h-9 w-full" /> : (
+          {loading ? (
+            <Skeleton className="h-9 w-full" />
+          ) : (
             <ChannelSelect
               id="tournament-channel"
               channels={channels}
               value={channelId}
-              onChange={(v) => { setChannelId(v); setChannelDirty(true); }}
+              onChange={(v) => {
+                setChannelId(v);
+                setChannelDirty(true);
+              }}
               types={[15]}
             />
           )}
           {channelDirty && (
             <Button size="sm" onClick={saveChannel} disabled={save.isPending}>
-              {channelFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+              {channelFlash ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Saved
+                </>
+              ) : (
+                'Save'
+              )}
             </Button>
           )}
-          {save.isError && (
-            <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>
-          )}
+          {save.isError && <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>}
         </CardContent>
       </Card>
 
@@ -386,27 +443,37 @@ export function TournamentSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Text channel where manual Head-to-Head results are posted when the announce option is checked.
-            Use a standard text or announcement channel — not a forum. Falls back to the tournament
-            forum channel if left unset.
+            Text channel where manual Head-to-Head results are posted when the announce option is checked. Use a
+            standard text or announcement channel — not a forum. Falls back to the tournament forum channel if left
+            unset.
           </p>
-          {loading ? <Skeleton className="h-9 w-full" /> : (
+          {loading ? (
+            <Skeleton className="h-9 w-full" />
+          ) : (
             <ChannelSelect
               id="h2h-channel"
               channels={textChannels}
               value={h2hChannelId}
-              onChange={(v) => { setH2hChannelId(v); setH2hChannelDirty(true); }}
+              onChange={(v) => {
+                setH2hChannelId(v);
+                setH2hChannelDirty(true);
+              }}
               types={[0, 5]}
             />
           )}
           {h2hChannelDirty && (
             <Button size="sm" onClick={saveH2hChannel} disabled={save.isPending}>
-              {h2hChannelFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+              {h2hChannelFlash ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Saved
+                </>
+              ) : (
+                'Save'
+              )}
             </Button>
           )}
-          {save.isError && (
-            <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>
-          )}
+          {save.isError && <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>}
         </CardContent>
       </Card>
 
@@ -417,112 +484,127 @@ export function TournamentSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            When enabled, ELO ratings and the Rankings tab are hidden from the Tournaments
-            page. Ratings are still calculated internally — this only affects what members see.
+            When enabled, ELO ratings and the Rankings tab are hidden from the Tournaments page. Ratings are still
+            calculated internally — this only affects what members see.
           </p>
-          {loading ? <Skeleton className="h-8 w-full" /> : (
+          {loading ? (
+            <Skeleton className="h-8 w-full" />
+          ) : (
             <ToggleSwitch
               label="Hide ELO Ratings"
               description="Hides the Rankings tab, ELO change summaries, and rating numbers from all members."
               checked={hideElo}
-              onChange={(v) => { setHideElo(v); setHideEloDirty(true); }}
+              onChange={(v) => {
+                setHideElo(v);
+                setHideEloDirty(true);
+              }}
             />
           )}
           {hideEloDirty && (
             <Button size="sm" onClick={saveHideElo} disabled={save.isPending}>
-              {hideEloFlash ? <><Check className="h-4 w-4 mr-1" />Saved</> : 'Save'}
+              {hideEloFlash ? (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Saved
+                </>
+              ) : (
+                'Save'
+              )}
             </Button>
           )}
-          {save.isError && (
-            <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>
-          )}
+          {save.isError && <p className="text-xs text-destructive">Failed to save — {(save.error as Error).message}</p>}
         </CardContent>
       </Card>
 
       {/* ── Lifecycle test (platform admins only) ──────────────────────────── */}
-      {isPlatformAdmin && <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Lifecycle Test</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Walks through the full tournament lifecycle end-to-end using an <strong>open-roster</strong> tournament.
-            Registers 8 fake participants, then opens a {REGISTRATION_WINDOW_SECONDS}-second window so real users
-            can join from the Discord announcement before the bracket locks. The bracket sizes automatically
-            from whoever registered. Pauses {PAUSE_SECONDS}s between Discord-triggering stages so you can observe each post.
-          </p>
-          <Button size="sm" variant="outline" onClick={runTest} disabled={testRunning}>
-            {testRunning
-              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Running…</>
-              : 'Run Lifecycle Test'}
-          </Button>
+      {isPlatformAdmin && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Lifecycle Test</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Walks through the full tournament lifecycle end-to-end using an <strong>open-roster</strong> tournament.
+              Registers 8 fake participants, then opens a {REGISTRATION_WINDOW_SECONDS}-second window so real users can
+              join from the Discord announcement before the bracket locks. The bracket sizes automatically from whoever
+              registered. Pauses {PAUSE_SECONDS}s between Discord-triggering stages so you can observe each post.
+            </p>
+            <Button size="sm" variant="outline" onClick={runTest} disabled={testRunning}>
+              {testRunning ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Running…
+                </>
+              ) : (
+                'Run Lifecycle Test'
+              )}
+            </Button>
 
-          {testSteps.some((s) => s.state !== 'idle') && (
-            <div className="space-y-1.5 pt-1">
-              {testSteps.map((step, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  {step.state === 'idle' && (
-                    <div className="h-4 w-4 shrink-0 rounded-full border border-muted-foreground/30" />
-                  )}
-                  {step.state === 'running' && (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                  )}
-                  {step.state === 'done' && (
-                    <Check className="h-4 w-4 shrink-0 text-green-500" />
-                  )}
-                  {step.state === 'error' && (
-                    <X className="h-4 w-4 shrink-0 text-destructive" />
-                  )}
-                  <span className={
-                    step.state === 'error'   ? 'text-destructive' :
-                    step.state === 'running' ? 'font-medium' :
-                    step.state === 'done'    ? 'text-foreground' :
-                    'text-muted-foreground'
-                  }>
-                    {step.label}
-                  </span>
-                  {step.detail && (
-                    <span className="text-xs text-muted-foreground">— {step.detail}</span>
-                  )}
-                </div>
-              ))}
-
-              {/* Registration window — prominent banner for real-user join phase */}
-              {isRegistrationWindow && testCountdown !== null && (
-                <div className="mt-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-4 py-3 space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-blue-400">
-                    <UserPlus className="h-4 w-4 shrink-0" />
-                    Registration is live in Discord
+            {testSteps.some((s) => s.state !== 'idle') && (
+              <div className="space-y-1.5 pt-1">
+                {testSteps.map((step, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    {step.state === 'idle' && (
+                      <div className="h-4 w-4 shrink-0 rounded-full border border-muted-foreground/30" />
+                    )}
+                    {step.state === 'running' && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />}
+                    {step.state === 'done' && <Check className="h-4 w-4 shrink-0 text-green-500" />}
+                    {step.state === 'error' && <X className="h-4 w-4 shrink-0 text-destructive" />}
+                    <span
+                      className={
+                        step.state === 'error'
+                          ? 'text-destructive'
+                          : step.state === 'running'
+                            ? 'font-medium'
+                            : step.state === 'done'
+                              ? 'text-foreground'
+                              : 'text-muted-foreground'
+                      }
+                    >
+                      {step.label}
+                    </span>
+                    {step.detail && <span className="text-xs text-muted-foreground">— {step.detail}</span>}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Open the bot's tournament announcement and hit <strong>Register</strong> to add yourself before the bracket locks.
-                  </p>
-                  <p className="text-xs font-mono font-medium text-blue-300">
-                    Closing in {Math.floor(testCountdown / 60)}:{String(testCountdown % 60).padStart(2, '0')}
-                  </p>
-                </div>
-              )}
+                ))}
 
-              {/* Standard Discord-observation countdown between other stages */}
-              {!isRegistrationWindow && testCountdown !== null && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5 pl-6">
-                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                  <span>Watching Discord… next stage in {testCountdown}s</span>
-                </div>
-              )}
+                {/* Registration window — prominent banner for real-user join phase */}
+                {isRegistrationWindow && testCountdown !== null && (
+                  <div className="mt-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-4 py-3 space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-blue-400">
+                      <UserPlus className="h-4 w-4 shrink-0" />
+                      Registration is live in Discord
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Open the bot's tournament announcement and hit <strong>Register</strong> to add yourself before
+                      the bracket locks.
+                    </p>
+                    <p className="text-xs font-mono font-medium text-blue-300">
+                      Closing in {Math.floor(testCountdown / 60)}:{String(testCountdown % 60).padStart(2, '0')}
+                    </p>
+                  </div>
+                )}
 
-              {!testRunning && testDoneId && testSteps.every((s) => s.state === 'done') && (
-                <button
-                  className="text-xs text-primary underline underline-offset-2 hover:opacity-80 mt-1 pl-6"
-                  onClick={() => navigate(`/dashboard/servers/${guildId}/tournaments`)}
-                >
-                  View tournament →
-                </button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>}
+                {/* Standard Discord-observation countdown between other stages */}
+                {!isRegistrationWindow && testCountdown !== null && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5 pl-6">
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                    <span>Watching Discord… next stage in {testCountdown}s</span>
+                  </div>
+                )}
+
+                {!testRunning && testDoneId && testSteps.every((s) => s.state === 'done') && (
+                  <button
+                    className="text-xs text-primary underline underline-offset-2 hover:opacity-80 mt-1 pl-6"
+                    onClick={() => navigate(`/dashboard/servers/${guildId}/tournaments`)}
+                  >
+                    View tournament →
+                  </button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Reset Rankings ─────────────────────────────────────────────────── */}
       <ResetRankingsCard guildId={guildId!} />
@@ -554,13 +636,10 @@ function ResetRankingsCard({ guildId }: { guildId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Permanently wipes all ELO ratings and match history for this server.
-          Use this to clean up after lifecycle tests or to start a fresh season.
-          This cannot be undone.
+          Permanently wipes all ELO ratings and match history for this server. Use this to clean up after lifecycle
+          tests or to start a fresh season. This cannot be undone.
         </p>
-        {reset.isError && (
-          <p className="text-xs text-destructive">{(reset.error as Error).message}</p>
-        )}
+        {reset.isError && <p className="text-xs text-destructive">{(reset.error as Error).message}</p>}
         <Button
           size="sm"
           variant="destructive"
@@ -572,11 +651,20 @@ function ResetRankingsCard({ guildId }: { guildId: string }) {
           }}
         >
           {reset.isPending ? (
-            <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Resetting…</>
+            <>
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              Resetting…
+            </>
           ) : flash ? (
-            <><Check className="h-4 w-4 mr-1" />{(reset.data as { deleted: number } | undefined)?.deleted ?? 0} records cleared</>
+            <>
+              <Check className="h-4 w-4 mr-1" />
+              {(reset.data as { deleted: number } | undefined)?.deleted ?? 0} records cleared
+            </>
           ) : (
-            <><RotateCcw className="h-4 w-4 mr-1" />Reset Rankings</>
+            <>
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Reset Rankings
+            </>
           )}
         </Button>
       </CardContent>

@@ -11,14 +11,11 @@ import { ChannelSelect, ToggleSwitch, SettingTooltip } from '@/components/settin
 
 type DkpForm = Pick<
   GuildSettingsData,
-  | 'dkpEnabled'
-  | 'dkpLabel'
-  | 'dkpAnnouncementChannelId'
-  | 'dkpDefaultAuctionDuration'
-  | 'dkpMinBid'
+  'dkpEnabled' | 'dkpLabel' | 'dkpAnnouncementChannelId' | 'dkpDefaultAuctionDuration' | 'dkpMinBid'
 >;
 
-const inputCls = 'rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring';
+const inputCls =
+  'rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring';
 
 export function DkpSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -37,23 +34,23 @@ export function DkpSettingsPage() {
   });
 
   const [form, setForm] = useState<DkpForm>({
-    dkpEnabled:               true,
-    dkpLabel:                 'DKP',
+    dkpEnabled: true,
+    dkpLabel: 'DKP',
     dkpAnnouncementChannelId: null,
     dkpDefaultAuctionDuration: 24,
-    dkpMinBid:                0,
+    dkpMinBid: 0,
   });
-  const [dirty, setDirty]           = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
       setForm({
-        dkpEnabled:                saved.dkpEnabled               ?? true,
-        dkpLabel:                  saved.dkpLabel                 ?? 'DKP',
-        dkpAnnouncementChannelId:  saved.dkpAnnouncementChannelId ?? null,
+        dkpEnabled: saved.dkpEnabled ?? true,
+        dkpLabel: saved.dkpLabel ?? 'DKP',
+        dkpAnnouncementChannelId: saved.dkpAnnouncementChannelId ?? null,
         dkpDefaultAuctionDuration: saved.dkpDefaultAuctionDuration ?? 24,
-        dkpMinBid:                 saved.dkpMinBid                ?? 0,
+        dkpMinBid: saved.dkpMinBid ?? 0,
       });
       setDirty(false);
     }
@@ -77,9 +74,9 @@ export function DkpSettingsPage() {
     setSavedFlash(false);
   }
 
-  const channels    = channelData?.channels ?? [];
+  const channels = channelData?.channels ?? [];
   const textChannels = channels.filter((c) => [0, 4, 5].includes(c.type));
-  const isLoading   = channelsLoading || settingsLoading;
+  const isLoading = channelsLoading || settingsLoading;
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -96,7 +93,6 @@ export function DkpSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-
           {/* Module toggle */}
           <Card>
             <CardContent className="pt-4">
@@ -104,9 +100,11 @@ export function DkpSettingsPage() {
                 checked={form.dkpEnabled}
                 onChange={(v) => setField('dkpEnabled', v)}
                 label="DKP Module enabled"
-                description={form.dkpEnabled
-                  ? 'Members can view the leaderboard and participate in auctions.'
-                  : 'DKP and Auctions are disabled. Both nav links will be hidden.'}
+                description={
+                  form.dkpEnabled
+                    ? 'Members can view the leaderboard and participate in auctions.'
+                    : 'DKP and Auctions are disabled. Both nav links will be hidden.'
+                }
                 tooltip="Controls whether DKP (points tracking) and Auctions are active for this server. When disabled, both nav links are hidden and DKP attendance awards from loot sessions are skipped."
               />
             </CardContent>
@@ -119,8 +117,12 @@ export function DkpSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-1.5">
               <div className="flex items-center gap-1.5">
-                <label className="text-sm font-medium" htmlFor="dkpLabel">Currency Label</label>
-                <SettingTooltip content={`The name of your points currency shown throughout the dashboard, bot messages, and DM notifications. Change this to match your org's terminology — e.g. "Credits", "Points", or "Merits". Max 30 characters.`} />
+                <label className="text-sm font-medium" htmlFor="dkpLabel">
+                  Currency Label
+                </label>
+                <SettingTooltip
+                  content={`The name of your points currency shown throughout the dashboard, bot messages, and DM notifications. Change this to match your org's terminology — e.g. "Credits", "Points", or "Merits". Max 30 characters.`}
+                />
               </div>
               <p className="text-xs text-muted-foreground">
                 The name shown throughout the UI and bot messages, e.g. "Credits" or "Points".
@@ -145,7 +147,9 @@ export function DkpSettingsPage() {
             <CardContent className="space-y-5">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="auctionChannel">Announcement Channel</label>
+                  <label className="text-sm font-medium" htmlFor="auctionChannel">
+                    Announcement Channel
+                  </label>
                   <SettingTooltip content="The Discord channel where the bot posts a live bid embed when a standalone auction starts. The embed updates in real time as bids are placed. Leave unset to disable standalone auction announcements in Discord." />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -162,7 +166,9 @@ export function DkpSettingsPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="auctionDuration">Default Auction Duration</label>
+                  <label className="text-sm font-medium" htmlFor="auctionDuration">
+                    Default Auction Duration
+                  </label>
                   <SettingTooltip content="The pre-filled duration in hours when creating a new standalone auction. Individual auctions can override this value at creation time. Must be between 1 and 168 hours (7 days)." />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -187,8 +193,12 @@ export function DkpSettingsPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="minBid">Minimum Bid</label>
-                  <SettingTooltip content={`The lowest bid amount accepted in any auction for this server. Set to 0 for no minimum. Members attempting to bid below this value will be rejected by the bot. Applies to both standalone auctions and loot ${form.dkpLabel || 'DKP'} Bid sessions.`} />
+                  <label className="text-sm font-medium" htmlFor="minBid">
+                    Minimum Bid
+                  </label>
+                  <SettingTooltip
+                    content={`The lowest bid amount accepted in any auction for this server. Set to 0 for no minimum. Members attempting to bid below this value will be rejected by the bot. Applies to both standalone auctions and loot ${form.dkpLabel || 'DKP'} Bid sessions.`}
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Smallest valid bid amount in {form.dkpLabel || 'DKP'}. Set to 0 for no minimum.
@@ -221,9 +231,7 @@ export function DkpSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
         </div>
       )}

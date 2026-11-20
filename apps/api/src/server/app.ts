@@ -83,7 +83,14 @@ export function createServer(): express.Express {
           fontSrc: ["'self'", 'https:', 'data:'],
           formAction: ["'self'"],
           frameAncestors: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com', 'https://media.robertsspaceindustries.com', 'https://robertsspaceindustries.com', 'https://unpkg.com'],
+          imgSrc: [
+            "'self'",
+            'data:',
+            'https://cdn.discordapp.com',
+            'https://media.robertsspaceindustries.com',
+            'https://robertsspaceindustries.com',
+            'https://unpkg.com',
+          ],
           objectSrc: ["'none'"],
           scriptSrc: ["'self'"],
           scriptSrcAttr: ["'none'"],
@@ -96,7 +103,7 @@ export function createServer(): express.Express {
 
   // ── CORS ──────────────────────────────────────────────────────────────────
 
-  const webOrigin    = process.env.WEB_URL ?? 'http://localhost:5173';
+  const webOrigin = process.env.WEB_URL ?? 'http://localhost:5173';
   const publicOrigin = process.env.PUBLIC_SITE_URL;
 
   app.use(
@@ -121,9 +128,7 @@ export function createServer(): express.Express {
       secret: process.env.SESSION_SECRET ?? 'dev-secret-CHANGE-ME',
       resave: false,
       saveUninitialized: false,
-      store: isProd
-        ? new PgSession({ conString: process.env.DATABASE_URL, createTableIfMissing: true })
-        : undefined,
+      store: isProd ? new PgSession({ conString: process.env.DATABASE_URL, createTableIfMissing: true }) : undefined,
       cookie: {
         httpOnly: true,
         secure: isProd,
@@ -219,9 +224,7 @@ export function createServer(): express.Express {
     app.post('/test/login', (req, res) => {
       const body = req.body as { userId?: unknown; managedGuildIds?: unknown };
       const userId = typeof body.userId === 'string' ? body.userId : '';
-      const managedGuildIds = Array.isArray(body.managedGuildIds)
-        ? (body.managedGuildIds as string[])
-        : [];
+      const managedGuildIds = Array.isArray(body.managedGuildIds) ? (body.managedGuildIds as string[]) : [];
       req.session.userId = userId;
       // managedGuildIds: null = no list yet, so the manager check asks Discord.
       if (body.managedGuildIds !== null) {
@@ -241,11 +244,11 @@ export function createServer(): express.Express {
       res.on('finish', () => {
         if (req.path === '/api/health' || req.path.startsWith('/test/')) return;
         logRequest({
-          method:     req.method,
-          path:       normalizePath(req.path),
-          module:     deriveModule(req.path),
-          guildId:    extractGuildId(req.path),
-          userId:     req.session?.userId ?? null,
+          method: req.method,
+          path: normalizePath(req.path),
+          module: deriveModule(req.path),
+          guildId: extractGuildId(req.path),
+          userId: req.session?.userId ?? null,
           statusCode: res.statusCode,
           durationMs: Date.now() - start,
         });
@@ -343,7 +346,6 @@ export function createServer(): express.Express {
   app.use((_req, res) => {
     res.status(404).json({ success: false, error: 'Not found' } satisfies ApiResponse);
   });
-
 
   // ── Errors ─────────────────────────────────────────────────────────────────
   // Anything a route throws or rejects with ends here (see asyncErrors.ts):

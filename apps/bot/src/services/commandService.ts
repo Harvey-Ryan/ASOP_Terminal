@@ -19,15 +19,42 @@ import * as starstringsCommand from '../commands/starstrings.js';
 import * as helpCommand from '../commands/help.js';
 import * as marketplaceCommand from '../commands/marketplace.js';
 
-const body = [eventCommand.data.toJSON(), loginCommand.data.toJSON(), lootCommand.data.toJSON(), bidCommand.data.toJSON(), walletCommand.data.toJSON(), itemCommand.data.toJSON(), whohasCommand.data.toJSON(), blueprintCommand.data.toJSON(), materialCommand.data.toJSON(), fleetCommand.data.toJSON(), wikeloCommand.data.toJSON(), priceCommand.data.toJSON(), routeCommand.data.toJSON(), starstringsCommand.data.toJSON(), helpCommand.data.toJSON(), marketplaceCommand.data.toJSON()];
+const body = [
+  eventCommand.data.toJSON(),
+  loginCommand.data.toJSON(),
+  lootCommand.data.toJSON(),
+  bidCommand.data.toJSON(),
+  walletCommand.data.toJSON(),
+  itemCommand.data.toJSON(),
+  whohasCommand.data.toJSON(),
+  blueprintCommand.data.toJSON(),
+  materialCommand.data.toJSON(),
+  fleetCommand.data.toJSON(),
+  wikeloCommand.data.toJSON(),
+  priceCommand.data.toJSON(),
+  routeCommand.data.toJSON(),
+  starstringsCommand.data.toJSON(),
+  helpCommand.data.toJSON(),
+  marketplaceCommand.data.toJSON(),
+];
 
 /** What was last registered, saved in BotConfig.commandRegistration. */
-interface Registration { hash: string; guilds: string[]; global: boolean }
+interface Registration {
+  hash: string;
+  guilds: string[];
+  global: boolean;
+}
 
 export const commandsHash = (): string => createHash('sha256').update(JSON.stringify(body)).digest('hex').slice(0, 16);
 
 /** Which registrations a run needs: changed commands or `force` → everything; otherwise only servers not yet registered. */
-export function registrationPlan(prev: Registration | null, hash: string, guildIds: readonly string[], globalEnabled: boolean, force: boolean) {
+export function registrationPlan(
+  prev: Registration | null,
+  hash: string,
+  guildIds: readonly string[],
+  globalEnabled: boolean,
+  force: boolean,
+) {
   const fresh = force || !prev || prev.hash !== hash;
   const known = new Set(fresh ? [] : prev!.guilds);
   return {
@@ -56,7 +83,11 @@ export async function registerCommands(clientId?: string, opts: { force?: boolea
   const config = await prisma.botConfig.findUnique({ where: { id: 1 } });
   const globalEnabled = config?.globalCommandsEnabled ?? true;
   let prev: Registration | null = null;
-  try { prev = config?.commandRegistration ? JSON.parse(config.commandRegistration) as Registration : null; } catch { prev = null; }
+  try {
+    prev = config?.commandRegistration ? (JSON.parse(config.commandRegistration) as Registration) : null;
+  } catch {
+    prev = null;
+  }
 
   const hash = commandsHash();
   const guildIds = [...client.guilds.cache.keys()];
@@ -81,7 +112,9 @@ export async function registerCommands(clientId?: string, opts: { force?: boolea
     try {
       await rest.put(Routes.applicationCommands(resolvedClientId), { body: globalEnabled ? body : [] });
       globalDone = globalEnabled;
-      console.log(globalEnabled ? '[bot] Global slash commands registered' : '[bot] Global slash commands cleared (disabled)');
+      console.log(
+        globalEnabled ? '[bot] Global slash commands registered' : '[bot] Global slash commands cleared (disabled)',
+      );
     } catch (err) {
       console.error(`[bot] Failed to ${globalEnabled ? 'register' : 'clear'} global commands:`, err);
     }

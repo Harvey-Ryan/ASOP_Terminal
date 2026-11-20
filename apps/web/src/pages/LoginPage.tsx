@@ -8,10 +8,10 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Access was denied. Please try again.',
-  invalid_state:  'Login attempt expired. Please try again.',
-  auth_failed:    'Authentication failed. Please try again.',
-  session_error:  'Session error. Please try again.',
-  no_code:        'OAuth code missing. Please try again.',
+  invalid_state: 'Login attempt expired. Please try again.',
+  auth_failed: 'Authentication failed. Please try again.',
+  session_error: 'Session error. Please try again.',
+  no_code: 'OAuth code missing. Please try again.',
 };
 
 export function LoginPage() {
@@ -46,7 +46,10 @@ export function LoginPage() {
 
           <CardContent className="space-y-4">
             {searchParams.get('deleted') === '1' && (
-              <div role="status" className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              <div
+                role="status"
+                className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300"
+              >
                 Your data was deleted and you&apos;re signed out. Signing in again starts you from scratch.
               </div>
             )}

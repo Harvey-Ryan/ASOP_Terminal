@@ -8,14 +8,53 @@ import { Router } from 'express';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import {
-  combatGunFromItem, combatShipFromRow, dedupeGuns, gunGroupKey, isUnavailableGun, isGameDataMissingError, shipIndex, matchShip,
-  shipComponentFromItem, dedupeComponents, componentGroupKey,
-  missileFromItem, dedupeMissiles, missileGroupKey,
-  salvageModuleFromItem, fuelPodFromItem, SALVAGE_MODULES_SQL, FUEL_PODS_SQL, type FuelPod, type SalvageModule,
-  buildOreSpots, miningLaserFromItem, miningModuleFromItem, miningGadgetFromItem, dedupeMining, oreName, MINING_LASERS_SQL, MINING_MODULES_SQL, MINING_GADGETS_SQL,
-  type MiningDataDto, type MiningGadget, type MiningLaser, type MiningModule, type ResourceLocationRow, type ResourceRow,
-  GAME_TOOLS_GUNS_SQL, GAME_TOOLS_SHIPS_SQL, GAME_TOOLS_COMPONENTS_SQL, GAME_TOOLS_MISSILES_SQL,
-  type ApiResponse, type CombatGun, type GameBuildDto, type GameToolsDataDto, type GameToolsShip, type MissileItem, type RefineryDataDto, type ShipComponent,
+  combatGunFromItem,
+  combatShipFromRow,
+  dedupeGuns,
+  gunGroupKey,
+  isUnavailableGun,
+  isGameDataMissingError,
+  shipIndex,
+  matchShip,
+  shipComponentFromItem,
+  dedupeComponents,
+  componentGroupKey,
+  missileFromItem,
+  dedupeMissiles,
+  missileGroupKey,
+  salvageModuleFromItem,
+  fuelPodFromItem,
+  SALVAGE_MODULES_SQL,
+  FUEL_PODS_SQL,
+  type FuelPod,
+  type SalvageModule,
+  buildOreSpots,
+  miningLaserFromItem,
+  miningModuleFromItem,
+  miningGadgetFromItem,
+  dedupeMining,
+  oreName,
+  MINING_LASERS_SQL,
+  MINING_MODULES_SQL,
+  MINING_GADGETS_SQL,
+  type MiningDataDto,
+  type MiningGadget,
+  type MiningLaser,
+  type MiningModule,
+  type ResourceLocationRow,
+  type ResourceRow,
+  GAME_TOOLS_GUNS_SQL,
+  GAME_TOOLS_SHIPS_SQL,
+  GAME_TOOLS_COMPONENTS_SQL,
+  GAME_TOOLS_MISSILES_SQL,
+  type ApiResponse,
+  type CombatGun,
+  type GameBuildDto,
+  type GameToolsDataDto,
+  type GameToolsShip,
+  type MissileItem,
+  type RefineryDataDto,
+  type ShipComponent,
 } from '@dem/shared';
 import { prisma } from '../../lib/prisma.js';
 import { listShips } from '../../lib/shipCatalog.js';
@@ -40,35 +79,56 @@ const CHECK_MS = 60_000;
 let checkedAt = 0;
 
 /** For tests: forget the cached copy. */
-export function resetGameToolsCache(): void { cached = null; building = null; checkedAt = 0; }
+export function resetGameToolsCache(): void {
+  cached = null;
+  building = null;
+  checkedAt = 0;
+}
 
-type Row = { uuid: string; class_name: string | null; name: string | null; manufacturer_name: string | null; size: number | null; grade?: number | null; career?: string | null; role?: string | null; crew?: number | null; data: Record<string, unknown> };
+type Row = {
+  uuid: string;
+  class_name: string | null;
+  name: string | null;
+  manufacturer_name: string | null;
+  size: number | null;
+  grade?: number | null;
+  career?: string | null;
+  role?: string | null;
+  crew?: number | null;
+  data: Record<string, unknown>;
+};
 
 type Query = <T>(sql: string) => Promise<T>;
 const prismaQuery: Query = (sql) => prisma.$queryRawUnsafe(sql);
 
 /** `query` and `catalog` can be swapped for tests and local tools. */
-export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: typeof listShips = listShips): Promise<Built | null> {
+export async function buildGameToolsData(
+  query: Query = prismaQuery,
+  catalogFn: typeof listShips = listShips,
+): Promise<Built | null> {
   let source: { commit: string | null; build: string | null } | undefined;
   try {
-    source = (await query<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1'))[0];
+    source = (
+      await query<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1')
+    )[0];
   } catch (err) {
     if (isGameDataMissingError(err)) return null;
     throw err;
   }
   if (!source?.commit) return null;
 
-  const [shipRows, gunRows, componentRows, missileRows, launcherRows, laserRows, moduleRows, salvageRows, podRows] = await Promise.all([
-    query<Row[]>(GAME_TOOLS_SHIPS_SQL),
-    query<Row[]>(GAME_TOOLS_GUNS_SQL),
-    query<Row[]>(GAME_TOOLS_COMPONENTS_SQL),
-    query<Row[]>(GAME_TOOLS_MISSILES_SQL),
-    query<Row[]>(COUNTERMEASURE_SQL),
-    query<Row[]>(MINING_LASERS_SQL),
-    query<Row[]>(MINING_MODULES_SQL),
-    query<Row[]>(SALVAGE_MODULES_SQL),
-    query<Row[]>(FUEL_PODS_SQL),
-  ]);
+  const [shipRows, gunRows, componentRows, missileRows, launcherRows, laserRows, moduleRows, salvageRows, podRows] =
+    await Promise.all([
+      query<Row[]>(GAME_TOOLS_SHIPS_SQL),
+      query<Row[]>(GAME_TOOLS_GUNS_SQL),
+      query<Row[]>(GAME_TOOLS_COMPONENTS_SQL),
+      query<Row[]>(GAME_TOOLS_MISSILES_SQL),
+      query<Row[]>(COUNTERMEASURE_SQL),
+      query<Row[]>(MINING_LASERS_SQL),
+      query<Row[]>(MINING_MODULES_SQL),
+      query<Row[]>(SALVAGE_MODULES_SQL),
+      query<Row[]>(FUEL_PODS_SQL),
+    ]);
   const allGuns = gunRows.map(combatGunFromItem).filter((g): g is CombatGun => !!g && !isUnavailableGun(g));
   const guns = dedupeGuns(allGuns);
   // Point every gun at the one its group is shown as.
@@ -88,10 +148,13 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const missiles = dedupeMissiles(allMissiles);
   const misRepByKey = new Map(missiles.map((m) => [missileGroupKey(m), m.uuid]));
   const misRep = new Map(allMissiles.map((m) => [m.uuid, misRepByKey.get(missileGroupKey(m)) ?? m.uuid]));
-  const launchers = new Map(launcherRows.map((r) => {
-    const wd = (r.data as { stdItem?: { WeaponDefensive?: { Type?: string; Capacity?: number } } }).stdItem?.WeaponDefensive;
-    return [r.uuid, { type: wd?.Type ?? '', capacity: wd?.Capacity ?? 0 }];
-  }));
+  const launchers = new Map(
+    launcherRows.map((r) => {
+      const wd = (r.data as { stdItem?: { WeaponDefensive?: { Type?: string; Capacity?: number } } }).stdItem
+        ?.WeaponDefensive;
+      return [r.uuid, { type: wd?.Type ?? '', capacity: wd?.Capacity ?? 0 }];
+    }),
+  );
 
   // Mining lasers and modules (v1.50.0), grouped like the Mining page's.
   const allLasers = laserRows.map(miningLaserFromItem).filter((l): l is MiningLaser => !!l);
@@ -100,16 +163,27 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   const laserRepByKey = new Map(laserGroups.map((l) => [laserKey(l), l.uuid]));
   const laserRep = new Map(allLasers.map((l) => [l.uuid, laserRepByKey.get(laserKey(l)) ?? l.uuid]));
   const stockLasers = new Set<string>();
-  const miningModules = dedupeMining(moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m), (m) => [m.name, m.power, m.modifiers])
-    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  const miningModules = dedupeMining(
+    moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m),
+    (m) => [m.name, m.power, m.modifiers],
+  ).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 
   // Salvage modules and fuel pods (v1.51.0). A ship's pod may be a filled copy: point it at the plain pod of that name.
-  const salvageModules = salvageRows.map(salvageModuleFromItem).filter((m): m is SalvageModule => !!m).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
-  const fuelPods = podRows.map(fuelPodFromItem).filter((p): p is FuelPod => !!p).sort((a, b) => a.name.localeCompare(b.name));
+  const salvageModules = salvageRows
+    .map(salvageModuleFromItem)
+    .filter((m): m is SalvageModule => !!m)
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  const fuelPods = podRows
+    .map(fuelPodFromItem)
+    .filter((p): p is FuelPod => !!p)
+    .sort((a, b) => a.name.localeCompare(b.name));
   const podByName = new Map(fuelPods.map((p) => [p.name, p.uuid]));
   const podRep = new Map(podRows.map((r) => [r.uuid, podByName.get(r.name ?? '') ?? null]));
 
-  const catalog = await catalogFn().catch((err: unknown) => { console.warn('[game-tools] No ship pictures:', err); return []; });
+  const catalog = await catalogFn().catch((err: unknown) => {
+    console.warn('[game-tools] No ship pictures:', err);
+    return [];
+  });
   const index = catalog.length ? shipIndex(catalog) : null;
 
   const ships: GameToolsShip[] = [];
@@ -117,7 +191,8 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
     const s = combatShipFromRow(row);
     if (!s) continue;
     for (const slot of s.gunSlots) if (slot.stockGunUuid) slot.stockGunUuid = rep.get(slot.stockGunUuid) ?? null;
-    for (const rack of s.missileRacks ?? []) if (rack.stockMissileUuid) rack.stockMissileUuid = misRep.get(rack.stockMissileUuid) ?? null;
+    for (const rack of s.missileRacks ?? [])
+      if (rack.stockMissileUuid) rack.stockMissileUuid = misRep.get(rack.stockMissileUuid) ?? null;
     s.countermeasures = countermeasures((row.data as { Loadout?: unknown[] }).Loadout, launchers);
     for (const head of s.miningHeads ?? []) {
       if (!head.stockLaserUuid) continue;
@@ -140,11 +215,26 @@ export async function buildGameToolsData(query: Query = prismaQuery, catalogFn: 
   // Parts players can't get (no class or grade: bespoke and placeholder records) only where a ship comes with them.
   const components = componentGroups.filter((c) => c.available || stockComponents.has(c.uuid));
   // Lasers made for one ship only where that ship comes with them.
-  const miningLasers = laserGroups.filter((l) => l.size >= 1 && (!l.bespokeFor || stockLasers.has(l.uuid))).sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
-  const data: GameToolsDataDto = { build: source.build, commit: source.commit, ships, guns, components, missiles, miningLasers, miningModules, salvageModules, fuelPods };
+  const miningLasers = laserGroups
+    .filter((l) => l.size >= 1 && (!l.bespokeFor || stockLasers.has(l.uuid)))
+    .sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
+  const data: GameToolsDataDto = {
+    build: source.build,
+    commit: source.commit,
+    ships,
+    guns,
+    components,
+    missiles,
+    miningLasers,
+    miningModules,
+    salvageModules,
+    fuelPods,
+  };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<GameToolsDataDto>));
   return {
-    commit: source.commit, at: Date.now(), data,
+    commit: source.commit,
+    at: Date.now(),
+    data,
     gz: gzipSync(body, { level: 9 }),
     etag: `"gt-${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`,
   };
@@ -156,7 +246,10 @@ const COUNTERMEASURE_SQL = `
 `;
 
 /** Decoys (flares) and noise (chaff) a ship carries, from its launchers. */
-function countermeasures(loadout: unknown[] | undefined, launchers: Map<string, { type: string; capacity: number }>): { decoy: number; noise: number } | null {
+function countermeasures(
+  loadout: unknown[] | undefined,
+  launchers: Map<string, { type: string; capacity: number }>,
+): { decoy: number; noise: number } | null {
   let decoy = 0;
   let noise = 0;
   const walk = (ports: unknown[] | undefined) => {
@@ -173,9 +266,17 @@ function countermeasures(loadout: unknown[] | undefined, launchers: Map<string, 
 
 function rebuild(): Promise<Built | null> {
   building ??= buildGameToolsData()
-    .then((b) => { if (b) cached = b; return b; })
-    .catch((err: unknown) => { console.error('[game-tools] Building the ship data failed:', err); return null; })
-    .finally(() => { building = null; });
+    .then((b) => {
+      if (b) cached = b;
+      return b;
+    })
+    .catch((err: unknown) => {
+      console.error('[game-tools] Building the ship data failed:', err);
+      return null;
+    })
+    .finally(() => {
+      building = null;
+    });
   return building;
 }
 
@@ -184,7 +285,9 @@ async function getBuilt(): Promise<Built | null> {
   if (Date.now() - checkedAt > CHECK_MS) {
     checkedAt = Date.now();
     // Cheap check that the game data hasn't moved on; rebuild behind the scenes if it has.
-    const head = await prisma.$queryRawUnsafe<{ commit: string | null }[]>('SELECT commit FROM scdata.source LIMIT 1').catch(() => []);
+    const head = await prisma
+      .$queryRawUnsafe<{ commit: string | null }[]>('SELECT commit FROM scdata.source LIMIT 1')
+      .catch(() => []);
     if ((head[0]?.commit && head[0].commit !== cached.commit) || Date.now() - cached.at > REBUILD_MS) void rebuild();
   }
   return cached;
@@ -203,13 +306,18 @@ export async function getGameToolsData(): Promise<GameToolsDataDto | null> {
 gameToolsRouter.get('/game-tools/data', async (req, res) => {
   const b = await getBuilt();
   if (!b) {
-    res.status(503).json({ success: false, error: 'Game data isn’t loaded yet. Try again in a few minutes.' } satisfies ApiResponse);
+    res
+      .status(503)
+      .json({ success: false, error: 'Game data isn’t loaded yet. Try again in a few minutes.' } satisfies ApiResponse);
     return;
   }
   res.setHeader('ETag', b.etag);
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.setHeader('Vary', 'Accept-Encoding');
-  if (req.headers['if-none-match'] === b.etag) { res.status(304).end(); return; }
+  if (req.headers['if-none-match'] === b.etag) {
+    res.status(304).end();
+    return;
+  }
   res.type('application/json');
   if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
     res.setHeader('Content-Encoding', 'gzip');
@@ -225,7 +333,9 @@ const TOOL_MODULES = ['craftingEnabled', 'blueprintsEnabled', 'wikeloEnabled'] a
 gameToolsRouter.get('/game-tools/hidden', async (_req, res) => {
   const hidden = await hiddenModules();
   res.setHeader('Cache-Control', 'public, max-age=60');
-  res.json({ success: true, data: { hidden: TOOL_MODULES.filter((m) => hidden.has(m)) } } satisfies ApiResponse<{ hidden: string[] }>);
+  res.json({ success: true, data: { hidden: TOOL_MODULES.filter((m) => hidden.has(m)) } } satisfies ApiResponse<{
+    hidden: string[];
+  }>);
 });
 
 // ── Mining (v1.49.0) ─────────────────────────────────────────────────────────
@@ -236,11 +346,16 @@ type MiningBuilt = { commit: string; at: number; gz: Buffer; etag: string; data:
 let miningCached: MiningBuilt | null = null;
 let miningBuilding: Promise<MiningBuilt | null> | null = null;
 
-export function resetMiningCache(): void { miningCached = null; miningBuilding = null; }
+export function resetMiningCache(): void {
+  miningCached = null;
+  miningBuilding = null;
+}
 
 /** For tests: mining data to use instead of scdata (null = back to scdata). */
 let testMining: MiningDataDto | null = null;
-export function useMiningDataForTests(data: MiningDataDto | null): void { testMining = data; }
+export function useMiningDataForTests(data: MiningDataDto | null): void {
+  testMining = data;
+}
 
 /** The mining data, built if need be (corrections read game values from it, v1.53.0). */
 export async function getMiningData(): Promise<MiningDataDto | null> {
@@ -252,7 +367,9 @@ export async function getMiningData(): Promise<MiningDataDto | null> {
 export async function buildMiningData(query: Query = prismaQuery): Promise<MiningBuilt | null> {
   let source: { commit: string | null; build: string | null } | undefined;
   try {
-    source = (await query<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1'))[0];
+    source = (
+      await query<{ commit: string | null; build: string | null }[]>('SELECT commit, build FROM scdata.source LIMIT 1')
+    )[0];
   } catch (err) {
     if (isGameDataMissingError(err)) return null;
     throw err;
@@ -266,17 +383,25 @@ export async function buildMiningData(query: Query = prismaQuery): Promise<Minin
     query<Row[]>(MINING_GADGETS_SQL),
   ]);
   const { spots, signatures } = buildOreSpots(locations, resources);
-  const lasers = dedupeMining(laserRows.map(miningLaserFromItem).filter((l): l is MiningLaser => !!l), (l) => [l.name, l.power, l.extraction, l.modifiers])
-    .sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
-  const modules = dedupeMining(moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m), (m) => [m.name, m.power, m.modifiers])
-    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
-  const gadgets = dedupeMining(gadgetRows.map(miningGadgetFromItem).filter((g): g is MiningGadget => !!g), (g) => [g.name, g.modifiers])
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const lasers = dedupeMining(
+    laserRows.map(miningLaserFromItem).filter((l): l is MiningLaser => !!l),
+    (l) => [l.name, l.power, l.extraction, l.modifiers],
+  ).sort((a, b) => a.size - b.size || a.name.localeCompare(b.name));
+  const modules = dedupeMining(
+    moduleRows.map(miningModuleFromItem).filter((m): m is MiningModule => !!m),
+    (m) => [m.name, m.power, m.modifiers],
+  ).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  const gadgets = dedupeMining(
+    gadgetRows.map(miningGadgetFromItem).filter((g): g is MiningGadget => !!g),
+    (g) => [g.name, g.modifiers],
+  ).sort((a, b) => a.name.localeCompare(b.name));
   const ores = [...new Set(spots.map((s) => s.ore))].sort().map((key) => ({ key, name: oreName(key) }));
   const data: MiningDataDto = { build: source.build, ores, spots, signatures, lasers, modules, gadgets };
   const body = Buffer.from(JSON.stringify({ success: true, data } satisfies ApiResponse<MiningDataDto>));
   return {
-    commit: source.commit, at: Date.now(), data,
+    commit: source.commit,
+    at: Date.now(),
+    data,
     gz: gzipSync(body, { level: 9 }),
     etag: `"gm-${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`,
   };
@@ -284,24 +409,38 @@ export async function buildMiningData(query: Query = prismaQuery): Promise<Minin
 
 function rebuildMining(): Promise<MiningBuilt | null> {
   miningBuilding ??= buildMiningData()
-    .then((b) => { if (b) miningCached = b; return b; })
-    .catch((err: unknown) => { console.error('[game-tools] mining data:', err); return null; })
-    .finally(() => { miningBuilding = null; });
+    .then((b) => {
+      if (b) miningCached = b;
+      return b;
+    })
+    .catch((err: unknown) => {
+      console.error('[game-tools] mining data:', err);
+      return null;
+    })
+    .finally(() => {
+      miningBuilding = null;
+    });
   return miningBuilding;
 }
 
 gameToolsRouter.get('/game-tools/mining', async (req, res) => {
   if (!miningCached) await rebuildMining();
-  else if (Date.now() - miningCached.at > REBUILD_MS || (cached && cached.commit !== miningCached.commit)) void rebuildMining();
+  else if (Date.now() - miningCached.at > REBUILD_MS || (cached && cached.commit !== miningCached.commit))
+    void rebuildMining();
   const b = miningCached;
   if (!b) {
-    res.status(503).json({ success: false, error: 'Game data isn’t loaded yet. Try again in a few minutes.' } satisfies ApiResponse);
+    res
+      .status(503)
+      .json({ success: false, error: 'Game data isn’t loaded yet. Try again in a few minutes.' } satisfies ApiResponse);
     return;
   }
   res.setHeader('ETag', b.etag);
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.setHeader('Vary', 'Accept-Encoding');
-  if (req.headers['if-none-match'] === b.etag) { res.status(304).end(); return; }
+  if (req.headers['if-none-match'] === b.etag) {
+    res.status(304).end();
+    return;
+  }
   res.type('application/json');
   if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
     res.setHeader('Content-Encoding', 'gzip');
@@ -319,7 +458,10 @@ gameToolsRouter.get('/game-tools/mining', async (req, res) => {
 gameToolsRouter.get('/game-tools/refinery', async (_req, res) => {
   const data = await refineryData();
   if (!data) {
-    res.status(503).json({ success: false, error: "UEX's refinery data can't be reached right now. Try again in a few minutes." } satisfies ApiResponse);
+    res.status(503).json({
+      success: false,
+      error: "UEX's refinery data can't be reached right now. Try again in a few minutes.",
+    } satisfies ApiResponse);
     return;
   }
   res.setHeader('Cache-Control', 'public, max-age=300');
@@ -333,23 +475,37 @@ gameToolsRouter.get('/game-tools/refinery', async (_req, res) => {
 
 let buildCache: { at: number; data: GameBuildDto } | null = null;
 const BUILD_CACHE_MS = 30 * 60_000;
-export function resetBuildCache(): void { buildCache = null; }
+export function resetBuildCache(): void {
+  buildCache = null;
+}
 
 gameToolsRouter.get('/game-tools/build', async (_req, res) => {
   if (!buildCache || Date.now() - buildCache.at > BUILD_CACHE_MS) {
     let state: { build: string | null; synced_at: Date | null; commit: string | null } | undefined;
     try {
-      state = (await prismaQuery<{ build: string | null; synced_at: Date | null; commit: string | null }[]>('SELECT build, synced_at, commit FROM scdata_raw.state'))[0];
+      state = (
+        await prismaQuery<{ build: string | null; synced_at: Date | null; commit: string | null }[]>(
+          'SELECT build, synced_at, commit FROM scdata_raw.state',
+        )
+      )[0];
     } catch (err) {
       if (!isGameDataMissingError(err)) console.warn('[game-tools/build]', (err as Error).message);
     }
     let newerAvailable: boolean | null = null;
     if (state?.commit) {
-      try { newerAvailable = !(await checkUpstreamNow()).upToDate; } catch (err) { console.warn('[game-tools/build] upstream check:', (err as Error).message); }
+      try {
+        newerAvailable = !(await checkUpstreamNow()).upToDate;
+      } catch (err) {
+        console.warn('[game-tools/build] upstream check:', (err as Error).message);
+      }
     }
     buildCache = {
       at: Date.now(),
-      data: { build: state?.build ?? null, syncedAt: state?.synced_at ? new Date(state.synced_at).toISOString() : null, newerAvailable },
+      data: {
+        build: state?.build ?? null,
+        syncedAt: state?.synced_at ? new Date(state.synced_at).toISOString() : null,
+        newerAvailable,
+      },
     };
   }
   res.setHeader('Cache-Control', 'public, max-age=300');

@@ -10,70 +10,65 @@ import type { GuildSettingsData } from '@/api/settings';
 import { ChannelSelect, ToggleSwitch, RolePicker, SettingTooltip } from '@/components/settings/SettingsControls';
 
 const TIMEZONES = [
-  { value: 'UTC',                               label: 'UTC' },
-  { value: 'America/New_York',                  label: 'Eastern — New York' },
-  { value: 'America/Chicago',                   label: 'Central — Chicago' },
-  { value: 'America/Denver',                    label: 'Mountain — Denver' },
-  { value: 'America/Los_Angeles',               label: 'Pacific — Los Angeles' },
-  { value: 'America/Phoenix',                   label: 'Arizona — Phoenix' },
-  { value: 'America/Anchorage',                 label: 'Alaska — Anchorage' },
-  { value: 'Pacific/Honolulu',                  label: 'Hawaii — Honolulu' },
-  { value: 'America/Toronto',                   label: 'Eastern Canada — Toronto' },
-  { value: 'America/Vancouver',                 label: 'Pacific Canada — Vancouver' },
-  { value: 'America/Mexico_City',               label: 'Mexico City' },
-  { value: 'America/Bogota',                    label: 'Colombia — Bogotá' },
-  { value: 'America/Lima',                      label: 'Peru — Lima' },
-  { value: 'America/Santiago',                  label: 'Chile — Santiago' },
-  { value: 'America/Sao_Paulo',                 label: 'Brazil — São Paulo' },
-  { value: 'America/Argentina/Buenos_Aires',    label: 'Argentina — Buenos Aires' },
-  { value: 'Atlantic/Reykjavik',                label: 'Iceland — Reykjavik' },
-  { value: 'Europe/London',                     label: 'UK — London' },
-  { value: 'Europe/Dublin',                     label: 'Ireland — Dublin' },
-  { value: 'Europe/Lisbon',                     label: 'Portugal — Lisbon' },
-  { value: 'Europe/Paris',                      label: 'France — Paris' },
-  { value: 'Europe/Berlin',                     label: 'Germany — Berlin' },
-  { value: 'Europe/Madrid',                     label: 'Spain — Madrid' },
-  { value: 'Europe/Rome',                       label: 'Italy — Rome' },
-  { value: 'Europe/Amsterdam',                  label: 'Netherlands — Amsterdam' },
-  { value: 'Europe/Brussels',                   label: 'Belgium — Brussels' },
-  { value: 'Europe/Warsaw',                     label: 'Poland — Warsaw' },
-  { value: 'Europe/Prague',                     label: 'Czech Republic — Prague' },
-  { value: 'Europe/Vienna',                     label: 'Austria — Vienna' },
-  { value: 'Europe/Stockholm',                  label: 'Sweden — Stockholm' },
-  { value: 'Europe/Oslo',                       label: 'Norway — Oslo' },
-  { value: 'Europe/Copenhagen',                 label: 'Denmark — Copenhagen' },
-  { value: 'Europe/Helsinki',                   label: 'Finland — Helsinki' },
-  { value: 'Europe/Athens',                     label: 'Greece — Athens' },
-  { value: 'Europe/Bucharest',                  label: 'Romania — Bucharest' },
-  { value: 'Europe/Sofia',                      label: 'Bulgaria — Sofia' },
-  { value: 'Europe/Istanbul',                   label: 'Turkey — Istanbul' },
-  { value: 'Europe/Moscow',                     label: 'Russia — Moscow' },
-  { value: 'Asia/Jerusalem',                    label: 'Israel — Jerusalem' },
-  { value: 'Asia/Riyadh',                       label: 'Saudi Arabia — Riyadh' },
-  { value: 'Asia/Dubai',                        label: 'UAE — Dubai' },
-  { value: 'Asia/Karachi',                      label: 'Pakistan — Karachi' },
-  { value: 'Asia/Kolkata',                      label: 'India — Kolkata' },
-  { value: 'Asia/Dhaka',                        label: 'Bangladesh — Dhaka' },
-  { value: 'Asia/Bangkok',                      label: 'Thailand — Bangkok' },
-  { value: 'Asia/Singapore',                    label: 'Singapore' },
-  { value: 'Asia/Hong_Kong',                    label: 'Hong Kong' },
-  { value: 'Asia/Shanghai',                     label: 'China — Shanghai' },
-  { value: 'Asia/Tokyo',                        label: 'Japan — Tokyo' },
-  { value: 'Asia/Seoul',                        label: 'South Korea — Seoul' },
-  { value: 'Australia/Perth',                   label: 'Australia — Perth' },
-  { value: 'Australia/Brisbane',                label: 'Australia — Brisbane' },
-  { value: 'Australia/Sydney',                  label: 'Australia — Sydney' },
-  { value: 'Pacific/Auckland',                  label: 'New Zealand — Auckland' },
+  { value: 'UTC', label: 'UTC' },
+  { value: 'America/New_York', label: 'Eastern — New York' },
+  { value: 'America/Chicago', label: 'Central — Chicago' },
+  { value: 'America/Denver', label: 'Mountain — Denver' },
+  { value: 'America/Los_Angeles', label: 'Pacific — Los Angeles' },
+  { value: 'America/Phoenix', label: 'Arizona — Phoenix' },
+  { value: 'America/Anchorage', label: 'Alaska — Anchorage' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii — Honolulu' },
+  { value: 'America/Toronto', label: 'Eastern Canada — Toronto' },
+  { value: 'America/Vancouver', label: 'Pacific Canada — Vancouver' },
+  { value: 'America/Mexico_City', label: 'Mexico City' },
+  { value: 'America/Bogota', label: 'Colombia — Bogotá' },
+  { value: 'America/Lima', label: 'Peru — Lima' },
+  { value: 'America/Santiago', label: 'Chile — Santiago' },
+  { value: 'America/Sao_Paulo', label: 'Brazil — São Paulo' },
+  { value: 'America/Argentina/Buenos_Aires', label: 'Argentina — Buenos Aires' },
+  { value: 'Atlantic/Reykjavik', label: 'Iceland — Reykjavik' },
+  { value: 'Europe/London', label: 'UK — London' },
+  { value: 'Europe/Dublin', label: 'Ireland — Dublin' },
+  { value: 'Europe/Lisbon', label: 'Portugal — Lisbon' },
+  { value: 'Europe/Paris', label: 'France — Paris' },
+  { value: 'Europe/Berlin', label: 'Germany — Berlin' },
+  { value: 'Europe/Madrid', label: 'Spain — Madrid' },
+  { value: 'Europe/Rome', label: 'Italy — Rome' },
+  { value: 'Europe/Amsterdam', label: 'Netherlands — Amsterdam' },
+  { value: 'Europe/Brussels', label: 'Belgium — Brussels' },
+  { value: 'Europe/Warsaw', label: 'Poland — Warsaw' },
+  { value: 'Europe/Prague', label: 'Czech Republic — Prague' },
+  { value: 'Europe/Vienna', label: 'Austria — Vienna' },
+  { value: 'Europe/Stockholm', label: 'Sweden — Stockholm' },
+  { value: 'Europe/Oslo', label: 'Norway — Oslo' },
+  { value: 'Europe/Copenhagen', label: 'Denmark — Copenhagen' },
+  { value: 'Europe/Helsinki', label: 'Finland — Helsinki' },
+  { value: 'Europe/Athens', label: 'Greece — Athens' },
+  { value: 'Europe/Bucharest', label: 'Romania — Bucharest' },
+  { value: 'Europe/Sofia', label: 'Bulgaria — Sofia' },
+  { value: 'Europe/Istanbul', label: 'Turkey — Istanbul' },
+  { value: 'Europe/Moscow', label: 'Russia — Moscow' },
+  { value: 'Asia/Jerusalem', label: 'Israel — Jerusalem' },
+  { value: 'Asia/Riyadh', label: 'Saudi Arabia — Riyadh' },
+  { value: 'Asia/Dubai', label: 'UAE — Dubai' },
+  { value: 'Asia/Karachi', label: 'Pakistan — Karachi' },
+  { value: 'Asia/Kolkata', label: 'India — Kolkata' },
+  { value: 'Asia/Dhaka', label: 'Bangladesh — Dhaka' },
+  { value: 'Asia/Bangkok', label: 'Thailand — Bangkok' },
+  { value: 'Asia/Singapore', label: 'Singapore' },
+  { value: 'Asia/Hong_Kong', label: 'Hong Kong' },
+  { value: 'Asia/Shanghai', label: 'China — Shanghai' },
+  { value: 'Asia/Tokyo', label: 'Japan — Tokyo' },
+  { value: 'Asia/Seoul', label: 'South Korea — Seoul' },
+  { value: 'Australia/Perth', label: 'Australia — Perth' },
+  { value: 'Australia/Brisbane', label: 'Australia — Brisbane' },
+  { value: 'Australia/Sydney', label: 'Australia — Sydney' },
+  { value: 'Pacific/Auckland', label: 'New Zealand — Auckland' },
 ];
 
 type EventBotForm = Pick<
   GuildSettingsData,
-  | 'eventBotEnabled'
-  | 'forumChannelId'
-  | 'eventChannelId'
-  | 'voiceCategoryId'
-  | 'timezone'
-  | 'eventCreatorRoles'
+  'eventBotEnabled' | 'forumChannelId' | 'eventChannelId' | 'voiceCategoryId' | 'timezone' | 'eventCreatorRoles'
 >;
 
 export function ModuleEventBotPage() {
@@ -106,17 +101,17 @@ export function ModuleEventBotPage() {
     timezone: 'UTC',
     eventCreatorRoles: [],
   });
-  const [dirty, setDirty]           = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (saved) {
       setForm({
-        eventBotEnabled:   saved.eventBotEnabled   ?? true,
-        forumChannelId:    saved.forumChannelId    ?? null,
-        eventChannelId:    saved.eventChannelId    ?? null,
-        voiceCategoryId:   saved.voiceCategoryId   ?? null,
-        timezone:          saved.timezone          ?? 'UTC',
+        eventBotEnabled: saved.eventBotEnabled ?? true,
+        forumChannelId: saved.forumChannelId ?? null,
+        eventChannelId: saved.eventChannelId ?? null,
+        voiceCategoryId: saved.voiceCategoryId ?? null,
+        timezone: saved.timezone ?? 'UTC',
         eventCreatorRoles: saved.eventCreatorRoles ?? [],
       });
       setDirty(false);
@@ -141,17 +136,19 @@ export function ModuleEventBotPage() {
     setSavedFlash(false);
   }
 
-  const channels  = channelData?.channels ?? [];
-  const roles     = rolesData ?? [];
+  const channels = channelData?.channels ?? [];
+  const roles = rolesData ?? [];
   const isLoading = channelsLoading || settingsLoading || rolesLoading;
-  const textChannels     = channels.filter((c) => [0, 4, 5].includes(c.type));
+  const textChannels = channels.filter((c) => [0, 4, 5].includes(c.type));
   const categoryChannels = channels.filter((c) => c.type === 4);
 
   return (
     <div className="space-y-6 max-w-xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Event Bot</h1>
-        <p className="mt-1 text-muted-foreground">Configure channel routing and permissions for the Event Bot module.</p>
+        <p className="mt-1 text-muted-foreground">
+          Configure channel routing and permissions for the Event Bot module.
+        </p>
       </div>
 
       {isLoading ? (
@@ -162,7 +159,6 @@ export function ModuleEventBotPage() {
         </div>
       ) : (
         <div className="space-y-6">
-
           {/* Module toggle */}
           <Card>
             <CardContent className="pt-4">
@@ -170,9 +166,11 @@ export function ModuleEventBotPage() {
                 checked={form.eventBotEnabled}
                 onChange={(v) => setField('eventBotEnabled', v)}
                 label="Event Bot enabled"
-                description={form.eventBotEnabled
-                  ? 'Members can create and view events.'
-                  : 'Event Bot is disabled. The Events nav link will be hidden for all members.'}
+                description={
+                  form.eventBotEnabled
+                    ? 'Members can create and view events.'
+                    : 'Event Bot is disabled. The Events nav link will be hidden for all members.'
+                }
                 tooltip="Controls whether the Event module is active for this server. When disabled, the Events nav link is hidden from all members and no event threads or scheduled events are posted to Discord."
               />
             </CardContent>
@@ -186,7 +184,9 @@ export function ModuleEventBotPage() {
             <CardContent className="space-y-5">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="forumChannel">Forum Channel</label>
+                  <label className="text-sm font-medium" htmlFor="forumChannel">
+                    Forum Channel
+                  </label>
                   <SettingTooltip content="The Discord forum channel where the bot creates a new thread for each event. The thread displays the event details, roster embed, and loot results. Must be a Forum-type channel — text and announcement channels are not supported here." />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -203,7 +203,9 @@ export function ModuleEventBotPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="eventChannel">Scheduled Events Channel</label>
+                  <label className="text-sm font-medium" htmlFor="eventChannel">
+                    Scheduled Events Channel
+                  </label>
                   <SettingTooltip content="A text or announcement channel used as the location for Discord's built-in Scheduled Events feature. The bot creates a Discord Scheduled Event here for each app event, making it visible in the server's Events tab and on the Discord client home screen." />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -220,7 +222,9 @@ export function ModuleEventBotPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="vcCategory">Voice Channel Category</label>
+                  <label className="text-sm font-medium" htmlFor="vcCategory">
+                    Voice Channel Category
+                  </label>
                   <SettingTooltip content="The channel category where the bot automatically creates voice channels 30 minutes before each event starts. Channels are named after the event's configured voice rooms and are archived when the event ends. Leave unset to disable auto-VC creation." />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -247,7 +251,8 @@ export function ModuleEventBotPage() {
             </CardHeader>
             <CardContent className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Everyone sees event times in their own time zone. This is only your server's home time zone, used for older repeating events.
+                Everyone sees event times in their own time zone. This is only your server's home time zone, used for
+                older repeating events.
               </p>
               <select
                 value={form.timezone}
@@ -255,7 +260,9 @@ export function ModuleEventBotPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
                 ))}
               </select>
             </CardContent>
@@ -298,9 +305,7 @@ export function ModuleEventBotPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
         </div>
       )}

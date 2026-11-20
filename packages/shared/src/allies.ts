@@ -51,7 +51,10 @@ export function otherGuild(link: Pick<AllyLink, 'guildAId' | 'guildBId'>, guildI
 }
 
 /** The column holding `guildId`'s own "post their events automatically" setting. */
-export function autoAcceptField(link: Pick<AllyLink, 'guildAId' | 'guildBId'>, guildId: string): 'autoAcceptA' | 'autoAcceptB' {
+export function autoAcceptField(
+  link: Pick<AllyLink, 'guildAId' | 'guildBId'>,
+  guildId: string,
+): 'autoAcceptA' | 'autoAcceptB' {
   if (link.guildAId === guildId) return 'autoAcceptA';
   if (link.guildBId === guildId) return 'autoAcceptB';
   throw new Error('Guild is not in this pair');
@@ -70,19 +73,23 @@ export function canShareEvents(link: AllyLink | null | undefined): boolean {
 // ── Decisions ────────────────────────────────────────────────────────────────
 
 export type AllyRefusal =
-  | 'self'              // asking yourself
+  | 'self' // asking yourself
   | 'already-allies'
   | 'already-requested' // your request is still pending
-  | 'blocked'           // they blocked you (worded neutrally to the requester)
-  | 'you-blocked'       // you blocked them: unblock first
-  | 'retry-later'       // they rejected you less than ALLY_RETRY_DAYS ago
+  | 'blocked' // they blocked you (worded neutrally to the requester)
+  | 'you-blocked' // you blocked them: unblock first
+  | 'retry-later' // they rejected you less than ALLY_RETRY_DAYS ago
   | 'not-pending'
-  | 'not-yours'         // acting on a request or link that isn't yours to act on
+  | 'not-yours' // acting on a request or link that isn't yours to act on
   | 'not-allies';
 
 export type Decision<T> = ({ ok: true } & T) | { ok: false; refusal: AllyRefusal; retryAfter?: Date };
 
-const no = (refusal: AllyRefusal, retryAfter?: Date) => ({ ok: false as const, refusal, ...(retryAfter ? { retryAfter } : {}) });
+const no = (refusal: AllyRefusal, retryAfter?: Date) => ({
+  ok: false as const,
+  refusal,
+  ...(retryAfter ? { retryAfter } : {}),
+});
 
 /**
  * Sending a request from `fromId` to `toId`, given the pair's current row (or none).
@@ -151,14 +158,36 @@ export type AllyResponse = 'accept' | 'reject' | 'block';
  * Allies page) and the bot (the Discord buttons), so both record an answer
  * the same way.
  */
-export function responseChanges(action: AllyResponse, responderGuildId: string, responderUserId: string | null, now: Date) {
+export function responseChanges(
+  action: AllyResponse,
+  responderGuildId: string,
+  responderUserId: string | null,
+  now: Date,
+) {
   switch (action) {
     case 'accept':
-      return { status: 'ACCEPTED' as const, respondedAt: now, acceptedAt: now, respondedBy: responderUserId, retryAfter: null };
+      return {
+        status: 'ACCEPTED' as const,
+        respondedAt: now,
+        acceptedAt: now,
+        respondedBy: responderUserId,
+        retryAfter: null,
+      };
     case 'reject':
-      return { status: 'REJECTED' as const, respondedAt: now, respondedBy: responderUserId, retryAfter: retryAfterFrom(now) };
+      return {
+        status: 'REJECTED' as const,
+        respondedAt: now,
+        respondedBy: responderUserId,
+        retryAfter: retryAfterFrom(now),
+      };
     case 'block':
-      return { status: 'BLOCKED' as const, respondedAt: now, respondedBy: responderUserId, blockedByGuildId: responderGuildId, retryAfter: null };
+      return {
+        status: 'BLOCKED' as const,
+        respondedAt: now,
+        respondedBy: responderUserId,
+        blockedByGuildId: responderGuildId,
+        retryAfter: null,
+      };
   }
 }
 
@@ -170,15 +199,24 @@ export function retryAfterFrom(rejectedAt: Date): Date {
 /** Words for a refusal, as shown to the org that tried. */
 export function allyRefusalMessage(refusal: AllyRefusal, retryAfter?: Date): string {
   switch (refusal) {
-    case 'self': return "You can't send an ally request to your own org.";
-    case 'already-allies': return 'You are already allies.';
-    case 'already-requested': return 'Your request is already waiting for an answer.';
-    case 'blocked': return "This org isn't accepting ally requests from you.";
-    case 'you-blocked': return 'You blocked this org. Unblock it first.';
-    case 'retry-later': return `This org declined your last request. You can ask again after ${retryAfter ? retryAfter.toISOString().slice(0, 10) : 'the waiting period'}.`;
-    case 'not-pending': return 'This request has already been answered or withdrawn.';
-    case 'not-yours': return "That isn't yours to change.";
-    case 'not-allies': return 'You are not allies with this org.';
+    case 'self':
+      return "You can't send an ally request to your own org.";
+    case 'already-allies':
+      return 'You are already allies.';
+    case 'already-requested':
+      return 'Your request is already waiting for an answer.';
+    case 'blocked':
+      return "This org isn't accepting ally requests from you.";
+    case 'you-blocked':
+      return 'You blocked this org. Unblock it first.';
+    case 'retry-later':
+      return `This org declined your last request. You can ask again after ${retryAfter ? retryAfter.toISOString().slice(0, 10) : 'the waiting period'}.`;
+    case 'not-pending':
+      return 'This request has already been answered or withdrawn.';
+    case 'not-yours':
+      return "That isn't yours to change.";
+    case 'not-allies':
+      return 'You are not allies with this org.';
   }
 }
 
@@ -209,16 +247,28 @@ export interface AllyNoticePayload {
   noticeMessageId: string | null;
 }
 
-export const ALLY_NOTICE_EVENTS: readonly AllyNoticeEvent[] = ['requested', 'accepted', 'rejected', 'blocked', 'cancelled', 'removed'];
+export const ALLY_NOTICE_EVENTS: readonly AllyNoticeEvent[] = [
+  'requested',
+  'accepted',
+  'rejected',
+  'blocked',
+  'cancelled',
+  'removed',
+];
 
 export function isAllyNoticePayload(x: unknown): x is AllyNoticePayload {
   const p = x as Partial<AllyNoticePayload> | null;
-  return !!p && typeof p === 'object'
-    && ALLY_NOTICE_EVENTS.includes(p.event as AllyNoticeEvent)
-    && typeof p.linkId === 'string' && typeof p.actorGuildId === 'string' && typeof p.otherGuildId === 'string'
-    && (p.actorUserId === null || typeof p.actorUserId === 'string')
-    && (p.noticeChannelId === null || typeof p.noticeChannelId === 'string')
-    && (p.noticeMessageId === null || typeof p.noticeMessageId === 'string');
+  return (
+    !!p &&
+    typeof p === 'object' &&
+    ALLY_NOTICE_EVENTS.includes(p.event as AllyNoticeEvent) &&
+    typeof p.linkId === 'string' &&
+    typeof p.actorGuildId === 'string' &&
+    typeof p.otherGuildId === 'string' &&
+    (p.actorUserId === null || typeof p.actorUserId === 'string') &&
+    (p.noticeChannelId === null || typeof p.noticeChannelId === 'string') &&
+    (p.noticeMessageId === null || typeof p.noticeMessageId === 'string')
+  );
 }
 
 /** customId of an ally request button: `ally:<accept|reject|block>:<linkId>`. */
@@ -248,7 +298,11 @@ export interface SharePlan {
  * decides whether it's posted straight away or waits for an officer. Targets
  * are de-duplicated and the host itself is ignored.
  */
-export function planShares(hostGuildId: string, targetGuildIds: readonly string[], links: readonly AllyLink[]): SharePlan {
+export function planShares(
+  hostGuildId: string,
+  targetGuildIds: readonly string[],
+  links: readonly AllyLink[],
+): SharePlan {
   const plan: SharePlan = { accepted: [], pending: [], notAllies: [] };
   for (const target of new Set(targetGuildIds)) {
     if (target === hostGuildId) continue;
@@ -268,8 +322,12 @@ export function withdrawnOnRemoval(
   share: { status: 'PENDING' | 'ACCEPTED' | 'DECLINED'; hostGuildId: string; guildId: string },
   pair: Pick<AllyLink, 'guildAId' | 'guildBId'>,
 ): boolean {
-  return share.status === 'PENDING' && share.hostGuildId !== share.guildId
-    && inPair(pair, share.hostGuildId) && inPair(pair, share.guildId);
+  return (
+    share.status === 'PENDING' &&
+    share.hostGuildId !== share.guildId &&
+    inPair(pair, share.hostGuildId) &&
+    inPair(pair, share.guildId)
+  );
 }
 
 export const NOT_ALLY_MESSAGE = 'You can only share events with your allies. Add them on the Allies page first.';
@@ -304,13 +362,18 @@ export const SHARE_NOTICE_EVENTS: readonly ShareNoticeEvent[] = ['pending', 'acc
 
 export function isShareNoticePayload(x: unknown): x is ShareNoticePayload {
   const p = x as Partial<ShareNoticePayload> | null;
-  return !!p && typeof p === 'object'
-    && SHARE_NOTICE_EVENTS.includes(p.event as ShareNoticeEvent)
-    && typeof p.shareId === 'string' && typeof p.eventId === 'string'
-    && typeof p.hostGuildId === 'string' && typeof p.receiverGuildId === 'string'
-    && (p.actorUserId === null || typeof p.actorUserId === 'string')
-    && (p.noticeChannelId === null || typeof p.noticeChannelId === 'string')
-    && (p.noticeMessageId === null || typeof p.noticeMessageId === 'string');
+  return (
+    !!p &&
+    typeof p === 'object' &&
+    SHARE_NOTICE_EVENTS.includes(p.event as ShareNoticeEvent) &&
+    typeof p.shareId === 'string' &&
+    typeof p.eventId === 'string' &&
+    typeof p.hostGuildId === 'string' &&
+    typeof p.receiverGuildId === 'string' &&
+    (p.actorUserId === null || typeof p.actorUserId === 'string') &&
+    (p.noticeChannelId === null || typeof p.noticeChannelId === 'string') &&
+    (p.noticeMessageId === null || typeof p.noticeMessageId === 'string')
+  );
 }
 
 /** customId of a shared-event button: `share:<accept|decline>:<shareId>`. */

@@ -32,7 +32,13 @@ export async function setRosterRole(
     const event = await lockEvent(tx, eventId);
     if (role !== null) {
       const rsvps = await tx.eventRsvp.findMany({ where: { eventId }, select: { userId: true, role: true } });
-      const why = roleSignupProblem(JSON.parse(event?.roles ?? '[]') as EventRole[], rsvps, role, userId, viewingGuildId);
+      const why = roleSignupProblem(
+        JSON.parse(event?.roles ?? '[]') as EventRole[],
+        rsvps,
+        role,
+        userId,
+        viewingGuildId,
+      );
       if (why) return { problem: why, moves: [] };
     }
     await tx.eventRsvp.upsert({
@@ -100,9 +106,7 @@ async function _postJoinNotification(threadId: string, userId: string, username:
       // Without this, thread.send() throws on archived threads.
       // We don't re-archive afterwards — the event is still upcoming/active.
       if (thread.archived) await thread.setArchived(false).catch(() => null);
-      const embed = new EmbedBuilder()
-        .setColor(0x57f287)
-        .setDescription(`👋 <@${userId}> has joined the roster.`);
+      const embed = new EmbedBuilder().setColor(0x57f287).setDescription(`👋 <@${userId}> has joined the roster.`);
       await thread.send({ embeds: [embed] });
     } else {
       console.warn(`[bot] _postJoinNotification: channel ${threadId} is not a thread`);
@@ -129,9 +133,13 @@ export async function joinRoster(eventId: string, userId: string, username: stri
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   // Someone joining from an ally's copy of a shared event hears about it in that server's thread.
-  const ally = guildId && event && guildId !== event.guildId
-    ? await prisma.eventAllianceGuild.findFirst({ where: { eventId, discordGuildId: guildId }, select: { threadId: true } })
-    : null;
+  const ally =
+    guildId && event && guildId !== event.guildId
+      ? await prisma.eventAllianceGuild.findFirst({
+          where: { eventId, discordGuildId: guildId },
+          select: { threadId: true },
+        })
+      : null;
   const threadId = ally?.threadId ?? event?.threadId;
   if (threadId) {
     await _postJoinNotification(threadId, userId, username);
@@ -180,13 +188,22 @@ export async function queueRosterUpdate(eventId: string) {
   if (!existing) {
     // First call — snapshot the current roster state before any further changes
     const rsvps = await prisma.eventRsvp.findMany({ where: { eventId } });
-    const snapshot = rsvps.map((r) => ({ userId: r.userId, username: r.username, role: r.role, tentative: r.tentative }));
-    const timer = setTimeout(() => { flushRosterUpdate(eventId).catch(console.error); }, 3_000);
+    const snapshot = rsvps.map((r) => ({
+      userId: r.userId,
+      username: r.username,
+      role: r.role,
+      tentative: r.tentative,
+    }));
+    const timer = setTimeout(() => {
+      flushRosterUpdate(eventId).catch(console.error);
+    }, 3_000);
     rosterUpdateDebounce.set(eventId, { timer, snapshot });
   } else {
     // Subsequent call — reset the timer, keep the original snapshot
     clearTimeout(existing.timer);
-    const timer = setTimeout(() => { flushRosterUpdate(eventId).catch(console.error); }, 3_000);
+    const timer = setTimeout(() => {
+      flushRosterUpdate(eventId).catch(console.error);
+    }, 3_000);
     rosterUpdateDebounce.set(eventId, { ...existing, timer });
   }
 }
@@ -232,9 +249,7 @@ async function flushRosterUpdate(eventId: string) {
   const eventRoles = event ? (JSON.parse(event.roles) as EventRole[]) : [];
   const roleNameByKey = new Map(eventRoles.map((r) => [r.id ?? r.name, r.name]));
 
-  const embed = new EmbedBuilder()
-    .setTitle('📋 Roster Updated')
-    .setColor(0x5865f2);
+  const embed = new EmbedBuilder().setTitle('📋 Roster Updated').setColor(0x5865f2);
 
   if (joined.length > 0) {
     embed.addFields({
@@ -252,7 +267,8 @@ async function flushRosterUpdate(eventId: string) {
   }
   if (roleChanged.length > 0) {
     const lines = roleChanged.map((r) => {
-      const name = (key: string | null) => (key === MAYBE ? 'Maybe' : key ? (roleNameByKey.get(key) ?? key) : 'Unassigned');
+      const name = (key: string | null) =>
+        key === MAYBE ? 'Maybe' : key ? (roleNameByKey.get(key) ?? key) : 'Unassigned';
       const from = name(r.from);
       const to = name(r.to);
       return `<@${r.userId}> · ${from} → **${to}**`;

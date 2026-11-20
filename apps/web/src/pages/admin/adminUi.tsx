@@ -21,7 +21,14 @@ export function ago(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export const when = (iso: string) => new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+export const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 
 const SOURCE_CLS: Record<ErrorSource, string> = {
   api: 'bg-sky-500/15 text-sky-300',
@@ -31,26 +38,73 @@ const SOURCE_CLS: Record<ErrorSource, string> = {
 };
 
 export function SourceBadge({ source }: { source: ErrorSource }) {
-  return <span className={cn('rounded px-1.5 py-0.5 font-mono text-[11px] uppercase', SOURCE_CLS[source] ?? 'bg-muted')}>{source}</span>;
+  return (
+    <span className={cn('rounded px-1.5 py-0.5 font-mono text-[11px] uppercase', SOURCE_CLS[source] ?? 'bg-muted')}>
+      {source}
+    </span>
+  );
 }
 
 export function LevelDot({ level }: { level: ErrorLevel }) {
-  return <span title={level} className={cn('inline-block h-2 w-2 shrink-0 rounded-full', level === 'error' ? 'bg-red-500' : 'bg-yellow-400')} />;
+  return (
+    <span
+      title={level}
+      className={cn('inline-block h-2 w-2 shrink-0 rounded-full', level === 'error' ? 'bg-red-500' : 'bg-yellow-400')}
+    />
+  );
 }
 
-export function Stat({ label, value, sub, tone, to }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'good' | 'bad' | 'warn'; to?: string }) {
+export function Stat({
+  label,
+  value,
+  sub,
+  tone,
+  to,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  tone?: 'good' | 'bad' | 'warn';
+  to?: string;
+}) {
   const body = (
-    <div className={cn('rounded-lg border bg-card p-3 sm:p-4 h-full', to && 'hover:border-primary/60 transition-colors')}>
+    <div
+      className={cn('rounded-lg border bg-card p-3 sm:p-4 h-full', to && 'hover:border-primary/60 transition-colors')}
+    >
       <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn('mt-1 text-xl sm:text-2xl font-semibold tabular-nums break-words',
-        tone === 'good' && 'text-emerald-400', tone === 'bad' && 'text-red-400', tone === 'warn' && 'text-yellow-300')}>{value}</div>
+      <div
+        className={cn(
+          'mt-1 text-xl sm:text-2xl font-semibold tabular-nums break-words',
+          tone === 'good' && 'text-emerald-400',
+          tone === 'bad' && 'text-red-400',
+          tone === 'warn' && 'text-yellow-300',
+        )}
+      >
+        {value}
+      </div>
       {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
     </div>
   );
-  return to ? <Link to={to} className="block">{body}</Link> : body;
+  return to ? (
+    <Link to={to} className="block">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
 }
 
-export function Section({ title, actions, children, className }: { title: string; actions?: ReactNode; children: ReactNode; className?: string }) {
+export function Section({
+  title,
+  actions,
+  children,
+  className,
+}: {
+  title: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <section className={cn('rounded-lg border bg-card', className)}>
       <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
@@ -62,13 +116,19 @@ export function Section({ title, actions, children, className }: { title: string
   );
 }
 
-export const selectCls = 'h-9 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
-export const inputCls = 'h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring';
+export const selectCls =
+  'h-9 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
+export const inputCls =
+  'h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring';
 
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>;
 }
 
 export function LoadFailed({ error }: { error: unknown }) {
-  return <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">Couldn't load this: {error instanceof Error ? error.message : 'unknown error'}</p>;
+  return (
+    <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+      Couldn't load this: {error instanceof Error ? error.message : 'unknown error'}
+    </p>
+  );
 }

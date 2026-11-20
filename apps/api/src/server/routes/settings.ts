@@ -11,10 +11,27 @@ import { assertLootDraftCreator } from '../../lib/assertLootDraftCreator.js';
 import { assertAllianceManager } from '../../lib/assertAllianceManager.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { ValidationError } from '../../lib/validate.js';
-import { applySettingsPatch, parseSettingsPatch, patchNeedsManager, readPermissionFields, type SettingsPatch } from '../../lib/guildSettings.js';
+import {
+  applySettingsPatch,
+  parseSettingsPatch,
+  patchNeedsManager,
+  readPermissionFields,
+  type SettingsPatch,
+} from '../../lib/guildSettings.js';
 import { activityAvailable } from '../../lib/activityAvailable.js';
 import { hiddenModules } from '../../lib/hiddenModules.js';
-import { CREATABLE_CHANNELS, isCreatableChannel, setupChecklist, withHiddenModules, type ApiResponse, type ModuleSetting, type DiscordChannelInfo, type DiscordRoleInfo, type SetupChecklistDto, type SetupDiscord } from '@dem/shared';
+import {
+  CREATABLE_CHANNELS,
+  isCreatableChannel,
+  setupChecklist,
+  withHiddenModules,
+  type ApiResponse,
+  type ModuleSetting,
+  type DiscordChannelInfo,
+  type DiscordRoleInfo,
+  type SetupChecklistDto,
+  type SetupDiscord,
+} from '@dem/shared';
 
 export const settingsRouter = Router();
 
@@ -51,7 +68,7 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
     const hidden = await hiddenModules();
     const on = (m: ModuleSetting) => !hidden.has(m) && (s?.[m] ?? true) !== false;
 
-    const orgRequired = !!(s?.rsiOrgTag);
+    const orgRequired = !!s?.rsiOrgTag;
     let rsiVerified = false;
     if (orgRequired && guild) {
       const member = await prisma.guildMember.findUnique({
@@ -68,22 +85,22 @@ settingsRouter.get('/:guildId/my-permissions', requireAuth, async (req, res) => 
         canViewEvents,
         canCreateLootDraft,
         canManageAllies,
-        eventBotEnabled:    on('eventBotEnabled'),
-        dkpEnabled:         on('dkpEnabled'),
-        lootEnabled:        on('lootEnabled'),
-        exchangeEnabled:    on('exchangeEnabled'),
-        fleetEnabled:       on('fleetEnabled'),
-        blueprintsEnabled:  on('blueprintsEnabled'),
-        craftingEnabled:    on('craftingEnabled'),
-        wikeloEnabled:    on('wikeloEnabled'),
-        activityEnabled:    activityAvailable(guildId) && on('activityEnabled'),
-        activityAvailable:  activityAvailable(guildId) && !hidden.has('activityEnabled'),
+        eventBotEnabled: on('eventBotEnabled'),
+        dkpEnabled: on('dkpEnabled'),
+        lootEnabled: on('lootEnabled'),
+        exchangeEnabled: on('exchangeEnabled'),
+        fleetEnabled: on('fleetEnabled'),
+        blueprintsEnabled: on('blueprintsEnabled'),
+        craftingEnabled: on('craftingEnabled'),
+        wikeloEnabled: on('wikeloEnabled'),
+        activityEnabled: activityAvailable(guildId) && on('activityEnabled'),
+        activityAvailable: activityAvailable(guildId) && !hidden.has('activityEnabled'),
         activityHeatmapPublic: s?.activityHeatmapPublic ?? true,
         tournamentsEnabled: on('tournamentsEnabled'),
-        jobsEnabled:        on('jobsEnabled'),
+        jobsEnabled: on('jobsEnabled'),
         assistantAvailable: assistantAvailable(guildId),
-        hiddenModules:      [...hidden],
-        rsiOrgRequired:     orgRequired,
+        hiddenModules: [...hidden],
+        rsiOrgRequired: orgRequired,
         rsiVerified,
       },
     } satisfies ApiResponse);
@@ -111,16 +128,24 @@ settingsRouter.get('/:guildId/roles', requireAuth, async (req, res) => {
 
   try {
     // Cached 30 s (lib/discordRest.ts): settings pages ask for this on every visit.
-    const r = await cachedDiscordGet<DiscordRole[]>(`roles:${guildId}`, `/guilds/${guildId}/roles`, `roles:${guildId}`, 30_000);
+    const r = await cachedDiscordGet<DiscordRole[]>(
+      `roles:${guildId}`,
+      `/guilds/${guildId}/roles`,
+      `roles:${guildId}`,
+      30_000,
+    );
     if (!r.ok) {
-      res.status(r.unavailable ? 503 : 502).json({ success: false, error: r.unavailable ? 'Discord is busy right now. Try again in a few seconds.' : 'Failed to fetch roles from Discord' } satisfies ApiResponse);
+      res.status(r.unavailable ? 503 : 502).json({
+        success: false,
+        error: r.unavailable
+          ? 'Discord is busy right now. Try again in a few seconds.'
+          : 'Failed to fetch roles from Discord',
+      } satisfies ApiResponse);
       return;
     }
     const all = [...r.data];
     // Exclude @everyone (id === guildId) and bot-managed roles
-    const roles = all
-      .filter((r) => r.id !== guildId && !r.managed)
-      .sort((a, b) => b.position - a.position);
+    const roles = all.filter((r) => r.id !== guildId && !r.managed).sort((a, b) => b.position - a.position);
     res.json({ success: true, data: { roles } } satisfies ApiResponse);
   } catch (err) {
     console.error('[settings/roles]', err);
@@ -146,17 +171,27 @@ settingsRouter.get('/:guildId/channels', requireAuth, async (req, res) => {
 
   try {
     // Cached 30 s (lib/discordRest.ts): every settings page with a channel picker asks for this.
-    const r = await cachedDiscordGet<DiscordChannel[]>(`channels:${guildId}`, `/guilds/${guildId}/channels`, `channels:${guildId}`, 30_000);
+    const r = await cachedDiscordGet<DiscordChannel[]>(
+      `channels:${guildId}`,
+      `/guilds/${guildId}/channels`,
+      `channels:${guildId}`,
+      30_000,
+    );
     if (!r.ok) {
-      res.status(r.unavailable ? 503 : 502).json({ success: false, error: r.unavailable ? 'Discord is busy right now. Try again in a few seconds.' : 'Failed to fetch channels from Discord' } satisfies ApiResponse);
+      res.status(r.unavailable ? 503 : 502).json({
+        success: false,
+        error: r.unavailable
+          ? 'Discord is busy right now. Try again in a few seconds.'
+          : 'Failed to fetch channels from Discord',
+      } satisfies ApiResponse);
       return;
     }
 
     const all = [...r.data];
     // Sort: categories first by position, then channels by position within their category
     const channels = all.sort((a, b) => {
-      const aCat = a.type === 4 ? a.position : (all.find(c => c.id === a.parent_id)?.position ?? 999);
-      const bCat = b.type === 4 ? b.position : (all.find(c => c.id === b.parent_id)?.position ?? 999);
+      const aCat = a.type === 4 ? a.position : (all.find((c) => c.id === a.parent_id)?.position ?? 999);
+      const bCat = b.type === 4 ? b.position : (all.find((c) => c.id === b.parent_id)?.position ?? 999);
       if (aCat !== bCat) return aCat - bCat;
       if (a.type === 4) return -1;
       if (b.type === 4) return 1;
@@ -183,50 +218,58 @@ settingsRouter.get('/:guildId/settings', requireAuth, async (req, res) => {
   try {
     const guild = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } });
     const s = guild?.settings;
-    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } = s
-      ? await readPermissionFields(s.id)
-      : { eventCreatorRoles: [], moduleEditorRoles: [], viewerRoles: [], dkpLabel: 'DKP', lootDraftCreatorRoles: [], allianceManagerRoles: [] };
+    const { eventCreatorRoles, moduleEditorRoles, viewerRoles, dkpLabel, lootDraftCreatorRoles, allianceManagerRoles } =
+      s
+        ? await readPermissionFields(s.id)
+        : {
+            eventCreatorRoles: [],
+            moduleEditorRoles: [],
+            viewerRoles: [],
+            dkpLabel: 'DKP',
+            lootDraftCreatorRoles: [],
+            allianceManagerRoles: [],
+          };
     res.json({
       success: true,
       data: {
-        forumChannelId:             s?.forumChannelId             ?? null,
-        eventChannelId:             s?.eventChannelId             ?? null,
-        voiceCategoryId:            s?.voiceCategoryId            ?? null,
-        lootChannelId:              s?.lootChannelId              ?? null,
-        dkpAnnouncementChannelId:   s?.dkpAnnouncementChannelId   ?? null,
-        timezone:                   s?.timezone                   ?? 'UTC',
+        forumChannelId: s?.forumChannelId ?? null,
+        eventChannelId: s?.eventChannelId ?? null,
+        voiceCategoryId: s?.voiceCategoryId ?? null,
+        lootChannelId: s?.lootChannelId ?? null,
+        dkpAnnouncementChannelId: s?.dkpAnnouncementChannelId ?? null,
+        timezone: s?.timezone ?? 'UTC',
         eventCreatorRoles,
         moduleEditorRoles,
         viewerRoles,
         dkpLabel,
         lootDraftCreatorRoles,
         allianceManagerRoles,
-        eventBotEnabled:            s?.eventBotEnabled            ?? true,
-        dkpEnabled:                 s?.dkpEnabled                 ?? true,
-        lootEnabled:                s?.lootEnabled                ?? true,
-        exchangeEnabled:            s?.exchangeEnabled            ?? true,
-        fleetEnabled:               s?.fleetEnabled               ?? true,
-        blueprintsEnabled:          s?.blueprintsEnabled          ?? true,
-        craftingEnabled:            s?.craftingEnabled            ?? true,
-        wikeloEnabled:            s?.wikeloEnabled            ?? true,
-        activityEnabled:            s?.activityEnabled            ?? true,
-        activityAvailable:          activityAvailable(guildId),
-        activityHeatmapPublic:      s?.activityHeatmapPublic      ?? true,
-        tournamentsEnabled:         s?.tournamentsEnabled          ?? true,
-        tournamentHideElo:          s?.tournamentHideElo           ?? false,
-        tournamentChannelId:        s?.tournamentChannelId         ?? null,
-        h2hChannelId:               s?.h2hChannelId                ?? null,
-        statusChannelId:            s?.statusChannelId             ?? null,
-        starStringsChannelId:            s?.starStringsChannelId             ?? null,
-        allyNoticeChannelId:        s?.allyNoticeChannelId         ?? null,
-        jobsEnabled:                s?.jobsEnabled                 ?? true,
-        jobsChannelId:              s?.jobsChannelId               ?? null,
-        dkpDefaultAuctionDuration:  s?.dkpDefaultAuctionDuration  ?? 24,
-        dkpMinBid:                  s?.dkpMinBid                  ?? 0,
-        lootDefaultMethod:          s?.lootDefaultMethod          ?? 'RANDOM_ROLL',
-        rsiOrgTag:                  s?.rsiOrgTag                  ?? null,
-        logoUrl:                    s?.logoUrl                    ?? null,
-        allianceTag:                s?.allianceTag                 ?? null,
+        eventBotEnabled: s?.eventBotEnabled ?? true,
+        dkpEnabled: s?.dkpEnabled ?? true,
+        lootEnabled: s?.lootEnabled ?? true,
+        exchangeEnabled: s?.exchangeEnabled ?? true,
+        fleetEnabled: s?.fleetEnabled ?? true,
+        blueprintsEnabled: s?.blueprintsEnabled ?? true,
+        craftingEnabled: s?.craftingEnabled ?? true,
+        wikeloEnabled: s?.wikeloEnabled ?? true,
+        activityEnabled: s?.activityEnabled ?? true,
+        activityAvailable: activityAvailable(guildId),
+        activityHeatmapPublic: s?.activityHeatmapPublic ?? true,
+        tournamentsEnabled: s?.tournamentsEnabled ?? true,
+        tournamentHideElo: s?.tournamentHideElo ?? false,
+        tournamentChannelId: s?.tournamentChannelId ?? null,
+        h2hChannelId: s?.h2hChannelId ?? null,
+        statusChannelId: s?.statusChannelId ?? null,
+        starStringsChannelId: s?.starStringsChannelId ?? null,
+        allyNoticeChannelId: s?.allyNoticeChannelId ?? null,
+        jobsEnabled: s?.jobsEnabled ?? true,
+        jobsChannelId: s?.jobsChannelId ?? null,
+        dkpDefaultAuctionDuration: s?.dkpDefaultAuctionDuration ?? 24,
+        dkpMinBid: s?.dkpMinBid ?? 0,
+        lootDefaultMethod: s?.lootDefaultMethod ?? 'RANDOM_ROLL',
+        rsiOrgTag: s?.rsiOrgTag ?? null,
+        logoUrl: s?.logoUrl ?? null,
+        allianceTag: s?.allianceTag ?? null,
       },
     } satisfies ApiResponse);
   } catch (err) {
@@ -254,9 +297,7 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
 
   // Enable toggles, editor/viewer roles, dkpLabel, and lootDraftCreatorRoles are admin-only fields — require full guild manager
   const needsAdmin = patchNeedsManager(body);
-  const allowed = needsAdmin
-    ? await assertGuildManager(req, guildId)
-    : await assertModuleEditor(req, guildId);
+  const allowed = needsAdmin ? await assertGuildManager(req, guildId) : await assertModuleEditor(req, guildId);
 
   if (!allowed) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
@@ -284,11 +325,26 @@ settingsRouter.patch('/:guildId/settings', requireAuth, async (req, res) => {
 async function setupDiscord(guildId: string): Promise<SetupDiscord | null> {
   const [me, channels, roles] = await Promise.all([
     cachedDiscordGet<{ id: string }>('bot-user', '/users/@me', 'users', 24 * 3600_000),
-    cachedDiscordGet<DiscordChannelInfo[]>(`channels:${guildId}`, `/guilds/${guildId}/channels`, `channels:${guildId}`, 30_000),
-    cachedDiscordGet<(DiscordRoleInfo & DiscordRole)[]>(`roles:${guildId}`, `/guilds/${guildId}/roles`, `roles:${guildId}`, 30_000),
+    cachedDiscordGet<DiscordChannelInfo[]>(
+      `channels:${guildId}`,
+      `/guilds/${guildId}/channels`,
+      `channels:${guildId}`,
+      30_000,
+    ),
+    cachedDiscordGet<(DiscordRoleInfo & DiscordRole)[]>(
+      `roles:${guildId}`,
+      `/guilds/${guildId}/roles`,
+      `roles:${guildId}`,
+      30_000,
+    ),
   ]);
   if (!me.ok || !channels.ok || !roles.ok) return null;
-  const member = await cachedDiscordGet<{ roles: string[] }>(`bot-member:${guildId}`, `/guilds/${guildId}/members/${me.data.id}`, `member:${guildId}`, 30_000);
+  const member = await cachedDiscordGet<{ roles: string[] }>(
+    `bot-member:${guildId}`,
+    `/guilds/${guildId}/members/${me.data.id}`,
+    `member:${guildId}`,
+    30_000,
+  );
   if (!member.ok) return null;
   return { guildId, botId: me.data.id, botRoleIds: member.data.roles, channels: channels.data, roles: roles.data };
 }
@@ -306,11 +362,17 @@ settingsRouter.get('/:guildId/setup', requireAuth, async (req, res) => {
     prisma.aiAssistant.findUnique({ where: { guildId }, select: { enabled: true, channelIds: true } }),
   ]);
   // Hidden modules (v1.28.0) don't ask for their channels.
-  const settings = withHiddenModules((guild?.settings ?? null) as Record<string, unknown> | null, await hiddenModules());
+  const settings = withHiddenModules(
+    (guild?.settings ?? null) as Record<string, unknown> | null,
+    await hiddenModules(),
+  );
   // The AI assistant's channels, when it's on (v1.56.0).
   const assistantChannelIds = ai?.enabled ? assistantChannels(ai.channelIds) : undefined;
   const steps = setupChecklist({ settings, hasEvents: !!anyEvent, discord, assistantChannelIds });
-  res.json({ success: true, data: { steps, hidden: guild?.settings?.setupHidden ?? false, discordChecked: !!discord } } satisfies ApiResponse<SetupChecklistDto>);
+  res.json({
+    success: true,
+    data: { steps, hidden: guild?.settings?.setupHidden ?? false, discordChecked: !!discord },
+  } satisfies ApiResponse<SetupChecklistDto>);
 });
 
 settingsRouter.put('/:guildId/setup/hidden', requireAuth, async (req, res) => {
@@ -329,7 +391,11 @@ settingsRouter.put('/:guildId/setup/hidden', requireAuth, async (req, res) => {
     res.status(404).json({ success: false, error: 'Guild not found' } satisfies ApiResponse);
     return;
   }
-  await prisma.guildSettings.upsert({ where: { guildId: guild.id }, update: { setupHidden: hidden }, create: { guildId: guild.id, setupHidden: hidden } });
+  await prisma.guildSettings.upsert({
+    where: { guildId: guild.id },
+    update: { setupHidden: hidden },
+    create: { guildId: guild.id, setupHidden: hidden },
+  });
   res.json({ success: true, data: { hidden } } satisfies ApiResponse);
 });
 
@@ -344,7 +410,7 @@ settingsRouter.post('/:guildId/setup/create/:key', requireAuth, async (req, res)
     return;
   }
   if (!isCreatableChannel(key)) {
-    res.status(400).json({ success: false, error: 'That can\'t be created from here' } satisfies ApiResponse);
+    res.status(400).json({ success: false, error: "That can't be created from here" } satisfies ApiResponse);
     return;
   }
   const guild = await prisma.guild.findUnique({ where: { guildId }, select: { id: true } });
@@ -354,26 +420,36 @@ settingsRouter.post('/:guildId/setup/create/:key', requireAuth, async (req, res)
   }
   const spec = CREATABLE_CHANNELS[key];
   const made = await discordPost<{ id: string; name: string }>(
-    `/guilds/${guildId}/channels`, { name: spec.name, type: spec.type }, `channels:${guildId}`, 'ASOP setup checklist',
+    `/guilds/${guildId}/channels`,
+    { name: spec.name, type: spec.type },
+    `channels:${guildId}`,
+    'ASOP setup checklist',
   );
   if (!made.ok) {
-    const error = made.code === 50013 || made.status === 403
-      ? 'The bot doesn\'t have Manage Channels in this server. Give its role that permission, then try again.'
-      : made.unavailable ? 'Discord didn\'t answer. Try again in a moment.' : 'Discord refused to create the channel.';
-    if (!made.unavailable && made.status !== 403) console.warn(`[setup] Creating ${key} in ${guildId} failed: ${made.status} ${made.code ?? ''}`);
+    const error =
+      made.code === 50013 || made.status === 403
+        ? "The bot doesn't have Manage Channels in this server. Give its role that permission, then try again."
+        : made.unavailable
+          ? "Discord didn't answer. Try again in a moment."
+          : 'Discord refused to create the channel.';
+    if (!made.unavailable && made.status !== 403)
+      console.warn(`[setup] Creating ${key} in ${guildId} failed: ${made.status} ${made.code ?? ''}`);
     res.status(made.unavailable ? 503 : 400).json({ success: false, error } satisfies ApiResponse);
     return;
   }
   forgetCached(`channels:${guildId}`); // the checklist's channel list must include it
   await applySettingsPatch(guildId, { [spec.setting]: made.data.id });
-  res.json({ success: true, data: { id: made.data.id, name: made.data.name } } satisfies ApiResponse<{ id: string; name: string }>);
+  res.json({ success: true, data: { id: made.data.id, name: made.data.name } } satisfies ApiResponse<{
+    id: string;
+    name: string;
+  }>);
 });
 
 // ── POST /api/guilds/:guildId/settings/register-commands ─────────────────────
 
 settingsRouter.post('/:guildId/settings/register-commands', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  if (!await assertGuildManager(req, guildId)) {
+  if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
@@ -394,7 +470,7 @@ settingsRouter.get('/:guildId/settings/label', requireAuth, async (req, res) => 
 
 settingsRouter.get('/:guildId/settings/bot-config', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  if (!await assertGuildManager(req, guildId)) {
+  if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }
@@ -409,7 +485,7 @@ settingsRouter.get('/:guildId/settings/bot-config', requireAuth, async (req, res
 
 settingsRouter.patch('/:guildId/settings/bot-config', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
-  if (!await assertGuildManager(req, guildId)) {
+  if (!(await assertGuildManager(req, guildId))) {
     res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
     return;
   }

@@ -6,7 +6,13 @@ import { assertGuildManager } from '../../lib/assertGuildManager.js';
 import { assertEventViewer } from '../../lib/assertEventViewer.js';
 import { assertModuleEnabled } from '../../lib/assertModuleEnabled.js';
 import { triggerBot } from '../../lib/triggerBot.js';
-import { generateSingleElimBracket, nextPow2, countByeRounds, nextSatisfactoryCount, prevPow2 } from '../../lib/bracketGenerator.js';
+import {
+  generateSingleElimBracket,
+  nextPow2,
+  countByeRounds,
+  nextSatisfactoryCount,
+  prevPow2,
+} from '../../lib/bracketGenerator.js';
 import { calcElo } from '../../lib/eloCalculator.js';
 import type { ApiResponse } from '@dem/shared';
 
@@ -24,7 +30,9 @@ tournamentRouter.use('/:guildId/tournaments', async (req, res, next) => {
     if (!(await assertModuleEnabled(guildId, 'tournamentsEnabled'))) return notFound(res);
     if (!(await assertEventViewer(req, guildId))) return forbidden(res);
     next();
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Any bracket size 2–64 is valid; the generator uses a rolling-BYE structure (at most
@@ -54,14 +62,20 @@ function badRequest(res: any, msg: string): void {
 tournamentRouter.get('/:guildId/tournaments', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   const statusFilter = req.query['status'] as string | undefined;
-  const statuses = statusFilter ? statusFilter.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  const statuses = statusFilter
+    ? statusFilter
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
 
   try {
-    const where = statuses.length === 0
-      ? { guildId }
-      : statuses.length === 1
-        ? { guildId, status: statuses[0]! }
-        : { guildId, status: { in: statuses } };
+    const where =
+      statuses.length === 0
+        ? { guildId }
+        : statuses.length === 1
+          ? { guildId, status: statuses[0]! }
+          : { guildId, status: { in: statuses } };
 
     const tournaments = await prisma.tournament.findMany({
       where,
@@ -235,23 +249,39 @@ tournamentRouter.post('/:guildId/tournaments', requireAuth, async (req, res) => 
   if (!isManager) return forbidden(res);
 
   const {
-    name, description, format = 'SINGLE_ELIM', participantMode = 'INDIVIDUAL',
-    size = 8, openRoster = false, seedingMode = 'RANDOM',
-    channelId, registrationEndsAt, seasonId,
+    name,
+    description,
+    format = 'SINGLE_ELIM',
+    participantMode = 'INDIVIDUAL',
+    size = 8,
+    openRoster = false,
+    seedingMode = 'RANDOM',
+    channelId,
+    registrationEndsAt,
+    seasonId,
   } = req.body as {
-    name?: string; description?: string; format?: string; participantMode?: string;
-    size?: number; openRoster?: boolean; seedingMode?: string;
-    channelId?: string; registrationEndsAt?: string; seasonId?: string;
+    name?: string;
+    description?: string;
+    format?: string;
+    participantMode?: string;
+    size?: number;
+    openRoster?: boolean;
+    seedingMode?: string;
+    channelId?: string;
+    registrationEndsAt?: string;
+    seasonId?: string;
   };
 
   if (!name?.trim()) return badRequest(res, 'Tournament name is required');
-  if (!VALID_FORMATS.includes(format as typeof VALID_FORMATS[number])) return badRequest(res, `format must be one of: ${VALID_FORMATS.join(', ')}`);
+  if (!VALID_FORMATS.includes(format as (typeof VALID_FORMATS)[number]))
+    return badRequest(res, `format must be one of: ${VALID_FORMATS.join(', ')}`);
   // Size validation only applies to closed-roster tournaments (openRoster=false).
   // Open-roster tournaments derive their bracket size from actual participants at start time.
   if (!openRoster && (!Number.isInteger(size) || size < VALID_SIZE_MIN || size > VALID_SIZE_MAX)) {
     return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
   }
-  if (!VALID_SEEDING.includes(seedingMode as typeof VALID_SEEDING[number])) return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING.join(', ')}`);
+  if (!VALID_SEEDING.includes(seedingMode as (typeof VALID_SEEDING)[number]))
+    return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING.join(', ')}`);
 
   const userId = req.session.userId!;
 
@@ -334,15 +364,18 @@ tournamentRouter.get('/:guildId/tournaments/:id/elo-summary', requireAuth, async
       orderBy: { createdAt: 'asc' },
     });
 
-    const playerMap = new Map<string, {
-      discordId: string;
-      displayName: string;
-      totalDelta: number;
-      ratingBefore: number;
-      ratingAfter: number;
-      wins: number;
-      losses: number;
-    }>();
+    const playerMap = new Map<
+      string,
+      {
+        discordId: string;
+        displayName: string;
+        totalDelta: number;
+        ratingBefore: number;
+        ratingAfter: number;
+        wins: number;
+        losses: number;
+      }
+    >();
 
     for (const row of history) {
       const key = row.rating.discordId;
@@ -353,7 +386,7 @@ tournamentRouter.get('/:guildId/tournaments/:id/elo-summary', requireAuth, async
           displayName: row.rating.displayName,
           totalDelta: row.delta,
           ratingBefore: row.ratingBefore, // rating at tournament start
-          ratingAfter: row.ratingAfter,   // updated each row; last write = final
+          ratingAfter: row.ratingAfter, // updated each row; last write = final
           wins: row.won ? 1 : 0,
           losses: row.won ? 0 : 1,
         });
@@ -381,8 +414,10 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const { name, description, channelId, registrationEndsAt, seedingMode, size, openRoster } =
-    req.body as Record<string, unknown>;
+  const { name, description, channelId, registrationEndsAt, seedingMode, size, openRoster } = req.body as Record<
+    string,
+    unknown
+  >;
 
   const VALID_SEEDING_MODES = ['RANDOM', 'ACTIVITY', 'ELO_RANK', 'MANUAL'];
 
@@ -395,7 +430,8 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
     if (typeof name === 'string' && name.trim()) data['name'] = name.trim();
     if (description !== undefined) data['description'] = typeof description === 'string' ? description.trim() : null;
     if (channelId !== undefined) data['channelId'] = channelId ?? null;
-    if (registrationEndsAt !== undefined) data['registrationEndsAt'] = registrationEndsAt ? new Date(registrationEndsAt as string) : null;
+    if (registrationEndsAt !== undefined)
+      data['registrationEndsAt'] = registrationEndsAt ? new Date(registrationEndsAt as string) : null;
     // openRoster, seedingMode, and size can only be changed while still in DRAFT
     if (openRoster !== undefined) {
       if (tournament.status !== 'DRAFT') return badRequest(res, 'openRoster can only be changed while in DRAFT');
@@ -412,7 +448,8 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
     }
     if (seedingMode !== undefined) {
       if (tournament.status !== 'DRAFT') return badRequest(res, 'seedingMode can only be changed while in DRAFT');
-      if (!VALID_SEEDING_MODES.includes(seedingMode as string)) return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING_MODES.join(', ')}`);
+      if (!VALID_SEEDING_MODES.includes(seedingMode as string))
+        return badRequest(res, `seedingMode must be one of: ${VALID_SEEDING_MODES.join(', ')}`);
       data['seedingMode'] = seedingMode;
     }
     if (size !== undefined) {
@@ -425,7 +462,8 @@ tournamentRouter.patch('/:guildId/tournaments/:id', requireAuth, async (req, res
         return badRequest(res, `size must be an integer between ${VALID_SIZE_MIN} and ${VALID_SIZE_MAX}`);
       }
       const currentCount = await prisma.tournamentParticipant.count({ where: { tournamentId: id } });
-      if (sizeNum < currentCount) return badRequest(res, `Cannot reduce size below current participant count (${currentCount})`);
+      if (sizeNum < currentCount)
+        return badRequest(res, `Cannot reduce size below current participant count (${currentCount})`);
       data['size'] = sizeNum;
     }
 
@@ -447,7 +485,8 @@ tournamentRouter.delete('/:guildId/tournaments/:id', requireAuth, async (req, re
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Only DRAFT or REGISTRATION tournaments can be deleted');
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status))
+      return badRequest(res, 'Only DRAFT or REGISTRATION tournaments can be deleted');
 
     await prisma.tournament.delete({ where: { id } });
     res.json({ success: true } satisfies ApiResponse);
@@ -463,11 +502,11 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
   const { guildId, id } = req.params as { guildId: string; id: string };
   const userId = req.session.userId!;
 
-  const {
-    discordId, displayName, teamName, teamMembers,
-  } = req.body as {
-    discordId?: string; displayName?: string;
-    teamName?: string; teamMembers?: Array<{ discordId: string; displayName: string }>;
+  const { discordId, displayName, teamName, teamMembers } = req.body as {
+    discordId?: string;
+    displayName?: string;
+    teamName?: string;
+    teamMembers?: Array<{ discordId: string; displayName: string }>;
   };
 
   try {
@@ -491,9 +530,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/register', requireAuth, async (
     if (tournament.participantMode === 'INDIVIDUAL') {
       // Managers can specify a discordId and/or displayName.
       // If neither is provided, or a non-manager is registering, default to the session user.
-      const targetDiscordId: string | null = isManager
-        ? (discordId?.trim() || null)
-        : userId;
+      const targetDiscordId: string | null = isManager ? discordId?.trim() || null : userId;
       const targetName = displayName?.trim() || targetDiscordId || 'Unknown';
 
       // Duplicate check: only apply when a discordId is set (null discordIds are allowed to coexist)
@@ -578,7 +615,8 @@ tournamentRouter.delete('/:guildId/tournaments/:id/participants/:pid', requireAu
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Can only remove participants during draft or registration');
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status))
+      return badRequest(res, 'Can only remove participants during draft or registration');
 
     await prisma.tournamentParticipant.deleteMany({ where: { id: pid, tournamentId: id } });
     triggerBot(`/trigger/tournament-roster/${id}`);
@@ -602,7 +640,8 @@ tournamentRouter.patch('/:guildId/tournaments/:id/seed', requireAuth, async (req
   try {
     const tournament = await prisma.tournament.findFirst({ where: { id, guildId } });
     if (!tournament) return notFound(res);
-    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status)) return badRequest(res, 'Can only seed during draft or registration');
+    if (!['DRAFT', 'REGISTRATION'].includes(tournament.status))
+      return badRequest(res, 'Can only seed during draft or registration');
 
     await prisma.$transaction(
       order.map((pid, i) =>
@@ -646,7 +685,11 @@ tournamentRouter.post('/:guildId/tournaments/:id/open', requireAuth, async (req,
         remindersToCreate.push({ tournamentId: id, type: 'REGISTRATION_CLOSE', scheduledAt: closeReminderAt });
       }
       if (tournament.registrationEndsAt > now) {
-        remindersToCreate.push({ tournamentId: id, type: 'REGISTRATION_DEADLINE', scheduledAt: tournament.registrationEndsAt });
+        remindersToCreate.push({
+          tournamentId: id,
+          type: 'REGISTRATION_DEADLINE',
+          scheduledAt: tournament.registrationEndsAt,
+        });
       }
       if (remindersToCreate.length) {
         await prisma.tournamentReminder.createMany({ data: remindersToCreate });
@@ -717,8 +760,8 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
         return badRequest(
           res,
           `${N} participants would spread BYEs across ${byeRounds} rounds. ` +
-          `Add at least ${minCount - N} more participant(s) (minimum ${minCount}), ` +
-          `or reduce to ${cleanCount} for a clean no-BYE bracket.`,
+            `Add at least ${minCount - N} more participant(s) (minimum ${minCount}), ` +
+            `or reduce to ${cleanCount} for a clean no-BYE bracket.`,
         );
       }
     }
@@ -733,9 +776,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
         [participants[i], participants[j]] = [participants[j]!, participants[i]!];
       }
       await prisma.$transaction(
-        participants.map((p, i) =>
-          prisma.tournamentParticipant.update({ where: { id: p.id }, data: { seed: i + 1 } }),
-        ),
+        participants.map((p, i) => prisma.tournamentParticipant.update({ where: { id: p.id }, data: { seed: i + 1 } })),
       );
       participants = participants.map((p, i) => ({ ...p, seed: i + 1 }));
     } else if (tournament.seedingMode === 'ACTIVITY') {
@@ -838,9 +879,7 @@ tournamentRouter.post('/:guildId/tournaments/:id/start', requireAuth, async (req
           // locked.  For closed-roster this is a no-op (size was already set at
           // create time).  We store the real count, not the padded power-of-2,
           // since the rolling-BYE bracket no longer pads.
-          ...(tournament.openRoster
-            ? { size: participants.length }
-            : {}),
+          ...(tournament.openRoster ? { size: participants.length } : {}),
         },
       });
     });
@@ -885,7 +924,8 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/schedule', req
       const reminders: Array<{ tournamentId: string; matchId: string; type: string; scheduledAt: Date }> = [];
       const minus60 = new Date(dt.getTime() - 60 * 60_000);
       const minus15 = new Date(dt.getTime() - 15 * 60_000);
-      if (minus60 > new Date()) reminders.push({ tournamentId: id, matchId, type: 'MATCH_START', scheduledAt: minus60 });
+      if (minus60 > new Date())
+        reminders.push({ tournamentId: id, matchId, type: 'MATCH_START', scheduledAt: minus60 });
       if (minus15 > new Date()) reminders.push({ tournamentId: id, matchId, type: 'CHECK_IN', scheduledAt: minus15 });
 
       if (reminders.length) await tx.tournamentReminder.createMany({ data: reminders });
@@ -907,7 +947,10 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
   if (!isManager) return forbidden(res);
 
   const { winnerId, scoreA, scoreB, forfeit } = req.body as {
-    winnerId?: string; scoreA?: number; scoreB?: number; forfeit?: boolean;
+    winnerId?: string;
+    scoreA?: number;
+    scoreB?: number;
+    forfeit?: boolean;
   };
   if (!winnerId) return badRequest(res, 'winnerId is required');
 
@@ -1028,7 +1071,12 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
       }
 
       // ── ELO update (individual mode only; skipped for forfeits) ───────────
-      if (!forfeit && match.tournament.participantMode === 'INDIVIDUAL' && match.participantA?.discordId && match.participantB?.discordId) {
+      if (
+        !forfeit &&
+        match.tournament.participantMode === 'INDIVIDUAL' &&
+        match.participantA?.discordId &&
+        match.participantB?.discordId
+      ) {
         const pA = match.participantA;
         const pB = match.participantB;
         const discordIdA = pA.discordId as string;
@@ -1109,12 +1157,30 @@ tournamentRouter.post('/:guildId/tournaments/:id/matches/:matchId/result', requi
           await Promise.all([
             tx.tournamentSeasonStanding.upsert({
               where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdA } },
-              create: { seasonId: link.seasonId, guildId, discordId: discordIdA, displayName: pA.displayName, rating: 1200, wins: 0, losses: 0, matchesPlayed: 0 },
+              create: {
+                seasonId: link.seasonId,
+                guildId,
+                discordId: discordIdA,
+                displayName: pA.displayName,
+                rating: 1200,
+                wins: 0,
+                losses: 0,
+                matchesPlayed: 0,
+              },
               update: {},
             }),
             tx.tournamentSeasonStanding.upsert({
               where: { seasonId_discordId: { seasonId: link.seasonId, discordId: discordIdB } },
-              create: { seasonId: link.seasonId, guildId, discordId: discordIdB, displayName: pB.displayName, rating: 1200, wins: 0, losses: 0, matchesPlayed: 0 },
+              create: {
+                seasonId: link.seasonId,
+                guildId,
+                discordId: discordIdB,
+                displayName: pB.displayName,
+                rating: 1200,
+                wins: 0,
+                losses: 0,
+                matchesPlayed: 0,
+              },
               update: {},
             }),
           ]);
@@ -1181,19 +1247,17 @@ tournamentRouter.post('/:guildId/tournaments/h2h', requireAuth, async (req, res)
   const isManager = await assertGuildManager(req, guildId);
   if (!isManager) return forbidden(res);
 
-  const {
-    playerADiscordId, playerBDiscordId, winnerDiscordId, announce,
-    playerADisplayName, playerBDisplayName,
-  } = req.body as {
-    playerADiscordId?: string;
-    playerBDiscordId?: string;
-    winnerDiscordId?: string;
-    announce?: boolean;
-    /** Display name for player A — required only if they have no existing rating record */
-    playerADisplayName?: string;
-    /** Display name for player B — required only if they have no existing rating record */
-    playerBDisplayName?: string;
-  };
+  const { playerADiscordId, playerBDiscordId, winnerDiscordId, announce, playerADisplayName, playerBDisplayName } =
+    req.body as {
+      playerADiscordId?: string;
+      playerBDiscordId?: string;
+      winnerDiscordId?: string;
+      announce?: boolean;
+      /** Display name for player A — required only if they have no existing rating record */
+      playerADisplayName?: string;
+      /** Display name for player B — required only if they have no existing rating record */
+      playerBDisplayName?: string;
+    };
 
   if (!playerADiscordId || !playerBDiscordId || !winnerDiscordId) {
     return badRequest(res, 'playerADiscordId, playerBDiscordId, and winnerDiscordId are required');
@@ -1232,7 +1296,7 @@ tournamentRouter.post('/:guildId/tournaments/h2h', requireAuth, async (req, res)
           data: {
             rating: elo.newA,
             matchesPlayed: { increment: 1 },
-            wins:   aWon  ? { increment: 1 } : undefined,
+            wins: aWon ? { increment: 1 } : undefined,
             losses: !aWon ? { increment: 1 } : undefined,
             peakRating: elo.newA > ratingA.peakRating ? elo.newA : undefined,
           },
@@ -1242,8 +1306,8 @@ tournamentRouter.post('/:guildId/tournaments/h2h', requireAuth, async (req, res)
           data: {
             rating: elo.newB,
             matchesPlayed: { increment: 1 },
-            wins:   !aWon ? { increment: 1 } : undefined,
-            losses:  aWon ? { increment: 1 } : undefined,
+            wins: !aWon ? { increment: 1 } : undefined,
+            losses: aWon ? { increment: 1 } : undefined,
             peakRating: elo.newB > ratingB.peakRating ? elo.newB : undefined,
           },
         }),

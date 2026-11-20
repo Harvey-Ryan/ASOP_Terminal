@@ -6,7 +6,10 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { reportError } from '@/lib/reportError';
 
-interface State { error: Error | null; ref: string | null }
+interface State {
+  error: Error | null;
+  ref: string | null;
+}
 
 export class CrashScreen extends Component<{ children: ReactNode; resetKey?: string }, State> {
   state: State = { error: null, ref: null };
@@ -16,7 +19,10 @@ export class CrashScreen extends Component<{ children: ReactNode; resetKey?: str
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    const withComponents = Object.assign(new Error(error.message), { name: error.name, stack: `${error.stack ?? ''}\nComponent stack:${info.componentStack ?? ''}` });
+    const withComponents = Object.assign(new Error(error.message), {
+      name: error.name,
+      stack: `${error.stack ?? ''}\nComponent stack:${info.componentStack ?? ''}`,
+    });
     this.setState({ ref: reportError(withComponents, 'render crash') });
   }
 
@@ -32,11 +38,21 @@ export class CrashScreen extends Component<{ children: ReactNode; resetKey?: str
         <div className="max-w-md space-y-4 rounded-lg border border-destructive/40 bg-card p-6 text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-destructive" aria-hidden />
           <h2 className="text-lg font-semibold">This page ran into a problem</h2>
-          <p className="text-sm text-muted-foreground">It's been reported. Reloading usually fixes it; if it keeps happening, mention this code when you ask for help.</p>
+          <p className="text-sm text-muted-foreground">
+            It's been reported. Reloading usually fixes it; if it keeps happening, mention this code when you ask for
+            help.
+          </p>
           {this.state.ref && <p className="font-mono text-sm tracking-widest">Ref {this.state.ref}</p>}
           <div className="flex justify-center gap-2">
             <Button onClick={() => window.location.reload()}>Reload</Button>
-            <Button variant="outline" onClick={() => { window.location.href = '/dashboard'; }}>Dashboard</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                window.location.href = '/dashboard';
+              }}
+            >
+              Dashboard
+            </Button>
           </div>
         </div>
       </div>

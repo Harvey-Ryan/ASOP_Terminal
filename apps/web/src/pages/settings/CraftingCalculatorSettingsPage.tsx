@@ -64,8 +64,8 @@ export function CraftingCalculatorSettingsPage() {
         <div className="space-y-1">
           <p className="font-medium text-yellow-500">Under Construction</p>
           <p className="text-muted-foreground">
-            The Crafting Calculator is currently under development. It will let you plan material
-            costs, estimate production timelines, and optimize crafting runs across multiple blueprints.
+            The Crafting Calculator is currently under development. It will let you plan material costs, estimate
+            production timelines, and optimize crafting runs across multiple blueprints.
           </p>
         </div>
       </div>
@@ -82,9 +82,11 @@ export function CraftingCalculatorSettingsPage() {
                 checked={form.craftingEnabled}
                 onChange={(v) => setField('craftingEnabled', v)}
                 label="Crafting Calculator enabled"
-                description={form.craftingEnabled
-                  ? 'Members can access the crafting calculator.'
-                  : 'Crafting Calculator is disabled. The nav link will be hidden for all members.'}
+                description={
+                  form.craftingEnabled
+                    ? 'Members can access the crafting calculator.'
+                    : 'Crafting Calculator is disabled. The nav link will be hidden for all members.'
+                }
                 tooltip="Controls whether the Crafting Calculator is visible to members of this server. When disabled, the Crafting Calculator nav link is hidden. No data is affected when toggling this setting."
               />
             </CardContent>
@@ -99,9 +101,7 @@ export function CraftingCalculatorSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
         </div>
       )}

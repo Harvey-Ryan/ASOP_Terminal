@@ -1,0 +1,74 @@
+# Contribution guardrails (CONTRIBUTING.md): every pull request to master is
+# checked for scope (one section, little wiring, no core files) and for schema
+# changes that could lose data in production.
+#
+# Runs as pull_request_target, so it always uses master's copy of this file
+# and of scripts/: a pull request can't change the rules it's checked against.
+# It never runs the pull request's code; it only reads its files with git.
+# Maintainer labels (`scope-override`, `schema-reviewed`) re-run it.
+name: Guardrails
+
+on:
+  pull_request_target:
+    branches: [master]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardrails-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch the pull request (read only, never run)
+        run: git fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pr/head"
+        env:
+          PR: ${{ github.event.pull_request.number }}
+
+      - name: One section per pull request
+        run: node scripts/sections.mjs check "origin/${BASE}" pr/head
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+
+  schema:
+    name: Schema safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch the pull request (read only, never run)
+        run: git fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pr/head"
+        env:
+          PR: ${{ github.event.pull_request.number }}
+
+      - name: No unplanned data loss
+        run: node scripts/schemaSafety.mjs check "origin/${BASE}" pr/head
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}

@@ -4,10 +4,41 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, LayoutTemplate, MonitorPlay, Pencil, Plus, Printer, Save, Trash2, X } from 'lucide-react';
 import {
-  bodyBlocks, briefingSlides, forceTotals, groupPeople, imageRows, sectionHasContent, defaultBriefing, newSectionId, BRIEFING_LIMITS, BRIEFING_SECTION_KINDS,
-  type BriefingContent, type BriefingGroup, type BriefingShip, type ShipCatalogEntry, type BriefingLogo, type BriefingSection, type BriefingViewDto,
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Eye,
+  LayoutTemplate,
+  MonitorPlay,
+  Pencil,
+  Plus,
+  Printer,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react';
+import {
+  bodyBlocks,
+  briefingSlides,
+  forceTotals,
+  groupPeople,
+  imageRows,
+  sectionHasContent,
+  defaultBriefing,
+  newSectionId,
+  BRIEFING_LIMITS,
+  BRIEFING_SECTION_KINDS,
+  type BriefingContent,
+  type BriefingGroup,
+  type BriefingShip,
+  type ShipCatalogEntry,
+  type BriefingLogo,
+  type BriefingSection,
+  type BriefingViewDto,
 } from '@dem/shared';
 import { briefingsApi, type PastBriefing } from '@/api/briefings';
 import { fleetApi } from '@/api/fleet';
@@ -22,7 +53,10 @@ const H = 720;
 
 const when = (iso: string, opts: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleString(undefined, opts);
 // A template's briefing has no date yet (startTime '').
-const stepOff = (iso: string) => (iso ? when(iso, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Set per event');
+const stepOff = (iso: string) =>
+  iso
+    ? when(iso, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : 'Set per event';
 
 // ── One slide ─────────────────────────────────────────────────────────────────
 
@@ -42,8 +76,14 @@ function Hud() {
 /** The logos shown: this briefing's own (or the host's), plus allies' if asked for. */
 function shownLogos(c: BriefingContent, logos: BriefingLogo[]): { key: string; url: string | null; label: string }[] {
   const host = logos[0];
-  const first = { key: 'host', url: c.appearance.logoUrl ?? host?.logoUrl ?? null, label: host?.tag ?? host?.name ?? '' };
-  const allies = c.appearance.allyLogos ? logos.slice(1).map((l) => ({ key: l.guildId, url: l.logoUrl, label: l.tag ?? l.name })) : [];
+  const first = {
+    key: 'host',
+    url: c.appearance.logoUrl ?? host?.logoUrl ?? null,
+    label: host?.tag ?? host?.name ?? '',
+  };
+  const allies = c.appearance.allyLogos
+    ? logos.slice(1).map((l) => ({ key: l.guildId, url: l.logoUrl, label: l.tag ?? l.name }))
+    : [];
   return [first, ...allies].filter((l) => l.url || l.label);
 }
 
@@ -59,13 +99,23 @@ function FleetBlock({ ships }: { ships: BriefingShip[] }) {
   return (
     <>
       <div className="sum">
-        <div>Ships &amp; vehicles<b>{t.ships}</b></div>
-        <div>Crew seats<b>{t.seats}</b></div>
+        <div>
+          Ships &amp; vehicles<b>{t.ships}</b>
+        </div>
+        <div>
+          Crew seats<b>{t.seats}</b>
+        </div>
       </div>
       <div className="ships">
         {shown.map((s) => (
           <div key={s.shipId} className="ship">
-            <div className="hd"><b>{s.name}{s.count > 1 ? ` ×${s.count}` : ''}</b><span>{shipCrew(s)}</span></div>
+            <div className="hd">
+              <b>
+                {s.name}
+                {s.count > 1 ? ` ×${s.count}` : ''}
+              </b>
+              <span>{shipCrew(s)}</span>
+            </div>
             {(s.note || s.focus) && <div className="own">{s.note || s.focus}</div>}
           </div>
         ))}
@@ -82,17 +132,25 @@ function RosterBlock({ groups, roles }: { groups: BriefingGroup[]; roles: Briefi
   const cols = Math.ceil(groups.length / rows);
   const max = rows === 2 ? 4 : cols <= 2 ? 10 : 7;
   return (
-    <div className={cn('roster', rows === 2 && 'two')} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${cols <= 2 ? '400px' : '1fr'}))` }}>
+    <div
+      className={cn('roster', rows === 2 && 'two')}
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${cols <= 2 ? '400px' : '1fr'}))` }}
+    >
       {groups.map((g) => {
         const { people, slots } = groupPeople(g, roles);
         return (
           <div key={g.id} className="grp">
             {g.imageUrl ? <img src={g.imageUrl} alt="" referrerPolicy="no-referrer" /> : <div className="noimg" />}
             <div className="gb">
-              <div className="gh"><b>{g.title || 'Group'}</b><span>{slots ? `${people.length}/${slots}` : people.length || ''}</span></div>
+              <div className="gh">
+                <b>{g.title || 'Group'}</b>
+                <span>{slots ? `${people.length}/${slots}` : people.length || ''}</span>
+              </div>
               {g.note && <div className="gn">{g.note}</div>}
               <ul>
-                {people.slice(0, max).map((n) => <li key={n}>{n}</li>)}
+                {people.slice(0, max).map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
                 {people.length > max && <li className="more">+ {people.length - max} more</li>}
                 {!people.length && <li className="open">{slots ? `${slots} open` : 'Open'}</li>}
               </ul>
@@ -107,14 +165,27 @@ function RosterBlock({ groups, roles }: { groups: BriefingGroup[]; roles: Briefi
 function Body({ text }: { text: string }) {
   return (
     <>
-      {bodyBlocks(text).map((b, i) => (b.kind === 'p'
-        ? <p key={i}>{b.text}</p>
-        : <ul key={i}>{b.items.map((it, j) => <li key={j}>{it}</li>)}</ul>))}
+      {bodyBlocks(text).map((b, i) =>
+        b.kind === 'p' ? (
+          <p key={i}>{b.text}</p>
+        ) : (
+          <ul key={i}>
+            {b.items.map((it, j) => (
+              <li key={j}>{it}</li>
+            ))}
+          </ul>
+        ),
+      )}
     </>
   );
 }
 
-export function Slide({ view, c, index, total }: {
+export function Slide({
+  view,
+  c,
+  index,
+  total,
+}: {
   view: BriefingViewDto;
   c: BriefingContent;
   index: number;
@@ -138,44 +209,99 @@ export function Slide({ view, c, index, total }: {
       {s.kind === 'section' && s.section.bgUrl && s.section.bgOpacity > 0 && (
         <img className="bgimg" src={s.section.bgUrl} alt="" style={{ opacity: s.section.bgOpacity / 100 }} />
       )}
-      {wmUrl && a.watermark !== 'NONE' && opacity > 0 && (a.watermark === 'TILED'
-        ? <div className="wm-tiled" style={{ backgroundImage: `url("${wmUrl}")`, opacity }} />
-        : <img className={cn('wm', a.watermark === 'CENTER' ? 'center' : 'corner')} src={wmUrl} alt="" style={{ opacity }} />)}
+      {wmUrl &&
+        a.watermark !== 'NONE' &&
+        opacity > 0 &&
+        (a.watermark === 'TILED' ? (
+          <div className="wm-tiled" style={{ backgroundImage: `url("${wmUrl}")`, opacity }} />
+        ) : (
+          <img
+            className={cn('wm', a.watermark === 'CENTER' ? 'center' : 'corner')}
+            src={wmUrl}
+            alt=""
+            style={{ opacity }}
+          />
+        ))}
       <Hud />
       <div className="frame" />
       <div className={cn('logos', logoSide)}>
-        {logos.map((l) => (l.url ? <img key={l.key} src={l.url} alt={l.label} /> : <span key={l.key} className="tagbox">{l.label}</span>))}
+        {logos.map((l) =>
+          l.url ? (
+            <img key={l.key} src={l.url} alt={l.label} />
+          ) : (
+            <span key={l.key} className="tagbox">
+              {l.label}
+            </span>
+          ),
+        )}
       </div>
       {a.banner && <div className={cn('banner', logoSide === 'right' ? 'left' : 'right')}>{a.banner}</div>}
 
       {s.kind === 'title' ? (
         <>
           <div className="title-block">
-            <div className="eyebrow">{allies.length ? `Joint operation · ${[view.logos[0]?.tag ?? view.logos[0]?.name, ...allies].filter(Boolean).join(' + ')}` : 'Mission briefing'}</div>
+            <div className="eyebrow">
+              {allies.length
+                ? `Joint operation · ${[view.logos[0]?.tag ?? view.logos[0]?.name, ...allies].filter(Boolean).join(' + ')}`
+                : 'Mission briefing'}
+            </div>
             <h2 style={{ fontSize: view.event.name.length > 26 ? 66 : undefined }}>{view.event.name}</h2>
             <div className="rule" />
             {c.objective && <div className="obj">{c.objective}</div>}
           </div>
           <div className="facts">
-            <div>Step off<b>{stepOff(view.event.startTime)}</b></div>
-            {c.facts.filter((f) => f.label && f.value).slice(0, 3).map((f, i) => <div key={i}>{f.label}<b>{f.value}</b></div>)}
-            <div>Signed up<b>{view.event.signedUp}{view.event.maybe ? ` + ${view.event.maybe} maybe` : ''}</b></div>
+            <div>
+              Step off<b>{stepOff(view.event.startTime)}</b>
+            </div>
+            {c.facts
+              .filter((f) => f.label && f.value)
+              .slice(0, 3)
+              .map((f, i) => (
+                <div key={i}>
+                  {f.label}
+                  <b>{f.value}</b>
+                </div>
+              ))}
+            <div>
+              Signed up
+              <b>
+                {view.event.signedUp}
+                {view.event.maybe ? ` + ${view.event.maybe} maybe` : ''}
+              </b>
+            </div>
           </div>
         </>
       ) : (
         <>
-          <div className="sec-head"><h2>{s.section.title || 'Untitled'}</h2><div className="rule" /></div>
+          <div className="sec-head">
+            <h2>{s.section.title || 'Untitled'}</h2>
+            <div className="rule" />
+          </div>
           <div className={cn('sec-body', len > 900 ? 'tiny' : len > 500 && 'small')}>
             {s.section.kind === 'roster' ? (
-              <>{s.section.body.trim() && <div className="roster-note"><Body text={s.section.body} /></div>}<RosterBlock groups={s.section.groups} roles={view.event.roles} /></>
+              <>
+                {s.section.body.trim() && (
+                  <div className="roster-note">
+                    <Body text={s.section.body} />
+                  </div>
+                )}
+                <RosterBlock groups={s.section.groups} roles={view.event.roles} />
+              </>
             ) : s.section.kind === 'fleet' ? (
-              <>{s.section.body && <Body text={s.section.body} />}<FleetBlock ships={s.section.ships} /></>
+              <>
+                {s.section.body && <Body text={s.section.body} />}
+                <FleetBlock ships={s.section.ships} />
+              </>
             ) : s.section.kind === 'image' && (twoRows || rows.some((r) => r.side === 'right')) ? (
               <div className="rows" style={twoRows ? undefined : { gridTemplateRows: 'minmax(0, 1fr)' }}>
                 {rows.map((r) => (
                   <div key={r.side} className={cn('irow', r.side, (!r.imageUrl || !r.body.trim()) && 'solo')}>
                     {r.side === 'left' && r.imageUrl && <img src={r.imageUrl} alt="" />}
-                    {r.body.trim() && <div className={cn('txt', r.body.length > 280 && 'small')}><Body text={r.body} /></div>}
+                    {r.body.trim() && (
+                      <div className={cn('txt', r.body.length > 280 && 'small')}>
+                        <Body text={r.body} />
+                      </div>
+                    )}
                     {r.side === 'right' && r.imageUrl && <img src={r.imageUrl} alt="" />}
                   </div>
                 ))}
@@ -183,7 +309,11 @@ export function Slide({ view, c, index, total }: {
             ) : s.section.kind === 'image' && s.section.imageUrl ? (
               <div className={cn('split', !s.section.body.trim() && 'full')}>
                 <img src={s.section.imageUrl} alt="" />
-                {s.section.body.trim() && <div><Body text={s.section.body} /></div>}
+                {s.section.body.trim() && (
+                  <div>
+                    <Body text={s.section.body} />
+                  </div>
+                )}
               </div>
             ) : (
               <Body text={s.section.body} />
@@ -191,7 +321,12 @@ export function Slide({ view, c, index, total }: {
           </div>
         </>
       )}
-      <div className="bar"><span>{view.event.name}</span><span className="pg">{index + 1} / {total}</span></div>
+      <div className="bar">
+        <span>{view.event.name}</span>
+        <span className="pg">
+          {index + 1} / {total}
+        </span>
+      </div>
     </div>
   );
 }
@@ -210,16 +345,30 @@ function ScaledSlide(props: Parameters<typeof Slide>[0] & { className?: string }
   }, []);
   const { className, ...rest } = props;
   return (
-    <div ref={box} className={cn('relative w-full overflow-hidden rounded-md border border-[#3a3424]', className)} style={{ height: H * scale }}>
-      <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: W, height: H }}><Slide {...rest} /></div>
+    <div
+      ref={box}
+      className={cn('relative w-full overflow-hidden rounded-md border border-[#3a3424]', className)}
+      style={{ height: H * scale }}
+    >
+      <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: W, height: H }}>
+        <Slide {...rest} />
+      </div>
     </div>
   );
 }
 
 // ── Present mode ──────────────────────────────────────────────────────────────
 
-export function Present({ view, c, start, onClose }: {
-  view: BriefingViewDto; c: BriefingContent; start: number; onClose: (at: number) => void;
+export function Present({
+  view,
+  c,
+  start,
+  onClose,
+}: {
+  view: BriefingViewDto;
+  c: BriefingContent;
+  start: number;
+  onClose: (at: number) => void;
 }) {
   const total = briefingSlides(c).length;
   const [i, setI] = useState(Math.min(start, total - 1));
@@ -232,15 +381,22 @@ export function Present({ view, c, start, onClose }: {
     fit();
     window.addEventListener('resize', fit);
     const key = (e: KeyboardEvent) => {
-      if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); go(1); }
-      else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(-1); }
-      else if (e.key === 'Home') setI(0);
+      if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) {
+        e.preventDefault();
+        go(1);
+      } else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) {
+        e.preventDefault();
+        go(-1);
+      } else if (e.key === 'Home') setI(0);
       else if (e.key === 'End') setI(total - 1);
       else if (e.key === 'Escape') onClose(i);
     };
     window.addEventListener('keydown', key);
     ref.current?.focus();
-    return () => { window.removeEventListener('resize', fit); window.removeEventListener('keydown', key); };
+    return () => {
+      window.removeEventListener('resize', fit);
+      window.removeEventListener('keydown', key);
+    };
   }, [go, onClose, i, total]);
 
   const fullscreen = () => {
@@ -249,7 +405,13 @@ export function Present({ view, c, start, onClose }: {
   };
 
   return (
-    <div ref={ref} className="brf-present" role="dialog" aria-label={`Briefing slides: ${view.event.name}`} tabIndex={-1}>
+    <div
+      ref={ref}
+      className="brf-present"
+      role="dialog"
+      aria-label={`Briefing slides: ${view.event.name}`}
+      tabIndex={-1}
+    >
       <div className="stage" style={{ width: W * scale, height: H * scale }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: W, height: H }}>
           <Slide view={view} c={c} index={i} total={total} />
@@ -258,10 +420,18 @@ export function Present({ view, c, start, onClose }: {
       <button type="button" className="nav prev" aria-label="Previous slide" onClick={() => go(-1)} />
       <button type="button" className="nav next" aria-label="Next slide" onClick={() => go(1)} />
       <div className="ctl">
-        <Button size="sm" variant="secondary" onClick={() => go(-1)} aria-label="Previous slide"><ChevronLeft className="h-4 w-4" /></Button>
-        <Button size="sm" variant="secondary" onClick={() => go(1)} aria-label="Next slide"><ChevronRight className="h-4 w-4" /></Button>
-        <Button size="sm" variant="secondary" onClick={fullscreen}>Full screen</Button>
-        <Button size="sm" variant="secondary" onClick={() => onClose(i)} aria-label="Close slides"><X className="h-4 w-4" /></Button>
+        <Button size="sm" variant="secondary" onClick={() => go(-1)} aria-label="Previous slide">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => go(1)} aria-label="Next slide">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button size="sm" variant="secondary" onClick={fullscreen}>
+          Full screen
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => onClose(i)} aria-label="Close slides">
+          <X className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
@@ -274,38 +444,96 @@ function ReadView({ view, c }: { view: BriefingViewDto; c: BriefingContent }) {
   const logos = shownLogos(c, view.logos);
   return (
     <article className="space-y-6">
-      <header className="rounded-lg border border-border bg-card p-5" style={{ background: 'radial-gradient(ellipse 70% 80% at 15% 20%, rgba(185,138,19,.12), transparent 70%), hsl(var(--card))' }}>
+      <header
+        className="rounded-lg border border-border bg-card p-5"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 80% at 15% 20%, rgba(185,138,19,.12), transparent 70%), hsl(var(--card))',
+        }}
+      >
         <div className="flex items-center gap-3">
-          {logos.map((l) => (l.url ? <img key={l.key} src={l.url} alt={l.label} className="h-10 w-auto max-w-[100px] object-contain" /> : <span key={l.key} className="rounded border border-brand px-2 py-1 font-condensed text-sm font-bold text-brand">{l.label}</span>))}
-          {c.appearance.banner && <span className="ml-auto rounded-sm border border-brand/60 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[#e2bd5b]">{c.appearance.banner}</span>}
+          {logos.map((l) =>
+            l.url ? (
+              <img key={l.key} src={l.url} alt={l.label} className="h-10 w-auto max-w-[100px] object-contain" />
+            ) : (
+              <span
+                key={l.key}
+                className="rounded border border-brand px-2 py-1 font-condensed text-sm font-bold text-brand"
+              >
+                {l.label}
+              </span>
+            ),
+          )}
+          {c.appearance.banner && (
+            <span className="ml-auto rounded-sm border border-brand/60 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[#e2bd5b]">
+              {c.appearance.banner}
+            </span>
+          )}
         </div>
-        <h2 className="mt-4 font-condensed text-3xl font-bold uppercase tracking-wide text-foreground">{view.event.name}</h2>
+        <h2 className="mt-4 font-condensed text-3xl font-bold uppercase tracking-wide text-foreground">
+          {view.event.name}
+        </h2>
         <div className="mt-2 h-[3px] w-24 bg-gradient-to-r from-brand to-[#e2bd5b]" />
         {c.objective && <p className="mt-3 text-base text-foreground/90">{c.objective}</p>}
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div><dt className="font-mono text-[11px] uppercase tracking-wider text-[#8a7a50]">Step off</dt><dd className="font-semibold">{stepOff(view.event.startTime)}</dd></div>
-          {c.facts.filter((f) => f.label && f.value).map((f, i) => <div key={i}><dt className="font-mono text-[11px] uppercase tracking-wider text-[#8a7a50]">{f.label}</dt><dd className="font-semibold">{f.value}</dd></div>)}
-          <div><dt className="font-mono text-[11px] uppercase tracking-wider text-[#8a7a50]">Signed up</dt><dd className="font-semibold">{view.event.signedUp}{view.event.maybe ? ` + ${view.event.maybe} maybe` : ''}</dd></div>
+          <div>
+            <dt className="font-mono text-[11px] uppercase tracking-wider text-[#8a7a50]">Step off</dt>
+            <dd className="font-semibold">{stepOff(view.event.startTime)}</dd>
+          </div>
+          {c.facts
+            .filter((f) => f.label && f.value)
+            .map((f, i) => (
+              <div key={i}>
+                <dt className="font-mono text-[11px] uppercase tracking-wider text-[#8a7a50]">{f.label}</dt>
+                <dd className="font-semibold">{f.value}</dd>
+              </div>
+            ))}
+          <div>
+            <dt className="font-mono text-[11px] uppercase tracking-wider text-[#8a7a50]">Signed up</dt>
+            <dd className="font-semibold">
+              {view.event.signedUp}
+              {view.event.maybe ? ` + ${view.event.maybe} maybe` : ''}
+            </dd>
+          </div>
         </dl>
       </header>
       {sections.map((s) => (
         <section key={s.id} className="rounded-lg border border-border bg-card p-5">
-          <h3 className="font-condensed text-xl font-bold uppercase tracking-wide text-foreground">{s.title || 'Untitled'}</h3>
+          <h3 className="font-condensed text-xl font-bold uppercase tracking-wide text-foreground">
+            {s.title || 'Untitled'}
+          </h3>
           <div className="mt-1 h-[2px] w-12 bg-brand" />
-          {s.kind === 'image' ? imageRows(s).map((r) => (
-            <div key={r.side} className="mt-3 grid gap-4 md:grid-cols-2 md:items-center">
-              {r.imageUrl && <img src={r.imageUrl} alt="" className={cn('max-h-[420px] w-full rounded border border-border object-contain bg-black/40', r.side === 'right' && 'md:order-2', !r.body.trim() && 'md:col-span-2')} />}
-              {r.body.trim() && (
-                <div className={cn('space-y-2 text-sm leading-relaxed text-foreground/90 [&_li]:ml-5 [&_li]:list-disc', !r.imageUrl && 'md:col-span-2')}>
-                  <Body text={r.body} />
+          {s.kind === 'image'
+            ? imageRows(s).map((r) => (
+                <div key={r.side} className="mt-3 grid gap-4 md:grid-cols-2 md:items-center">
+                  {r.imageUrl && (
+                    <img
+                      src={r.imageUrl}
+                      alt=""
+                      className={cn(
+                        'max-h-[420px] w-full rounded border border-border object-contain bg-black/40',
+                        r.side === 'right' && 'md:order-2',
+                        !r.body.trim() && 'md:col-span-2',
+                      )}
+                    />
+                  )}
+                  {r.body.trim() && (
+                    <div
+                      className={cn(
+                        'space-y-2 text-sm leading-relaxed text-foreground/90 [&_li]:ml-5 [&_li]:list-disc',
+                        !r.imageUrl && 'md:col-span-2',
+                      )}
+                    >
+                      <Body text={r.body} />
+                    </div>
+                  )}
+                </div>
+              ))
+            : s.body.trim() && (
+                <div className="mt-3 space-y-2 text-sm leading-relaxed text-foreground/90 [&_li]:ml-5 [&_li]:list-disc">
+                  <Body text={s.body} />
                 </div>
               )}
-            </div>
-          )) : s.body.trim() && (
-            <div className="mt-3 space-y-2 text-sm leading-relaxed text-foreground/90 [&_li]:ml-5 [&_li]:list-disc">
-              <Body text={s.body} />
-            </div>
-          )}
           {s.kind === 'fleet' && <ReadFleet ships={s.ships} />}
           {s.kind === 'roster' && <ReadRoster groups={s.groups} roles={view.event.roles} />}
         </section>
@@ -322,12 +550,20 @@ function ReadRoster({ groups, roles }: { groups: BriefingGroup[]; roles: Briefin
         const { people, slots } = groupPeople(g, roles);
         return (
           <li key={g.id} className="overflow-hidden rounded border border-border bg-black/20">
-            {g.imageUrl && <img src={g.imageUrl} alt="" referrerPolicy="no-referrer" className="h-28 w-full object-cover" />}
+            {g.imageUrl && (
+              <img src={g.imageUrl} alt="" referrerPolicy="no-referrer" className="h-28 w-full object-cover" />
+            )}
             <div className="p-3 text-sm">
-              <div className="flex items-baseline justify-between gap-2"><b className="font-semibold">{g.title || 'Group'}</b>
-                <span className="shrink-0 text-xs text-muted-foreground">{slots ? `${people.length}/${slots}` : people.length ? `${people.length}` : ''}</span></div>
+              <div className="flex items-baseline justify-between gap-2">
+                <b className="font-semibold">{g.title || 'Group'}</b>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {slots ? `${people.length}/${slots}` : people.length ? `${people.length}` : ''}
+                </span>
+              </div>
               {g.note && <div className="text-xs text-[#e2bd5b]">{g.note}</div>}
-              <div className="mt-1.5 text-muted-foreground">{people.length ? people.join(' · ') : slots ? `${slots} open` : 'Open'}</div>
+              <div className="mt-1.5 text-muted-foreground">
+                {people.length ? people.join(' · ') : slots ? `${slots} open` : 'Open'}
+              </div>
             </div>
           </li>
         );
@@ -341,11 +577,19 @@ function ReadFleet({ ships }: { ships: BriefingShip[] }) {
   const t = forceTotals(ships);
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{t.ships} ship{t.ships === 1 ? '' : 's'} · {t.seats} crew seats</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">
+        {t.ships} ship{t.ships === 1 ? '' : 's'} · {t.seats} crew seats
+      </p>
       <ul className="grid gap-2 sm:grid-cols-2">
         {ships.map((s) => (
           <li key={s.shipId} className="rounded border border-border bg-black/20 px-3 py-2 text-sm">
-            <div className="flex justify-between gap-2"><b className="truncate font-semibold">{s.name}{s.count > 1 ? ` ×${s.count}` : ''}</b><span className="shrink-0 text-xs text-muted-foreground">{shipCrew(s)}</span></div>
+            <div className="flex justify-between gap-2">
+              <b className="truncate font-semibold">
+                {s.name}
+                {s.count > 1 ? ` ×${s.count}` : ''}
+              </b>
+              <span className="shrink-0 text-xs text-muted-foreground">{shipCrew(s)}</span>
+            </div>
             {(s.note || s.focus) && <div className="truncate text-xs text-muted-foreground">{s.note || s.focus}</div>}
           </li>
         ))}
@@ -359,28 +603,71 @@ function ReadFleet({ ships }: { ships: BriefingShip[] }) {
  * asks: the signed-up fleets (allies included, never maybes) or the whole
  * ship list.
  */
-function ShipChooser({ guildId, eventId, ships, onChange }: {
-  guildId: string; eventId: string; ships: BriefingShip[]; onChange: (ships: BriefingShip[]) => void;
+function ShipChooser({
+  guildId,
+  eventId,
+  ships,
+  onChange,
+}: {
+  guildId: string;
+  eventId: string;
+  ships: BriefingShip[];
+  onChange: (ships: BriefingShip[]) => void;
 }) {
   const [source, setSource] = useState<'none' | 'fleet' | 'any'>('none');
   const [q, setQ] = useState('');
-  const fleetQ = useQuery({ queryKey: ['fleet', guildId, eventId], queryFn: () => fleetApi.guild(guildId, eventId), enabled: source === 'fleet', retry: false, staleTime: 60_000 });
-  const allQ = useQuery({ queryKey: ['ships'], queryFn: fleetApi.ships, enabled: source === 'any', staleTime: 60 * 60_000 });
+  const fleetQ = useQuery({
+    queryKey: ['fleet', guildId, eventId],
+    queryFn: () => fleetApi.guild(guildId, eventId),
+    enabled: source === 'fleet',
+    retry: false,
+    staleTime: 60_000,
+  });
+  const allQ = useQuery({
+    queryKey: ['ships'],
+    queryFn: fleetApi.ships,
+    enabled: source === 'any',
+    staleTime: 60 * 60_000,
+  });
   const picked = new Map(ships.map((s) => [s.shipId, s]));
-  const set = (shipId: string, patch: Partial<BriefingShip>) => onChange(ships.map((s) => (s.shipId === shipId ? { ...s, ...patch } : s)));
+  const set = (shipId: string, patch: Partial<BriefingShip>) =>
+    onChange(ships.map((s) => (s.shipId === shipId ? { ...s, ...patch } : s)));
   const add = (e: ShipCatalogEntry) => {
     const have = picked.get(e.id);
     if (have) return set(e.id, { count: Math.min(BRIEFING_LIMITS.shipCount, have.count + 1) });
     if (ships.length >= BRIEFING_LIMITS.ships) return;
-    onChange([...ships, { shipId: e.id, name: e.name, count: 1, crew: e.maxCrew ?? e.minCrew ?? null, focus: e.focus ?? e.type ?? null, note: '' }]);
+    onChange([
+      ...ships,
+      {
+        shipId: e.id,
+        name: e.name,
+        count: 1,
+        crew: e.maxCrew ?? e.minCrew ?? null,
+        focus: e.focus ?? e.type ?? null,
+        note: '',
+      },
+    ]);
   };
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const match = (e: ShipCatalogEntry) => words.every((w) => `${e.name} ${e.manufacturer} ${e.focus ?? ''}`.toLowerCase().includes(w));
-  const fleetRows = (fleetQ.data?.ships ?? []).filter((r) => r.total > 0 && match(r.ship)).sort((a, b) => (b.ship.maxCrew ?? 1) - (a.ship.maxCrew ?? 1) || a.ship.name.localeCompare(b.ship.name));
+  const match = (e: ShipCatalogEntry) =>
+    words.every((w) => `${e.name} ${e.manufacturer} ${e.focus ?? ''}`.toLowerCase().includes(w));
+  const fleetRows = (fleetQ.data?.ships ?? [])
+    .filter((r) => r.total > 0 && match(r.ship))
+    .sort((a, b) => (b.ship.maxCrew ?? 1) - (a.ship.maxCrew ?? 1) || a.ship.name.localeCompare(b.ship.name));
   const anyRows = words.length ? (allQ.data ?? []).filter(match).slice(0, 30) : [];
   const tab = (k: 'fleet' | 'any', label: string) => (
-    <button type="button" onClick={() => setSource(source === k ? 'none' : k)}
-      className={cn('rounded-md border px-3 py-1.5 text-sm', source === k ? 'border-[#b98a13] bg-[#b98a13]/15 text-[#e2bd5b]' : 'border-border text-muted-foreground hover:text-foreground')}>{label}</button>
+    <button
+      type="button"
+      onClick={() => setSource(source === k ? 'none' : k)}
+      className={cn(
+        'rounded-md border px-3 py-1.5 text-sm',
+        source === k
+          ? 'border-[#b98a13] bg-[#b98a13]/15 text-[#e2bd5b]'
+          : 'border-border text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {label}
+    </button>
   );
 
   return (
@@ -388,25 +675,69 @@ function ShipChooser({ guildId, eventId, ships, onChange }: {
       {ships.length > 0 ? (
         <ul className="space-y-2">
           {ships.map((s, i) => (
-            <li key={s.shipId} className="flex flex-wrap items-center gap-2 rounded border border-border bg-black/20 px-3 py-2 text-sm">
-              <div className="min-w-0 flex-1"><b className="font-semibold">{s.name}</b> <span className="text-xs text-muted-foreground">{shipCrew(s)}</span></div>
-              <label className="flex items-center gap-1 text-xs text-muted-foreground">×
-                <input type="number" min={1} max={BRIEFING_LIMITS.shipCount} value={s.count} aria-label={`How many ${s.name}`}
-                  onChange={(e) => set(s.shipId, { count: Math.max(1, Math.min(BRIEFING_LIMITS.shipCount, Number(e.target.value) || 1)) })}
-                  className="w-14 rounded border border-border bg-background px-2 py-1 text-sm text-foreground" />
+            <li
+              key={s.shipId}
+              className="flex flex-wrap items-center gap-2 rounded border border-border bg-black/20 px-3 py-2 text-sm"
+            >
+              <div className="min-w-0 flex-1">
+                <b className="font-semibold">{s.name}</b>{' '}
+                <span className="text-xs text-muted-foreground">{shipCrew(s)}</span>
+              </div>
+              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                ×
+                <input
+                  type="number"
+                  min={1}
+                  max={BRIEFING_LIMITS.shipCount}
+                  value={s.count}
+                  aria-label={`How many ${s.name}`}
+                  onChange={(e) =>
+                    set(s.shipId, {
+                      count: Math.max(1, Math.min(BRIEFING_LIMITS.shipCount, Number(e.target.value) || 1)),
+                    })
+                  }
+                  className="w-14 rounded border border-border bg-background px-2 py-1 text-sm text-foreground"
+                />
               </label>
-              <input placeholder="Note (lead, role…)" maxLength={BRIEFING_LIMITS.shipNote} value={s.note} onChange={(e) => set(s.shipId, { note: e.target.value })}
-                className="w-full rounded border border-border bg-background px-2 py-1 text-sm sm:w-48" aria-label={`Note for ${s.name}`} />
+              <input
+                placeholder="Note (lead, role…)"
+                maxLength={BRIEFING_LIMITS.shipNote}
+                value={s.note}
+                onChange={(e) => set(s.shipId, { note: e.target.value })}
+                className="w-full rounded border border-border bg-background px-2 py-1 text-sm sm:w-48"
+                aria-label={`Note for ${s.name}`}
+              />
               <div className="flex">
-                <button type="button" aria-label="Move up" disabled={i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  onClick={() => { const n = [...ships]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; onChange(n); }}><ArrowUp className="h-4 w-4" /></button>
-                <button type="button" aria-label={`Remove ${s.name}`} className="p-1 text-muted-foreground hover:text-red-400"
-                  onClick={() => onChange(ships.filter((x) => x.shipId !== s.shipId))}><X className="h-4 w-4" /></button>
+                <button
+                  type="button"
+                  aria-label="Move up"
+                  disabled={i === 0}
+                  className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  onClick={() => {
+                    const n = [...ships];
+                    [n[i - 1], n[i]] = [n[i]!, n[i - 1]!];
+                    onChange(n);
+                  }}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${s.name}`}
+                  className="p-1 text-muted-foreground hover:text-red-400"
+                  onClick={() => onChange(ships.filter((x) => x.shipId !== s.shipId))}
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </li>
           ))}
         </ul>
-      ) : <p className="text-sm text-muted-foreground">No ships picked yet. This section isn't shown until you pick some (or write something).</p>}
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No ships picked yet. This section isn't shown until you pick some (or write something).
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm">Add ships:</span>
@@ -416,22 +747,57 @@ function ShipChooser({ guildId, eventId, ships, onChange }: {
 
       {source !== 'none' && (
         <div className="rounded-md border border-border p-3">
-          <input className={inputCls} placeholder={source === 'fleet' ? 'Filter…' : 'Search ships…'} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+          <input
+            className={inputCls}
+            placeholder={source === 'fleet' ? 'Filter…' : 'Search ships…'}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            autoFocus
+          />
           <ul className="mt-2 max-h-72 space-y-1 overflow-auto">
-            {source === 'fleet' && fleetQ.isError && <li className="text-sm text-muted-foreground">The fleet isn't available here (the Fleet module may be off).</li>}
-            {source === 'fleet' && fleetQ.isLoading && <li className="text-sm text-muted-foreground">Loading the fleet…</li>}
-            {source === 'fleet' && fleetQ.data && !fleetRows.length && <li className="text-sm text-muted-foreground">{q ? 'No match.' : "Nobody signed up has added ships to their fleet yet."}</li>}
-            {source === 'any' && !words.length && <li className="text-sm text-muted-foreground">Type a ship's name.</li>}
-            {(source === 'fleet' ? fleetRows.map((r) => ({ e: r.ship, extra: `${r.total} available · ${r.owners.length} ${r.owners.length === 1 ? 'owner' : 'owners'}` })) : anyRows.map((e) => ({ e, extra: e.manufacturer })))
-              .map(({ e, extra }) => (
-                <li key={e.id}>
-                  <button type="button" onClick={() => add(e)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-secondary">
-                    <Plus className="h-4 w-4 shrink-0 text-[#e2bd5b]" />
-                    <span className="min-w-0 flex-1 truncate">{e.name}{picked.has(e.id) ? <span className="ml-2 text-xs text-[#e2bd5b]">×{picked.get(e.id)!.count} picked</span> : null}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{e.maxCrew ? `Crew ${e.maxCrew} · ` : ''}{extra}</span>
-                  </button>
-                </li>
-              ))}
+            {source === 'fleet' && fleetQ.isError && (
+              <li className="text-sm text-muted-foreground">
+                The fleet isn't available here (the Fleet module may be off).
+              </li>
+            )}
+            {source === 'fleet' && fleetQ.isLoading && (
+              <li className="text-sm text-muted-foreground">Loading the fleet…</li>
+            )}
+            {source === 'fleet' && fleetQ.data && !fleetRows.length && (
+              <li className="text-sm text-muted-foreground">
+                {q ? 'No match.' : 'Nobody signed up has added ships to their fleet yet.'}
+              </li>
+            )}
+            {source === 'any' && !words.length && (
+              <li className="text-sm text-muted-foreground">Type a ship's name.</li>
+            )}
+            {(source === 'fleet'
+              ? fleetRows.map((r) => ({
+                  e: r.ship,
+                  extra: `${r.total} available · ${r.owners.length} ${r.owners.length === 1 ? 'owner' : 'owners'}`,
+                }))
+              : anyRows.map((e) => ({ e, extra: e.manufacturer }))
+            ).map(({ e, extra }) => (
+              <li key={e.id}>
+                <button
+                  type="button"
+                  onClick={() => add(e)}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-secondary"
+                >
+                  <Plus className="h-4 w-4 shrink-0 text-[#e2bd5b]" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {e.name}
+                    {picked.has(e.id) ? (
+                      <span className="ml-2 text-xs text-[#e2bd5b]">×{picked.get(e.id)!.count} picked</span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {e.maxCrew ? `Crew ${e.maxCrew} · ` : ''}
+                    {extra}
+                  </span>
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -440,79 +806,193 @@ function ShipChooser({ guildId, eventId, ships, onChange }: {
 }
 
 /** Roster groups (v1.37.0): a title, an event role and/or names, a picture. */
-function GroupsEditor({ guildId, roles, groups, onChange }: {
-  guildId: string; roles: BriefingViewDto['event']['roles']; groups: BriefingGroup[]; onChange: (groups: BriefingGroup[]) => void;
+function GroupsEditor({
+  guildId,
+  roles,
+  groups,
+  onChange,
+}: {
+  guildId: string;
+  roles: BriefingViewDto['event']['roles'];
+  groups: BriefingGroup[];
+  onChange: (groups: BriefingGroup[]) => void;
 }) {
-  const set = (id: string, patch: Partial<BriefingGroup>) => onChange(groups.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+  const set = (id: string, patch: Partial<BriefingGroup>) =>
+    onChange(groups.map((g) => (g.id === id ? { ...g, ...patch } : g)));
   const move = (i: number, d: number) => {
     const j = i + d;
     if (j < 0 || j >= groups.length) return;
-    const n = [...groups]; [n[i], n[j]] = [n[j]!, n[i]!]; onChange(n);
+    const n = [...groups];
+    [n[i], n[j]] = [n[j]!, n[i]!];
+    onChange(n);
   };
-  const add = () => groups.length < BRIEFING_LIMITS.groups
-    && onChange([...groups, { id: newSectionId(), title: '', roleId: null, names: '', imageUrl: null, note: '' }]);
+  const add = () =>
+    groups.length < BRIEFING_LIMITS.groups &&
+    onChange([...groups, { id: newSectionId(), title: '', roleId: null, names: '', imageUrl: null, note: '' }]);
   return (
     <div className="space-y-3">
-      {!groups.length && <p className="text-sm text-muted-foreground">Add a group for each team (for example the Ironclad crew, miners, ground defence). They all share one slide.</p>}
+      {!groups.length && (
+        <p className="text-sm text-muted-foreground">
+          Add a group for each team (for example the Ironclad crew, miners, ground defence). They all share one slide.
+        </p>
+      )}
       {groups.map((g, i) => {
         const { people, slots } = groupPeople(g, roles);
         return (
           <div key={g.id} className="rounded-md border border-border bg-black/20 p-3">
             <div className="flex items-center gap-2">
-              <input className={cn(inputCls, 'font-semibold')} placeholder="Group name (e.g. Ironclad crew)" maxLength={BRIEFING_LIMITS.groupTitle}
-                value={g.title} onChange={(e) => set(g.id, { title: e.target.value })} aria-label="Group name" />
-              <button type="button" aria-label="Move left" disabled={i === 0} onClick={() => move(i, -1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
-              <button type="button" aria-label="Move right" disabled={i === groups.length - 1} onClick={() => move(i, 1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-4 w-4" /></button>
-              <button type="button" aria-label={`Remove ${g.title || 'group'}`} onClick={() => onChange(groups.filter((x) => x.id !== g.id))} className="p-1 text-muted-foreground hover:text-red-400"><X className="h-4 w-4" /></button>
+              <input
+                className={cn(inputCls, 'font-semibold')}
+                placeholder="Group name (e.g. Ironclad crew)"
+                maxLength={BRIEFING_LIMITS.groupTitle}
+                value={g.title}
+                onChange={(e) => set(g.id, { title: e.target.value })}
+                aria-label="Group name"
+              />
+              <button
+                type="button"
+                aria-label="Move left"
+                disabled={i === 0}
+                onClick={() => move(i, -1)}
+                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Move right"
+                disabled={i === groups.length - 1}
+                onClick={() => move(i, 1)}
+                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${g.title || 'group'}`}
+                onClick={() => onChange(groups.filter((x) => x.id !== g.id))}
+                className="p-1 text-muted-foreground hover:text-red-400"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
               <GroupPicture guildId={guildId} value={g.imageUrl} onChange={(imageUrl) => set(g.id, { imageUrl })} />
               <div className="space-y-2 text-sm">
-                <label className="block">People from a role
-                  <select className={cn(inputCls, 'mt-1')} value={g.roleId ?? ''} onChange={(e) => set(g.id, { roleId: e.target.value || null })}>
+                <label className="block">
+                  People from a role
+                  <select
+                    className={cn(inputCls, 'mt-1')}
+                    value={g.roleId ?? ''}
+                    onChange={(e) => set(g.id, { roleId: e.target.value || null })}
+                  >
                     <option value="">None (names below only)</option>
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.people.length}{r.count ? `/${r.count}` : ''} signed up)</option>)}
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.people.length}
+                        {r.count ? `/${r.count}` : ''} signed up)
+                      </option>
+                    ))}
                   </select>
                 </label>
-                <label className="block">Other names <span className="text-muted-foreground">(one per line)</span>
-                  <textarea className={cn(inputCls, 'mt-1 min-h-[64px]')} maxLength={BRIEFING_LIMITS.groupNames} value={g.names} onChange={(e) => set(g.id, { names: e.target.value })} />
+                <label className="block">
+                  Other names <span className="text-muted-foreground">(one per line)</span>
+                  <textarea
+                    className={cn(inputCls, 'mt-1 min-h-[64px]')}
+                    maxLength={BRIEFING_LIMITS.groupNames}
+                    value={g.names}
+                    onChange={(e) => set(g.id, { names: e.target.value })}
+                  />
                 </label>
-                <input className={inputCls} placeholder="Note (ship, lead…)" maxLength={BRIEFING_LIMITS.groupNote} value={g.note} onChange={(e) => set(g.id, { note: e.target.value })} aria-label="Note" />
-                <p className="text-xs text-muted-foreground">{people.length ? `${people.length}${slots ? ` of ${slots}` : ''}: ${people.join(', ')}` : 'Nobody yet.'}</p>
+                <input
+                  className={inputCls}
+                  placeholder="Note (ship, lead…)"
+                  maxLength={BRIEFING_LIMITS.groupNote}
+                  value={g.note}
+                  onChange={(e) => set(g.id, { note: e.target.value })}
+                  aria-label="Note"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {people.length
+                    ? `${people.length}${slots ? ` of ${slots}` : ''}: ${people.join(', ')}`
+                    : 'Nobody yet.'}
+                </p>
               </div>
             </div>
           </div>
         );
       })}
-      {groups.length < BRIEFING_LIMITS.groups
-        ? <Button variant="outline" size="sm" onClick={add}><Plus className="mr-1 h-4 w-4" />Add a group</Button>
-        : <p className="text-xs text-muted-foreground">{BRIEFING_LIMITS.groups} groups is the most that fit on one slide.</p>}
+      {groups.length < BRIEFING_LIMITS.groups ? (
+        <Button variant="outline" size="sm" onClick={add}>
+          <Plus className="mr-1 h-4 w-4" />
+          Add a group
+        </Button>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {BRIEFING_LIMITS.groups} groups is the most that fit on one slide.
+        </p>
+      )}
     </div>
   );
 }
 
 /** A group's picture: upload / pick from the server's images, or a ship's picture (the ship list loads only when asked). */
-function GroupPicture({ guildId, value, onChange }: { guildId: string; value: string | null; onChange: (url: string | null) => void }) {
+function GroupPicture({
+  guildId,
+  value,
+  onChange,
+}: {
+  guildId: string;
+  value: string | null;
+  onChange: (url: string | null) => void;
+}) {
   const [shipSearch, setShipSearch] = useState(false);
   const [q, setQ] = useState('');
   const allQ = useQuery({ queryKey: ['ships'], queryFn: fleetApi.ships, enabled: shipSearch, staleTime: 60 * 60_000 });
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const hits = words.length ? (allQ.data ?? []).filter((e) => (e.imageUrl || e.thumbUrl) && words.every((w) => `${e.name} ${e.manufacturer}`.toLowerCase().includes(w))).slice(0, 8) : [];
+  const hits = words.length
+    ? (allQ.data ?? [])
+        .filter(
+          (e) =>
+            (e.imageUrl || e.thumbUrl) && words.every((w) => `${e.name} ${e.manufacturer}`.toLowerCase().includes(w)),
+        )
+        .slice(0, 8)
+    : [];
   return (
     <div className="w-full space-y-2 sm:w-44">
       <div className="text-sm">Card picture</div>
       <ServerImagePicker guildId={guildId} value={value} onChange={onChange} emptyLabel="No picture" />
-      <button type="button" className="text-xs text-[#e2bd5b] hover:underline" onClick={() => setShipSearch((o) => !o)}>{shipSearch ? 'Close ship search' : "Use a ship's picture"}</button>
+      <button type="button" className="text-xs text-[#e2bd5b] hover:underline" onClick={() => setShipSearch((o) => !o)}>
+        {shipSearch ? 'Close ship search' : "Use a ship's picture"}
+      </button>
       {shipSearch && (
         <div>
-          <input className={inputCls} placeholder="Ship name…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+          <input
+            className={inputCls}
+            placeholder="Ship name…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            autoFocus
+          />
           <ul className="mt-1 max-h-48 overflow-auto">
             {allQ.isLoading && <li className="text-xs text-muted-foreground">Loading ships…</li>}
             {hits.map((e) => (
               <li key={e.id}>
-                <button type="button" onClick={() => { onChange(e.imageUrl ?? e.thumbUrl); setShipSearch(false); setQ(''); }}
-                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-secondary">
-                  <img src={e.thumbUrl ?? e.imageUrl ?? ''} alt="" referrerPolicy="no-referrer" className="h-6 w-10 shrink-0 rounded object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(e.imageUrl ?? e.thumbUrl);
+                    setShipSearch(false);
+                    setQ('');
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-secondary"
+                >
+                  <img
+                    src={e.thumbUrl ?? e.imageUrl ?? ''}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-6 w-10 shrink-0 rounded object-cover"
+                  />
                   <span className="truncate">{e.name}</span>
                 </button>
               </li>
@@ -526,16 +1006,34 @@ function GroupPicture({ guildId, value, onChange }: { guildId: string; value: st
 
 // ── Editor ────────────────────────────────────────────────────────────────────
 
-const inputCls = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-brand focus:outline-none';
+const inputCls =
+  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-brand focus:outline-none';
 
-export function Editor({ guildId, view, c, setC, onPreview }: {
-  guildId: string; view: BriefingViewDto; c: BriefingContent; setC: (c: BriefingContent) => void; onPreview: (index: number) => void;
+export function Editor({
+  guildId,
+  view,
+  c,
+  setC,
+  onPreview,
+}: {
+  guildId: string;
+  view: BriefingViewDto;
+  c: BriefingContent;
+  setC: (c: BriefingContent) => void;
+  onPreview: (index: number) => void;
 }) {
   const [sel, setSel] = useState<string>('title');
   const section = c.sections.find((s) => s.id === sel);
   const slides = briefingSlides(c);
-  const previewIndex = sel === 'title' || sel === 'look' ? 0 : Math.max(0, slides.findIndex((s) => s.kind === 'section' && s.section.id === sel));
-  const setSection = (patch: Partial<BriefingSection>) => setC({ ...c, sections: c.sections.map((s) => (s.id === sel ? { ...s, ...patch } : s)) });
+  const previewIndex =
+    sel === 'title' || sel === 'look'
+      ? 0
+      : Math.max(
+          0,
+          slides.findIndex((s) => s.kind === 'section' && s.section.id === sel),
+        );
+  const setSection = (patch: Partial<BriefingSection>) =>
+    setC({ ...c, sections: c.sections.map((s) => (s.id === sel ? { ...s, ...patch } : s)) });
   const move = (id: string, d: number) => {
     const i = c.sections.findIndex((s) => s.id === id);
     const j = i + d;
@@ -546,16 +1044,37 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
   };
   const add = (kind: BriefingSection['kind']) => {
     if (c.sections.length >= BRIEFING_LIMITS.sections) return;
-    const s: BriefingSection = { id: newSectionId(), kind, title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : kind === 'roster' ? 'Teams' : 'New section', body: '', imageUrl: null, imageUrl2: null, body2: '', ships: [], groups: [], bgUrl: null, bgOpacity: 35 };
+    const s: BriefingSection = {
+      id: newSectionId(),
+      kind,
+      title: kind === 'fleet' ? 'Force' : kind === 'image' ? 'Map' : kind === 'roster' ? 'Teams' : 'New section',
+      body: '',
+      imageUrl: null,
+      imageUrl2: null,
+      body2: '',
+      ships: [],
+      groups: [],
+      bgUrl: null,
+      bgOpacity: 35,
+    };
     setC({ ...c, sections: [...c.sections, s] });
     setSel(s.id);
   };
   const a = c.appearance;
   const setA = (patch: Partial<BriefingContent['appearance']>) => setC({ ...c, appearance: { ...a, ...patch } });
   const item = (id: string, label: string, extra?: React.ReactNode) => (
-    <button type="button" onClick={() => setSel(id)}
-      className={cn('flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm', sel === id ? 'bg-secondary text-[#e2bd5b] shadow-[inset_2px_0_0_#b98a13]' : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground')}>
-      {label}{extra}
+    <button
+      type="button"
+      onClick={() => setSel(id)}
+      className={cn(
+        'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm',
+        sel === id
+          ? 'bg-secondary text-[#e2bd5b] shadow-[inset_2px_0_0_#b98a13]'
+          : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+      )}
+    >
+      {label}
+      {extra}
     </button>
   );
 
@@ -567,17 +1086,52 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
         <div className="my-2 border-t border-border" />
         {c.sections.map((s, i) => (
           <div key={s.id} className="group flex items-center">
-            <div className="min-w-0 flex-1">{item(s.id, s.title || 'Untitled', <span className={cn('ml-auto h-1.5 w-1.5 shrink-0 rounded-full', sectionHasContent(s) ? 'bg-brand' : 'bg-border')} />)}</div>
+            <div className="min-w-0 flex-1">
+              {item(
+                s.id,
+                s.title || 'Untitled',
+                <span
+                  className={cn(
+                    'ml-auto h-1.5 w-1.5 shrink-0 rounded-full',
+                    sectionHasContent(s) ? 'bg-brand' : 'bg-border',
+                  )}
+                />,
+              )}
+            </div>
             <div className="flex shrink-0 flex-col opacity-40 group-hover:opacity-100">
-              <button type="button" aria-label={`Move ${s.title} up`} disabled={i === 0} onClick={() => move(s.id, -1)} className="p-0.5 disabled:opacity-20"><ArrowUp className="h-3 w-3" /></button>
-              <button type="button" aria-label={`Move ${s.title} down`} disabled={i === c.sections.length - 1} onClick={() => move(s.id, 1)} className="p-0.5 disabled:opacity-20"><ArrowDown className="h-3 w-3" /></button>
+              <button
+                type="button"
+                aria-label={`Move ${s.title} up`}
+                disabled={i === 0}
+                onClick={() => move(s.id, -1)}
+                className="p-0.5 disabled:opacity-20"
+              >
+                <ArrowUp className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Move ${s.title} down`}
+                disabled={i === c.sections.length - 1}
+                onClick={() => move(s.id, 1)}
+                className="p-0.5 disabled:opacity-20"
+              >
+                <ArrowDown className="h-3 w-3" />
+              </button>
             </div>
           </div>
         ))}
         <div className="mt-2 border-t border-border pt-2 text-xs">
           <div className="px-2 pb-1 text-muted-foreground">Add a section</div>
           {BRIEFING_SECTION_KINDS.map((k) => (
-            <button key={k.kind} type="button" onClick={() => add(k.kind)} className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-[#e2bd5b] hover:bg-secondary/50"><Plus className="h-3 w-3" />{k.label}</button>
+            <button
+              key={k.kind}
+              type="button"
+              onClick={() => add(k.kind)}
+              className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-[#e2bd5b] hover:bg-secondary/50"
+            >
+              <Plus className="h-3 w-3" />
+              {k.label}
+            </button>
           ))}
         </div>
       </nav>
@@ -587,24 +1141,63 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
           {sel === 'title' && (
             <div className="space-y-4">
               <h3 className="font-condensed text-lg font-bold uppercase tracking-wide">Title &amp; objective</h3>
-              <p className="text-xs text-muted-foreground">The title, step-off time and sign-ups come from the event. The objective also shows on the Discord roster once you publish.</p>
-              <label className="block text-sm">Objective
-                <textarea className={cn(inputCls, 'mt-1 min-h-[80px]')} maxLength={BRIEFING_LIMITS.objective} value={c.objective}
+              <p className="text-xs text-muted-foreground">
+                The title, step-off time and sign-ups come from the event. The objective also shows on the Discord
+                roster once you publish.
+              </p>
+              <label className="block text-sm">
+                Objective
+                <textarea
+                  className={cn(inputCls, 'mt-1 min-h-[80px]')}
+                  maxLength={BRIEFING_LIMITS.objective}
+                  value={c.objective}
                   placeholder="Retake the Ruin Station hangars and escort two Hull Cs out to Checkmate."
-                  onChange={(e) => setC({ ...c, objective: e.target.value })} />
+                  onChange={(e) => setC({ ...c, objective: e.target.value })}
+                />
               </label>
               <div>
-                <div className="text-sm">Key facts <span className="text-muted-foreground">(up to 3 on the title slide)</span></div>
+                <div className="text-sm">
+                  Key facts <span className="text-muted-foreground">(up to 3 on the title slide)</span>
+                </div>
                 {c.facts.map((f, i) => (
                   <div key={i} className="mt-2 flex gap-2">
-                    <input className={cn(inputCls, 'w-36')} placeholder="Label" maxLength={BRIEFING_LIMITS.factLabel} value={f.label}
-                      onChange={(e) => setC({ ...c, facts: c.facts.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
-                    <input className={inputCls} placeholder="Value" maxLength={BRIEFING_LIMITS.factValue} value={f.value}
-                      onChange={(e) => setC({ ...c, facts: c.facts.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })} />
-                    <button type="button" aria-label="Remove this fact" className="px-2 text-muted-foreground hover:text-foreground" onClick={() => setC({ ...c, facts: c.facts.filter((_, j) => j !== i) })}><X className="h-4 w-4" /></button>
+                    <input
+                      className={cn(inputCls, 'w-36')}
+                      placeholder="Label"
+                      maxLength={BRIEFING_LIMITS.factLabel}
+                      value={f.label}
+                      onChange={(e) =>
+                        setC({ ...c, facts: c.facts.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })
+                      }
+                    />
+                    <input
+                      className={inputCls}
+                      placeholder="Value"
+                      maxLength={BRIEFING_LIMITS.factValue}
+                      value={f.value}
+                      onChange={(e) =>
+                        setC({ ...c, facts: c.facts.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })
+                      }
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove this fact"
+                      className="px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setC({ ...c, facts: c.facts.filter((_, j) => j !== i) })}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
-                {c.facts.length < 3 && <button type="button" className="mt-2 text-xs text-[#e2bd5b] hover:underline" onClick={() => setC({ ...c, facts: [...c.facts, { label: '', value: '' }] })}>+ Add a fact</button>}
+                {c.facts.length < 3 && (
+                  <button
+                    type="button"
+                    className="mt-2 text-xs text-[#e2bd5b] hover:underline"
+                    onClick={() => setC({ ...c, facts: [...c.facts, { label: '', value: '' }] })}
+                  >
+                    + Add a fact
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -612,25 +1205,82 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
           {sel === 'look' && (
             <div className="space-y-4">
               <h3 className="font-condensed text-lg font-bold uppercase tracking-wide">Logo &amp; watermark</h3>
-              <p className="text-xs text-muted-foreground">Shown on every slide. Without a logo here, the server's logo from Bot Settings is used.</p>
+              <p className="text-xs text-muted-foreground">
+                Shown on every slide. Without a logo here, the server's logo from Bot Settings is used.
+              </p>
               <div className="flex flex-wrap gap-8">
                 <div>
                   <div className="mb-1 text-sm">Logo for this briefing</div>
-                  <ServerImagePicker guildId={guildId} value={a.logoUrl} onChange={(logoUrl) => setA({ logoUrl })} emptyLabel="Use the server's logo" />
-                  {!a.logoUrl && <p className="mt-1 text-xs text-muted-foreground">{view.logos[0]?.logoUrl ? 'Using the server\'s logo.' : 'The server has no logo yet: its tag is shown instead.'}</p>}
+                  <ServerImagePicker
+                    guildId={guildId}
+                    value={a.logoUrl}
+                    onChange={(logoUrl) => setA({ logoUrl })}
+                    emptyLabel="Use the server's logo"
+                  />
+                  {!a.logoUrl && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {view.logos[0]?.logoUrl
+                        ? "Using the server's logo."
+                        : 'The server has no logo yet: its tag is shown instead.'}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-3 text-sm">
                   {view.logos.length > 1 && (
-                    <label className="flex items-center gap-2"><input type="checkbox" checked={a.allyLogos} onChange={(e) => setA({ allyLogos: e.target.checked })} />Show allied servers' logos ({view.logos.slice(1).map((l) => l.tag ?? l.name).join(', ')})</label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={a.allyLogos}
+                        onChange={(e) => setA({ allyLogos: e.target.checked })}
+                      />
+                      Show allied servers' logos (
+                      {view.logos
+                        .slice(1)
+                        .map((l) => l.tag ?? l.name)
+                        .join(', ')}
+                      )
+                    </label>
                   )}
-                  <Choice label="Logo position" value={a.logoPosition} onChange={(logoPosition) => setA({ logoPosition })} options={[['TOP_LEFT', 'Top left'], ['TOP_RIGHT', 'Top right']]} />
-                  <Choice label="Watermark" value={a.watermark} onChange={(watermark) => setA({ watermark })} options={[['CORNER', 'Large, bottom right'], ['CENTER', 'Centered'], ['TILED', 'Tiled'], ['NONE', 'None']]} />
-                  <label className="flex items-center gap-3">Watermark strength
-                    <input type="range" min={0} max={30} value={a.watermarkStrength} onChange={(e) => setA({ watermarkStrength: Number(e.target.value) })} className="accent-[#b98a13]" />
+                  <Choice
+                    label="Logo position"
+                    value={a.logoPosition}
+                    onChange={(logoPosition) => setA({ logoPosition })}
+                    options={[
+                      ['TOP_LEFT', 'Top left'],
+                      ['TOP_RIGHT', 'Top right'],
+                    ]}
+                  />
+                  <Choice
+                    label="Watermark"
+                    value={a.watermark}
+                    onChange={(watermark) => setA({ watermark })}
+                    options={[
+                      ['CORNER', 'Large, bottom right'],
+                      ['CENTER', 'Centered'],
+                      ['TILED', 'Tiled'],
+                      ['NONE', 'None'],
+                    ]}
+                  />
+                  <label className="flex items-center gap-3">
+                    Watermark strength
+                    <input
+                      type="range"
+                      min={0}
+                      max={30}
+                      value={a.watermarkStrength}
+                      onChange={(e) => setA({ watermarkStrength: Number(e.target.value) })}
+                      className="accent-[#b98a13]"
+                    />
                     <span className="w-8 text-muted-foreground">{a.watermarkStrength}%</span>
                   </label>
-                  <label className="block">Banner <span className="text-muted-foreground">(optional, e.g. ORG ONLY)</span>
-                    <input className={cn(inputCls, 'mt-1 w-56')} maxLength={BRIEFING_LIMITS.banner} value={a.banner} onChange={(e) => setA({ banner: e.target.value })} />
+                  <label className="block">
+                    Banner <span className="text-muted-foreground">(optional, e.g. ORG ONLY)</span>
+                    <input
+                      className={cn(inputCls, 'mt-1 w-56')}
+                      maxLength={BRIEFING_LIMITS.banner}
+                      value={a.banner}
+                      onChange={(e) => setA({ banner: e.target.value })}
+                    />
                   </label>
                 </div>
               </div>
@@ -640,23 +1290,72 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
           {section && (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2">
-                <input className={cn(inputCls, 'font-condensed text-lg font-bold uppercase tracking-wide')} maxLength={BRIEFING_LIMITS.sectionTitle} value={section.title} onChange={(e) => setSection({ title: e.target.value })} aria-label="Section title" />
-                <Button variant="ghost" size="sm" onClick={() => { setC({ ...c, sections: c.sections.filter((s) => s.id !== section.id) }); setSel('title'); }}><Trash2 className="mr-1 h-4 w-4" />Remove</Button>
+                <input
+                  className={cn(inputCls, 'font-condensed text-lg font-bold uppercase tracking-wide')}
+                  maxLength={BRIEFING_LIMITS.sectionTitle}
+                  value={section.title}
+                  onChange={(e) => setSection({ title: e.target.value })}
+                  aria-label="Section title"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setC({ ...c, sections: c.sections.filter((s) => s.id !== section.id) });
+                    setSel('title');
+                  }}
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  Remove
+                </Button>
               </div>
               <div className="rounded-md border border-border p-3 text-sm">
-                <div className="mb-2 font-medium">Slide background <span className="font-normal text-muted-foreground">(optional: fills the whole slide, behind everything)</span></div>
+                <div className="mb-2 font-medium">
+                  Slide background{' '}
+                  <span className="font-normal text-muted-foreground">
+                    (optional: fills the whole slide, behind everything)
+                  </span>
+                </div>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                  <ServerImagePicker guildId={guildId} value={section.bgUrl} onChange={(bgUrl) => setSection({ bgUrl })} emptyLabel="No background" />
+                  <ServerImagePicker
+                    guildId={guildId}
+                    value={section.bgUrl}
+                    onChange={(bgUrl) => setSection({ bgUrl })}
+                    emptyLabel="No background"
+                  />
                   {section.bgUrl && (
-                    <label className="flex items-center gap-3">Opacity
-                      <input type="range" min={5} max={100} value={section.bgOpacity} onChange={(e) => setSection({ bgOpacity: Number(e.target.value) })} className="accent-[#b98a13]" aria-label="Background opacity" />
+                    <label className="flex items-center gap-3">
+                      Opacity
+                      <input
+                        type="range"
+                        min={5}
+                        max={100}
+                        value={section.bgOpacity}
+                        onChange={(e) => setSection({ bgOpacity: Number(e.target.value) })}
+                        className="accent-[#b98a13]"
+                        aria-label="Background opacity"
+                      />
                       <span className="w-10 text-muted-foreground">{section.bgOpacity}%</span>
                     </label>
                   )}
                 </div>
               </div>
-              {section.kind === 'fleet' && <ShipChooser guildId={guildId} eventId={view.event.id} ships={section.ships} onChange={(ships) => setSection({ ships })} />}
-              {section.kind === 'roster' && <GroupsEditor guildId={guildId} roles={view.event.roles} groups={section.groups} onChange={(groups) => setSection({ groups })} />}
+              {section.kind === 'fleet' && (
+                <ShipChooser
+                  guildId={guildId}
+                  eventId={view.event.id}
+                  ships={section.ships}
+                  onChange={(ships) => setSection({ ships })}
+                />
+              )}
+              {section.kind === 'roster' && (
+                <GroupsEditor
+                  guildId={guildId}
+                  roles={view.event.roles}
+                  groups={section.groups}
+                  onChange={(groups) => setSection({ groups })}
+                />
+              )}
               {section.kind === 'image' ? (
                 <>
                   {([1, 2] as const).map((n) => {
@@ -664,13 +1363,29 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
                     const body = n === 1 ? section.body : section.body2;
                     return (
                       <div key={n} className="rounded-md border border-border p-3">
-                        <div className="mb-2 text-sm font-medium">{n === 1 ? 'Picture 1 (left), text on the right' : 'Picture 2 (right), text on the left'}
-                          {n === 2 && <span className="font-normal text-muted-foreground"> (optional: adds a second row)</span>}</div>
+                        <div className="mb-2 text-sm font-medium">
+                          {n === 1 ? 'Picture 1 (left), text on the right' : 'Picture 2 (right), text on the left'}
+                          {n === 2 && (
+                            <span className="font-normal text-muted-foreground"> (optional: adds a second row)</span>
+                          )}
+                        </div>
                         <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
-                          <ServerImagePicker guildId={guildId} value={url} onChange={(v) => setSection(n === 1 ? { imageUrl: v } : { imageUrl2: v })} emptyLabel="Remove image" />
-                          <label className="block text-sm">Text <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
-                            <textarea className={cn(inputCls, 'mt-1 min-h-[120px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={body}
-                              onChange={(e) => setSection(n === 1 ? { body: e.target.value } : { body2: e.target.value })} />
+                          <ServerImagePicker
+                            guildId={guildId}
+                            value={url}
+                            onChange={(v) => setSection(n === 1 ? { imageUrl: v } : { imageUrl2: v })}
+                            emptyLabel="Remove image"
+                          />
+                          <label className="block text-sm">
+                            Text <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
+                            <textarea
+                              className={cn(inputCls, 'mt-1 min-h-[120px] font-normal')}
+                              maxLength={BRIEFING_LIMITS.sectionBody}
+                              value={body}
+                              onChange={(e) =>
+                                setSection(n === 1 ? { body: e.target.value } : { body2: e.target.value })
+                              }
+                            />
                           </label>
                         </div>
                       </div>
@@ -678,18 +1393,31 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
                   })}
                 </>
               ) : (
-                <label className="block text-sm">{section.kind === 'text' ? 'Text' : 'Notes'} <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
-                  <textarea className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')} maxLength={BRIEFING_LIMITS.sectionBody} value={section.body} onChange={(e) => setSection({ body: e.target.value })} />
+                <label className="block text-sm">
+                  {section.kind === 'text' ? 'Text' : 'Notes'}{' '}
+                  <span className="text-muted-foreground">(start a line with "- " for a bullet)</span>
+                  <textarea
+                    className={cn(inputCls, 'mt-1 min-h-[180px] font-normal')}
+                    maxLength={BRIEFING_LIMITS.sectionBody}
+                    value={section.body}
+                    onChange={(e) => setSection({ body: e.target.value })}
+                  />
                 </label>
               )}
-              {section.kind !== 'fleet' && section.kind !== 'roster' && !sectionHasContent(section) && <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>}
+              {section.kind !== 'fleet' && section.kind !== 'roster' && !sectionHasContent(section) && (
+                <p className="text-xs text-muted-foreground">Empty sections aren't shown.</p>
+              )}
             </div>
           )}
         </div>
 
         <div>
-          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Slide preview</span>
-            <button type="button" className="text-[#e2bd5b] hover:underline" onClick={() => onPreview(previewIndex)}>Present from here</button></div>
+          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Slide preview</span>
+            <button type="button" className="text-[#e2bd5b] hover:underline" onClick={() => onPreview(previewIndex)}>
+              Present from here
+            </button>
+          </div>
           <ScaledSlide view={view} c={c} index={previewIndex} total={slides.length} />
         </div>
       </div>
@@ -697,36 +1425,85 @@ export function Editor({ guildId, view, c, setC, onPreview }: {
   );
 }
 
-function Choice<T extends string>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: [T, string][] }) {
+function Choice<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: [T, string][];
+}) {
   return (
     <div>
       <div className="mb-1">{label}</div>
       <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={label}>
         {options.map(([v, l]) => (
-          <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
-            className={cn('rounded-md border px-2.5 py-1 text-xs', value === v ? 'border-brand bg-brand/10 text-[#e2bd5b]' : 'border-border text-muted-foreground hover:text-foreground')}>{l}</button>
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={value === v}
+            onClick={() => onChange(v)}
+            className={cn(
+              'rounded-md border px-2.5 py-1 text-xs',
+              value === v
+                ? 'border-brand bg-brand/10 text-[#e2bd5b]'
+                : 'border-border text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {l}
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function CopyFrom({ guildId, eventId, onPick, onClose }: { guildId: string; eventId: string; onPick: (b: PastBriefing) => void; onClose: () => void }) {
+function CopyFrom({
+  guildId,
+  eventId,
+  onPick,
+  onClose,
+}: {
+  guildId: string;
+  eventId: string;
+  onPick: (b: PastBriefing) => void;
+  onClose: () => void;
+}) {
   const { data, isLoading } = useQuery({ queryKey: ['briefings', guildId], queryFn: () => briefingsApi.past(guildId) });
   const list = (data ?? []).filter((b) => b.eventId !== eventId);
   return (
     <div className="rounded-lg border border-brand/40 bg-card p-4">
-      <div className="flex items-center justify-between"><h3 className="font-semibold">Start from a past briefing</h3><button type="button" aria-label="Close" onClick={onClose}><X className="h-4 w-4" /></button></div>
-      <p className="mt-1 text-xs text-muted-foreground">Copies its objective, sections and look into this briefing (replacing what's here). The past one isn't changed.</p>
-      {isLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading…</p> : list.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">This server has no other briefings yet.</p> : (
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Start from a past briefing</h3>
+        <button type="button" aria-label="Close" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Copies its objective, sections and look into this briefing (replacing what's here). The past one isn't changed.
+      </p>
+      {isLoading ? (
+        <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+      ) : list.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">This server has no other briefings yet.</p>
+      ) : (
         <ul className="mt-3 max-h-72 divide-y divide-border overflow-y-auto">
           {list.map((b) => (
             <li key={b.eventId} className="flex items-center gap-3 py-2 text-sm">
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{b.eventName}</div>
-                <div className="truncate text-xs text-muted-foreground">{when(b.startTime, { month: 'short', day: 'numeric', year: 'numeric' })}{b.outcome ? ` · ${b.outcome.toLowerCase()}` : ''} · {b.content.objective || 'No objective'}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {when(b.startTime, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {b.outcome ? ` · ${b.outcome.toLowerCase()}` : ''} · {b.content.objective || 'No objective'}
+                </div>
               </div>
-              <Button size="sm" variant="secondary" onClick={() => onPick(b)}>Use this</Button>
+              <Button size="sm" variant="secondary" onClick={() => onPick(b)}>
+                Use this
+              </Button>
             </li>
           ))}
         </ul>
@@ -740,48 +1517,114 @@ function CopyFrom({ guildId, eventId, onPick, onClose }: { guildId: string; even
  * (roster groups re-linked to the template's roles), or a new template is made
  * from the event and its briefing. The event's own template comes first.
  */
-function SaveToTemplate({ guildId, eventId, eventName, templateId, content, saveFirst, onDone, onClose }: {
-  guildId: string; eventId: string; eventName: string; templateId: string | null | undefined; content: BriefingContent;
-  saveFirst: () => Promise<void>; onDone: (msg: string) => void; onClose: () => void;
+function SaveToTemplate({
+  guildId,
+  eventId,
+  eventName,
+  templateId,
+  content,
+  saveFirst,
+  onDone,
+  onClose,
+}: {
+  guildId: string;
+  eventId: string;
+  eventName: string;
+  templateId: string | null | undefined;
+  content: BriefingContent;
+  saveFirst: () => Promise<void>;
+  onDone: (msg: string) => void;
+  onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ['event-templates-all', guildId], queryFn: () => eventTemplatesApi.all(guildId) });
+  const { data, isLoading } = useQuery({
+    queryKey: ['event-templates-all', guildId],
+    queryFn: () => eventTemplatesApi.all(guildId),
+  });
   const [name, setName] = useState(eventName);
   const [error, setError] = useState<string | null>(null);
   const list = [...(data ?? [])].sort((a, b) => Number(b.id === templateId) - Number(a.id === templateId));
   const toExisting = useMutation({
     mutationFn: (id: string) => eventTemplatesApi.saveBriefing(guildId, id, content, eventId),
-    onSuccess: (r) => { void qc.invalidateQueries({ queryKey: ['event-templates-all', guildId] }); onDone(`Saved as the briefing of the "${r.template.name}" template. New events made from it get it as a draft.`); },
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ['event-templates-all', guildId] });
+      onDone(`Saved as the briefing of the "${r.template.name}" template. New events made from it get it as a draft.`);
+    },
     onError: (e) => setError(e instanceof Error ? e.message : 'Could not save'),
   });
   const toNew = useMutation({
-    mutationFn: async () => { await saveFirst(); return eventTemplatesApi.create(guildId, { fromEventId: eventId, name: name.trim() }); },
-    onSuccess: (t) => { void qc.invalidateQueries({ queryKey: ['event-templates-all', guildId] }); onDone(`Made the "${t.name}" template from this event and its briefing.`); },
+    mutationFn: async () => {
+      await saveFirst();
+      return eventTemplatesApi.create(guildId, { fromEventId: eventId, name: name.trim() });
+    },
+    onSuccess: (t) => {
+      void qc.invalidateQueries({ queryKey: ['event-templates-all', guildId] });
+      onDone(`Made the "${t.name}" template from this event and its briefing.`);
+    },
     onError: (e) => setError(e instanceof Error ? e.message : 'Could not make the template'),
   });
   const busy = toExisting.isPending || toNew.isPending;
   return (
     <div className="rounded-lg border border-brand/40 bg-card p-4">
-      <div className="flex items-center justify-between"><h3 className="font-semibold">Save to a template</h3><button type="button" aria-label="Close" onClick={onClose}><X className="h-4 w-4" /></button></div>
-      <p className="mt-1 text-xs text-muted-foreground">The template keeps a copy of this briefing; each new event made from it gets the copy as an unpublished draft. This event's briefing isn't changed.</p>
-      {isLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading…</p> : list.length > 0 && (
-        <ul className="mt-3 max-h-60 divide-y divide-border overflow-y-auto">
-          {list.map((t) => (
-            <li key={t.id} className="flex items-center gap-3 py-2 text-sm">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{t.name}{t.id === templateId && <span className="ml-2 rounded-full border border-brand/60 px-2 py-0.5 text-[11px] text-[#e2bd5b]">This event's template</span>}</div>
-                <div className="truncate text-xs text-muted-foreground">{t.hasBriefing ? 'Has a briefing: saving replaces it' : 'No briefing yet'} · {t.roles.length} roles</div>
-              </div>
-              <Button size="sm" variant="secondary" disabled={busy}
-                onClick={() => { if (!t.hasBriefing || window.confirm(`Replace the "${t.name}" template's briefing with this one?`)) toExisting.mutate(t.id); }}>Save here</Button>
-            </li>
-          ))}
-        </ul>
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Save to a template</h3>
+        <button type="button" aria-label="Close" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        The template keeps a copy of this briefing; each new event made from it gets the copy as an unpublished draft.
+        This event's briefing isn't changed.
+      </p>
+      {isLoading ? (
+        <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        list.length > 0 && (
+          <ul className="mt-3 max-h-60 divide-y divide-border overflow-y-auto">
+            {list.map((t) => (
+              <li key={t.id} className="flex items-center gap-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">
+                    {t.name}
+                    {t.id === templateId && (
+                      <span className="ml-2 rounded-full border border-brand/60 px-2 py-0.5 text-[11px] text-[#e2bd5b]">
+                        This event's template
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {t.hasBriefing ? 'Has a briefing: saving replaces it' : 'No briefing yet'} · {t.roles.length} roles
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!t.hasBriefing || window.confirm(`Replace the "${t.name}" template's briefing with this one?`))
+                      toExisting.mutate(t.id);
+                  }}
+                >
+                  Save here
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <span className="text-sm">Or a new template:</span>
-        <input className={cn(inputCls, 'w-auto min-w-[14rem] flex-1')} value={name} maxLength={200} onChange={(e) => setName(e.target.value)} aria-label="New template name" />
-        <Button size="sm" disabled={busy || !name.trim()} onClick={() => toNew.mutate()}><Plus className="mr-1 h-4 w-4" />Make template</Button>
+        <input
+          className={cn(inputCls, 'w-auto min-w-[14rem] flex-1')}
+          value={name}
+          maxLength={200}
+          onChange={(e) => setName(e.target.value)}
+          aria-label="New template name"
+        />
+        <Button size="sm" disabled={busy || !name.trim()} onClick={() => toNew.mutate()}>
+          <Plus className="mr-1 h-4 w-4" />
+          Make template
+        </Button>
       </div>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
     </div>
@@ -796,7 +1639,11 @@ export function BriefingPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const key = ['briefing', guildId, eventId];
-  const { data: view, isLoading, error } = useQuery({ queryKey: key, queryFn: () => briefingsApi.get(guildId, eventId) });
+  const {
+    data: view,
+    isLoading,
+    error,
+  } = useQuery({ queryKey: key, queryFn: () => briefingsApi.get(guildId, eventId) });
 
   const editing = params.get('mode') === 'edit' && !!view?.canEdit;
   const presenting = params.has('present');
@@ -811,11 +1658,15 @@ export function BriefingPage() {
     if (view && !dirty) setDraft(view.briefing?.content ?? (view.canEdit ? defaultBriefing() : null));
   }, [view, dirty]);
 
-  const content = editing ? draft : view?.briefing?.content ?? null;
+  const content = editing ? draft : (view?.briefing?.content ?? null);
 
   const save = useMutation({
     mutationFn: (c: BriefingContent) => briefingsApi.save(guildId, eventId, c),
-    onSuccess: (b) => { setDirty(false); setMsg('Saved'); qc.setQueryData<BriefingViewDto>(key, (v) => (v ? { ...v, briefing: b } : v)); },
+    onSuccess: (b) => {
+      setDirty(false);
+      setMsg('Saved');
+      qc.setQueryData<BriefingViewDto>(key, (v) => (v ? { ...v, briefing: b } : v));
+    },
     onError: (e) => setMsg(e instanceof Error ? e.message : 'Could not save'),
   });
   const publish = useMutation({
@@ -823,34 +1674,81 @@ export function BriefingPage() {
       if (dirty && draft) await briefingsApi.save(guildId, eventId, draft);
       return briefingsApi.publish(guildId, eventId, published);
     },
-    onSuccess: (b) => { setDirty(false); setMsg(b.publishedAt ? 'Published: the roster in Discord now has a Briefing button' : 'Unpublished: only editors can see it'); qc.setQueryData<BriefingViewDto>(key, (v) => (v ? { ...v, briefing: b } : v)); },
+    onSuccess: (b) => {
+      setDirty(false);
+      setMsg(
+        b.publishedAt
+          ? 'Published: the roster in Discord now has a Briefing button'
+          : 'Unpublished: only editors can see it',
+      );
+      qc.setQueryData<BriefingViewDto>(key, (v) => (v ? { ...v, briefing: b } : v));
+    },
     onError: (e) => setMsg(e instanceof Error ? e.message : 'Could not publish'),
   });
   const remove = useMutation({
     mutationFn: () => briefingsApi.remove(guildId, eventId),
-    onSuccess: () => { setDirty(false); setDraft(defaultBriefing()); void qc.invalidateQueries({ queryKey: key }); setMsg('Briefing deleted'); },
+    onSuccess: () => {
+      setDirty(false);
+      setDraft(defaultBriefing());
+      void qc.invalidateQueries({ queryKey: key });
+      setMsg('Briefing deleted');
+    },
   });
 
   // Leaving with unsaved changes asks first.
   useEffect(() => {
     if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  const setC = (c: BriefingContent) => { setDraft(c); setDirty(true); setMsg(null); };
-  const setMode = (m: 'edit' | null) => setParams((p) => { const n = new URLSearchParams(p); if (m) n.set('mode', m); else n.delete('mode'); return n; }, { replace: true });
-  const present = (at = 0) => setParams((p) => { const n = new URLSearchParams(p); n.set('present', String(at)); return n; });
-  const stopPresenting = (_at: number) => setParams((p) => { const n = new URLSearchParams(p); n.delete('present'); return n; }, { replace: true });
+  const setC = (c: BriefingContent) => {
+    setDraft(c);
+    setDirty(true);
+    setMsg(null);
+  };
+  const setMode = (m: 'edit' | null) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        if (m) n.set('mode', m);
+        else n.delete('mode');
+        return n;
+      },
+      { replace: true },
+    );
+  const present = (at = 0) =>
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      n.set('present', String(at));
+      return n;
+    });
+  const stopPresenting = (_at: number) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        n.delete('present');
+        return n;
+      },
+      { replace: true },
+    );
 
   const back = `/dashboard/servers/${guildId}`;
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading the briefing…</div>;
   if (error || !view) {
     return (
       <div className="space-y-3 p-6">
-        <p className="text-sm text-muted-foreground">{error instanceof Error && /forbidden/i.test(error.message) ? 'You can\'t see this event\'s briefing from this server.' : 'This briefing couldn\'t be loaded.'}</p>
-        <Link to={back} className="text-sm text-brand hover:underline">Back to events</Link>
+        <p className="text-sm text-muted-foreground">
+          {error instanceof Error && /forbidden/i.test(error.message)
+            ? "You can't see this event's briefing from this server."
+            : "This briefing couldn't be loaded."}
+        </p>
+        <Link to={back} className="text-sm text-brand hover:underline">
+          Back to events
+        </Link>
       </div>
     );
   }
@@ -862,36 +1760,131 @@ export function BriefingPage() {
     <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <button type="button" onClick={() => navigate(back)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="h-3 w-3" />Events</button>
-          <h1 className="mt-1 font-condensed text-2xl font-bold uppercase tracking-wide text-foreground sm:text-3xl">{view.event.name}</h1>
-          <p className="text-sm text-muted-foreground">Briefing · step off {stepOff(view.event.startTime)}
-            {view.canEdit && <span className={cn('ml-2 rounded-full border px-2 py-0.5 text-[11px] font-semibold', published ? 'border-brand/60 text-[#e2bd5b]' : 'border-orange-500/50 text-orange-400')}>{published ? 'Published' : view.briefing ? 'Draft' : 'Not started'}</span>}
+          <button
+            type="button"
+            onClick={() => navigate(back)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Events
+          </button>
+          <h1 className="mt-1 font-condensed text-2xl font-bold uppercase tracking-wide text-foreground sm:text-3xl">
+            {view.event.name}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Briefing · step off {stepOff(view.event.startTime)}
+            {view.canEdit && (
+              <span
+                className={cn(
+                  'ml-2 rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+                  published ? 'border-brand/60 text-[#e2bd5b]' : 'border-orange-500/50 text-orange-400',
+                )}
+              >
+                {published ? 'Published' : view.briefing ? 'Draft' : 'Not started'}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {content && slidesTotal > 0 && <Button variant="secondary" size="sm" onClick={() => present(0)}><MonitorPlay className="mr-1 h-4 w-4" />Present</Button>}
-          {content && <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print / PDF</Button>}
-          {view.canEdit && !editing && <Button size="sm" onClick={() => setMode('edit')}><Pencil className="mr-1 h-4 w-4" />{view.briefing ? 'Edit' : 'Write the briefing'}</Button>}
+          {content && slidesTotal > 0 && (
+            <Button variant="secondary" size="sm" onClick={() => present(0)}>
+              <MonitorPlay className="mr-1 h-4 w-4" />
+              Present
+            </Button>
+          )}
+          {content && (
+            <Button variant="secondary" size="sm" onClick={() => window.print()}>
+              <Printer className="mr-1 h-4 w-4" />
+              Print / PDF
+            </Button>
+          )}
+          {view.canEdit && !editing && (
+            <Button size="sm" onClick={() => setMode('edit')}>
+              <Pencil className="mr-1 h-4 w-4" />
+              {view.briefing ? 'Edit' : 'Write the briefing'}
+            </Button>
+          )}
           {editing && (
             <>
-              <Button variant="ghost" size="sm" onClick={() => { setCopyOpen((o) => !o); setToTemplateOpen(false); }}><Copy className="mr-1 h-4 w-4" />From a past op</Button>
-              <Button variant="ghost" size="sm" onClick={() => { setToTemplateOpen((o) => !o); setCopyOpen(false); }}><LayoutTemplate className="mr-1 h-4 w-4" />Save to template</Button>
-              <Button variant="secondary" size="sm" onClick={() => setMode(null)}><Eye className="mr-1 h-4 w-4" />View</Button>
-              <Button variant="secondary" size="sm" disabled={!dirty || save.isPending} onClick={() => draft && save.mutate(draft)}><Save className="mr-1 h-4 w-4" />{save.isPending ? 'Saving…' : dirty ? 'Save' : 'Saved'}</Button>
-              <Button size="sm" disabled={publish.isPending || (!view.briefing && !dirty)} onClick={() => publish.mutate(!published)}>{published ? 'Unpublish' : 'Publish'}</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCopyOpen((o) => !o);
+                  setToTemplateOpen(false);
+                }}
+              >
+                <Copy className="mr-1 h-4 w-4" />
+                From a past op
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setToTemplateOpen((o) => !o);
+                  setCopyOpen(false);
+                }}
+              >
+                <LayoutTemplate className="mr-1 h-4 w-4" />
+                Save to template
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setMode(null)}>
+                <Eye className="mr-1 h-4 w-4" />
+                View
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!dirty || save.isPending}
+                onClick={() => draft && save.mutate(draft)}
+              >
+                <Save className="mr-1 h-4 w-4" />
+                {save.isPending ? 'Saving…' : dirty ? 'Save' : 'Saved'}
+              </Button>
+              <Button
+                size="sm"
+                disabled={publish.isPending || (!view.briefing && !dirty)}
+                onClick={() => publish.mutate(!published)}
+              >
+                {published ? 'Unpublish' : 'Publish'}
+              </Button>
             </>
           )}
         </div>
       </div>
-      {msg && <p className="text-sm text-[#e2bd5b]" role="status">{msg}</p>}
+      {msg && (
+        <p className="text-sm text-[#e2bd5b]" role="status">
+          {msg}
+        </p>
+      )}
       {editing && toTemplateOpen && draft && (
-        <SaveToTemplate guildId={guildId} eventId={eventId} eventName={view.event.name} templateId={view.event.templateId} content={draft}
-          saveFirst={async () => { if (dirty) await save.mutateAsync(draft); }}
-          onClose={() => setToTemplateOpen(false)} onDone={(m) => { setToTemplateOpen(false); setMsg(m); }} />
+        <SaveToTemplate
+          guildId={guildId}
+          eventId={eventId}
+          eventName={view.event.name}
+          templateId={view.event.templateId}
+          content={draft}
+          saveFirst={async () => {
+            if (dirty) await save.mutateAsync(draft);
+          }}
+          onClose={() => setToTemplateOpen(false)}
+          onDone={(m) => {
+            setToTemplateOpen(false);
+            setMsg(m);
+          }}
+        />
       )}
       {editing && copyOpen && (
-        <CopyFrom guildId={guildId} eventId={eventId} onClose={() => setCopyOpen(false)}
-          onPick={(b) => { setC(b.content); setCopyOpen(false); setMsg(`Copied from ${b.eventName}. Save to keep it.`); }} />
+        <CopyFrom
+          guildId={guildId}
+          eventId={eventId}
+          onClose={() => setCopyOpen(false)}
+          onPick={(b) => {
+            setC(b.content);
+            setCopyOpen(false);
+            setMsg(`Copied from ${b.eventName}. Save to keep it.`);
+          }}
+        />
       )}
 
       {editing && draft ? (
@@ -899,8 +1892,18 @@ export function BriefingPage() {
           <Editor guildId={guildId} view={view} c={draft} setC={setC} onPreview={present} />
           {view.briefing && (
             <div className="border-t border-border pt-4">
-              <Button variant="ghost" size="sm" className="text-red-400" disabled={remove.isPending}
-                onClick={() => { if (window.confirm('Delete this briefing? This can\'t be undone.')) remove.mutate(); }}><Trash2 className="mr-1 h-4 w-4" />Delete briefing</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-400"
+                disabled={remove.isPending}
+                onClick={() => {
+                  if (window.confirm("Delete this briefing? This can't be undone.")) remove.mutate();
+                }}
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Delete briefing
+              </Button>
             </div>
           )}
         </>
@@ -908,7 +1911,7 @@ export function BriefingPage() {
         <ReadView view={view} c={content} />
       ) : (
         <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          {view.canEdit ? 'No briefing yet.' : 'There\'s no briefing for this event yet.'}
+          {view.canEdit ? 'No briefing yet.' : "There's no briefing for this event yet."}
         </div>
       )}
 

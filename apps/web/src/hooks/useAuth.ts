@@ -25,19 +25,21 @@ export function useAuth() {
       }
     },
     retry: false,
-    staleTime: 5 * 60 * 1000,  // treat as fresh for 5 min
-    gcTime:   10 * 60 * 1000,  // keep in cache for 10 min
+    staleTime: 5 * 60 * 1000, // treat as fresh for 5 min
+    gcTime: 10 * 60 * 1000, // keep in cache for 10 min
   });
 
   async function logout() {
-    await authApi.logout().catch(() => { /* best-effort */ });
+    await authApi.logout().catch(() => {
+      /* best-effort */
+    });
     queryClient.clear();
     window.location.href = '/login';
   }
 
   return {
-    user:            data?.user   ?? null,
-    guilds:          data?.guilds ?? [],
+    user: data?.user ?? null,
+    guilds: data?.guilds ?? [],
     isLoading,
     isAuthenticated: data !== null && data !== undefined && !!data.user,
     /** May open the admin panel (v1.13.0) */

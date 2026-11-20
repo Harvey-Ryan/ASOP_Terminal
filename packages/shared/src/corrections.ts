@@ -19,14 +19,28 @@
 // by the browser. Only the stats listed in CORRECTION_KINDS can be corrected.
 
 export type CorrectionStatus =
-  | 'PENDING' | 'REVIEW' | 'LIVE' | 'DISPUTED' | 'RECHECK'
-  | 'RETIRED' | 'REJECTED' | 'REVERTED' | 'WITHDRAWN' | 'SUPERSEDED';
+  | 'PENDING'
+  | 'REVIEW'
+  | 'LIVE'
+  | 'DISPUTED'
+  | 'RECHECK'
+  | 'RETIRED'
+  | 'REJECTED'
+  | 'REVERTED'
+  | 'WITHDRAWN'
+  | 'SUPERSEDED';
 
 /** Shown on the site (the corrected value is used). */
 export const APPLIED_STATUSES: readonly CorrectionStatus[] = ['LIVE', 'DISPUTED'];
 /** Still being worked on. */
 export const OPEN_STATUSES: readonly CorrectionStatus[] = ['PENDING', 'REVIEW', 'RECHECK'];
-export const CLOSED_STATUSES: readonly CorrectionStatus[] = ['RETIRED', 'REJECTED', 'REVERTED', 'WITHDRAWN', 'SUPERSEDED'];
+export const CLOSED_STATUSES: readonly CorrectionStatus[] = [
+  'RETIRED',
+  'REJECTED',
+  'REVERTED',
+  'WITHDRAWN',
+  'SUPERSEDED',
+];
 
 export const CORRECTION_STATUS_LABELS: Record<CorrectionStatus, string> = {
   PENDING: 'Needs confirming',
@@ -161,9 +175,7 @@ export function gameNumber(record: unknown, field: string): number | null {
   return null;
 }
 
-export type ValueCheck =
-  | { ok: true; value: number; bigChange: boolean }
-  | { ok: false; error: string };
+export type ValueCheck = { ok: true; value: number; bigChange: boolean } | { ok: false; error: string };
 
 /** Is this a value the stat can take, and is it a suspiciously big change from the game files? */
 export function checkCorrectionValue(kind: string, field: string, gameValue: number | null, raw: unknown): ValueCheck {
@@ -180,7 +192,8 @@ export function checkCorrectionValue(kind: string, field: string, gameValue: num
 
 export function isBigChange(gameValue: number | null, value: number): boolean {
   if (gameValue == null) return true;
-  const a = Math.abs(gameValue), b = Math.abs(value);
+  const a = Math.abs(gameValue),
+    b = Math.abs(value);
   if (a === 0 || b === 0) return Math.abs(value - gameValue) > 10; // a percent stat going from nothing to more than ±10
   if (Math.sign(value) !== Math.sign(gameValue)) return true;
   return b / a > BIG_CHANGE_FACTOR || a / b > BIG_CHANGE_FACTOR;
@@ -226,7 +239,10 @@ export function correctionActions(c: CorrectionParties, who: CorrectionActor | n
 }
 
 /** What a new game build means for an applied correction. */
-export function recheckOnNewBuild(c: { gameValue: number | null; value: number }, current: number | null): 'keep' | 'retire' | 'recheck' {
+export function recheckOnNewBuild(
+  c: { gameValue: number | null; value: number },
+  current: number | null,
+): 'keep' | 'retire' | 'recheck' {
   if (current != null && current === c.value) return 'retire'; // CIG fixed it
   if (current === c.gameValue) return 'keep';
   return 'recheck'; // the game value moved somewhere else: look again
@@ -304,7 +320,12 @@ export function correctionIndex(list: readonly LiveCorrectionDto[]): Map<string,
 }
 
 /** Records with their live corrections applied (a new array; untouched records are the same objects). */
-export function applyCorrections<T>(records: readonly T[], kind: string, keyOf: (r: T) => string, index: ReadonlyMap<string, LiveCorrectionDto>): T[] {
+export function applyCorrections<T>(
+  records: readonly T[],
+  kind: string,
+  keyOf: (r: T) => string,
+  index: ReadonlyMap<string, LiveCorrectionDto>,
+): T[] {
   if (!index.size) return [...records];
   const fields = Object.keys(CORRECTION_KINDS[kind]?.fields ?? {});
   return records.map((r) => {

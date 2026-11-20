@@ -1,12 +1,19 @@
-import {
-  useEffect, useRef, useState, useMemo, useCallback,
-  type FC, type KeyboardEvent,
-} from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback, type FC, type KeyboardEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Globe2, MapPin, Trash2, Eye, EyeOff, RotateCcw,
-  Crosshair, X, Check, Loader2, Search, Clock,
+  Globe2,
+  MapPin,
+  Trash2,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  Crosshair,
+  X,
+  Check,
+  Loader2,
+  Search,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { memberPinsApi } from '@/api/memberPins';
@@ -17,10 +24,10 @@ import type { MemberPinDto, UpsertMemberPinBody, MunicipalitySearchResult } from
 /** Sub-solar point at the given Date (the lat/lng the sun is directly above). */
 function getSolarPosition(date: Date): { lat: number; lng: number } {
   const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 0);
-  const dayOfYear   = Math.floor((date.getTime() - startOfYear) / 86_400_000);
+  const dayOfYear = Math.floor((date.getTime() - startOfYear) / 86_400_000);
   // Declination: ±23.45° over the year (max at summer solstice)
-  const declination = -23.45 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10));
-  const utcHours    = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  const declination = -23.45 * Math.cos(((2 * Math.PI) / 365) * (dayOfYear + 10));
+  const utcHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
   // Sub-solar longitude: 0° at solar noon (≈ 12:00 UTC for lon 0°), shifts 15°/hr
   const lng = (12 - utcHours) * 15;
   return { lat: declination, lng };
@@ -35,7 +42,7 @@ function sunDirectionVector(lat: number, lng: number): [number, number, number] 
   const λ = (lng * Math.PI) / 180;
   return [
     Math.cos(φ) * Math.sin(λ), // east  → +X
-    Math.sin(φ),                // north → +Y
+    Math.sin(φ), // north → +Y
     Math.cos(φ) * Math.cos(λ), // lon0  → +Z
   ];
 }
@@ -51,16 +58,16 @@ function sunDirectionVector(lat: number, lng: number): [number, number, number] 
 function getLocalTime(lng: number, timezone?: string | null): string {
   if (timezone) {
     try {
-      const now   = new Date();
+      const now = new Date();
       const parts = new Intl.DateTimeFormat('en-US', {
-        hour:         '2-digit',
-        minute:       '2-digit',
-        hour12:       false,
-        timeZone:     timezone,
-        timeZoneName: 'short',          // "CDT", "EST", "GMT+2", etc.
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: timezone,
+        timeZoneName: 'short', // "CDT", "EST", "GMT+2", etc.
       }).formatToParts(now);
-      const h    = parts.find((p) => p.type === 'hour')?.value   ?? '??';
-      const m    = parts.find((p) => p.type === 'minute')?.value ?? '??';
+      const h = parts.find((p) => p.type === 'hour')?.value ?? '??';
+      const m = parts.find((p) => p.type === 'minute')?.value ?? '??';
       const abbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
       return `${h}:${m}${abbr ? ` (${abbr})` : ''}`;
     } catch {
@@ -70,10 +77,10 @@ function getLocalTime(lng: number, timezone?: string | null): string {
   // Longitude-based solar estimate — no DST awareness
   const offsetH = lng / 15;
   const localMs = Date.now() + offsetH * 3_600_000;
-  const d       = new Date(localMs);
-  const h       = d.getUTCHours().toString().padStart(2, '0');
-  const m       = d.getUTCMinutes().toString().padStart(2, '0');
-  const sign    = offsetH >= 0 ? '+' : '';
+  const d = new Date(localMs);
+  const h = d.getUTCHours().toString().padStart(2, '0');
+  const m = d.getUTCMinutes().toString().padStart(2, '0');
+  const sign = offsetH >= 0 ? '+' : '';
   const rounded = Math.round(offsetH);
   return `${h}:${m} (≈UTC${sign}${rounded})`;
 }
@@ -96,7 +103,9 @@ export interface GlobePoint {
   isMine: boolean;
 }
 
-function clusterPins(pins: MemberPinDto[]): Array<{ lat: number; lng: number; municipality: string; pins: MemberPinDto[] }> {
+function clusterPins(
+  pins: MemberPinDto[],
+): Array<{ lat: number; lng: number; municipality: string; pins: MemberPinDto[] }> {
   const map = new Map<string, { lat: number; lng: number; municipality: string; pins: MemberPinDto[] }>();
   for (const pin of pins) {
     const key = `${pin.lat.toFixed(4)},${pin.lng.toFixed(4)}`;
@@ -135,27 +144,29 @@ function injectStyles() {
 function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): HTMLElement {
   const namedPins = point.pins.filter((p) => p.displayName);
   const anonCount = point.pins.filter((p) => !p.displayName).length;
-  const count  = point.pins.length;
+  const count = point.pins.length;
   const isMine = point.isMine;
   const headPx = isCluster && count > 1 ? 26 : 18;
-  const stemH  = 10;
+  const stemH = 10;
   const accent = isMine ? '#f97316' : '#fb923c';
   const border = isMine ? '#ea580c' : '#f97316';
-  const glow   = isMine ? '#f9731660' : '#fb923c40';
-  const delay  = Math.min(idx * 18, 260);
+  const glow = isMine ? '#f9731660' : '#fb923c40';
+  const delay = Math.min(idx * 18, 260);
 
   // Register a single document click handler the first time any pin is created.
   // Clicking outside a pin (anywhere on the globe canvas or page) dismisses the
   // currently click-pinned tooltip.
   if (!docListenerAdded) {
     docListenerAdded = true;
-    document.addEventListener('click', () => { activeDismiss?.(); });
+    document.addEventListener('click', () => {
+      activeDismiss?.();
+    });
   }
 
   // pointer-events:auto on anchor is critical: globe.gl's CSS3D renderer sets
   // pointer-events:none on its container div, and children inherit it unless
   // they explicitly override. Without this, mouseenter/click never fire.
-  const anchor  = document.createElement('div');
+  const anchor = document.createElement('div');
   anchor.style.cssText = 'position:relative;width:0;height:0;overflow:visible;pointer-events:auto;';
 
   const wrapper = document.createElement('div');
@@ -240,8 +251,8 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
     el.appendChild(div1);
 
     // ── Local time (IANA-accurate when timezone is stored, fallback to solar estimate)
-    const refPin  = point.pins[0];
-    const refLng  = refPin?.lng ?? point.lng;
+    const refPin = point.pins[0];
+    const refLng = refPin?.lng ?? point.lng;
     const timeRow = document.createElement('div');
     timeRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;';
     const clockSpan = document.createElement('span');
@@ -344,14 +355,19 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
 
   function dismiss() {
     pinned = false;
-    tip?.remove(); tip = null;
+    tip?.remove();
+    tip = null;
     head.style.transform = '';
     head.style.boxShadow = `0 0 10px ${glow},0 2px 6px rgba(0,0,0,.7)`;
     if (activeDismiss === dismiss) activeDismiss = null;
   }
 
-  wrapper.addEventListener('mouseenter', () => { if (!pinned) show(); });
-  wrapper.addEventListener('mouseleave', () => { if (!pinned) dismiss(); });
+  wrapper.addEventListener('mouseenter', () => {
+    if (!pinned) show();
+  });
+  wrapper.addEventListener('mouseleave', () => {
+    if (!pinned) dismiss();
+  });
   wrapper.addEventListener('click', (e) => {
     e.stopPropagation(); // prevent document listener from immediately dismissing
     if (pinned) {
@@ -363,7 +379,8 @@ function createPinElement(point: GlobePoint, isCluster: boolean, idx: number): H
       pinned = true;
       activeDismiss = dismiss;
       // Rebuild tip so the hint text reflects the pinned state
-      tip?.remove(); tip = null;
+      tip?.remove();
+      tip = null;
       tip = buildTip();
       wrapper.appendChild(tip);
     }
@@ -409,22 +426,25 @@ const FRAG = /* glsl */ `
 // transparent WebGL canvas without needing an explicit z-index war.
 
 interface StarParticle {
-  x: number; y: number;
+  x: number;
+  y: number;
   r: number;
-  baseA: number;           // base alpha (brightness)
-  phase: number;           // current twinkling phase
-  twinkleSpeed: number;    // radians per second
+  baseA: number; // base alpha (brightness)
+  phase: number; // current twinkling phase
+  twinkleSpeed: number; // radians per second
   /** 0 = white, 1 = cool blue, 2 = warm gold */
   hue: 0 | 1 | 2;
 }
 
 interface ShootingParticle {
-  x: number; y: number;
-  nx: number; ny: number;  // normalized direction
-  vel: number;             // px / s
-  tail: number;            // tail length px
-  totalDist: number;       // total travel distance px
-  gone: number;            // distance already traveled
+  x: number;
+  y: number;
+  nx: number;
+  ny: number; // normalized direction
+  vel: number; // px / s
+  tail: number; // tail length px
+  totalDist: number; // total travel distance px
+  gone: number; // distance already traveled
 }
 
 const StarField: FC = () => {
@@ -445,34 +465,35 @@ const StarField: FC = () => {
 
     // Star colour variants
     const STAR_COLORS = [
-      '255,255,255',    // white
-      '190,210,255',    // cool blue
-      '255,240,190',    // warm gold
+      '255,255,255', // white
+      '190,210,255', // cool blue
+      '255,240,190', // warm gold
     ] as const;
 
     function init() {
-      const w = canvas!.offsetWidth  || canvas!.clientWidth  || 800;
+      const w = canvas!.offsetWidth || canvas!.clientWidth || 800;
       const h = canvas!.offsetHeight || canvas!.clientHeight || 600;
-      canvas!.width  = w;
+      canvas!.width = w;
       canvas!.height = h;
 
       // Distribute hues: ~70% white, ~20% blue, ~10% gold
       stars = Array.from({ length: STAR_COUNT }, () => {
         const rnd = Math.random();
-        const hue: 0 | 1 | 2 = rnd < 0.70 ? 0 : rnd < 0.90 ? 1 : 2;
+        const hue: 0 | 1 | 2 = rnd < 0.7 ? 0 : rnd < 0.9 ? 1 : 2;
         // Size buckets: small majority, a few medium, rare large
         const sizeBucket = Math.random();
-        const r = sizeBucket < 0.82
-          ? Math.random() * 0.65 + 0.15   // 0.15–0.80 (small)
-          : sizeBucket < 0.96
-            ? Math.random() * 0.70 + 0.80 // 0.80–1.50 (medium)
-            : Math.random() * 0.80 + 1.50; // 1.50–2.30 (bright)
+        const r =
+          sizeBucket < 0.82
+            ? Math.random() * 0.65 + 0.15 // 0.15–0.80 (small)
+            : sizeBucket < 0.96
+              ? Math.random() * 0.7 + 0.8 // 0.80–1.50 (medium)
+              : Math.random() * 0.8 + 1.5; // 1.50–2.30 (bright)
         return {
-          x:           Math.random() * w,
-          y:           Math.random() * h,
+          x: Math.random() * w,
+          y: Math.random() * h,
           r,
-          baseA:       Math.random() * 0.50 + 0.28,
-          phase:       Math.random() * Math.PI * 2,
+          baseA: Math.random() * 0.5 + 0.28,
+          phase: Math.random() * Math.PI * 2,
           twinkleSpeed: Math.random() * 1.0 + 0.25,
           hue,
         };
@@ -483,20 +504,20 @@ const StarField: FC = () => {
       const w = canvas!.width;
       // Angle 28–62° below horizontal; randomly left-to-right or right-to-left
       const angleDeg = 28 + Math.random() * 34;
-      const rad = angleDeg * Math.PI / 180;
+      const rad = (angleDeg * Math.PI) / 180;
       const goRight = Math.random() > 0.4; // slightly prefer left→right
-      const nx = goRight ?  Math.cos(rad) : -Math.cos(rad);
+      const nx = goRight ? Math.cos(rad) : -Math.cos(rad);
       const ny = Math.sin(rad);
       // Spawn off-screen top; X biased toward the incoming side
-      const spawnX = goRight
-        ? -120 + Math.random() * w * 0.55
-        :  w * 0.45 + Math.random() * w * 0.55 + 120;
+      const spawnX = goRight ? -120 + Math.random() * w * 0.55 : w * 0.45 + Math.random() * w * 0.55 + 120;
       const spawnY = -60 - Math.random() * 140;
       shooting.push({
-        x: spawnX, y: spawnY,
-        nx, ny,
-        vel:       480 + Math.random() * 420,
-        tail:      80  + Math.random() * 140,
+        x: spawnX,
+        y: spawnY,
+        nx,
+        ny,
+        vel: 480 + Math.random() * 420,
+        tail: 80 + Math.random() * 140,
         totalDist: 280 + Math.random() * 380,
         gone: 0,
       });
@@ -527,8 +548,13 @@ const StarField: FC = () => {
       if (now >= nextShootAt) {
         spawnShooting();
         // 10% chance of a quick second burst shortly after
-        if (Math.random() < 0.10) {
-          setTimeout(() => { if (canvas) spawnShooting(); }, 400 + Math.random() * 600);
+        if (Math.random() < 0.1) {
+          setTimeout(
+            () => {
+              if (canvas) spawnShooting();
+            },
+            400 + Math.random() * 600,
+          );
         }
         nextShootAt = now + 3200 + Math.random() * 5500;
       }
@@ -537,8 +563,8 @@ const StarField: FC = () => {
       shooting = shooting.filter((s) => s.gone < s.totalDist);
       for (const s of shooting) {
         s.gone += s.vel * dt;
-        s.x    += s.nx  * s.vel * dt;
-        s.y    += s.ny  * s.vel * dt;
+        s.x += s.nx * s.vel * dt;
+        s.y += s.ny * s.vel * dt;
 
         const progress = Math.min(s.gone / s.totalDist, 1);
         // Bell curve: smooth fade-in and fade-out
@@ -548,24 +574,24 @@ const StarField: FC = () => {
         const tx = s.x - s.nx * s.tail;
         const ty = s.y - s.ny * s.tail;
         const grad = ctx!.createLinearGradient(s.x, s.y, tx, ty);
-        grad.addColorStop(0,    `rgba(255,255,248,${(alpha * 0.92).toFixed(3)})`);
-        grad.addColorStop(0.20, `rgba(255,245,220,${(alpha * 0.55).toFixed(3)})`);
+        grad.addColorStop(0, `rgba(255,255,248,${(alpha * 0.92).toFixed(3)})`);
+        grad.addColorStop(0.2, `rgba(255,245,220,${(alpha * 0.55).toFixed(3)})`);
         grad.addColorStop(0.55, `rgba(200,220,255,${(alpha * 0.22).toFixed(3)})`);
-        grad.addColorStop(1,    `rgba(180,210,255,0)`);
+        grad.addColorStop(1, `rgba(180,210,255,0)`);
 
         ctx!.beginPath();
         ctx!.moveTo(s.x, s.y);
         ctx!.lineTo(tx, ty);
         ctx!.strokeStyle = grad;
-        ctx!.lineWidth   = 1.5;
+        ctx!.lineWidth = 1.5;
         ctx!.stroke();
 
         // Bright head: soft glow + sharp core
         const glowR = 3.5;
-        const glow  = ctx!.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
-        glow.addColorStop(0,   `rgba(255,255,255,${(alpha * 0.90).toFixed(3)})`);
+        const glow = ctx!.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
+        glow.addColorStop(0, `rgba(255,255,255,${(alpha * 0.9).toFixed(3)})`);
         glow.addColorStop(0.4, `rgba(255,250,230,${(alpha * 0.45).toFixed(3)})`);
-        glow.addColorStop(1,   `rgba(200,220,255,0)`);
+        glow.addColorStop(1, `rgba(200,220,255,0)`);
         ctx!.beginPath();
         ctx!.arc(s.x, s.y, glowR, 0, Math.PI * 2);
         ctx!.fillStyle = glow;
@@ -590,13 +616,7 @@ const StarField: FC = () => {
     };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      aria-hidden="true"
-    />
-  );
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" />;
 };
 
 // ── GlobeWrapper ──────────────────────────────────────────────────────────────
@@ -610,22 +630,30 @@ interface GlobeWrapperProps {
 }
 
 const GlobeWrapper: FC<GlobeWrapperProps> = ({
-  points, scatterProgress, onGlobeClick, onAltitudeChange, onGlobeReady,
+  points,
+  scatterProgress,
+  onGlobeClick,
+  onAltitudeChange,
+  onGlobeReady,
 }) => {
-  const mountRef      = useRef<HTMLDivElement>(null);
-  const globeRef      = useRef<any>(null);
-  const materialRef   = useRef<any>(null);
-  const latestPtsRef  = useRef<GlobePoint[]>(points);
+  const mountRef = useRef<HTMLDivElement>(null);
+  const globeRef = useRef<any>(null);
+  const materialRef = useRef<any>(null);
+  const latestPtsRef = useRef<GlobePoint[]>(points);
   const latestScatRef = useRef<number>(scatterProgress);
 
-  useEffect(() => { latestPtsRef.current  = points;          }, [points]);
-  useEffect(() => { latestScatRef.current = scatterProgress; }, [scatterProgress]);
+  useEffect(() => {
+    latestPtsRef.current = points;
+  }, [points]);
+  useEffect(() => {
+    latestScatRef.current = scatterProgress;
+  }, [scatterProgress]);
 
   // ── One-time init ────────────────────────────────────────────────────────
   useEffect(() => {
     const el = mountRef.current;
     if (!el) return;
-    let destroyed   = false;
+    let destroyed = false;
     let sunInterval: ReturnType<typeof setInterval> | null = null;
 
     injectStyles();
@@ -634,7 +662,7 @@ const GlobeWrapper: FC<GlobeWrapperProps> = ({
     Promise.all([
       import('globe.gl'),
       import('three').then(async (THREE) => {
-        const loader  = new THREE.TextureLoader();
+        const loader = new THREE.TextureLoader();
         const loadTex = (url: string): Promise<InstanceType<typeof THREE.Texture>> =>
           new Promise((res, rej) => loader.load(url, res as any, undefined, rej));
         const [dayTex, nightTex] = await Promise.all([
@@ -643,91 +671,96 @@ const GlobeWrapper: FC<GlobeWrapperProps> = ({
         ]);
         return { THREE, dayTex, nightTex };
       }),
-    ]).then(([globeMod, { THREE, dayTex, nightTex }]) => {
-      if (destroyed) { dayTex.dispose(); nightTex.dispose(); return; }
+    ])
+      .then(([globeMod, { THREE, dayTex, nightTex }]) => {
+        if (destroyed) {
+          dayTex.dispose();
+          nightTex.dispose();
+          return;
+        }
 
-      const Globe    = (globeMod.default ?? globeMod) as any;
-      const sunPos   = getSolarPosition(new Date());
-      const [sx, sy, sz] = sunDirectionVector(sunPos.lat, sunPos.lng);
+        const Globe = (globeMod.default ?? globeMod) as any;
+        const sunPos = getSolarPosition(new Date());
+        const [sx, sy, sz] = sunDirectionVector(sunPos.lat, sunPos.lng);
 
-      // Build custom day/night shader material up front so the first rendered
-      // frame already uses it — no texture-swap flash.
-      const material = new THREE.ShaderMaterial({
-        uniforms: {
-          dayTexture:   { value: dayTex },
-          nightTexture: { value: nightTex },
-          sunDirection: { value: new THREE.Vector3(sx, sy, sz) },
-        },
-        vertexShader:   VERT,
-        fragmentShader: FRAG,
-      });
-      materialRef.current = material;
+        // Build custom day/night shader material up front so the first rendered
+        // frame already uses it — no texture-swap flash.
+        const material = new THREE.ShaderMaterial({
+          uniforms: {
+            dayTexture: { value: dayTex },
+            nightTexture: { value: nightTex },
+            sunDirection: { value: new THREE.Vector3(sx, sy, sz) },
+          },
+          vertexShader: VERT,
+          fragmentShader: FRAG,
+        });
+        materialRef.current = material;
 
-      // Create globe, set custom material before first paint
-      const globe = new Globe(el)
-        .backgroundColor('rgba(0,0,0,0)')
-        .showAtmosphere(true)
-        .atmosphereColor('#b84400')
-        .atmosphereAltitude(0.15)
-        .htmlElementsData([])
-        .htmlLat((d: GlobePoint) => d.lat)
-        .htmlLng((d: GlobePoint) => d.lng)
-        .htmlAltitude(0.012)
-        .htmlTransitionDuration(0)
-        .htmlElement(() => document.createElement('div'));
+        // Create globe, set custom material before first paint
+        const globe = new Globe(el)
+          .backgroundColor('rgba(0,0,0,0)')
+          .showAtmosphere(true)
+          .atmosphereColor('#b84400')
+          .atmosphereAltitude(0.15)
+          .htmlElementsData([])
+          .htmlLat((d: GlobePoint) => d.lat)
+          .htmlLng((d: GlobePoint) => d.lng)
+          .htmlAltitude(0.012)
+          .htmlTransitionDuration(0)
+          .htmlElement(() => document.createElement('div'));
 
-      globe.globeMaterial(material);
-      globeRef.current = globe;
-      onGlobeReady(globe);
+        globe.globeMaterial(material);
+        globeRef.current = globe;
+        onGlobeReady(globe);
 
-      // Size on next paint (guarantees real clientWidth/Height)
-      requestAnimationFrame(() => {
-        if (!destroyed) globe.width(el.clientWidth).height(el.clientHeight);
-      });
+        // Size on next paint (guarantees real clientWidth/Height)
+        requestAnimationFrame(() => {
+          if (!destroyed) globe.width(el.clientWidth).height(el.clientHeight);
+        });
 
-      // Apply any points already loaded before globe was ready (race condition)
-      if (latestPtsRef.current.length > 0) {
-        const pts = latestPtsRef.current;
-        const sc  = latestScatRef.current;
-        globe
-          .htmlElementsData([...pts])
-          .htmlElement((d: GlobePoint, idx: number) =>
-            createPinElement(d, d.pins.length > 1 && sc < 0.5, idx ?? 0));
-      }
+        // Apply any points already loaded before globe was ready (race condition)
+        if (latestPtsRef.current.length > 0) {
+          const pts = latestPtsRef.current;
+          const sc = latestScatRef.current;
+          globe
+            .htmlElementsData([...pts])
+            .htmlElement((d: GlobePoint, idx: number) => createPinElement(d, d.pins.length > 1 && sc < 0.5, idx ?? 0));
+        }
 
-      // Update sun direction every 30 s
-      sunInterval = setInterval(() => {
-        if (destroyed || !materialRef.current) return;
-        const sp = getSolarPosition(new Date());
-        const [x, y, z] = sunDirectionVector(sp.lat, sp.lng);
-        materialRef.current.uniforms.sunDirection.value.set(x, y, z);
-      }, 30_000);
+        // Update sun direction every 30 s
+        sunInterval = setInterval(() => {
+          if (destroyed || !materialRef.current) return;
+          const sp = getSolarPosition(new Date());
+          const [x, y, z] = sunDirectionVector(sp.lat, sp.lng);
+          materialRef.current.uniforms.sunDirection.value.set(x, y, z);
+        }, 30_000);
 
-      // Camera altitude → scatter
-      const controls    = globe.controls();
-      const camera      = globe.camera();
-      const onCamChange = () => {
-        if (!camera || !controls) return;
-        const dist = camera.position.distanceTo(controls.target);
-        onAltitudeChange(Math.max(0, dist / 100 - 1));
-      };
-      controls.addEventListener('change', onCamChange);
+        // Camera altitude → scatter
+        const controls = globe.controls();
+        const camera = globe.camera();
+        const onCamChange = () => {
+          if (!camera || !controls) return;
+          const dist = camera.position.distanceTo(controls.target);
+          onAltitudeChange(Math.max(0, dist / 100 - 1));
+        };
+        controls.addEventListener('change', onCamChange);
 
-      globe.onGlobeClick((coords: { lat: number; lng: number }) => {
-        onGlobeClick(coords.lat, coords.lng);
-      });
+        globe.onGlobeClick((coords: { lat: number; lng: number }) => {
+          onGlobeClick(coords.lat, coords.lng);
+        });
 
-      const obs = new ResizeObserver(() => {
-        globe.width(el.clientWidth).height(el.clientHeight);
-      });
-      obs.observe(el);
+        const obs = new ResizeObserver(() => {
+          globe.width(el.clientWidth).height(el.clientHeight);
+        });
+        obs.observe(el);
 
-      // Return inner cleanup (Promise.then can't return a cleanup, handled below)
-      (el as any).__globeCleanup = () => {
-        obs.disconnect();
-        controls.removeEventListener('change', onCamChange);
-      };
-    }).catch(console.error);
+        // Return inner cleanup (Promise.then can't return a cleanup, handled below)
+        (el as any).__globeCleanup = () => {
+          obs.disconnect();
+          controls.removeEventListener('change', onCamChange);
+        };
+      })
+      .catch(console.error);
 
     return () => {
       destroyed = true;
@@ -751,7 +784,8 @@ const GlobeWrapper: FC<GlobeWrapperProps> = ({
     globe
       .htmlElementsData([...points])
       .htmlElement((d: GlobePoint, idx: number) =>
-        createPinElement(d, d.pins.length > 1 && scatterProgress < 0.5, idx ?? 0));
+        createPinElement(d, d.pins.length > 1 && scatterProgress < 0.5, idx ?? 0),
+      );
   }, [points, scatterProgress]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
@@ -760,32 +794,42 @@ const GlobeWrapper: FC<GlobeWrapperProps> = ({
 // ── Search box ────────────────────────────────────────────────────────────────
 
 interface SearchBoxProps {
-  guildId:    string;
-  onFlyTo:    (lat: number, lng: number) => void;
-  onPinHere:  (result: MunicipalitySearchResult) => void;
+  guildId: string;
+  onFlyTo: (lat: number, lng: number) => void;
+  onPinHere: (result: MunicipalitySearchResult) => void;
 }
 
 const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo, onPinHere }) => {
-  const [query,   setQuery]   = useState('');
+  const [query, setQuery] = useState('');
   const [results, setResults] = useState<MunicipalitySearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [open,    setOpen]    = useState(false);
-  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapRef   = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     const q = query.trim();
-    if (!q) { setResults([]); setOpen(false); return; }
+    if (!q) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
         const data = await memberPinsApi.search(guildId, q);
-        setResults(data); setOpen(data.length > 0);
-      } catch { setResults([]); }
-      finally { setLoading(false); }
+        setResults(data);
+        setOpen(data.length > 0);
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }, 380);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [query, guildId]);
 
   useEffect(() => {
@@ -797,26 +841,37 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo, onPinHere }) => {
   }, []);
 
   function fly(r: MunicipalitySearchResult) {
-    onFlyTo(r.lat, r.lng); setQuery(r.municipality); setOpen(false);
+    onFlyTo(r.lat, r.lng);
+    setQuery(r.municipality);
+    setOpen(false);
   }
   function pin(e: React.MouseEvent, r: MunicipalitySearchResult) {
     e.stopPropagation();
-    onPinHere(r); setQuery(r.municipality); setOpen(false);
+    onPinHere(r);
+    setQuery(r.municipality);
+    setOpen(false);
   }
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setQuery('');
+    }
   }
 
   const panelBorder = 'rgba(249,115,22,0.22)';
-  const orange      = '#f97316';
+  const orange = '#f97316';
 
   return (
     <div ref={wrapRef} className="relative w-full">
-      <div className="flex items-center gap-2 rounded-lg border px-3 py-2"
-        style={{ background: 'rgba(8,4,0,.88)', borderColor: panelBorder, backdropFilter: 'blur(8px)' }}>
-        {loading
-          ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" style={{ color: orange }} />
-          : <Search   className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(249,115,22,.5)' }} />}
+      <div
+        className="flex items-center gap-2 rounded-lg border px-3 py-2"
+        style={{ background: 'rgba(8,4,0,.88)', borderColor: panelBorder, backdropFilter: 'blur(8px)' }}
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" style={{ color: orange }} />
+        ) : (
+          <Search className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(249,115,22,.5)' }} />
+        )}
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -827,26 +882,36 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo, onPinHere }) => {
           style={{ color: 'rgba(255,200,150,.9)' } as React.CSSProperties}
         />
         {query && (
-          <button onClick={() => { setQuery(''); setResults([]); setOpen(false); }}
+          <button
+            onClick={() => {
+              setQuery('');
+              setResults([]);
+              setOpen(false);
+            }}
             className="rounded p-0.5 transition-colors hover:bg-orange-900/20"
-            style={{ color: 'rgba(249,115,22,.45)' }}>
+            style={{ color: 'rgba(249,115,22,.45)' }}
+          >
             <X className="h-3 w-3" />
           </button>
         )}
       </div>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 right-0 rounded-lg border overflow-hidden shadow-2xl z-50"
-          style={{ background: 'rgba(10,5,0,.97)', borderColor: panelBorder }}>
+        <div
+          className="absolute top-full mt-1 left-0 right-0 rounded-lg border overflow-hidden shadow-2xl z-50"
+          style={{ background: 'rgba(10,5,0,.97)', borderColor: panelBorder }}
+        >
           {results.map((r, i) => (
-            <div key={i}
+            <div
+              key={i}
               className="flex items-stretch border-b last:border-b-0"
-              style={{ borderColor: 'rgba(249,115,22,.1)' }}>
-
+              style={{ borderColor: 'rgba(249,115,22,.1)' }}
+            >
               {/* Click to fly the globe there */}
               <button
                 onClick={() => fly(r)}
-                className="flex-1 min-w-0 text-left px-3 py-2.5 transition-colors hover:bg-orange-950/50">
+                className="flex-1 min-w-0 text-left px-3 py-2.5 transition-colors hover:bg-orange-950/50"
+              >
                 <div className="text-sm font-semibold leading-tight" style={{ color: '#fb923c' }}>
                   {r.municipality}
                 </div>
@@ -863,15 +928,18 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo, onPinHere }) => {
                 style={{
                   color: orange,
                   borderLeft: '1px solid rgba(249,115,22,.15)',
-                }}>
+                }}
+              >
                 <MapPin className="h-3.5 w-3.5" />
                 <span>Pin</span>
               </button>
             </div>
           ))}
 
-          <div className="px-3 py-1.5 text-center text-xs"
-            style={{ color: 'rgba(249,115,22,.2)', borderTop: '1px solid rgba(249,115,22,.08)' }}>
+          <div
+            className="px-3 py-1.5 text-center text-xs"
+            style={{ color: 'rgba(249,115,22,.2)', borderTop: '1px solid rgba(249,115,22,.08)' }}
+          >
             Click a result to fly there · Pin to place your marker
           </div>
         </div>
@@ -884,21 +952,23 @@ const SearchBox: FC<SearchBoxProps> = ({ guildId, onFlyTo, onPinHere }) => {
 
 export function MemberMapPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const { user }    = useAuth();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [altitude,      setAltitude]      = useState(1.8);
-  const [placingMode,   setPlacingMode]   = useState(false);
-  const [geocoding,     setGeocoding]     = useState(false);
+  const [altitude, setAltitude] = useState(1.8);
+  const [placingMode, setPlacingMode] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [geocodeResult, setGeocodeResult] = useState<{ lat: number; lng: number; municipality: string } | null>(null);
-  const [showName,      setShowName]      = useState(false);
-  const [formError,     setFormError]     = useState<string | null>(null);
+  const [showName, setShowName] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   // Clock tick: force re-render every 60 s so local time stays current in the panel
   const [, setClockTick] = useState(0);
 
-  const placingModeRef   = useRef(placingMode);
+  const placingModeRef = useRef(placingMode);
   const globeInstanceRef = useRef<any>(null);
-  useEffect(() => { placingModeRef.current = placingMode; }, [placingMode]);
+  useEffect(() => {
+    placingModeRef.current = placingMode;
+  }, [placingMode]);
 
   useEffect(() => {
     const id = setInterval(() => setClockTick((n) => n + 1), 60_000);
@@ -907,9 +977,9 @@ export function MemberMapPage() {
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: allPins = [], isLoading: pinsLoading } = useQuery({
-    queryKey:  ['member-pins', guildId],
-    queryFn:   () => memberPinsApi.list(guildId!),
-    enabled:   !!guildId,
+    queryKey: ['member-pins', guildId],
+    queryFn: () => memberPinsApi.list(guildId!),
+    enabled: !!guildId,
     // Pins rarely move; your own changes refresh at once, and coming back to
     // the tab refetches. (Was every 60 s, each one also a timezone backfill.)
     staleTime: 60_000,
@@ -917,9 +987,9 @@ export function MemberMapPage() {
   });
 
   const { data: myPin } = useQuery({
-    queryKey:  ['member-pins', guildId, 'mine'],
-    queryFn:   () => memberPinsApi.getMine(guildId!),
-    enabled:   !!guildId,
+    queryKey: ['member-pins', guildId, 'mine'],
+    queryFn: () => memberPinsApi.getMine(guildId!),
+    enabled: !!guildId,
     staleTime: 60_000,
   });
 
@@ -951,21 +1021,29 @@ export function MemberMapPage() {
 
   const globePoints = useMemo((): GlobePoint[] => {
     const clusters = clusterPins(allPins);
-    const myPinId  = myPin?.id;
+    const myPinId = myPin?.id;
     return clusters.flatMap((cluster): GlobePoint[] => {
       const isMine = cluster.pins.some((p) => p.id === myPinId);
       if (scatterProgress < 0.5 || cluster.pins.length === 1) {
-        return [{ id: `c-${cluster.lat.toFixed(4)}-${cluster.lng.toFixed(4)}`, lat: cluster.lat, lng: cluster.lng, pins: cluster.pins, isMine }];
+        return [
+          {
+            id: `c-${cluster.lat.toFixed(4)}-${cluster.lng.toFixed(4)}`,
+            lat: cluster.lat,
+            lng: cluster.lng,
+            pins: cluster.pins,
+            isMine,
+          },
+        ];
       }
-      const radius   = Math.min(0.25 + cluster.pins.length * 0.04, 0.9);
+      const radius = Math.min(0.25 + cluster.pins.length * 0.04, 0.9);
       const progress = (scatterProgress - 0.5) * 2;
       return cluster.pins.map((pin, i): GlobePoint => {
         const angle = (i / cluster.pins.length) * 2 * Math.PI - Math.PI / 2;
         return {
-          id:    pin.id,
-          lat:   lerp(cluster.lat, cluster.lat + radius * Math.sin(angle), progress),
-          lng:   lerp(cluster.lng, cluster.lng + radius * Math.cos(angle), progress),
-          pins:  [pin],
+          id: pin.id,
+          lat: lerp(cluster.lat, cluster.lat + radius * Math.sin(angle), progress),
+          lng: lerp(cluster.lng, cluster.lng + radius * Math.cos(angle), progress),
+          pins: [pin],
           isMine: pin.id === myPinId,
         };
       });
@@ -973,17 +1051,27 @@ export function MemberMapPage() {
   }, [allPins, scatterProgress, myPin]);
 
   // ── Globe callbacks ──────────────────────────────────────────────────────
-  const handleGlobeReady = useCallback((globe: any) => { globeInstanceRef.current = globe; }, []);
+  const handleGlobeReady = useCallback((globe: any) => {
+    globeInstanceRef.current = globe;
+  }, []);
 
-  const handleGlobeClick = useCallback(async (lat: number, lng: number) => {
-    if (!placingModeRef.current || !guildId) return;
-    setGeocoding(true); setGeocodeResult(null); setFormError(null);
-    try {
-      const result = await memberPinsApi.geocode(guildId, lat, lng);
-      setGeocodeResult(result);
-    } catch { setFormError('Could not identify location. Try clicking a different spot.'); }
-    finally { setGeocoding(false); }
-  }, [guildId]);
+  const handleGlobeClick = useCallback(
+    async (lat: number, lng: number) => {
+      if (!placingModeRef.current || !guildId) return;
+      setGeocoding(true);
+      setGeocodeResult(null);
+      setFormError(null);
+      try {
+        const result = await memberPinsApi.geocode(guildId, lat, lng);
+        setGeocodeResult(result);
+      } catch {
+        setFormError('Could not identify location. Try clicking a different spot.');
+      } finally {
+        setGeocoding(false);
+      }
+    },
+    [guildId],
+  );
 
   function flyTo(lat: number, lng: number) {
     globeInstanceRef.current?.pointOfView({ lat, lng, altitude: 0.6 }, 1200);
@@ -993,17 +1081,29 @@ export function MemberMapPage() {
    *  Bypasses the globe-click flow and goes straight to the confirmation dialog. */
   function handlePinHere(result: MunicipalitySearchResult) {
     setGeocodeResult({ lat: result.lat, lng: result.lng, municipality: result.municipality });
-    setPlacingMode(false);   // dismiss any active "click the globe" banner
+    setPlacingMode(false); // dismiss any active "click the globe" banner
     setFormError(null);
     flyTo(result.lat, result.lng);
   }
 
-  function startPlacing()    { setPlacingMode(true);  setGeocodeResult(null); setFormError(null); }
-  function cancelPlacement() { setPlacingMode(false); setGeocodeResult(null); setFormError(null); }
+  function startPlacing() {
+    setPlacingMode(true);
+    setGeocodeResult(null);
+    setFormError(null);
+  }
+  function cancelPlacement() {
+    setPlacingMode(false);
+    setGeocodeResult(null);
+    setFormError(null);
+  }
 
   async function useMyLocation() {
-    if (!navigator.geolocation) { setFormError('Geolocation not supported by your browser.'); return; }
-    setPlacingMode(true); setGeocoding(true);
+    if (!navigator.geolocation) {
+      setFormError('Geolocation not supported by your browser.');
+      return;
+    }
+    setPlacingMode(true);
+    setGeocoding(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         if (!guildId) return;
@@ -1011,10 +1111,16 @@ export function MemberMapPage() {
           const result = await memberPinsApi.geocode(guildId, pos.coords.latitude, pos.coords.longitude);
           setGeocodeResult(result);
           flyTo(result.lat, result.lng);
-        } catch { setFormError('Could not identify your location.'); }
-        finally { setGeocoding(false); }
+        } catch {
+          setFormError('Could not identify your location.');
+        } finally {
+          setGeocoding(false);
+        }
       },
-      () => { setGeocoding(false); setFormError('Location access denied. Click the globe to place manually.'); },
+      () => {
+        setGeocoding(false);
+        setFormError('Location access denied. Click the globe to place manually.');
+      },
     );
   }
 
@@ -1025,34 +1131,40 @@ export function MemberMapPage() {
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const totalMembers = allPins.length;
-  const namedCount   = allPins.filter((p) => p.displayName).length;
-  const hasMyPin     = !!myPin;
+  const namedCount = allPins.filter((p) => p.displayName).length;
+  const hasMyPin = !!myPin;
   const myPinLocalTime = myPin ? getLocalTime(myPin.lng, myPin.timezone) : null;
 
   // ── Palette tokens (inline — avoids Tailwind CSS-variable collisions) ────
-  const panelBg     = 'rgba(10,5,0,0.90)';
+  const panelBg = 'rgba(10,5,0,0.90)';
   const panelBorder = 'rgba(249,115,22,0.22)';
-  const headerBg    = 'rgba(249,115,22,0.09)';
-  const headerBord  = 'rgba(249,115,22,0.18)';
-  const orange      = '#f97316';
-  const orangeDim   = 'rgba(249,115,22,0.50)';
-  const textMid     = 'rgba(255,200,150,0.52)';
-  const textBright  = 'rgba(255,200,150,0.90)';
+  const headerBg = 'rgba(249,115,22,0.09)';
+  const headerBord = 'rgba(249,115,22,0.18)';
+  const orange = '#f97316';
+  const orangeDim = 'rgba(249,115,22,0.50)';
+  const textMid = 'rgba(255,200,150,0.52)';
+  const textBright = 'rgba(255,200,150,0.90)';
 
   const panelCard: React.CSSProperties = {
-    borderRadius: '12px', border: `1px solid ${panelBorder}`,
-    background: panelBg, boxShadow: '0 4px 32px rgba(0,0,0,0.70)',
-    backdropFilter: 'blur(10px)', overflow: 'hidden',
+    borderRadius: '12px',
+    border: `1px solid ${panelBorder}`,
+    background: panelBg,
+    boxShadow: '0 4px 32px rgba(0,0,0,0.70)',
+    backdropFilter: 'blur(10px)',
+    overflow: 'hidden',
   };
   const cardHdr: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: '8px',
-    padding: '10px 14px', borderBottom: `1px solid ${headerBord}`, background: headerBg,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 14px',
+    borderBottom: `1px solid ${headerBord}`,
+    background: headerBg,
   };
 
   return (
     // No overflow-hidden here: it would flatten globe.gl's CSS3D transforms
     <div className="h-full -m-6 relative" style={{ background: '#080400' }}>
-
       {/* ── Star field — must come before globe so it sits behind the transparent WebGL canvas */}
       <StarField />
 
@@ -1074,11 +1186,22 @@ export function MemberMapPage() {
 
       {/* ── Placing banner ─────────────────────────────────────────────── */}
       {placingMode && !geocodeResult && !geocoding && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium pointer-events-auto"
-          style={{ background: 'rgba(8,4,0,.85)', border: `1px solid ${orange}55`, color: '#fb923c', backdropFilter: 'blur(8px)', boxShadow: '0 4px 20px rgba(0,0,0,.6)' }}>
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium pointer-events-auto"
+          style={{
+            background: 'rgba(8,4,0,.85)',
+            border: `1px solid ${orange}55`,
+            color: '#fb923c',
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 4px 20px rgba(0,0,0,.6)',
+          }}
+        >
           <Crosshair className="h-4 w-4 animate-pulse" />
           Click anywhere on the globe to drop your pin
-          <button onClick={cancelPlacement} className="ml-1 rounded-full p-0.5 transition-colors hover:bg-orange-900/30">
+          <button
+            onClick={cancelPlacement}
+            className="ml-1 rounded-full p-0.5 transition-colors hover:bg-orange-900/30"
+          >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -1086,8 +1209,15 @@ export function MemberMapPage() {
 
       {/* ── Geocoding spinner ──────────────────────────────────────────── */}
       {geocoding && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full px-4 py-2 text-sm pointer-events-none"
-          style={{ background: 'rgba(8,4,0,.85)', border: `1px solid ${panelBorder}`, color: textMid, backdropFilter: 'blur(8px)' }}>
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full px-4 py-2 text-sm pointer-events-none"
+          style={{
+            background: 'rgba(8,4,0,.85)',
+            border: `1px solid ${panelBorder}`,
+            color: textMid,
+            backdropFilter: 'blur(8px)',
+          }}
+        >
           <Loader2 className="h-4 w-4 animate-spin" style={{ color: orange }} />
           Identifying location…
         </div>
@@ -1095,22 +1225,31 @@ export function MemberMapPage() {
 
       {/* ── Placement confirmation ─────────────────────────────────────── */}
       {geocodeResult && !geocoding && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-80 pointer-events-auto"
-          style={panelCard}>
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-80 pointer-events-auto"
+          style={panelCard}
+        >
           <div style={cardHdr}>
             <MapPin className="h-4 w-4 shrink-0" style={{ color: orange }} />
             <span className="text-xs font-bold uppercase tracking-widest" style={{ color: orangeDim }}>
               {hasMyPin ? 'Update Pin' : 'Place Pin'}
             </span>
-            <button onClick={cancelPlacement} className="ml-auto rounded p-0.5 transition-colors hover:bg-orange-900/20"
-              style={{ color: textMid }}>
+            <button
+              onClick={cancelPlacement}
+              className="ml-auto rounded p-0.5 transition-colors hover:bg-orange-900/20"
+              style={{ color: textMid }}
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
           <div className="px-4 py-4 space-y-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: textMid }}>Location</p>
-              <p className="text-base font-semibold leading-snug" style={{ color: textBright }}>{geocodeResult.municipality}</p>
+              <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: textMid }}>
+                Location
+              </p>
+              <p className="text-base font-semibold leading-snug" style={{ color: textBright }}>
+                {geocodeResult.municipality}
+              </p>
               <div className="flex items-center gap-1.5 mt-1.5">
                 <Clock className="h-3 w-3 shrink-0" style={{ color: orangeDim }} />
                 <span className="text-xs" style={{ color: orangeDim }}>
@@ -1123,35 +1262,57 @@ export function MemberMapPage() {
             </div>
 
             {/* Name toggle */}
-            <div className="flex items-center justify-between py-2.5 px-3 rounded-lg"
-              style={{ background: 'rgba(249,115,22,.06)', border: `1px solid ${panelBorder}` }}>
+            <div
+              className="flex items-center justify-between py-2.5 px-3 rounded-lg"
+              style={{ background: 'rgba(249,115,22,.06)', border: `1px solid ${panelBorder}` }}
+            >
               <div className="min-w-0 mr-3">
-                <p className="text-sm font-medium" style={{ color: textBright }}>Show my name</p>
+                <p className="text-sm font-medium" style={{ color: textBright }}>
+                  Show my name
+                </p>
                 <p className="text-xs mt-0.5 truncate" style={{ color: textMid }}>
                   {showName
                     ? `Visible as "${user?.globalName ?? user?.username ?? '…'}"`
                     : 'Anonymous — no one sees your name'}
                 </p>
               </div>
-              <button onClick={() => setShowName((v) => !v)} role="switch" aria-checked={showName}
+              <button
+                onClick={() => setShowName((v) => !v)}
+                role="switch"
+                aria-checked={showName}
                 className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors"
-                style={{ background: showName ? orange : 'rgba(40,20,0,.8)', borderColor: showName ? orange : panelBorder }}>
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform mt-px ${showName ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                style={{
+                  background: showName ? orange : 'rgba(40,20,0,.8)',
+                  borderColor: showName ? orange : panelBorder,
+                }}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform mt-px ${showName ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+                />
               </button>
             </div>
 
             {formError && <p className="text-xs text-red-400">{formError}</p>}
 
             <div className="flex gap-2">
-              <button onClick={confirmPin} disabled={upsertMutation.isPending}
+              <button
+                onClick={confirmPin}
+                disabled={upsertMutation.isPending}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
-                style={{ background: orange, color: '#080400', border: `1px solid ${orange}` }}>
-                {upsertMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                {upsertMutation.isPending ? 'Saving…' : (hasMyPin ? 'Update' : 'Place Pin')}
+                style={{ background: orange, color: '#080400', border: `1px solid ${orange}` }}
+              >
+                {upsertMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                {upsertMutation.isPending ? 'Saving…' : hasMyPin ? 'Update' : 'Place Pin'}
               </button>
-              <button onClick={cancelPlacement}
+              <button
+                onClick={cancelPlacement}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
-                style={{ color: textMid, border: `1px solid ${panelBorder}`, background: 'transparent' }}>
+                style={{ color: textMid, border: `1px solid ${panelBorder}`, background: 'transparent' }}
+              >
                 Cancel
               </button>
             </div>
@@ -1161,7 +1322,6 @@ export function MemberMapPage() {
 
       {/* ── Side panel ────────────────────────────────────────────────── */}
       <div className="absolute top-4 right-4 z-20 flex flex-col gap-3 pointer-events-none" style={{ width: '244px' }}>
-
         {/* Search */}
         {guildId && (
           <div className="pointer-events-auto">
@@ -1179,12 +1339,20 @@ export function MemberMapPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 px-4 py-3">
             <div>
-              <p className="text-2xl font-black tabular-nums" style={{ color: textBright }}>{totalMembers}</p>
-              <p className="text-xs uppercase tracking-wider mt-0.5" style={{ color: textMid }}>Pinned</p>
+              <p className="text-2xl font-black tabular-nums" style={{ color: textBright }}>
+                {totalMembers}
+              </p>
+              <p className="text-xs uppercase tracking-wider mt-0.5" style={{ color: textMid }}>
+                Pinned
+              </p>
             </div>
             <div>
-              <p className="text-2xl font-black tabular-nums" style={{ color: textBright }}>{namedCount}</p>
-              <p className="text-xs uppercase tracking-wider mt-0.5" style={{ color: textMid }}>Named</p>
+              <p className="text-2xl font-black tabular-nums" style={{ color: textBright }}>
+                {namedCount}
+              </p>
+              <p className="text-xs uppercase tracking-wider mt-0.5" style={{ color: textMid }}>
+                Named
+              </p>
             </div>
           </div>
         </div>
@@ -1201,32 +1369,52 @@ export function MemberMapPage() {
           {hasMyPin ? (
             <div className="px-4 py-3 space-y-2.5">
               <div>
-                <p className="text-sm font-semibold leading-snug" style={{ color: textBright }}>{myPin!.municipality}</p>
+                <p className="text-sm font-semibold leading-snug" style={{ color: textBright }}>
+                  {myPin!.municipality}
+                </p>
                 {/* Live local clock */}
                 <div className="flex items-center gap-1.5 mt-1">
                   <Clock className="h-3 w-3 shrink-0" style={{ color: orangeDim }} />
-                  <span className="text-xs" style={{ color: orangeDim }}>{myPinLocalTime}</span>
+                  <span className="text-xs" style={{ color: orangeDim }}>
+                    {myPinLocalTime}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {myPin!.displayName
-                    ? <Eye     className="h-3.5 w-3.5 shrink-0" style={{ color: '#34d399' }} />
-                    : <EyeOff  className="h-3.5 w-3.5 shrink-0" style={{ color: textMid }} />}
+                  {myPin!.displayName ? (
+                    <Eye className="h-3.5 w-3.5 shrink-0" style={{ color: '#34d399' }} />
+                  ) : (
+                    <EyeOff className="h-3.5 w-3.5 shrink-0" style={{ color: textMid }} />
+                  )}
                   <span className="text-xs truncate" style={{ color: textMid }}>
                     {myPin!.displayName ? `"${myPin!.displayName}"` : 'Anonymous'}
                   </span>
                 </div>
               </div>
               <div className="flex gap-2 pt-0.5">
-                <button onClick={startPlacing} disabled={placingMode || geocoding}
+                <button
+                  onClick={startPlacing}
+                  disabled={placingMode || geocoding}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
-                  style={{ background: orange, color: '#080400', border: `1px solid ${orange}` }}>
+                  style={{ background: orange, color: '#080400', border: `1px solid ${orange}` }}
+                >
                   <RotateCcw className="h-3 w-3" /> Update
                 </button>
-                <button onClick={() => removeMutation.mutate()} disabled={removeMutation.isPending}
+                <button
+                  onClick={() => removeMutation.mutate()}
+                  disabled={removeMutation.isPending}
                   className="inline-flex items-center rounded-md px-2.5 py-1.5 text-xs transition-colors disabled:opacity-50"
-                  style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)' }}
-                  title="Remove pin">
-                  {removeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  style={{
+                    color: '#ef4444',
+                    border: '1px solid rgba(239,68,68,.3)',
+                    background: 'rgba(239,68,68,.08)',
+                  }}
+                  title="Remove pin"
+                >
+                  {removeMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1237,15 +1425,21 @@ export function MemberMapPage() {
               </p>
               {formError && <p className="text-xs text-red-400">{formError}</p>}
               <div className="flex flex-col gap-2">
-                <button onClick={startPlacing} disabled={placingMode || geocoding}
+                <button
+                  onClick={startPlacing}
+                  disabled={placingMode || geocoding}
                   className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
-                  style={{ background: orange, color: '#080400', border: `1px solid ${orange}` }}>
+                  style={{ background: orange, color: '#080400', border: `1px solid ${orange}` }}
+                >
                   <MapPin className="h-3.5 w-3.5" />
                   {placingMode ? 'Click the globe…' : 'Drop Pin'}
                 </button>
-                <button onClick={useMyLocation} disabled={placingMode || geocoding}
+                <button
+                  onClick={useMyLocation}
+                  disabled={placingMode || geocoding}
                   className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50"
-                  style={{ color: textMid, border: `1px solid ${panelBorder}`, background: 'transparent' }}>
+                  style={{ color: textMid, border: `1px solid ${panelBorder}`, background: 'transparent' }}
+                >
                   <Crosshair className="h-3.5 w-3.5" /> Use My Location
                 </button>
               </div>
@@ -1254,8 +1448,10 @@ export function MemberMapPage() {
         </div>
 
         {/* Hint */}
-        <p className="text-center text-xs leading-snug px-1 pointer-events-none"
-          style={{ color: 'rgba(249,115,22,.18)' }}>
+        <p
+          className="text-center text-xs leading-snug px-1 pointer-events-none"
+          style={{ color: 'rgba(249,115,22,.18)' }}
+        >
           Drag to spin · Scroll to zoom · Zoom in to expand clusters
         </p>
       </div>

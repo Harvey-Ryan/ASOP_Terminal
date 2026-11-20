@@ -14,8 +14,20 @@ let cache: { at: number; ships: ShipCatalogEntry[] } | null = null;
 const CACHE_MS = 10 * 60_000;
 
 const toEntry = (r: Awaited<ReturnType<typeof prisma.ship.findMany>>[number]): ShipCatalogEntry => ({
-  id: r.id, name: r.name, manufacturer: r.manufacturer, manufacturerCode: r.manufacturerCode, type: r.type, focus: r.focus,
-  size: r.size, minCrew: r.minCrew, maxCrew: r.maxCrew, cargo: r.cargo, status: r.status, imageUrl: r.imageUrl, thumbUrl: r.thumbUrl, storeUrl: r.storeUrl,
+  id: r.id,
+  name: r.name,
+  manufacturer: r.manufacturer,
+  manufacturerCode: r.manufacturerCode,
+  type: r.type,
+  focus: r.focus,
+  size: r.size,
+  minCrew: r.minCrew,
+  maxCrew: r.maxCrew,
+  cargo: r.cargo,
+  status: r.status,
+  imageUrl: r.imageUrl,
+  thumbUrl: r.thumbUrl,
+  storeUrl: r.storeUrl,
 });
 
 /** Every current ship (not retired), A–Z. Cached for a few minutes. */
@@ -25,10 +37,15 @@ export async function listShips(): Promise<ShipCatalogEntry[]> {
   cache = { at: Date.now(), ships: rows.map(toEntry) };
   return cache.ships;
 }
-export function forgetShipList(): void { cache = null; }
+export function forgetShipList(): void {
+  cache = null;
+}
 
 async function fetchShipMatrix(): Promise<ShipCatalogEntry[]> {
-  const res = await fetch(SHIP_MATRIX_URL, { headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal (Star Citizen org tools)' }, signal: AbortSignal.timeout(30_000) });
+  const res = await fetch(SHIP_MATRIX_URL, {
+    headers: { Accept: 'application/json', 'User-Agent': 'ASOP-Terminal (Star Citizen org tools)' },
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!res.ok) throw new Error(`RSI ship matrix answered ${res.status}`);
   return parseShipMatrix(await res.json());
 }
@@ -45,14 +62,21 @@ async function gameFileShips(): Promise<ShipCatalogEntry[]> {
 
 async function save(ships: ShipCatalogEntry[], source: 'RSI' | 'GAME'): Promise<void> {
   const ids = ships.map((s) => s.id);
-  await prisma.$transaction(async (tx) => {
-    for (const s of ships) {
-      const { id, ...data } = s;
-      await tx.ship.upsert({ where: { id }, create: { id, ...data, source }, update: { ...data, source, retired: false } });
-    }
-    // Gone from the source: kept for whoever owns one, but not offered any more.
-    await tx.ship.updateMany({ where: { source, id: { notIn: ids } }, data: { retired: true } });
-  }, { timeout: 60_000 });
+  await prisma.$transaction(
+    async (tx) => {
+      for (const s of ships) {
+        const { id, ...data } = s;
+        await tx.ship.upsert({
+          where: { id },
+          create: { id, ...data, source },
+          update: { ...data, source, retired: false },
+        });
+      }
+      // Gone from the source: kept for whoever owns one, but not offered any more.
+      await tx.ship.updateMany({ where: { source, id: { notIn: ids } }, data: { retired: true } });
+    },
+    { timeout: 60_000 },
+  );
   forgetShipList();
 }
 
@@ -86,7 +110,9 @@ export async function rematchFleetShips(): Promise<number> {
  * Refreshes the list from RSI; with RSI unreachable and no list at all,
  * fills it from the game files. Never throws.
  */
-export async function refreshShipCatalog(fetchMatrix: () => Promise<ShipCatalogEntry[]> = fetchShipMatrix): Promise<{ source: 'RSI' | 'GAME' | 'none'; count: number }> {
+export async function refreshShipCatalog(
+  fetchMatrix: () => Promise<ShipCatalogEntry[]> = fetchShipMatrix,
+): Promise<{ source: 'RSI' | 'GAME' | 'none'; count: number }> {
   try {
     const ships = await fetchMatrix();
     if (ships.length < MIN_SHIPS) throw new Error(`RSI ship matrix had only ${ships.length} ships`);

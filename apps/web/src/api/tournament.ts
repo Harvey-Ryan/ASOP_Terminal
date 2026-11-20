@@ -153,19 +153,13 @@ export const tournamentApi = {
       .then(requireData),
 
   get: (guildId: string, id: string) =>
-    api
-      .get<ApiResponse<TournamentDetail>>(`/guilds/${guildId}/tournaments/${id}`)
-      .then(requireData),
+    api.get<ApiResponse<TournamentDetail>>(`/guilds/${guildId}/tournaments/${id}`).then(requireData),
 
   create: (guildId: string, body: Partial<Tournament> & { name: string; seasonId?: string }) =>
-    api
-      .post<ApiResponse<Tournament>>(`/guilds/${guildId}/tournaments`, body)
-      .then(requireData),
+    api.post<ApiResponse<Tournament>>(`/guilds/${guildId}/tournaments`, body).then(requireData),
 
   update: (guildId: string, id: string, body: Partial<Tournament>) =>
-    api
-      .patch<ApiResponse<Tournament>>(`/guilds/${guildId}/tournaments/${id}`, body)
-      .then(requireData),
+    api.patch<ApiResponse<Tournament>>(`/guilds/${guildId}/tournaments/${id}`, body).then(requireData),
 
   delete: (guildId: string, id: string) =>
     api.delete<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}`).then(requireSuccess),
@@ -184,7 +178,16 @@ export const tournamentApi = {
     api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/cancel`, {}).then(requireSuccess),
 
   // Participants
-  register: (guildId: string, id: string, body: { discordId?: string; displayName?: string; teamName?: string; teamMembers?: Pick<TournamentTeamMember, 'discordId' | 'displayName'>[] }) =>
+  register: (
+    guildId: string,
+    id: string,
+    body: {
+      discordId?: string;
+      displayName?: string;
+      teamName?: string;
+      teamMembers?: Pick<TournamentTeamMember, 'discordId' | 'displayName'>[];
+    },
+  ) =>
     api
       .post<ApiResponse<TournamentParticipant>>(`/guilds/${guildId}/tournaments/${id}/register`, body)
       .then(requireData),
@@ -204,35 +207,48 @@ export const tournamentApi = {
       .post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/schedule`, { scheduledAt })
       .then(requireSuccess),
 
-  submitResult: (guildId: string, id: string, matchId: string, body: { winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean }) =>
+  submitResult: (
+    guildId: string,
+    id: string,
+    matchId: string,
+    body: { winnerId: string; scoreA?: number; scoreB?: number; forfeit?: boolean },
+  ) =>
     api
       .post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/${id}/matches/${matchId}/result`, body)
       .then(requireSuccess),
 
   // H2H
-  submitH2H: (guildId: string, body: {
-    playerADiscordId: string; playerBDiscordId: string; winnerDiscordId: string; announce: boolean;
-    playerADisplayName?: string; playerBDisplayName?: string;
-  }) =>
-    api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/h2h`, body).then(requireSuccess),
+  submitH2H: (
+    guildId: string,
+    body: {
+      playerADiscordId: string;
+      playerBDiscordId: string;
+      winnerDiscordId: string;
+      announce: boolean;
+      playerADisplayName?: string;
+      playerBDisplayName?: string;
+    },
+  ) => api.post<ApiResponse<unknown>>(`/guilds/${guildId}/tournaments/h2h`, body).then(requireSuccess),
 
   // Rankings
   getRankings: (guildId: string, page = 1) =>
     api
-      .get<ApiResponse<{ players: PlayerRating[]; total: number; page: number; limit: number }>>(`/guilds/${guildId}/tournaments/rankings?page=${page}`)
+      .get<ApiResponse<{ players: PlayerRating[]; total: number; page: number; limit: number }>>(
+        `/guilds/${guildId}/tournaments/rankings?page=${page}`,
+      )
       .then(requireData),
 
   resetRankings: (guildId: string) =>
     api.delete<ApiResponse<{ deleted: number }>>(`/guilds/${guildId}/tournaments/rankings`).then(requireData),
 
   getEloSummary: (guildId: string, id: string) =>
-    api
-      .get<ApiResponse<EloSummaryEntry[]>>(`/guilds/${guildId}/tournaments/${id}/elo-summary`)
-      .then(requireData),
+    api.get<ApiResponse<EloSummaryEntry[]>>(`/guilds/${guildId}/tournaments/${id}/elo-summary`).then(requireData),
 
   getPlayerHistory: (guildId: string, discordId: string) =>
     api
-      .get<ApiResponse<PlayerRating & { history: RatingHistoryEntry[] }>>(`/guilds/${guildId}/tournaments/players/${discordId}/history`)
+      .get<ApiResponse<PlayerRating & { history: RatingHistoryEntry[] }>>(
+        `/guilds/${guildId}/tournaments/players/${discordId}/history`,
+      )
       .then(requireData),
 
   // Seasons

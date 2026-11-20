@@ -18,10 +18,20 @@
 import { shipComponentSlots, type ComponentSlot, type ShipComponent } from './components.js';
 import { shipMissileRacks, type MissileItem, type MissileRack } from './missiles.js';
 import { shipMiningHeads, type MiningHead, type MiningLaser, type MiningModule } from './mining.js';
-import { shipFuelPodSlots, shipSalvageHeads, type FuelPod, type FuelPodSlot, type SalvageHeadMount, type SalvageModule } from './industry.js';
+import {
+  shipFuelPodSlots,
+  shipSalvageHeads,
+  type FuelPod,
+  type FuelPodSlot,
+  type SalvageHeadMount,
+  type SalvageModule,
+} from './industry.js';
 
 export type DamageType = 'physical' | 'energy';
-export interface DamagePair { physical: number; energy: number }
+export interface DamagePair {
+  physical: number;
+  energy: number;
+}
 
 export type GunKind = 'Ballistic' | 'Energy' | 'Distortion' | 'Mixed';
 
@@ -152,7 +162,15 @@ const tagList = (v: unknown): string[] =>
 const isPlaceholderName = (name: string | null) => !name || /PLACEHOLDER|<=|=>/.test(name);
 
 /** Ship guns from `scdata.items` (type WeaponGun). Null when the record has no usable damage numbers. */
-export function combatGunFromItem(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; size?: number | null; grade?: number | null; data: Json }): CombatGun | null {
+export function combatGunFromItem(row: {
+  uuid: string;
+  class_name?: string | null;
+  name?: string | null;
+  manufacturer_name?: string | null;
+  size?: number | null;
+  grade?: number | null;
+  data: Json;
+}): CombatGun | null {
   const std: Json = row.data?.stdItem ?? row.data ?? {};
   const w: Json = std.Weapon ?? {};
   const d: Json = w.Damage ?? {};
@@ -166,7 +184,14 @@ export function combatGunFromItem(row: { uuid: string; class_name?: string | nul
   const split = { physical: num(a.Physical) ?? 0, energy: num(a.Energy) ?? 0, distortion: num(a.Distortion) ?? 0 };
   // Ignore token amounts (the Absolution has 720 distortion and 0.001 energy).
   const parts = (['physical', 'energy', 'distortion'] as const).filter((k) => split[k] > alpha * 0.01);
-  const kind: GunKind = parts.length > 1 ? 'Mixed' : parts[0] === 'physical' ? 'Ballistic' : parts[0] === 'distortion' ? 'Distortion' : 'Energy';
+  const kind: GunKind =
+    parts.length > 1
+      ? 'Mixed'
+      : parts[0] === 'physical'
+        ? 'Ballistic'
+        : parts[0] === 'distortion'
+          ? 'Distortion'
+          : 'Energy';
   const mode: Json = Array.isArray(w.Modes) && w.Modes.length ? w.Modes[0] : {};
   return {
     uuid: row.uuid,
@@ -184,7 +209,7 @@ export function combatGunFromItem(row: { uuid: string; class_name?: string | nul
     fireRate: num(w.RateOfFire) ?? num(mode.RoundsPerMinute),
     range: num(w.EffectiveRange) ?? num(w.Range),
     speed: num(std.Ammunition?.Speed),
-    family: gunFamily(str(std.DescriptionData?.['Item Type']) ?? name as string),
+    family: gunFamily(str(std.DescriptionData?.['Item Type']) ?? (name as string)),
     pen: num(std.Ammunition?.Penetration?.BasePenetrationDistance),
     spread: num(mode.Spread?.Maximum),
     powerDraw: num(std.ResourceNetwork?.Usage?.Power?.Maximum),
@@ -197,7 +222,18 @@ export function combatGunFromItem(row: { uuid: string; class_name?: string | nul
   };
 }
 
-const GUN_FAMILIES = ['Mass Driver', 'Scattergun', 'Repeater', 'Cannon', 'Gatling', 'Railgun', 'Neutron', 'Tachyon', 'Rocket Pod', 'Laser Beam'];
+const GUN_FAMILIES = [
+  'Mass Driver',
+  'Scattergun',
+  'Repeater',
+  'Cannon',
+  'Gatling',
+  'Railgun',
+  'Neutron',
+  'Tachyon',
+  'Rocket Pod',
+  'Laser Beam',
+];
 /** "Laser Repeater" → "Repeater"; "Distortion Scattergun" → "Scattergun". */
 export function gunFamily(text: string): string | null {
   const t = text.toLowerCase();
@@ -206,7 +242,15 @@ export function gunFamily(text: string): string | null {
 
 /** Guns with the same group key are the same gun for every purpose here (skins, paint). */
 export function gunGroupKey(g: CombatGun): string {
-  return [g.size, g.kind, Math.round(g.burstDps), Math.round(g.sustainedDps), Math.round(g.alpha), g.pellets, [...g.requiredTags].sort().join(',')].join('|');
+  return [
+    g.size,
+    g.kind,
+    Math.round(g.burstDps),
+    Math.round(g.sustainedDps),
+    Math.round(g.alpha),
+    g.pellets,
+    [...g.requiredTags].sort().join(','),
+  ].join('|');
 }
 
 /**
@@ -235,7 +279,11 @@ export function gunFitsSlot(g: CombatGun, slot: GunSlot): boolean {
 export const UNAVAILABLE_GUNS: { name: string; when: (g: CombatGun) => boolean; why: string }[] = [
   // The real Slayer is the Tumbril Nova's cannon (requires TMBL_Nova). This
   // copy has no ship tag and no maker tag, isn't stock anywhere and isn't sold.
-  { name: 'Slayer Cannon', when: (g) => g.requiredTags.length === 0, why: 'Untagged copy of the Nova tank\u2019s cannon; not obtainable.' },
+  {
+    name: 'Slayer Cannon',
+    when: (g) => g.requiredTags.length === 0,
+    why: 'Untagged copy of the Nova tank\u2019s cannon; not obtainable.',
+  },
 ];
 
 export function isUnavailableGun(g: CombatGun): boolean {
@@ -249,7 +297,8 @@ export function dedupeGuns(guns: CombatGun[]): CombatGun[] {
   for (const g of guns) {
     const k = key(g);
     const list = groups.get(k);
-    if (list) list.push(g); else groups.set(k, [g]);
+    if (list) list.push(g);
+    else groups.set(k, [g]);
   }
   const out: CombatGun[] = [];
   for (const list of groups.values()) {
@@ -261,9 +310,11 @@ export function dedupeGuns(guns: CombatGun[]): CombatGun[] {
 
 /** "hardpoint_weapon_gun_class1_left_wing" → "Left wing"; "hardpoint_gun_nose" → "Nose". */
 export function humanHardpoint(name: string): string {
-  const words = name.toLowerCase()
+  const words = name
+    .toLowerCase()
     .replace(/(front|rear|top|bottom|upper|lower|nose|tail)(left|right|center|centre)/g, '$1 $2')
-    .split(/[_\s]+/).filter((w) => w && !/^(hardpoint|weapon|weapons|gun|guns|class\d*|s\d|size\d*|hp|mount|\d+)$/.test(w));
+    .split(/[_\s]+/)
+    .filter((w) => w && !/^(hardpoint|weapon|weapons|gun|guns|class\d*|s\d|size\d*|hp|mount|\d+)$/.test(w));
   const s = words.join(' ').trim();
   return s ? s[0]!.toUpperCase() + s.slice(1) : 'Gun';
 }
@@ -271,12 +322,21 @@ export function humanHardpoint(name: string): string {
 /** Every gun port on a ship (pilot and turrets), with the stock gun in it. */
 export function shipGunSlots(ship: Json): GunSlot[] {
   const slots: GunSlot[] = [];
-  const walk = (ports: Json[] | undefined, path: string[], inTurret: boolean, mount: Json | null, offered: string[]) => {
+  const walk = (
+    ports: Json[] | undefined,
+    path: string[],
+    inTurret: boolean,
+    mount: Json | null,
+    offered: string[],
+  ) => {
     for (const p of ports ?? []) {
       const type = String(p.Type ?? '');
       const types: string[] = (p.CompatibleTypes ?? []).map((t: Json) => String(t.Type ?? ''));
       const here = [...path, String(p.HardpointName ?? '')];
-      const turretHere = inTurret || type.startsWith('TurretBase') || (/turret/i.test(String(p.Name ?? '')) && !/gimbal/i.test(String(p.Name ?? '')));
+      const turretHere =
+        inTurret ||
+        type.startsWith('TurretBase') ||
+        (/turret/i.test(String(p.Name ?? '')) && !/gimbal/i.test(String(p.Name ?? '')));
       if (type.startsWith('WeaponGun') || (types.includes('WeaponGun') && !type.startsWith('Turret'))) {
         const label = humanHardpoint(String((mount ?? p).HardpointName ?? p.HardpointName ?? ''));
         slots.push({
@@ -293,7 +353,10 @@ export function shipGunSlots(ship: Json): GunSlot[] {
         continue;
       }
       const isMount = type.startsWith('Turret.') && types.includes('WeaponGun');
-      walk(p.Loadout, here, turretHere && !isMount ? true : turretHere, isMount ? p : mount, [...offered, ...tagList(p.PortTags)]);
+      walk(p.Loadout, here, turretHere && !isMount ? true : turretHere, isMount ? p : mount, [
+        ...offered,
+        ...tagList(p.PortTags),
+      ]);
     }
   };
   walk(ship.Loadout, [], false, null, tagList(ship.PortTags));
@@ -324,7 +387,10 @@ function hullParts(parts: unknown): { parts: number; total: number } | null {
   let total = 0;
   const walk = (p: Json) => {
     const hp = num(p.DamageMax);
-    if (hp) { count++; total += hp; }
+    if (hp) {
+      count++;
+      total += hp;
+    }
     for (const c of Array.isArray(p.Children) ? p.Children : []) walk(c);
   };
   for (const p of Array.isArray(parts) ? parts : parts && typeof parts === 'object' ? [parts] : []) walk(p as Json);
@@ -332,12 +398,24 @@ function hullParts(parts: unknown): { parts: number; total: number } | null {
 }
 
 /** A ship's defences and headline numbers from `scdata.ships` (ships.json record). */
-export function combatShipFromRow(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; career?: string | null; role?: string | null; size?: number | null; crew?: number | null; data: Json }): CombatShip | null {
+export function combatShipFromRow(row: {
+  uuid: string;
+  class_name?: string | null;
+  name?: string | null;
+  manufacturer_name?: string | null;
+  career?: string | null;
+  role?: string | null;
+  size?: number | null;
+  crew?: number | null;
+  data: Json;
+}): CombatShip | null {
   const s = row.data ?? {};
   const sh: Json = s.ShieldsTotal ?? {};
   const ar: Json = s.Armor ?? {};
   const parts: Json[] = Array.isArray(s.DamageBeforeDestruction) ? s.DamageBeforeDestruction : [];
-  const body = parts.find((p) => /^body$/i.test(String(p.Name ?? ''))) ?? [...parts].sort((a, b) => (num(b.HP) ?? 0) - (num(a.HP) ?? 0))[0];
+  const body =
+    parts.find((p) => /^body$/i.test(String(p.Name ?? ''))) ??
+    [...parts].sort((a, b) => (num(b.HP) ?? 0) - (num(a.HP) ?? 0))[0];
   const hullHp = num(body?.HP) ?? num(s.Health);
   const name = str(row.name) ?? str(s.Name);
   if (!name || !hullHp) return null;
@@ -382,9 +460,18 @@ export function combatShipFromRow(row: { uuid: string; class_name?: string | nul
       absorption: num(max(sh.Absorption?.Distortion ?? {})) ?? 1,
     },
     countermeasures: null,
-    ...(() => { const heads = shipMiningHeads(s); return heads.length ? { miningHeads: heads } : {}; })(),
-    ...(() => { const heads = shipSalvageHeads(s); return heads.length ? { salvageHeads: heads } : {}; })(),
-    ...(() => { const pods = shipFuelPodSlots(s); return pods.length ? { fuelPodSlots: pods } : {}; })(),
+    ...(() => {
+      const heads = shipMiningHeads(s);
+      return heads.length ? { miningHeads: heads } : {};
+    })(),
+    ...(() => {
+      const heads = shipSalvageHeads(s);
+      return heads.length ? { salvageHeads: heads } : {};
+    })(),
+    ...(() => {
+      const pods = shipFuelPodSlots(s);
+      return pods.length ? { fuelPodSlots: pods } : {};
+    })(),
   };
 }
 
@@ -411,7 +498,12 @@ export interface KillResult {
 }
 
 export function killTime(guns: CombatGun[], t: CombatShip, mode: FireMode = 'burst'): KillResult {
-  let shieldDps = 0, through = 0, hull = 0, vS = 0, vT = 0, vH = 0;
+  let shieldDps = 0,
+    through = 0,
+    hull = 0,
+    vS = 0,
+    vT = 0,
+    vH = 0;
   const stopped: string[] = [];
   for (const g of guns) {
     const rate = mode === 'burst' ? g.burstDps : g.sustainedDps;
@@ -421,15 +513,33 @@ export function killTime(guns: CombatGun[], t: CombatShip, mode: FireMode = 'bur
       if (part <= 0 || g.alpha <= 0) continue;
       const f = part / g.alpha;
       const perPellet = part / g.pellets;
-      const abs = t.absorption[k], res = t.resistance[k], m = t.armourMult[k], defl = t.deflection[k];
+      const abs = t.absorption[k],
+        res = t.resistance[k],
+        m = t.armourMult[k],
+        defl = t.deflection[k];
       shieldDps += rate * f * abs * (1 - res);
       vS += part * abs * (1 - res);
-      if (perPellet * (1 - abs) > defl) { through += rate * f * (1 - abs) * m; vT += part * (1 - abs) * m; }
-      if (perPellet > defl) { hull += rate * f * m; vH += part * m; reaches = true; }
+      if (perPellet * (1 - abs) > defl) {
+        through += rate * f * (1 - abs) * m;
+        vT += part * (1 - abs) * m;
+      }
+      if (perPellet > defl) {
+        hull += rate * f * m;
+        vH += part * m;
+        reaches = true;
+      }
     }
     if (!reaches && (g.alphaSplit.physical > 0 || g.alphaSplit.energy > 0)) stopped.push(g.name);
   }
-  const base = { shieldDps, throughShieldDps: through, hullDps: hull, volleyShield: vS, volleyThrough: vT, volleyHull: vH, stopped };
+  const base = {
+    shieldDps,
+    throughShieldDps: through,
+    hullDps: hull,
+    volleyShield: vS,
+    volleyThrough: vT,
+    volleyHull: vH,
+    stopped,
+  };
   const shieldSeconds = t.shieldHp <= 0 ? 0 : shieldDps > 0 ? t.shieldHp / shieldDps : Infinity;
   if (!isFinite(shieldSeconds)) return { ...base, seconds: through > 0 ? t.hullHp / through : Infinity, shieldSeconds };
   const doneThrough = through * shieldSeconds;
@@ -461,7 +571,8 @@ export const KILL_VERDICT_WORDS: Record<KillVerdict, string> = {
 export function formatKillTime(seconds: number): string {
   if (!isFinite(seconds)) return 'never';
   if (seconds < 60) return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)} s`;
-  const m = Math.floor(seconds / 60), s = Math.round(seconds % 60);
+  const m = Math.floor(seconds / 60),
+    s = Math.round(seconds % 60);
   return s ? `${m} min ${s} s` : `${m} min`;
 }
 
@@ -495,9 +606,14 @@ const totals = (guns: CombatGun[]) => ({
 function compareFits(goal: FitGoal) {
   return (a: FitResult, b: FitResult): number => {
     if (goal === 'target' && a.vsTarget && b.vsTarget) {
-      const ta = a.vsTarget.burst.seconds, tb = b.vsTarget.burst.seconds;
+      const ta = a.vsTarget.burst.seconds,
+        tb = b.vsTarget.burst.seconds;
       if (ta !== tb) return (isFinite(ta) ? ta : 1e15) - (isFinite(tb) ? tb : 1e15);
-      return (b.vsTarget.burst.volleyHull + b.vsTarget.burst.volleyThrough) - (a.vsTarget.burst.volleyHull + a.vsTarget.burst.volleyThrough);
+      return (
+        b.vsTarget.burst.volleyHull +
+        b.vsTarget.burst.volleyThrough -
+        (a.vsTarget.burst.volleyHull + a.vsTarget.burst.volleyThrough)
+      );
     }
     const key = goal === 'alpha' ? 'alpha' : goal === 'burst' ? 'burst' : 'sustained';
     return b[key as 'alpha'] - a[key as 'alpha'] || b.sustained - a.sustained;
@@ -509,14 +625,25 @@ function multisets(n: number, k: number): number[][] {
   const out: number[][] = [];
   const cur: number[] = [];
   const rec = (start: number) => {
-    if (cur.length === k) { out.push([...cur]); return; }
-    for (let i = start; i < n; i++) { cur.push(i); rec(i); cur.pop(); }
+    if (cur.length === k) {
+      out.push([...cur]);
+      return;
+    }
+    for (let i = start; i < n; i++) {
+      cur.push(i);
+      rec(i);
+      cur.pop();
+    }
   };
   rec(0);
   return out;
 }
 
-const choose = (n: number, k: number) => { let r = 1; for (let i = 1; i <= k; i++) r = (r * (n - k + i)) / i; return Math.round(r); };
+const choose = (n: number, k: number) => {
+  let r = 1;
+  for (let i = 1; i <= k; i++) r = (r * (n - k + i)) / i;
+  return Math.round(r);
+};
 
 /**
  * The best guns for `goal` across the given slots. Slots that take the same
@@ -524,14 +651,22 @@ const choose = (n: number, k: number) => { let r = 1; for (let i = 1; i <= k; i+
  * is narrowed to its strongest candidates so the search stays under
  * `maxEvaluations` fits.
  */
-export function bestGunFits(slots: FitSlotInput[], goal: FitGoal, target: CombatShip | null, opts: { limit?: number; maxEvaluations?: number } = {}): FitResult[] {
+export function bestGunFits(
+  slots: FitSlotInput[],
+  goal: FitGoal,
+  target: CombatShip | null,
+  opts: { limit?: number; maxEvaluations?: number } = {},
+): FitResult[] {
   const limit = opts.limit ?? 3;
   const maxEval = opts.maxEvaluations ?? 150_000;
   if (goal === 'target' && !target) throw new Error('bestGunFits: a target is needed for the "target" goal');
 
   const evaluate = (guns: CombatGun[]): FitResult => ({
-    guns, ...totals(guns),
-    vsTarget: target ? { burst: killTime(guns, target, 'burst'), sustained: killTime(guns, target, 'sustained') } : null,
+    guns,
+    ...totals(guns),
+    vsTarget: target
+      ? { burst: killTime(guns, target, 'burst'), sustained: killTime(guns, target, 'sustained') }
+      : null,
   });
 
   // Group open slots by the guns they take.
@@ -539,9 +674,13 @@ export function bestGunFits(slots: FitSlotInput[], goal: FitGoal, target: Combat
   const groups = new Map<string, Group>();
   slots.forEach((s, i) => {
     if (s.locked) return;
-    const key = s.candidates.map((c) => c.uuid).sort().join(',');
+    const key = s.candidates
+      .map((c) => c.uuid)
+      .sort()
+      .join(',');
     const g = groups.get(key);
-    if (g) g.slotIdx.push(i); else groups.set(key, { slotIdx: [i], cands: s.candidates });
+    if (g) g.slotIdx.push(i);
+    else groups.set(key, { slotIdx: [i], cands: s.candidates });
   });
   const list = [...groups.values()].filter((g) => g.cands.length > 0);
 
@@ -553,7 +692,9 @@ export function bestGunFits(slots: FitSlotInput[], goal: FitGoal, target: Combat
     }
     return -(goal === 'alpha' ? g.alpha : goal === 'burst' ? g.burstDps : g.sustainedDps);
   };
-  const ranked = list.map((g) => [...g.cands].sort((a, b) => single(a, g.slotIdx.length) - single(b, g.slotIdx.length)));
+  const ranked = list.map((g) =>
+    [...g.cands].sort((a, b) => single(a, g.slotIdx.length) - single(b, g.slotIdx.length)),
+  );
   const ks = ranked.map((r) => Math.min(r.length, 14));
   const count = () => ks.reduce((p, k, i) => p * choose(k + list[i]!.slotIdx.length - 1, list[i]!.slotIdx.length), 1);
   while (count() > maxEval) {
@@ -571,12 +712,17 @@ export function bestGunFits(slots: FitSlotInput[], goal: FitGoal, target: Combat
       if (fill.some((g) => !g)) return;
       const r = evaluate(fill as CombatGun[]);
       results.push(r);
-      if (results.length > limit * 50) { results.sort(cmp); results.length = limit * 10; }
+      if (results.length > limit * 50) {
+        results.sort(cmp);
+        results.length = limit * 10;
+      }
       return;
     }
     for (const choice of options[gi]!) {
       const next = [...fill];
-      list[gi]!.slotIdx.forEach((slot, j) => { next[slot] = choice[j]!; });
+      list[gi]!.slotIdx.forEach((slot, j) => {
+        next[slot] = choice[j]!;
+      });
       rec(gi + 1, next);
     }
   };
@@ -585,7 +731,10 @@ export function bestGunFits(slots: FitSlotInput[], goal: FitGoal, target: Combat
   // Drop fits that are the same guns in a different order of groups.
   const seen = new Set<string>();
   const unique = results.filter((r) => {
-    const key = r.guns.map((g) => g.uuid).sort().join(',');
+    const key = r.guns
+      .map((g) => g.uuid)
+      .sort()
+      .join(',');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

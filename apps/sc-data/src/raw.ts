@@ -75,8 +75,11 @@ export async function syncRaw(
       await client.query(UPSERT_ONE, [f.path, f.sha, f.size, f.data, commit]);
     } else {
       await client.query(UPSERT, [
-        files.map((f) => f.path), files.map((f) => f.sha), files.map((f) => f.size),
-        files.map((f) => f.data.toString('utf8')), commit,
+        files.map((f) => f.path),
+        files.map((f) => f.sha),
+        files.map((f) => f.size),
+        files.map((f) => f.data.toString('utf8')),
+        commit,
       ]);
     }
     return files;
@@ -112,7 +115,11 @@ export async function syncRaw(
       if (f.isNew) result.added++;
       else result.changed++;
     }
-    await logChanges(client, commit, written.map((f) => [f.path, f.isNew ? 'added' : 'changed']));
+    await logChanges(
+      client,
+      commit,
+      written.map((f) => [f.path, f.isNew ? 'added' : 'changed']),
+    );
   }
 
   const extract = tar.extract();
@@ -139,9 +146,9 @@ export async function syncRaw(
           if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) buf = buf.subarray(3);
           const file: Pending = { path, sha, size: buf.length, data: buf, isNew: prev === undefined };
           if (buf.length >= LARGE_FILE) {
-            await flush();          // keep order: pending small files first
+            await flush(); // keep order: pending small files first
             batch = [file];
-            await flush();          // then this one on its own
+            await flush(); // then this one on its own
           } else {
             batch.push(file);
             batchBytes += buf.length;
@@ -167,7 +174,11 @@ export async function syncRaw(
   }
   if (gone.length > 0) {
     await client.query('DELETE FROM scdata_raw.file WHERE path = ANY($1::text[])', [gone]);
-    await logChanges(client, commit, gone.map((p) => [p, 'removed']));
+    await logChanges(
+      client,
+      commit,
+      gone.map((p) => [p, 'removed']),
+    );
     result.removed = gone.length;
   }
   return result;

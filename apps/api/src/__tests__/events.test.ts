@@ -255,9 +255,7 @@ describe('Event status transitions', () => {
     const [agent] = await makeManagerAgent(guild.guildId);
     const event = await createEvent(guild.guildId, user.discordId, { status: 'PENDING' });
 
-    const res = await agent
-      .post(`/api/guilds/${guild.guildId}/events/${event.id}/complete`)
-      .send({ hadLoot: false });
+    const res = await agent.post(`/api/guilds/${guild.guildId}/events/${event.id}/complete`).send({ hadLoot: false });
     expect(res.status).toBe(409);
   });
 });

@@ -45,7 +45,13 @@ export function pageTitle(pathname: string, serverName?: string | null): string 
   if (pathname.startsWith('/dashboard/kanban')) return `Roadmap – ${SITE}`;
   const admin = pathname.match(/^\/dashboard\/admin(?:\/(\w+))?(\/[^/]+)?/);
   if (admin) {
-    const section = { errors: admin[2] ? 'Error' : 'Errors', servers: admin[2] ? 'Server' : 'Servers', activity: 'Activity', feed: 'Discord feed' }[admin[1] ?? ''] ?? 'Overview';
+    const section =
+      {
+        errors: admin[2] ? 'Error' : 'Errors',
+        servers: admin[2] ? 'Server' : 'Servers',
+        activity: 'Activity',
+        feed: 'Discord feed',
+      }[admin[1] ?? ''] ?? 'Overview';
     return `Admin · ${section} – ${SITE}`;
   }
   if (pathname.startsWith('/dashboard/settings/notifications')) return `Notifications – ${SITE}`;

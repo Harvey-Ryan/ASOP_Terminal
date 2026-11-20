@@ -10,7 +10,12 @@ const RELOADED_KEY = 'asop:reloaded-for-new-build';
 
 function reloadOnce(err: unknown): Promise<never> {
   let already = false;
-  try { already = sessionStorage.getItem(RELOADED_KEY) === '1'; sessionStorage.setItem(RELOADED_KEY, '1'); } catch { /* storage blocked: reload anyway */ }
+  try {
+    already = sessionStorage.getItem(RELOADED_KEY) === '1';
+    sessionStorage.setItem(RELOADED_KEY, '1');
+  } catch {
+    /* storage blocked: reload anyway */
+  }
   if (already) return Promise.reject(err);
   window.location.reload();
   return new Promise<never>(() => {}); // the page is going away
@@ -18,11 +23,14 @@ function reloadOnce(err: unknown): Promise<never> {
 
 /** lazy() for a named export: lazyPage(() => import('./pages/X'), 'X'). */
 export function lazyPage<M extends Record<string, unknown>, K extends keyof M>(load: () => Promise<M>, name: K) {
-  return lazy(() => load().then(
-    (m) => {
-      try { sessionStorage.removeItem(RELOADED_KEY); } catch { /* ignore */ }
+  return lazy(() =>
+    load().then((m) => {
+      try {
+        sessionStorage.removeItem(RELOADED_KEY);
+      } catch {
+        /* ignore */
+      }
       return { default: m[name] as ComponentType<unknown> };
-    },
-    reloadOnce,
-  ));
+    }, reloadOnce),
+  );
 }

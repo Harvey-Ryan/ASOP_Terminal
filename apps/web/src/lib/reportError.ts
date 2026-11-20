@@ -11,7 +11,10 @@ let budget = 10;
 export function reportError(error: unknown, kind: string, ref?: string | null): string {
   const r = ref ?? newRef();
   try {
-    const e = error instanceof Error ? error : new Error(typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error');
+    const e =
+      error instanceof Error
+        ? error
+        : new Error(typeof error === 'string' ? error : (JSON.stringify(error) ?? 'Unknown error'));
     const message = `${e.name}: ${e.message}`.slice(0, 2_000);
     // Once per kind and message (a crash can also surface as a window error in development).
     const key = `${kind}|${message}`;
@@ -22,10 +25,19 @@ export function reportError(error: unknown, kind: string, ref?: string | null): 
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, stack: e.stack ?? null, kind, url: window.location.href, ref: r, version: __APP_VERSION__ }),
+      body: JSON.stringify({
+        message,
+        stack: e.stack ?? null,
+        kind,
+        url: window.location.href,
+        ref: r,
+        version: __APP_VERSION__,
+      }),
       keepalive: true,
     }).catch(() => {});
-  } catch { /* reporting must never cause more errors */ }
+  } catch {
+    /* reporting must never cause more errors */
+  }
   return r;
 }
 

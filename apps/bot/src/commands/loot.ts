@@ -5,12 +5,8 @@ import { prisma } from '../db.js';
 export const data = new SlashCommandBuilder()
   .setName('loot')
   .setDescription('Loot distribution')
-  .addSubcommand((sub) =>
-    sub.setName('open').setDescription('Open the loot dashboard for this server'),
-  )
-  .addSubcommand((sub) =>
-    sub.setName('status').setDescription('Show the current active loot session'),
-  );
+  .addSubcommand((sub) => sub.setName('open').setDescription('Open the loot dashboard for this server'))
+  .addSubcommand((sub) => sub.setName('status').setDescription('Show the current active loot session'));
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   switch (interaction.options.getSubcommand()) {
@@ -26,10 +22,7 @@ async function handleOpen(interaction: ChatInputCommandInteraction) {
   const url = `${webUrl}/dashboard/servers/${interaction.guildId}/loot`;
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Open Loot Dashboard')
-      .setStyle(ButtonStyle.Link)
-      .setURL(url),
+    new ButtonBuilder().setLabel('Open Loot Dashboard').setStyle(ButtonStyle.Link).setURL(url),
   );
 
   await interaction.reply({
@@ -62,8 +55,11 @@ async function handleStatus(interaction: ChatInputCommandInteraction) {
   const totalCount = session.items.length;
 
   const method =
-    session.method === 'RANDOM_ROLL' ? '🎲 Random Roll' :
-    session.method === 'SNAKE_DRAFT' ? '🐍 Snake Draft' : '🪙 DKP';
+    session.method === 'RANDOM_ROLL'
+      ? '🎲 Random Roll'
+      : session.method === 'SNAKE_DRAFT'
+        ? '🐍 Snake Draft'
+        : '🪙 DKP';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sessionName = (session as any).name ?? (session.eventId ? 'Event Loot' : 'Standalone Session');
@@ -88,10 +84,7 @@ async function handleStatus(interaction: ChatInputCommandInteraction) {
     : `/dashboard/servers/${guildId}/loot/sessions/${session.id}`;
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('View Loot Session')
-      .setStyle(ButtonStyle.Link)
-      .setURL(`${webUrl}${lootPath}`),
+    new ButtonBuilder().setLabel('View Loot Session').setStyle(ButtonStyle.Link).setURL(`${webUrl}${lootPath}`),
   );
 
   await interaction.editReply({ content, components: [row] });

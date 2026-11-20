@@ -32,24 +32,28 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
   const guildRecord = await prisma.guild
     .findUnique({ where: { guildId: tournament.guildId }, include: { settings: true } })
     .catch(() => null);
-  const channelId = tournament.channelId
-    ?? guildRecord?.settings?.tournamentChannelId
-    ?? guildRecord?.settings?.forumChannelId
-    ?? null;
+  const channelId =
+    tournament.channelId ?? guildRecord?.settings?.tournamentChannelId ?? guildRecord?.settings?.forumChannelId ?? null;
 
   // Announce registration closed in the existing thread before posting the bracket
   if (tournament.threadId) {
     const existing = await client.channels.fetch(tournament.threadId).catch(() => null);
     if (existing?.isThread()) {
       const participantCount = tournament.participants.length;
-      await existing.send(
-        `🔒 **Registration is now closed!** ${participantCount} participant${participantCount === 1 ? '' : 's'} locked in — generating bracket…`,
-      ).catch((err) => console.error(`[tournamentService] Failed to post registration-closed message:`, err));
+      await existing
+        .send(
+          `🔒 **Registration is now closed!** ${participantCount} participant${participantCount === 1 ? '' : 's'} locked in — generating bracket…`,
+        )
+        .catch((err) => console.error(`[tournamentService] Failed to post registration-closed message:`, err));
     }
   }
 
   // Generate bracket image
-  const bracketBuffer = buildBracketPng(tournament.matches as BracketMatchInfo[], tournament.participants as BracketParticipantInfo[], tournament.name);
+  const bracketBuffer = buildBracketPng(
+    tournament.matches as BracketMatchInfo[],
+    tournament.participants as BracketParticipantInfo[],
+    tournament.name,
+  );
   const bracketFile = new AttachmentBuilder(bracketBuffer, { name: 'bracket.png' });
 
   const embed = new EmbedBuilder()
@@ -69,9 +73,9 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
     // Reuse the registration thread: rename it and post the bracket there
     const existing = await client.channels.fetch(tournament.threadId).catch(() => null);
     if (existing?.isThread()) {
-      await existing.setName(tournament.name).catch((err) =>
-        console.error(`[tournamentService] Failed to rename thread:`, err),
-      );
+      await existing
+        .setName(tournament.name)
+        .catch((err) => console.error(`[tournamentService] Failed to rename thread:`, err));
       const msg = await existing.send({ embeds: [embed], files: [bracketFile] });
       bracketMessageId = msg.id;
     } else {
@@ -81,7 +85,9 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
 
   if (!threadId) {
     if (!channelId) {
-      console.error(`[tournamentService] setupDiscordForTournament: no forum channel configured for guild ${tournament.guildId}`);
+      console.error(
+        `[tournamentService] setupDiscordForTournament: no forum channel configured for guild ${tournament.guildId}`,
+      );
       return;
     }
     const ch = await client.channels.fetch(channelId).catch(() => null);
@@ -90,7 +96,9 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
       return;
     }
     if (ch.type !== ChannelType.GuildForum) {
-      console.error(`[tournamentService] setupDiscordForTournament: channel ${channelId} is type ${ch.type}, expected GuildForum (15)`);
+      console.error(
+        `[tournamentService] setupDiscordForTournament: channel ${channelId} is type ${ch.type}, expected GuildForum (15)`,
+      );
       return;
     }
     const created = await (ch as ForumChannel).threads.create({
@@ -109,9 +117,7 @@ export async function setupDiscordForTournament(tournamentId: string): Promise<v
   });
 
   // Post round 1 match cards
-  const round1 = (tournament.matches as BracketMatchInfo[]).filter(
-    (m) => m.round === 1 && m.status !== 'BYE',
-  );
+  const round1 = (tournament.matches as BracketMatchInfo[]).filter((m) => m.round === 1 && m.status !== 'BYE');
   for (const match of round1) {
     await postMatchAnnouncement(match.id, threadId!).catch((err) =>
       console.error(`[tournamentService] postMatchAnnouncement failed for match ${match.id}:`, err),
@@ -146,9 +152,7 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   if (!thread?.isThread()) return;
 
   const winnersMatches = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
-  const maxRound = winnersMatches.length > 0
-    ? Math.max(...winnersMatches.map((m) => m.round))
-    : match.round;
+  const maxRound = winnersMatches.length > 0 ? Math.max(...winnersMatches.map((m) => m.round)) : match.round;
   const roundLabel = getRoundLabel(match.round, maxRound, match.bracketSide, match.position);
   const hideElo = await fetchHideElo(match.tournament.guildId);
 
@@ -165,14 +169,12 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   });
 
   const attachment = new AttachmentBuilder(cardBuffer, { name: 'match-card.png' });
-  const matchTitle = match.bracketSide === 'THIRD_PLACE'
-    ? '🥉 3rd Place Match'
-    : `⚔️ ${roundLabel}`;
+  const matchTitle = match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Match' : `⚔️ ${roundLabel}`;
   const embed = new EmbedBuilder()
     .setTitle(matchTitle)
     .setDescription(
       `**${match.participantA.displayName}** vs **${match.participantB.displayName}**` +
-      (match.scheduledAt ? `\n📅 <t:${Math.floor(match.scheduledAt.getTime() / 1000)}:F>` : ''),
+        (match.scheduledAt ? `\n📅 <t:${Math.floor(match.scheduledAt.getTime() / 1000)}:F>` : ''),
     )
     .setImage('attachment://match-card.png')
     .setColor(match.bracketSide === 'THIRD_PLACE' ? 0xcd7f32 : 0x5865f2); // bronze for 3rd place
@@ -191,10 +193,14 @@ export async function postMatchAnnouncement(matchId: string, threadIdOverride?: 
   const msg = await thread.send({ embeds: [embed], files: [attachment], components: [readyRow] });
 
   // Persist the message ID so postMatchScheduled can edit this card later
-  await prisma.tournamentMatch.update({
-    where: { id: matchId },
-    data: { announcementMessageId: msg.id },
-  }).catch((err) => console.error(`[tournamentService] postMatchAnnouncement: failed to save announcementMessageId:`, err));
+  await prisma.tournamentMatch
+    .update({
+      where: { id: matchId },
+      data: { announcementMessageId: msg.id },
+    })
+    .catch((err) =>
+      console.error(`[tournamentService] postMatchAnnouncement: failed to save announcementMessageId:`, err),
+    );
 }
 
 // ── Post match result ─────────────────────────────────────────────────────────
@@ -227,23 +233,18 @@ export async function postMatchResult(matchId: string): Promise<void> {
   const loserHistory = historyRows.find((h) => !h.won);
 
   const hideEloResult = await fetchHideElo(match.tournament.guildId);
-  const winnerCard = winner
-    ? await resolveMatchCardParticipant(winner, match.tournament.guildId, hideEloResult)
-    : null;
-  const loserCard = loser
-    ? await resolveMatchCardParticipant(loser, match.tournament.guildId, hideEloResult)
-    : null;
+  const winnerCard = winner ? await resolveMatchCardParticipant(winner, match.tournament.guildId, hideEloResult) : null;
+  const loserCard = loser ? await resolveMatchCardParticipant(loser, match.tournament.guildId, hideEloResult) : null;
 
   if (winnerCard && winner) {
     // Determine which raw score belongs to which player
     const winnerIsA = match.winnerId === match.participantAId;
     const winnerScore = winnerIsA ? match.scoreA : match.scoreB;
-    const loserScore  = winnerIsA ? match.scoreB : match.scoreA;
+    const loserScore = winnerIsA ? match.scoreB : match.scoreA;
 
     const resultWinnersMatches = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
-    const resultMaxRound = resultWinnersMatches.length > 0
-      ? Math.max(...resultWinnersMatches.map((m) => m.round))
-      : match.round;
+    const resultMaxRound =
+      resultWinnersMatches.length > 0 ? Math.max(...resultWinnersMatches.map((m) => m.round)) : match.round;
     const resultRoundLabel = getRoundLabel(match.round, resultMaxRound, match.bracketSide, match.position);
 
     const isForfeit = match.forfeit;
@@ -265,14 +266,16 @@ export async function postMatchResult(matchId: string): Promise<void> {
     const resultAttachment = new AttachmentBuilder(resultBuffer, { name: 'result.png' });
     const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
 
-    const descLines: string[] = [isForfeit ? `**${winner.displayName}** wins by forfeit!` : `**${winner.displayName}** wins!`];
-    if (!isForfeit && !hideEloResult && winnerHistory) descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
-    if (!isForfeit && !hideEloResult && loser && loserHistory) descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
+    const descLines: string[] = [
+      isForfeit ? `**${winner.displayName}** wins by forfeit!` : `**${winner.displayName}** wins!`,
+    ];
+    if (!isForfeit && !hideEloResult && winnerHistory)
+      descLines.push(`${winner.displayName}: ${deltaStr(winnerHistory.delta)} ELO`);
+    if (!isForfeit && !hideEloResult && loser && loserHistory)
+      descLines.push(`${loser.displayName}: ${deltaStr(loserHistory.delta)} ELO`);
     if (!isForfeit && winnerScore != null) descLines.push(`Score: ${winnerScore} – ${loserScore}`);
 
-    const resultTitle = match.bracketSide === 'THIRD_PLACE'
-      ? '🥉 3rd Place Result'
-      : `✅ ${resultRoundLabel} Result`;
+    const resultTitle = match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Result' : `✅ ${resultRoundLabel} Result`;
     const resultEmbed = new EmbedBuilder()
       .setTitle(resultTitle)
       .setDescription(descLines.join('\n'))
@@ -325,9 +328,9 @@ export async function postMatchResult(matchId: string): Promise<void> {
     const maxRound = winnersOnly.length > 0 ? Math.max(...winnersOnly.map((m) => m.round)) : match.round;
     const isFinalRound = match.round === maxRound;
     if (!isFinalRound) {
-      await thread.send(
-        `🏁 **Round ${match.round} complete!** Advancing to Round ${match.round + 1}…`,
-      ).catch(() => null);
+      await thread
+        .send(`🏁 **Round ${match.round} complete!** Advancing to Round ${match.round + 1}…`)
+        .catch(() => null);
     }
   }
 
@@ -349,7 +352,9 @@ export async function postMatchResult(matchId: string): Promise<void> {
           : null;
         nextInfo = nextMatch ? `Your next match is in Round ${nextMatch.round}.` : '🏆 You are the champion!';
       }
-      await discordUser.send(`✅ You won your Round ${match.round} match in **${match.tournament.name}**! ${nextInfo}`).catch(() => null);
+      await discordUser
+        .send(`✅ You won your Round ${match.round} match in **${match.tournament.name}**! ${nextInfo}`)
+        .catch(() => null);
     }
   }
 
@@ -385,7 +390,9 @@ type TournamentMeta = {
 
 function buildTournamentDescription(t: TournamentMeta): string {
   const lines: string[] = [];
-  if (t.description) { lines.push(t.description, ''); }
+  if (t.description) {
+    lines.push(t.description, '');
+  }
   lines.push(`**Format:** ${t.format.replace('_', ' ')}`);
   lines.push(`**Bracket Size:** ${t.openRoster ? 'Open (set at start)' : `${t.size} participants`}`);
   lines.push(`**Seeding:** ${t.seedingMode}`);
@@ -402,9 +409,10 @@ function buildRegistrationEmbed(
   const filled = participants.length;
   const isFull = t.openRoster ? false : filled >= t.size;
 
-  const rosterLines = participants.length > 0
-    ? participants.map((p, i) => `${i + 1}. ${p.discordId ? `<@${p.discordId}>` : p.displayName}`)
-    : ['*No participants yet — be the first to sign up!*'];
+  const rosterLines =
+    participants.length > 0
+      ? participants.map((p, i) => `${i + 1}. ${p.discordId ? `<@${p.discordId}>` : p.displayName}`)
+      : ['*No participants yet — be the first to sign up!*'];
 
   // Embed field values are capped at 1024 chars; join the list and truncate safely
   let rosterValue = rosterLines.join('\n');
@@ -453,10 +461,7 @@ function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {
       .setLabel('Join Tournament')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled),
-    new ButtonBuilder()
-      .setCustomId(`bracket_leave:${tournamentId}`)
-      .setLabel('Leave')
-      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`bracket_leave:${tournamentId}`).setLabel('Leave').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setLabel('Open Dashboard')
       .setStyle(ButtonStyle.Link)
@@ -469,7 +474,10 @@ function buildJoinRow(tournamentId: string, guildId: string, disabled = false) {
 // GuildSettings.guildId is a FK to Guild.id (CUID), not the Discord snowflake.
 // To get settings, look up Guild by its Discord snowflake and follow the relation —
 // the same pattern used by resolveForumChannelId in eventService.ts.
-async function resolveTournamentChannel(discordGuildId: string, channelIdOverride: string | null): Promise<ForumChannel | null> {
+async function resolveTournamentChannel(
+  discordGuildId: string,
+  channelIdOverride: string | null,
+): Promise<ForumChannel | null> {
   // Per-tournament channel override takes priority
   if (channelIdOverride) {
     const ch = await client.channels.fetch(channelIdOverride).catch(() => null);
@@ -480,9 +488,7 @@ async function resolveTournamentChannel(discordGuildId: string, channelIdOverrid
     .findUnique({ where: { guildId: discordGuildId }, include: { settings: true } })
     .catch(() => null);
 
-  const channelId = guildRecord?.settings?.tournamentChannelId
-    ?? guildRecord?.settings?.forumChannelId
-    ?? null;
+  const channelId = guildRecord?.settings?.tournamentChannelId ?? guildRecord?.settings?.forumChannelId ?? null;
 
   if (!channelId) return null;
   const ch = await client.channels.fetch(channelId).catch(() => null);
@@ -499,7 +505,9 @@ export async function setupDraftThread(tournamentId: string): Promise<void> {
 
   const forumCh = await resolveTournamentChannel(tournament.guildId, tournament.channelId);
   if (!forumCh) {
-    console.error(`[tournamentService] setupDraftThread: no forum channel configured for guild ${tournament.guildId} — set one in Module Settings › Tournaments`);
+    console.error(
+      `[tournamentService] setupDraftThread: no forum channel configured for guild ${tournament.guildId} — set one in Module Settings › Tournaments`,
+    );
     return;
   }
 
@@ -509,13 +517,15 @@ export async function setupDraftThread(tournamentId: string): Promise<void> {
     .setColor(0x5865f2)
     .setFooter({ text: 'Status: Draft — Registration not yet open' });
 
-  const thread = await forumCh.threads.create({
-    name: tournament.name,
-    message: { embeds: [embed] },
-  }).catch((err) => {
-    console.error(`[tournamentService] setupDraftThread: failed to create thread:`, err);
-    return null;
-  });
+  const thread = await forumCh.threads
+    .create({
+      name: tournament.name,
+      message: { embeds: [embed] },
+    })
+    .catch((err) => {
+      console.error(`[tournamentService] setupDraftThread: failed to create thread:`, err);
+      return null;
+    });
   if (!thread) return;
 
   await prisma.tournament.update({
@@ -542,18 +552,22 @@ export async function postTournamentOpen(tournamentId: string): Promise<void> {
   if (!threadId) {
     const forumCh = await resolveTournamentChannel(tournament.guildId, tournament.channelId);
     if (!forumCh) {
-      console.error(`[tournamentService] postTournamentOpen: no forum channel configured for guild ${tournament.guildId}`);
+      console.error(
+        `[tournamentService] postTournamentOpen: no forum channel configured for guild ${tournament.guildId}`,
+      );
       return;
     }
     const embed = buildRegistrationEmbed(tournament, tournament.participants);
     const joinRow = buildJoinRow(tournamentId, tournament.guildId);
-    const thread = await forumCh.threads.create({
-      name: `${tournament.name} — Registration`,
-      message: { embeds: [embed], components: [joinRow] },
-    }).catch((err) => {
-      console.error(`[tournamentService] postTournamentOpen: failed to create fallback thread:`, err);
-      return null;
-    });
+    const thread = await forumCh.threads
+      .create({
+        name: `${tournament.name} — Registration`,
+        message: { embeds: [embed], components: [joinRow] },
+      })
+      .catch((err) => {
+        console.error(`[tournamentService] postTournamentOpen: failed to create fallback thread:`, err);
+        return null;
+      });
     if (!thread) return;
     const starter = await thread.fetchStarterMessage().catch(() => null);
     await prisma.tournament.update({
@@ -578,9 +592,9 @@ export async function postTournamentOpen(tournamentId: string): Promise<void> {
 
   // Unarchive if Discord auto-archived the draft thread
   if (thread.archived) await thread.setArchived(false).catch(() => null);
-  await thread.setName(`${tournament.name} — Registration`).catch((err) =>
-    console.error(`[tournamentService] postTournamentOpen: failed to rename thread:`, err),
-  );
+  await thread
+    .setName(`${tournament.name} — Registration`)
+    .catch((err) => console.error(`[tournamentService] postTournamentOpen: failed to rename thread:`, err));
 
   const embed = buildRegistrationEmbed(tournament, tournament.participants);
   const joinRow = buildJoinRow(tournamentId, tournament.guildId);
@@ -617,9 +631,9 @@ export async function updateRegistrationEmbed(tournamentId: string): Promise<voi
   const embed = buildRegistrationEmbed(tournament, tournament.participants);
   const joinRow = buildJoinRow(tournamentId, tournament.guildId, isFull);
 
-  await msg.edit({ embeds: [embed], components: [joinRow] }).catch((err) =>
-    console.error(`[tournamentService] updateRegistrationEmbed: failed to edit message:`, err),
-  );
+  await msg
+    .edit({ embeds: [embed], components: [joinRow] })
+    .catch((err) => console.error(`[tournamentService] updateRegistrationEmbed: failed to edit message:`, err));
 }
 
 // ── Match schedule notification ───────────────────────────────────────────────
@@ -638,9 +652,8 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
   const ts = Math.floor(match.scheduledAt.getTime() / 1000);
 
   const scheduledWinnersMatches = match.tournament.matches.filter((m) => m.bracketSide === 'WINNERS');
-  const scheduledMaxRound = scheduledWinnersMatches.length > 0
-    ? Math.max(...scheduledWinnersMatches.map((m) => m.round))
-    : match.round;
+  const scheduledMaxRound =
+    scheduledWinnersMatches.length > 0 ? Math.max(...scheduledWinnersMatches.map((m) => m.round)) : match.round;
   const scheduledRoundLabel = getRoundLabel(match.round, scheduledMaxRound, match.bracketSide, match.position);
 
   // Re-generate the match card PNG (names/ratings); the time is in the embed as a Discord
@@ -661,8 +674,7 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
   const updatedEmbed = new EmbedBuilder()
     .setTitle(match.bracketSide === 'THIRD_PLACE' ? '🥉 3rd Place Match' : `⚔️ ${scheduledRoundLabel}`)
     .setDescription(
-      `**${match.participantA.displayName}** vs **${match.participantB.displayName}**\n` +
-      `📅 <t:${ts}:F>`,
+      `**${match.participantA.displayName}** vs **${match.participantB.displayName}**\n` + `📅 <t:${ts}:F>`,
     )
     .setImage('attachment://match-card.png')
     .setColor(0x5865f2);
@@ -671,11 +683,13 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
     // Edit the original match-card message in place
     const existing = await thread.messages.fetch(match.announcementMessageId).catch(() => null);
     if (existing) {
-      await existing.edit({
-        embeds: [updatedEmbed],
-        files: [attachment],
-        attachments: [],   // clear old image; new file replaces it
-      }).catch((err) => console.error(`[tournamentService] postMatchScheduled: failed to edit message:`, err));
+      await existing
+        .edit({
+          embeds: [updatedEmbed],
+          files: [attachment],
+          attachments: [], // clear old image; new file replaces it
+        })
+        .catch((err) => console.error(`[tournamentService] postMatchScheduled: failed to edit message:`, err));
     } else {
       // Message was deleted — fall through to posting fresh
       await thread.send({ embeds: [updatedEmbed], files: [attachment] }).catch(() => null);
@@ -692,13 +706,16 @@ export async function postMatchScheduled(matchId: string): Promise<void> {
         .setLabel(`✅ ${match.participantB.displayName.slice(0, 20)} — Ready`)
         .setStyle(ButtonStyle.Success),
     );
-    const msg = await thread.send({ embeds: [updatedEmbed], files: [attachment], components: [readyRow] })
+    const msg = await thread
+      .send({ embeds: [updatedEmbed], files: [attachment], components: [readyRow] })
       .catch(() => null);
     if (msg) {
-      await prisma.tournamentMatch.update({
-        where: { id: matchId },
-        data: { announcementMessageId: msg.id },
-      }).catch(() => null);
+      await prisma.tournamentMatch
+        .update({
+          where: { id: matchId },
+          data: { announcementMessageId: msg.id },
+        })
+        .catch(() => null);
     }
   }
 
@@ -726,10 +743,12 @@ export async function postTournamentComplete(tournamentId: string): Promise<void
   const medals = ['🥇', '🥈', '🥉'];
   // Use a real mention only when we have a discordId; otherwise fall back to bold displayName
   // so we never render a broken `<@Alice>` mention for display-name-only participants.
-  const podium = top3.map((p, i) => {
-    const nameTag = p.discordId ? `<@${p.discordId}>` : `**${p.displayName}**`;
-    return `${medals[i]} ${nameTag} — ${p.displayName}`;
-  }).join('\n');
+  const podium = top3
+    .map((p, i) => {
+      const nameTag = p.discordId ? `<@${p.discordId}>` : `**${p.displayName}**`;
+      return `${medals[i]} ${nameTag} — ${p.displayName}`;
+    })
+    .join('\n');
 
   const championEmbed = new EmbedBuilder()
     .setTitle(`🏆 ${tournament.name} — Tournament Complete!`)
@@ -764,10 +783,7 @@ export async function postTournamentComplete(tournamentId: string): Promise<void
       return `${arrow} \`${sign.padStart(4)}\` **${e.displayName}** — ${e.wins}W ${e.losses}L`;
     });
 
-    const eloEmbed = new EmbedBuilder()
-      .setTitle('📊 ELO Changes')
-      .setDescription(lines.join('\n'))
-      .setColor(0x5865f2);
+    const eloEmbed = new EmbedBuilder().setTitle('📊 ELO Changes').setDescription(lines.join('\n')).setColor(0x5865f2);
 
     embeds.push(eloEmbed);
   }
@@ -784,9 +800,11 @@ export async function postTournamentCancelled(tournamentId: string): Promise<voi
   const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
   if (!thread?.isThread()) return;
 
-  await thread.send(
-    `🚫 **${tournament.name} has been cancelled.** The tournament has been abandoned by an organizer. No further matches will be played and no prizes will be awarded.`,
-  ).catch((err) => console.error(`[tournamentService] postTournamentCancelled: failed to post notice:`, err));
+  await thread
+    .send(
+      `🚫 **${tournament.name} has been cancelled.** The tournament has been abandoned by an organizer. No further matches will be played and no prizes will be awarded.`,
+    )
+    .catch((err) => console.error(`[tournamentService] postTournamentCancelled: failed to post notice:`, err));
 }
 
 // ── Refresh pinned bracket image ──────────────────────────────────────────────
@@ -811,9 +829,9 @@ export async function refreshBracketImage(tournamentId: string): Promise<void> {
   );
   const attachment = new AttachmentBuilder(bracketBuffer, { name: 'bracket.png' });
 
-  await msg.edit({ files: [attachment], attachments: [] }).catch((err) =>
-    console.error(`[tournamentService] Failed to edit bracket message:`, err),
-  );
+  await msg
+    .edit({ files: [attachment], attachments: [] })
+    .catch((err) => console.error(`[tournamentService] Failed to edit bracket message:`, err));
 }
 
 // ── Reminder dispatch (called from scheduler) ─────────────────────────────────
@@ -836,9 +854,11 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
       const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
       if (thread?.isThread()) {
         const ts = match.scheduledAt ? `<t:${Math.floor(match.scheduledAt.getTime() / 1000)}:R>` : 'soon';
-        await thread.send(
-          `⏰ Heads up — Round ${match.round} Match ${match.position + 1} (${match.participantA?.displayName ?? '?'} vs ${match.participantB?.displayName ?? '?'}) starts ${ts}!`,
-        ).catch(() => null);
+        await thread
+          .send(
+            `⏰ Heads up — Round ${match.round} Match ${match.position + 1} (${match.participantA?.displayName ?? '?'} vs ${match.participantB?.displayName ?? '?'}) starts ${ts}!`,
+          )
+          .catch(() => null);
       }
 
       // DM both participants
@@ -846,7 +866,9 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
         if (!p?.discordId) continue;
         const user = await client.users.fetch(p.discordId).catch(() => null);
         const ts = match.scheduledAt ? `<t:${Math.floor(match.scheduledAt.getTime() / 1000)}:F>` : 'soon';
-        await user?.send(`⏰ Your match in **${tournament.name}** (Round ${match.round}) starts ${ts}!`).catch(() => null);
+        await user
+          ?.send(`⏰ Your match in **${tournament.name}** (Round ${match.round}) starts ${ts}!`)
+          .catch(() => null);
       }
     }
   }
@@ -869,10 +891,12 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
             .setLabel(`🏁 ${match.participantB?.displayName.slice(0, 20) ?? '?'} — Check In`)
             .setStyle(ButtonStyle.Primary),
         );
-        await thread.send({
-          content: `🏁 **Check-in time!** Round ${match.round} Match ${match.position + 1} starts in 15 minutes. Please check in below.`,
-          components: [checkInRow],
-        }).catch(() => null);
+        await thread
+          .send({
+            content: `🏁 **Check-in time!** Round ${match.round} Match ${match.position + 1} starts in 15 minutes. Please check in below.`,
+            components: [checkInRow],
+          })
+          .catch(() => null);
       }
     }
   }
@@ -881,9 +905,11 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
     const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
     if (thread?.isThread()) {
       const participantCount = await prisma.tournamentParticipant.count({ where: { tournamentId: tournament.id } });
-      await thread.send(
-        `📢 Registration for **${tournament.name}** closes in 1 hour! Currently ${participantCount}/${tournament.size} spots filled.`,
-      ).catch(() => null);
+      await thread
+        .send(
+          `📢 Registration for **${tournament.name}** closes in 1 hour! Currently ${participantCount}/${tournament.size} spots filled.`,
+        )
+        .catch(() => null);
     }
   }
 
@@ -891,9 +917,11 @@ export async function dispatchTournamentReminder(reminderId: string): Promise<vo
     const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
     if (thread?.isThread()) {
       const participantCount = await prisma.tournamentParticipant.count({ where: { tournamentId: tournament.id } });
-      await thread.send(
-        `🔒 **Registration for ${tournament.name} is now closed!** ${participantCount}/${tournament.size} spots filled. Managers can now start the tournament.`,
-      ).catch(() => null);
+      await thread
+        .send(
+          `🔒 **Registration for ${tournament.name} is now closed!** ${participantCount}/${tournament.size} spots filled. Managers can now start the tournament.`,
+        )
+        .catch(() => null);
     }
   }
 
@@ -918,10 +946,11 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
   const guildRecord = await prisma.guild
     .findUnique({ where: { guildId }, include: { settings: true } })
     .catch(() => null);
-  const channelId = guildRecord?.settings?.h2hChannelId
-    ?? guildRecord?.settings?.tournamentChannelId
-    ?? guildRecord?.settings?.forumChannelId
-    ?? null;
+  const channelId =
+    guildRecord?.settings?.h2hChannelId ??
+    guildRecord?.settings?.tournamentChannelId ??
+    guildRecord?.settings?.forumChannelId ??
+    null;
   if (!channelId) {
     console.warn(`[announceH2hResult] no H2H announcement channel configured for guild ${guildId}`);
     return;
@@ -933,7 +962,7 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
   if (!channel?.isTextBased() || !('send' in channel)) return;
 
   const winnerHist = histA.won ? histA : histB;
-  const loserHist  = histA.won ? histB : histA;
+  const loserHist = histA.won ? histB : histA;
 
   // Fetch Discord avatars for the card
   const [winAvatar, loseAvatar] = await Promise.all([
@@ -968,14 +997,12 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
     scoreA: null,
     scoreB: null,
     eloChangeWinner: hideEloH2h ? null : winnerHist.delta,
-    eloChangeLoser:  hideEloH2h ? null : loserHist.delta,
+    eloChangeLoser: hideEloH2h ? null : loserHist.delta,
   });
 
   const attachment = new AttachmentBuilder(resultBuffer, { name: 'h2h-result.png' });
   const deltaStr = (d: number) => (d >= 0 ? `+${d} ↗️` : `${d} ↘️`);
-  const descLines = [
-    `**${winnerHist.rating.displayName}** defeats **${loserHist.rating.displayName}**`,
-  ];
+  const descLines = [`**${winnerHist.rating.displayName}** defeats **${loserHist.rating.displayName}**`];
   if (!hideEloH2h) {
     descLines.push(
       `${winnerHist.rating.displayName}: ${deltaStr(winnerHist.delta)} ELO`,
@@ -993,11 +1020,7 @@ export async function announceH2hResult(histIdA: string, histIdB: string): Promi
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildBracketPng(
-  matches: BracketMatchInfo[],
-  participants: BracketParticipantInfo[],
-  name: string,
-): Buffer {
+function buildBracketPng(matches: BracketMatchInfo[], participants: BracketParticipantInfo[], name: string): Buffer {
   return svgToPng(buildBracketSvg(name, matches, participants));
 }
 
@@ -1013,12 +1036,13 @@ async function resolveMatchCardParticipant(
     avatarHash = discordUser?.avatar ?? null;
   }
 
-  const ratingRow = !hideElo && participant.discordId
-    ? await prisma.tournamentPlayerRating.findUnique({
-        where: { guildId_discordId: { guildId, discordId: participant.discordId! } },
-        select: { rating: true, matchesPlayed: true },
-      })
-    : null;
+  const ratingRow =
+    !hideElo && participant.discordId
+      ? await prisma.tournamentPlayerRating.findUnique({
+          where: { guildId_discordId: { guildId, discordId: participant.discordId! } },
+          select: { rating: true, matchesPlayed: true },
+        })
+      : null;
 
   return {
     discordId: participant.discordId,
@@ -1032,9 +1056,7 @@ async function resolveMatchCardParticipant(
 
 /** Reads the guild's tournamentHideElo setting. Returns false on any error. */
 async function fetchHideElo(guildId: string): Promise<boolean> {
-  const rec = await prisma.guild
-    .findUnique({ where: { guildId }, include: { settings: true } })
-    .catch(() => null);
+  const rec = await prisma.guild.findUnique({ where: { guildId }, include: { settings: true } }).catch(() => null);
   return rec?.settings?.tournamentHideElo ?? false;
 }
 
@@ -1068,9 +1090,11 @@ export async function addParticipantToThread(tournamentId: string, discordId: st
   const thread = await client.channels.fetch(tournament.threadId).catch(() => null);
   if (!thread?.isThread()) return;
 
-  await thread.members.add(discordId).catch((err) =>
-    console.error(`[tournamentService] Failed to add ${discordId} to thread ${tournament.threadId}:`, err),
-  );
+  await thread.members
+    .add(discordId)
+    .catch((err) =>
+      console.error(`[tournamentService] Failed to add ${discordId} to thread ${tournament.threadId}:`, err),
+    );
 
   // Update the live registration roster embed so the new participant appears immediately
   await updateRegistrationEmbed(tournamentId).catch((err) =>

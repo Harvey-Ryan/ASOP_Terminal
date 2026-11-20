@@ -1,13 +1,23 @@
 import { api } from './client';
-import type { AfterActionOutcome, ApiResponse, CreateEventBody, EventDto, EventGuildShareDto, EventTemplateDto } from '@dem/shared';
+import type {
+  AfterActionOutcome,
+  ApiResponse,
+  CreateEventBody,
+  EventDto,
+  EventGuildShareDto,
+  EventTemplateDto,
+} from '@dem/shared';
 
 export const eventsApi = {
-  list: (guildId: string) =>
-    api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events`).then((r) => r.data!),
+  list: (guildId: string) => api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events`).then((r) => r.data!),
 
   /** One page of past events, newest first; `after` is the last event's id from the page before. */
   listCompleted: (guildId: string, after?: string) =>
-    api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events?completed=true${after ? `&after=${encodeURIComponent(after)}` : ''}`).then((r) => r.data!),
+    api
+      .get<ApiResponse<EventDto[]>>(
+        `/guilds/${guildId}/events?completed=true${after ? `&after=${encodeURIComponent(after)}` : ''}`,
+      )
+      .then((r) => r.data!),
 
   /** Events per page from list/listCompleted (matches the API). */
   pageSize: 50,
@@ -23,11 +33,15 @@ export const eventsApi = {
 
   /** Officers: move someone to a role, Unassigned, or (role null + tentative) Maybe. */
   reassignRsvp: (guildId: string, eventId: string, userId: string, role: string | null, tentative = false) =>
-    api.patch<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp/${userId}`, { role, tentative }).then((r) => r.data!),
+    api
+      .patch<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp/${userId}`, { role, tentative })
+      .then((r) => r.data!),
 
   /** Sign up for a role, Unassigned (null), or Maybe (null + tentative, v1.17.0). */
   rsvp: (guildId: string, eventId: string, role: string | null, tentative = false) =>
-    api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`, { role, tentative }).then((r) => r.data!),
+    api
+      .put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`, { role, tentative })
+      .then((r) => r.data!),
 
   removeRsvp: (guildId: string, eventId: string) =>
     api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/rsvp`).then((r) => r.data!),
@@ -36,7 +50,8 @@ export const eventsApi = {
   waitlist: (guildId: string, eventId: string, role: string | null) =>
     (role === null
       ? api.delete<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/waitlist`)
-      : api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/waitlist`, { role })).then((r) => r.data!),
+      : api.put<ApiResponse<EventDto>>(`/guilds/${guildId}/events/${eventId}/waitlist`, { role })
+    ).then((r) => r.data!),
 
   start: (guildId: string, eventId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/start`).then((r) => r),
@@ -51,13 +66,19 @@ export const eventsApi = {
     api.get<ApiResponse<EventTemplateDto[]>>(`/guilds/${guildId}/event-templates`).then((r) => r.data!),
 
   getOrCreateEventTemplate: (guildId: string, eventId: string) =>
-    api.post<ApiResponse<EventTemplateDto>>(`/guilds/${guildId}/event-templates/from-event`, { eventId })
+    api
+      .post<ApiResponse<EventTemplateDto>>(`/guilds/${guildId}/event-templates/from-event`, { eventId })
       .then((r) => r.data!),
 
   complete: (
     guildId: string,
     eventId: string,
-    body: { hadLoot: boolean; lootNotes?: string; confirmedAttendees?: string[]; afterAction?: { outcome: AfterActionOutcome | null; notes: string } },
+    body: {
+      hadLoot: boolean;
+      lootNotes?: string;
+      confirmedAttendees?: string[];
+      afterAction?: { outcome: AfterActionOutcome | null; notes: string };
+    },
   ) => api.post<ApiResponse>(`/guilds/${guildId}/events/${eventId}/complete`, body).then((r) => r),
 
   /** After-action notes (v1.19.0); empty outcome and notes clears them. */
@@ -77,7 +98,9 @@ export const eventsApi = {
 
   /** Stops a repeating event; an upcoming occurrence is cancelled as well. */
   stopRecurrence: (guildId: string, eventId: string) =>
-    api.post<ApiResponse<EventDto & { cancelled: boolean }>>(`/guilds/${guildId}/events/${eventId}/stop-recurrence`).then((r) => r.data!),
+    api
+      .post<ApiResponse<EventDto & { cancelled: boolean }>>(`/guilds/${guildId}/events/${eventId}/stop-recurrence`)
+      .then((r) => r.data!),
 
   // ── Share API ──────────────────────────────────────────────────────────────
 
@@ -85,14 +108,22 @@ export const eventsApi = {
     api.get<ApiResponse<EventDto[]>>(`/guilds/${guildId}/events/pending-shares`).then((r) => r.data!),
 
   inviteGuildDirect: (guildId: string, eventId: string, targetDiscordGuildId: string) =>
-    api.post<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/direct`, { targetDiscordGuildId }).then((r) => r.data!),
+    api
+      .post<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/direct`, {
+        targetDiscordGuildId,
+      })
+      .then((r) => r.data!),
 
   cancelShare: (guildId: string, eventId: string, shareId: string) =>
     api.delete<ApiResponse>(`/guilds/${guildId}/events/${eventId}/shares/${shareId}`).then((r) => r),
 
   reinviteShare: (guildId: string, eventId: string, shareId: string) =>
-    api.patch<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/${shareId}/reinvite`, {}).then((r) => r.data!),
+    api
+      .patch<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/${shareId}/reinvite`, {})
+      .then((r) => r.data!),
 
   respondToShare: (guildId: string, eventId: string, action: 'accept' | 'decline') =>
-    api.patch<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/respond`, { action }).then((r) => r.data!),
+    api
+      .patch<ApiResponse<EventGuildShareDto>>(`/guilds/${guildId}/events/${eventId}/shares/respond`, { action })
+      .then((r) => r.data!),
 };

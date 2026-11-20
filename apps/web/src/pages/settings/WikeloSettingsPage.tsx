@@ -56,7 +56,9 @@ export function WikeloSettingsPage() {
     <div className="space-y-6 max-w-xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Wikelo Module</h1>
-        <p className="mt-1 text-muted-foreground">Wikelo's missions, their rewards and what to turn in, with a checklist for each member.</p>
+        <p className="mt-1 text-muted-foreground">
+          Wikelo's missions, their rewards and what to turn in, with a checklist for each member.
+        </p>
       </div>
 
       {isLoading ? (
@@ -71,9 +73,11 @@ export function WikeloSettingsPage() {
                 checked={form.wikeloEnabled}
                 onChange={(v) => setField('wikeloEnabled', v)}
                 label="Wikelo enabled"
-                description={form.wikeloEnabled
-                  ? 'Members can look up Wikelo\'s missions and keep their own checklists.'
-                  : 'Wikelo is off. The nav link is hidden and /wikelo answers that it isn\'t available here.'}
+                description={
+                  form.wikeloEnabled
+                    ? "Members can look up Wikelo's missions and keep their own checklists."
+                    : "Wikelo is off. The nav link is hidden and /wikelo answers that it isn't available here."
+                }
                 tooltip="Controls whether the Wikelo page and /wikelo are available in this server. Members' checklists are kept either way."
               />
             </CardContent>
@@ -88,9 +92,7 @@ export function WikeloSettingsPage() {
                 <Check className="h-4 w-4" /> Saved
               </span>
             )}
-            {mutation.isError && (
-              <span className="text-sm text-destructive">Failed to save.</span>
-            )}
+            {mutation.isError && <span className="text-sm text-destructive">Failed to save.</span>}
           </div>
         </div>
       )}

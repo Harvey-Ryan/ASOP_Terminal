@@ -45,16 +45,27 @@ export interface MissileRack {
 const SEEKERS: Record<string, MissileSeeker> = { electromagnetic: 'EM', infrared: 'IR', crosssection: 'CS' };
 
 /** One `scdata.items` row of type Missile → its numbers (null for dummies and placeholders). */
-export function missileFromItem(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; size?: number | null; data: Json }): MissileItem | null {
+export function missileFromItem(row: {
+  uuid: string;
+  class_name?: string | null;
+  name?: string | null;
+  manufacturer_name?: string | null;
+  size?: number | null;
+  data: Json;
+}): MissileItem | null {
   const s: Json = row.data?.stdItem ?? row.data ?? {};
   const m: Json = s.Missile ?? {};
   const name = str(row.name) ?? str(s.Name);
   const damage = num(m.DamageTotal);
   if (!name || /placeholder/i.test(name) || !damage) return null;
   const d: Json = m.Damage ?? {};
-  const types = (['Physical', 'Energy', 'Distortion'] as const).map((t) => [t, num(d[t]) ?? 0] as const).sort((a, b) => b[1] - a[1]);
+  const types = (['Physical', 'Energy', 'Distortion'] as const)
+    .map((t) => [t, num(d[t]) ?? 0] as const)
+    .sort((a, b) => b[1] - a[1]);
   const t: Json = m.Targeting ?? {};
-  const signal = String(t.TrackingSignalType ?? '').toLowerCase().replace(/[^a-z]/g, '');
+  const signal = String(t.TrackingSignalType ?? '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
   return {
     uuid: row.uuid,
     className: row.class_name ?? str(s.ClassName) ?? '',
@@ -63,7 +74,7 @@ export function missileFromItem(row: { uuid: string; class_name?: string | null;
     size: num(row.size) ?? num(s.Size) ?? 0,
     damage,
     damageType: types[0]![0],
-    seeker: m.GCS?.IsDumbMissile ? 'None' : SEEKERS[signal] ?? 'None',
+    seeker: m.GCS?.IsDumbMissile ? 'None' : (SEEKERS[signal] ?? 'None'),
     lockTime: num(t.LockTime),
     lockAngle: num(t.LockingAngle),
     lockRangeMin: num(t.LockRangeMin),
@@ -76,7 +87,18 @@ export function missileFromItem(row: { uuid: string; class_name?: string | null;
 
 /** Missiles with the same key are one choice (skins, copies made for one ship). */
 export function missileGroupKey(m: MissileItem): string {
-  return [m.name, m.size, m.damage, m.damageType, m.seeker, m.lockTime, m.lockAngle, m.lockRangeMin, m.lockRangeMax, m.speed].join('|');
+  return [
+    m.name,
+    m.size,
+    m.damage,
+    m.damageType,
+    m.seeker,
+    m.lockTime,
+    m.lockAngle,
+    m.lockRangeMin,
+    m.lockRangeMax,
+    m.speed,
+  ].join('|');
 }
 
 export function dedupeMissiles(list: MissileItem[]): MissileItem[] {
@@ -98,7 +120,9 @@ export function shipMissileRacks(ship: Json): MissileRack[] {
       const here = [...path, String(p.HardpointName ?? '')];
       if (String(p.Type ?? '').startsWith('MissileLauncher')) {
         const loaded: Json[] = (p.Loadout ?? []).filter((c: Json) => String(c.Type ?? '').startsWith('Missile.'));
-        const sizes = (p.Loadout ?? []).map((c: Json) => num(c.MaxSize)).filter((x: number | null): x is number => x != null);
+        const sizes = (p.Loadout ?? [])
+          .map((c: Json) => num(c.MaxSize))
+          .filter((x: number | null): x is number => x != null);
         racks.push({
           id: here.join('/'),
           name: str(p.Name) ?? 'Missile rack',

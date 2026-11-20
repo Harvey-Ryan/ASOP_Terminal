@@ -15,16 +15,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ADMIN, Empty, LevelDot, LoadFailed, SourceBadge, ago, inputCls, selectCls, when } from './adminUi';
 
-const FILTER_KEYS = ['source', 'level', 'q', 'guildId', 'userId', 'ref', 'fingerprint', 'release', 'period', 'status'] as const;
+const FILTER_KEYS = [
+  'source',
+  'level',
+  'q',
+  'guildId',
+  'userId',
+  'ref',
+  'fingerprint',
+  'release',
+  'period',
+  'status',
+] as const;
 type View = 'kinds' | 'all' | 'live';
 
 export function AdminErrorsPage() {
   const [params, setParams] = useSearchParams();
   const view = (params.get('view') as View | null) ?? 'kinds';
-  const filters: ErrorFilters = useMemo(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? undefined])), [params]);
+  const filters: ErrorFilters = useMemo(
+    () => Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? undefined])),
+    [params],
+  );
   const set = (changes: Record<string, string | undefined>) => {
     const next = new URLSearchParams(params);
-    for (const [k, v] of Object.entries(changes)) { if (v) next.set(k, v); else next.delete(k); }
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) next.set(k, v);
+      else next.delete(k);
+    }
     setParams(next, { replace: true });
   };
   const active = FILTER_KEYS.filter((k) => k !== 'period' && k !== 'status' && params.get(k));
@@ -36,32 +53,80 @@ export function AdminErrorsPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-md border p-0.5" role="tablist">
           {(['kinds', 'all', 'live'] as const).map((v) => (
-            <button key={v} role="tab" aria-selected={view === v} onClick={() => set({ view: v === 'kinds' ? undefined : v })}
-              className={cn('rounded px-3 py-1 text-sm capitalize', view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => set({ view: v === 'kinds' ? undefined : v })}
+              className={cn(
+                'rounded px-3 py-1 text-sm capitalize',
+                view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
               {v === 'kinds' ? 'Kinds' : v === 'all' ? 'All' : 'Live'}
             </button>
           ))}
         </div>
-        <select aria-label="Source" className={selectCls} value={filters.source ?? ''} onChange={(e) => set({ source: e.target.value || undefined })}>
-          <option value="">All sources</option><option value="api">API</option><option value="bot">Bot</option><option value="web">Browsers</option><option value="sc-data">sc-data</option>
+        <select
+          aria-label="Source"
+          className={selectCls}
+          value={filters.source ?? ''}
+          onChange={(e) => set({ source: e.target.value || undefined })}
+        >
+          <option value="">All sources</option>
+          <option value="api">API</option>
+          <option value="bot">Bot</option>
+          <option value="web">Browsers</option>
+          <option value="sc-data">sc-data</option>
         </select>
-        <select aria-label="Level" className={selectCls} value={filters.level ?? ''} onChange={(e) => set({ level: e.target.value || undefined })}>
-          <option value="">Errors and warnings</option><option value="error">Errors only</option><option value="warn">Warnings only</option>
+        <select
+          aria-label="Level"
+          className={selectCls}
+          value={filters.level ?? ''}
+          onChange={(e) => set({ level: e.target.value || undefined })}
+        >
+          <option value="">Errors and warnings</option>
+          <option value="error">Errors only</option>
+          <option value="warn">Warnings only</option>
         </select>
-        {view === 'kinds' && <>
-          <select aria-label="Period" className={selectCls} value={filters.period ?? '24h'} onChange={(e) => set({ period: e.target.value === '24h' ? undefined : e.target.value })}>
-            <option value="1h">Last hour</option><option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option>
-          </select>
-          <select aria-label="Status" className={selectCls} value={filters.status ?? 'all'} onChange={(e) => set({ status: e.target.value === 'all' ? undefined : e.target.value })}>
-            <option value="all">Any status</option><option value="open">Open</option><option value="resolved">Resolved</option><option value="ignored">Ignored</option>
-          </select>
-        </>}
+        {view === 'kinds' && (
+          <>
+            <select
+              aria-label="Period"
+              className={selectCls}
+              value={filters.period ?? '24h'}
+              onChange={(e) => set({ period: e.target.value === '24h' ? undefined : e.target.value })}
+            >
+              <option value="1h">Last hour</option>
+              <option value="24h">Last 24 hours</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </select>
+            <select
+              aria-label="Status"
+              className={selectCls}
+              value={filters.status ?? 'all'}
+              onChange={(e) => set({ status: e.target.value === 'all' ? undefined : e.target.value })}
+            >
+              <option value="all">Any status</option>
+              <option value="open">Open</option>
+              <option value="resolved">Resolved</option>
+              <option value="ignored">Ignored</option>
+            </select>
+          </>
+        )}
         <SearchBox value={filters.q ?? ''} onChange={(q) => set({ q })} />
       </div>
       {active.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {active.map((k) => (
-            <button key={k} onClick={() => set({ [k]: undefined })} className="rounded-full border px-2 py-0.5 hover:border-destructive" title="Remove filter">
+            <button
+              key={k}
+              onClick={() => set({ [k]: undefined })}
+              className="rounded-full border px-2 py-0.5 hover:border-destructive"
+              title="Remove filter"
+            >
               {k}: <span className="font-mono">{params.get(k)!.slice(0, 24)}</span> ✕
             </button>
           ))}
@@ -78,10 +143,31 @@ export function AdminErrorsPage() {
 function FindByRef({ onFind }: { onFind: (ref: string) => void }) {
   const [ref, setRef] = useState('');
   return (
-    <form className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3" onSubmit={(e) => { e.preventDefault(); const r = ref.trim().toUpperCase().replace(/^REF[\s:#]*/, ''); if (r) onFind(r); }}>
-      <label htmlFor="ref" className="text-sm text-muted-foreground">Someone gave you a code?</label>
-      <input id="ref" className={cn(inputCls, 'w-36 font-mono uppercase tracking-widest')} placeholder="K7QW3P" value={ref} onChange={(e) => setRef(e.target.value)} maxLength={16} />
-      <Button size="sm" type="submit">Find</Button>
+    <form
+      className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const r = ref
+          .trim()
+          .toUpperCase()
+          .replace(/^REF[\s:#]*/, '');
+        if (r) onFind(r);
+      }}
+    >
+      <label htmlFor="ref" className="text-sm text-muted-foreground">
+        Someone gave you a code?
+      </label>
+      <input
+        id="ref"
+        className={cn(inputCls, 'w-36 font-mono uppercase tracking-widest')}
+        placeholder="K7QW3P"
+        value={ref}
+        onChange={(e) => setRef(e.target.value)}
+        maxLength={16}
+      />
+      <Button size="sm" type="submit">
+        Find
+      </Button>
     </form>
   );
 }
@@ -90,13 +176,21 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string | 
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   useEffect(() => {
-    const t = setTimeout(() => { if (text !== value) onChange(text.trim() || undefined); }, 400);
+    const t = setTimeout(() => {
+      if (text !== value) onChange(text.trim() || undefined);
+    }, 400);
     return () => clearTimeout(t);
   }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="relative min-w-[12rem] flex-1">
       <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden />
-      <input aria-label="Search messages, stacks and context" className={cn(inputCls, 'w-full pl-8')} placeholder="Search message, stack, route…" value={text} onChange={(e) => setText(e.target.value)} />
+      <input
+        aria-label="Search messages, stacks and context"
+        className={cn(inputCls, 'w-full pl-8')}
+        placeholder="Search message, stack, route…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
     </div>
   );
 }
@@ -104,24 +198,36 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string | 
 // ── Kinds ───────────────────────────────────────────────────────────────────
 
 function Kinds({ filters, onPick }: { filters: ErrorFilters; onPick: (fingerprint: string) => void }) {
-  const q = useQuery({ queryKey: ['admin', 'groups', filters], queryFn: () => adminApi.groups(filters), refetchInterval: 30_000 });
+  const q = useQuery({
+    queryKey: ['admin', 'groups', filters],
+    queryFn: () => adminApi.groups(filters),
+    refetchInterval: 30_000,
+  });
   if (q.isError) return <LoadFailed error={q.error} />;
   if (!q.data) return <Skeleton className="h-64" />;
   if (q.data.length === 0) return <Empty>No errors in this period. 🎉</Empty>;
   return (
     <div className="overflow-hidden rounded-lg border">
-      {q.data.map((g) => <KindRow key={g.fingerprint} g={g} onPick={onPick} />)}
+      {q.data.map((g) => (
+        <KindRow key={g.fingerprint} g={g} onPick={onPick} />
+      ))}
     </div>
   );
 }
 
-const STATUS_CLS: Record<ErrorGroupStatus, string> = { open: 'text-red-300', resolved: 'text-emerald-300', ignored: 'text-muted-foreground' };
+const STATUS_CLS: Record<ErrorGroupStatus, string> = {
+  open: 'text-red-300',
+  resolved: 'text-emerald-300',
+  ignored: 'text-muted-foreground',
+};
 
 function KindRow({ g, onPick }: { g: ErrorGroupDto; onPick: (fp: string) => void }) {
   const qc = useQueryClient();
   const mark = useMutation({
     mutationFn: (status: ErrorGroupStatus) => adminApi.markGroup(g.fingerprint, { status }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['admin'] }); },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin'] });
+    },
   });
   return (
     <div className="flex flex-col gap-2 border-b bg-card px-4 py-3 last:border-b-0 sm:flex-row sm:items-center">
@@ -138,13 +244,30 @@ function KindRow({ g, onPick }: { g: ErrorGroupDto; onPick: (fp: string) => void
           {g.servers > 0 && ` · ${g.servers} server${g.servers === 1 ? '' : 's'}`}
           {g.users > 0 && ` · ${g.users} user${g.users === 1 ? '' : 's'}`}
           {g.releases.length > 0 && ` · ${g.releases.slice(0, 3).join(', ')}`}
-          {g.note && <> · <span className="italic">{g.note}</span></>}
+          {g.note && (
+            <>
+              {' '}
+              · <span className="italic">{g.note}</span>
+            </>
+          )}
         </p>
       </button>
       <div className="flex shrink-0 gap-1.5">
-        {g.status !== 'resolved' && <Button size="sm" variant="outline" disabled={mark.isPending} onClick={() => mark.mutate('resolved')}>Resolve</Button>}
-        {g.status !== 'ignored' && <Button size="sm" variant="ghost" disabled={mark.isPending} onClick={() => mark.mutate('ignored')}>Ignore</Button>}
-        {g.status !== 'open' && <Button size="sm" variant="ghost" disabled={mark.isPending} onClick={() => mark.mutate('open')}>Reopen</Button>}
+        {g.status !== 'resolved' && (
+          <Button size="sm" variant="outline" disabled={mark.isPending} onClick={() => mark.mutate('resolved')}>
+            Resolve
+          </Button>
+        )}
+        {g.status !== 'ignored' && (
+          <Button size="sm" variant="ghost" disabled={mark.isPending} onClick={() => mark.mutate('ignored')}>
+            Ignore
+          </Button>
+        )}
+        {g.status !== 'open' && (
+          <Button size="sm" variant="ghost" disabled={mark.isPending} onClick={() => mark.mutate('open')}>
+            Reopen
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -157,17 +280,36 @@ export function OccurrenceList({ rows, highlight }: { rows: ErrorEventDto[]; hig
   return (
     <div className="overflow-hidden rounded-lg border">
       {rows.map((e) => (
-        <Link key={e.id} to={`${ADMIN}/errors/${e.id}`} onClick={(ev) => { if (ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); navigate(`${ADMIN}/errors/${e.id}`); }}
-          className={cn('block border-b bg-card px-4 py-2.5 last:border-b-0 hover:bg-accent/40', highlight?.has(e.id) && 'bg-primary/10')}>
+        <Link
+          key={e.id}
+          to={`${ADMIN}/errors/${e.id}`}
+          onClick={(ev) => {
+            if (ev.metaKey || ev.ctrlKey) return;
+            ev.preventDefault();
+            navigate(`${ADMIN}/errors/${e.id}`);
+          }}
+          className={cn(
+            'block border-b bg-card px-4 py-2.5 last:border-b-0 hover:bg-accent/40',
+            highlight?.has(e.id) && 'bg-primary/10',
+          )}
+        >
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <LevelDot level={e.level} />
             <SourceBadge source={e.source} />
-            <time dateTime={e.createdAt} title={e.createdAt}>{when(e.createdAt)}</time>
+            <time dateTime={e.createdAt} title={e.createdAt}>
+              {when(e.createdAt)}
+            </time>
             {e.ref && <span className="font-mono">Ref {e.ref}</span>}
             {e.guildName && <span>· {e.guildName}</span>}
             {e.userName && <span>· {e.userName}</span>}
-            {typeof e.context['route'] === 'string' && <span className="font-mono">· {String(e.context['method'] ?? '')} {e.context['route']}</span>}
-            {typeof e.context['interaction'] === 'string' && <span className="font-mono">· {e.context['interaction']}</span>}
+            {typeof e.context['route'] === 'string' && (
+              <span className="font-mono">
+                · {String(e.context['method'] ?? '')} {e.context['route']}
+              </span>
+            )}
+            {typeof e.context['interaction'] === 'string' && (
+              <span className="font-mono">· {e.context['interaction']}</span>
+            )}
             {typeof e.context['page'] === 'string' && <span className="font-mono">· {e.context['page']}</span>}
             {e.suppressed > 0 && <span>· +{e.suppressed} similar dropped</span>}
           </div>
@@ -182,7 +324,8 @@ function All({ filters }: { filters: ErrorFilters }) {
   const navigate = useNavigate();
   const q = useInfiniteQuery({
     queryKey: ['admin', 'errors', filters],
-    queryFn: ({ pageParam }) => adminApi.errors({ ...filters, period: undefined, status: undefined, before: pageParam, limit: 50 }),
+    queryFn: ({ pageParam }) =>
+      adminApi.errors({ ...filters, period: undefined, status: undefined, before: pageParam, limit: 50 }),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last.length === 50 ? last[last.length - 1]!.id : undefined),
   });
@@ -193,13 +336,20 @@ function All({ filters }: { filters: ErrorFilters }) {
   }, [filters.ref, q.data]); // eslint-disable-line react-hooks/exhaustive-deps
   if (q.isError) return <LoadFailed error={q.error} />;
   if (!q.data) return <Skeleton className="h-64" />;
-  if (rows.length === 0) return <Empty>{filters.ref ? `Nothing found for Ref ${filters.ref}. Codes are kept 90 days.` : 'Nothing matches.'}</Empty>;
+  if (rows.length === 0)
+    return (
+      <Empty>
+        {filters.ref ? `Nothing found for Ref ${filters.ref}. Codes are kept 90 days.` : 'Nothing matches.'}
+      </Empty>
+    );
   return (
     <div className="space-y-3">
       <OccurrenceList rows={rows} />
       {q.hasNextPage && (
         <div className="flex justify-center">
-          <Button variant="outline" size="sm" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>{q.isFetchingNextPage ? 'Loading…' : 'Load older'}</Button>
+          <Button variant="outline" size="sm" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>
+            {q.isFetchingNextPage ? 'Loading…' : 'Load older'}
+          </Button>
         </div>
       )}
     </div>
@@ -214,7 +364,11 @@ function Live({ filters }: { filters: ErrorFilters }) {
   const key = JSON.stringify(filters);
 
   // Start from the latest 20, then ask for anything newer every 3 seconds.
-  const start = useQuery({ queryKey: ['admin', 'live-start', key], queryFn: () => adminApi.errors({ ...filters, period: undefined, status: undefined, limit: 20 }), staleTime: Infinity });
+  const start = useQuery({
+    queryKey: ['admin', 'live-start', key],
+    queryFn: () => adminApi.errors({ ...filters, period: undefined, status: undefined, limit: 20 }),
+    staleTime: Infinity,
+  });
   useEffect(() => {
     if (!start.data) return;
     setRows(start.data);
@@ -222,7 +376,8 @@ function Live({ filters }: { filters: ErrorFilters }) {
   }, [start.data]);
   const poll = useQuery({
     queryKey: ['admin', 'live', key, cursor.current],
-    queryFn: () => adminApi.errors({ ...filters, period: undefined, status: undefined, after: cursor.current ?? 0, limit: 100 }),
+    queryFn: () =>
+      adminApi.errors({ ...filters, period: undefined, status: undefined, after: cursor.current ?? 0, limit: 100 }),
     enabled: cursor.current !== null && !paused,
     refetchInterval: 3_000,
   });
@@ -240,15 +395,33 @@ function Live({ filters }: { filters: ErrorFilters }) {
     <div className="space-y-3">
       <div className="flex items-center gap-3 text-sm">
         <span className={cn('inline-flex items-center gap-2', paused ? 'text-muted-foreground' : 'text-emerald-300')}>
-          <span className={cn('h-2 w-2 rounded-full', paused ? 'bg-muted-foreground' : 'animate-pulse bg-emerald-400')} />
+          <span
+            className={cn('h-2 w-2 rounded-full', paused ? 'bg-muted-foreground' : 'animate-pulse bg-emerald-400')}
+          />
           {paused ? 'Paused' : 'Watching for new errors'}
         </span>
         <Button size="sm" variant="outline" onClick={() => setPaused((p) => !p)}>
-          {paused ? <><Play className="mr-1 h-3.5 w-3.5" />Resume</> : <><Pause className="mr-1 h-3.5 w-3.5" />Pause</>}
+          {paused ? (
+            <>
+              <Play className="mr-1 h-3.5 w-3.5" />
+              Resume
+            </>
+          ) : (
+            <>
+              <Pause className="mr-1 h-3.5 w-3.5" />
+              Pause
+            </>
+          )}
         </Button>
         {poll.isError && <span className="text-xs text-destructive">Lost connection; retrying…</span>}
       </div>
-      {!start.data ? <Skeleton className="h-64" /> : rows.length === 0 ? <Empty>Nothing yet. New errors appear here as they happen.</Empty> : <OccurrenceList rows={rows} highlight={fresh} />}
+      {!start.data ? (
+        <Skeleton className="h-64" />
+      ) : rows.length === 0 ? (
+        <Empty>Nothing yet. New errors appear here as they happen.</Empty>
+      ) : (
+        <OccurrenceList rows={rows} highlight={fresh} />
+      )}
     </div>
   );
 }

@@ -122,9 +122,8 @@ export async function fetchDiscordGuilds(accessToken: string): Promise<DiscordAp
   });
 
   if (!res.ok) {
-    const retryAfterMs = res.status === 429
-      ? Math.ceil(parseFloat(res.headers.get('Retry-After') ?? '5') * 1000)
-      : null;
+    const retryAfterMs =
+      res.status === 429 ? Math.ceil(parseFloat(res.headers.get('Retry-After') ?? '5') * 1000) : null;
     throw new GuildsFetchError(res.status, retryAfterMs, `Guilds fetch failed (${res.status})`);
   }
 

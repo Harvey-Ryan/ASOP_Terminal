@@ -25,14 +25,26 @@ export function AdminLayout() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-condensed text-2xl font-bold uppercase tracking-widest text-white">Admin</h1>
-          <p className="text-sm text-muted-foreground">Errors, servers and settings across every server ASOP runs on.</p>
+          <p className="text-sm text-muted-foreground">
+            Errors, servers and settings across every server ASOP runs on.
+          </p>
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-b" aria-label="Admin sections">
         {TABS.map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end}
-            className={({ isActive }) => cn('flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm transition-colors',
-              isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm transition-colors',
+                isActive
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )
+            }
+          >
             <Icon className="h-4 w-4" aria-hidden />
             {label}
           </NavLink>

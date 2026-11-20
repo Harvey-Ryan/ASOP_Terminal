@@ -17,11 +17,32 @@ import { buildMaterialSources, type MaterialSources, type ResourceLocationRow } 
 
 // ═══ Raw shapes (the old snapshot's format) ════════════════════════════════
 
-export interface RawBpItem { Name: string; ItemUUID: string; BlueprintUUID: string }
-export interface RawBpPool { Chance: number; PoolUUID: string; Items: RawBpItem | RawBpItem[] }
-export interface RawDifficulty { MechanicalSkill?: string; MentalLoad?: string; RiskOfLoss?: string; GameKnowledge?: string; Profile?: string }
-export interface RawStanding { Name?: string; MinReputation?: number }
-export interface RawReputation { Faction?: string; XP?: number; Scope?: string }
+export interface RawBpItem {
+  Name: string;
+  ItemUUID: string;
+  BlueprintUUID: string;
+}
+export interface RawBpPool {
+  Chance: number;
+  PoolUUID: string;
+  Items: RawBpItem | RawBpItem[];
+}
+export interface RawDifficulty {
+  MechanicalSkill?: string;
+  MentalLoad?: string;
+  RiskOfLoss?: string;
+  GameKnowledge?: string;
+  Profile?: string;
+}
+export interface RawStanding {
+  Name?: string;
+  MinReputation?: number;
+}
+export interface RawReputation {
+  Faction?: string;
+  XP?: number;
+  Scope?: string;
+}
 
 export interface RawMission {
   Title?: string;
@@ -42,7 +63,10 @@ export interface RawMission {
   OnceOnly?: boolean;
 }
 
-export interface RawResource { UUID: string; Name: string }
+export interface RawResource {
+  UUID: string;
+  Name: string;
+}
 
 export interface RawStat {
   Key: string;
@@ -69,9 +93,19 @@ export interface RawMaterial {
   MinQuality: number | null;
 }
 
-export interface RawComponent { Slot: string; Material: RawMaterial; Stats: RawStat[] }
+export interface RawComponent {
+  Slot: string;
+  Material: RawMaterial;
+  Stats: RawStat[];
+}
 
-export interface RawDismantleReturn { UUID: string | null; Name: string | null; Kind: string; Quantity: number | null; QuantityScu: number | null }
+export interface RawDismantleReturn {
+  UUID: string | null;
+  Name: string | null;
+  Kind: string;
+  Quantity: number | null;
+  QuantityScu: number | null;
+}
 
 export interface RawDismantle {
   TimeSeconds: number | null;
@@ -110,9 +144,12 @@ export interface ScRequirementNode {
     ModifierRange?: { AtMinQuality: number; AtMaxQuality: number } | [];
     /** The curve piece by piece (most stats: 0–500 then 501–1000); additive ones add whole numbers. */
     ValueSegments?: {
-      QualityMin: number; QualityMax: number;
-      ModifierAtStart?: number; ModifierAtEnd?: number;
-      AdditiveAtStart?: number; AdditiveAtEnd?: number;
+      QualityMin: number;
+      QualityMax: number;
+      ModifierAtStart?: number;
+      ModifierAtEnd?: number;
+      AdditiveAtStart?: number;
+      AdditiveAtEnd?: number;
     }[];
     ValueRangeType?: string;
   }[];
@@ -126,7 +163,15 @@ export interface ScBlueprintJson {
   Dismantle?: {
     TimeSeconds?: number | null;
     Efficiency?: number | null;
-    Returns?: { Kind?: string; Name?: string | null; UUID?: string | null; Quantity?: number | null; QuantityScu?: number | null }[] | null;
+    Returns?:
+      | {
+          Kind?: string;
+          Name?: string | null;
+          UUID?: string | null;
+          Quantity?: number | null;
+          QuantityScu?: number | null;
+        }[]
+      | null;
   } | null;
 }
 
@@ -139,9 +184,19 @@ export interface ScContractJson {
   MissionType?: { Name?: string } | null;
   MissionGiver?: string | null;
   Faction?: { Name?: string } | null;
-  Blueprints?: { Chance?: number; PoolUUID: string; PoolContents?: { ItemName?: string; ItemUUID?: string; BlueprintUUID?: string }[] }[];
+  Blueprints?: {
+    Chance?: number;
+    PoolUUID: string;
+    PoolContents?: { ItemName?: string; ItemUUID?: string; BlueprintUUID?: string }[];
+  }[];
   ReputationGained?: { Faction?: string; Amount?: number; Scope?: string }[];
-  Difficulty?: { MechanicalSkill?: string; MentalLoad?: string; RiskOfLoss?: string; GameKnowledge?: string; DifficultyProfile?: string } | null;
+  Difficulty?: {
+    MechanicalSkill?: string;
+    MentalLoad?: string;
+    RiskOfLoss?: string;
+    GameKnowledge?: string;
+    DifficultyProfile?: string;
+  } | null;
   TimeToComplete?: number | null;
   MinStanding?: { Name?: string; MinReputation?: number } | null;
   Illegal?: boolean;
@@ -182,18 +237,34 @@ export function adaptModifier(m: ScModifier): RawStat | null {
       Start: (additive ? v.AdditiveAtStart : v.ModifierAtStart) ?? NaN,
       End: (additive ? v.AdditiveAtEnd : v.ModifierAtEnd) ?? NaN,
     }))
-    .filter((v) => Number.isFinite(v.QMin) && Number.isFinite(v.QMax) && Number.isFinite(v.Start) && Number.isFinite(v.End))
+    .filter(
+      (v) => Number.isFinite(v.QMin) && Number.isFinite(v.QMax) && Number.isFinite(v.Start) && Number.isFinite(v.End),
+    )
     .sort((a, b) => a.QMin - b.QMin);
-  const range = Array.isArray(m.QualityRange) ? null : m.QualityRange ?? null;
-  const mods = Array.isArray(m.ModifierRange) ? null : m.ModifierRange ?? null;
+  const range = Array.isArray(m.QualityRange) ? null : (m.QualityRange ?? null);
+  const mods = Array.isArray(m.ModifierRange) ? null : (m.ModifierRange ?? null);
   const base = { Key: m.Key, Label: m.Name, UnitFormat: m.UnitFormat ?? null, Additive: additive };
   if (segs.length > 0) {
     const first = segs[0]!;
     const last = segs[segs.length - 1]!;
-    return { ...base, QualityMin: first.QMin, QualityMax: last.QMax, MultiplierAtMin: first.Start, MultiplierAtMax: last.End, Segments: segs.length > 1 ? segs : null };
+    return {
+      ...base,
+      QualityMin: first.QMin,
+      QualityMax: last.QMax,
+      MultiplierAtMin: first.Start,
+      MultiplierAtMax: last.End,
+      Segments: segs.length > 1 ? segs : null,
+    };
   }
   if (additive || !mods || typeof mods.AtMinQuality !== 'number' || typeof mods.AtMaxQuality !== 'number') return null;
-  return { ...base, QualityMin: range?.Min ?? 0, QualityMax: range?.Max ?? 1000, MultiplierAtMin: mods.AtMinQuality, MultiplierAtMax: mods.AtMaxQuality, Segments: null };
+  return {
+    ...base,
+    QualityMin: range?.Min ?? 0,
+    QualityMax: range?.Max ?? 1000,
+    MultiplierAtMin: mods.AtMinQuality,
+    MultiplierAtMax: mods.AtMaxQuality,
+    Segments: null,
+  };
 }
 
 export function adaptBlueprint(b: ScBlueprintJson): RawLocalBlueprint {
@@ -217,7 +288,13 @@ export function adaptBlueprint(b: ScBlueprintJson): RawLocalBlueprint {
         Slot: g.Name ?? 'Component',
         Material: {
           UUID: first.UUID ?? null,
-          Name: options.length > 1 ? options.map((o) => o.Name).filter(Boolean).join(' or ') : (first.Name ?? null),
+          Name:
+            options.length > 1
+              ? options
+                  .map((o) => o.Name)
+                  .filter(Boolean)
+                  .join(' or ')
+              : (first.Name ?? null),
           Kind: first.Kind,
           Quantity: first.Quantity ?? null,
           QuantityScu: first.QuantityScu ?? null,
@@ -231,8 +308,11 @@ export function adaptBlueprint(b: ScBlueprintJson): RawLocalBlueprint {
           TimeSeconds: b.Dismantle.TimeSeconds ?? null,
           Efficiency: b.Dismantle.Efficiency ?? null,
           Returns: (b.Dismantle.Returns ?? []).map((r) => ({
-            UUID: r.UUID ?? null, Name: r.Name ?? null, Kind: r.Kind ?? 'resource',
-            Quantity: r.Quantity ?? null, QuantityScu: r.QuantityScu ?? null,
+            UUID: r.UUID ?? null,
+            Name: r.Name ?? null,
+            Kind: r.Kind ?? 'resource',
+            Quantity: r.Quantity ?? null,
+            QuantityScu: r.QuantityScu ?? null,
           })),
         }
       : null,
@@ -244,13 +324,18 @@ export function fillMissionTokens(text: string, c: ScContractJson): string {
   const byPurpose = new Map<string, string>();
   for (const pool of Object.values(c.LocationPools ?? {})) {
     const name = pool.ResolvedLocations?.find((l) => l.Name && !hasToken(l.Name))?.Name;
-    if (pool.Purpose && name && !byPurpose.has(pool.Purpose.toLowerCase())) byPurpose.set(pool.Purpose.toLowerCase(), name);
+    if (pool.Purpose && name && !byPurpose.has(pool.Purpose.toLowerCase()))
+      byPurpose.set(pool.Purpose.toLowerCase(), name);
   }
-  return text.replace(/~mission\(([^|)]*)(?:\|[^)]*)?\)/g, (_m, key: string) => byPurpose.get(key.toLowerCase()) ?? 'the marked location');
+  return text.replace(
+    /~mission\(([^|)]*)(?:\|[^)]*)?\)/g,
+    (_m, key: string) => byPurpose.get(key.toLowerCase()) ?? 'the marked location',
+  );
 }
 
 /** Rooms and areas inside a place; on their own they don't say where to go. */
-const ROOM = /^(Lobby|Sector \d+|Security (Checkpoint|Compound)|Inventory Center|Exterior Zone \d+|Central Core & Power|(Engineering|Research) Wing|Abandoned Section|Maintenance Area-\d+|On-Call Area|Operations Office|Shipping Area|Storehouse|Storage Depot|Supply Room|Service Entrance|Staging Point|Hangar \d+|Trading Post|Site-B Lab|Outpost (Depot|Landing Area|Main Building|Storage Shed|Warehouse))$/;
+const ROOM =
+  /^(Lobby|Sector \d+|Security (Checkpoint|Compound)|Inventory Center|Exterior Zone \d+|Central Core & Power|(Engineering|Research) Wing|Abandoned Section|Maintenance Area-\d+|On-Call Area|Operations Office|Shipping Area|Storehouse|Storage Depot|Supply Room|Service Entrance|Staging Point|Hangar \d+|Trading Post|Site-B Lab|Outpost (Depot|Landing Area|Main Building|Storage Shed|Warehouse))$/;
 /** "Starlight Service Station Clinic" → "Starlight Service Station". */
 const PART_SUFFIX = / (Clinic|Entrance|Habs|Hangar|Exterior|Gas Cloud)$/;
 
@@ -276,7 +361,12 @@ export function cleanMissionLocations(names: readonly string[]): string[] {
     if (base !== n && out.has(base)) out.delete(n);
   }
   for (const n of [...out]) {
-    if (all.some((m) => m !== n && (m.startsWith(`${n} at the `) || m.startsWith(`${n} above `) || m === `${n} wreck site`))) out.delete(n);
+    if (
+      all.some(
+        (m) => m !== n && (m.startsWith(`${n} at the `) || m.startsWith(`${n} above `) || m === `${n} wreck site`),
+      )
+    )
+      out.delete(n);
   }
   return [...out].sort((a, b) => a.localeCompare(b));
 }
@@ -284,7 +374,7 @@ export function cleanMissionLocations(names: readonly string[]): string[] {
 export function adaptContract(c: ScContractJson): RawMission | null {
   const title = !isToken(c.DisplayTitle) ? c.DisplayTitle! : !isToken(c.Title) ? c.Title! : null;
   if (!title) return null; // no readable name (template/test missions)
-  const description = !isToken(c.DisplayDescription) ? c.DisplayDescription! : c.Description ?? '';
+  const description = !isToken(c.DisplayDescription) ? c.DisplayDescription! : (c.Description ?? '');
   const locations = cleanMissionLocations(
     Object.values(c.LocationPools ?? {})
       .flatMap((p) => p.ResolvedLocations ?? [])
@@ -307,16 +397,24 @@ export function adaptContract(c: ScContractJson): RawMission | null {
     })),
     Reputation: (c.ReputationGained ?? []).map((r) => ({ Faction: r.Faction, XP: r.Amount, Scope: r.Scope })),
     Difficulty: c.Difficulty
-      ? { MechanicalSkill: c.Difficulty.MechanicalSkill, MentalLoad: c.Difficulty.MentalLoad, RiskOfLoss: c.Difficulty.RiskOfLoss,
-          GameKnowledge: c.Difficulty.GameKnowledge, Profile: c.Difficulty.DifficultyProfile }
+      ? {
+          MechanicalSkill: c.Difficulty.MechanicalSkill,
+          MentalLoad: c.Difficulty.MentalLoad,
+          RiskOfLoss: c.Difficulty.RiskOfLoss,
+          GameKnowledge: c.Difficulty.GameKnowledge,
+          Profile: c.Difficulty.DifficultyProfile,
+        }
       : undefined,
     TimeToCompleteMinutes: c.TimeToComplete ?? undefined,
     MinStanding: c.MinStanding ?? undefined,
     Illegal: c.Illegal ?? false,
-    RewardItems: (c.RewardItems ?? []).flatMap((r) => r.Items ?? [])
+    RewardItems: (c.RewardItems ?? [])
+      .flatMap((r) => r.Items ?? [])
       .filter((i) => i.Name && (i.Amount ?? 0) > 0)
       .map((i) => ({ Name: i.Name!, Amount: i.Amount! })),
-    Enemies: c.CombatSummary?.Total?.Max ? { Min: c.CombatSummary.Total.Min ?? c.CombatSummary.Total.Max, Max: c.CombatSummary.Total.Max } : null,
+    Enemies: c.CombatSummary?.Total?.Max
+      ? { Min: c.CombatSummary.Total.Min ?? c.CombatSummary.Total.Max, Max: c.CombatSummary.Total.Max }
+      : null,
     Shareable: c.Shareable ?? false,
     OnceOnly: c.OnceOnly ?? false,
   };
@@ -324,7 +422,12 @@ export function adaptContract(c: ScContractJson): RawMission | null {
 
 // ═══ What the pages show ═══════════════════════════════════════════════════
 
-export interface CraftingStatSegment { qMin: number; qMax: number; mStart: number; mEnd: number }
+export interface CraftingStatSegment {
+  qMin: number;
+  qMax: number;
+  mStart: number;
+  mEnd: number;
+}
 
 export interface CraftingStat {
   key: string;
@@ -348,10 +451,22 @@ export interface CraftingMaterial {
   minQuality: number;
 }
 
-export interface CraftingComponent { slot: string; material: CraftingMaterial; stats: CraftingStat[] }
+export interface CraftingComponent {
+  slot: string;
+  material: CraftingMaterial;
+  stats: CraftingStat[];
+}
 
-export interface CraftingDismantleReturn { name: string; quantityScu: number | null; quantity: number | null }
-export interface CraftingDismantle { timeSecs: number; efficiency: number; returns: CraftingDismantleReturn[] }
+export interface CraftingDismantleReturn {
+  name: string;
+  quantityScu: number | null;
+  quantity: number | null;
+}
+export interface CraftingDismantle {
+  timeSecs: number;
+  efficiency: number;
+  returns: CraftingDismantleReturn[];
+}
 
 export interface CraftingBlueprint {
   uuid: string;
@@ -372,27 +487,57 @@ export interface CraftingBlueprint {
 
 export interface ArmorBaseStats {
   kind: 'armor';
-  resistance: { physical: number; energy: number; distortion: number; thermal: number; biochemical: number; stun: number };
+  resistance: {
+    physical: number;
+    energy: number;
+    distortion: number;
+    thermal: number;
+    biochemical: number;
+    stun: number;
+  };
   temperature: { min: number; max: number } | null;
   radiation: { maxCapacity: number; dissipationRate: number } | null;
 }
-export interface ShieldBaseStats { kind: 'shield'; maxHealth: number }
-export interface WeaponBaseStats { kind: 'weapon'; modes: Array<{ name: string; rpm: number; alpha: number; dps: number }> }
-export interface PowerPlantBaseStats { kind: 'powerplant'; powerOutput: number }
-export interface QuantumDriveBaseStats { kind: 'quantumdrive'; speedMs: number; fuelReq10GM: number; spoolTime: number; cooldownTime: number }
-export interface GenericBaseStats { kind: 'generic'; hp: number | null }
+export interface ShieldBaseStats {
+  kind: 'shield';
+  maxHealth: number;
+}
+export interface WeaponBaseStats {
+  kind: 'weapon';
+  modes: Array<{ name: string; rpm: number; alpha: number; dps: number }>;
+}
+export interface PowerPlantBaseStats {
+  kind: 'powerplant';
+  powerOutput: number;
+}
+export interface QuantumDriveBaseStats {
+  kind: 'quantumdrive';
+  speedMs: number;
+  fuelReq10GM: number;
+  spoolTime: number;
+  cooldownTime: number;
+}
+export interface GenericBaseStats {
+  kind: 'generic';
+  hp: number | null;
+}
 
 export type ItemBaseStats =
-  | ArmorBaseStats
-  | ShieldBaseStats
-  | WeaponBaseStats
-  | PowerPlantBaseStats
-  | QuantumDriveBaseStats
-  | GenericBaseStats;
+  ArmorBaseStats | ShieldBaseStats | WeaponBaseStats | PowerPlantBaseStats | QuantumDriveBaseStats | GenericBaseStats;
 
-export interface MissionBlueprintEntry { name: string; blueprintUuid: string }
-export interface MissionPool { locations: string[]; blueprints: MissionBlueprintEntry[] }
-export interface MissionReputation { faction: string; xp: number; scope: string }
+export interface MissionBlueprintEntry {
+  name: string;
+  blueprintUuid: string;
+}
+export interface MissionPool {
+  locations: string[];
+  blueprints: MissionBlueprintEntry[];
+}
+export interface MissionReputation {
+  faction: string;
+  xp: number;
+  scope: string;
+}
 export interface MissionDifficulty {
   mechanicalSkill: number;
   mechanicalSkillLabel: string;
@@ -404,9 +549,15 @@ export interface MissionDifficulty {
   gameKnowledgeLabel: string;
   profile: string | null;
 }
-export interface MissionStanding { name: string; minReputation: number }
+export interface MissionStanding {
+  name: string;
+  minReputation: number;
+}
 /** An item the mission gives on completion (scrip, gear…); aUEC isn't in the game files. */
-export interface MissionRewardItem { name: string; amount: number }
+export interface MissionRewardItem {
+  name: string;
+  amount: number;
+}
 export interface MissionContract {
   title: string;
   description: string;
@@ -448,7 +599,8 @@ export interface CraftingDataDto {
 
 const PLACEHOLDER = '<= PLACEHOLDER =>';
 const UNINITIALIZED = '<= UNINITIALIZED =>';
-const clean = (s: string | null | undefined): string | null => (!s || s === PLACEHOLDER || s === UNINITIALIZED ? null : s);
+const clean = (s: string | null | undefined): string | null =>
+  !s || s === PLACEHOLDER || s === UNINITIALIZED ? null : s;
 
 /** What we know about a crafted item (from scdata.items). */
 export interface CraftedItemRow {
@@ -461,10 +613,14 @@ export interface CraftedItemRow {
   std: unknown;
 }
 
-function toBlueprint(b: RawLocalBlueprint, item: CraftedItemRow | undefined, resources: Map<string, string>): CraftingBlueprint {
+function toBlueprint(
+  b: RawLocalBlueprint,
+  item: CraftedItemRow | undefined,
+  resources: Map<string, string>,
+): CraftingBlueprint {
   const materialName = (uuid: string | null, kind: string) => {
     if (!uuid) return 'Unknown';
-    return kind === 'resource' ? resources.get(uuid) ?? uuid : uuid;
+    return kind === 'resource' ? (resources.get(uuid) ?? uuid) : uuid;
   };
   return {
     uuid: b.UUID,
@@ -485,9 +641,8 @@ function toBlueprint(b: RawLocalBlueprint, item: CraftedItemRow | undefined, res
         quantity: c.Material.Quantity ?? null,
         minQuality: c.Material.MinQuality ?? 0,
       },
-      stats: c.Stats
-        .filter((s) => s.Key != null && s.MultiplierAtMin != null && s.MultiplierAtMax != null)
-        .map((s) => ({
+      stats: c.Stats.filter((s) => s.Key != null && s.MultiplierAtMin != null && s.MultiplierAtMax != null).map(
+        (s) => ({
           key: s.Key,
           label: s.Label ?? s.Key,
           qualityMin: s.QualityMin ?? 0,
@@ -497,19 +652,21 @@ function toBlueprint(b: RawLocalBlueprint, item: CraftedItemRow | undefined, res
           curve: s.Additive ? 'additive' : 'linear',
           segments: s.Segments?.map((g) => ({ qMin: g.QMin, qMax: g.QMax, mStart: g.Start, mEnd: g.End })) ?? null,
           unitFormat: s.UnitFormat ?? null,
-        })),
+        }),
+      ),
     })),
-    dismantle: b.Dismantle && typeof b.Dismantle.TimeSeconds === 'number'
-      ? {
-          timeSecs: b.Dismantle.TimeSeconds,
-          efficiency: b.Dismantle.Efficiency ?? 0.5,
-          returns: (b.Dismantle.Returns ?? []).map((r) => ({
-            name: r.Name ?? materialName(r.UUID, r.Kind),
-            quantityScu: r.QuantityScu ?? null,
-            quantity: r.Quantity ?? null,
-          })),
-        }
-      : null,
+    dismantle:
+      b.Dismantle && typeof b.Dismantle.TimeSeconds === 'number'
+        ? {
+            timeSecs: b.Dismantle.TimeSeconds,
+            efficiency: b.Dismantle.Efficiency ?? 0.5,
+            returns: (b.Dismantle.Returns ?? []).map((r) => ({
+              name: r.Name ?? materialName(r.UUID, r.Kind),
+              quantityScu: r.QuantityScu ?? null,
+              quantity: r.Quantity ?? null,
+            })),
+          }
+        : null,
     missions: [],
     manufacturer: clean(item?.manufacturer),
     mass: typeof item?.mass === 'number' ? item.mass : null,
@@ -517,7 +674,10 @@ function toBlueprint(b: RawLocalBlueprint, item: CraftedItemRow | undefined, res
 }
 
 const items = (x: RawBpItem | RawBpItem[] | null | undefined): RawBpItem[] => (!x ? [] : Array.isArray(x) ? x : [x]);
-const diffScore = (raw: string | null | undefined) => { const m = raw?.match(/_(\d+)$/); return m ? parseInt(m[1]!, 10) : 0; };
+const diffScore = (raw: string | null | undefined) => {
+  const m = raw?.match(/_(\d+)$/);
+  return m ? parseInt(m[1]!, 10) : 0;
+};
 /** The game's difficulty keys, in words a player would use. */
 const DIFFICULTY_WORDS: Record<string, string> = {
   Safe_and_sound_zzzz: 'Safe and sound',
@@ -576,13 +736,23 @@ export function buildMissionContracts(raw: readonly RawMission[]): MissionContra
       for (const pool of m.BlueprintPool ?? []) {
         const contents = items(pool.Items);
         if (contents.length === 0) continue;
-        const fp = contents.map((c) => c.BlueprintUUID).sort().join('|');
+        const fp = contents
+          .map((c) => c.BlueprintUUID)
+          .sort()
+          .join('|');
         const entry = pools.get(fp);
         if (entry) for (const loc of m.Locations ?? []) entry.locations.add(loc);
-        else pools.set(fp, { locations: new Set(m.Locations ?? []), blueprints: contents.map((c) => ({ name: c.Name, blueprintUuid: c.BlueprintUUID })) });
+        else
+          pools.set(fp, {
+            locations: new Set(m.Locations ?? []),
+            blueprints: contents.map((c) => ({ name: c.Name, blueprintUuid: c.BlueprintUUID })),
+          });
       }
     }
-    const poolList: MissionPool[] = [...pools.values()].map((p) => ({ locations: cleanMissionLocations([...p.locations]), blueprints: p.blueprints }));
+    const poolList: MissionPool[] = [...pools.values()].map((p) => ({
+      locations: cleanMissionLocations([...p.locations]),
+      blueprints: p.blueprints,
+    }));
     const first = group[0]!;
     const rd = first.Difficulty;
     const rs = first.MinStanding;
@@ -599,10 +769,14 @@ export function buildMissionContracts(raw: readonly RawMission[]): MissionContra
         .map((r) => ({ faction: r.Faction!, xp: r.XP!, scope: r.Scope ?? 'FactionReputation' })),
       difficulty: rd
         ? {
-            mechanicalSkill: diffScore(rd.MechanicalSkill), mechanicalSkillLabel: diffLabel(rd.MechanicalSkill),
-            mentalLoad: diffScore(rd.MentalLoad), mentalLoadLabel: diffLabel(rd.MentalLoad),
-            riskOfLoss: diffScore(rd.RiskOfLoss), riskOfLossLabel: diffLabel(rd.RiskOfLoss),
-            gameKnowledge: diffScore(rd.GameKnowledge), gameKnowledgeLabel: diffLabel(rd.GameKnowledge),
+            mechanicalSkill: diffScore(rd.MechanicalSkill),
+            mechanicalSkillLabel: diffLabel(rd.MechanicalSkill),
+            mentalLoad: diffScore(rd.MentalLoad),
+            mentalLoadLabel: diffLabel(rd.MentalLoad),
+            riskOfLoss: diffScore(rd.RiskOfLoss),
+            riskOfLossLabel: diffLabel(rd.RiskOfLoss),
+            gameKnowledge: diffScore(rd.GameKnowledge),
+            gameKnowledgeLabel: diffLabel(rd.GameKnowledge),
             profile: rd.Profile ?? null,
           }
         : null,
@@ -642,7 +816,9 @@ function powerOutput(std: unknown): number {
   for (const s of Array.isArray(states) ? states : []) {
     if (obj(s)?.['Name'] !== 'Online') continue;
     const deltas = obj(s)?.['Deltas'];
-    const gen = (Array.isArray(deltas) ? deltas : []).find((d) => obj(d)?.['Type'] === 'Generation' && obj(d)?.['Resource'] === 'Power');
+    const gen = (Array.isArray(deltas) ? deltas : []).find(
+      (d) => obj(d)?.['Type'] === 'Generation' && obj(d)?.['Resource'] === 'Power',
+    );
     const rate = num(obj(gen)?.['Rate']);
     if (rate != null) return rate;
   }
@@ -659,14 +835,24 @@ export function baseStatsFor(type: string, std: unknown): ItemBaseStats {
     return {
       kind: 'armor',
       resistance: {
-        physical: mult('Physical'), energy: mult('Energy'), distortion: mult('Distortion'),
-        thermal: mult('Thermal'), biochemical: mult('Biochemical'), stun: mult('Stun'),
+        physical: mult('Physical'),
+        energy: mult('Energy'),
+        distortion: mult('Distortion'),
+        thermal: mult('Thermal'),
+        biochemical: mult('Biochemical'),
+        stun: mult('Stun'),
       },
       temperature: t ? { min: num(t['Minimum']) ?? 0, max: num(t['Maximum']) ?? 0 } : null,
-      radiation: r ? { maxCapacity: num(r['MaximumRadiationCapacity']) ?? 0, dissipationRate: num(r['RadiationDissipationRate']) ?? 0 } : null,
+      radiation: r
+        ? {
+            maxCapacity: num(r['MaximumRadiationCapacity']) ?? 0,
+            dissipationRate: num(r['RadiationDissipationRate']) ?? 0,
+          }
+        : null,
     };
   }
-  if (type === 'Shield') return { kind: 'shield', maxHealth: num(path(std, 'Shield', 'MaxShieldHealth')) ?? health(std) ?? 0 };
+  if (type === 'Shield')
+    return { kind: 'shield', maxHealth: num(path(std, 'Shield', 'MaxShieldHealth')) ?? health(std) ?? 0 };
   if (type === 'PowerPlant') return { kind: 'powerplant', powerOutput: powerOutput(std) };
   if (type === 'QuantumDrive') {
     const qd = path(std, 'QuantumDrive');
@@ -743,9 +929,10 @@ export function statAt(
   stat: Pick<CraftingStat, 'qualityMin' | 'qualityMax' | 'multiplierAtMin' | 'multiplierAtMax' | 'segments'>,
   quality: number,
 ): number {
-  const pieces = stat.segments && stat.segments.length > 0
-    ? stat.segments
-    : [{ qMin: stat.qualityMin, qMax: stat.qualityMax, mStart: stat.multiplierAtMin, mEnd: stat.multiplierAtMax }];
+  const pieces =
+    stat.segments && stat.segments.length > 0
+      ? stat.segments
+      : [{ qMin: stat.qualityMin, qMax: stat.qualityMax, mStart: stat.multiplierAtMin, mEnd: stat.multiplierAtMax }];
   if (quality <= pieces[0]!.qMin) return pieces[0]!.mStart;
   for (const p of pieces) {
     if (quality <= p.qMax) {

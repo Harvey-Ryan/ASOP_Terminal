@@ -25,5 +25,10 @@ export interface ItemSuggestion {
 
 export async function itemSuggestions(q: string, limit = 12, kind?: CatalogKind): Promise<ItemSuggestion[]> {
   const hits = await catalogApi.search(q, { limit, kind });
-  return hits.map((e) => ({ id: e.ref, name: e.name, detail: e.detail, type: e.kind === 'COMMODITY' ? 'commodity' : 'item' }));
+  return hits.map((e) => ({
+    id: e.ref,
+    name: e.name,
+    detail: e.detail,
+    type: e.kind === 'COMMODITY' ? 'commodity' : 'item',
+  }));
 }

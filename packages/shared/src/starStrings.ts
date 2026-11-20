@@ -49,8 +49,15 @@ export function parseStarStringsRelease(json: unknown): StarStringsRelease | nul
   const pageUrl = s(r.html_url)?.startsWith('https://github.com/') ? s(r.html_url)! : STARSTRINGS_LIVE_PAGE;
 
   const assets = (Array.isArray(r.assets) ? r.assets : [])
-    .map((a: { name?: unknown; browser_download_url?: unknown; size?: unknown }) => ({ name: s(a.name), url: s(a.browser_download_url), size: typeof a.size === 'number' ? a.size : null }))
-    .filter((a): a is { name: string; url: string; size: number | null } => !!a.name && !!a.url && a.url.startsWith('https://github.com/'));
+    .map((a: { name?: unknown; browser_download_url?: unknown; size?: unknown }) => ({
+      name: s(a.name),
+      url: s(a.browser_download_url),
+      size: typeof a.size === 'number' ? a.size : null,
+    }))
+    .filter(
+      (a): a is { name: string; url: string; size: number | null } =>
+        !!a.name && !!a.url && a.url.startsWith('https://github.com/'),
+    );
   const zip = assets.find((a) => /live.*\.zip$/i.test(a.name)) ?? assets.find((a) => /\.zip$/i.test(a.name));
 
   return {
@@ -65,7 +72,8 @@ export function parseStarStringsRelease(json: unknown): StarStringsRelease | nul
 }
 
 /** What makes a build new: its build id (or name) and when it was published. */
-export const starStringsKey = (r: Pick<StarStringsRelease, 'build' | 'name' | 'publishedAt'>) => `${r.build ?? r.name}@${r.publishedAt}`;
+export const starStringsKey = (r: Pick<StarStringsRelease, 'build' | 'name' | 'publishedAt'>) =>
+  `${r.build ?? r.name}@${r.publishedAt}`;
 
 /**
  * GuildSettings.starStringsPosted is "<channel id>|<key>": a server is due a
@@ -84,6 +92,6 @@ export function fileSize(bytes: number | null): string | null {
 /** How to install, from the project's README, in our words. */
 export const STARSTRINGS_INSTALL = [
   'Unzip it, then copy the `data` folder and `user.cfg` into your `StarCitizen/LIVE` folder.',
-  'Already have a `user.cfg`? Don\'t replace it: add `g_language = english` to the end of yours.',
+  "Already have a `user.cfg`? Don't replace it: add `g_language = english` to the end of yours.",
   'Get the new build after every patch; an old one can leave text missing or blank in game.',
 ];

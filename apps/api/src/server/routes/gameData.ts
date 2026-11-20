@@ -43,13 +43,19 @@ gameDataRouter.get('/game-data/crafting', requireAuth, async (req, res) => {
   try {
     const p = await getCraftingPayload();
     if (!p) {
-      res.status(503).json({ success: false, error: 'Game data isn\'t available yet. Try again in a few minutes.' } satisfies ApiResponse);
+      res.status(503).json({
+        success: false,
+        error: "Game data isn't available yet. Try again in a few minutes.",
+      } satisfies ApiResponse);
       return;
     }
     res.setHeader('ETag', p.etag);
     res.setHeader('Cache-Control', 'private, no-cache'); // revalidate each visit; 304 when the build hasn't changed
     res.setHeader('Vary', 'Accept-Encoding');
-    if (req.headers['if-none-match'] === p.etag) { res.status(304).end(); return; }
+    if (req.headers['if-none-match'] === p.etag) {
+      res.status(304).end();
+      return;
+    }
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
       res.setHeader('Content-Encoding', 'gzip');
@@ -66,7 +72,10 @@ gameDataRouter.get('/game-data/crafting', requireAuth, async (req, res) => {
 gameDataRouter.get('/game-data/status', requireAuth, async (req, res) => {
   try {
     const [status, admin] = await Promise.all([readGameDataStatus(), getPlatformAdmin(req.session.userId)]);
-    res.json({ success: true, data: { ...status, canRequestSync: !!admin } } satisfies ApiResponse<GameDataStatusResponse>);
+    res.json({
+      success: true,
+      data: { ...status, canRequestSync: !!admin },
+    } satisfies ApiResponse<GameDataStatusResponse>);
   } catch (err) {
     console.error('[game-data/status]', err);
     res.status(500).json({ success: false, error: 'Could not read game data status' } satisfies ApiResponse);
@@ -90,7 +99,9 @@ gameDataRouter.post('/game-data/sync', requireAuth, async (req, res) => {
       admin.username,
     );
     const status = await readGameDataStatus();
-    res.status(202).json({ success: true, data: { ...status, canRequestSync: true } } satisfies ApiResponse<GameDataStatusResponse>);
+    res
+      .status(202)
+      .json({ success: true, data: { ...status, canRequestSync: true } } satisfies ApiResponse<GameDataStatusResponse>);
   } catch (err) {
     if (isGameDataMissingError(err)) {
       res.status(409).json({
@@ -120,11 +131,16 @@ gameDataRouter.post('/game-data/check', requireAuth, async (req, res) => {
     res.json({ success: true, data: result } satisfies ApiResponse<GameDataCheckResult>);
   } catch (err) {
     if (isGameDataMissingError(err)) {
-      res.status(409).json({ success: false, error: 'The game data worker has not run yet. Set up the sc-data service first.' } satisfies ApiResponse);
+      res.status(409).json({
+        success: false,
+        error: 'The game data worker has not run yet. Set up the sc-data service first.',
+      } satisfies ApiResponse);
       return;
     }
     console.error('[game-data/check]', err);
-    res.status(502).json({ success: false, error: 'Could not reach GitHub to check. Try again in a minute.' } satisfies ApiResponse);
+    res
+      .status(502)
+      .json({ success: false, error: 'Could not reach GitHub to check. Try again in a minute.' } satisfies ApiResponse);
   }
 });
 
@@ -141,7 +157,10 @@ gameDataRouter.delete('/game-data/sync', requireAuth, async (req, res) => {
   try {
     await prisma.$executeRawUnsafe('DELETE FROM scdata_raw.sync_request WHERE handled_at IS NULL');
     const status = await readGameDataStatus();
-    res.json({ success: true, data: { ...status, canRequestSync: true } } satisfies ApiResponse<GameDataStatusResponse>);
+    res.json({
+      success: true,
+      data: { ...status, canRequestSync: true },
+    } satisfies ApiResponse<GameDataStatusResponse>);
   } catch (err) {
     console.error('[game-data/sync] cancel:', err);
     res.status(500).json({ success: false, error: 'Could not cancel the re-sync' } satisfies ApiResponse);

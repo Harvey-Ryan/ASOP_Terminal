@@ -22,7 +22,9 @@ export async function requirePlatformAdmin(req: Request, res: Response, next: Ne
   next();
 }
 
-export async function getPlatformAdmin(sessionUserId: string | undefined): Promise<{ discordId: string; username: string } | null> {
+export async function getPlatformAdmin(
+  sessionUserId: string | undefined,
+): Promise<{ discordId: string; username: string } | null> {
   if (!sessionUserId) return null;
   const user = await prisma.user.findUnique({ where: { id: sessionUserId } });
   if (!user || !ADMIN_IDS.includes(user.discordId)) return null;

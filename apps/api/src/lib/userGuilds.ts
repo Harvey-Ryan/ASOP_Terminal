@@ -21,7 +21,10 @@ const MAX_INLINE_WAIT_MS = 5_000;
 
 /** Discord can't be asked right now and there's no earlier answer to fall back on. */
 export class GuildsUnavailableError extends Error {
-  constructor(message = 'Discord is busy, so your servers couldn\'t be loaded.') { super(message); this.name = 'GuildsUnavailableError'; }
+  constructor(message = "Discord is busy, so your servers couldn't be loaded.") {
+    super(message);
+    this.name = 'GuildsUnavailableError';
+  }
 }
 
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
@@ -36,7 +39,10 @@ async function fetchOnce(userId: string): Promise<DiscordApiGuild[]> {
     } catch (err) {
       if (!(err instanceof GuildsFetchError) || err.status !== 429) throw err;
       const wait = Math.max(500, err.retryAfterMs ?? 5_000);
-      if (attempt === 0 && wait <= MAX_INLINE_WAIT_MS) { await sleep(wait + 100); continue; }
+      if (attempt === 0 && wait <= MAX_INLINE_WAIT_MS) {
+        await sleep(wait + 100);
+        continue;
+      }
       blockedUntil.set(userId, Date.now() + wait);
       throw err;
     }
@@ -59,13 +65,18 @@ export async function getUserGuilds(userId: string, maxAgeMs: number): Promise<D
   let p = inflight.get(userId);
   if (!p) {
     p = fetchOnce(userId)
-      .then((guilds) => { cache.set(userId, { guilds, at: Date.now() }); return guilds; })
+      .then((guilds) => {
+        cache.set(userId, { guilds, at: Date.now() });
+        return guilds;
+      })
       .catch((err: unknown) => {
         // Logged here, once per Discord call, not once per waiting caller.
         if (err instanceof GuildsFetchError && err.status === 429) {
-          console.warn(`[userGuilds] Discord rate limit for ${userId}; ${hit ? 'using the last server list' : 'no server list yet'} (retry after ${Math.ceil((err.retryAfterMs ?? 0) / 1000)} s)`);
+          console.warn(
+            `[userGuilds] Discord rate limit for ${userId}; ${hit ? 'using the last server list' : 'no server list yet'} (retry after ${Math.ceil((err.retryAfterMs ?? 0) / 1000)} s)`,
+          );
         } else {
-          console.error('[userGuilds] Couldn\'t load servers from Discord:', err);
+          console.error("[userGuilds] Couldn't load servers from Discord:", err);
         }
         throw err;
       })
@@ -81,4 +92,8 @@ export async function getUserGuilds(userId: string, maxAgeMs: number): Promise<D
 }
 
 /** Tests only. */
-export function resetUserGuilds(): void { cache.clear(); inflight.clear(); blockedUntil.clear(); }
+export function resetUserGuilds(): void {
+  cache.clear();
+  inflight.clear();
+  blockedUntil.clear();
+}

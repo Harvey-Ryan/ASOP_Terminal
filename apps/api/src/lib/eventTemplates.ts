@@ -11,8 +11,11 @@
 import { randomUUID } from 'node:crypto';
 import type { EventTemplate } from '@prisma/client';
 import {
-  parseBriefing, remapBriefingRoles, sanitizeBriefing,
-  type EventRole, type EventTemplateDto,
+  parseBriefing,
+  remapBriefingRoles,
+  sanitizeBriefing,
+  type EventRole,
+  type EventTemplateDto,
 } from '@dem/shared';
 import { prisma } from './prisma.js';
 import { ValidationError } from './validate.js';
@@ -28,11 +31,7 @@ export function parseRoles(json: string | null | undefined): EventRole[] {
   }
 }
 
-export function templateDto(
-  t: EventTemplate,
-  guildId: string,
-  uses: { usedAt: Date }[],
-): EventTemplateDto {
+export function templateDto(t: EventTemplate, guildId: string, uses: { usedAt: Date }[]): EventTemplateDto {
   const recent = uses.filter((u) => u.usedAt.getTime() >= Date.now() - SIX_MONTHS_MS);
   const last = uses.reduce<Date | null>((m, u) => (!m || u.usedAt > m ? u.usedAt : m), null);
   return {
@@ -87,7 +86,15 @@ export function cleanRoles(v: unknown): EventRole[] {
 export async function applyTemplateToNewEvent(opts: {
   templateId: string;
   hostGuildDbId: string;
-  event: { id: string; description: string | null; musterPoint: string | null; roles: string; vcNames: string; briefingChannel: boolean; imageUrl: string | null };
+  event: {
+    id: string;
+    description: string | null;
+    musterPoint: string | null;
+    roles: string;
+    vcNames: string;
+    briefingChannel: boolean;
+    imageUrl: string | null;
+  };
   byDiscordId: string;
 }): Promise<void> {
   const tmpl = await prisma.eventTemplate.findFirst({ where: { id: opts.templateId, guildId: opts.hostGuildDbId } });

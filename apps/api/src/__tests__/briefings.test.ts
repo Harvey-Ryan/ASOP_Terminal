@@ -35,22 +35,43 @@ const content = {
     { id: 'b', kind: 'image', title: 'Map', body: '', imageUrl: 'javascript:alert(1)' },
     { id: 'a', kind: 'weird', title: 'Dup', body: 'x' },
   ],
-  appearance: { watermark: 'TILED', watermarkStrength: 99, banner: 'ORG ONLY', logoUrl: '/uploads/g/other.png', extra: 1 },
+  appearance: {
+    watermark: 'TILED',
+    watermarkStrength: 99,
+    banner: 'ORG ONLY',
+    logoUrl: '/uploads/g/other.png',
+    extra: 1,
+  },
   injected: true,
 };
 
 describe('briefings', () => {
-  it('a draft is the editors\' alone; publishing shows it to the roster and puts it on Discord', async () => {
+  it("a draft is the editors' alone; publishing shows it to the roster and puts it on Discord", async () => {
     const { ev, base, officer, onRoster, stranger } = await setup();
     const empty = (await officer.agent.get(base).expect(200)).body.data;
-    expect(empty).toMatchObject({ briefing: null, canEdit: true, logos: [expect.objectContaining({ logoUrl: '/uploads/g/logo.png' })] });
+    expect(empty).toMatchObject({
+      briefing: null,
+      canEdit: true,
+      logos: [expect.objectContaining({ logoUrl: '/uploads/g/logo.png' })],
+    });
 
     const saved = (await officer.agent.put(base).send({ content }).expect(200)).body.data;
     expect(saved.publishedAt).toBeNull();
     expect(saved.content.objective).toBe('Retake the hangars.');
-    expect(saved.content.sections.map((s: { id: string; kind: string; imageUrl: string | null }) => [s.kind, s.imageUrl])).toEqual([['text', null], ['image', null], ['text', null]]);
+    expect(
+      saved.content.sections.map((s: { id: string; kind: string; imageUrl: string | null }) => [s.kind, s.imageUrl]),
+    ).toEqual([
+      ['text', null],
+      ['image', null],
+      ['text', null],
+    ]);
     expect(new Set(saved.content.sections.map((s: { id: string }) => s.id)).size).toBe(3);
-    expect(saved.content.appearance).toMatchObject({ watermark: 'TILED', watermarkStrength: 30, banner: 'ORG ONLY', logoUrl: '/uploads/g/other.png' });
+    expect(saved.content.appearance).toMatchObject({
+      watermark: 'TILED',
+      watermarkStrength: 30,
+      banner: 'ORG ONLY',
+      logoUrl: '/uploads/g/other.png',
+    });
     expect(saved.content.appearance.extra).toBeUndefined();
 
     // Draft: on the roster but not an editor → nothing yet; a stranger → 403.
@@ -61,13 +82,18 @@ describe('briefings', () => {
 
     const pub = (await officer.agent.post(`${base}/publish`).send({ published: true }).expect(200)).body.data;
     expect(pub.publishedAt).toBeTruthy();
-    expect((await onRoster.agent.get(base).expect(200)).body.data.briefing.content.objective).toBe('Retake the hangars.');
+    expect((await onRoster.agent.get(base).expect(200)).body.data.briefing.content.objective).toBe(
+      'Retake the hangars.',
+    );
     let row = await prisma.event.findUniqueOrThrow({ where: { id: ev.id } });
     expect(row.briefingPublishedAt).toBeTruthy();
     expect(row.briefingSummary).toBe('Retake the hangars.');
 
     // Editing the objective of a published briefing updates the roster summary.
-    await officer.agent.put(base).send({ content: { ...content, objective: 'Hold the hangars.' } }).expect(200);
+    await officer.agent
+      .put(base)
+      .send({ content: { ...content, objective: 'Hold the hangars.' } })
+      .expect(200);
     row = await prisma.event.findUniqueOrThrow({ where: { id: ev.id } });
     expect(row.briefingSummary).toBe('Hold the hangars.');
 
@@ -80,8 +106,12 @@ describe('briefings', () => {
   it('allies who accepted the share can read it (their logo too) but not edit; past briefings can be copied', async () => {
     const { g, ev, base, officer } = await setup();
     const ally = await createGuild();
-    await prisma.guildSettings.create({ data: { guildId: ally.id, allianceTag: 'VNGD', logoUrl: 'https://cdn.example/vngd.png' } });
-    await prisma.eventGuildShare.create({ data: { eventId: ev.id, guildId: ally.id, sourceType: 'DIRECT', status: 'ACCEPTED' } });
+    await prisma.guildSettings.create({
+      data: { guildId: ally.id, allianceTag: 'VNGD', logoUrl: 'https://cdn.example/vngd.png' },
+    });
+    await prisma.eventGuildShare.create({
+      data: { eventId: ev.id, guildId: ally.id, sourceType: 'DIRECT', status: 'ACCEPTED' },
+    });
     await officer.agent.put(base).send({ content }).expect(200);
     await officer.agent.post(`${base}/publish`).send({ published: true }).expect(200);
 
@@ -89,7 +119,10 @@ describe('briefings', () => {
     const allyBase = `/api/guilds/${ally.guildId}/events/${ev.id}/briefing`;
     const seen = (await allyOfficer.agent.get(allyBase).expect(200)).body.data;
     expect(seen.canEdit).toBe(false);
-    expect(seen.logos.map((l: { tag: string | null; logoUrl: string | null }) => l.logoUrl)).toEqual(['/uploads/g/logo.png', 'https://cdn.example/vngd.png']);
+    expect(seen.logos.map((l: { tag: string | null; logoUrl: string | null }) => l.logoUrl)).toEqual([
+      '/uploads/g/logo.png',
+      'https://cdn.example/vngd.png',
+    ]);
     await allyOfficer.agent.put(allyBase).send({ content }).expect(403);
 
     // Another server's officers can't reach it through their own server.

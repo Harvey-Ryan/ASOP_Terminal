@@ -6,12 +6,23 @@
 // an unchanged release costs nothing against GitHub's rate limit.
 
 import {
-  ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  EmbedBuilder,
   type MessageCreateOptions,
 } from 'discord.js';
 import {
-  fileSize, parseStarStringsRelease, starStringsKey, starStringsPostedValue,
-  STARSTRINGS_CHECK_MS, STARSTRINGS_INSTALL, STARSTRINGS_LIVE_API, STARSTRINGS_PAGE, type StarStringsRelease,
+  fileSize,
+  parseStarStringsRelease,
+  starStringsKey,
+  starStringsPostedValue,
+  STARSTRINGS_CHECK_MS,
+  STARSTRINGS_INSTALL,
+  STARSTRINGS_LIVE_API,
+  STARSTRINGS_PAGE,
+  type StarStringsRelease,
 } from '@dem/shared';
 import { prisma } from '../db.js';
 import { client } from '../client.js';
@@ -43,7 +54,7 @@ async function ask(): Promise<StarStringsRelease | null> {
     }
     const release = parseStarStringsRelease(await res.json());
     if (!release) {
-      console.warn('[starstrings] GitHub\'s release had no usable build; keeping the last one');
+      console.warn("[starstrings] GitHub's release had no usable build; keeping the last one");
       return current;
     }
     etag = res.headers.get('etag');
@@ -59,7 +70,10 @@ async function ask(): Promise<StarStringsRelease | null> {
 /** The current LIVE build (asking GitHub if our copy is older than maxAgeMs). */
 export async function liveRelease(maxAgeMs = STARSTRINGS_CHECK_MS): Promise<StarStringsRelease | null> {
   if (current && Date.now() - checkedAt < maxAgeMs) return current;
-  if (!asking) asking = ask().finally(() => { asking = null; });
+  if (!asking)
+    asking = ask().finally(() => {
+      asking = null;
+    });
   return asking;
 }
 
@@ -71,14 +85,18 @@ export function starStringsMessage(r: StarStringsRelease, kind: 'new' | 'current
     .setColor(0x3ba55d)
     .setTitle(kind === 'new' ? 'StarStrings updated for LIVE' : 'StarStrings: current LIVE build')
     .setURL(r.pageUrl)
-    .setDescription([
-      `**${r.build ?? r.name}**, published <t:${when}:f> (<t:${when}:R>)`,
-      '',
-      ...STARSTRINGS_INSTALL.map((l) => `• ${l}`),
-    ].join('\n'))
+    .setDescription(
+      [
+        `**${r.build ?? r.name}**, published <t:${when}:f> (<t:${when}:R>)`,
+        '',
+        ...STARSTRINGS_INSTALL.map((l) => `• ${l}`),
+      ].join('\n'),
+    )
     .setFooter({ text: 'StarStrings by MrKraken · community-made, not from CIG' });
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(r.downloadUrl)
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setURL(r.downloadUrl)
       .setLabel(r.fileName ? `Download ${r.fileName}${size ? ` (${size})` : ''}`.slice(0, 80) : 'Download'),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(r.pageUrl).setLabel('Release notes'),
     new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(STARSTRINGS_PAGE).setLabel('About StarStrings'),
@@ -112,7 +130,7 @@ export async function announceStarStrings(now = false): Promise<void> {
     if (s.starStringsPosted === posted || !client.guilds.cache.has(s.guild.guildId)) continue;
     try {
       const ch = await client.channels.fetch(channelId).catch(() => null);
-      if (!ch || !ch.isTextBased() || !('send' in ch)) throw new Error('the channel is gone or isn\'t a text channel');
+      if (!ch || !ch.isTextBased() || !('send' in ch)) throw new Error("the channel is gone or isn't a text channel");
       const msg = await ch.send(starStringsMessage(release, 'new'));
       // In an announcement channel, publish it to servers that follow the channel too (best effort).
       if (ch.type === ChannelType.GuildAnnouncement) await msg.crosspost().catch(() => {});
@@ -121,7 +139,10 @@ export async function announceStarStrings(now = false): Promise<void> {
       const k = `${s.guild.guildId}|${posted}`;
       if (!reported.has(k)) {
         reported.add(k);
-        console.warn(`[starstrings] Couldn't post ${release.build ?? release.name} in server ${s.guild.guildId}:`, err instanceof Error ? err.message : err);
+        console.warn(
+          `[starstrings] Couldn't post ${release.build ?? release.name} in server ${s.guild.guildId}:`,
+          err instanceof Error ? err.message : err,
+        );
       }
     }
   }

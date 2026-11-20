@@ -33,7 +33,15 @@ function formatDate(iso: string) {
 
 // ── History row ───────────────────────────────────────────────────────────────
 
-function HistoryRow({ session, isManager, currentUserId }: { session: LootHistorySessionDto; isManager: boolean; currentUserId: string | undefined }) {
+function HistoryRow({
+  session,
+  isManager,
+  currentUserId,
+}: {
+  session: LootHistorySessionDto;
+  isManager: boolean;
+  currentUserId: string | undefined;
+}) {
   const [expanded, setExpanded] = useState(false);
   const queryClient = useQueryClient();
   const canManage = isManager || (!!session.ownerId && session.ownerId === currentUserId);
@@ -68,7 +76,9 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
           <span className="font-medium truncate block">{label}</span>
           <span className="text-xs text-muted-foreground">{formatDate(session.createdAt)}</span>
         </span>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${METHOD_COLORS[session.method]}`}>
+        <span
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${METHOD_COLORS[session.method]}`}
+        >
           {METHOD_LABELS[session.method]}
         </span>
         <span className="shrink-0 text-xs text-muted-foreground ml-2">
@@ -82,98 +92,138 @@ function HistoryRow({ session, isManager, currentUserId }: { session: LootHistor
             <p className="text-sm text-muted-foreground italic">No items in this session.</p>
           )}
 
-          {session.method === 'COMMODITY_DRAFT' ? (() => {
-            // Group assignments by participant (no stacking — each item shown individually)
-            type Line = { name: string; qualityLevel: number | null; pickNumber: number | null; delivered: boolean; itemId: string; assignmentId: string };
-            type Bucket = { username: string; lines: Line[] };
-            const buckets = new Map<string, Bucket>();
-            for (const item of session.items) {
-              for (const a of item.assignments) {
-                if (!buckets.has(a.userId)) buckets.set(a.userId, { username: a.username, lines: [] });
-                buckets.get(a.userId)!.lines.push({ name: item.name, qualityLevel: item.qualityLevel, pickNumber: a.pickNumber, delivered: a.delivered, itemId: item.id, assignmentId: a.id });
-              }
-            }
-            return [...buckets.values()].sort((a, b) => a.username.localeCompare(b.username)).map((bucket) => (
-              <div key={bucket.username} className="space-y-0.5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">{bucket.username}</p>
-                {bucket.lines.map((line, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm pl-2">
-                    {line.delivered
-                      ? <CheckCircle2 className="h-3 w-3 shrink-0 text-green-500" />
-                      : <Package className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                    <span className={`flex-1 ${line.delivered ? 'line-through text-muted-foreground' : ''}`}>
-                      {line.name}
-                      {line.qualityLevel !== null && <span className="ml-1.5 text-xs text-muted-foreground">QL {line.qualityLevel}</span>}
-                    </span>
-                    {line.pickNumber !== null && <span className="text-xs text-muted-foreground shrink-0 mr-1">pick #{line.pickNumber + 1}</span>}
-                    {canManage && (
-                      <button
-                        type="button"
-                        onClick={() => toggleMutation.mutate({ itemId: line.itemId, assignmentId: line.assignmentId })}
-                        disabled={toggleMutation.isPending}
-                        className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
-                          line.delivered
-                            ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
-                            : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
-                        }`}
+          {session.method === 'COMMODITY_DRAFT'
+            ? (() => {
+                // Group assignments by participant (no stacking — each item shown individually)
+                type Line = {
+                  name: string;
+                  qualityLevel: number | null;
+                  pickNumber: number | null;
+                  delivered: boolean;
+                  itemId: string;
+                  assignmentId: string;
+                };
+                type Bucket = { username: string; lines: Line[] };
+                const buckets = new Map<string, Bucket>();
+                for (const item of session.items) {
+                  for (const a of item.assignments) {
+                    if (!buckets.has(a.userId)) buckets.set(a.userId, { username: a.username, lines: [] });
+                    buckets.get(a.userId)!.lines.push({
+                      name: item.name,
+                      qualityLevel: item.qualityLevel,
+                      pickNumber: a.pickNumber,
+                      delivered: a.delivered,
+                      itemId: item.id,
+                      assignmentId: a.id,
+                    });
+                  }
+                }
+                return [...buckets.values()]
+                  .sort((a, b) => a.username.localeCompare(b.username))
+                  .map((bucket) => (
+                    <div key={bucket.username} className="space-y-0.5">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">
+                        {bucket.username}
+                      </p>
+                      {bucket.lines.map((line, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm pl-2">
+                          {line.delivered ? (
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-green-500" />
+                          ) : (
+                            <Package className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className={`flex-1 ${line.delivered ? 'line-through text-muted-foreground' : ''}`}>
+                            {line.name}
+                            {line.qualityLevel !== null && (
+                              <span className="ml-1.5 text-xs text-muted-foreground">QL {line.qualityLevel}</span>
+                            )}
+                          </span>
+                          {line.pickNumber !== null && (
+                            <span className="text-xs text-muted-foreground shrink-0 mr-1">
+                              pick #{line.pickNumber + 1}
+                            </span>
+                          )}
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleMutation.mutate({ itemId: line.itemId, assignmentId: line.assignmentId })
+                              }
+                              disabled={toggleMutation.isPending}
+                              className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
+                                line.delivered
+                                  ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                  : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                              }`}
+                            >
+                              <Truck className="h-2.5 w-2.5" />
+                              {line.delivered ? 'Delivered' : 'Deliver'}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ));
+              })()
+            : [...session.items]
+                .sort((a, b) => {
+                  const wa = a.assignments[0];
+                  const wb = b.assignments[0];
+                  if (wa && wb) return wa.username.localeCompare(wb.username);
+                  if (wa) return -1;
+                  if (wb) return 1;
+                  return 0;
+                })
+                .map((item) => {
+                  const winner = item.assignments[0];
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 text-sm">
+                      {winner?.delivered ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                      ) : (
+                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                      <span
+                        className={`flex-1 font-medium ${winner?.delivered ? 'line-through text-muted-foreground' : ''}`}
                       >
-                        <Truck className="h-2.5 w-2.5" />
-                        {line.delivered ? 'Delivered' : 'Deliver'}
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ));
-          })() : (
-            [...session.items]
-              .sort((a, b) => {
-                const wa = a.assignments[0];
-                const wb = b.assignments[0];
-                if (wa && wb) return wa.username.localeCompare(wb.username);
-                if (wa) return -1;
-                if (wb) return 1;
-                return 0;
-              })
-              .map((item) => {
-                const winner = item.assignments[0];
-                return (
-                  <div key={item.id} className="flex items-center gap-3 text-sm">
-                    {winner?.delivered
-                      ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                      : <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                    <span className={`flex-1 font-medium ${winner?.delivered ? 'line-through text-muted-foreground' : ''}`}>{item.name}</span>
-                    {winner ? (
-                      <>
-                        <span className="text-green-600 dark:text-green-400 shrink-0">
-                          {winner.username}
-                          {winner.rollValue != null && <span className="text-muted-foreground ml-1">(rolled {winner.rollValue})</span>}
-                          {winner.dkpSpent != null && <span className="text-muted-foreground ml-1">({winner.dkpSpent} DKP)</span>}
-                          {winner.pickNumber != null && <span className="text-muted-foreground ml-1">(pick #{winner.pickNumber + 1})</span>}
-                        </span>
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() => toggleMutation.mutate({ itemId: item.id, assignmentId: winner.id })}
-                            disabled={toggleMutation.isPending}
-                            className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
-                              winner.delivered
-                                ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
-                                : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
-                            }`}
-                          >
-                            <Truck className="h-2.5 w-2.5" />
-                            {winner.delivered ? 'Delivered' : 'Deliver'}
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground shrink-0 italic">Unassigned</span>
-                    )}
-                  </div>
-                );
-              })
-          )}
+                        {item.name}
+                      </span>
+                      {winner ? (
+                        <>
+                          <span className="text-green-600 dark:text-green-400 shrink-0">
+                            {winner.username}
+                            {winner.rollValue != null && (
+                              <span className="text-muted-foreground ml-1">(rolled {winner.rollValue})</span>
+                            )}
+                            {winner.dkpSpent != null && (
+                              <span className="text-muted-foreground ml-1">({winner.dkpSpent} DKP)</span>
+                            )}
+                            {winner.pickNumber != null && (
+                              <span className="text-muted-foreground ml-1">(pick #{winner.pickNumber + 1})</span>
+                            )}
+                          </span>
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={() => toggleMutation.mutate({ itemId: item.id, assignmentId: winner.id })}
+                              disabled={toggleMutation.isPending}
+                              className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
+                                winner.delivered
+                                  ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                  : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                              }`}
+                            >
+                              <Truck className="h-2.5 w-2.5" />
+                              {winner.delivered ? 'Delivered' : 'Deliver'}
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground shrink-0 italic">Unassigned</span>
+                      )}
+                    </div>
+                  );
+                })}
         </div>
       )}
     </div>
@@ -201,7 +251,12 @@ function NewSessionDialog({
 
   const createMutation = useMutation({
     meta: { quietErrors: true }, // shows its own error
-    mutationFn: () => lootApi.createStandaloneSession(guildId, { name: name.trim(), method, ...(method === 'SNAKE_DRAFT' ? { totalRounds } : {}) }),
+    mutationFn: () =>
+      lootApi.createStandaloneSession(guildId, {
+        name: name.trim(),
+        method,
+        ...(method === 'SNAKE_DRAFT' ? { totalRounds } : {}),
+      }),
     onSuccess: (session) => {
       setName('');
       setMethod('RANDOM_ROLL');
@@ -231,7 +286,9 @@ function NewSessionDialog({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) createMutation.mutate(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && name.trim()) createMutation.mutate();
+              }}
               placeholder="e.g. Saturday Salvage Run"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -283,10 +340,7 @@ function NewSessionDialog({
           <Button variant="ghost" onClick={handleClose} disabled={createMutation.isPending}>
             Cancel
           </Button>
-          <Button
-            onClick={() => createMutation.mutate()}
-            disabled={!name.trim() || createMutation.isPending}
-          >
+          <Button onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}>
             {createMutation.isPending ? 'Creating…' : 'Create Session'}
           </Button>
         </DialogFooter>
@@ -305,8 +359,11 @@ export function LootModulePage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const tab: 'sessions' | 'history' | 'my-loot' = tabParam === 'history' ? 'history' : tabParam === 'my-loot' ? 'my-loot' : 'sessions';
-  function setTab(t: 'sessions' | 'history' | 'my-loot') { setSearchParams(t === 'sessions' ? {} : { tab: t }); }
+  const tab: 'sessions' | 'history' | 'my-loot' =
+    tabParam === 'history' ? 'history' : tabParam === 'my-loot' ? 'my-loot' : 'sessions';
+  function setTab(t: 'sessions' | 'history' | 'my-loot') {
+    setSearchParams(t === 'sessions' ? {} : { tab: t });
+  }
   const [newSessionOpen, setNewSessionOpen] = useState(false);
 
   const activeGuild = guilds.find((g) => g.id === guildId);
@@ -336,8 +393,13 @@ export function LootModulePage() {
   });
   // Sessions starting or ending here, and picks in the drafts you're in (v1.30.0).
   const live = useLiveQueries(
-    tab === 'sessions' ? [guildId && `loot-guild:${guildId}`, ...(myPicksQuery.data ?? []).map((p) => `loot:${p.sessionId}`)] : [],
-    [['loot-sessions', guildId], ['loot', 'my-picks']],
+    tab === 'sessions'
+      ? [guildId && `loot-guild:${guildId}`, ...(myPicksQuery.data ?? []).map((p) => `loot:${p.sessionId}`)]
+      : [],
+    [
+      ['loot-sessions', guildId],
+      ['loot', 'my-picks'],
+    ],
   );
   liveRef.current = live;
   // Sessions in guilds the user is not a member of (participating as an allied member)
@@ -357,9 +419,9 @@ export function LootModulePage() {
   });
 
   const tabCls = (active: boolean) =>
-    `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${active
-      ? 'border-primary text-foreground'
-      : 'border-transparent text-muted-foreground hover:text-foreground'}`;
+    `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+      active ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+    }`;
 
   return (
     <div className="max-w-5xl space-y-5">
@@ -408,7 +470,9 @@ export function LootModulePage() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium truncate">📅 {pick.eventName}</p>
                         {pick.isMyTurn && (
-                          <span className="shrink-0 rounded-sm bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-500">your turn</span>
+                          <span className="shrink-0 rounded-sm bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-500">
+                            your turn
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
@@ -416,15 +480,12 @@ export function LootModulePage() {
                           {METHOD_LABELS[pick.method]}
                         </span>
                         <span>{pick.guildName}</span>
-                        <span>{pick.itemCount} item{pick.itemCount !== 1 ? 's' : ''} remaining</span>
+                        <span>
+                          {pick.itemCount} item{pick.itemCount !== 1 ? 's' : ''} remaining
+                        </span>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 gap-1.5"
-                      onClick={() => navigate(href)}
-                    >
+                    <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => navigate(href)}>
                       <ExternalLink className="h-3.5 w-3.5" />
                       Open
                     </Button>
@@ -467,39 +528,36 @@ export function LootModulePage() {
               : `/dashboard/servers/${guildId}/loot/sessions/${session.id}`;
 
             return (
-              <div
-                key={session.id}
-                className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
-              >
+              <div key={session.id} className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{displayName}</p>
                     {isEventSession && (
-                      <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">event</span>
+                      <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        event
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span className={`rounded-full border px-2 py-0.5 font-medium ${METHOD_COLORS[session.method]}`}>
                       {METHOD_LABELS[session.method]}
                     </span>
-                    <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
-                    <span>{assignedCount}/{itemCount} items assigned</span>
+                    <span>
+                      {participantCount} participant{participantCount !== 1 ? 's' : ''}
+                    </span>
+                    <span>
+                      {assignedCount}/{itemCount} items assigned
+                    </span>
                     <span>{formatDate(session.createdAt)}</span>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0 gap-1.5"
-                  onClick={() => navigate(href)}
-                >
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => navigate(href)}>
                   <ExternalLink className="h-3.5 w-3.5" />
                   Open
                 </Button>
               </div>
             );
           })}
-
         </div>
       )}
 

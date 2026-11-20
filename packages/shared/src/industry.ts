@@ -40,7 +40,13 @@ export interface SalvageHeadMount {
   slots: SalvageSlot[];
 }
 
-const PLACE_WORDS: [RegExp, string][] = [[/front/i, 'Front'], [/left/i, 'Left'], [/right/i, 'Right'], [/rear|back/i, 'Rear'], [/top/i, 'Top']];
+const PLACE_WORDS: [RegExp, string][] = [
+  [/front/i, 'Front'],
+  [/left/i, 'Left'],
+  [/right/i, 'Right'],
+  [/rear|back/i, 'Rear'],
+  [/top/i, 'Top'],
+];
 
 function placeLabel(hardpoint: string, what: string, i: number, count: number): string {
   const place = PLACE_WORDS.find(([re]) => re.test(hardpoint))?.[1];
@@ -49,7 +55,8 @@ function placeLabel(hardpoint: string, what: string, i: number, count: number): 
 }
 
 const typeOf = (p: Json) => String(p.Type ?? '');
-const takes = (p: Json, t: string) => typeOf(p).startsWith(t) || ((p.CompatibleTypes ?? []) as Json[]).some((c) => c.Type === t);
+const takes = (p: Json, t: string) =>
+  typeOf(p).startsWith(t) || ((p.CompatibleTypes ?? []) as Json[]).some((c) => c.Type === t);
 
 /**
  * Every salvage head on a ship and its module slots. A slot holding the
@@ -64,14 +71,20 @@ export function shipSalvageHeads(ship: Json): SalvageHeadMount[] {
       const here = [...path, p];
       if (typeOf(p).startsWith('SalvageHead') && /salvage/i.test(String(p.Name ?? '') + typeOf(p))) {
         const root = here[0]!;
-        const slots: SalvageSlot[] = ((p.Loadout ?? []) as Json[]).filter((q) => takes(q, 'SalvageModifier')).map((q) => ({
-          id: String(q.HardpointName ?? ''),
-          kind: /TractorBeam/i.test(typeOf(q)) ? 'tractor' : 'scraper',
-          stockUuid: typeOf(q).startsWith('SalvageModifier') ? str(q.UUID) : null,
-        }));
+        const slots: SalvageSlot[] = ((p.Loadout ?? []) as Json[])
+          .filter((q) => takes(q, 'SalvageModifier'))
+          .map((q) => ({
+            id: String(q.HardpointName ?? ''),
+            kind: /TractorBeam/i.test(typeOf(q)) ? 'tractor' : 'scraper',
+            stockUuid: typeOf(q).startsWith('SalvageModifier') ? str(q.UUID) : null,
+          }));
         out.push({
-          id: here.map((x) => String(x.HardpointName ?? '')).join('/'), label: '', root: String(root.HardpointName ?? ''),
-          head: str(p.Name), crewed: /turret|cab/i.test(String(root.HardpointName ?? '')), slots,
+          id: here.map((x) => String(x.HardpointName ?? '')).join('/'),
+          label: '',
+          root: String(root.HardpointName ?? ''),
+          head: str(p.Name),
+          crewed: /turret|cab/i.test(String(root.HardpointName ?? '')),
+          slots,
         });
         continue;
       }
@@ -79,10 +92,19 @@ export function shipSalvageHeads(ship: Json): SalvageHeadMount[] {
     }
   };
   walk(ship.Loadout, []);
-  return out.map(({ root, ...h }, i) => ({ ...h, label: placeLabel(root, /turret|cab/i.test(root) ? 'turret' : 'arm', i, out.length) }));
+  return out.map(({ root, ...h }, i) => ({
+    ...h,
+    label: placeLabel(root, /turret|cab/i.test(root) ? 'turret' : 'arm', i, out.length),
+  }));
 }
 
-export function salvageModuleFromItem(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; data: Json }): SalvageModule | null {
+export function salvageModuleFromItem(row: {
+  uuid: string;
+  class_name?: string | null;
+  name?: string | null;
+  manufacturer_name?: string | null;
+  data: Json;
+}): SalvageModule | null {
   const s: Json = row.data?.stdItem ?? row.data ?? {};
   const m: Json = s.SalvageModifier ?? s.WeaponModifier?.WeaponStats?.Salvage ?? {};
   const name = str(row.name) ?? str(s.Name);
@@ -90,8 +112,13 @@ export function salvageModuleFromItem(row: { uuid: string; class_name?: string |
   const tractor = /tractor/i.test(`${row.class_name ?? ''} ${s.Type ?? ''}`);
   const maker = str(row.manufacturer_name) ?? str(s.Manufacturer?.Name);
   return {
-    uuid: row.uuid, name, maker: maker === 'Unknown Manufacturer' ? null : maker, kind: tractor ? 'tractor' : 'scraper',
-    radius: num(m.RadiusMultiplier), speed: num(m.SalvageSpeedMultiplier), efficiency: num(m.ExtractionEfficiency),
+    uuid: row.uuid,
+    name,
+    maker: maker === 'Unknown Manufacturer' ? null : maker,
+    kind: tractor ? 'tractor' : 'scraper',
+    radius: num(m.RadiusMultiplier),
+    speed: num(m.SalvageSpeedMultiplier),
+    efficiency: num(m.ExtractionEfficiency),
   };
 }
 
@@ -136,8 +163,16 @@ export function shipFuelPodSlots(ship: Json): FuelPodSlot[] {
       if (takes(p, 'ExternalFuelTank')) {
         const hp = String(p.HardpointName ?? '');
         const m = /_([LR])(\d+)$/i.exec(hp);
-        const label = m ? `${m[1]!.toUpperCase() === 'L' ? 'Left' : 'Right'} ${m[2]}` : (PLACE_WORDS.find(([re]) => re.test(hp))?.[1] ?? `Pod ${out.length + 1}`);
-        out.push({ id: hp, label, minSize: num(p.MinSize) ?? num(p.MaxSize) ?? 0, maxSize: num(p.MaxSize) ?? 0, stockUuid: typeOf(p).startsWith('ExternalFuelTank') ? str(p.UUID) : null });
+        const label = m
+          ? `${m[1]!.toUpperCase() === 'L' ? 'Left' : 'Right'} ${m[2]}`
+          : (PLACE_WORDS.find(([re]) => re.test(hp))?.[1] ?? `Pod ${out.length + 1}`);
+        out.push({
+          id: hp,
+          label,
+          minSize: num(p.MinSize) ?? num(p.MaxSize) ?? 0,
+          maxSize: num(p.MaxSize) ?? 0,
+          stockUuid: typeOf(p).startsWith('ExternalFuelTank') ? str(p.UUID) : null,
+        });
         continue;
       }
       walk(p.Loadout);
@@ -158,15 +193,27 @@ const descNum = (text: string, label: string): number | null => {
  * pod's description, which is what the game shows; the files' container
  * size disagrees with it for every pod.
  */
-export function fuelPodFromItem(row: { uuid: string; class_name?: string | null; name?: string | null; manufacturer_name?: string | null; size?: number | null; data: Json }): FuelPod | null {
+export function fuelPodFromItem(row: {
+  uuid: string;
+  class_name?: string | null;
+  name?: string | null;
+  manufacturer_name?: string | null;
+  size?: number | null;
+  data: Json;
+}): FuelPod | null {
   const s: Json = row.data?.stdItem ?? row.data ?? {};
   const cls = row.class_name ?? '';
   const name = str(row.name) ?? str(s.Name);
   if (!name || !/^FuelPod_/i.test(cls) || /template|_AI_|prefilled/i.test(cls)) return null;
   const text = String(s.Description ?? '');
   return {
-    uuid: row.uuid, name, maker: str(row.manufacturer_name) ?? str(s.Manufacturer?.Name), size: num(row.size) ?? num(s.Size) ?? 0,
-    capacity: descNum(text, 'Capacity'), hydrogenFlow: descNum(text, 'Hydrogen Flow Modifier'), quantumFlow: descNum(text, 'Quantum Flow Modifier'),
+    uuid: row.uuid,
+    name,
+    maker: str(row.manufacturer_name) ?? str(s.Manufacturer?.Name),
+    size: num(row.size) ?? num(s.Size) ?? 0,
+    capacity: descNum(text, 'Capacity'),
+    hydrogenFlow: descNum(text, 'Hydrogen Flow Modifier'),
+    quantumFlow: descNum(text, 'Quantum Flow Modifier'),
     integrity: descNum(text, 'Max\\. Integrity'),
   };
 }

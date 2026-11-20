@@ -22,7 +22,16 @@ test('who can take a job', () => {
 
 test('job form', () => {
   assert.deepEqual(parseJobInput({ kind: 'HAULING', title: '  Need a hauler ', reward: '60k aUEC', details: '' }), {
-    job: { kind: 'HAULING', title: 'Need a hauler', slots: 1, visibility: 'SERVER', details: null, reward: '60k aUEC', location: null, whenText: null },
+    job: {
+      kind: 'HAULING',
+      title: 'Need a hauler',
+      slots: 1,
+      visibility: 'SERVER',
+      details: null,
+      reward: '60k aUEC',
+      location: null,
+      whenText: null,
+    },
   });
   assert.match(parseJobInput({ kind: 'NOPE', title: 'x' }).error, /kind/);
   assert.match(parseJobInput({ kind: 'OTHER' }).error, /title/);

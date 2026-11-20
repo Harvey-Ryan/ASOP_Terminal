@@ -10,8 +10,15 @@
 
 import { Router, type Request, type Response } from 'express';
 import {
-  briefingRoles, briefingSummary, parseBriefing, sanitizeBriefing, serverLabel,
-  type ApiResponse, type BriefingDto, type BriefingLogo, type BriefingViewDto,
+  briefingRoles,
+  briefingSummary,
+  parseBriefing,
+  sanitizeBriefing,
+  serverLabel,
+  type ApiResponse,
+  type BriefingDto,
+  type BriefingLogo,
+  type BriefingViewDto,
 } from '@dem/shared';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -56,16 +63,26 @@ const toDto = (b: { eventId: string; content: string; publishedAt: Date | null; 
 
 async function logosFor(eventId: string, hostGuildId: string): Promise<BriefingLogo[]> {
   const [host, shares] = await Promise.all([
-    prisma.guild.findUnique({ where: { guildId: hostGuildId }, select: { guildId: true, name: true, settings: { select: { logoUrl: true, allianceTag: true } } } }),
+    prisma.guild.findUnique({
+      where: { guildId: hostGuildId },
+      select: { guildId: true, name: true, settings: { select: { logoUrl: true, allianceTag: true } } },
+    }),
     prisma.eventGuildShare.findMany({
       where: { eventId, status: 'ACCEPTED' },
-      select: { guild: { select: { guildId: true, name: true, settings: { select: { logoUrl: true, allianceTag: true } } } } },
+      select: {
+        guild: { select: { guildId: true, name: true, settings: { select: { logoUrl: true, allianceTag: true } } } },
+      },
     }),
   ]);
   const out: BriefingLogo[] = [];
   for (const g of [host, ...shares.map((s) => s.guild)]) {
     if (!g || out.some((o) => o.guildId === g.guildId)) continue;
-    out.push({ guildId: g.guildId, name: g.name, tag: g.settings?.allianceTag ? serverLabel(g.settings.allianceTag, g.name) : null, logoUrl: g.settings?.logoUrl ?? null });
+    out.push({
+      guildId: g.guildId,
+      name: g.name,
+      tag: g.settings?.allianceTag ? serverLabel(g.settings.allianceTag, g.name) : null,
+      logoUrl: g.settings?.logoUrl ?? null,
+    });
   }
   return out;
 }
@@ -73,22 +90,41 @@ async function logosFor(eventId: string, hostGuildId: string): Promise<BriefingL
 briefingsRouter.get('/:guildId/events/:eventId/briefing', requireAuth, async (req, res) => {
   const { guildId, eventId } = params(req);
   try {
-    if (!(await canView(req, guildId, eventId))) { fail(res, 403, 'Forbidden'); return; }
+    if (!(await canView(req, guildId, eventId))) {
+      fail(res, 403, 'Forbidden');
+      return;
+    }
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       select: {
-        id: true, name: true, startTime: true, endTime: true, musterPoint: true, guildId: true, templateId: true,
-        roles: true, rsvps: { select: { tentative: true, role: true, username: true }, orderBy: { id: 'asc' } }, briefing: true,
+        id: true,
+        name: true,
+        startTime: true,
+        endTime: true,
+        musterPoint: true,
+        guildId: true,
+        templateId: true,
+        roles: true,
+        rsvps: { select: { tentative: true, role: true, username: true }, orderBy: { id: 'asc' } },
+        briefing: true,
       },
     });
-    if (!event) { fail(res, 404, 'Event not found'); return; }
+    if (!event) {
+      fail(res, 404, 'Event not found');
+      return;
+    }
     const editor = await canEdit(req, guildId, eventId);
     const b = event.briefing && (editor || event.briefing.publishedAt) ? toDto(event.briefing) : null;
     const data: BriefingViewDto = {
       event: {
-        id: event.id, name: event.name, startTime: event.startTime.toISOString(), endTime: event.endTime?.toISOString() ?? null,
-        musterPoint: event.musterPoint, hostGuildId: event.guildId,
-        signedUp: event.rsvps.filter((r) => !r.tentative).length, maybe: event.rsvps.filter((r) => r.tentative).length,
+        id: event.id,
+        name: event.name,
+        startTime: event.startTime.toISOString(),
+        endTime: event.endTime?.toISOString() ?? null,
+        musterPoint: event.musterPoint,
+        hostGuildId: event.guildId,
+        signedUp: event.rsvps.filter((r) => !r.tentative).length,
+        maybe: event.rsvps.filter((r) => r.tentative).length,
         roles: briefingRoles(event.roles, event.rsvps),
         templateId: editor ? event.templateId : null,
       },
@@ -106,9 +142,15 @@ briefingsRouter.get('/:guildId/events/:eventId/briefing', requireAuth, async (re
 briefingsRouter.put('/:guildId/events/:eventId/briefing', requireAuth, async (req, res) => {
   const { guildId, eventId } = params(req);
   try {
-    if (!(await canEdit(req, guildId, eventId))) { fail(res, 403, 'Only the host server\'s event creators can edit the briefing'); return; }
+    if (!(await canEdit(req, guildId, eventId))) {
+      fail(res, 403, "Only the host server's event creators can edit the briefing");
+      return;
+    }
     const body = req.body as { content?: unknown };
-    if (!body.content || typeof body.content !== 'object') { fail(res, 400, 'Send the briefing as content'); return; }
+    if (!body.content || typeof body.content !== 'object') {
+      fail(res, 400, 'Send the briefing as content');
+      return;
+    }
     const content = sanitizeBriefing(body.content);
     const updatedBy = await discordIdOf(req);
     const saved = await prisma.eventBriefing.upsert({
@@ -135,17 +177,29 @@ briefingsRouter.put('/:guildId/events/:eventId/briefing', requireAuth, async (re
 briefingsRouter.post('/:guildId/events/:eventId/briefing/publish', requireAuth, async (req, res) => {
   const { guildId, eventId } = params(req);
   const published = (req.body as { published?: unknown }).published;
-  if (typeof published !== 'boolean') { fail(res, 400, 'Send published: true or false'); return; }
+  if (typeof published !== 'boolean') {
+    fail(res, 400, 'Send published: true or false');
+    return;
+  }
   try {
-    if (!(await canEdit(req, guildId, eventId))) { fail(res, 403, 'Only the host server\'s event creators can publish the briefing'); return; }
+    if (!(await canEdit(req, guildId, eventId))) {
+      fail(res, 403, "Only the host server's event creators can publish the briefing");
+      return;
+    }
     const b = await prisma.eventBriefing.findUnique({ where: { eventId } });
-    if (!b) { fail(res, 404, 'Save the briefing first'); return; }
-    const publishedAt = published ? b.publishedAt ?? new Date() : null;
+    if (!b) {
+      fail(res, 404, 'Save the briefing first');
+      return;
+    }
+    const publishedAt = published ? (b.publishedAt ?? new Date()) : null;
     const [saved] = await prisma.$transaction([
       prisma.eventBriefing.update({ where: { eventId }, data: { publishedAt } }),
       prisma.event.update({
         where: { id: eventId },
-        data: { briefingPublishedAt: publishedAt, briefingSummary: published ? briefingSummary(parseBriefing(b.content)) || null : null },
+        data: {
+          briefingPublishedAt: publishedAt,
+          briefingSummary: published ? briefingSummary(parseBriefing(b.content)) || null : null,
+        },
       }),
     ]);
     // Newly published: the roster gets its Briefing button and the thread a notice; otherwise just the roster.
@@ -160,7 +214,10 @@ briefingsRouter.post('/:guildId/events/:eventId/briefing/publish', requireAuth, 
 briefingsRouter.delete('/:guildId/events/:eventId/briefing', requireAuth, async (req, res) => {
   const { guildId, eventId } = params(req);
   try {
-    if (!(await canEdit(req, guildId, eventId))) { fail(res, 403, 'Forbidden'); return; }
+    if (!(await canEdit(req, guildId, eventId))) {
+      fail(res, 403, 'Forbidden');
+      return;
+    }
     const gone = await prisma.eventBriefing.deleteMany({ where: { eventId } });
     await prisma.event.update({ where: { id: eventId }, data: { briefingPublishedAt: null, briefingSummary: null } });
     if (gone.count) triggerBot(`/trigger/rsvp/${eventId}`);
@@ -175,12 +232,21 @@ briefingsRouter.delete('/:guildId/events/:eventId/briefing', requireAuth, async 
 briefingsRouter.get('/:guildId/briefings', requireAuth, async (req, res) => {
   const { guildId } = req.params as { guildId: string };
   try {
-    if (!(await assertEventCreator(req, guildId))) { fail(res, 403, 'Forbidden'); return; }
+    if (!(await assertEventCreator(req, guildId))) {
+      fail(res, 403, 'Forbidden');
+      return;
+    }
     const rows = await prisma.eventBriefing.findMany({
       where: { event: { guildId } },
       orderBy: { event: { startTime: 'desc' } },
       take: 50,
-      select: { eventId: true, content: true, publishedAt: true, updatedAt: true, event: { select: { name: true, startTime: true, aarOutcome: true } } },
+      select: {
+        eventId: true,
+        content: true,
+        publishedAt: true,
+        updatedAt: true,
+        event: { select: { name: true, startTime: true, aarOutcome: true } },
+      },
     });
     const data = rows.map((r) => ({
       ...toDto(r),

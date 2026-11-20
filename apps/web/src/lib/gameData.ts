@@ -91,7 +91,11 @@ export const blueprintTypes = (): string[] => current().types;
 /** Mission contracts that reward blueprints. */
 export const missionContracts = (): MissionContract[] => current().data.missions;
 
-const plain = (s: string) => s.toLowerCase().replace(/["'“”‘’]/g, '').replace(/[^a-z0-9.]+/g, ' ');
+const plain = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/["'“”‘’]/g, '')
+    .replace(/[^a-z0-9.]+/g, ' ');
 const haystacks = new WeakMap<CraftingBlueprint, string>();
 function haystack(b: CraftingBlueprint): string {
   let h = haystacks.get(b);

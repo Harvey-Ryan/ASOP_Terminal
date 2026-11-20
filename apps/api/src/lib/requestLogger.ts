@@ -33,9 +33,15 @@ async function flush(): Promise<void> {
 export function logRequest(entry: LogEntry): void {
   buffer.push(entry);
   if (!flushTimer) {
-    flushTimer = setInterval(() => { void flush(); }, 10_000);
-    process.once('SIGTERM', () => { void flush(); });
-    process.once('SIGINT',  () => { void flush(); });
+    flushTimer = setInterval(() => {
+      void flush();
+    }, 10_000);
+    process.once('SIGTERM', () => {
+      void flush();
+    });
+    process.once('SIGINT', () => {
+      void flush();
+    });
   }
 }
 
@@ -60,30 +66,29 @@ export function deriveModule(path: string): string {
 
   if (p.startsWith('/guilds/')) {
     const sub = p.replace(/^\/guilds\/[^/]+/, '');
-    if (sub.startsWith('/events'))              return 'events';
-    if (sub.startsWith('/loot'))                return 'loot';
-    if (sub.startsWith('/auctions') ||
-        sub.startsWith('/standalone-auctions')) return 'auctions';
-    if (sub.startsWith('/fleet'))               return 'fleet';
-    if (sub.startsWith('/exchange'))            return 'exchange';
-    if (sub.startsWith('/marketplace'))         return 'marketplace';
-    if (sub.startsWith('/settings'))            return 'settings';
-    if (sub.startsWith('/rsi'))                 return 'rsi';
-    if (sub.startsWith('/images'))              return 'images';
-    if (sub.startsWith('/heatmap'))             return 'activity';
-    if (sub === '' || sub === '/')              return 'guilds';
+    if (sub.startsWith('/events')) return 'events';
+    if (sub.startsWith('/loot')) return 'loot';
+    if (sub.startsWith('/auctions') || sub.startsWith('/standalone-auctions')) return 'auctions';
+    if (sub.startsWith('/fleet')) return 'fleet';
+    if (sub.startsWith('/exchange')) return 'exchange';
+    if (sub.startsWith('/marketplace')) return 'marketplace';
+    if (sub.startsWith('/settings')) return 'settings';
+    if (sub.startsWith('/rsi')) return 'rsi';
+    if (sub.startsWith('/images')) return 'images';
+    if (sub.startsWith('/heatmap')) return 'activity';
+    if (sub === '' || sub === '/') return 'guilds';
     return 'other';
   }
 
-  if (p.startsWith('/guilds'))    return 'guilds';
-  if (p.startsWith('/auth'))      return 'auth';
-  if (p.startsWith('/uex'))       return 'uex';
-  if (p.startsWith('/sc'))        return 'sc-data';
+  if (p.startsWith('/guilds')) return 'guilds';
+  if (p.startsWith('/auth')) return 'auth';
+  if (p.startsWith('/uex')) return 'uex';
+  if (p.startsWith('/sc')) return 'sc-data';
   if (p.startsWith('/marketplace')) return 'marketplace';
   if (p.startsWith('/fleetyards')) return 'fleet';
-  if (p.startsWith('/kanban'))    return 'kanban';
-  if (p.startsWith('/alliance'))  return 'alliance';
+  if (p.startsWith('/kanban')) return 'kanban';
+  if (p.startsWith('/alliance')) return 'alliance';
   if (p.startsWith('/notifications')) return 'notifications';
-  if (p.startsWith('/rolecall'))  return 'rolecall';
+  if (p.startsWith('/rolecall')) return 'rolecall';
   return 'other';
 }

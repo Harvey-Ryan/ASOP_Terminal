@@ -1,11 +1,12 @@
-import {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-} from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { EventRole } from '@dem/shared';
-import { describeRecurrence, serverHeadcount, serverTagOf, AFTER_ACTION_OUTCOMES, type AfterActionOutcome } from '@dem/shared';
+import {
+  describeRecurrence,
+  serverHeadcount,
+  serverTagOf,
+  AFTER_ACTION_OUTCOMES,
+  type AfterActionOutcome,
+} from '@dem/shared';
 
 interface RsvpEntry {
   userId: string;
@@ -53,7 +54,6 @@ function mentionList(items: string[], prefix = ''): string {
   return out;
 }
 
-
 function formatMember(userId: string, activeUserIds?: Set<string>): string {
   if (!activeUserIds) return `<@${userId}>`;
   return activeUserIds.has(userId) ? `✅ <@${userId}>` : `<@${userId}>`;
@@ -63,8 +63,17 @@ function formatMember(userId: string, activeUserIds?: Set<string>): string {
  * The roster message. On a shared event (joint op, v1.20.0) `serverTags` holds
  * each taking-part server's tag: everyone gets theirs, with a headcount per server.
  */
-export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<string>, imageFileName?: string, guildTagMap?: Record<string, string>, serverTags?: Record<string, string>): EmbedBuilder {
-  const joint = serverTags && event.guildId && Object.keys(serverTags).length > 1 ? { tags: serverTags, host: event.guildId } : null;
+export function buildRosterEmbed(
+  event: EventForRoster,
+  activeUserIds?: Set<string>,
+  imageFileName?: string,
+  guildTagMap?: Record<string, string>,
+  serverTags?: Record<string, string>,
+): EmbedBuilder {
+  const joint =
+    serverTags && event.guildId && Object.keys(serverTags).length > 1
+      ? { tags: serverTags, host: event.guildId }
+      : null;
   const member = (r: RsvpEntry) => {
     const tag = joint ? serverTagOf({ guildId: r.guildId ?? null }, joint.host, joint.tags) : undefined;
     return tag ? `${formatMember(r.userId, activeUserIds)} \`${tag}\`` : formatMember(r.userId, activeUserIds);
@@ -75,7 +84,10 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
 
   const whenParts = [`<t:${startTs}:F>`];
   if (endTs) whenParts.push(`→ <t:${endTs}:t>`);
-  if (event.recurType) whenParts.push(`· ${describeRecurrence(event.recurType, event.recurAnchor ?? event.startTime, event.recurTimezone)}`);
+  if (event.recurType)
+    whenParts.push(
+      `· ${describeRecurrence(event.recurType, event.recurAnchor ?? event.startTime, event.recurTimezone)}`,
+    );
 
   const ended = activeUserIds !== undefined;
 
@@ -95,12 +107,27 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
   }
 
   if (event.briefingPublishedAt && !ended) {
-    embed.addFields({ name: '📋 Briefing ready', value: `${event.briefingSummary ? `${event.briefingSummary}\n` : ''}Open it with the **Briefing** button.`.slice(0, FIELD_MAX), inline: false });
+    embed.addFields({
+      name: '📋 Briefing ready',
+      value: `${event.briefingSummary ? `${event.briefingSummary}\n` : ''}Open it with the **Briefing** button.`.slice(
+        0,
+        FIELD_MAX,
+      ),
+      inline: false,
+    });
   }
 
   if (joint) {
-    const counts = serverHeadcount(event.rsvps.map((r) => ({ guildId: r.guildId ?? null, tentative: r.tentative })), joint.host, joint.tags);
-    embed.addFields({ name: '👥 By server', value: counts.map((c) => `${c.tag} ${c.count}`).join(' · '), inline: false });
+    const counts = serverHeadcount(
+      event.rsvps.map((r) => ({ guildId: r.guildId ?? null, tentative: r.tentative })),
+      joint.host,
+      joint.tags,
+    );
+    embed.addFields({
+      name: '👥 By server',
+      value: counts.map((c) => `${c.tag} ${c.count}`).join(' · '),
+      inline: false,
+    });
   }
 
   const unassigned = event.rsvps.filter((r) => !r.role && !r.tentative);
@@ -113,16 +140,18 @@ export function buildRosterEmbed(event: EventForRoster, activeUserIds?: Set<stri
       const filled = `${members.length}/${role.count}`;
       let value = members.length > 0 ? mentionList(members.map(member)) : '*None*';
       const waiting = ended ? [] : (event.waitlist ?? []).filter((w) => w.role === roleKey);
-      if (waiting.length) value = mentionList(waiting.map((w) => `<@${w.userId}>`), `${value}\n⏳ Waiting: `);
+      if (waiting.length)
+        value = mentionList(
+          waiting.map((w) => `<@${w.userId}>`),
+          `${value}\n⏳ Waiting: `,
+        );
       const tag = role.guildId && guildTagMap ? guildTagMap[role.guildId] : undefined;
       const fieldName = tag ? `${role.name} [${tag}] (${filled})` : `${role.name} (${filled})`;
       embed.addFields({ name: fieldName, value, inline: true });
     }
   }
 
-  const unassignedValue = unassigned.length > 0
-    ? mentionList(unassigned.map(member))
-    : '*None*';
+  const unassignedValue = unassigned.length > 0 ? mentionList(unassigned.map(member)) : '*None*';
   embed.addFields({
     name: `📋 Unassigned (${unassigned.length})`,
     value: unassignedValue,
@@ -187,9 +216,7 @@ export function buildPostEventEmbed(
   const lines = attendees.map(({ userId, items }) => {
     const base = `✅ <@${userId}>`;
     if (items.length === 0) return base;
-    const lootStr = items
-      .map((i) => `**${i.name}**${i.quantity > 1 ? ` ×${i.quantity}` : ''}`)
-      .join(', ');
+    const lootStr = items.map((i) => `**${i.name}**${i.quantity > 1 ? ` ×${i.quantity}` : ''}`).join(', ');
     return `${base} — ${lootStr}`;
   });
 
@@ -240,17 +267,21 @@ export function buildRoleButtons(
   /** A published briefing (v1.36.0): adds a Briefing link to it, opened as the server viewing the roster */
   briefing = false,
 ): ActionRowBuilder<ButtonBuilder>[] {
-  const visibleRoles = viewingGuildId
-    ? roles.filter((r) => !r.guildId || r.guildId === viewingGuildId)
-    : roles;
+  const visibleRoles = viewingGuildId ? roles.filter((r) => !r.guildId || r.guildId === viewingGuildId) : roles;
 
   const allButtons: ButtonBuilder[] = [
     ...visibleRoles.slice(0, briefing && viewingGuildId ? 21 : 22).map((role) => {
       const key = role.id ?? role.name;
       const full = rsvps.filter((r) => r.role === key).length >= role.count;
       return full
-        ? new ButtonBuilder().setCustomId(`wait:${eventId}:${key}`).setLabel(`${role.name} · waitlist`.slice(0, 80)).setStyle(ButtonStyle.Secondary)
-        : new ButtonBuilder().setCustomId(`role:${eventId}:${key}`).setLabel(role.name.slice(0, 80)).setStyle(ButtonStyle.Primary);
+        ? new ButtonBuilder()
+            .setCustomId(`wait:${eventId}:${key}`)
+            .setLabel(`${role.name} · waitlist`.slice(0, 80))
+            .setStyle(ButtonStyle.Secondary)
+        : new ButtonBuilder()
+            .setCustomId(`role:${eventId}:${key}`)
+            .setLabel(role.name.slice(0, 80))
+            .setStyle(ButtonStyle.Primary);
     }),
     new ButtonBuilder()
       .setCustomId(`role:${eventId}:__unassigned__`)
@@ -270,16 +301,19 @@ export function buildRoleButtons(
   ];
   if (briefing && viewingGuildId) {
     const web = (process.env['WEB_URL'] ?? 'http://localhost:5173').replace(/\/$/, '');
-    allButtons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Briefing').setEmoji('📋')
-      .setURL(`${web}/dashboard/servers/${viewingGuildId}/events/${eventId}/briefing`));
+    allButtons.push(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel('Briefing')
+        .setEmoji('📋')
+        .setURL(`${web}/dashboard/servers/${viewingGuildId}/events/${eventId}/briefing`),
+    );
   }
 
   // Split into rows of 5
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   for (let i = 0; i < allButtons.length && i < 25; i += 5) {
-    rows.push(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(allButtons.slice(i, i + 5)),
-    );
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(allButtons.slice(i, i + 5)));
   }
   return rows;
 }

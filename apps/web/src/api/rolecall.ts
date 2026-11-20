@@ -118,7 +118,7 @@ export interface RcLeftMembers {
 export type RcHeatmapType = 'combined' | 'message' | 'voice';
 
 export interface RcHeatmap {
-  grid: number[][];  // [7][24]
+  grid: number[][]; // [7][24]
   max: number;
   days: number;
   timezone: string;
@@ -128,8 +128,7 @@ export interface RcHeatmap {
 }
 
 export const roleCallApi = {
-  getStats: (guildId: string) =>
-    api.get<RcStats>(`/rolecall/stats?guildId=${encodeURIComponent(guildId)}`),
+  getStats: (guildId: string) => api.get<RcStats>(`/rolecall/stats?guildId=${encodeURIComponent(guildId)}`),
 
   getLeaderboard: (guildId: string, page = 1, includeInactive = false) =>
     api.get<RcLeaderboard>(
@@ -139,8 +138,7 @@ export const roleCallApi = {
   getMember: (guildId: string, userId: string) =>
     api.get<RcMember>(`/rolecall/member?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}`),
 
-  getConfig: (guildId: string) =>
-    api.get<RcConfig>(`/rolecall/config?guildId=${encodeURIComponent(guildId)}`),
+  getConfig: (guildId: string) => api.get<RcConfig>(`/rolecall/config?guildId=${encodeURIComponent(guildId)}`),
 
   updateConfig: (guildId: string, data: Partial<Omit<RcConfig, 'guild_id'>>) =>
     api.patch<RcConfig>(`/rolecall/config?guildId=${encodeURIComponent(guildId)}`, data),
@@ -157,14 +155,22 @@ export const roleCallApi = {
 
   /** One member's combined, message and voice grids. */
   getMemberHeatmaps: (guildId: string, userId: string, params: HeatmapParams) =>
-    heatmapLayers(`/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${heatmapQuery(params)}`),
+    heatmapLayers(
+      `/rolecall/heatmap/user?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}${heatmapQuery(params)}`,
+    ),
 };
 
-interface HeatmapParams { days?: number; timezone?: string }
+interface HeatmapParams {
+  days?: number;
+  timezone?: string;
+}
 const heatmapQuery = (p: HeatmapParams) =>
   `${p.days ? `&days=${p.days}` : ''}${p.timezone ? `&timezone=${encodeURIComponent(p.timezone)}` : ''}`;
 
-export interface RcHeatmapLayer { grid: number[][]; max: number }
+export interface RcHeatmapLayer {
+  grid: number[][];
+  max: number;
+}
 export type RcHeatmapLayers = Record<RcHeatmapType, RcHeatmapLayer>;
 
 /**
