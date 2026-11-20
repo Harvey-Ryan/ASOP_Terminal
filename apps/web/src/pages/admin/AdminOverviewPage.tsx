@@ -151,6 +151,8 @@ export function AdminOverviewPage() {
 
       <StorageSection />
 
+      <DownloadsSection />
+
       {!o.feed.configured && (
         <p className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">
           The admin Discord feed isn't set up yet.{' '}
@@ -165,6 +167,75 @@ export function AdminOverviewPage() {
         {o.release.commit && ` (${o.release.commit})`}. Refreshes every 30 seconds.
       </p>
     </div>
+  );
+}
+
+/** Clicks on the Mining page's RockCrawler download button (v1.59.0). */
+function DownloadsSection() {
+  const q = useQuery({
+    queryKey: ['admin', 'downloads', 'rockcrawler'],
+    queryFn: () => adminApi.downloads('rockcrawler'),
+    refetchInterval: 5 * 60_000,
+  });
+  const d = q.data;
+  if (q.isError)
+    return (
+      <Section title="RockCrawler downloads">
+        <p className="text-sm text-red-400">Couldn't load the download counts.</p>
+      </Section>
+    );
+  if (!d) return <Skeleton className="h-40" />;
+  const maxDay = Math.max(1, ...d.days.map((x) => x.total));
+  const dayLabel = (day: string) =>
+    new Date(`${day}T00:00:00Z`).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return (
+    <Section title="RockCrawler downloads">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Today" value={d.today} sub="since midnight UTC" />
+        <Stat label="Last 7 days" value={d.last7d} />
+        <Stat label="Last 30 days" value={d.last30d} />
+        <Stat
+          label="All time"
+          value={d.allTime}
+          sub={
+            d.since
+              ? `since ${dayLabel(d.since)} · ${d.bySource.tools} public site · ${d.bySource.dashboard} dashboard`
+              : 'nothing counted yet'
+          }
+        />
+      </div>
+      <div className="mt-4 flex h-28 items-end gap-1" role="img" aria-label="Download clicks per day, last 30 days">
+        {d.days.map((x) => (
+          <div
+            key={x.day}
+            className="flex h-full flex-1 flex-col justify-end"
+            title={`${dayLabel(x.day)}: ${x.total} (${x.tools} public site, ${x.dashboard} dashboard)`}
+          >
+            {x.dashboard > 0 && (
+              <div className="bg-sky-400/70" style={{ height: `${(x.dashboard / maxDay) * 100}%`, minHeight: 3 }} />
+            )}
+            {x.tools > 0 && (
+              <div className="bg-primary/80" style={{ height: `${(x.tools / maxDay) * 100}%`, minHeight: 3 }} />
+            )}
+            {x.total === 0 && <div className="h-px bg-muted" />}
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+        <span>{dayLabel(d.days[0]!.day)}</span>
+        <span>
+          <span className="mr-1 inline-block h-2 w-2 bg-primary/80" />
+          public site <span className="ml-2 mr-1 inline-block h-2 w-2 bg-sky-400/70" />
+          server dashboard
+        </span>
+        <span>today</span>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Clicks on &ldquo;Download for Windows&rdquo; on the Mining page, by UTC day. A visitor clicking again within 10
+        minutes counts once. Nothing about who clicked is kept. Downloads from GitHub directly or through
+        RockCrawler&rsquo;s own updates aren&rsquo;t included.
+      </p>
+    </Section>
   );
 }
 

@@ -12,6 +12,8 @@ import type {
   ErrorGroupStatus,
   AdminModuleDto,
   AdminStorageDto,
+  AdminDownloadsDto,
+  DownloadItem,
   ModuleSetting,
 } from '@dem/shared';
 import { api } from './client';
@@ -39,6 +41,8 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 export const adminApi = {
   overview: () => api.get<ApiResponse<AdminOverviewDto>>('/admin/overview').then((r) => r.data!),
   storage: () => api.get<ApiResponse<AdminStorageDto>>('/admin/storage').then((r) => r.data!),
+  downloads: (item: DownloadItem) =>
+    api.get<ApiResponse<AdminDownloadsDto>>(`/admin/downloads/${item}`).then((r) => r.data!),
   errors: (f: ErrorFilters & { after?: number; before?: number; limit?: number }) =>
     api.get<ApiResponse<ErrorEventDto[]>>(`/admin/errors${qs({ ...f })}`).then((r) => r.data!),
   groups: (f: ErrorFilters) =>

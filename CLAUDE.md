@@ -353,3 +353,4 @@ One file per feature, by section (imported, so they load with this file).
 
 ### Admin
 - Uploaded images (v1.40.0): @docs/features/admin/uploaded-images.md
+- Download counts (v1.59.0): @docs/features/admin/download-counts.md

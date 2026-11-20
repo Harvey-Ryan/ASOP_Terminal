@@ -14,6 +14,7 @@
 //   POST  /config/test                  send a test message to the feed
 //   GET   /modules, PUT /modules        modules hidden for every server (v1.28.0)
 //   GET   /ai, PUT /ai                  AI assistant off for every server (v1.56.0)
+//   GET   /downloads/:item              download button clicks, per day and page (v1.59.0)
 
 import { Router, type Request, type Response } from 'express';
 import {
@@ -23,7 +24,10 @@ import {
   isValidTimeZone,
   setupChecklist,
   setupProblems,
+  isDownloadItem,
+  summariseDownloads,
   type AdminConfigDto,
+  type AdminDownloadsDto,
   type AdminGuildDetailDto,
   type AdminGuildDto,
   type AdminLogDto,
@@ -262,6 +266,22 @@ adminRouter.get('/storage', async (_req, res) => {
     console.error('[admin] storage:', err);
     res.status(500).json({ success: false, error: 'Could not read the uploads folder' });
   }
+});
+
+// ── Download clicks (v1.59.0) ────────────────────────────────────────────────
+
+adminRouter.get('/downloads/:item', async (req, res) => {
+  const item = req.params.item;
+  if (!isDownloadItem(item)) {
+    res.status(404).json({ success: false, error: 'Unknown download' } satisfies ApiResponse);
+    return;
+  }
+  // One row per day and page: small even after years.
+  const rows = await prisma.downloadClick.findMany({
+    where: { item },
+    select: { day: true, source: true, count: true },
+  });
+  ok<AdminDownloadsDto>(res, summariseDownloads(item, rows, new Date()));
 });
 
 // ── Errors ──────────────────────────────────────────────────────────────────
