@@ -8,6 +8,9 @@ import { Router } from 'express';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import {
+  isDownloadItem,
+  isDownloadSource,
+  utcDay,
   combatGunFromItem,
   combatShipFromRow,
   dedupeGuns,
@@ -510,4 +513,58 @@ gameToolsRouter.get('/game-tools/build', async (_req, res) => {
   }
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.json({ success: true, data: buildCache.data } satisfies ApiResponse<GameBuildDto>);
+});
+
+// ── Download clicks (v1.59.0) ────────────────────────────────────────────────
+// POST /api/game-tools/downloads/:item { source: 'tools' | 'dashboard' }: the
+// website's download buttons (RockCrawler on the Mining page) send this as they
+// start the download. It adds one to that item's count for the UTC day and page
+// (DownloadClick); Admin → Overview shows the counts. Public, and nothing about
+// the person is stored. The same visitor clicking the same item again within
+// REPEAT_WINDOW_MS isn't counted again (double clicks, retries); that memory is
+// a hashed address held in this process only, never written anywhere.
+
+const REPEAT_WINDOW_MS = 10 * 60_000;
+const REPEAT_MAX_ENTRIES = 20_000;
+const recentClicks = new Map<string, number>();
+
+/** For tests: forget who clicked recently. */
+export function forgetDownloadClicks(): void {
+  recentClicks.clear();
+}
+
+function isRepeatClick(ip: string, item: string, now: number): boolean {
+  const key = createHash('sha256').update(`${ip}|${item}`).digest('base64url').slice(0, 22);
+  const last = recentClicks.get(key);
+  if (last !== undefined && now - last < REPEAT_WINDOW_MS) return true;
+  if (recentClicks.size >= REPEAT_MAX_ENTRIES) {
+    for (const [k, at] of recentClicks) if (now - at >= REPEAT_WINDOW_MS) recentClicks.delete(k);
+    if (recentClicks.size >= REPEAT_MAX_ENTRIES) recentClicks.clear();
+  }
+  recentClicks.set(key, now);
+  return false;
+}
+
+gameToolsRouter.post('/game-tools/downloads/:item', async (req, res) => {
+  const item = req.params.item;
+  const source = (req.body as { source?: unknown } | undefined)?.source;
+  if (!isDownloadItem(item) || !isDownloadSource(source)) {
+    res.status(400).json({ success: false, error: 'Unknown download' } satisfies ApiResponse);
+    return;
+  }
+  const now = Date.now();
+  if (!isRepeatClick(req.ip ?? '', item, now)) {
+    const day = utcDay(new Date(now));
+    try {
+      await prisma.downloadClick.upsert({
+        where: { item_day_source: { item, day, source } },
+        create: { item, day, source, count: 1 },
+        update: { count: { increment: 1 } },
+      });
+    } catch (err) {
+      // A missed count must never get in the way of the download itself.
+      console.warn('[downloads] could not count a click:', (err as Error).message);
+    }
+  }
+  res.status(204).end();
 });

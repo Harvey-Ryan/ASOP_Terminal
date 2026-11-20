@@ -18,6 +18,7 @@ beforeEach(async () => {
     prisma.aiUsage.deleteMany(),
     prisma.aiFlag.deleteMany(),
     prisma.aiNoticeSeen.deleteMany(),
+    prisma.downloadClick.deleteMany(),
     prisma.serviceHeartbeat.deleteMany(),
     prisma.dkpTransaction.deleteMany(),
     prisma.dkpBalance.deleteMany(),

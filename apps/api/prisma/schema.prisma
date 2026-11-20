@@ -1695,3 +1695,18 @@ model AiNoticeSeen {
   discordId String   @id
   seenAt    DateTime @default(now())
 }
+
+/// Download button clicks (v1.59.0), shown on Admin → Overview: one row per
+/// thing downloaded, UTC day and page it was clicked on. Counts only, nothing
+/// about who clicked (so not part of Your data).
+model DownloadClick {
+  /// What was downloaded: DOWNLOAD_ITEMS ("rockcrawler")
+  item   String
+  /// "2026-11-20" (UTC)
+  day    String
+  /// DOWNLOAD_SOURCES: "tools" (the public /tools site) or "dashboard" (inside a server)
+  source String
+  count  Int    @default(0)
+
+  @@id([item, day, source])
+}

@@ -14,6 +14,8 @@ import {
   type GameToolsDataDto,
   type GameToolsShip,
   type GunSlot,
+  type DownloadItem,
+  type DownloadSource,
 } from '@dem/shared';
 import { api } from '../api/client';
 
@@ -145,4 +147,22 @@ export function rememberShip(className: string): void {
   } catch {
     /* private window */
   }
+}
+
+/**
+ * Count a click on a download button (v1.59.0; Admin → Overview). Sent with
+ * sendBeacon so it survives the page starting the download, and never waits
+ * for or reports an answer: a missed count must not get in the way.
+ */
+export function trackDownload(item: DownloadItem, source: DownloadSource): void {
+  const url = `/api/game-tools/downloads/${item}`;
+  const body = JSON.stringify({ source });
+  try {
+    if (navigator.sendBeacon?.(url, new Blob([body], { type: 'application/json' }))) return;
+  } catch {
+    /* fall back to fetch */
+  }
+  void fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(
+    () => undefined,
+  );
 }

@@ -47,6 +47,84 @@ export interface AdminStorageDto {
   servers: { guildId: string; name: string | null; bytes: number; files: number }[];
 }
 
+// ── Downloads (v1.59.0) ─────────────────────────────────────────────────────
+// Clicks on download buttons, counted per UTC day and page: nothing about who
+// clicked. POST /api/game-tools/downloads/:item counts; Admin → Overview shows
+// them (GET /api/admin/downloads/:item).
+
+/** Things with a download button. */
+export const DOWNLOAD_ITEMS = ['rockcrawler'] as const;
+export type DownloadItem = (typeof DOWNLOAD_ITEMS)[number];
+export const isDownloadItem = (x: unknown): x is DownloadItem => (DOWNLOAD_ITEMS as readonly unknown[]).includes(x);
+
+/** Where the button was: the public /tools site, or a server's dashboard. */
+export const DOWNLOAD_SOURCES = ['tools', 'dashboard'] as const;
+export type DownloadSource = (typeof DOWNLOAD_SOURCES)[number];
+export const isDownloadSource = (x: unknown): x is DownloadSource =>
+  (DOWNLOAD_SOURCES as readonly unknown[]).includes(x);
+
+/** Days in the admin chart, today included. */
+export const DOWNLOAD_CHART_DAYS = 30;
+
+/** A moment's UTC day, as stored: "2026-11-20". */
+export const utcDay = (d: Date): string => d.toISOString().slice(0, 10);
+
+export interface AdminDownloadsDto {
+  item: DownloadItem;
+  /** Today (UTC), the last 7 and 30 days (today included), and everything counted */
+  today: number;
+  last7d: number;
+  last30d: number;
+  allTime: number;
+  /** Everything counted, by page */
+  bySource: Record<DownloadSource, number>;
+  /** The last DOWNLOAD_CHART_DAYS days, oldest first, every day present */
+  days: ({ day: string; total: number } & Record<DownloadSource, number>)[];
+  /** The first day anything was counted (null: nothing yet) */
+  since: string | null;
+}
+
+/** The stored rows (any order) → the admin summary, as of `now`. */
+export function summariseDownloads(
+  item: DownloadItem,
+  rows: { day: string; source: string; count: number }[],
+  now: Date,
+): AdminDownloadsDto {
+  const today = utcDay(now);
+  const dayOffset = (n: number) => utcDay(new Date(now.getTime() - n * 86_400_000));
+  const from7 = dayOffset(6);
+  const from30 = dayOffset(DOWNLOAD_CHART_DAYS - 1);
+  const zero = () => Object.fromEntries(DOWNLOAD_SOURCES.map((s) => [s, 0])) as Record<DownloadSource, number>;
+
+  const bySource = zero();
+  const perDay = new Map<string, Record<DownloadSource, number>>();
+  let allTime = 0;
+  let last7d = 0;
+  let last30d = 0;
+  let todayCount = 0;
+  let since: string | null = null;
+  for (const r of rows) {
+    if (!isDownloadSource(r.source) || r.count <= 0) continue;
+    allTime += r.count;
+    bySource[r.source] += r.count;
+    if (!since || r.day < since) since = r.day;
+    if (r.day === today) todayCount += r.count;
+    if (r.day >= from7 && r.day <= today) last7d += r.count;
+    if (r.day >= from30 && r.day <= today) {
+      last30d += r.count;
+      const d = perDay.get(r.day) ?? zero();
+      d[r.source] += r.count;
+      perDay.set(r.day, d);
+    }
+  }
+  const days = Array.from({ length: DOWNLOAD_CHART_DAYS }, (_, i) => {
+    const day = dayOffset(DOWNLOAD_CHART_DAYS - 1 - i);
+    const counts = perDay.get(day) ?? zero();
+    return { day, total: DOWNLOAD_SOURCES.reduce((n, s) => n + counts[s], 0), ...counts };
+  });
+  return { item, today: todayCount, last7d, last30d, allTime, bySource, days, since };
+}
+
 // ── Errors ──────────────────────────────────────────────────────────────────
 
 export interface ErrorEventDto {

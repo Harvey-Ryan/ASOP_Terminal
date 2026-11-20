@@ -31,7 +31,7 @@ import {
   type RockSignature,
   type ScanMethod,
 } from '@dem/shared';
-import { fmt, useMiningData } from '../../lib/gameTools';
+import { fmt, trackDownload, useMiningData } from '../../lib/gameTools';
 import { ToolsDataState } from './ToolsLayout';
 import { GADGET_MOD_COLUMNS, LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell } from './miningBits';
 import { BuildBadge, CorrectionsProvider, DataViewToggle, Fix, useCorrections } from './corrections';
@@ -186,6 +186,7 @@ const ROCKCRAWLER_REPO = 'https://github.com/Harvey-Ryan/ASOP_RockCrawler';
 const ROCKCRAWLER_SETUP = `${ROCKCRAWLER_REPO}/releases/latest/download/RockCrawler-Setup.exe`;
 
 function RockCrawlerStrip() {
+  const { standalone } = useToolsPaths();
   return (
     <section
       aria-label="ASOP RockCrawler"
@@ -206,6 +207,7 @@ function RockCrawlerStrip() {
           href={ROCKCRAWLER_SETUP}
           className="fab-btn-primary inline-flex h-11 items-center px-4 text-[15px] no-underline"
           download
+          onClick={() => trackDownload('rockcrawler', standalone ? 'tools' : 'dashboard')}
         >
           Download for Windows
         </a>
