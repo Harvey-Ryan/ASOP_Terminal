@@ -1,0 +1,6 @@
+# Commits that only reformat code; `git blame` skips them (GitHub does this
+# automatically; locally: git config blame.ignoreRevsFile .git-blame-ignore-revs).
+# Merge this branch with a merge commit, not squash, so this hash stays valid.
+
+# style: format the codebase with Prettier
+69c1217597225f78e6a207e88b95382714c3a594
