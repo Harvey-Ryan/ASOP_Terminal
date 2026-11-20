@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { refreshShipCatalog } from './lib/shipCatalog.js';
 import { warmGameTools } from './server/routes/gameTools.js';
+import { encryptStoredDiscordTokens } from './lib/discordTokens.js';
 import cron from 'node-cron';
 import { createServer } from './server/app.js';
 import { runUexSync } from './lib/uexSync.js';
@@ -106,6 +107,13 @@ app.listen(PORT, async () => {
   cron.schedule('15 4 * * *', () => {
     pruneOldErrors().catch((err) => console.error('[errorLog] Pruning failed:', err));
   });
+
+  // Discord sign-in tokens stored as plain text before v1.59.1 get encrypted.
+  void encryptStoredDiscordTokens()
+    .then((n) => {
+      if (n > 0) console.log(`[auth] Encrypted ${n} stored Discord sign-in(s)`);
+    })
+    .catch((err) => console.error('[auth] Encrypting stored Discord sign-ins failed:', err));
 
   // Ship list from RSI (v1.32.0): now, then daily at 05:20 UTC.
   const ships = async () => {
