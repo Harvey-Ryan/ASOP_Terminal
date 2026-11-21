@@ -54,6 +54,8 @@ export interface ActionContext {
   guild: Guild;
   member: GuildMember;
   userId: string;
+  /** The event whose Discord thread the question was asked in (v1.65.0): changes default to it. */
+  threadEventId?: string | null;
   /** The change this question prepared (one per question). */
   prepared: PreparedAction | null;
 }
@@ -131,15 +133,15 @@ export async function isEventOfficer(
 /**
  * The open event a name means: this server's own (`own`) or any it can see.
  * The soonest match; the others are named so the model can ask which.
+ * No name in an event's thread means that thread's event (v1.65.0).
  */
 async function findOpenEvent(
-  guildId: string,
+  ctx: ActionContext,
   name: string,
   own: boolean,
 ): Promise<{ event: Event | null; others: string[] }> {
-  if (!name) return { event: null, others: [] };
+  const guildId = ctx.guild.id;
   const where: Prisma.EventWhereInput = {
-    name: { contains: name, mode: 'insensitive' },
     status: { in: OPEN },
     ...(own
       ? { guildId }
@@ -151,14 +153,24 @@ async function findOpenEvent(
           ],
         }),
   };
-  const found = await prisma.event.findMany({ where, orderBy: { startTime: 'asc' }, take: 4 });
+  if (!name) {
+    if (!ctx.threadEventId) return { event: null, others: [] };
+    return { event: await prisma.event.findFirst({ where: { ...where, id: ctx.threadEventId } }), others: [] };
+  }
+  const found = await prisma.event.findMany({
+    where: { ...where, name: { contains: name, mode: 'insensitive' } },
+    orderBy: { startTime: 'asc' },
+    take: 4,
+  });
   const exact = found.find((e) => e.name.toLowerCase() === name.toLowerCase());
   const event = exact ?? found[0] ?? null;
   return { event, others: found.filter((e) => e !== event).map((e) => `${e.name} (${ts(e.startTime, 'f')})`) };
 }
 
 const notFound = (name: string, own: boolean) =>
-  `No upcoming event matching "${name}"${own ? ' hosted by this server' : ''}. Nothing was prepared.`;
+  name
+    ? `No upcoming event matching "${name}"${own ? ' hosted by this server' : ''}. Nothing was prepared.`
+    : `Which event? Ask them for its name (or to ask in the event's thread)${own ? '; it must be hosted by this server' : ''}. Nothing was prepared.`;
 
 function prepare(ctx: ActionContext, preview: string, run: () => Promise<string>): string {
   if (ctx.prepared) return 'Only one change per question. Nothing more was prepared.';
@@ -179,7 +191,7 @@ function prepare(ctx: ActionContext, preview: string, run: () => Promise<string>
 async function signUp(ctx: ActionContext, args: Record<string, unknown>): Promise<string> {
   if (!(await eventBotOn(ctx.guild.id))) return 'Events are switched off in this server.';
   const name = str(args['event']);
-  const { event, others } = await findOpenEvent(ctx.guild.id, name, false);
+  const { event, others } = await findOpenEvent(ctx, name, false);
   if (!event) return notFound(name, false);
   const roles = parseRoles(event.roles);
   const roleName = str(args['role'], 100);
@@ -239,7 +251,7 @@ async function signUp(ctx: ActionContext, args: Record<string, unknown>): Promis
 
 async function leaveEvent(ctx: ActionContext, args: Record<string, unknown>): Promise<string> {
   const name = str(args['event']);
-  const { event } = await findOpenEvent(ctx.guild.id, name, false);
+  const { event } = await findOpenEvent(ctx, name, false);
   if (!event) return notFound(name, false);
   const on = await prisma.eventRsvp.findUnique({
     where: { eventId_userId: { eventId: event.id, userId: ctx.userId } },
@@ -344,7 +356,7 @@ async function createEvent(ctx: ActionContext, args: Record<string, unknown>): P
 
 async function editEvent(ctx: ActionContext, args: Record<string, unknown>): Promise<string> {
   const q = str(args['event']);
-  const { event } = await findOpenEvent(ctx.guild.id, q, true);
+  const { event } = await findOpenEvent(ctx, q, true);
   if (!event) return notFound(q, true);
   if (!(await isEventOfficer(ctx.member, event))) return NOT_OFFICER;
   const changes: string[] = [];
@@ -397,7 +409,7 @@ async function editEvent(ctx: ActionContext, args: Record<string, unknown>): Pro
 
 async function cancelOne(ctx: ActionContext, args: Record<string, unknown>): Promise<string> {
   const q = str(args['event']);
-  const { event } = await findOpenEvent(ctx.guild.id, q, true);
+  const { event } = await findOpenEvent(ctx, q, true);
   if (!event) return notFound(q, true);
   if (!(await isEventOfficer(ctx.member, event))) return NOT_OFFICER;
   if (event.status !== 'PENDING')
@@ -427,7 +439,7 @@ async function cancelOne(ctx: ActionContext, args: Record<string, unknown>): Pro
 
 async function shareEvent(ctx: ActionContext, args: Record<string, unknown>): Promise<string> {
   const q = str(args['event']);
-  const { event } = await findOpenEvent(ctx.guild.id, q, true);
+  const { event } = await findOpenEvent(ctx, q, true);
   if (!event) return notFound(q, true);
   if (!(await isEventOfficer(ctx.member, event))) return NOT_OFFICER;
   const host = await prisma.guild.findUnique({ where: { guildId: ctx.guild.id }, select: { id: true } });

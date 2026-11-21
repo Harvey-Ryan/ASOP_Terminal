@@ -13,6 +13,8 @@ import {
   defuseMentions,
   questionText,
   pickTools,
+  rankGameKinds,
+  ASSISTANT_TOOLS,
   parseLocalDateTime,
   localNowText,
   assistantSystemPrompt,
@@ -117,42 +119,80 @@ test('answers: trimmed at a sentence, no pings, mention removed', () => {
   assert.ok(answerTokenCap(500) > 140 && answerTokenCap(2000) < 700);
 });
 
-test('tools: by topic, everything when unsure, flag always offered', () => {
-  const names = (q, l) => pickTools(q, l).map((t) => t.name);
-  assert.deepEqual(names('where can I mine quantanium?'), [
-    'ship_info',
-    'where_to_mine',
-    'blueprint_missions',
-    'flag_question',
-  ]);
+test('tools: by topic, lookups and own changes when unsure, flag always offered', () => {
+  const names = (q, l, o) => pickTools(q, l, o).map((t) => t.name);
+  assert.deepEqual(names('where can I mine quantanium?'), ['game', 'flag_question']);
   assert.ok(names('what is my dkp?').includes('my_dkp'));
   assert.ok(names('how many Credits do I have', 'Credits').includes('my_dkp'));
   assert.ok(names('who has a Carrack for the Hathor op?').includes('who_has_ship'));
-  assert.ok(names('who has a Carrack for the Hathor op?').includes('find_event'));
-  // Everything when unsure; officer changes only for officers.
-  assert.equal(names('hello there').length, 11);
-  assert.ok(!names('hello there').includes('create_event'));
-  assert.ok(pickTools('hello there', 'DKP', { officer: true }).some((t) => t.name === 'create_event'));
+  assert.ok(names('who has a Carrack for the Hathor op?').includes('events'));
+  // Unsure: every lookup and the asker's own sign-ups, but no officer changes (they need an event word).
+  assert.deepEqual(names('hello there'), [
+    'events',
+    'my_dkp',
+    'who_has_ship',
+    'game',
+    'sign_up',
+    'leave_event',
+    'flag_question',
+  ]);
+  assert.ok(!names('hello there', 'DKP', { officer: true }).includes('create_event'));
+  assert.ok(names('push hathor back an hour', 'DKP', { officer: true }).includes('edit_event'));
   assert.ok(names('sign me up for the hathor op as pilot').includes('sign_up'));
+  assert.ok(names('count me in for hathor').includes('sign_up'));
   assert.ok(pickTools('cancel the mining op', 'DKP', { officer: true }).some((t) => t.name === 'cancel_event'));
+  // In an event's thread the event tools always come, officer ones too for officers.
+  assert.ok(names('who is coming?', 'DKP', { inEventThread: true }).includes('events'));
+  assert.ok(names('hello', 'DKP', { officer: true, inEventThread: true }).includes('cancel_event'));
+  assert.ok(names('where can I mine gold?', 'DKP', { inEventThread: true }).includes('game'));
+  // The changes' event can be left out (the thread's event); share still needs the ally.
+  for (const n of ['sign_up', 'leave_event', 'edit_event', 'cancel_event'])
+    assert.ok(!ASSISTANT_TOOLS.find((t) => t.name === n).parameters.required?.includes('event'), n);
+  assert.deepEqual(ASSISTANT_TOOLS.find((t) => t.name === 'share_event').parameters.required, ['ally']);
   // Every change is marked as one, so the bot never runs it without Confirm.
   for (const n of ['sign_up', 'leave_event', 'create_event', 'edit_event', 'cancel_event', 'share_event']) {
-    const t = pickTools('hello', 'DKP', { officer: true }).find((x) => x.name === n);
+    const t = pickTools('event', 'DKP', { officer: true }).find((x) => x.name === n);
     assert.ok(t?.action && t.personal, n);
   }
+  // The events lookup is personal only for "mine" (so other answers can be cached).
+  const ev = ASSISTANT_TOOLS.find((t) => t.name === 'events');
+  assert.equal(ev.personal, undefined);
+  assert.equal(ev.personalArg, 'mine');
+});
+
+test('game lookup: exact names first, then ore, ship, blueprint; a kind asked for goes first', () => {
+  assert.deepEqual(rankGameKinds({ ship: null, ore: 'exact', blueprint: 'partial' }), ['ore', 'blueprint']);
+  assert.deepEqual(rankGameKinds({ ship: 'exact', ore: 'partial', blueprint: null }), ['ship', 'ore']);
+  assert.deepEqual(rankGameKinds({ ship: 'partial', ore: 'partial', blueprint: 'partial' }), [
+    'ore',
+    'ship',
+    'blueprint',
+  ]);
+  assert.deepEqual(rankGameKinds({ ship: 'partial', ore: 'exact', blueprint: null }, 'ship'), ['ship', 'ore']);
+  // A kind that doesn't match is skipped, so the lookup widens instead of failing.
+  assert.deepEqual(rankGameKinds({ ship: null, ore: 'exact', blueprint: null }, 'blueprint'), ['ore']);
+  assert.deepEqual(rankGameKinds({ ship: null, ore: null, blueprint: null }), []);
+});
+
+test("prompt: an event's thread means that event", () => {
+  const base = { serverName: 'S', answerChars: 500, today: '2026-11-21', dkpLabel: 'DKP' };
+  assert.match(assistantSystemPrompt({ ...base, inEventThread: true }), /event's Discord thread/);
+  const plain = assistantSystemPrompt(base);
+  assert.doesNotMatch(plain, /thread/);
+  assert.ok(!plain.includes('\n\n'));
 });
 
 const tools = [
   {
-    name: 'find_event',
+    name: 'events',
     description: 'd',
     parameters: { type: 'object', properties: { name: { type: 'string', description: 'n' } }, required: ['name'] },
   },
 ];
 const conversation = [
   { role: 'user', text: 'briefing for hathor?' },
-  { role: 'assistant', text: '', toolCalls: [{ id: 'c1', name: 'find_event', args: { name: 'hathor' } }] },
-  { role: 'tool', results: [{ id: 'c1', name: 'find_event', content: 'Hathor op: briefing https://x' }] },
+  { role: 'assistant', text: '', toolCalls: [{ id: 'c1', name: 'events', args: { name: 'hathor' } }] },
+  { role: 'tool', results: [{ id: 'c1', name: 'events', content: 'Hathor op: briefing https://x' }] },
 ];
 
 test('requests: each provider gets its own shape, key only in a header', () => {
@@ -189,7 +229,7 @@ test('requests: each provider gets its own shape, key only in a header', () => {
   assert.equal(g.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-x:generateContent');
   assert.ok(!g.url.includes('k='));
   assert.equal(g.body.contents[1].role, 'model');
-  assert.equal(g.body.contents[2].parts[0].functionResponse.name, 'find_event');
+  assert.equal(g.body.contents[2].parts[0].functionResponse.name, 'events');
   for (const req of [o, a, g]) assert.ok(!JSON.stringify(req.body).includes('sk-secret'));
 });
 

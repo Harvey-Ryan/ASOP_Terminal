@@ -50,3 +50,29 @@
   entry that only prepares.
 - The model guide on the settings page is general guidance only: no model
   names, prices or recommendations.
+- Tiered lookups (v1.65.0): two broad lookups that widen their own search
+  replace six narrow ones, so fewer tool descriptions go with each question.
+  - `events` (was `upcoming_events`, `find_event`, `my_events`): no `query`
+    = the event of the thread the question was asked in, else the next
+    events; with a query it stops at the first tier that finds something:
+    the name in upcoming and the last 14 days → every word of it in any
+    order → the same 14–120 days back (said so in the result) → "no match"
+    with what's coming up. `detail: brief` (default: time, counts per role,
+    briefing and thread links) or `full` (names per role, description).
+    `mine: true` = the asker's own sign-ups and waitlists (personal only
+    then: `personalArg`, so other answers can be cached).
+  - `game` (was `ship_info`, `where_to_mine`, `blueprint_missions`): one
+    name checked against ores, ships and blueprints at once;
+    `rankGameKinds` (shared) puts exact names first, then ore, ship,
+    blueprint, with an optional `kind` first when it matches. The other
+    kinds it matched are named in the result. A new kind of game lookup
+    goes here, not into a new tool.
+  - Event threads: `threadEventOf` (bot) finds the event whose thread (the
+    host's, or an ally's copy) the question is in. Then `pickTools` always
+    adds the event tools, the system prompt says so (no event name in the
+    prompt: organiser text stays tool data), the changes' `event` argument
+    may be left out (`findOpenEvent` uses the thread's event, with the same
+    own/visible and open checks), and the answer cache key includes it.
+  - No topic word: every lookup and the asker's own changes, but officer
+    changes only with an event word (more of those were added: postpone,
+    delay, push … back, put me down/in, add me, count me in).
