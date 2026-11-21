@@ -69,7 +69,10 @@
   coloured (`killBand`: easy under 45 s green, workable to 2 min gold, not
   worth it beyond that or impossible red), with a key above the table. Each
   target row shows its stock shields, armour, hull and deflection
-  (physical / energy). Under the table:
+  (physical / energy), the deflection coloured against the guns on the page
+  (`deflectionCheck`, v1.62.0: green every gun of that type gets through,
+  gold some stopped, red all stopped, dim none of that type; hover a number
+  for which guns). Under the table:
   "These are simulation values. Hover for more info." with every assumption
   in a hover/focus pop-up (`.gt-tip`).
 - Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
