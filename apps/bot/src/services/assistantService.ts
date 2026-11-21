@@ -131,6 +131,30 @@ async function earlierExchanges(message: Message): Promise<AssistantMessage[]> {
   return out;
 }
 
+// ── Context: the event whose thread this is (v1.65.0) ─────────────────────────
+
+/** The event a thread belongs to: the host's own thread, or this server's copy of a shared one. */
+async function threadEventOf(message: Message): Promise<string | null> {
+  const channel = message.channel;
+  if (!channel.isThread() || !message.guildId) return null;
+  const e = await prisma.event
+    .findFirst({
+      where: {
+        OR: [
+          { guildId: message.guildId, threadId: channel.id },
+          { allianceGuilds: { some: { discordGuildId: message.guildId, threadId: channel.id } } },
+        ],
+      },
+      orderBy: { startTime: 'desc' },
+      select: { id: true },
+    })
+    .catch((err) => {
+      console.warn('[assistant] thread event:', err instanceof Error ? err.message : err);
+      return null;
+    });
+  return e?.id ?? null;
+}
+
 // ── Broken keys ──────────────────────────────────────────────────────────────
 
 const KEY_WORDS: Record<string, string> = {
@@ -298,8 +322,9 @@ async function answer(message: Message): Promise<void> {
       .upsert({ where: { discordId: message.author.id }, create: { discordId: message.author.id }, update: {} })
       .catch(() => null);
 
-  const context = await earlierExchanges(message);
-  const key = cacheKey(guild.id, question);
+  const [context, threadEventId] = await Promise.all([earlierExchanges(message), threadEventOf(message)]);
+  // "When is it?" means a different event in each thread, so the thread is part of the key.
+  const key = `${cacheKey(guild.id, question)}|${threadEventId ?? ''}`;
   const again = context.length ? null : cached(key);
   if (again) {
     await count(guild.id, message.author.id, 0, 0);
@@ -319,7 +344,8 @@ async function answer(message: Message): Promise<void> {
     const dkpLabel = await getGuildDkpLabel(guild.id);
     // Officer changes are offered only to officers (v1.57.0); times for changes are in the asker's zone.
     const [officer, timeZone] = await Promise.all([isEventOfficer(member), askerTimeZone(guild.id, message.author.id)]);
-    const tools = pickTools(question, dkpLabel, { officer });
+    const inEventThread = !!threadEventId;
+    const tools = pickTools(question, dkpLabel, { officer, inEventThread });
     const system = assistantSystemPrompt({
       serverName: guild.name,
       answerChars: row.answerChars,
@@ -327,10 +353,11 @@ async function answer(message: Message): Promise<void> {
       dkpLabel,
       timeZone,
       localNow: localNowText(now, timeZone),
+      inEventThread,
     });
     const messages: AssistantMessage[] = [...context, { role: 'user', text: question }];
     const cfg = { provider, baseUrl: row.baseUrl, model: row.model, apiKey };
-    const ctx: ActionContext = { guild, member, userId: message.author.id, prepared: null };
+    const ctx: ActionContext = { guild, member, userId: message.author.id, threadEventId, prepared: null };
     let personal = false;
     let toolCalls = 0;
     let text = '';
@@ -367,7 +394,7 @@ async function answer(message: Message): Promise<void> {
       const results = [];
       for (const call of reply.toolCalls) {
         const spec = tools.find((t) => t.name === call.name);
-        if (spec?.personal) personal = true;
+        if (spec?.personal || (spec?.personalArg && call.args[spec.personalArg] === true)) personal = true;
         const run = spec?.action ? ACTION_RUNNERS[call.name] : null;
         const content =
           ++toolCalls > MAX_TOOL_CALLS || !spec

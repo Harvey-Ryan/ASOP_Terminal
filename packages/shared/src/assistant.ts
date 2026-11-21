@@ -358,6 +358,8 @@ export interface AssistantToolSpec {
   topic: 'events' | 'dkp' | 'fleet' | 'game' | 'always';
   /** Depends on who is asking, so its answers are never cached. */
   personal?: boolean;
+  /** Personal only when this argument is true (the `events` lookup's `mine`). */
+  personalArg?: string;
   /**
    * Changes something (v1.57.0). Never done by the model: the bot prepares it,
    * shows what will happen, and does it only when the person who asked presses
@@ -367,36 +369,34 @@ export interface AssistantToolSpec {
 }
 
 const noArgs: ToolSchema = { type: 'object', properties: {} };
+/** Changes' event argument: left out in an event's thread, the thread's event is meant (v1.65.0). */
+const EVENT_ARG = "Part of the event name; leave out for the thread's event.";
 
-/** Lookups (v1.56.0) return plain facts, with a link where there is a page; changes (v1.57.0) are prepared for the asker to confirm. */
+/**
+ * Lookups (v1.56.0) return plain facts, with a link where there is a page; changes (v1.57.0) are
+ * prepared for the asker to confirm. Tiered lookups (v1.65.0): one `events` and one `game` tool
+ * that widen their own search (thread's event → recent → older; ore → ship → blueprint) instead
+ * of one narrow tool per question, so fewer tool descriptions go out with each question.
+ */
 export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
   {
-    name: 'upcoming_events',
+    name: 'events',
     topic: 'events',
+    personalArg: 'mine',
     description:
-      "Upcoming events this server can see (its own and allies' shared ones): name, start time, sign-up count, link.",
+      'Events this server can see (own and allies\' shared). No query: the thread\'s event, else the next ones. With a query: the best match, upcoming and recent first, then older. Brief unless detail is "full".',
     parameters: {
       type: 'object',
-      properties: { limit: { type: 'integer', description: 'How many, 1–10 (default 5).' } },
+      properties: {
+        query: { type: 'string', description: 'Optional: part of the event name.' },
+        mine: { type: 'boolean', description: 'Optional: true for only their own sign-ups.' },
+        detail: {
+          type: 'string',
+          enum: ['brief', 'full'],
+          description: 'Optional: "full" adds names per role and the description.',
+        },
+      },
     },
-  },
-  {
-    name: 'find_event',
-    topic: 'events',
-    description:
-      'Details of one event by name (recent or upcoming): time, status, roles and sign-ups per role, briefing link if published, event link.',
-    parameters: {
-      type: 'object',
-      properties: { name: { type: 'string', description: 'Part of the event name.' } },
-      required: ['name'],
-    },
-  },
-  {
-    name: 'my_events',
-    topic: 'events',
-    personal: true,
-    description: 'Upcoming events the person asking is signed up for, with their role.',
-    parameters: noArgs,
   },
   {
     name: 'my_dkp',
@@ -419,34 +419,21 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
     },
   },
   {
-    name: 'ship_info',
-    topic: 'game',
-    description: 'Basic facts about a ship: maker, role, crew, cargo, size, and the link to its loadout page.',
-    parameters: {
-      type: 'object',
-      properties: { ship: { type: 'string', description: 'Ship name.' } },
-      required: ['ship'],
-    },
-  },
-  {
-    name: 'where_to_mine',
+    name: 'game',
     topic: 'game',
     description:
-      'Where an ore or mineral is mined (only rocks where it is the main ore), with the rock and its chance there.',
+      'Game-file facts: a ship (maker, role, crew, cargo), an ore (where to mine it) or a blueprint (materials, missions that reward it). Works out which from the name.',
     parameters: {
       type: 'object',
-      properties: { ore: { type: 'string', description: 'Ore name, e.g. "Quantanium".' } },
-      required: ['ore'],
-    },
-  },
-  {
-    name: 'blueprint_missions',
-    topic: 'game',
-    description: 'Missions that can reward a crafting blueprint, and what the blueprint needs.',
-    parameters: {
-      type: 'object',
-      properties: { blueprint: { type: 'string', description: 'Blueprint or item name.' } },
-      required: ['blueprint'],
+      properties: {
+        name: { type: 'string', description: 'Ship, ore or blueprint name.' },
+        kind: {
+          type: 'string',
+          enum: ['ship', 'ore', 'blueprint'],
+          description: 'Optional: only when the name could be more than one.',
+        },
+      },
+      required: ['name'],
     },
   },
   // ── Changes (v1.57.0): prepared here, done only when the asker presses Confirm ──
@@ -460,11 +447,10 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
     parameters: {
       type: 'object',
       properties: {
-        event: { type: 'string', description: 'Part of the event name.' },
+        event: { type: 'string', description: EVENT_ARG },
         role: { type: 'string', description: 'Optional: the role name, e.g. "Pilot". Leave out for no role.' },
         maybe: { type: 'boolean', description: 'Optional: true for "maybe".' },
       },
-      required: ['event'],
     },
   },
   {
@@ -476,8 +462,7 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
       'Prepare taking the asking member off an event roster (and any waitlist). Only prepares it; they confirm with a button.',
     parameters: {
       type: 'object',
-      properties: { event: { type: 'string', description: 'Part of the event name.' } },
-      required: ['event'],
+      properties: { event: { type: 'string', description: EVENT_ARG } },
     },
   },
   {
@@ -507,12 +492,11 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
     parameters: {
       type: 'object',
       properties: {
-        event: { type: 'string', description: 'Part of the current event name.' },
+        event: { type: 'string', description: EVENT_ARG },
         start: { type: 'string', description: 'Optional: new start in the asker\'s local time, "YYYY-MM-DDTHH:mm".' },
         name: { type: 'string', description: 'Optional: new name.' },
         description: { type: 'string', description: 'Optional: new description.' },
       },
-      required: ['event'],
     },
   },
   {
@@ -524,8 +508,7 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
       'Officers: prepare cancelling an upcoming event (a repeating one also stops repeating). Only prepares it; they confirm with a button.',
     parameters: {
       type: 'object',
-      properties: { event: { type: 'string', description: 'Part of the event name.' } },
-      required: ['event'],
+      properties: { event: { type: 'string', description: EVENT_ARG } },
     },
   },
   {
@@ -538,10 +521,10 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
     parameters: {
       type: 'object',
       properties: {
-        event: { type: 'string', description: 'Part of the event name.' },
+        event: { type: 'string', description: EVENT_ARG },
         ally: { type: 'string', description: "The ally's name or tag." },
       },
-      required: ['event', 'ally'],
+      required: ['ally'],
     },
   },
   {
@@ -559,27 +542,48 @@ export const ASSISTANT_TOOLS: readonly AssistantToolSpec[] = [
 
 const TOPIC_WORDS: Record<'events' | 'dkp' | 'fleet' | 'game', RegExp> = {
   events:
-    /\b(event|events|op|ops|operation|briefing|brief|sign(ed)?[\s-]?(me\s)?up|signups|roster|rsvp|attend|going|tonight|tomorrow|weekend|next|when|schedule|scheduled|reschedule|calendar|raid|mission brief|join|leave|drop|maybe|waitlist|cancel|create|template|move|rename|share|ally|allies)\b/i,
+    /\b(event|events|op|ops|operation|briefing|brief|sign(ed)?[\s-]?(me\s)?up|signups|roster|rsvp|attend|going|tonight|tomorrow|weekend|next|when|schedule|scheduled|reschedule|calendar|raid|mission brief|join|leave|drop|maybe|waitlist|cancel|create|template|move|rename|share|ally|allies|postpone|delay|push(ed)? (\S+ ){0,3}back|put me (down|in)|add me|count me in)\b/i,
   dkp: /\b(dkp|points?|balance|wallet|credits?|bids?|auction)\b/i,
   fleet: /\b(fleet|who has|who owns|owns?|anyone (have|with)|ships?)\b/i,
   game: /\b(mine|mining|ore|ores|rock|quantanium|laranite|agricium|taranite|bexalite|gold|hadanite|blueprints?|craft|crafting|recipe|missions?|ship|ships|loadout|cargo|crew|scu|weapon|gun)\b/i,
 };
 
 /**
- * The tools for a question: those whose topic it mentions (plus flag_question),
- * or every tool when it mentions none. Fewer tools = fewer tokens per question.
- * `dkpLabel` is the server's own name for DKP ("Credits"); officer changes
- * only for `officer` (they're checked again when run).
+ * The tools for a question: those whose topic it mentions (plus flag_question). Asked in an
+ * event's thread, the event tools come too. When it mentions no topic, every lookup and the
+ * asker's own sign-up changes (v1.65.0: officer changes need an event word, which saves their
+ * descriptions on the most general questions). `dkpLabel` is the server's own name for DKP
+ * ("Credits"); officer changes only for `officer` (they're checked again when run).
  */
-export function pickTools(question: string, dkpLabel = 'DKP', opts: { officer?: boolean } = {}): AssistantToolSpec[] {
+export function pickTools(
+  question: string,
+  dkpLabel = 'DKP',
+  opts: { officer?: boolean; inEventThread?: boolean } = {},
+): AssistantToolSpec[] {
   const topics = new Set<string>();
   for (const [topic, re] of Object.entries(TOPIC_WORDS)) if (re.test(question)) topics.add(topic);
   if (dkpLabel && new RegExp(`\\b${dkpLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(question))
     topics.add('dkp');
+  const unsure = !topics.size;
+  if (opts.inEventThread) topics.add('events');
   // Officer changes are only offered to people who can make them (fewer tokens for everyone else).
   const usable = ASSISTANT_TOOLS.filter((t) => t.action !== 'officer' || opts.officer);
-  if (!topics.size) return usable;
+  if (unsure) return usable.filter((t) => t.action !== 'officer' || topics.has(t.topic));
   return usable.filter((t) => t.topic === 'always' || topics.has(t.topic));
+}
+
+export type GameKind = 'ship' | 'ore' | 'blueprint';
+export type GameMatch = 'exact' | 'partial' | null;
+
+/**
+ * Which game data a name means, best first (the `game` lookup, v1.65.0): exact names before
+ * partial ones, then ore, ship, blueprint. A `kind` the model asked for goes first when it
+ * matches; the others still follow, so a wrong guess widens instead of failing.
+ */
+export function rankGameKinds(matches: Record<GameKind, GameMatch>, kind?: GameKind): GameKind[] {
+  const order: GameKind[] = ['ore', 'ship', 'blueprint'];
+  const score = (k: GameKind) => (k === kind ? 0 : 2) + (matches[k] === 'exact' ? 0 : 1);
+  return order.filter((k) => matches[k]).sort((a, b) => score(a) - score(b) || order.indexOf(a) - order.indexOf(b));
 }
 
 /** The instructions sent with every question: short on purpose. */
@@ -590,6 +594,8 @@ export function assistantSystemPrompt(input: {
   dkpLabel: string;
   timeZone?: string;
   localNow?: string;
+  /** Asked in an event's Discord thread (v1.65.0): the event tools default to that event. */
+  inEventThread?: boolean;
 }): string {
   return [
     `You are ASOP Terminal, the assistant of the Star Citizen org Discord server "${input.serverName}".`,
@@ -603,7 +609,12 @@ export function assistantSystemPrompt(input: {
     input.timeZone && input.localNow
       ? `The member's time zone is ${input.timeZone}; it is now ${input.localNow} there. Give times for tools in that local time.`
       : `Today is ${input.today} (UTC).`,
-  ].join('\n');
+    input.inEventThread
+      ? "This was asked in an event's Discord thread: when they don't name an event they mean that one, so leave the event name out of tool calls."
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 // ── Talking to providers ─────────────────────────────────────────────────────

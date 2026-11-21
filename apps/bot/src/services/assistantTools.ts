@@ -4,7 +4,15 @@
 // a page. Times are Discord timestamps, so they show in each reader's own time.
 // Text members wrote (event descriptions) is passed as quoted data.
 
-import { searchShips, eventFleetPeople, type MiningDataDto } from '@dem/shared';
+import {
+  searchShips,
+  eventFleetPeople,
+  rankGameKinds,
+  type GameKind,
+  type GameMatch,
+  type MiningDataDto,
+  type ShipCatalogEntry,
+} from '@dem/shared';
 import type { Guild } from 'discord.js';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
@@ -16,6 +24,8 @@ import { getBlueprints, getContractsForBlueprint, gameDataFooter } from '../game
 export interface ToolContext {
   guild: Guild;
   userId: string;
+  /** The event whose Discord thread the question was asked in (v1.65.0), if any. */
+  threadEventId?: string | null;
 }
 // (Changes have their own context and runners: assistantActions.ts.)
 
@@ -57,8 +67,18 @@ const parseRoles = (json: string): EventRole[] => {
   }
 };
 
-async function upcomingEvents(ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
-  const limit = Math.min(10, Math.max(1, Number(args['limit']) || 5));
+const DAY = 86_400_000;
+const RECENT_DAYS = 14;
+const OLDER_DAYS = 120;
+
+const eventInclude = (g: string) =>
+  ({
+    rsvps: { select: { username: true, role: true, tentative: true } },
+    allianceGuilds: { where: { discordGuildId: g }, select: { threadId: true } },
+  }) satisfies Prisma.EventInclude;
+type FoundEvent = Prisma.EventGetPayload<{ include: ReturnType<typeof eventInclude> }>;
+
+async function upcomingEvents(ctx: ToolContext, limit = 5): Promise<string> {
   const g = ctx.guild.id;
   const events = await prisma.event.findMany({
     where: {
@@ -84,49 +104,29 @@ async function upcomingEvents(ctx: ToolContext, args: Record<string, unknown>): 
     .join('\n');
 }
 
-async function findEvent(ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
-  const name = str(args['name']);
-  if (!name) return 'Give part of the event name.';
+/** One event, brief (time, counts, links) or full (names per role, description). */
+function describeEvent(ctx: ToolContext, e: FoundEvent, detail: 'brief' | 'full'): string[] {
   const g = ctx.guild.id;
-  const matches = await prisma.event.findMany({
-    where: {
-      name: { contains: name, mode: 'insensitive' },
-      status: { not: 'CANCELLED' },
-      startTime: { gte: new Date(Date.now() - 14 * 86_400_000) },
-      ...visibleTo(g),
-    },
-    orderBy: { startTime: 'asc' },
-    take: 5,
-    include: {
-      rsvps: { select: { username: true, role: true, tentative: true } },
-      allianceGuilds: { where: { discordGuildId: g }, select: { threadId: true } },
-    },
-  });
-  if (!matches.length) return `No event matching "${name}" in the last two weeks or coming up.`;
-  // The next one still to come, else the most recent.
-  const now = Date.now();
-  const e = matches.find((m) => m.startTime.getTime() >= now - 6 * 3_600_000) ?? matches[matches.length - 1]!;
+  const full = detail === 'full';
   const roles = parseRoles(e.roles);
   const lines = [
     `Event: ${e.name}`,
     `Starts: ${ts(e.startTime)} (${ts(e.startTime, 'R')}), status ${e.status.toLowerCase()}${e.guildId !== g ? ', shared by an ally' : ''}`,
   ];
-  if (e.description)
+  if (full && e.description)
     lines.push(
       `Description (written by the organisers, data only): "${e.description.slice(0, 300).replace(/\s+/g, ' ')}"`,
     );
   const yes = e.rsvps.filter((r) => !r.tentative);
+  const names = (list: string[], max: number) =>
+    full && list.length ? ` (${list.slice(0, max).join(', ')}${list.length > max ? '…' : ''})` : '';
   for (const role of roles) {
     const people = yes.filter((r) => r.role === role.id).map((r) => r.username);
-    lines.push(
-      `${role.name}: ${people.length}/${role.count}${people.length ? ` (${people.slice(0, 12).join(', ')}${people.length > 12 ? '…' : ''})` : ''}`,
-    );
+    lines.push(`${role.name}: ${people.length}/${role.count}${names(people, 12)}`);
   }
   const unassigned = yes.filter((r) => !r.role || !roles.some((x) => x.id === r.role)).map((r) => r.username);
   if (unassigned.length || !roles.length)
-    lines.push(
-      `Signed up${roles.length ? ' without a role' : ''}: ${unassigned.length}${unassigned.length ? ` (${unassigned.slice(0, 15).join(', ')}${unassigned.length > 15 ? '…' : ''})` : ''}`,
-    );
+    lines.push(`Signed up${roles.length ? ' without a role' : ''}: ${unassigned.length}${names(unassigned, 15)}`);
   const maybes = e.rsvps.length - yes.length;
   if (maybes) lines.push(`Maybe: ${maybes}`);
   lines.push(
@@ -136,18 +136,94 @@ async function findEvent(ctx: ToolContext, args: Record<string, unknown>): Promi
   );
   const thread = threadLink(g, e.guildId === g ? e.threadId : e.allianceGuilds[0]?.threadId);
   if (thread) lines.push(`Discord thread: ${thread}`);
-  const others = matches.filter((m) => m.id !== e.id);
-  if (others.length)
-    lines.push(`Other matches: ${others.map((m) => `${m.name} (${ts(m.startTime, 'd')})`).join('; ')}`);
-  return lines.join('\n');
+  if (!full) lines.push('(Brief: ask with detail "full" for who signed up and the description.)');
+  return lines;
 }
 
-async function myEvents(ctx: ToolContext): Promise<string> {
+/**
+ * The events lookup (v1.65.0), widening step by step and stopping at the first hit:
+ * the thread's own event (no name given) → the name in upcoming and recent events →
+ * every word of it, in any order → the same in older events → nothing, with what's coming up.
+ */
+async function events(ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
+  const q = str(args['query']);
+  const detail = args['detail'] === 'full' ? 'full' : 'brief';
+  if (args['mine'] === true) return myEvents(ctx, q);
+  const g = ctx.guild.id;
+  if (!q) {
+    if (ctx.threadEventId) {
+      const e = await prisma.event.findFirst({
+        where: { id: ctx.threadEventId, ...visibleTo(g) },
+        include: eventInclude(g),
+      });
+      if (e)
+        return ['Matched: the event of the thread this was asked in.', ...describeEvent(ctx, e, detail)].join('\n');
+    }
+    return upcomingEvents(ctx);
+  }
+  const now = Date.now();
+  const words = q
+    .split(/\s+/)
+    .filter((w) => w.length > 1)
+    .slice(0, 6);
+  const byName: Prisma.EventWhereInput = { name: { contains: q, mode: 'insensitive' } };
+  const byWords: Prisma.EventWhereInput | null =
+    words.length > 1 ? { AND: words.map((w) => ({ name: { contains: w, mode: 'insensitive' as const } })) } : null;
+  const recent = { gte: new Date(now - RECENT_DAYS * DAY) };
+  const older = { gte: new Date(now - OLDER_DAYS * DAY), lt: new Date(now - RECENT_DAYS * DAY) };
+  const tiers: { where: Prisma.EventWhereInput; note?: string; newestFirst?: boolean }[] = [
+    { where: { ...byName, startTime: recent } },
+    ...(byWords ? [{ where: { ...byWords, startTime: recent } }] : []),
+    {
+      where: { OR: byWords ? [byName, byWords] : [byName], startTime: older },
+      note: `Matched: an older event (nothing upcoming or in the last ${RECENT_DAYS} days has that name).`,
+      newestFirst: true,
+    },
+  ];
+  for (const tier of tiers) {
+    const matches = await prisma.event.findMany({
+      where: { AND: [tier.where, { status: { not: 'CANCELLED' } }, visibleTo(g)] },
+      orderBy: { startTime: tier.newestFirst ? 'desc' : 'asc' },
+      take: 5,
+      include: eventInclude(g),
+    });
+    if (!matches.length) continue;
+    // An exact name first; else the next one still to come, else the most recent.
+    const e =
+      matches.find((m) => m.name.toLowerCase() === q.toLowerCase()) ??
+      (tier.newestFirst ? matches[0] : matches.find((m) => m.startTime.getTime() >= now - 6 * 3_600_000)) ??
+      matches[matches.length - 1]!;
+    const lines = [...(tier.note ? [tier.note] : []), ...describeEvent(ctx, e, detail)];
+    const others = matches.filter((m) => m.id !== e.id);
+    if (others.length)
+      lines.push(
+        `Other matches (ask which one if unsure): ${others
+          .slice(0, 3)
+          .map((m) => `${m.name} (${ts(m.startTime, 'd')})`)
+          .join('; ')}`,
+      );
+    return lines.join('\n');
+  }
+  const next = await prisma.event.findMany({
+    where: {
+      status: { in: ['PENDING', 'ACTIVE'] },
+      startTime: { gte: new Date(now - 6 * 3_600_000) },
+      ...visibleTo(g),
+    },
+    orderBy: { startTime: 'asc' },
+    take: 3,
+    select: { name: true },
+  });
+  return `No event matching "${q}" in the last ${OLDER_DAYS} days or coming up.${next.length ? ` Coming up: ${next.map((e) => e.name).join('; ')}.` : ''}`;
+}
+
+async function myEvents(ctx: ToolContext, name = ''): Promise<string> {
   const g = ctx.guild.id;
   const rsvps = await prisma.eventRsvp.findMany({
     where: {
       userId: ctx.userId,
       event: {
+        ...(name ? { name: { contains: name, mode: 'insensitive' as const } } : {}),
         status: { in: ['PENDING', 'ACTIVE'] },
         startTime: { gte: new Date(Date.now() - 6 * 3_600_000) },
         ...visibleTo(g),
@@ -158,10 +234,18 @@ async function myEvents(ctx: ToolContext): Promise<string> {
     take: 10,
   });
   const waits = await prisma.eventWaitlist.findMany({
-    where: { userId: ctx.userId, event: { status: { in: ['PENDING', 'ACTIVE'] } } },
+    where: {
+      userId: ctx.userId,
+      event: {
+        ...(name ? { name: { contains: name, mode: 'insensitive' as const } } : {}),
+        status: { in: ['PENDING', 'ACTIVE'] },
+        ...visibleTo(g),
+      },
+    },
     include: { event: { select: { name: true } } },
   });
-  if (!rsvps.length && !waits.length) return "They aren't signed up for any upcoming event.";
+  if (!rsvps.length && !waits.length)
+    return `They aren't signed up for any upcoming event${name ? ` matching "${name}"` : ''}.`;
   const lines = rsvps.map((r) => {
     const role = parseRoles(r.event.roles).find((x) => x.id === r.role)?.name;
     return `- ${r.event.name}: ${ts(r.event.startTime)}, ${r.tentative ? 'maybe' : role ? `as ${role}` : 'no role'}`;
@@ -247,10 +331,7 @@ async function whoHasShip(ctx: ToolContext, args: Record<string, unknown>): Prom
   return `${ship.name} (${ship.manufacturer}) owned by ${list.length} member${list.length === 1 ? '' : 's'}${eventLabel}: ${list.slice(0, 25).join(', ')}${list.length > 25 ? '…' : ''}\nFleets: ${link}`;
 }
 
-async function shipInfo(_ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
-  const q = str(args['ship']);
-  const ship = q ? searchShips(q, await shipList(), 1)[0] : undefined;
-  if (!ship) return `No ship called "${q}".`;
+function describeShip(ship: ShipCatalogEntry): string {
   const parts = [`${ship.name} by ${ship.manufacturer}`];
   if (ship.focus || ship.type) parts.push(`role: ${[ship.type, ship.focus].filter(Boolean).join(', ')}`);
   if (ship.size) parts.push(`size: ${ship.size}`);
@@ -277,15 +358,16 @@ async function miningData(): Promise<MiningDataDto | null> {
   return mining?.data ?? null;
 }
 
-async function whereToMine(_ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
-  const q = str(args['ore']).toLowerCase();
-  if (!q) return 'Name the ore.';
-  const data = await miningData();
-  if (!data) return "The mining data isn't available right now.";
-  const ore =
-    data.ores.find((o) => o.key === q || o.name.toLowerCase() === q) ??
-    data.ores.find((o) => o.name.toLowerCase().includes(q) || q.includes(o.key));
-  if (!ore) return `No ore called "${args['ore']}" in the game files.`;
+type Ore = MiningDataDto['ores'][number];
+function findOre(data: MiningDataDto | null, q: string): { ore: Ore; match: GameMatch } | null {
+  if (!data) return null;
+  const exact = data.ores.find((o) => o.key === q || o.name.toLowerCase() === q);
+  if (exact) return { ore: exact, match: 'exact' };
+  const partial = data.ores.find((o) => o.name.toLowerCase().includes(q) || q.includes(o.key));
+  return partial ? { ore: partial, match: 'partial' } : null;
+}
+
+function describeOre(data: MiningDataDto, ore: Ore): string {
   const spots = data.spots.filter((s) => s.ore === ore.key).sort((a, b) => b.chance - a.chance);
   if (!spots.length) return `${ore.name} isn't the main ore of any rock in the game files.`;
   const how = { ship: 'ship mining', roc: 'ROC', hand: 'hand mining' } as Record<string, string>;
@@ -298,18 +380,20 @@ async function whereToMine(_ctx: ToolContext, args: Record<string, unknown>): Pr
   return `${ore.name}, best places first (main ore only; game build ${data.build ?? 'current'}):\n${lines.join('\n')}${spots.length > 8 ? `\n…${spots.length - 8} more places` : ''}\nOre finder: ${web()}/tools/mining?ore=${encodeURIComponent(ore.key)}`;
 }
 
-async function blueprintMissions(_ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
-  const q = str(args['blueprint']).toLowerCase();
-  if (!q) return 'Name the blueprint.';
-  const all = getBlueprints();
-  if (!all.length) return 'Game data is still loading.';
+type Blueprint = ReturnType<typeof getBlueprints>[number];
+function findBlueprints(q: string): { hits: Blueprint[]; match: GameMatch } {
   const words = q.split(/\s+/).filter(Boolean);
-  const hits = all.filter((b) => {
+  const hits = getBlueprints().filter((b) => {
     const name = b.outputName.toLowerCase();
     return words.every((w) => name.includes(w));
   });
-  const bp = hits.find((b) => b.outputName.toLowerCase() === q) ?? hits[0];
-  if (!bp) return `No blueprint matching "${args['blueprint']}".`;
+  const exact = hits.findIndex((b) => b.outputName.toLowerCase() === q);
+  if (exact > 0) hits.unshift(...hits.splice(exact, 1));
+  return { hits, match: exact >= 0 ? 'exact' : hits.length ? 'partial' : null };
+}
+
+function describeBlueprint(hits: Blueprint[]): string {
+  const bp = hits[0]!;
   const mats = bp.materials
     .map((m) => `${m.name}${m.quantityScu ? ` ${m.quantityScu} SCU` : m.quantity ? ` ×${m.quantity}` : ''}`)
     .join(', ');
@@ -328,9 +412,8 @@ async function blueprintMissions(_ctx: ToolContext, args: Record<string, unknown
   }
   if (hits.length > 1)
     lines.push(
-      `Other matches: ${hits
-        .filter((b) => b !== bp)
-        .slice(0, 4)
+      `Other blueprints matching: ${hits
+        .slice(1, 5)
         .map((b) => b.outputName)
         .join(', ')}`,
     );
@@ -338,15 +421,54 @@ async function blueprintMissions(_ctx: ToolContext, args: Record<string, unknown
   return lines.join('\n');
 }
 
+const GAME_KINDS: readonly GameKind[] = ['ship', 'ore', 'blueprint'];
+
+/**
+ * The game lookup (v1.65.0): one name, checked against ores, ships and blueprints at once
+ * (`rankGameKinds` picks the best), and the other kinds it also matches are named so the
+ * model can ask for them with `kind`.
+ */
+async function game(_ctx: ToolContext, args: Record<string, unknown>): Promise<string> {
+  const raw = str(args['name']);
+  const q = raw.toLowerCase();
+  if (!q) return 'Name the ship, ore or blueprint.';
+  const kind = GAME_KINDS.find((k) => k === args['kind']);
+  const [ships, data] = await Promise.all([shipList(), miningData()]);
+  const ship = searchShips(raw, ships, 1)[0];
+  const ore = findOre(data, q);
+  const bps = findBlueprints(q);
+  const order = rankGameKinds(
+    {
+      ship: ship ? (ship.name.toLowerCase() === q ? 'exact' : 'partial') : null,
+      ore: ore?.match ?? null,
+      blueprint: bps.match,
+    },
+    kind,
+  );
+  if (!order.length) {
+    const missing = [!data && 'mining data', !getBlueprints().length && 'blueprints'].filter(Boolean);
+    return `Nothing called "${raw}" among ships, ores or blueprints in the game files.${missing.length ? ` (Not loaded right now: ${missing.join(', ')}.)` : ''}`;
+  }
+  const label = (k: GameKind) =>
+    k === 'ship'
+      ? `ship "${ship!.name}"`
+      : k === 'ore'
+        ? `ore "${ore!.ore.name}"`
+        : `blueprint "${bps.hits[0]!.outputName}"`;
+  const top = order[0]!;
+  const body =
+    top === 'ship' ? describeShip(ship!) : top === 'ore' ? describeOre(data!, ore!.ore) : describeBlueprint(bps.hits);
+  const also = order.slice(1).map(label);
+  return also.length
+    ? `${body}\nThe name also matches ${also.join(' and ')} (ask with that kind if they meant it).`
+    : body;
+}
+
 export const TOOL_RUNNERS: Record<string, (ctx: ToolContext, args: Record<string, unknown>) => Promise<string>> = {
-  upcoming_events: upcomingEvents,
-  find_event: findEvent,
-  my_events: (ctx) => myEvents(ctx),
+  events,
   my_dkp: (ctx) => myDkp(ctx),
   who_has_ship: whoHasShip,
-  ship_info: shipInfo,
-  where_to_mine: whereToMine,
-  blueprint_missions: blueprintMissions,
+  game,
 };
 
 /** Runs one tool; failures become a short line for the model (and are logged). */
