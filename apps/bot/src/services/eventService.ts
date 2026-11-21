@@ -30,7 +30,8 @@ import {
 } from '@dem/shared';
 import { handleShareNotice } from './shareNoticeService.js';
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+// Planned pauses between Discord calls; not counted as slow by the scheduler (utils/pacing.ts).
+import { pacedSleep as sleep } from '../utils/pacing.js';
 
 async function buildGuildTagMap(roles: EventRole[]): Promise<Record<string, string>> {
   const guildIds = [...new Set(roles.filter((r) => r.guildId).map((r) => r.guildId as string))];

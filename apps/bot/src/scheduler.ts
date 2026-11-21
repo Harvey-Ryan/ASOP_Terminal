@@ -18,12 +18,11 @@ import { joinRoster } from './services/rsvpService.js';
 import { closeExpiredAuctions, closeExpiredStandaloneAuctions } from './services/auctionService.js';
 import { dispatchTournamentReminder, recordMatchForfeit } from './services/tournamentService.js';
 import { formatMinutes } from './utils/time.js';
+import { measurePaced, pacedSleep as sleep } from './utils/pacing.js';
 import { SETUP_MAX_ATTEMPTS, afterSetupAttempt } from './utils/setupRetry.js';
 import { recordDeployment, refreshStatusEmbeds } from './services/statusService.js';
 import { checkFleetNudges } from './services/fleetService.js';
 import { announceStarStrings } from './services/starStringsService.js';
-
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Like Promise.allSettled(items.map(fn)), but at most `limit` at a time; results keep their order. */
 export async function mapLimit<T, R>(
@@ -100,19 +99,15 @@ const POSTING_CHECKS: [string, () => Promise<void>][] = [
 ];
 
 // Runs a named scheduler check, logs its duration, and swallows errors so one
-// failing check never blocks the rest of the tick.
+// failing check never blocks the rest of the tick. Planned pauses (pacedSleep,
+// e.g. 1 s between groups of reminder DMs) don't count towards the warning
+// (after v1.59.1): a big roster used to trip it every op night.
 async function timedCheck(name: string, fn: () => Promise<void>): Promise<void> {
-  const start = Date.now();
-  try {
-    await fn();
-  } catch (e) {
-    console.error(`[bot] ${name} error:`, e);
-  } finally {
-    const ms = Date.now() - start;
-    if (ms > 5_000) {
-      console.warn(`[bot] ${name} took ${ms}ms — possible Discord rate-limit or slow query`);
-    }
-  }
+  const { totalMs, pausedMs, error } = await measurePaced(fn);
+  if (error) console.error(`[bot] ${name} error:`, error);
+  const workMs = totalMs - pausedMs;
+  // Same wording as before, so a real slowdown reopens the existing kind in the admin panel.
+  if (workMs > 5_000) console.warn(`[bot] ${name} took ${workMs}ms — possible Discord rate-limit or slow query`);
 }
 
 export async function startScheduler() {
