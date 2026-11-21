@@ -176,7 +176,8 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
   const two = loadouts.length > 1;
   const allGuns = useMemo(() => loadouts.flatMap((l) => l.guns), [loadouts]);
 
-  if (loadouts.every((l) => !l.guns.length)) return <p className="gt-dim m-0">No pilot guns to compare.</p>;
+  if (loadouts.every((l) => !l.guns.length))
+    return <p className="gt-dim m-0">No pilot guns to compare (crew turrets aren&rsquo;t counted).</p>;
 
   return (
     <section aria-labelledby="gt-kill-h" className="flex flex-col">
@@ -365,6 +366,10 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
             <span className="block pb-1.5">
               They come from the game files&rsquo; numbers, not from a recorded fight. A comparison between loadouts,
               not a prediction.
+            </span>
+            <span className="block">
+              <b>Guns:</b> the pilot&rsquo;s guns, plus the turrets the pilot can take over when that&rsquo;s ticked
+              under Turrets. Crew and automatic turrets aren&rsquo;t counted.
             </span>
             <span className="block">
               <b>Hits:</b> {pct(accuracy)} of shots land (change it above). &ldquo;Every shot hits&rdquo; is the best

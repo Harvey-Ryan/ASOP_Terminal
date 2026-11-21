@@ -290,6 +290,9 @@ describe('Game Tools data', () => {
     const body = JSON.parse(gunzipSync(built!.gz).toString());
     expect(body.data.ships[0].name).toBe('Test Fighter');
     expect(built!.etag).toMatch(/^"gt-/);
+    // v1.63.0: every built ship is put through the weapons check (none of these has a mount list to disagree with).
+    expect(built!.weaponAudit.ships).toBe(built!.data.ships.length);
+    expect(built!.weaponAudit.problems).toEqual([]);
   });
 
   it('says which tools are hidden for every server, without sign-in (v1.46.0)', async () => {

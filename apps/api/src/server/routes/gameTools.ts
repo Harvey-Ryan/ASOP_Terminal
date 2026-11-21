@@ -13,6 +13,9 @@ import {
   utcDay,
   combatGunFromItem,
   combatShipFromRow,
+  auditShipWeapons,
+  type ShipWeaponAudit,
+  type AdminWeaponAuditDto,
   dedupeGuns,
   gunGroupKey,
   isUnavailableGun,
@@ -64,10 +67,19 @@ import { listShips } from '../../lib/shipCatalog.js';
 import { hiddenModules } from '../../lib/hiddenModules.js';
 import { checkUpstreamNow } from '../../lib/gameDataCheck.js';
 import { refineryData } from '../../lib/refineryData.js';
+import { reportWeaponAudit } from '../../lib/gameToolsAudit.js';
 
 export const gameToolsRouter = Router();
 
-type Built = { commit: string; at: number; data: GameToolsDataDto; gz: Buffer; etag: string };
+type Built = {
+  commit: string;
+  at: number;
+  data: GameToolsDataDto;
+  gz: Buffer;
+  etag: string;
+  /** The ship weapons check (v1.63.0): our reading of every ship's guns against the files' mount list. */
+  weaponAudit: { ships: number; problems: ShipWeaponAudit[] };
+};
 let cached: Built | null = null;
 let building: Promise<Built | null> | null = null;
 /**
@@ -190,9 +202,11 @@ export async function buildGameToolsData(
   const index = catalog.length ? shipIndex(catalog) : null;
 
   const ships: GameToolsShip[] = [];
+  const audited: ShipWeaponAudit[] = [];
   for (const row of shipRows) {
     const s = combatShipFromRow(row);
     if (!s) continue;
+    audited.push(auditShipWeapons({ ...row.data, ClassName: s.className, Name: s.name }));
     for (const slot of s.gunSlots) if (slot.stockGunUuid) slot.stockGunUuid = rep.get(slot.stockGunUuid) ?? null;
     for (const rack of s.missileRacks ?? [])
       if (rack.stockMissileUuid) rack.stockMissileUuid = misRep.get(rack.stockMissileUuid) ?? null;
@@ -240,6 +254,18 @@ export async function buildGameToolsData(
     data,
     gz: gzipSync(body, { level: 9 }),
     etag: `"gt-${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`,
+    weaponAudit: { ships: audited.length, problems: audited.filter((a) => a.issues.length) },
+  };
+}
+
+/** The last ship weapons check, for the admin panel (null before the first build). */
+export function currentWeaponAudit(): AdminWeaponAuditDto | null {
+  if (!cached) return null;
+  return {
+    build: cached.data.build,
+    commit: cached.commit,
+    checkedAt: new Date(cached.at).toISOString(),
+    ...cached.weaponAudit,
   };
 }
 
@@ -270,7 +296,12 @@ function countermeasures(
 function rebuild(): Promise<Built | null> {
   building ??= buildGameToolsData()
     .then((b) => {
-      if (b) cached = b;
+      if (b) {
+        cached = b;
+        void reportWeaponAudit(currentWeaponAudit()!).catch((err: unknown) =>
+          console.warn('[game-tools] Reporting the weapons check failed:', err),
+        );
+      }
       return b;
     })
     .catch((err: unknown) => {

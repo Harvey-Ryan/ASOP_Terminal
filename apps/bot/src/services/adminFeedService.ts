@@ -59,6 +59,8 @@ const POSTED_NOW = [
   'corrections.reverted',
   'corrections.recheck',
   'corrections.retired',
+  // Ship weapons check (v1.63.0): a game build where our reading disagrees with the files, or agrees again.
+  'gametools.weapons',
 ];
 const CORRECTION_TITLES: Record<string, string> = {
   'corrections.ready': '📝 Correction ready for review',
@@ -92,6 +94,12 @@ async function postLogEntries(channel: SendableChannels): Promise<void> {
         .setColor(e.kind === 'corrections.disputed' || e.kind === 'corrections.recheck' ? COLORS.warn : COLORS.info)
         .setTitle(CORRECTION_TITLES[e.kind]!)
         .setDescription(`${e.summary.slice(0, 3800)}\nReview queue: Tools → Corrections`);
+    } else if (e.kind === 'gametools.weapons') {
+      const clear = e.summary.startsWith('All ');
+      embed
+        .setColor(clear ? COLORS.good : COLORS.warn)
+        .setTitle(clear ? '🔫 Ship weapons check: all clear' : '🔫 Ship weapons check')
+        .setDescription(e.summary.slice(0, 3800));
     } else
       embed
         .setColor(COLORS.info)

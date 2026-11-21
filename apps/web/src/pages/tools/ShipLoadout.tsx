@@ -6,11 +6,19 @@
 // compared with. Mining ships (v1.50.0): each mining head's laser and
 // modules, ?sl0=<laser>, ?sd0_1=<module> (cl0/cd0_1 when compared).
 // Salvage and refuelling (v1.51.0): scraper modules ?sv0_1=, fuel pods ?sf0=.
+// Turrets (v1.63.0): every gun slot is shown, ?s<i> counts over all of them
+// (pilot guns and turrets, in the ship's order); a Turrets section groups the
+// turret guns by who fires them (`role`), and ?spt=1 (cpt when compared)
+// counts the turrets the pilot can take over in the maths.
 
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   gunFitsSlot,
+  slotRole,
+  humanHardpoint,
+  GUN_ROLE_WORDS,
+  type GunRole,
   componentFitsSlot,
   componentTotals,
   missileFitsRack,
@@ -36,16 +44,24 @@ import {
   type FuelPod,
   type FuelPodSlot,
 } from '@dem/shared';
-import { fmt, pctChange, pilotSlots } from '../../lib/gameTools';
+import { fmt, pctChange } from '../../lib/gameTools';
 import { SwapWindow, type SwapColumn } from './SwapWindow';
 import { LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell, modIsGood, modLabel, pctText } from './miningBits';
 
 export interface LoadoutState {
   ship: GameToolsShip;
+  /** Every gun slot, pilot and turret (v1.63.0); `?s<i>` indexes this list. */
   slots: GunSlot[];
   stock: (CombatGun | null)[];
   equipped: (CombatGun | null)[];
-  /** The guns that are mounted, for the maths. */
+  /** Whether each slot counts in the maths: the pilot's guns, plus turrets the pilot can take over when `pilotTurrets`. */
+  counted: boolean[];
+  /** Has turrets the pilot can take over (the toggle shows only then). */
+  canTakeOver: boolean;
+  /** The pilot has taken over those turrets (`?spt=1`). */
+  pilotTurrets: boolean;
+  setPilotTurrets: (on: boolean) => void;
+  /** The guns that are mounted and counted, for the maths. */
   guns: CombatGun[];
   stockGuns: CombatGun[];
   compSlots: ComponentSlot[];
@@ -99,12 +115,18 @@ export function useLoadout(
 ): LoadoutState | null {
   const [params, setParams] = useSearchParams();
   if (!ship) return null;
-  const slots = pilotSlots(ship);
+  const slots = ship.gunSlots;
   const stock = slots.map((s) => (s.stockGunUuid ? (gunsByUuid.get(s.stockGunUuid) ?? null) : null));
   const equipped = slots.map((s, i) => {
     const id = params.get(`${prefix}${i}`);
     const g = id ? gunsByUuid.get(id) : undefined;
     return g && gunFitsSlot(g, s) ? g : (stock[i] ?? null);
+  });
+  const canTakeOver = slots.some((s) => slotRole(s) === 'takeover');
+  const pilotTurrets = canTakeOver && params.get(`${prefix}pt`) === '1';
+  const counted = slots.map((s) => {
+    const r = slotRole(s);
+    return r === 'pilot' || (r === 'takeover' && pilotTurrets);
   });
   const compSlots = ship.componentSlots ?? [];
   const compStock = compSlots.map((s) => (s.stockUuid ? (componentsByUuid.get(s.stockUuid) ?? null) : null));
@@ -167,8 +189,16 @@ export function useLoadout(
     slots,
     stock,
     equipped,
-    guns: equipped.filter((g): g is CombatGun => !!g),
-    stockGuns: stock.filter((g): g is CombatGun => !!g),
+    counted,
+    canTakeOver,
+    pilotTurrets,
+    setPilotTurrets: (on) =>
+      set((n) => {
+        if (on) n.set(`${prefix}pt`, '1');
+        else n.delete(`${prefix}pt`);
+      }),
+    guns: equipped.filter((g, i): g is CombatGun => !!g && counted[i]!),
+    stockGuns: stock.filter((g, i): g is CombatGun => !!g && counted[i]!),
     compSlots,
     compStock,
     compFitted,
@@ -483,6 +513,92 @@ export function LoadoutCards({
   });
   const row = narrow ? 'grid gap-2' : 'grid gap-2.5 grid-cols-1 sm:grid-cols-[minmax(150px,210px)_minmax(0,1fr)]';
   const cardCols = narrow ? '' : 'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_auto] md:items-center';
+  const pilotIdx = lo.slots.flatMap((s, i) => (slotRole(s) === 'pilot' ? [i] : []));
+  // Turret guns grouped by the turret they sit in, in the ship's order (v1.63.0).
+  const turretGroups: {
+    id: string;
+    name: string;
+    where: string;
+    role: GunRole;
+    guessed: boolean;
+    slots: number[];
+  }[] = [];
+  lo.slots.forEach((s, i) => {
+    const role = slotRole(s);
+    if (role === 'pilot') return;
+    const id = s.group ?? s.id;
+    const g = turretGroups.find((x) => x.id === id);
+    if (g) g.slots.push(i);
+    else
+      turretGroups.push({
+        id,
+        name: s.groupName ?? humanHardpoint(id.split('/').pop() ?? id),
+        where: humanHardpoint(id.split('/').pop() ?? id),
+        role,
+        guessed: s.roleSource === 'guess',
+        slots: [i],
+      });
+  });
+  const turretGunCount = turretGroups.reduce((t, g) => t + g.slots.length, 0);
+  const gunRow = (i: number) => {
+    const s = lo.slots[i]!;
+    const g = lo.equipped[i];
+    const changed = g?.uuid !== lo.stock[i]?.uuid;
+    const m = mountLabel(s);
+    const dim = !lo.counted[i];
+    return (
+      <div key={s.id} className={row}>
+        {!narrow && (
+          <div className="gt-box flex flex-col justify-center gap-0.5 px-3 py-2.5">
+            <span className="text-xs gt-dim">{s.label}</span>
+            <span className="font-semibold">{m.name}</span>
+            <span className="text-xs gt-dim">
+              {m.sub} · size {s.minSize === s.maxSize ? s.maxSize : `${s.minSize}–${s.maxSize}`}
+            </span>
+          </div>
+        )}
+        <button
+          type="button"
+          className={`gt-card ${cardCols}`}
+          data-changed={changed || sameTarget(active, { kind: 'gun', slot: i })}
+          onClick={() => onOpen({ kind: 'gun', slot: i })}
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <span className="gt-tag">S{g?.size ?? s.maxSize}</span>
+            <span className="flex flex-col min-w-0">
+              {narrow && (
+                <span className="text-xs gt-dim">
+                  {s.label} · {m.sub.toLowerCase()}
+                </span>
+              )}
+              <span className={`font-semibold text-base truncate ${changed ? 'gt-acc' : 'gt-hi'}`}>
+                {g?.name ?? 'Empty'}
+              </span>
+              <span className="text-xs gt-dim truncate">
+                {g ? `${g.maker ?? ''} · ${kindWord(g)} ${(g.family ?? '').toLowerCase()}` : 'Nothing fitted'}
+              </span>
+            </span>
+          </span>
+          {g && (
+            <span className="flex flex-wrap gap-x-4 gap-y-0.5 text-[13px] gt-dim">
+              <Stat k="alpha" v={fmt(g.alpha)} />
+              <Stat k="rate" v={fmt(g.fireRate)} />
+              <Stat k={g.ammo ? 'ammo' : 'cap.'} v={fmt(g.ammo ?? g.capacitor)} />
+              <Stat k="pen" v={fmt(g.pen, 2)} />
+              <Stat k="speed" v={fmt(g.speed)} unit="m/s" />
+              <Stat k="range" v={fmt(g.range)} unit="m" />
+            </span>
+          )}
+          {g && (
+            <span className="flex flex-col md:items-end">
+              <span className={`gt-mono text-xl font-semibold ${dim ? 'gt-dim' : 'gt-hi'}`}>{fmt(g.sustainedDps)}</span>
+              <span className="text-xs gt-dim">sustained · burst {fmt(g.burstDps)}</span>
+            </span>
+          )}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -491,77 +607,60 @@ export function LoadoutCards({
       {lo.podSlots.length > 0 && <FuelPods lo={lo} onOpen={onOpen} active={active} narrow={narrow} />}
 
       <Section
-        title={`Armament · ${lo.slots.length} pilot gun${lo.slots.length === 1 ? '' : 's'}`}
-        aside={lo.slots.length ? 'Click a gun to swap it' : undefined}
+        title={`Armament · ${pilotIdx.length} pilot gun${pilotIdx.length === 1 ? '' : 's'}`}
+        aside={pilotIdx.length ? 'Click a gun to swap it' : undefined}
       >
-        {lo.slots.map((s, i) => {
-          const g = lo.equipped[i];
-          const changed = g?.uuid !== lo.stock[i]?.uuid;
-          const m = mountLabel(s);
-          return (
-            <div key={s.id} className={row}>
-              {!narrow && (
-                <div className="gt-box flex flex-col justify-center gap-0.5 px-3 py-2.5">
-                  <span className="text-xs gt-dim">{s.label}</span>
-                  <span className="font-semibold">{m.name}</span>
-                  <span className="text-xs gt-dim">
-                    {m.sub} · size {s.maxSize}
-                  </span>
-                </div>
-              )}
-              <button
-                type="button"
-                className={`gt-card ${cardCols}`}
-                data-changed={changed || sameTarget(active, { kind: 'gun', slot: i })}
-                onClick={() => onOpen({ kind: 'gun', slot: i })}
-              >
-                <span className="flex items-center gap-3 min-w-0">
-                  <span className="gt-tag">S{g?.size ?? s.maxSize}</span>
-                  <span className="flex flex-col min-w-0">
-                    {narrow && (
-                      <span className="text-xs gt-dim">
-                        {s.label} · {m.sub.toLowerCase()}
-                      </span>
-                    )}
-                    <span className={`font-semibold text-base truncate ${changed ? 'gt-acc' : 'gt-hi'}`}>
-                      {g?.name ?? 'Empty'}
-                    </span>
-                    <span className="text-xs gt-dim truncate">
-                      {g ? `${g.maker ?? ''} · ${kindWord(g)} ${(g.family ?? '').toLowerCase()}` : 'Nothing fitted'}
-                    </span>
-                  </span>
-                </span>
-                {g && (
-                  <span className="flex flex-wrap gap-x-4 gap-y-0.5 text-[13px] gt-dim">
-                    <Stat k="alpha" v={fmt(g.alpha)} />
-                    <Stat k="rate" v={fmt(g.fireRate)} />
-                    <Stat k={g.ammo ? 'ammo' : 'cap.'} v={fmt(g.ammo ?? g.capacitor)} />
-                    <Stat k="pen" v={fmt(g.pen, 2)} />
-                    <Stat k="speed" v={fmt(g.speed)} unit="m/s" />
-                    <Stat k="range" v={fmt(g.range)} unit="m" />
-                  </span>
-                )}
-                {g && (
-                  <span className="flex flex-col md:items-end">
-                    <span className="gt-mono text-xl font-semibold gt-hi">{fmt(g.sustainedDps)}</span>
-                    <span className="text-xs gt-dim">sustained · burst {fmt(g.burstDps)}</span>
-                  </span>
-                )}
-              </button>
-            </div>
-          );
-        })}
-        {!lo.slots.length && (
+        {pilotIdx.map((i) => gunRow(i))}
+        {!pilotIdx.length && (
           <p className="gt-dim text-sm m-0">
-            {lo.heads.length || lo.salvage.length || lo.podSlots.length
-              ? 'No pilot guns.'
-              : 'This ship has no pilot guns.'}
+            {turretGroups.length
+              ? 'The pilot has no guns of their own.'
+              : lo.heads.length || lo.salvage.length || lo.podSlots.length
+                ? 'No pilot guns.'
+                : 'This ship has no guns.'}
           </p>
         )}
-        {lo.ship.gunSlots.some((s) => s.turret) && (
-          <p className="text-xs gt-dim m-0">Turret guns (for crew) aren&rsquo;t counted.</p>
-        )}
       </Section>
+
+      {turretGroups.length > 0 && (
+        <Section
+          title={`Turrets · ${turretGroups.length} · ${turretGunCount} gun${turretGunCount === 1 ? '' : 's'}`}
+          aside="Click a gun to swap it"
+        >
+          {lo.canTakeOver && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input type="checkbox" checked={lo.pilotTurrets} onChange={(e) => lo.setPilotTurrets(e.target.checked)} />
+              <span>
+                Pilot takes over the turrets that allow it{' '}
+                <span className="gt-dim">(counted in the damage and kill times)</span>
+              </span>
+            </label>
+          )}
+          {turretGroups.map((grp) => {
+            const counts = lo.counted[grp.slots[0]!];
+            return (
+              <div key={grp.id} className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <span>
+                    <span className="font-semibold">{grp.name}</span>
+                    {grp.where !== grp.name && <span className="text-sm gt-dim"> · {grp.where}</span>}
+                  </span>
+                  <span className="text-xs gt-dim">
+                    {GUN_ROLE_WORDS[grp.role]}
+                    {grp.guessed ? ' (by its name: no mount record)' : ''} ·{' '}
+                    {counts ? <span className="gt-acc">counted</span> : 'not counted'}
+                  </span>
+                </div>
+                {grp.slots.map((i) => gunRow(i))}
+              </div>
+            );
+          })}
+          <p className="text-xs gt-dim m-0">
+            Who fires each turret comes from the game files. Only the pilot&rsquo;s guns are counted in the damage and
+            kill times{lo.canTakeOver ? ', plus the turrets the pilot can take over when ticked' : ''}.
+          </p>
+        </Section>
+      )}
 
       {rackGroups.length > 0 && (
         <Section
@@ -1452,7 +1551,7 @@ export function Swap({
     const fits = guns.filter((g) => gunFitsSlot(g, slot));
     return (
       <SwapWindow
-        eyebrow={`${shipName} · ${slot.label} · size ${slot.minSize === slot.maxSize ? slot.maxSize : `${slot.minSize}–${slot.maxSize}`}`}
+        eyebrow={`${shipName} · ${slotRole(slot) !== 'pilot' && slot.groupName ? `${slot.groupName} · ` : ''}${slot.label} · size ${slot.minSize === slot.maxSize ? slot.maxSize : `${slot.minSize}–${slot.maxSize}`}`}
         title="Swap gun"
         items={fits}
         columns={cols}

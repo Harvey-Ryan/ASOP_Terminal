@@ -74,6 +74,35 @@
   number for which guns on the page it stops, `deflectionTitle`). Under the table:
   "These are simulation values. Hover for more info." with every assumption
   in a hover/focus pop-up (`.gt-tip`).
+- Who fires each gun (v1.63.0): `shipGunSlots` matches every gun port to
+  the game data's own mount list (`MountingPositions`, by port id
+  `loadout.2.loadout.0…`) and sets `GunSlot.role` with `mountRole`: a pilot
+  seat operating it → `pilot`; point defence → `auto`; autonomous → `takeover`
+  if slaveable, else `auto`; other turrets → `takeover` (pilot can slave it)
+  or `crew`; gimbals and fixed mounts → `pilot`. No mount record (rocket
+  pods, bomb racks, a few Kruger guns) → the old name rule, `roleSource:
+  'guess'`. Never decide it by part names again: that rule hid the F7C-M
+  Mk II's ball and nose turrets and counted PDCs and door guns as pilot guns.
+  `turret` now only means "on a turret mount" (turret-only gun copies fit).
+  The ship page shows every gun: Armament = the pilot's, Turrets = the rest
+  grouped by turret with who fires it; `?s<i>` counts over all gun slots, and
+  `?spt=1` (`cpt`) counts the turrets the pilot can take over in the damage
+  and kill times. Control ships live in `packages/shared/test/fixtures/ships`
+  (`combat-<class>.json`, cut from scunpacked's ships.json by
+  `extract-combat-fixtures.mjs`; add a ship there when one turns out wrong),
+  tested in `combatWeaponRoles.test.mjs`; `SCUNPACKED_SHIPS=<ships.json>`
+  runs the audit over every ship.
+- Ship weapons check (v1.63.0): `auditShipWeapons` (combat.ts) reports a gun
+  the mount list has but we don't (`missing-weapon`), a turret gun with no
+  mount record (`guessed-turret`), and a mount where the files' own pilot rule
+  (`Weaponry.PilotDps` = guns on mounts not marked `IsPilotSlaveable: false`)
+  disagrees with ours for a reason we haven't written down (`role-differs`;
+  the two known reasons, a pilot seat on an unslaveable mount and point
+  defence, are left out). The API runs it on every ship-data build
+  (`Built.weaponAudit`), `lib/gameToolsAudit.ts` writes `gametools.weapons` to
+  `AdminLog` when the list of problems changes (and once when it clears),
+  which the bot posts to the admin feed, and Admin → Overview → Ship weapons
+  check (`GET /api/admin/weapon-audit`) shows the current list.
 - Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
   RequiredTags against the gun's tags, and the gun's RequiredTags against the
   PortTags of the port, its mounts and the ship. Use it for every "what fits".

@@ -363,6 +363,7 @@ export function ShipPage() {
     lo.misFitted.forEach((m, i) => {
       if (m && m.uuid !== lo.misStock[i]?.uuid) n.set(`${prefix}m${i}`, m.uuid);
     });
+    if (lo.pilotTurrets) n.set(`${prefix}pt`, '1');
   };
   const swap = () => {
     if (!other || !b) return;

@@ -15,6 +15,7 @@
 //   GET   /modules, PUT /modules        modules hidden for every server (v1.28.0)
 //   GET   /ai, PUT /ai                  AI assistant off for every server (v1.56.0)
 //   GET   /downloads/:item              download button clicks, per day and page (v1.59.0)
+//   GET   /weapon-audit                 the ship weapons check of the current game data (v1.63.0)
 
 import { Router, type Request, type Response } from 'express';
 import {
@@ -33,6 +34,7 @@ import {
   type AdminLogDto,
   type AdminOverviewDto,
   type AdminStorageDto,
+  type AdminWeaponAuditDto,
   type ApiResponse,
   type ErrorDetailDto,
   type ErrorEventDto,
@@ -61,6 +63,7 @@ import { cachedDiscordGet } from '../../lib/discordRest.js';
 import { triggerBot } from '../../lib/triggerBot.js';
 import { requestLoggingOn } from '../../lib/requestLogger.js';
 import { storageReport } from '../../lib/uploads.js';
+import { currentWeaponAudit } from './gameTools.js';
 import type { ErrorEvent, Prisma } from '@prisma/client';
 
 export const adminRouter = Router();
@@ -282,6 +285,13 @@ adminRouter.get('/downloads/:item', async (req, res) => {
     select: { day: true, source: true, count: true },
   });
   ok<AdminDownloadsDto>(res, summariseDownloads(item, rows, new Date()));
+});
+
+// ── Ship weapons check (v1.63.0) ─────────────────────────────────────────────
+
+/** Null until the ship data has been built once since start-up. */
+adminRouter.get('/weapon-audit', (_req, res) => {
+  ok<AdminWeaponAuditDto | null>(res, currentWeaponAudit());
 });
 
 // ── Errors ──────────────────────────────────────────────────────────────────
