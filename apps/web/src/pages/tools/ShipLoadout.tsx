@@ -18,6 +18,8 @@ import {
   slotRole,
   humanHardpoint,
   GUN_ROLE_WORDS,
+  GUN_ROLE_CODES,
+  gunMountKey,
   type GunRole,
   componentFitsSlot,
   componentTotals,
@@ -46,6 +48,7 @@ import {
 } from '@dem/shared';
 import { fmt, pctChange } from '../../lib/gameTools';
 import { SwapWindow, type SwapColumn } from './SwapWindow';
+import { Fix } from './corrections';
 import { LASER_MOD_COLUMNS, MOD_COLUMNS, ModCell, modIsGood, modLabel, pctText } from './miningBits';
 
 export interface LoadoutState {
@@ -540,6 +543,18 @@ export function LoadoutCards({
       });
   });
   const turretGunCount = turretGroups.reduce((t, g) => t + g.slots.length, 0);
+  // Who fires a mount, correctable by members (v1.64.0).
+  const roleFix = (group: string, name: string, role: GunRole, text: ReactNode) => (
+    <Fix
+      kind="gun-mount"
+      recordKey={gunMountKey(lo.ship.className, group)}
+      recordName={`${lo.ship.name} · ${name}`}
+      field="role"
+      value={GUN_ROLE_CODES[role]}
+    >
+      {text}
+    </Fix>
+  );
   const gunRow = (i: number) => {
     const s = lo.slots[i]!;
     const g = lo.equipped[i];
@@ -555,6 +570,9 @@ export function LoadoutCards({
             <span className="text-xs gt-dim">
               {m.sub} · size {s.minSize === s.maxSize ? s.maxSize : `${s.minSize}–${s.maxSize}`}
             </span>
+            {slotRole(s) === 'pilot' && (
+              <span className="text-xs gt-dim">{roleFix(s.group ?? s.id, s.label, 'pilot', 'Fired by the pilot')}</span>
+            )}
           </div>
         )}
         <button
@@ -646,7 +664,7 @@ export function LoadoutCards({
                     {grp.where !== grp.name && <span className="text-sm gt-dim"> · {grp.where}</span>}
                   </span>
                   <span className="text-xs gt-dim">
-                    {GUN_ROLE_WORDS[grp.role]}
+                    {roleFix(grp.id, grp.name, grp.role, GUN_ROLE_WORDS[grp.role])}
                     {grp.guessed ? ' (by its name: no mount record)' : ''} ·{' '}
                     {counts ? <span className="gt-acc">counted</span> : 'not counted'}
                   </span>
@@ -656,8 +674,9 @@ export function LoadoutCards({
             );
           })}
           <p className="text-xs gt-dim m-0">
-            Who fires each turret comes from the game files. Only the pilot&rsquo;s guns are counted in the damage and
-            kill times{lo.canTakeOver ? ', plus the turrets the pilot can take over when ticked' : ''}.
+            Who fires each turret comes from the game files, or from a member correction (dotted underline; hover ✎ to
+            send one). Only the pilot&rsquo;s guns are counted in the damage and kill times
+            {lo.canTakeOver ? ', plus the turrets the pilot can take over when ticked' : ''}.
           </p>
         </Section>
       )}

@@ -91,7 +91,8 @@
   (`combat-<class>.json`, cut from scunpacked's ships.json by
   `extract-combat-fixtures.mjs`; add a ship there when one turns out wrong),
   tested in `combatWeaponRoles.test.mjs`; `SCUNPACKED_SHIPS=<ships.json>`
-  runs the audit over every ship.
+  runs the audit over every ship. Members can correct who fires a mount
+  (v1.64.0, see corrections.md).
 - Ship weapons check (v1.63.0): `auditShipWeapons` (combat.ts) reports a gun
   the mount list has but we don't (`missing-weapon`), a turret gun with no
   mount record (`guessed-turret`), and a mount where the files' own pilot rule

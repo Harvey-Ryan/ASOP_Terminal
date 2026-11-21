@@ -45,3 +45,16 @@
   `FuelRequirement10GM` × 100 (the ships file's own `Range` uses an older
   formula); a power plant's output depends on pips, so there's no ship
   "total power" figure.
+- Gun mounts (v1.64.0): who fires a ship's turret or gun mount (`gun-mount`,
+  record key `gunMountKey(<ship class>, <mount group>)`, field `role`) is a
+  `choice` stat stored as a number (`GUN_ROLE_CODES`: pilot 0, takeover 1,
+  crew 2, auto 3; never renumber). Same lifecycle as every correction; a
+  choice is never a big change, and values read as words everywhere
+  (`formatCorrectionValue`). The game value is the files' role
+  (`gunMountRecord`, from the ship data); `findGameRecord` takes both kinds
+  of data (`CorrectableData`), and `recheckForBuild` skips a kind whose data
+  isn't loaded yet instead of sending it for a re-check. Ship pages wrap
+  their content in `CorrectionsProvider`, apply live ones with
+  `applyGunMountCorrections` (slots get `roleCorrected`), and put `<Fix>` on
+  "Fired by the pilot" (Armament) and each turret's role (Turrets).
+

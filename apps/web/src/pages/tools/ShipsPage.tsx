@@ -7,10 +7,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { CombatGun, GameToolsShip } from '@dem/shared';
+import { applyGunMountCorrections, type CombatGun, type GameToolsShip } from '@dem/shared';
 import { fmt, pilotSlots, readRecentShips, rememberShip, shortShipName, useGameTools } from '../../lib/gameTools';
 import { useToolsPaths } from '../../lib/toolsPaths';
 import { ToolsDataState } from './ToolsLayout';
+import { CorrectionsProvider, useCorrections } from './corrections';
 import { COMMON_TARGETS, KillTable } from './KillTable';
 import {
   LoadoutCards,
@@ -268,16 +269,30 @@ export function ShipsHomePage() {
 
 // ── /tools/ships/:className: one ship, or two side by side ──────────────────
 
+/** Ship pages hold the corrections (who fires a mount, v1.64.0) like the Mining page does. */
 export function ShipPage() {
+  const { data } = useGameTools();
+  return (
+    <CorrectionsProvider build={data?.build ?? null}>
+      <ShipPageInner />
+    </CorrectionsProvider>
+  );
+}
+
+function ShipPageInner() {
   const paths = useToolsPaths();
   const shipPath = (s: Pick<GameToolsShip, 'className'>) => paths.ship(s.className);
   const { className = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const { data, index, isLoading, error } = useGameTools();
-  const ship = index?.shipsByClass.get(className.toLowerCase()) ?? null;
+  const { index: fixes } = useCorrections();
+  const rawShip = index?.shipsByClass.get(className.toLowerCase()) ?? null;
   const vs = params.get('vs');
-  const other = vs ? (index?.shipsByClass.get(vs.toLowerCase()) ?? null) : null;
+  const rawOther = vs ? (index?.shipsByClass.get(vs.toLowerCase()) ?? null) : null;
+  // Live gun-mount corrections (v1.64.0) move a mount between Armament and Turrets.
+  const ship = useMemo(() => (rawShip ? applyGunMountCorrections(rawShip, fixes) : null), [rawShip, fixes]);
+  const other = useMemo(() => (rawOther ? applyGunMountCorrections(rawOther, fixes) : null), [rawOther, fixes]);
   const maps = [
     index?.gunsByUuid ?? new Map(),
     index?.componentsByUuid ?? new Map(),
