@@ -143,7 +143,7 @@ const live = (value, extra = {}) => ({
   kind: 'gun-mount',
   recordKey: NOSE_KEY,
   field: 'role',
-  gameValue: GUN_ROLE_CODES.crew,
+  gameValue: GUN_ROLE_CODES.pilot,
   value,
   credit: 'Ryan',
   confirmations: 2,
@@ -182,13 +182,13 @@ test('gun mounts: one per mount position, named after the turret, with the files
     [
       ['hardpoint_weapon_right_wing', 'pilot'],
       ['hardpoint_weapon_center', 'takeover'],
-      ['hardpoint_weapon_nose', 'crew'],
+      ['hardpoint_weapon_nose', 'pilot'],
       ['hardpoint_weapon_left_wing', 'pilot'],
     ],
   );
   assert.deepEqual(gunMountRecord([hornet], NOSE_KEY), {
     name: 'Anvil F7C-M Super Hornet Mk II · Anvil Hornet Mk II S3 Nose Turret',
-    record: { role: GUN_ROLE_CODES.crew },
+    record: { role: GUN_ROLE_CODES.pilot },
   });
   assert.equal(gunMountRecord([hornet], `${hornet.className.toLowerCase()}|nope`), null);
   assert.equal(gunMountRecord([hornet], 'no-bar'), null);

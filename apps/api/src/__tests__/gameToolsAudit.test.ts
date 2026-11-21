@@ -60,6 +60,23 @@ describe('reporting the check to the admin feed', () => {
     ]);
   });
 
+  it('turrets only listed to confirm (severity check) never reach the feed (v1.64.1)', async () => {
+    const seatless = {
+      className: 'CRUS_Starlifter_A2',
+      name: 'Crusader A2 Hercules Starlifter',
+      issues: [{ kind: 'no-seat', severity: 'check' as const, where: 'hardpoint_bridge_remote_turret', detail: 'x' }],
+    };
+    await reportWeaponAudit(audit([seatless]));
+    expect(await logs()).toHaveLength(0);
+    // With a real problem alongside, the summary counts only the problem.
+    await reportWeaponAudit(audit([seatless, nose]));
+    const rows = await logs();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.summary).toMatch(/^1 of 280 ships need a look/);
+    expect(rows[0]!.summary).not.toMatch(/Crusader/);
+    expect(weaponAuditSignature({ problems: [seatless] })).toBe('clear');
+  });
+
   it('the signature ignores order and wording, not the problems', () => {
     const a = { ...nose, issues: [...nose.issues, { kind: 'role-differs', where: 'x', detail: 'one' }] };
     const b = { ...nose, issues: [{ kind: 'role-differs', where: 'x', detail: 'two' }, ...nose.issues] };
