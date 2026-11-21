@@ -15,7 +15,8 @@ import {
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+// Planned pauses between Discord calls; not counted as slow by the scheduler (utils/pacing.ts).
+import { pacedSleep as sleep } from '../utils/pacing.js';
 
 /** Line order, for includes. */
 export const WAITLIST_ORDER = { orderBy: { id: 'asc' } } as const;

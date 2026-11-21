@@ -2,7 +2,8 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ThreadAutoA
 import { prisma } from '../db.js';
 import { client } from '../client.js';
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+// Planned pauses between Discord calls; not counted as slow by the scheduler (utils/pacing.ts).
+import { pacedSleep as sleep } from '../utils/pacing.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
 
 const LOOT_PICKER_ROLE = 'Loot Picker';
