@@ -165,7 +165,7 @@ export function ModuleEventBotPage() {
               <ToggleSwitch
                 checked={form.eventBotEnabled}
                 onChange={(v) => setField('eventBotEnabled', v)}
-                label="Event Bot enabled"
+                label="Event Bot"
                 description={
                   form.eventBotEnabled
                     ? 'Members can create and view events.'

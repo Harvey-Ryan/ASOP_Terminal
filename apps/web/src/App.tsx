@@ -243,7 +243,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/event-bot"
               element={
-                <ModuleGate setting="eventBotEnabled">
+                <ModuleGate setting="eventBotEnabled" settingsPage>
                   <ModuleEventBotPage />
                 </ModuleGate>
               }
@@ -251,7 +251,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/dkp"
               element={
-                <ModuleGate setting="dkpEnabled">
+                <ModuleGate setting="dkpEnabled" settingsPage>
                   <DkpSettingsPage />
                 </ModuleGate>
               }
@@ -286,11 +286,11 @@ export default function App() {
               }
             />
             {/* Legacy redirect — keep until any bookmarks expire */}
-            <Route path="servers/:guildId/exchange" element={<Navigate to="../marketplace" replace />} />
+            <Route path="servers/:guildId/exchange" element={<ExchangeRedirect />} />
             <Route
               path="servers/:guildId/settings/modules/exchange"
               element={
-                <ModuleGate setting="exchangeEnabled">
+                <ModuleGate setting="exchangeEnabled" settingsPage>
                   <ExchangeSettingsPage />
                 </ModuleGate>
               }
@@ -318,7 +318,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/jobs"
               element={
-                <ModuleGate setting="jobsEnabled">
+                <ModuleGate setting="jobsEnabled" settingsPage>
                   <JobsSettingsPage />
                 </ModuleGate>
               }
@@ -342,7 +342,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/fleet"
               element={
-                <ModuleGate setting="fleetEnabled">
+                <ModuleGate setting="fleetEnabled" settingsPage>
                   <FleetSettingsPage />
                 </ModuleGate>
               }
@@ -350,7 +350,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/loot"
               element={
-                <ModuleGate setting="lootEnabled">
+                <ModuleGate setting="lootEnabled" settingsPage>
                   <LootSettingsPage />
                 </ModuleGate>
               }
@@ -420,7 +420,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/blueprints"
               element={
-                <ModuleGate setting="blueprintsEnabled">
+                <ModuleGate setting="blueprintsEnabled" settingsPage>
                   <BlueprintsSettingsPage />
                 </ModuleGate>
               }
@@ -444,7 +444,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/wikelo"
               element={
-                <ModuleGate setting="wikeloEnabled">
+                <ModuleGate setting="wikeloEnabled" settingsPage>
                   <WikeloSettingsPage />
                 </ModuleGate>
               }
@@ -452,7 +452,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/crafting-calculator"
               element={
-                <ModuleGate setting="craftingEnabled">
+                <ModuleGate setting="craftingEnabled" settingsPage>
                   <CraftingCalculatorSettingsPage />
                 </ModuleGate>
               }
@@ -461,7 +461,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/activity"
               element={
-                <ModuleGate setting="activityEnabled">
+                <ModuleGate setting="activityEnabled" settingsPage>
                   <ActivitySettingsPage />
                 </ModuleGate>
               }
@@ -469,7 +469,7 @@ export default function App() {
             <Route
               path="servers/:guildId/settings/modules/tournaments"
               element={
-                <ModuleGate setting="tournamentsEnabled">
+                <ModuleGate setting="tournamentsEnabled" settingsPage>
                   <TournamentSettingsPage />
                 </ModuleGate>
               }
@@ -498,6 +498,16 @@ export default function App() {
       </BrowserRouter>
     </TooltipProvider>
   );
+}
+
+/**
+ * Old Exchange links open the server's Marketplace. An absolute address: the
+ * relative "../marketplace" this replaced resolved against the route, not the
+ * URL, and landed on /dashboard/marketplace (which doesn't exist).
+ */
+function ExchangeRedirect() {
+  const { guildId = '' } = useParams();
+  return <Navigate to={`/dashboard/servers/${guildId}/marketplace`} replace />;
 }
 
 /** Old Loadout and Optimizer links open the ship's page (keeping a shared loadout). */

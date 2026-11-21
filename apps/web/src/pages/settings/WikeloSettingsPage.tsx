@@ -72,7 +72,7 @@ export function WikeloSettingsPage() {
               <ToggleSwitch
                 checked={form.wikeloEnabled}
                 onChange={(v) => setField('wikeloEnabled', v)}
-                label="Wikelo enabled"
+                label="Wikelo"
                 description={
                   form.wikeloEnabled
                     ? "Members can look up Wikelo's missions and keep their own checklists."

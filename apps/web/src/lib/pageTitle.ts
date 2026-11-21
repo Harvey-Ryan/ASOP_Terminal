@@ -8,6 +8,9 @@ const SERVER_PAGES: [RegExp, string][] = [
   [/^\/events\/new$/, 'New event'],
   [/^\/events\/[^/]+\/loot$/, 'Loot draft'],
   [/^\/events\/[^/]+\/audit$/, 'Event review'],
+  [/^\/events\/[^/]+\/briefing$/, 'Briefing'],
+  [/^\/templates\/[^/]+\/briefing$/, 'Template briefing'],
+  [/^\/templates$/, 'Event templates'],
   [/^\/loot\/sessions\/[^/]+$/, 'Loot session'],
   [/^\/loot$/, 'Loot'],
   [/^\/auctions$/, 'Auction'],
@@ -21,13 +24,17 @@ const SERVER_PAGES: [RegExp, string][] = [
   [/^\/activity$/, 'Activity'],
   [/^\/tournaments$/, 'Tournaments'],
   [/^\/map$/, 'Member Map'],
-  [/^\/blueprints$/, 'Blueprints'],
+  [/^\/blueprints(\/.*)?$/, 'Blueprints'],
+  [/^\/ships(\/.*)?$/, 'Ships'],
+  [/^\/mining$/, 'Mining'],
+  [/^\/wikelo(\/.*)?$/, 'Wikelo'],
   [/^\/crafting-calculator(\/.*)?$/, 'Crafting Calculator'],
   [/^\/settings\/allies$/, 'Allies'],
   [/^\/settings\/game-data$/, 'Game Data'],
   [/^\/settings\/sc-data$/, 'SC Database'],
   [/^\/settings\/permissions$/, 'Permissions'],
   [/^\/settings\/bot$/, 'Bot Settings'],
+  [/^\/settings\/assistant$/, 'AI Assistant'],
   [/^\/settings\/modules\/jobs$/, 'Job Board settings'],
   [/^\/settings\/modules(\/.*)?$/, 'Module Settings'],
   [/^$/, 'Events'],
@@ -51,10 +58,12 @@ export function pageTitle(pathname: string, serverName?: string | null): string 
         servers: admin[2] ? 'Server' : 'Servers',
         activity: 'Activity',
         feed: 'Discord feed',
+        modules: 'Modules',
       }[admin[1] ?? ''] ?? 'Overview';
     return `Admin · ${section} – ${SITE}`;
   }
   if (pathname.startsWith('/dashboard/settings/notifications')) return `Notifications – ${SITE}`;
+  if (pathname.startsWith('/dashboard/fleet')) return `Your fleet – ${SITE}`;
   if (pathname.startsWith('/dashboard')) return `Dashboard – ${SITE}`;
   return SITE;
 }

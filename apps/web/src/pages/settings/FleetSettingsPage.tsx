@@ -73,7 +73,7 @@ export function FleetSettingsPage() {
               <ToggleSwitch
                 checked={form.fleetEnabled}
                 onChange={(v) => setField('fleetEnabled', v)}
-                label="Fleet enabled"
+                label="Fleet"
                 description={
                   form.fleetEnabled
                     ? "Members can see the server's fleet and who has which ship."

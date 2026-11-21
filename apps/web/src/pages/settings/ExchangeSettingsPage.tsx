@@ -105,7 +105,7 @@ export function ExchangeSettingsPage() {
               <ToggleSwitch
                 checked={form.exchangeEnabled}
                 onChange={(v) => setField('exchangeEnabled', v)}
-                label="Marketplace enabled"
+                label="Marketplace"
                 description={
                   form.exchangeEnabled
                     ? 'Members can manage their inventory and list items for sale on the cross-guild marketplace.'
