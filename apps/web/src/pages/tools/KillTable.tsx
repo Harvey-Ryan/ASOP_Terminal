@@ -1,7 +1,8 @@
 // "What this loadout can kill" (v1.44.0; side by side in v1.45.0): kill
-// times against a list of ships, shaded green → yellow → red by how long
-// they take (v1.60.0; no verdict words), and the guns each one's
-// armour stops. With two loadouts it's one table with a column per ship.
+// times against a list of ships (with each target's stock shields, armour,
+// hull and deflection), each time coloured easy / workable / not worth it /
+// impossible (v1.60.0; no verdict words), and the guns each one's armour
+// stops. With two loadouts it's one table with a column per ship.
 // Click a target for the breakdown. v1.60.0: times are at the chosen share of
 // shots hitting (default 35%, kept in this browser), with each gun at its
 // burst rate until it overheats or empties its capacitor, then sustained, and
@@ -51,18 +52,41 @@ export const COMMON_TARGETS = [
 ];
 
 /**
- * A soft highlight for a kill time (v1.60.0): green at 10 s or less, yellow
- * around 30 s, red at 2 minutes or more (and for "never"), on a log scale, so
- * a glance down the column reads like the old verdicts without the words.
+ * Kill-time bands (v1.60.0): the time itself is coloured instead of
+ * verdict words. Easy under 45 s, workable under 2 min, not worth it beyond
+ * that, impossible when the hull can't be killed at all.
  */
-export function killTimeShade(seconds: number): string {
-  const lo = Math.log(10),
-    hi = Math.log(120);
-  const x = !isFinite(seconds) ? 1 : Math.min(1, Math.max(0, (Math.log(Math.max(seconds, 1)) - lo) / (hi - lo)));
-  const hue = Math.round(120 * (1 - x)); // 120 green → 60 yellow → 0 red
-  return `hsl(${hue} 45% 45% / 0.16)`;
+export type KillBand = 'easy' | 'workable' | 'long' | 'never';
+export const KILL_BANDS: { band: KillBand; label: string; note: string }[] = [
+  { band: 'easy', label: 'Easy', note: 'under 45 s' },
+  { band: 'workable', label: 'Workable', note: '45 s – 2 min' },
+  { band: 'long', label: 'Not worth it', note: 'over 2 min' },
+  { band: 'never', label: 'Impossible', note: 'can’t kill' },
+];
+export function killBand(seconds: number): KillBand {
+  if (!isFinite(seconds)) return 'never';
+  if (seconds < 45) return 'easy';
+  if (seconds < 120) return 'workable';
+  return 'long';
 }
-const shaded = (seconds: number) => ({ backgroundColor: killTimeShade(seconds) });
+/** The old verdict colours, now on the time itself. */
+const BAND_CLASS: Record<KillBand, string> = {
+  easy: 'gt-good',
+  workable: 'gt-acc',
+  long: 'gt-bad',
+  never: 'gt-bad',
+};
+function KillTime({ seconds, strong }: { seconds: number; strong?: boolean }) {
+  const band = killBand(seconds);
+  return (
+    <span
+      className={`${BAND_CLASS[band]}${strong ? ' font-semibold' : ''}`}
+      title={KILL_BANDS.find((b) => b.band === band)!.label}
+    >
+      {formatKillTime(seconds)}
+    </span>
+  );
+}
 
 const shortGun = (name: string) =>
   name
@@ -163,12 +187,25 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs gt-dim" aria-label="Colour key">
+        {KILL_BANDS.map((b) => (
+          <span key={b.band}>
+            <span className={BAND_CLASS[b.band]}>{b.label}</span>&nbsp;{b.note}
+          </span>
+        ))}
+      </div>
       <div className="gt-scroll">
-        <table className="gt-table min-w-[620px]">
+        <table className="gt-table min-w-[900px]">
           <thead>
             {two ? (
               <tr>
                 <th>Target</th>
+                <th className="num">Shields</th>
+                <th className="num">Armour</th>
+                <th className="num">Hull</th>
+                <th className="num" title="Physical / energy: shots at or below this do no hull damage">
+                  Deflection
+                </th>
                 {loadouts.map((l) => (
                   <th key={l.name} className="num">
                     {l.name}
@@ -182,6 +219,12 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
             ) : (
               <tr>
                 <th>Target</th>
+                <th className="num">Shields</th>
+                <th className="num">Armour</th>
+                <th className="num">Hull</th>
+                <th className="num" title="Physical / energy: shots at or below this do no hull damage">
+                  Deflection
+                </th>
                 <th className="num">Time to kill</th>
                 <th className="num">Every shot hits</th>
                 <th>Armour stops</th>
@@ -204,6 +247,16 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                   <span className="block text-xs gt-dim">{r.t.role ?? r.t.career ?? ''}</span>
                 </td>
               );
+              const statCells = (
+                <>
+                  <td className="num gt-dim">{fmt(r.t.shieldHp)}</td>
+                  <td className="num gt-dim">{r.t.armourHp ? fmt(r.t.armourHp) : '–'}</td>
+                  <td className="num gt-dim">{fmt(r.t.hullHp)}</td>
+                  <td className="num gt-dim">
+                    {fmt(r.t.deflection.physical)} / {fmt(r.t.deflection.energy)}
+                  </td>
+                </>
+              );
               if (two) {
                 const [a, b] = r.per as [(typeof r.per)[0], (typeof r.per)[0]];
                 const winner =
@@ -216,11 +269,10 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                 return (
                   <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
                     {nameCell}
+                    {statCells}
                     {r.per.map((p, i) => (
-                      <td key={i} className="num" style={shaded(p.real.seconds)}>
-                        <span className={i === winner ? 'gt-hi font-semibold' : ''}>
-                          {formatKillTime(p.real.seconds)}
-                        </span>
+                      <td key={i} className="num">
+                        <KillTime seconds={p.real.seconds} strong={i === winner} />
                       </td>
                     ))}
                     <td className="text-sm">
@@ -238,11 +290,12 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
               return (
                 <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
                   {nameCell}
-                  <td className="num gt-hi" style={shaded(p.real.seconds)}>
-                    {formatKillTime(p.real.seconds)}
+                  {statCells}
+                  <td className="num">
+                    <KillTime seconds={p.real.seconds} strong />
                   </td>
-                  <td className="num" style={shaded(p.allHit.seconds)}>
-                    {formatKillTime(p.allHit.seconds)}
+                  <td className="num">
+                    <KillTime seconds={p.allHit.seconds} />
                   </td>
                   <td className="text-sm gt-dim">{stopped.length ? stopped.join(', ') : '–'}</td>
                 </tr>
@@ -300,7 +353,9 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
               <b>Not modelled:</b> shield regeneration under fire, damage falling off with range, and dodging.
             </span>
             <span className="block pt-1.5 gt-dim">
-              Shading: green is a quick kill (10 s or less), yellow about 30 s, red 2 minutes or more, or never.
+              Colours: green is easy (under 45 s), gold workable (45 s to 2 min), red not worth it (over 2 min) or
+              impossible (&ldquo;never&rdquo;: the hull can&rsquo;t be killed). Target figures are the ship as it comes
+              from the factory.
             </span>
           </span>
         </span>
