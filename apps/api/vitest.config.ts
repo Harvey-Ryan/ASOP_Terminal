@@ -11,6 +11,8 @@ export default defineConfig({
       SESSION_SECRET: 'test-secret-do-not-use-in-prod',
       DISCORD_TOKEN: 'test-bot-token',
       BOT_INTERNAL_URL: '',
+      // The tests' platform admin (production sets its own; there's no default).
+      PLATFORM_ADMIN_DISCORD_IDS: '1135606224155586571',
     },
     globalSetup: ['./src/__tests__/globalSetup.ts'],
     setupFiles: ['./src/__tests__/setup.ts'],

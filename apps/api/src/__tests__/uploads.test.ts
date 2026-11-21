@@ -11,7 +11,7 @@ import type { Express } from 'express';
 import { createUser, createGuild } from './factories.js';
 
 const prisma = new PrismaClient();
-const ADMIN = '1135606224155586571'; // PLATFORM_ADMIN_DISCORD_IDS default
+const ADMIN = '1135606224155586571'; // PLATFORM_ADMIN_DISCORD_IDS in vitest.config.ts
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asop-uploads-'));
 let app: Express;
 
