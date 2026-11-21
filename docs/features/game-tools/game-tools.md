@@ -50,8 +50,26 @@
   armour multiplier, a pellet at or below the armour's deflection does no hull
   damage, main body = the part named "body", else the biggest), `killVerdict`,
   `bestGunFits`. Every page that shows a kill time states the assumptions
-  (every shot hits, no shield regen, the deflection reading still to be
+  (the share of shots hitting, burst then sustained fire, no shield regen, no
+  range falloff, armour as one pool, the deflection reading still to be
   confirmed in game). Comparisons are computed from numbers, never written by AI.
+- Kill times closer to a fight (v1.60.0): `killTime(guns, ship, mode, { accuracy })`.
+  Mode `real` fires each gun at its burst rate for `burstSeconds`
+  (`gunBurstSeconds`: the files' `Heat.TimeToOverheat` for ballistics,
+  capacitor shots ÷ rate of fire for energy guns; null = burst throughout),
+  then at its sustained rate; `burst`/`sustained` keep one rate throughout
+  (the Optimizer's `bestGunFits` still ranks on those). Damage past the
+  shields wears down `armourHp` (the armour's `Health`) as one pool, with the
+  armour multiplier, before the main body: in game armour is worn down per
+  section where the shots land, and the page says it's simplified.
+  `KillResult` has `armourSeconds` and `firstSlowdown`. The kill table uses
+  `real` at the viewer's share of shots hitting (20/35/50/75/100%, default
+  `DEFAULT_ACCURACY` 35%, kept in the browser as `asop.ttkAccuracy`) and shows
+  "Every shot hits" (`real` at 100%) beside it. No verdict words: each time
+  is shaded green → yellow → red (`killTimeShade`: ≤10 s green, ~30 s
+  yellow, ≥2 min or never red, log scale, low saturation). Under the table:
+  "These are simulation values. Hover for more info." with every assumption
+  in a hover/focus pop-up (`.gt-tip`).
 - Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
   RequiredTags against the gun's tags, and the gun's RequiredTags against the
   PortTags of the port, its mounts and the ship. Use it for every "what fits".

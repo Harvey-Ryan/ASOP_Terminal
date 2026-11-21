@@ -4,7 +4,11 @@
 // website runs the same code in the browser so changing a gun is instant.
 //
 // The model, kept deliberately simple and stated on every page that shows it:
-// - every shot hits, at full power, and shields don't regenerate under fire;
+// - a share of shots hit (`accuracy`, v1.60.0; the kill table defaults to
+//   35%), at full power, and shields don't regenerate under fire;
+// - each gun fires at its burst rate until it overheats (ballistic: the files'
+//   TimeToOverheat) or empties its capacitor (energy: capacitor shots ÷ rate
+//   of fire), then at its sustained rate (`burstSeconds`, v1.60.0);
 // - a shield takes `absorption` of each damage type (less `resistance`), the
 //   rest goes on towards the hull (ballistic: up to 55% passes through);
 // - damage that reaches the hull is multiplied by the armour's multiplier,
@@ -12,8 +16,10 @@
 //   `deflection` for that type does nothing to the hull. The files give the
 //   deflection numbers but not the exact rule; this reading is to be checked
 //   in game.
-// - the ship dies when its main body (the part named "body", else the
-//   biggest part) is gone.
+// - damage that gets past the shields wears down the armour's health first,
+//   counted as one pool (v1.60.0; in game it's worn down section by section,
+//   where the shots land), then the main body: the part named "body", else
+//   the biggest part. The ship dies when the main body is gone.
 
 import { shipComponentSlots, type ComponentSlot, type ShipComponent } from './components.js';
 import { shipMissileRacks, type MissileItem, type MissileRack } from './missiles.js';
@@ -50,6 +56,12 @@ export interface CombatGun {
   alphaSplit: DamagePair & { distortion: number };
   pellets: number;
   fireRate: number | null;
+  /**
+   * Seconds of burst fire before the gun drops to its sustained rate (v1.60.0):
+   * time to overheat (ballistic) or capacitor shots ÷ rate of fire (energy).
+   * Null when the files don't say: the burst rate is then used throughout.
+   */
+  burstSeconds?: number | null;
   range: number | null;
   speed: number | null;
   /** Other items with exactly these numbers (skins, variants), grouped under this one. */
@@ -207,6 +219,7 @@ export function combatGunFromItem(row: {
     alphaSplit: split,
     pellets: Math.max(1, num(mode.PelletsPerShot) ?? 1),
     fireRate: num(w.RateOfFire) ?? num(mode.RoundsPerMinute),
+    burstSeconds: gunBurstSeconds(w, num(w.RateOfFire) ?? num(mode.RoundsPerMinute)),
     range: num(w.EffectiveRange) ?? num(w.Range),
     speed: num(std.Ammunition?.Speed),
     family: gunFamily(str(std.DescriptionData?.['Item Type']) ?? (name as string)),
@@ -220,6 +233,16 @@ export function combatGunFromItem(row: {
     tags: tagList(row.data?.tags ?? std.Tags),
     requiredTags: tagList(std.RequiredTags),
   };
+}
+
+/** How long a gun keeps up its burst rate: time to overheat, or its capacitor's shots at its rate of fire. */
+export function gunBurstSeconds(w: Json, roundsPerMinute: number | null): number | null {
+  const overheat = num(w.Heat?.TimeToOverheat);
+  if (overheat && overheat > 0) return overheat;
+  const shots = num(w.Capacitor?.MaxAmmoLoad);
+  if (shots && shots > 0 && roundsPerMinute && roundsPerMinute > 0)
+    return Math.round((shots / (roundsPerMinute / 60)) * 100) / 100;
+  return null;
 }
 
 const GUN_FAMILIES = [
@@ -477,13 +500,29 @@ export function combatShipFromRow(row: {
 
 // ── Time to kill ─────────────────────────────────────────────────────────────
 
-export type FireMode = 'burst' | 'sustained';
+/**
+ * burst: the burst rate throughout · sustained: the sustained rate throughout ·
+ * real: the burst rate until each gun overheats or empties its capacitor, then
+ * sustained (v1.60.0).
+ */
+export type FireMode = 'burst' | 'sustained' | 'real';
+
+export interface KillOptions {
+  /** Share of shots that hit, 0–1 (default 1: every shot). */
+  accuracy?: number;
+}
+
+/** What the kill table assumes unless the viewer picks another (v1.60.0). */
+export const DEFAULT_ACCURACY = 0.35;
 
 export interface KillResult {
   /** Seconds to destroy the main body; Infinity when this fit can't. */
   seconds: number;
   /** Seconds to drop the shields (Infinity: never; may be more than `seconds` when ballistics kill through them). */
   shieldSeconds: number;
+  /** Seconds until the armour's health is gone (0 when it has none; Infinity: never). v1.60.0. */
+  armourSeconds: number;
+  /** At the burst rate and the accuracy used. */
   shieldDps: number;
   /** Hull damage per second while the shields are up (what gets through them). */
   throughShieldDps: number;
@@ -495,19 +534,29 @@ export interface KillResult {
   volleyHull: number;
   /** Guns the target's armour stops completely (every pellet at or below its deflection). */
   stopped: string[];
+  /** Seconds until the first gun drops to its sustained rate (real mode; null if none does). */
+  firstSlowdown: number | null;
 }
 
-export function killTime(guns: CombatGun[], t: CombatShip, mode: FireMode = 'burst'): KillResult {
-  let shieldDps = 0,
-    through = 0,
-    hull = 0,
-    vS = 0,
+export function killTime(
+  guns: CombatGun[],
+  t: CombatShip,
+  mode: FireMode = 'burst',
+  opts: KillOptions = {},
+): KillResult {
+  const accuracy = Math.min(1, Math.max(0, opts.accuracy ?? 1));
+  // Per gun, at its burst rate: damage per second to the shields, through them to the hull, and to the hull once they're down.
+  const per: { sh: number; th: number; hu: number; slow: number; until: number }[] = [];
+  let vS = 0,
     vT = 0,
     vH = 0;
   const stopped: string[] = [];
   for (const g of guns) {
-    const rate = mode === 'burst' ? g.burstDps : g.sustainedDps;
+    const rate = g.burstDps;
     let reaches = false;
+    let sh = 0,
+      th = 0,
+      hu = 0;
     for (const k of ['physical', 'energy'] as DamageType[]) {
       const part = g.alphaSplit[k];
       if (part <= 0 || g.alpha <= 0) continue;
@@ -517,35 +566,102 @@ export function killTime(guns: CombatGun[], t: CombatShip, mode: FireMode = 'bur
         res = t.resistance[k],
         m = t.armourMult[k],
         defl = t.deflection[k];
-      shieldDps += rate * f * abs * (1 - res);
+      sh += rate * f * abs * (1 - res);
       vS += part * abs * (1 - res);
       if (perPellet * (1 - abs) > defl) {
-        through += rate * f * (1 - abs) * m;
+        th += rate * f * (1 - abs) * m;
         vT += part * (1 - abs) * m;
       }
       if (perPellet > defl) {
-        hull += rate * f * m;
+        hu += rate * f * m;
         vH += part * m;
         reaches = true;
       }
     }
     if (!reaches && (g.alphaSplit.physical > 0 || g.alphaSplit.energy > 0)) stopped.push(g.name);
+    // How the gun's rate scales: 1 at burst, sustained/burst after it slows down.
+    const slow = g.burstDps > 0 ? g.sustainedDps / g.burstDps : 1;
+    const until =
+      mode === 'burst'
+        ? Infinity
+        : mode === 'sustained'
+          ? 0
+          : g.burstSeconds && g.burstSeconds > 0
+            ? g.burstSeconds
+            : Infinity;
+    per.push({ sh, th, hu, slow, until });
   }
+  const at = (time: number) => {
+    let sh = 0,
+      th = 0,
+      hu = 0;
+    for (const p of per) {
+      const k = (time < p.until ? 1 : p.slow) * accuracy;
+      sh += p.sh * k;
+      th += p.th * k;
+      hu += p.hu * k;
+    }
+    return { sh, th, hu };
+  };
   const base = {
-    shieldDps,
-    throughShieldDps: through,
-    hullDps: hull,
+    shieldDps: per.reduce((a, p) => a + p.sh, 0) * accuracy,
+    throughShieldDps: per.reduce((a, p) => a + p.th, 0) * accuracy,
+    hullDps: per.reduce((a, p) => a + p.hu, 0) * accuracy,
     volleyShield: vS,
     volleyThrough: vT,
     volleyHull: vH,
     stopped,
+    firstSlowdown: null as number | null,
   };
-  const shieldSeconds = t.shieldHp <= 0 ? 0 : shieldDps > 0 ? t.shieldHp / shieldDps : Infinity;
-  if (!isFinite(shieldSeconds)) return { ...base, seconds: through > 0 ? t.hullHp / through : Infinity, shieldSeconds };
-  const doneThrough = through * shieldSeconds;
-  if (through > 0 && doneThrough >= t.hullHp) return { ...base, seconds: t.hullHp / through, shieldSeconds };
-  if (hull <= 0) return { ...base, seconds: Infinity, shieldSeconds };
-  return { ...base, seconds: shieldSeconds + (t.hullHp - doneThrough) / hull, shieldSeconds };
+  if (mode === 'real') {
+    const first = Math.min(...per.map((p) => p.until));
+    base.firstSlowdown = isFinite(first) ? first : null;
+  }
+
+  // Walk the fight from one event to the next: a pool emptied or a gun slowing down.
+  const switches = [...new Set(per.map((p) => p.until).filter((u) => u > 0 && isFinite(u)))].sort((a, b) => a - b);
+  let time = 0;
+  let shield = Math.max(0, t.shieldHp);
+  let armour = Math.max(0, t.armourHp ?? 0);
+  let body = t.hullHp;
+  let shieldSeconds = shield <= 0 ? 0 : Infinity;
+  let armourSeconds = armour <= 0 ? 0 : Infinity;
+  for (let step = 0; step < 200 && body > 0; step++) {
+    const r = at(time);
+    const next = switches.find((u) => u > time) ?? Infinity;
+    // Damage past the shields this phase, and to them.
+    const toShield = shield > 0 ? r.sh : 0;
+    const toHull = shield > 0 ? r.th : r.hu;
+    const tShield = toShield > 0 ? shield / toShield : Infinity;
+    const tPool = toHull > 0 ? (armour > 0 ? armour : body) / toHull : Infinity;
+    const dt = Math.min(next - time, shield > 0 ? tShield : Infinity, tPool);
+    if (!isFinite(dt)) break; // nothing more happens: it never dies
+    time += dt;
+    if (shield > 0) {
+      shield = dt === tShield ? 0 : shield - toShield * dt;
+      if (shield <= 1e-9) {
+        shield = 0;
+        shieldSeconds = time;
+      }
+    }
+    if (armour > 0) {
+      armour = dt === tPool ? 0 : armour - toHull * dt;
+      if (armour <= 1e-9) {
+        armour = 0;
+        armourSeconds = time;
+      }
+    } else {
+      body = dt === tPool ? 0 : body - toHull * dt;
+      if (body <= 1e-9) body = 0;
+    }
+  }
+  const seconds = body <= 0 ? time : Infinity;
+  // Killed through the shields: say how long they'd have lasted.
+  if (body <= 0 && shield > 0) {
+    const r = at(time);
+    shieldSeconds = r.sh > 0 ? time + shield / r.sh : Infinity;
+  }
+  return { ...base, seconds, shieldSeconds, armourSeconds };
 }
 
 export type KillVerdict = 'quick' | 'workable' | 'slow' | 'long' | 'no-hull' | 'never';
