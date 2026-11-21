@@ -22,6 +22,8 @@ export interface CountedAssignment {
   userId: string;
   username: string;
   delivered?: boolean;
+  /** 1-based position within its commodity's roll (commodityRollAssignments). */
+  pickNumber?: number | null;
 }
 
 /** A commodity line: it has a quality level. */
@@ -124,6 +126,8 @@ export interface CommodityShareLine {
   delivered: number;
   /** Assignment ids, for marking units delivered one at a time. */
   assignmentIds: string[];
+  /** This member's picks in the commodity's roll, ascending (1 = first pick). */
+  picks: number[];
 }
 
 export interface CommodityShare {
@@ -152,15 +156,24 @@ export function commodityShares(
       const share = byUser.get(a.userId)!;
       let line = share.lines.find((l) => l.name === item.name && l.qualityLevel === item.qualityLevel);
       if (!line) {
-        line = { name: item.name, qualityLevel: item.qualityLevel, count: 0, delivered: 0, assignmentIds: [] };
+        line = {
+          name: item.name,
+          qualityLevel: item.qualityLevel,
+          count: 0,
+          delivered: 0,
+          assignmentIds: [],
+          picks: [],
+        };
         share.lines.push(line);
       }
       line.count++;
       if (a.delivered) line.delivered++;
       if (a.id) line.assignmentIds.push(a.id);
+      if (a.pickNumber != null) line.picks.push(a.pickNumber);
     }
   }
   for (const share of byUser.values()) {
+    for (const line of share.lines) line.picks.sort((x, y) => x - y);
     share.lines.sort((x, y) =>
       x.name !== y.name ? x.name.localeCompare(y.name) : (y.qualityLevel ?? -1) - (x.qualityLevel ?? -1),
     );

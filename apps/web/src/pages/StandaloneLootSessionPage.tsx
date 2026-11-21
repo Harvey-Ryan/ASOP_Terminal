@@ -200,9 +200,12 @@ function StandaloneItemRow({
                 currentUserId,
               )}
               {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
-              {/* Commodity units are numbered within their roll, not as draft picks. */}
-              {winner.pickNumber != null && session.method !== 'COMMODITY_DRAFT' && (
-                <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>
+              {/* Commodity picks are stored 1-based per commodity; snake picks 0-based. */}
+              {winner.pickNumber != null && (
+                <span className="text-muted-foreground">
+                  {' '}
+                  (pick #{session.method === 'COMMODITY_DRAFT' ? winner.pickNumber : winner.pickNumber + 1})
+                </span>
               )}
             </p>
           ) : (

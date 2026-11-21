@@ -122,8 +122,8 @@ test("shares stack each member's units by name and QL, skipping gear", () => {
       name: 'Quantainium',
       qualityLevel: 800,
       assignments: [
-        { id: '1', userId: 'd', username: 'Destrokk', delivered: true },
-        { id: '2', userId: 'd', username: 'Destrokk' },
+        { id: '1', userId: 'd', username: 'Destrokk', delivered: true, pickNumber: 6 },
+        { id: '2', userId: 'd', username: 'Destrokk', pickNumber: 1 },
         { id: '3', userId: 'm', username: 'Mango' },
       ],
     },
@@ -133,6 +133,7 @@ test("shares stack each member's units by name and QL, skipping gear", () => {
   const shares = commodityShares(items);
   assert.equal(shares.length, 2);
   const d = shares.find((s) => s.userId === 'd');
+  assert.deepEqual(d.lines[0].picks, [1, 6]);
   assert.deepEqual(
     d.lines.map((l) => [commodityShareLabel(l), l.delivered, l.assignmentIds]),
     [

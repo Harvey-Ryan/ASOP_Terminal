@@ -1121,8 +1121,9 @@ function EventDetailView({
                                 item.assignments.map((a) => (
                                   <p key={a.id} className="text-lg">
                                     {resolveUsername(a.userId, a.username, userId)}
+                                    {/* Commodity picks are 1-based per commodity (was shown +1). */}
                                     {a.pickNumber != null && (
-                                      <span className="opacity-60 ml-1.5">Pick #{a.pickNumber + 1}</span>
+                                      <span className="opacity-60 ml-1.5">Pick #{a.pickNumber}</span>
                                     )}
                                   </p>
                                 ))

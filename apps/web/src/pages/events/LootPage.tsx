@@ -750,6 +750,11 @@ function CommodityDistribution({ session, currentUserId }: { session: LootSessio
                     className={`text-sm ${l.delivered === l.count ? 'line-through text-muted-foreground' : ''}`}
                   >
                     {commodityShareLabel(l)}
+                    {l.picks.length > 0 && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        · pick{l.picks.length > 1 ? 's' : ''} {l.picks.join(', ')}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
