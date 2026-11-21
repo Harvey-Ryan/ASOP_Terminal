@@ -819,7 +819,7 @@ function Signatures({
     })),
     {
       key: 'max',
-      label: 'Most in a cluster',
+      label: 'Max',
       num: true,
       sort: (s) => s.maxCluster,
       render: (s) => (
@@ -840,11 +840,11 @@ function Signatures({
       <Plate label="Rock signatures" className="flex-[999_1_620px]">
         <Heading>ROCK SIGNATURES</Heading>
         <Chips label="Scanned by" options={methods} value={method} onChange={setMethod} />
-        <SortTable rows={rows} cols={cols} initial="x1" rowKey={(s) => `${s.rock}|${s.method}`} minWidth={820} />
+        <SortTable rows={rows} cols={cols} initial="x1" rowKey={(s) => `${s.rock}|${s.method}`} minWidth={640} />
         <p className="m-0 text-xs text-[var(--fab-muted)]">
           What the scanner shows for a cluster of 1 to 6 rocks of each type. A dash means that rock never clusters that
-          big, so the number can&rsquo;t be it. ROC and hand-mining gems all share one signature, so the scanner
-          can&rsquo;t tell them apart.
+          big, so the number can&rsquo;t be it; Max is the most it ever clusters in. ROC and hand-mining gems all share
+          one signature, so the scanner can&rsquo;t tell them apart.
         </p>
       </Plate>
       <ScannerPanel>
