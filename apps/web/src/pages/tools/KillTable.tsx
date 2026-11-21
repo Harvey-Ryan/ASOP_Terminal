@@ -16,6 +16,7 @@ import {
   killTime,
   formatKillTime,
   type CombatGun,
+  type DamageType,
   type GameToolsShip,
   type KillResult,
 } from '@dem/shared';
@@ -69,6 +70,23 @@ export function killBand(seconds: number): KillBand {
   if (seconds < 120) return 'workable';
   return 'long';
 }
+/**
+ * Deflection against the loadout(s) on the page (v1.62.0): green when every
+ * gun dealing that damage type gets past it, gold when it stops some, red
+ * when it stops them all, dim when no gun deals that type. Same rule as
+ * `killTime`: a pellet at or below the deflection does no hull damage.
+ */
+function deflectionCheck(guns: CombatGun[], defl: number, k: DamageType): { cls: string; title: string } {
+  const kind = k === 'physical' ? 'ballistic' : 'energy';
+  const using = guns.filter((g) => g.alphaSplit[k] > 0);
+  if (!using.length) return { cls: 'gt-dim', title: `No ${kind} damage in this loadout` };
+  const stopped = [...new Set(using.filter((g) => g.alphaSplit[k] / g.pellets <= defl).map((g) => shortGun(g.name)))];
+  if (!stopped.length) return { cls: 'gt-good', title: `Every ${kind} gun gets through` };
+  if (stopped.length === new Set(using.map((g) => shortGun(g.name))).size)
+    return { cls: 'gt-bad', title: `Stops every ${kind} gun` };
+  return { cls: 'gt-acc', title: `Stops ${stopped.join(', ')}` };
+}
+
 /** The old verdict colours, now on the time itself. */
 const BAND_CLASS: Record<KillBand, string> = {
   easy: 'gt-good',
@@ -157,6 +175,7 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
   );
   const sel = rows.find((r) => r.t.className === picked) ?? null;
   const two = loadouts.length > 1;
+  const allGuns = useMemo(() => loadouts.flatMap((l) => l.guns), [loadouts]);
 
   if (loadouts.every((l) => !l.guns.length)) return <p className="gt-dim m-0">No pilot guns to compare.</p>;
 
@@ -193,6 +212,13 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
             <span className={BAND_CLASS[b.band]}>{b.label}</span>&nbsp;{b.note}
           </span>
         ))}
+        <span
+          className="gt-tip-hint cursor-help"
+          title="Deflection (physical / energy): a shot at or below it does no hull damage. Green: every gun you have of that type gets through. Gold: it stops some of them. Red: it stops them all. Grey: you have no guns of that type. Hover a number to see which guns."
+        >
+          Deflection: <span className="gt-good">all get through</span> · <span className="gt-acc">stops some</span> ·{' '}
+          <span className="gt-bad">stops all</span>
+        </span>
       </div>
       <div className="gt-scroll">
         <table className="gt-table min-w-[900px]">
@@ -203,7 +229,10 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                 <th className="num">Shields</th>
                 <th className="num">Armour</th>
                 <th className="num">Hull</th>
-                <th className="num" title="Physical / energy: shots at or below this do no hull damage">
+                <th
+                  className="num"
+                  title="Physical / energy: shots at or below this do no hull damage. Coloured by your guns: green all get through, gold some are stopped, red all are stopped."
+                >
                   Deflection
                 </th>
                 {loadouts.map((l) => (
@@ -222,7 +251,10 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                 <th className="num">Shields</th>
                 <th className="num">Armour</th>
                 <th className="num">Hull</th>
-                <th className="num" title="Physical / energy: shots at or below this do no hull damage">
+                <th
+                  className="num"
+                  title="Physical / energy: shots at or below this do no hull damage. Coloured by your guns: green all get through, gold some are stopped, red all are stopped."
+                >
                   Deflection
                 </th>
                 <th className="num">Time to kill</th>
@@ -252,8 +284,18 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                   <td className="num gt-dim">{fmt(r.t.shieldHp)}</td>
                   <td className="num gt-dim">{r.t.armourHp ? fmt(r.t.armourHp) : '–'}</td>
                   <td className="num gt-dim">{fmt(r.t.hullHp)}</td>
-                  <td className="num gt-dim">
-                    {fmt(r.t.deflection.physical)} / {fmt(r.t.deflection.energy)}
+                  <td className="num">
+                    {(['physical', 'energy'] as DamageType[]).map((k, i) => {
+                      const d = deflectionCheck(allGuns, r.t.deflection[k], k);
+                      return (
+                        <span key={k}>
+                          {i > 0 && <span className="gt-dim"> / </span>}
+                          <span className={d.cls} title={d.title}>
+                            {fmt(r.t.deflection[k])}
+                          </span>
+                        </span>
+                      );
+                    })}
                   </td>
                 </>
               );
@@ -347,7 +389,8 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
             </span>
             <span className="block">
               <b>Deflection:</b> shots at or below a ship&rsquo;s armour deflection value do no hull damage (to be
-              confirmed in game).
+              confirmed in game). The numbers are physical / energy, green when every gun of that type in your loadout
+              gets through, gold when some are stopped, red when all are.
             </span>
             <span className="block">
               <b>Not modelled:</b> shield regeneration under fire, damage falling off with range, and dodging.
