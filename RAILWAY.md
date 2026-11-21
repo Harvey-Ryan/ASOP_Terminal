@@ -311,6 +311,7 @@ used and can be removed.
 | `ACTIVITY_SERVER_IDS` | Optional. Comma-separated Discord server ids that get Activity (RoleCall). Defaults to Fleet 919; every other server doesn't see the module. |
 | `AI_KEY_SECRET` | Needed for the AI assistant (v1.56.0). A random secret of 32+ characters (for example `openssl rand -base64 48`) that encrypts servers' AI keys. Set it on the main ASOP service (API and bot share it). Keep it only in Railway, never in the database or repo; changing or losing it makes every saved key unreadable (admins then add their keys again). Without it, keys can't be saved. |
 | `AI_SERVER_IDS` | Optional. Comma-separated Discord server ids offered the AI assistant, or `*` for every server. Defaults to Fleet 919. |
+| `PLATFORM_ADMIN_DISCORD_IDS` | Comma-separated Discord user ids of the platform admins (the admin panel at `/dashboard/admin`, roadmap board, game-data re-sync, data reviewers). No default since v1.59.2: unset means nobody can open the admin panel, and the API logs a warning at start-up. |
 
 ---
 

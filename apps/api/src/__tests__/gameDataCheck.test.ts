@@ -9,7 +9,7 @@ import { parseHeadRef, forgetLastCheckForTests } from '../lib/gameDataCheck.js';
 // data, downloads and writes nothing; platform admins only.
 
 const app = createServer();
-const ADMIN = '1135606224155586571'; // PLATFORM_ADMIN_DISCORD_IDS default
+const ADMIN = '1135606224155586571'; // PLATFORM_ADMIN_DISCORD_IDS in vitest.config.ts
 const HELD = 'a'.repeat(40);
 const NEWER = 'b'.repeat(40);
 
