@@ -85,14 +85,42 @@ export interface CombatGun {
   requiredTags: string[];
 }
 
+/**
+ * Who fires a gun (v1.63.0), from the game data's own mount list
+ * (`MountingPositions`: MountType, TurretRole, OperatingStations,
+ * IsPilotSlaveable), not from part names:
+ * - `pilot`: the pilot's guns (fixed, gimballed, or a turret the pilot fires);
+ * - `takeover`: a crew turret the pilot can take control of (slave);
+ * - `crew`: a turret only crew fire (manned, or remote from a crew seat);
+ * - `auto`: point defence and autonomous turrets that fire by themselves.
+ */
+export type GunRole = 'pilot' | 'takeover' | 'crew' | 'auto';
+
+export const GUN_ROLE_WORDS: Record<GunRole, string> = {
+  pilot: 'Pilot',
+  takeover: 'Crew turret · pilot can take over',
+  crew: 'Crew turret',
+  auto: 'Automatic (point defence)',
+};
+
 export interface GunSlot {
   /** Stable id: the path of hardpoint names. */
   id: string;
   label: string;
   minSize: number;
   maxSize: number;
-  /** In a crewed or remote turret rather than flown by the pilot. */
+  /** On a turret mount (any kind); turret-only gun copies fit only these. */
   turret: boolean;
+  /** Who fires it (v1.63.0). Older data without it: `turret` ? crew : pilot. */
+  role?: GunRole;
+  /** `files` = from the game data's mount list; `guess` = no mount record, decided by part names. */
+  roleSource?: 'files' | 'guess';
+  /** The turret or mount position the gun belongs to (its hardpoint), for grouping turret guns. */
+  group?: string;
+  /** That position's item name ("Anvil F7C-M Mk II Ball Turret"), when it's a turret. */
+  groupName?: string | null;
+  /** The port's id in the ship's loadout (`loadout.2.loadout.0.loadout.0`), as the mount list writes it. */
+  port?: string;
   /** The mount the gun sits in (a gimbal), if any. */
   mount: string | null;
   stockGunUuid: string | null;
@@ -342,48 +370,186 @@ export function humanHardpoint(name: string): string {
   return s ? s[0]!.toUpperCase() + s.slice(1) : 'Gun';
 }
 
-/** Every gun port on a ship (pilot and turrets), with the stock gun in it. */
+/** A mount position from the game data (`MountingPositions`). */
+interface MountRecord {
+  PortId?: string;
+  HardpointName?: string;
+  MountType?: string;
+  TurretRole?: string;
+  IsPilotSlaveable?: boolean;
+  OperatingStations?: { Kind?: string }[];
+  Payload?: { PortId?: string; Type?: string; Size?: number; Name?: string; CombatStats?: { Dps?: number } }[];
+}
+
+/**
+ * Who fires the guns at a mount position (v1.63.0). Read from the game data,
+ * in this order: a pilot seat operating it → pilot; point defence → auto;
+ * autonomous → takeover if the pilot can slave it, else auto; any other
+ * turret → takeover if slaveable, else crew; gimbals and fixed mounts →
+ * pilot unless only crew seats operate them. Null when the record says
+ * nothing useful (no mount type, not slaveable): the caller guesses.
+ */
+export function mountRole(m: MountRecord): GunRole | null {
+  const kinds = new Set((m.OperatingStations ?? []).map((o) => String(o.Kind ?? '')));
+  const type = m.MountType ?? null;
+  const role = m.TurretRole ?? null;
+  if (kinds.has('Pilot')) return 'pilot';
+  if (type === 'Turret' || role) {
+    if (role === 'Pdc') return 'auto';
+    if (role === 'Autonomous') return m.IsPilotSlaveable ? 'takeover' : 'auto';
+    return m.IsPilotSlaveable ? 'takeover' : 'crew';
+  }
+  if (type === 'Gimbal' || type === 'Fixed') return kinds.size && !kinds.has('Pilot') ? 'crew' : 'pilot';
+  if (m.IsPilotSlaveable) return 'takeover';
+  return null;
+}
+
+/**
+ * Every gun port on a ship (pilot and turrets), with the stock gun in it and
+ * who fires it (`role`, v1.63.0). Each port is matched to the game data's
+ * mount list by its port id (`loadout.2.loadout.0…`, the same indices the
+ * mount list uses); ports with no mount record (rocket pods, bomb racks, a
+ * few Kruger guns) fall back to the old name rule: a turret is crew, the
+ * rest is the pilot's.
+ */
 export function shipGunSlots(ship: Json): GunSlot[] {
+  const mounts = new Map<string, MountRecord>();
+  for (const m of (Array.isArray(ship.MountingPositions) ? ship.MountingPositions : []) as MountRecord[])
+    if (m.PortId) mounts.set(m.PortId, m);
   const slots: GunSlot[] = [];
   const walk = (
     ports: Json[] | undefined,
     path: string[],
+    portPath: string,
     inTurret: boolean,
     mount: Json | null,
     offered: string[],
+    pos: { rec: MountRecord; name: string | null; id: string } | null,
   ) => {
-    for (const p of ports ?? []) {
+    (ports ?? []).forEach((p, i) => {
       const type = String(p.Type ?? '');
       const types: string[] = (p.CompatibleTypes ?? []).map((t: Json) => String(t.Type ?? ''));
       const here = [...path, String(p.HardpointName ?? '')];
+      const portId = `${portPath ? `${portPath}.` : ''}loadout.${i}`;
+      const rec = mounts.get(portId);
+      const posHere = rec ? { rec, name: str(p.Name), id: here.join('/') } : pos;
       const turretHere =
         inTurret ||
         type.startsWith('TurretBase') ||
         (/turret/i.test(String(p.Name ?? '')) && !/gimbal/i.test(String(p.Name ?? '')));
       if (type.startsWith('WeaponGun') || (types.includes('WeaponGun') && !type.startsWith('Turret'))) {
         const label = humanHardpoint(String((mount ?? p).HardpointName ?? p.HardpointName ?? ''));
+        const fromFiles = posHere ? mountRole(posHere.rec) : null;
+        const turret = turretHere || posHere?.rec.MountType === 'Turret';
+        const role: GunRole = fromFiles ?? (turretHere ? 'crew' : 'pilot');
         slots.push({
           id: here.join('/'),
           label,
           minSize: num(p.MinSize) ?? num(p.MaxSize) ?? 0,
           maxSize: num(p.MaxSize) ?? 0,
-          turret: turretHere,
+          turret,
+          role,
+          roleSource: fromFiles ? 'files' : 'guess',
+          group: posHere?.id ?? here[0]!,
+          port: portId,
+          groupName: turret ? (posHere?.name ?? null) : null,
           mount: mount ? str(mount.Name) : null,
           stockGunUuid: type.startsWith('WeaponGun') ? str(p.UUID) : null,
           requiredTags: tagList(p.RequiredTags),
           offeredTags: [...new Set([...offered, ...tagList(p.PortTags)])],
         });
-        continue;
+        return;
       }
       const isMount = type.startsWith('Turret.') && types.includes('WeaponGun');
-      walk(p.Loadout, here, turretHere && !isMount ? true : turretHere, isMount ? p : mount, [
-        ...offered,
-        ...tagList(p.PortTags),
-      ]);
-    }
+      walk(
+        p.Loadout,
+        here,
+        portId,
+        turretHere && !isMount ? true : turretHere,
+        isMount ? p : mount,
+        [...offered, ...tagList(p.PortTags)],
+        posHere,
+      );
+    });
   };
-  walk(ship.Loadout, [], false, null, tagList(ship.PortTags));
+  walk(ship.Loadout, [], '', false, null, tagList(ship.PortTags), null);
   return slots;
+}
+
+// ── Weapon audit (v1.63.0) ──────────────────────────────────────────────────
+
+export type WeaponAuditKind = 'missing-weapon' | 'guessed-turret' | 'role-differs';
+
+export interface WeaponAuditIssue {
+  kind: WeaponAuditKind;
+  /** The hardpoint path or mount it's about. */
+  where: string;
+  detail: string;
+}
+
+export interface ShipWeaponAudit {
+  className: string;
+  name: string;
+  issues: WeaponAuditIssue[];
+}
+
+const isGunPayload = (p: { Type?: string }) => String(p.Type ?? '').startsWith('WeaponGun');
+
+/**
+ * Checks our reading of a ship's guns against the game data's own mount list
+ * (v1.63.0). What it reports:
+ * - `missing-weapon`: the mount list has a gun we found no port for;
+ * - `guessed-turret`: a turret gun with no mount record, so who fires it is a
+ *   guess from part names (always "crew");
+ * - `role-differs`: the files' own pilot rule disagrees with ours for a mount
+ *   in a way we haven't explained. The files count a mount's guns as the
+ *   pilot's unless it is marked not slaveable (`Weaponry.PilotDps` is exactly
+ *   that sum). We differ on purpose in two cases, which aren't reported: a
+ *   pilot seat firing a mount marked not slaveable (the F8C's turret, the
+ *   F7A Mk II's, the Wildfire's centre gun: ours = pilot), and point defence
+ *   (ours = automatic, never the pilot's).
+ * An empty list means our reading agrees with the files.
+ */
+export function auditShipWeapons(ship: Json): ShipWeaponAudit {
+  const issues: WeaponAuditIssue[] = [];
+  const slots = shipGunSlots(ship);
+  const byPort = new Map(slots.filter((x) => x.port).map((x) => [x.port!, x]));
+  const records = (Array.isArray(ship.MountingPositions) ? ship.MountingPositions : []) as MountRecord[];
+  for (const m of records) {
+    const guns = (m.Payload ?? []).filter(isGunPayload);
+    if (!guns.length) continue;
+    const where = m.HardpointName ?? m.PortId ?? '?';
+    for (const g of guns)
+      if (g.PortId && !byPort.has(g.PortId))
+        issues.push({
+          kind: 'missing-weapon',
+          where,
+          detail: `${g.Name ?? 'A gun'} (S${g.Size ?? '?'}) is in the mount list but not on our ship page.`,
+        });
+    const role = mountRole(m);
+    const filesPilot = m.IsPilotSlaveable !== false;
+    const oursPilot = role === 'pilot' || role === 'takeover';
+    const explained = (role === 'pilot' && m.IsPilotSlaveable === false) || (role === 'auto' && m.TurretRole === 'Pdc');
+    if (role && filesPilot !== oursPilot && !explained)
+      issues.push({
+        kind: 'role-differs',
+        where,
+        detail: `We say ${GUN_ROLE_WORDS[role].toLowerCase()}; the files count it as ${filesPilot ? '' : 'not '}the pilot's (${m.MountType ?? 'no mount type'}${m.TurretRole ? `, ${m.TurretRole}` : ''}).`,
+      });
+  }
+  for (const x of slots)
+    if (x.roleSource === 'guess' && x.turret && x.stockGunUuid)
+      issues.push({
+        kind: 'guessed-turret',
+        where: x.id,
+        detail: 'No mount record for this turret gun: counted as a crew gun by its name.',
+      });
+  return { className: String(ship.ClassName ?? ''), name: String(ship.Name ?? ''), issues };
+}
+
+/** Who fires a slot, for data built before v1.63.0 too. */
+export function slotRole(slot: GunSlot): GunRole {
+  return slot.role ?? (slot.turret ? 'crew' : 'pilot');
 }
 
 function shipFlight(s: Json): ShipFlight | null {

@@ -153,6 +153,8 @@ export function AdminOverviewPage() {
 
       <DownloadsSection />
 
+      <WeaponAuditSection />
+
       {!o.feed.configured && (
         <p className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">
           The admin Discord feed isn't set up yet.{' '}
@@ -167,6 +169,77 @@ export function AdminOverviewPage() {
         {o.release.commit && ` (${o.release.commit})`}. Refreshes every 30 seconds.
       </p>
     </div>
+  );
+}
+
+const AUDIT_WORDS: Record<string, string> = {
+  'missing-weapon': 'Gun missing from our page',
+  'guessed-turret': 'Turret gun with no mount record',
+  'role-differs': 'Who fires it disagrees with the files',
+};
+
+/**
+ * Ship weapons check (v1.63.0): on every game-data build, each ship's guns as
+ * we read them (who fires them, none missing) against the files' mount list.
+ */
+function WeaponAuditSection() {
+  const q = useQuery({
+    queryKey: ['admin', 'weapon-audit'],
+    queryFn: adminApi.weaponAudit,
+    refetchInterval: 5 * 60_000,
+  });
+  const a = q.data;
+  if (q.isError)
+    return (
+      <Section title="Ship weapons check">
+        <p className="text-sm text-red-400">Couldn't load the ship weapons check.</p>
+      </Section>
+    );
+  if (q.isPending) return <Skeleton className="h-24" />;
+  return (
+    <Section title="Ship weapons check">
+      {!a ? (
+        <p className="text-sm text-muted-foreground">The ship data hasn't been built since the last restart yet.</p>
+      ) : !a.problems.length ? (
+        <p className="text-sm">
+          All {a.ships} ships agree with the game files
+          <span className="text-muted-foreground">
+            {' '}
+            · {a.build ?? a.commit.slice(0, 7)} · checked {ago(a.checkedAt)}
+          </span>
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">
+            {a.problems.length} of {a.ships} ships need a look
+            <span className="text-muted-foreground">
+              {' '}
+              · {a.build ?? a.commit.slice(0, 7)} · checked {ago(a.checkedAt)}
+            </span>
+          </p>
+          <ul className="flex flex-col gap-2 text-sm">
+            {a.problems.map((p) => (
+              <li key={p.className}>
+                <span className="font-medium">{p.name}</span>{' '}
+                <span className="text-xs text-muted-foreground">{p.className}</span>
+                <ul className="ml-4 list-disc text-muted-foreground">
+                  {p.issues.map((i, k) => (
+                    <li key={k}>
+                      {AUDIT_WORDS[i.kind] ?? i.kind} · <span className="font-mono text-xs">{i.where}</span>: {i.detail}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">
+        Run on every new game build: who fires each gun (pilot, crew turret the pilot can take over, crew turret,
+        automatic) as the ship pages show it, checked against the game files&rsquo; own mount list. Changes are posted
+        to the admin feed.
+      </p>
+    </Section>
   );
 }
 

@@ -12,6 +12,7 @@ import type {
   ErrorGroupStatus,
   AdminModuleDto,
   AdminStorageDto,
+  AdminWeaponAuditDto,
   AdminDownloadsDto,
   DownloadItem,
   ModuleSetting,
@@ -41,6 +42,8 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 export const adminApi = {
   overview: () => api.get<ApiResponse<AdminOverviewDto>>('/admin/overview').then((r) => r.data!),
   storage: () => api.get<ApiResponse<AdminStorageDto>>('/admin/storage').then((r) => r.data!),
+  weaponAudit: () =>
+    api.get<ApiResponse<AdminWeaponAuditDto | null>>('/admin/weapon-audit').then((r) => r.data ?? null),
   downloads: (item: DownloadItem) =>
     api.get<ApiResponse<AdminDownloadsDto>>(`/admin/downloads/${item}`).then((r) => r.data!),
   errors: (f: ErrorFilters & { after?: number; before?: number; limit?: number }) =>

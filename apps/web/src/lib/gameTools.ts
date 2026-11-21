@@ -6,6 +6,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  slotRole,
   gunFitsSlot,
   type ApiResponse,
   type MiningDataDto,
@@ -73,9 +74,9 @@ export function gunsForSlot(guns: CombatGun[], slot: GunSlot): CombatGun[] {
   return guns.filter((g) => gunFitsSlot(g, slot));
 }
 
-/** The ship's pilot-flown gun slots (crewed and remote turrets are left out of the maths). */
+/** The ship's pilot-flown gun slots (crew, takeover and automatic turrets are left out; v1.63.0 reads who fires each from the game files). */
 export function pilotSlots(ship: GameToolsShip): GunSlot[] {
-  return ship.gunSlots.filter((s) => !s.turret);
+  return ship.gunSlots.filter((s) => slotRole(s) === 'pilot');
 }
 
 /** "Anvil Arrow" → "Arrow" when the maker is known. */

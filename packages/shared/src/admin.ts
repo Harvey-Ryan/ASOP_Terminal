@@ -69,6 +69,18 @@ export const DOWNLOAD_CHART_DAYS = 30;
 /** A moment's UTC day, as stored: "2026-11-20". */
 export const utcDay = (d: Date): string => d.toISOString().slice(0, 10);
 
+/** GET /api/admin/weapon-audit (v1.63.0): the last ship weapons check, run on every game-data build. */
+export interface AdminWeaponAuditDto {
+  build: string | null;
+  commit: string;
+  /** When the ship data was built (ISO). */
+  checkedAt: string;
+  /** Ships checked. */
+  ships: number;
+  /** Only ships with something to look at; empty = all agree. */
+  problems: { className: string; name: string; issues: { kind: string; where: string; detail: string }[] }[];
+}
+
 export interface AdminDownloadsDto {
   item: DownloadItem;
   /** Today (UTC), the last 7 and 30 days (today included), and everything counted */
@@ -368,4 +380,5 @@ export const ADMIN_LOG_KINDS: Record<string, string> = {
   'corrections.reverted': 'Correction reverted',
   'corrections.recheck': 'Correction needs a re-check (new game build)',
   'corrections.retired': 'Correction retired (fixed in the game files)',
+  'gametools.weapons': 'Ship weapons disagree with the game files (or agree again)',
 };
