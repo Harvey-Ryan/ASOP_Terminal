@@ -46,6 +46,13 @@ import type {
   LootQueueItemDto,
   CreateStandaloneLootSessionBody,
 } from '@dem/shared';
+import {
+  commodityRollAssignments,
+  commoditiesWaiting,
+  gearItemsLeft,
+  gearPickCount,
+  isCommodityItem,
+} from '@dem/shared';
 
 export const lootRouter = Router();
 
@@ -127,8 +134,8 @@ function snakePick(position: number, order: string[]): string | null {
 
 function currentSnakePicker(session: SessionWithItems): string | null {
   const draftOrder: string[] = JSON.parse(session.draftOrder);
-  const allCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
-  return snakePick(allCount + session.skipCount, draftOrder);
+  // Gear picks only: commodity lines go out by the commodity roll (v1.60.1).
+  return snakePick(gearPickCount(session.items) + session.skipCount, draftOrder);
 }
 
 // ── DKP helpers ───────────────────────────────────────────────────────────────
@@ -169,8 +176,8 @@ lootRouter.get('/loot/my-picks', requireAuth, async (req, res) => {
     const draftOrder: string[] = JSON.parse(session.draftOrder);
     if (!draftOrder.includes(dbUser.discordId)) continue;
 
-    const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
-    if (session.items.length > 0 && totalUnassigned === 0) continue;
+    const totalUnassigned = gearItemsLeft(session.items);
+    if (session.items.some((i) => !isCommodityItem(i)) && totalUnassigned === 0) continue;
 
     const isMyTurn = currentSnakePicker(session) === dbUser.discordId;
 
@@ -705,6 +712,13 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/roll', requireAuth
     res.status(404).json({ success: false, error: 'Item not found' } satisfies ApiResponse);
     return;
   }
+  if (isCommodityItem(item)) {
+    res.status(400).json({
+      success: false,
+      error: 'Commodity lines (with a QL) are handed out by the commodity roll.',
+    } satisfies ApiResponse);
+    return;
+  }
 
   const event = await prisma.event.findFirst({
     where: { id: eventId, guildId },
@@ -799,6 +813,20 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
     }
   }
 
+  const target = session.items.find((i) => i.id === itemId);
+  if (!target) {
+    res.status(404).json({ success: false, error: 'Item not found' } satisfies ApiResponse);
+    return;
+  }
+  // One person can't take a whole commodity line (v1.60.1): its units go out by the roll.
+  if (isCommodityItem(target)) {
+    res.status(400).json({
+      success: false,
+      error: 'Commodity lines (with a QL) are handed out by the commodity roll.',
+    } satisfies ApiResponse);
+    return;
+  }
+
   // For DKP assignments, verify effective balance: raw minus DKP already committed
   // to other items this player has won in this session.
   // The current item is excluded from committed because its assignment is deleted first.
@@ -836,7 +864,7 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
 
   if (session.method === 'SNAKE_DRAFT' && session.status === 'OPEN') {
     const draftOrder: string[] = JSON.parse(session.draftOrder);
-    const prevCount = session.items.reduce((n, i) => n + i.assignments.length, 0);
+    const prevCount = gearPickCount(session.items);
     const wasAssigned = session.items.some((i) => i.id === itemId && i.assignments.length > 0);
     let autoPickCount = prevCount + (wasAssigned ? 0 : 1);
 
@@ -850,9 +878,12 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
         where: { sessionId: session.id },
         include: { assignments: true },
       });
-      const allDone = items.every((i) => i.assignments.length > 0);
+      const allDone = gearItemsLeft(items) === 0;
       const rotationDone = draftOrder.length > 0 && autoPickCount >= draftOrder.length * 2;
 
+      // Commodity lines not rolled yet: the gear draft is over, but the session
+      // stays open so they can still be rolled (the officer completes it).
+      if ((allDone || rotationDone) && commoditiesWaiting(items)) break;
       if (allDone || rotationDone) {
         if (ev && session.dkpAward > 0) {
           const confirmedIds: string[] = ev.confirmedAttendees ? JSON.parse(ev.confirmedAttendees) : [];
@@ -874,8 +905,11 @@ lootRouter.post('/:guildId/events/:eventId/loot/items/:itemId/assign', requireAu
         orderBy: { priority: 'asc' },
       });
 
-      const topAvailable = queued.find((q: { item: { assignments: unknown[] } }) => q.item.assignments.length === 0) as
-        (typeof queued)[number] | undefined;
+      // Gear only: a queued commodity line is never auto-picked (v1.60.1).
+      const topAvailable = queued.find(
+        (q: { item: { qualityLevel: number | null; assignments: unknown[] } }) =>
+          q.item.assignments.length === 0 && !isCommodityItem(q.item),
+      ) as (typeof queued)[number] | undefined;
       if (!topAvailable) break; // empty queue or all queued items taken — needs manual pick
 
       const autoUsername = usernameMap.get(nextPickerId) ?? nextPickerId;
@@ -1145,7 +1179,8 @@ lootRouter.put('/:guildId/events/:eventId/loot/queue', requireAuth, async (req, 
     return;
   }
   const itemIds = body.itemIds as string[];
-  const validIds = new Set(session.items.map((i) => i.id));
+  // Only gear can be queued: commodity lines go out by the roll (v1.60.1).
+  const validIds = new Set(session.items.filter((i) => !isCommodityItem(i)).map((i) => i.id));
   if (!itemIds.every((id) => validIds.has(id))) {
     res.status(400).json({ success: false, error: 'One or more item IDs are invalid' } satisfies ApiResponse);
     return;
@@ -1248,9 +1283,12 @@ lootRouter.post('/:guildId/events/:eventId/loot/complete', requireAuth, async (r
 });
 
 // ── POST commodity-roll (event loot) ─────────────────────────────────────────
-// Groups items by name, each group gets its own randomised snake draft order,
-// items sorted by qualityLevel desc within the group. Same algorithm as the
-// standalone COMMODITY_DRAFT but driven by the event session's participant list.
+// Hands out the session's commodity lines (those with a QL) by
+// commodityRollAssignments (packages/shared/src/lootCommodities.ts): grouped by
+// name, each group its own random snake order, best QL first, one unit per
+// turn. Gear lines are left alone (v1.60.1), so an event can hand out gear by
+// its method and commodities by this roll. Re-rolling replaces only the
+// commodity assignments.
 
 lootRouter.post('/:guildId/events/:eventId/loot/commodity-roll', requireAuth, async (req, res) => {
   const { guildId, eventId } = req.params as { guildId: string; eventId: string };
@@ -1275,52 +1313,29 @@ lootRouter.post('/:guildId/events/:eventId/loot/commodity-roll', requireAuth, as
     res.status(400).json({ success: false, error: 'No participants in session' } satisfies ApiResponse);
     return;
   }
-  if (session.items.length === 0) {
-    res.status(400).json({ success: false, error: 'No items in session' } satisfies ApiResponse);
+  const lines = session.items.filter((i) => isCommodityItem(i));
+  if (lines.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: 'No commodity lines to roll (add a commodity with its QL)',
+    } satisfies ApiResponse);
     return;
   }
 
-  // Group items by name
-  const groups = new Map<string, typeof session.items>();
-  for (const item of session.items) {
-    if (!groups.has(item.name)) groups.set(item.name, []);
-    groups.get(item.name)!.push(item);
-  }
-
-  const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
-  const toCreate: { itemId: string; userId: string; username: string; pickNumber: number }[] = [];
-
-  for (const [, items] of groups) {
-    const order = shuffle(participants.map((p) => p.userId));
-    const sorted = [...items].sort((a, b) => {
-      if (a.qualityLevel === null && b.qualityLevel === null) return 0;
-      if (a.qualityLevel === null) return 1;
-      if (b.qualityLevel === null) return -1;
-      return b.qualityLevel - a.qualityLevel;
-    });
-    let pickIdx = 0;
-    for (const item of sorted) {
-      for (let copy = 0; copy < item.quantity; copy++) {
-        const userId = order[snakePickIndex(pickIdx, order.length)]!;
-        toCreate.push({
-          itemId: item.id,
-          userId,
-          username: usernameMap.get(userId) ?? userId,
-          pickNumber: pickIdx + 1,
-        });
-        pickIdx++;
-      }
-    }
-  }
+  const toCreate = commodityRollAssignments(lines, participants);
 
   await prisma.$transaction([
-    prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
-    ...toCreate.map((a) => prisma.lootAssignment.create({ data: a })),
+    prisma.lootAssignment.deleteMany({ where: { itemId: { in: lines.map((i) => i.id) } } }),
+    prisma.lootAssignment.createMany({ data: toCreate }),
+    // draftStarted means "snake draft started" for snake sessions: only a
+    // commodity draft session marks itself rolled with it.
+    ...(session.method === 'COMMODITY_DRAFT'
+      ? [prisma.lootSession.update({ where: { id: session.id }, data: { draftStarted: true } })]
+      : []),
   ]);
 
-  const updated = await prisma.lootSession.update({
+  const updated = await prisma.lootSession.findUniqueOrThrow({
     where: { id: session.id },
-    data: { draftStarted: true },
     include: { items: { include: { assignments: true } } },
   });
 
@@ -1873,6 +1888,37 @@ lootRouter.get('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, re
 });
 
 // ── PATCH standalone session settings ─────────────────────────────────────────
+
+// ── DELETE standalone session (v1.60.1) ──────────────────────────────────────
+// An open session that's no longer wanted (a mistake, a test). Completed
+// sessions are loot history and stay. Items, assignments and queues go with it
+// (cascade); nothing is posted to Discord.
+
+lootRouter.delete('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  const isManager = await assertGuildManager(req, guildId);
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse);
+    return;
+  }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+      return;
+    }
+  }
+  if (session.status !== 'OPEN') {
+    res.status(409).json({
+      success: false,
+      error: 'A completed session is loot history and can’t be deleted',
+    } satisfies ApiResponse);
+    return;
+  }
+  await prisma.lootSession.delete({ where: { id: session.id } });
+  res.json({ success: true } satisfies ApiResponse);
+});
 
 lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
@@ -2526,12 +2572,6 @@ function shuffle(arr: string[]): string[] {
   return a;
 }
 
-function snakePickIndex(index: number, n: number): number {
-  const round = Math.floor(index / n);
-  const pos = index % n;
-  return round % 2 === 0 ? pos : n - 1 - pos;
-}
-
 lootRouter.post('/:guildId/loot/sessions/:sessionId/commodity-roll', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
   const isManager = await assertGuildManager(req, guildId);
@@ -2564,43 +2604,13 @@ lootRouter.post('/:guildId/loot/sessions/:sessionId/commodity-roll', requireAuth
     return;
   }
 
-  // Group items by name
-  const groups = new Map<string, typeof session.items>();
-  for (const item of session.items) {
-    if (!groups.has(item.name)) groups.set(item.name, []);
-    groups.get(item.name)!.push(item);
-  }
-
-  const usernameMap = new Map(participants.map((p) => [p.userId, p.username]));
-  const toCreate: { itemId: string; userId: string; username: string; pickNumber: number }[] = [];
-
-  for (const [, items] of groups) {
-    const order = shuffle(participants.map((p) => p.userId));
-    const sorted = [...items].sort((a, b) => {
-      if (a.qualityLevel === null && b.qualityLevel === null) return 0;
-      if (a.qualityLevel === null) return 1;
-      if (b.qualityLevel === null) return -1;
-      return b.qualityLevel - a.qualityLevel;
-    });
-    let pickIdx = 0;
-    for (const item of sorted) {
-      for (let copy = 0; copy < item.quantity; copy++) {
-        const userId = order[snakePickIndex(pickIdx, order.length)]!;
-        toCreate.push({
-          itemId: item.id,
-          userId,
-          username: usernameMap.get(userId) ?? userId,
-          pickNumber: pickIdx + 1,
-        });
-        pickIdx++;
-      }
-    }
-  }
+  // Every line of a commodity draft session is a commodity (the form requires a QL).
+  const toCreate = commodityRollAssignments(session.items, participants);
 
   // Clear old assignments and create new ones atomically
   await prisma.$transaction([
     prisma.lootAssignment.deleteMany({ where: { itemId: { in: session.items.map((i) => i.id) } } }),
-    ...toCreate.map((a) => prisma.lootAssignment.create({ data: a })),
+    prisma.lootAssignment.createMany({ data: toCreate }),
   ]);
 
   const updated = await prisma.lootSession.update({

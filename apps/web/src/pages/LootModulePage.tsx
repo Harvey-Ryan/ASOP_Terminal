@@ -118,6 +118,11 @@ function HistoryRow({
                     });
                   }
                 }
+                // Each member's units in draft order: by commodity, then pick.
+                for (const b of buckets.values())
+                  b.lines.sort((x, y) =>
+                    x.name !== y.name ? x.name.localeCompare(y.name) : (x.pickNumber ?? 0) - (y.pickNumber ?? 0),
+                  );
                 return [...buckets.values()]
                   .sort((a, b) => a.username.localeCompare(b.username))
                   .map((bucket) => (
@@ -138,10 +143,9 @@ function HistoryRow({
                               <span className="ml-1.5 text-xs text-muted-foreground">QL {line.qualityLevel}</span>
                             )}
                           </span>
+                          {/* Commodity picks are stored 1-based, per commodity (v1.60.1: was shown +1). */}
                           {line.pickNumber !== null && (
-                            <span className="text-xs text-muted-foreground shrink-0 mr-1">
-                              pick #{line.pickNumber + 1}
-                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0 mr-1">pick #{line.pickNumber}</span>
                           )}
                           {canManage && (
                             <button

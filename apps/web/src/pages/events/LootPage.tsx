@@ -1,4 +1,10 @@
-import { canManageGuild } from '@dem/shared';
+import {
+  canManageGuild,
+  commodityShareLabel,
+  commodityShares,
+  gearPickCount,
+  isCommodityItem as isCommodityLine,
+} from '@dem/shared';
 import { itemSuggestions } from '@/api/catalog';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -377,6 +383,9 @@ function ItemRow({
 
   const winner = item.assignments[0];
   const isAssigned = !!winner;
+  // Commodity lines (with a QL) go out unit by unit by the commodity roll, never
+  // by the session's roll / auction / pick, and can have several winners.
+  const isCommodity = isCommodityLine(item);
 
   const rollMutation = useMutation({
     mutationFn: () => lootApi.roll(guildId, eventId, item.id),
@@ -426,7 +435,7 @@ function ItemRow({
         currentUserId,
       )
     : null;
-  const isMyTurn = session.method === 'SNAKE_DRAFT' && !isAssigned && nextPicker !== null;
+  const isMyTurn = session.method === 'SNAKE_DRAFT' && !isCommodity && !isAssigned && nextPicker !== null;
 
   return (
     <div
@@ -446,7 +455,20 @@ function ItemRow({
             </p>
             <ItemInfoPopover name={item.name} />
           </div>
-          {isAssigned ? (
+          {isCommodity ? (
+            isAssigned ? (
+              <CommodityItemShares
+                item={item}
+                guildId={guildId}
+                eventId={eventId}
+                currentUserId={currentUserId}
+                isManager={isManager}
+                onChange={onAssigned}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground mt-0.5">Not rolled yet</p>
+            )
+          ) : isAssigned ? (
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -522,7 +544,9 @@ function ItemRow({
                   if (
                     isAssigned &&
                     !window.confirm(
-                      `Delete "${item.name}"? It is assigned to ${winner!.username} — the assignment will be removed.`,
+                      isCommodity
+                        ? `Delete "${item.name}"? Its ${item.assignments.length} rolled unit${item.assignments.length === 1 ? '' : 's'} will be removed.`
+                        : `Delete "${item.name}"? It is assigned to ${winner!.username} — the assignment will be removed.`,
                     )
                   )
                     return;
@@ -539,7 +563,7 @@ function ItemRow({
       </div>
 
       {/* Random Roll controls — managers only */}
-      {isManager && session.method === 'RANDOM_ROLL' && !isAssigned && (
+      {isManager && session.method === 'RANDOM_ROLL' && !isCommodity && !isAssigned && (
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => rollMutation.mutate()} disabled={rollMutation.isPending}>
             🎲 {rollMutation.isPending ? 'Rolling…' : 'Roll Now'}
@@ -581,7 +605,7 @@ function ItemRow({
       )}
 
       {/* DKP live auction */}
-      {session.method === 'DKP' && !isAssigned && (
+      {session.method === 'DKP' && !isCommodity && !isAssigned && (
         <AuctionPanel
           auction={auction}
           item={item}
@@ -619,6 +643,125 @@ function ItemRow({
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Commodity shares (v1.60.1) ────────────────────────────────────────────────
+
+/** One commodity line's winners: "Destrokk ×2", each with a Deliver toggle for officers. */
+function CommodityItemShares({
+  item,
+  guildId,
+  eventId,
+  currentUserId,
+  isManager,
+  onChange,
+}: {
+  item: LootItemDto;
+  guildId: string;
+  eventId: string;
+  currentUserId?: string;
+  isManager: boolean;
+  onChange: () => void;
+}) {
+  const shares = commodityShares([item]);
+  // Marks all of one member's units of this line delivered (or, if they all
+  // are, not delivered), one assignment at a time.
+  const deliverMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) await lootApi.toggleDelivered(guildId, eventId, item.id, id);
+    },
+    onSettled: onChange,
+  });
+  return (
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      {shares.map((share) => {
+        const all = share.lines.reduce((n, l) => n + l.count, 0);
+        const done = share.lines.reduce((n, l) => n + l.delivered, 0);
+        const allDelivered = done === all;
+        const ids = item.assignments
+          .filter((a) => a.userId === share.userId && a.delivered === allDelivered)
+          .map((a) => a.id);
+        const label = `${resolveUsername(share.userId, share.username, currentUserId)}${all > 1 ? ` ×${all}` : ''}`;
+        return isManager ? (
+          <button
+            key={share.userId}
+            type="button"
+            onClick={() => deliverMutation.mutate(ids)}
+            disabled={deliverMutation.isPending}
+            title={allDelivered ? 'Mark as not delivered' : 'Mark as delivered'}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
+              allDelivered
+                ? 'border-green-500/50 bg-green-500/15 text-green-600 dark:text-green-400 hover:bg-green-500/25'
+                : 'border-border text-foreground hover:border-primary/50'
+            }`}
+          >
+            <Package className="h-3 w-3" />
+            {label}
+            {done > 0 && !allDelivered && <span className="text-muted-foreground">({done} delivered)</span>}
+          </button>
+        ) : (
+          <span
+            key={share.userId}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border ${
+              allDelivered
+                ? 'border-green-500/50 bg-green-500/15 text-green-600 dark:text-green-400'
+                : 'border-border text-foreground'
+            }`}
+          >
+            {allDelivered && <Package className="h-3 w-3" />}
+            {label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Every member's commodity units, stacked: what each person collects. */
+function CommodityDistribution({ session, currentUserId }: { session: LootSessionDto; currentUserId?: string }) {
+  const shares = commodityShares(session.items);
+  if (shares.length === 0) return null;
+  const mine = shares.find((s) => s.userId === currentUserId);
+  const ordered = mine ? [mine, ...shares.filter((s) => s !== mine)] : shares;
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Commodities by member</h3>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ordered.map((share) => {
+          const all = share.lines.reduce((n, l) => n + l.count, 0);
+          const done = share.lines.reduce((n, l) => n + l.delivered, 0);
+          return (
+            <div
+              key={share.userId}
+              className={`rounded-md border p-3 ${share.userId === currentUserId ? 'border-primary/50 bg-primary/5' : 'border-border'} ${done === all ? 'opacity-60' : ''}`}
+            >
+              <p className="text-sm font-semibold flex items-center justify-between gap-2">
+                <span className="truncate">{resolveUsername(share.userId, share.username, currentUserId)}</span>
+                <span className="text-xs font-normal text-muted-foreground shrink-0">
+                  {done === all ? 'All delivered' : `${done}/${all} delivered`}
+                </span>
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {share.lines.map((l) => (
+                  <li
+                    key={`${l.name}|${l.qualityLevel}`}
+                    className={`text-sm ${l.delivered === l.count ? 'line-through text-muted-foreground' : ''}`}
+                  >
+                    {commodityShareLabel(l)}
+                    {l.picks.length > 0 && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        · pick{l.picks.length > 1 ? 's' : ''} {l.picks.join(', ')}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1078,7 +1221,8 @@ export function LootPage() {
     .filter((p) => !draftSet.has(p.userId))
     .sort((a, b) => a.username.localeCompare(b.username));
 
-  const allAssignmentCount = session?.items.reduce((n, item) => n + item.assignments.length, 0) ?? 0;
+  // Snake picks so far: gear only, commodity lines go out by the roll (v1.60.1).
+  const allAssignmentCount = session ? gearPickCount(session.items) : 0;
   const skipCount = session?.skipCount ?? 0;
   const nextPickerId = session ? getNextPicker(allAssignmentCount + skipCount, session.draftOrder) : null;
   const nextPickerName = nextPickerId
@@ -1612,7 +1756,7 @@ export function LootPage() {
                       isManager={isManager}
                       queued={queuedIds.has(item.id)}
                       onToggleQueue={
-                        inDraft && session.status === 'OPEN' && item.assignments.length === 0
+                        inDraft && session.status === 'OPEN' && item.assignments.length === 0 && !isCommodityLine(item)
                           ? () => toggleQueued(item.id)
                           : undefined
                       }
@@ -1624,16 +1768,18 @@ export function LootPage() {
                 )}
               </div>
 
-              {/* Commodity roll — shown when any item has a QL set */}
-              {isManager && session.status === 'OPEN' && session.items.some((i) => i.qualityLevel !== null) && (
+              {/* Commodity roll (v1.60.1): only the commodity lines (with a QL); gear is left alone. */}
+              {isManager && session.status === 'OPEN' && session.items.some(isCommodityLine) && (
                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <Shuffle className="h-4 w-4 mt-0.5 text-amber-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-amber-400">Commodity Draft</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Items are grouped by name. Within each group, items are sorted by QL (highest first) and
-                        distributed via a fresh randomised snake draft. Each group gets its own random order.
+                        Hands out every unit of the commodity lines (the ones with a QL) to the{' '}
+                        {session.participants.length} participant{session.participants.length === 1 ? '' : 's'}. Each
+                        commodity gets its own random snake order, best QL first. Gear isn't touched: hand it out with
+                        the method above.
                       </p>
                     </div>
                   </div>
@@ -1643,22 +1789,45 @@ export function LootPage() {
                     </p>
                   )}
                   <Button
-                    onClick={() => commodityRollMutation.mutate()}
+                    onClick={() => {
+                      const lines = session.items.filter(isCommodityLine);
+                      const rolled = lines.some((i) => i.assignments.length > 0);
+                      const delivered = lines.reduce((n, i) => n + i.assignments.filter((a) => a.delivered).length, 0);
+                      if (
+                        rolled &&
+                        !window.confirm(
+                          delivered > 0
+                            ? `Re-roll the commodities? ${delivered} unit${delivered === 1 ? ' is' : 's are'} already marked delivered; re-rolling hands every unit out again and clears that.`
+                            : 'Re-roll the commodities? Every unit is handed out again.',
+                        )
+                      )
+                        return;
+                      commodityRollMutation.mutate();
+                    }}
                     disabled={
-                      commodityRollMutation.isPending || session.participants.length === 0 || session.items.length === 0
+                      commodityRollMutation.isPending ||
+                      session.participants.length === 0 ||
+                      !session.items.some(isCommodityLine)
                     }
                     className="gap-2"
                   >
                     <Shuffle className="h-4 w-4" />
-                    {session.draftStarted ? 'Re-roll Assignments' : 'Roll Assignments'}
+                    {session.items.some((i) => isCommodityLine(i) && i.assignments.length > 0)
+                      ? 'Re-roll Commodities'
+                      : 'Roll Commodities'}
                   </Button>
-                  {session.draftStarted && (
-                    <p className="text-xs text-muted-foreground">
-                      Assignments have been rolled. Re-rolling will clear all current assignments.
-                    </p>
-                  )}
+                  {session.items.some((i) => isCommodityLine(i) && i.assignments.length === 0) &&
+                    session.items.some((i) => isCommodityLine(i) && i.assignments.length > 0) && (
+                      <p className="text-xs text-amber-400">
+                        Some commodity lines were added after the roll and aren't handed out yet: re-roll to include
+                        them.
+                      </p>
+                    )}
                 </div>
               )}
+
+              {/* Who got which commodities (v1.60.1) */}
+              <CommodityDistribution session={session} currentUserId={user?.id} />
 
               {/* Complete — managers only */}
               {isManager && session.status === 'OPEN' && (

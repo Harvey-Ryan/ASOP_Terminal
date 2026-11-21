@@ -236,6 +236,10 @@ export const lootApi = {
   setQueueStandalone: (guildId: string, sessionId: string, itemIds: string[]) =>
     api.put<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/queue`, { itemIds }).then((r) => r),
 
+  /** Deletes an open standalone session (v1.60.1). */
+  deleteStandalone: (guildId: string, sessionId: string) =>
+    api.delete<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}`).then((r) => r),
+
   completeStandalone: (guildId: string, sessionId: string) =>
     api.post<ApiResponse>(`/guilds/${guildId}/loot/sessions/${sessionId}/complete`).then((r) => r),
 
