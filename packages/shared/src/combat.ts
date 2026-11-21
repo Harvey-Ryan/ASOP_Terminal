@@ -115,6 +115,8 @@ export interface GunSlot {
   role?: GunRole;
   /** `files` = from the game data's mount list; `guess` = no mount record, decided by part names. */
   roleSource?: 'files' | 'guess';
+  /** The role comes from a live community correction (v1.64.0), not the files. */
+  roleCorrected?: boolean;
   /** The turret or mount position the gun belongs to (its hardpoint), for grouping turret guns. */
   group?: string;
   /** That position's item name ("Anvil F7C-M Mk II Ball Turret"), when it's a turret. */

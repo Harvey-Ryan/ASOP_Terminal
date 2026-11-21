@@ -11,6 +11,7 @@ import {
   CORRECTION_KINDS,
   CORRECTION_STATUS_LABELS,
   correctableField,
+  formatCorrectionValue,
   type ApiResponse,
   type CorrectionAction,
   type CorrectionDto,
@@ -191,9 +192,9 @@ function CorrectionCard({ c }: { c: CorrectionDto }) {
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
         <span className="flex flex-col">
           <span className="gt-label">Game files</span>
-          <span className="gt-mono text-lg">
-            {c.gameValue ?? '—'}
-            {unit}
+          <span className={f?.type === 'choice' ? 'text-lg' : 'gt-mono text-lg'}>
+            {f?.type === 'choice' ? formatCorrectionValue(c.kind, c.field, c.gameValue) : (c.gameValue ?? '—')}
+            {f?.type === 'choice' ? '' : unit}
           </span>
         </span>
         <span aria-hidden="true" className="gt-dim">
@@ -201,9 +202,9 @@ function CorrectionCard({ c }: { c: CorrectionDto }) {
         </span>
         <span className="flex flex-col">
           <span className="gt-label">Correction</span>
-          <span className="gt-mono text-lg gt-acc">
-            {c.value}
-            {unit}
+          <span className={`${f?.type === 'choice' ? '' : 'gt-mono '}text-lg gt-acc`}>
+            {f?.type === 'choice' ? formatCorrectionValue(c.kind, c.field, c.value) : c.value}
+            {f?.type === 'choice' ? '' : unit}
           </span>
         </span>
         {c.bigChange && <span className="text-xs gt-bad">Big change: check the screenshots closely</span>}

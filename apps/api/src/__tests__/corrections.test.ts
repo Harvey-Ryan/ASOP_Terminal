@@ -7,7 +7,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { PrismaClient } from '@prisma/client';
 import type { Express } from 'express';
-import type { MiningDataDto } from '@dem/shared';
+import type { GameToolsDataDto, MiningDataDto } from '@dem/shared';
 import { createUser, createGuild } from './factories.js';
 
 const prisma = new PrismaClient();
@@ -15,6 +15,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asop-corrections-'));
 let app: Express;
 let mod: {
   useMiningDataForTests: (d: MiningDataDto | null) => void;
+  useGameToolsDataForTests: (d: GameToolsDataDto | null) => void;
   resetCorrectionsRoutes: () => void;
   resetCorrectionsForTests: () => void;
 };
@@ -55,16 +56,19 @@ beforeAll(async () => {
   const lib = await import('../lib/corrections.js');
   mod = {
     useMiningDataForTests: gt.useMiningDataForTests,
+    useGameToolsDataForTests: gt.useGameToolsDataForTests,
     resetCorrectionsRoutes: routes.resetCorrectionsRoutes,
     resetCorrectionsForTests: lib.resetCorrectionsForTests,
   };
 });
 afterAll(() => {
   mod.useMiningDataForTests(null);
+  mod.useGameToolsDataForTests(null);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 beforeEach(() => {
   mod.useMiningDataForTests(mining('4.10.3-LIVE.1'));
+  mod.useGameToolsDataForTests(null);
   mod.resetCorrectionsRoutes();
   mod.resetCorrectionsForTests();
 });
@@ -261,5 +265,94 @@ describe('corrections', () => {
     expect(role).toMatchObject({ signedIn: true, reviewer: true, member: true });
     await agent.delete(`/api/admin/reviewers/${helper.discordId}`).expect(200);
     expect(await prisma.dataReviewer.count()).toBe(0);
+  });
+});
+
+// v1.64.0: who fires a ship's turret or gun mount, corrected like any stat.
+const shipsData = (build: string, noseRole: 'crew' | 'takeover' = 'crew'): GameToolsDataDto =>
+  ({
+    build,
+    commit: 'abc',
+    ships: [
+      {
+        className: 'ANVL_Hornet_F7CM_Mk2',
+        name: 'Anvil F7C-M Super Hornet Mk II',
+        gunSlots: [
+          {
+            id: 'hardpoint_weapon_left_wing/hardpoint_class_2',
+            group: 'hardpoint_weapon_left_wing',
+            role: 'pilot',
+            turret: false,
+          },
+          {
+            id: 'hardpoint_weapon_nose/hardpoint_weapon_S1_left',
+            group: 'hardpoint_weapon_nose',
+            groupName: 'Anvil Hornet Mk II S3 Nose Turret',
+            role: noseRole,
+            turret: true,
+          },
+        ],
+      },
+    ],
+    guns: [],
+    components: [],
+  }) as unknown as GameToolsDataDto;
+const NOSE = 'anvl_hornet_f7cm_mk2|hardpoint_weapon_nose';
+
+describe('gun mount corrections (v1.64.0)', () => {
+  it('who fires a mount: a choice, the game value read from the ship data, words in the queue', async () => {
+    mod.useGameToolsDataForTests(shipsData('4.10.3-LIVE.1'));
+    const rook = await person('rook');
+    const send = (body: Record<string, unknown>) =>
+      submit(rook.agent, { kind: 'gun-mount', recordKey: NOSE, field: 'role', ...body });
+    expect((await send({ value: 7 }).expect(400)).body.error).toMatch(/choices/);
+    expect((await send({ value: 2 }).expect(400)).body.error).toMatch(/already say/);
+    await send({ recordKey: 'anvl_hornet_f7cm_mk2|nope', value: 1 }).expect(404);
+    const res = await send({ value: 1, gameValue: 0 }).expect(201);
+    expect(res.body.data).toMatchObject({
+      kind: 'gun-mount',
+      gameValue: 2,
+      value: 1,
+      bigChange: false,
+      recordName: 'Anvil F7C-M Super Hornet Mk II · Anvil Hornet Mk II S3 Nose Turret',
+    });
+  });
+
+  it('goes live after the same checks, and retires when the files catch up', async () => {
+    mod.useGameToolsDataForTests(shipsData('4.10.3-LIVE.1'));
+    const rook = await person('rook');
+    const [a, b, rev] = [await person('a'), await person('b'), await person('rev', { reviewer: true })];
+    const id = (await submit(rook.agent, { kind: 'gun-mount', recordKey: NOSE, field: 'role', value: 1 }).expect(201))
+      .body.data.id;
+    for (const p of [a, b]) await p.agent.post(`/api/corrections/${id}/confirm`).expect(200);
+    await rev.agent.post(`/api/corrections/${id}/approve`).expect(200);
+    const live = (await request(app).get('/api/corrections/live').expect(200)).body.data.corrections;
+    expect(live).toEqual([expect.objectContaining({ kind: 'gun-mount', recordKey: NOSE, field: 'role', value: 1 })]);
+    const feed = await prisma.adminLog.findFirst({ where: { kind: 'corrections.approved' }, orderBy: { id: 'desc' } });
+    expect(feed?.summary).toMatch(/Crew turret → Crew turret the pilot can take over/);
+
+    // The next build's files say the pilot can take it over: CIG fixed it.
+    mod.useMiningDataForTests(mining('4.11.0-LIVE.2'));
+    mod.useGameToolsDataForTests(shipsData('4.11.0-LIVE.2', 'takeover'));
+    mod.resetCorrectionsRoutes();
+    await request(app).get('/api/corrections/live').expect(200);
+    const row = await prisma.dataCorrection.findUniqueOrThrow({ where: { id } });
+    expect(row).toMatchObject({ status: 'RETIRED', retiredBuild: '4.11.0-LIVE.2' });
+  });
+
+  it('a mount correction isn\u2019t sent for a re-check while the ship data isn\u2019t loaded', async () => {
+    mod.useGameToolsDataForTests(shipsData('4.10.3-LIVE.1'));
+    const rook = await person('rook');
+    const [a, b, rev] = [await person('a'), await person('b'), await person('rev', { reviewer: true })];
+    const id = (await submit(rook.agent, { kind: 'gun-mount', recordKey: NOSE, field: 'role', value: 1 }).expect(201))
+      .body.data.id;
+    for (const p of [a, b]) await p.agent.post(`/api/corrections/${id}/confirm`).expect(200);
+    await rev.agent.post(`/api/corrections/${id}/approve`).expect(200);
+    // A new build where only the mining data has loaded so far.
+    mod.useMiningDataForTests(mining('4.11.0-LIVE.2'));
+    mod.useGameToolsDataForTests(null);
+    mod.resetCorrectionsRoutes();
+    await request(app).get('/api/corrections/live').expect(200);
+    expect((await prisma.dataCorrection.findUniqueOrThrow({ where: { id } })).status).toBe('LIVE');
   });
 });

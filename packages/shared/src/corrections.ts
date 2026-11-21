@@ -17,6 +17,10 @@
 //
 // The game value is always read by the server from our own data, never sent
 // by the browser. Only the stats listed in CORRECTION_KINDS can be corrected.
+// Gun mounts (v1.64.0): who fires a ship's turret or gun mount is a 'choice'
+// stat, stored as a number (GUN_ROLE_CODES) like every other value.
+
+import { slotRole, humanHardpoint, type GunRole, type GunSlot } from './combat.js';
 
 export type CorrectionStatus =
   | 'PENDING'
@@ -64,7 +68,7 @@ export const EVIDENCE_PER_DAY = 30;
 /** A change bigger than this factor (either way) is flagged, and a reviewer must acknowledge it. */
 export const BIG_CHANGE_FACTOR = 3;
 
-export type CorrectionValueType = 'number' | 'integer';
+export type CorrectionValueType = 'number' | 'integer' | 'choice';
 
 export interface CorrectableField {
   label: string;
@@ -73,7 +77,20 @@ export interface CorrectableField {
   max?: number;
   /** Shown after the value: "%", "m"… */
   unit?: string;
+  /** For 'choice': the values it can take and their words. */
+  choices?: { value: number; label: string }[];
 }
+
+/** Who fires a gun mount, as a correction value (v1.64.0). The numbers are stored: never renumber. */
+export const GUN_ROLE_CODES: Record<GunRole, number> = { pilot: 0, takeover: 1, crew: 2, auto: 3 };
+export const gunRoleFromCode = (code: number): GunRole | null =>
+  (Object.entries(GUN_ROLE_CODES).find(([, v]) => v === code)?.[0] as GunRole | undefined) ?? null;
+const GUN_ROLE_CHOICES = [
+  { value: 0, label: 'Pilot' },
+  { value: 1, label: 'Crew turret the pilot can take over' },
+  { value: 2, label: 'Crew turret' },
+  { value: 3, label: 'Automatic (point defence)' },
+];
 
 export interface CorrectionKind {
   /** "Mining laser" */
@@ -138,7 +155,27 @@ export const CORRECTION_KINDS: Record<string, CorrectionKind> = {
       maxCluster: { label: 'Most in a cluster', type: 'integer', min: 1, max: 100 },
     },
   },
+  // v1.64.0: a ship's turret or gun mount. Record key "<ship class>|<mount>" (gunMountKey).
+  'gun-mount': {
+    label: 'Ship gun mount',
+    where: 'Ships → Armament / Turrets',
+    fields: {
+      role: { label: 'Who fires it', type: 'choice', choices: GUN_ROLE_CHOICES },
+    },
+  },
 };
+
+/** The record key of a ship's turret or gun mount: "<ship class>|<mount hardpoint path>". */
+export const gunMountKey = (shipClassName: string, group: string) => `${shipClassName.toLowerCase()}|${group}`;
+
+/** A value as people read it: a choice's words, else the number and its unit. */
+export function formatCorrectionValue(kind: string, field: string, value: number | null | undefined): string {
+  if (value == null) return '—';
+  const f = correctableField(kind, field);
+  if (f?.type === 'choice') return f.choices?.find((c) => c.value === value)?.label ?? String(value);
+  const text = Number.isInteger(value) ? value.toLocaleString('en-US') : String(Math.round(value * 100) / 100);
+  return `${text}${f?.unit ?? ''}`;
+}
 
 export const correctableField = (kind: string, field: string): CorrectableField | null =>
   CORRECTION_KINDS[kind]?.fields[field] ?? null;
@@ -181,6 +218,14 @@ export type ValueCheck = { ok: true; value: number; bigChange: boolean } | { ok:
 export function checkCorrectionValue(kind: string, field: string, gameValue: number | null, raw: unknown): ValueCheck {
   const f = correctableField(kind, field);
   if (!f) return { ok: false, error: 'That stat can’t be corrected.' };
+  if (f.type === 'choice') {
+    const v = typeof raw === 'string' ? Number(raw) : raw;
+    if (typeof v !== 'number' || !(f.choices ?? []).some((c) => c.value === v))
+      return { ok: false, error: 'Pick one of the choices.' };
+    if (gameValue != null && v === gameValue) return { ok: false, error: 'That’s what the game files already say.' };
+    // Any other choice is a plain change: the big-change check is for numbers.
+    return { ok: true, value: v, bigChange: false };
+  }
   const value = typeof raw === 'string' ? Number(raw.replace(/[,\s%×]/g, '')) : raw;
   if (typeof value !== 'number' || !Number.isFinite(value)) return { ok: false, error: 'Enter a number.' };
   if (f.type === 'integer' && !Number.isInteger(value)) return { ok: false, error: 'Enter a whole number.' };
@@ -339,6 +384,61 @@ export function applyCorrections<T>(
 }
 
 export const rockRecordKey = (r: { rock: string; method: string }) => `${r.rock}|${r.method}`;
+
+// ── Gun mounts (v1.64.0) ────────────────────────────────────────────────────
+
+interface ShipWithSlots {
+  className: string;
+  name: string;
+  gunSlots: GunSlot[];
+}
+
+/** A ship's mount positions: one per group of gun slots, with who fires them per the game files. */
+export function gunMounts(ship: ShipWithSlots): { group: string; name: string; role: GunRole }[] {
+  const out: { group: string; name: string; role: GunRole }[] = [];
+  for (const s of ship.gunSlots) {
+    const group = s.group ?? s.id;
+    if (out.some((m) => m.group === group)) continue;
+    out.push({ group, name: s.groupName ?? humanHardpoint(group.split('/').pop() ?? group), role: slotRole(s) });
+  }
+  return out;
+}
+
+/** The game record of one mount, for the corrections system: its name and `{ role: code }`. */
+export function gunMountRecord(
+  ships: readonly ShipWithSlots[],
+  recordKey: string,
+): { name: string; record: { role: number } } | null {
+  const bar = recordKey.indexOf('|');
+  if (bar < 0) return null;
+  const cls = recordKey.slice(0, bar);
+  const group = recordKey.slice(bar + 1);
+  const ship = ships.find((x) => x.className.toLowerCase() === cls);
+  const m = ship ? gunMounts(ship).find((x) => x.group === group) : undefined;
+  if (!ship || !m) return null;
+  return { name: `${ship.name} · ${m.name}`, record: { role: GUN_ROLE_CODES[m.role] } };
+}
+
+/**
+ * A ship with its live gun-mount corrections applied: each slot of a corrected
+ * mount gets the corrected role and `roleCorrected`. Untouched ships come back
+ * as the same object.
+ */
+export function applyGunMountCorrections<T extends ShipWithSlots>(
+  ship: T,
+  index: ReadonlyMap<string, LiveCorrectionDto>,
+): T {
+  if (!index.size) return ship;
+  let changed = false;
+  const gunSlots = ship.gunSlots.map((s) => {
+    const c = index.get(correctionKey('gun-mount', gunMountKey(ship.className, s.group ?? s.id), 'role'));
+    const role = c ? gunRoleFromCode(c.value) : null;
+    if (!role) return s;
+    changed = true;
+    return { ...s, role, roleCorrected: true };
+  });
+  return changed ? { ...ship, gunSlots } : ship;
+}
 
 /** "Corrected by Ryan, confirmed by 2" */
 export function correctionCredit(c: Pick<LiveCorrectionDto, 'credit' | 'confirmations'>): string {

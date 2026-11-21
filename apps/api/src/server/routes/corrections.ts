@@ -30,6 +30,7 @@ import {
   correctableField,
   correctionActions,
   gameNumber,
+  formatCorrectionValue,
   type ApiResponse,
   type CorrectionAction,
   type CorrectionDto,
@@ -392,7 +393,7 @@ correctionsRouter.post('/corrections/:id/:action', requireAuth, async (req, res)
         },
       });
     const review = { reviewedBy: who.discordId, reviewedName: who.username, reviewedAt: new Date(), reviewNote: note };
-    const what = `${c.recordName} · ${CORRECTION_KINDS[c.kind]?.fields[c.field]?.label ?? c.field}: ${c.gameValue ?? '—'} → ${c.value}`;
+    const what = `${c.recordName} · ${CORRECTION_KINDS[c.kind]?.fields[c.field]?.label ?? c.field}: ${formatCorrectionValue(c.kind, c.field, c.gameValue)} → ${formatCorrectionValue(c.kind, c.field, c.value)}`;
 
     switch (action) {
       case 'confirm': {

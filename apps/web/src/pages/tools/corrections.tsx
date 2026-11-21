@@ -14,6 +14,7 @@ import {
   correctableField,
   correctionCredit,
   correctionKey,
+  formatCorrectionValue,
   shortBuild,
   type ApiResponse,
   type CorrectionDto,
@@ -101,8 +102,8 @@ export function Fix({
   const game = c ? c.gameValue : (value ?? null);
   const title = c
     ? shownCorrected
-      ? `${correctionCredit(c)}. Game files say ${c.gameValue ?? '—'}.${c.disputed ? ' Disputed: being re-checked.' : ''}`
-      : `Members corrected this to ${c.value}. Switch to "Corrected" to use it.`
+      ? `${correctionCredit(c)}. Game files say ${formatCorrectionValue(kind, field, c.gameValue)}.${c.disputed ? ' Disputed: being re-checked.' : ''}`
+      : `Members corrected this to ${formatCorrectionValue(kind, field, c.value)}. Switch to "Corrected" to use it.`
     : undefined;
   return (
     <span className="gt-fix">
@@ -225,16 +226,19 @@ function SubmitWindow({
           <div className="flex flex-wrap gap-x-8 gap-y-2">
             <span className="flex flex-col">
               <span className="gt-label">Game files say</span>
-              <span className="gt-mono text-xl gt-hi">
-                {target.game == null ? '—' : `${fmt(target.game, target.game % 1 ? 2 : 0)}${f.unit ?? ''}`}
+              <span className={f.type === 'choice' ? 'text-lg gt-hi' : 'gt-mono text-xl gt-hi'}>
+                {f.type === 'choice'
+                  ? formatCorrectionValue(target.kind, target.field, target.game)
+                  : target.game == null
+                    ? '—'
+                    : `${fmt(target.game, target.game % 1 ? 2 : 0)}${f.unit ?? ''}`}
               </span>
             </span>
             {existing && (
               <span className="flex flex-col">
                 <span className="gt-label">Already corrected to</span>
-                <span className="gt-mono text-xl gt-acc">
-                  {existing.value}
-                  {f.unit ?? ''}
+                <span className={f.type === 'choice' ? 'text-lg gt-acc' : 'gt-mono text-xl gt-acc'}>
+                  {formatCorrectionValue(target.kind, target.field, existing.value)}
                 </span>
               </span>
             )}
@@ -279,16 +283,36 @@ function SubmitWindow({
             </p>
           ) : (
             <>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-sm">What it really is{f.unit ? ` (${f.unit})` : ''}</span>
-                <input
-                  className="gt-input gt-mono text-xl"
-                  inputMode="decimal"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder={target.game == null ? '' : String(target.game)}
-                />
-              </label>
+              {f.type === 'choice' ? (
+                <fieldset className="flex flex-col gap-1.5 m-0 p-0 border-0">
+                  <legend className="text-sm pb-1.5">What it really is</legend>
+                  {(f.choices ?? [])
+                    .filter((c) => c.value !== target.game)
+                    .map((c) => (
+                      <label key={c.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="radio"
+                          name="gt-fix-choice"
+                          value={c.value}
+                          checked={value === String(c.value)}
+                          onChange={() => setValue(String(c.value))}
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                </fieldset>
+              ) : (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm">What it really is{f.unit ? ` (${f.unit})` : ''}</span>
+                  <input
+                    className="gt-input gt-mono text-xl"
+                    inputMode="decimal"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    placeholder={target.game == null ? '' : String(target.game)}
+                  />
+                </label>
+              )}
               <label className="flex flex-col gap-1.5">
                 <span className="text-sm">Where you saw it</span>
                 <textarea

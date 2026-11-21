@@ -1,7 +1,16 @@
 // v1.53.0: community corrections — the rules shared by the API and the website.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
+  shipGunSlots,
+  gunMountKey,
+  gunMounts,
+  gunMountRecord,
+  applyGunMountCorrections,
+  formatCorrectionValue,
+  GUN_ROLE_CODES,
+  gunRoleFromCode,
   applyCorrections,
   checkCorrectionValue,
   correctionActions,
@@ -120,4 +129,84 @@ test('build badge words', () => {
   assert.equal(shortBuild('4.10.3-LIVE.13165946'), '4.10.3 LIVE');
   assert.equal(shortBuild('5.0.0-ptu.13228337'), '5.0.0 PTU');
   assert.equal(shortBuild(null), null);
+});
+
+// ── Gun mounts (v1.64.0) ────────────────────────────────────────────────────
+
+const hornetFixture = JSON.parse(
+  readFileSync(new URL('./fixtures/ships/combat-anvl_hornet_f7cm_mk2.json', import.meta.url), 'utf8'),
+);
+const hornet = { className: hornetFixture.ClassName, name: hornetFixture.Name, gunSlots: shipGunSlots(hornetFixture) };
+const NOSE_KEY = gunMountKey(hornet.className, 'hardpoint_weapon_nose');
+const live = (value, extra = {}) => ({
+  id: 'c1',
+  kind: 'gun-mount',
+  recordKey: NOSE_KEY,
+  field: 'role',
+  gameValue: GUN_ROLE_CODES.crew,
+  value,
+  credit: 'Ryan',
+  confirmations: 2,
+  disputed: false,
+  build: '4.10',
+  approvedAt: null,
+  ...extra,
+});
+
+test('gun mounts: role codes are fixed and round-trip', () => {
+  assert.deepEqual(GUN_ROLE_CODES, { pilot: 0, takeover: 1, crew: 2, auto: 3 });
+  for (const [role, code] of Object.entries(GUN_ROLE_CODES)) assert.equal(gunRoleFromCode(code), role);
+  assert.equal(gunRoleFromCode(9), null);
+});
+
+test('gun mounts: a role is a choice, never a big change', () => {
+  assert.deepEqual(checkCorrectionValue('gun-mount', 'role', 2, 1), { ok: true, value: 1, bigChange: false });
+  assert.deepEqual(checkCorrectionValue('gun-mount', 'role', 2, '0'), { ok: true, value: 0, bigChange: false });
+  assert.match(checkCorrectionValue('gun-mount', 'role', 2, 2).error, /already say/);
+  assert.match(checkCorrectionValue('gun-mount', 'role', 2, 7).error, /choices/);
+  assert.match(checkCorrectionValue('gun-mount', 'role', 2, 1.5).error, /choices/);
+  assert.match(checkCorrectionValue('gun-mount', 'role', 2, 'crew').error, /choices/);
+});
+
+test('gun mounts: values read as words; numbers keep their units', () => {
+  assert.equal(formatCorrectionValue('gun-mount', 'role', 1), 'Crew turret the pilot can take over');
+  assert.equal(formatCorrectionValue('gun-mount', 'role', null), '—');
+  assert.equal(formatCorrectionValue('mining-laser', 'optimalRange', 60), '60m');
+  assert.equal(formatCorrectionValue('mining-laser', 'power', 2340), '2,340');
+});
+
+test('gun mounts: one per mount position, named after the turret, with the files’ role', () => {
+  const mounts = gunMounts(hornet);
+  assert.deepEqual(
+    mounts.map((m) => [m.group, m.role]),
+    [
+      ['hardpoint_weapon_right_wing', 'pilot'],
+      ['hardpoint_weapon_center', 'takeover'],
+      ['hardpoint_weapon_nose', 'crew'],
+      ['hardpoint_weapon_left_wing', 'pilot'],
+    ],
+  );
+  assert.deepEqual(gunMountRecord([hornet], NOSE_KEY), {
+    name: 'Anvil F7C-M Super Hornet Mk II · Anvil Hornet Mk II S3 Nose Turret',
+    record: { role: GUN_ROLE_CODES.crew },
+  });
+  assert.equal(gunMountRecord([hornet], `${hornet.className.toLowerCase()}|nope`), null);
+  assert.equal(gunMountRecord([hornet], 'no-bar'), null);
+});
+
+test('gun mounts: a live correction changes every gun of that mount, and only those', () => {
+  const fixed = applyGunMountCorrections(hornet, correctionIndex([live(GUN_ROLE_CODES.takeover)]));
+  const nose = fixed.gunSlots.filter((s) => s.group === 'hardpoint_weapon_nose');
+  assert.equal(nose.length, 2);
+  assert.ok(nose.every((s) => s.role === 'takeover' && s.roleCorrected === true));
+  assert.ok(fixed.gunSlots.filter((s) => s.group !== 'hardpoint_weapon_nose').every((s) => !s.roleCorrected));
+  // The original is untouched; nothing to apply gives the same object back.
+  assert.ok(hornet.gunSlots.every((s) => !s.roleCorrected));
+  assert.equal(applyGunMountCorrections(hornet, new Map()), hornet);
+  assert.equal(
+    applyGunMountCorrections(hornet, correctionIndex([live(GUN_ROLE_CODES.takeover, { recordKey: 'x|y' })])),
+    hornet,
+  );
+  // A value that isn't a role is ignored.
+  assert.equal(applyGunMountCorrections(hornet, correctionIndex([live(9)])), hornet);
 });

@@ -333,7 +333,14 @@ export function warmGameTools(): Promise<unknown> {
 }
 
 /** For the bot and other server code: the same data, uncompressed. */
+let testShips: GameToolsDataDto | null = null;
+/** For tests: the ship data the corrections read (gun mounts, v1.64.0). */
+export function useGameToolsDataForTests(data: GameToolsDataDto | null): void {
+  testShips = data;
+}
+
 export async function getGameToolsData(): Promise<GameToolsDataDto | null> {
+  if (testShips) return testShips;
   return (await getBuilt())?.data ?? null;
 }
 

@@ -8,19 +8,22 @@ import {
   CORRECTION_KINDS,
   correctionActions,
   gameNumber,
+  gunMountRecord,
+  formatCorrectionValue,
   recheckOnNewBuild,
   rockRecordKey,
   type CorrectionActor,
   type CorrectionDto,
   type CorrectionStatus,
   type LiveCorrectionDto,
+  type GameToolsDataDto,
   type MiningDataDto,
 } from '@dem/shared';
 import { prisma } from './prisma.js';
 import { isPlatformAdminId } from './platformAdmin.js';
 import { getUserGuilds } from './userGuilds.js';
 import { adminLog } from './adminLog.js';
-import { getMiningData } from '../server/routes/gameTools.js';
+import { getGameToolsData, getMiningData } from '../server/routes/gameTools.js';
 
 export interface CorrectionUser extends CorrectionActor {
   userId: string;
@@ -74,8 +77,18 @@ export interface GameRecord {
   record: unknown;
 }
 
+/** The game data the corrections are about: mining (v1.53.0) and the ships (gun mounts, v1.64.0). */
+export interface CorrectableData {
+  build: string | null;
+  mining: MiningDataDto | null;
+  ships: GameToolsDataDto | null;
+}
+
 /** A record from our game data, by kind and key; null if it isn't there. */
-export function findGameRecord(data: MiningDataDto, kind: string, recordKey: string): GameRecord | null {
+export function findGameRecord(all: CorrectableData, kind: string, recordKey: string): GameRecord | null {
+  if (kind === 'gun-mount') return all.ships ? gunMountRecord(all.ships.ships, recordKey) : null;
+  const data = all.mining;
+  if (!data) return null;
   switch (kind) {
     case 'mining-laser': {
       const r = data.lasers.find((l) => l.uuid === recordKey);
@@ -98,13 +111,28 @@ export function findGameRecord(data: MiningDataDto, kind: string, recordKey: str
   }
 }
 
+/** Which data a kind's records live in. */
+const usesShips = (kind: string) => kind === 'gun-mount';
+
+/** The game data for these kinds; null when none of it is loaded. */
+async function correctableData(kinds: readonly string[]): Promise<CorrectableData | null> {
+  const [mining, ships] = await Promise.all([
+    kinds.some((k) => !usesShips(k)) ? getMiningData() : Promise.resolve(null),
+    kinds.some(usesShips) ? getGameToolsData() : Promise.resolve(null),
+  ]);
+  if (!mining && !ships) return null;
+  return { build: mining?.build ?? ships?.build ?? null, mining, ships };
+}
+
+const loadedFor = (data: CorrectableData, kind: string) => (usesShips(kind) ? !!data.ships : !!data.mining);
+
 /** The kinds' game data, with its build. */
 export async function gameDataFor(
   kind: string,
 ): Promise<{ build: string | null; find: (key: string) => GameRecord | null } | null> {
   if (!CORRECTION_KINDS[kind]) return null;
-  const data = await getMiningData();
-  if (!data) return null;
+  const data = await correctableData([kind]);
+  if (!data || !loadedFor(data, kind)) return null;
   return { build: data.build, find: (key) => findGameRecord(data, kind, key) };
 }
 
@@ -118,12 +146,14 @@ let lastChecked: string | null = null;
  * elsewhere → RECHECK (not shown until a reviewer looks again).
  */
 export async function recheckForBuild(): Promise<void> {
-  const data = await getMiningData();
+  const data = await correctableData(Object.keys(CORRECTION_KINDS));
   if (!data?.build || data.build === lastChecked) return;
   const applied = await prisma.dataCorrection.findMany({
     where: { status: { in: [...APPLIED_STATUSES] }, NOT: { checkedBuild: data.build } },
   });
   for (const c of applied) {
+    // That kind's data isn't loaded yet: look again next time rather than call it gone.
+    if (!loadedFor(data, c.kind)) continue;
     const found = findGameRecord(data, c.kind, c.recordKey);
     const current = found ? gameNumber(found.record, c.field) : null;
     const verdict = found ? recheckOnNewBuild({ gameValue: c.gameValue, value: c.value }, current) : 'recheck';
@@ -134,9 +164,9 @@ export async function recheckForBuild(): Promise<void> {
     const status: CorrectionStatus = verdict === 'retire' ? 'RETIRED' : 'RECHECK';
     const note =
       verdict === 'retire'
-        ? `The game files now say ${current}: fixed by CIG in ${data.build}.`
+        ? `The game files now say ${formatCorrectionValue(c.kind, c.field, current)}: fixed by CIG in ${data.build}.`
         : found
-          ? `The game files changed from ${c.gameValue} to ${current} in ${data.build}.`
+          ? `The game files changed from ${formatCorrectionValue(c.kind, c.field, c.gameValue)} to ${formatCorrectionValue(c.kind, c.field, current)} in ${data.build}.`
           : `Not in the game data of ${data.build} any more.`;
     await prisma.dataCorrection.update({
       where: { id: c.id },
@@ -151,7 +181,8 @@ export async function recheckForBuild(): Promise<void> {
       details: { correctionId: c.id },
     });
   }
-  lastChecked = data.build;
+  // Done for this build only once both kinds of data were there to compare with.
+  if (data.mining && data.ships) lastChecked = data.build;
 }
 
 export function resetCorrectionsForTests(): void {
