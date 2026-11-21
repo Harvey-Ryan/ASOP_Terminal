@@ -65,7 +65,11 @@
   `KillResult` has `armourSeconds` and `firstSlowdown`. The kill table uses
   `real` at the viewer's share of shots hitting (20/35/50/75/100%, default
   `DEFAULT_ACCURACY` 35%, kept in the browser as `asop.ttkAccuracy`) and shows
-  "Every shot hits" (`real` at 100%) beside it; the verdict follows the first.
+  "Every shot hits" (`real` at 100%) beside it. No verdict words: each time
+  is shaded green → yellow → red (`killTimeShade`: ≤10 s green, ~30 s
+  yellow, ≥2 min or never red, log scale, low saturation). Under the table:
+  "These are simulation values. Hover for more info." with every assumption
+  in a hover/focus pop-up (`.gt-tip`).
 - Bespoke guns (the Wolf's L-21/L-22, Vanguard noses…): `gunFitsSlot` checks the port's
   RequiredTags against the gun's tags, and the gun's RequiredTags against the
   PortTags of the port, its mounts and the ship. Use it for every "what fits".

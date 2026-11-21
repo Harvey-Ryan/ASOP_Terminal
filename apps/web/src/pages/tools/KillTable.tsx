@@ -1,5 +1,6 @@
 // "What this loadout can kill" (v1.44.0; side by side in v1.45.0): kill
-// times against a list of ships, with the verdict and the guns each one's
+// times against a list of ships, shaded green → yellow → red by how long
+// they take (v1.60.0; no verdict words), and the guns each one's
 // armour stops. With two loadouts it's one table with a column per ship.
 // Click a target for the breakdown. v1.60.0: times are at the chosen share of
 // shots hitting (default 35%, kept in this browser), with each gun at its
@@ -12,13 +13,10 @@ import { Link } from 'react-router-dom';
 import {
   DEFAULT_ACCURACY,
   killTime,
-  killVerdict,
   formatKillTime,
-  KILL_VERDICT_WORDS,
   type CombatGun,
   type GameToolsShip,
   type KillResult,
-  type KillVerdict,
 } from '@dem/shared';
 import { fmt, shortShipName } from '../../lib/gameTools';
 import { useToolsPaths } from '../../lib/toolsPaths';
@@ -52,14 +50,19 @@ export const COMMON_TARGETS = [
   'AEGS_Idris_M',
 ];
 
-const VERDICT_CLASS: Record<KillVerdict, string> = {
-  quick: 'gt-good',
-  workable: 'gt-acc',
-  slow: 'gt-hi',
-  long: 'gt-bad',
-  'no-hull': 'gt-bad',
-  never: 'gt-bad',
-};
+/**
+ * A soft highlight for a kill time (v1.60.0): green at 10 s or less, yellow
+ * around 30 s, red at 2 minutes or more (and for "never"), on a log scale, so
+ * a glance down the column reads like the old verdicts without the words.
+ */
+export function killTimeShade(seconds: number): string {
+  const lo = Math.log(10),
+    hi = Math.log(120);
+  const x = !isFinite(seconds) ? 1 : Math.min(1, Math.max(0, (Math.log(Math.max(seconds, 1)) - lo) / (hi - lo)));
+  const hue = Math.round(120 * (1 - x)); // 120 green → 60 yellow → 0 red
+  return `hsl(${hue} 45% 45% / 0.16)`;
+}
+const shaded = (seconds: number) => ({ backgroundColor: killTimeShade(seconds) });
 
 const shortGun = (name: string) =>
   name
@@ -123,7 +126,7 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
         t,
         per: loadouts.map((lo) => {
           const real = killTime(lo.guns, t, 'real', { accuracy });
-          return { real, allHit: killTime(lo.guns, t, 'real'), verdict: killVerdict(real) };
+          return { real, allHit: killTime(lo.guns, t, 'real') };
         }),
       })),
     [loadouts, targets, accuracy],
@@ -170,7 +173,7 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                   <th key={l.name} className="num">
                     {l.name}
                     <span className="block normal-case tracking-normal font-normal text-[11px]">
-                      at {pct(accuracy)} · verdict
+                      at {pct(accuracy)} of shots hitting
                     </span>
                   </th>
                 ))}
@@ -179,7 +182,6 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
             ) : (
               <tr>
                 <th>Target</th>
-                <th>Verdict</th>
                 <th className="num">Time to kill</th>
                 <th className="num">Every shot hits</th>
                 <th>Armour stops</th>
@@ -215,12 +217,9 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                   <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
                     {nameCell}
                     {r.per.map((p, i) => (
-                      <td key={i} className="num">
+                      <td key={i} className="num" style={shaded(p.real.seconds)}>
                         <span className={i === winner ? 'gt-hi font-semibold' : ''}>
                           {formatKillTime(p.real.seconds)}
-                        </span>
-                        <span className={`block text-xs font-sans ${VERDICT_CLASS[p.verdict]}`}>
-                          {KILL_VERDICT_WORDS[p.verdict]}
                         </span>
                       </td>
                     ))}
@@ -239,9 +238,12 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
               return (
                 <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
                   {nameCell}
-                  <td className={`font-semibold ${VERDICT_CLASS[p.verdict]}`}>{KILL_VERDICT_WORDS[p.verdict]}</td>
-                  <td className="num gt-hi">{formatKillTime(p.real.seconds)}</td>
-                  <td className="num">{formatKillTime(p.allHit.seconds)}</td>
+                  <td className="num gt-hi" style={shaded(p.real.seconds)}>
+                    {formatKillTime(p.real.seconds)}
+                  </td>
+                  <td className="num" style={shaded(p.allHit.seconds)}>
+                    {formatKillTime(p.allHit.seconds)}
+                  </td>
                   <td className="text-sm gt-dim">{stopped.length ? stopped.join(', ') : '–'}</td>
                 </tr>
               );
@@ -266,12 +268,42 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
         </div>
       )}
       <p className="text-xs gt-dim leading-relaxed mt-3 mb-0">
-        Times assume {pct(accuracy)} of shots hit (change it above; &ldquo;Every shot hits&rdquo; is the best case).
-        Each gun fires at its burst rate until it overheats or empties its capacitor, then at its sustained rate.
-        Shields don&rsquo;t regenerate while under fire, and damage doesn&rsquo;t fall off with range. The
-        armour&rsquo;s health is counted as one extra pool worn down before the main hull; in game it&rsquo;s worn down
-        section by section, where the shots land. Shots at or below a ship&rsquo;s armour deflection value are assumed
-        to do no hull damage; to be confirmed in game. A comparison, not a fight prediction.
+        <span className="gt-tip" tabIndex={0} aria-describedby="gt-kill-tip">
+          These are simulation values. <span className="gt-tip-hint">Hover for more info.</span>
+          <span id="gt-kill-tip" role="tooltip" className="gt-tip-pop">
+            <span className="gt-label gt-label-acc block pb-1.5">How these times are worked out</span>
+            <span className="block pb-1.5">
+              They come from the game files&rsquo; numbers, not from a recorded fight. A comparison between loadouts,
+              not a prediction.
+            </span>
+            <span className="block">
+              <b>Hits:</b> {pct(accuracy)} of shots land (change it above). &ldquo;Every shot hits&rdquo; is the best
+              case.
+            </span>
+            <span className="block">
+              <b>Fire rate:</b> each gun fires at its burst rate until it overheats or empties its capacitor, then at
+              its sustained rate.
+            </span>
+            <span className="block">
+              <b>Order:</b> shields first (ballistic damage partly passes through them), then the armour&rsquo;s health,
+              then the main hull. The ship is destroyed when its main hull is gone.
+            </span>
+            <span className="block">
+              <b>Armour:</b> counted as one extra health pool. In game it&rsquo;s worn down section by section, where
+              the shots land.
+            </span>
+            <span className="block">
+              <b>Deflection:</b> shots at or below a ship&rsquo;s armour deflection value do no hull damage (to be
+              confirmed in game).
+            </span>
+            <span className="block">
+              <b>Not modelled:</b> shield regeneration under fire, damage falling off with range, and dodging.
+            </span>
+            <span className="block pt-1.5 gt-dim">
+              Shading: green is a quick kill (10 s or less), yellow about 30 s, red 2 minutes or more, or never.
+            </span>
+          </span>
+        </span>
       </p>
     </section>
   );

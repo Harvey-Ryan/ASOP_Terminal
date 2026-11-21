@@ -580,3 +580,47 @@
   padding: 8px;
   border-radius: 4px;
 }
+
+/* Kill table: "simulation values" with the assumptions on hover / focus (v1.60.0) */
+.gt-tip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+  outline: none;
+}
+.gt-tip-hint {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.gt-tip-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  width: min(440px, 86vw);
+  padding: 12px 14px;
+  border: 1px solid var(--gt-line);
+  border-radius: 6px;
+  background: var(--gt-bg);
+  color: var(--gt-hi);
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 0.12s,
+    transform 0.12s,
+    visibility 0.12s;
+}
+.gt-tip-pop b {
+  font-weight: 600;
+}
+.gt-tip:hover .gt-tip-pop,
+.gt-tip:focus .gt-tip-pop,
+.gt-tip:focus-within .gt-tip-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
