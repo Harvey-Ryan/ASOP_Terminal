@@ -1,11 +1,16 @@
 // "What this loadout can kill" (v1.44.0; side by side in v1.45.0): kill
 // times against a list of ships, with the verdict and the guns each one's
 // armour stops. With two loadouts it's one table with a column per ship.
-// Click a target for the breakdown.
+// Click a target for the breakdown. v1.60.0: times are at the chosen share of
+// shots hitting (default 35%, kept in this browser), with each gun at its
+// burst rate until it overheats or empties its capacitor, then sustained, and
+// the armour's health counted before the main body; "Every shot hits" is the
+// same fight with no misses.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  DEFAULT_ACCURACY,
   killTime,
   killVerdict,
   formatKillTime,
@@ -62,6 +67,40 @@ const shortGun = (name: string) =>
     .replace(/ (GT|T)-\d+/, '')
     .replace(/ (Repeater|Gatling|Scattergun|Cannon|Mass Driver|Laser Repeater|Laser Cannon).*$/, '');
 
+// ── Share of shots that hit (kept in this browser) ─────────────────────────────
+
+const ACCURACY_KEY = 'asop.ttkAccuracy';
+const ACCURACY_CHOICES = [0.2, 0.35, 0.5, 0.75, 1];
+const accuracyListeners = new Set<() => void>();
+let accuracyNow: number = (() => {
+  try {
+    const v = Number(localStorage.getItem(ACCURACY_KEY));
+    return ACCURACY_CHOICES.includes(v) ? v : DEFAULT_ACCURACY;
+  } catch {
+    return DEFAULT_ACCURACY;
+  }
+})();
+function setAccuracy(v: number) {
+  accuracyNow = v;
+  try {
+    localStorage.setItem(ACCURACY_KEY, String(v));
+  } catch {
+    /* private mode: this tab only */
+  }
+  accuracyListeners.forEach((l) => l());
+}
+function useAccuracy(): number {
+  return useSyncExternalStore(
+    (l) => {
+      accuracyListeners.add(l);
+      return () => accuracyListeners.delete(l);
+    },
+    () => accuracyNow,
+    () => DEFAULT_ACCURACY,
+  );
+}
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
 export interface KillTableLoadout {
   name: string;
   guns: CombatGun[];
@@ -71,6 +110,7 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
   const paths = useToolsPaths();
   const [showAll, setShowAll] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
+  const accuracy = useAccuracy();
   const targets = useMemo(() => {
     if (showAll) return ships;
     const by = new Map(ships.map((s) => [s.className, s]));
@@ -82,11 +122,11 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
       targets.map((t) => ({
         t,
         per: loadouts.map((lo) => {
-          const burst = killTime(lo.guns, t, 'burst');
-          return { burst, sustained: killTime(lo.guns, t, 'sustained'), verdict: killVerdict(burst) };
+          const real = killTime(lo.guns, t, 'real', { accuracy });
+          return { real, allHit: killTime(lo.guns, t, 'real'), verdict: killVerdict(real) };
         }),
       })),
-    [loadouts, targets],
+    [loadouts, targets, accuracy],
   );
   const sel = rows.find((r) => r.t.className === picked) ?? null;
   const two = loadouts.length > 1;
@@ -103,6 +143,23 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
           {showAll ? 'Common ships only' : `All ${ships.length} ships`}
         </button>
       </div>
+      <div className="flex flex-wrap items-center gap-2 pb-3" role="group" aria-label="Share of shots that hit">
+        <span className="text-sm gt-dim">Shots that hit</span>
+        {ACCURACY_CHOICES.map((v) => (
+          <button
+            key={v}
+            type="button"
+            className="gt-chip"
+            aria-pressed={accuracy === v}
+            onClick={() => setAccuracy(v)}
+            title={
+              v === 1 ? 'Every shot hits: the best case' : v === DEFAULT_ACCURACY ? 'A typical dogfight' : undefined
+            }
+          >
+            {pct(v)}
+          </button>
+        ))}
+      </div>
       <div className="gt-scroll">
         <table className="gt-table min-w-[620px]">
           <thead>
@@ -112,7 +169,9 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                 {loadouts.map((l) => (
                   <th key={l.name} className="num">
                     {l.name}
-                    <span className="block normal-case tracking-normal font-normal text-[11px]">burst · verdict</span>
+                    <span className="block normal-case tracking-normal font-normal text-[11px]">
+                      at {pct(accuracy)} · verdict
+                    </span>
                   </th>
                 ))}
                 <th>Faster</th>
@@ -121,8 +180,8 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
               <tr>
                 <th>Target</th>
                 <th>Verdict</th>
-                <th className="num">Burst</th>
-                <th className="num">Sustained</th>
+                <th className="num">Time to kill</th>
+                <th className="num">Every shot hits</th>
                 <th>Armour stops</th>
               </tr>
             )}
@@ -146,10 +205,10 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
               if (two) {
                 const [a, b] = r.per as [(typeof r.per)[0], (typeof r.per)[0]];
                 const winner =
-                  a.burst.seconds === b.burst.seconds
+                  a.real.seconds === b.real.seconds
                     ? null
-                    : (isFinite(a.burst.seconds) ? a.burst.seconds : Infinity) <
-                        (isFinite(b.burst.seconds) ? b.burst.seconds : Infinity)
+                    : (isFinite(a.real.seconds) ? a.real.seconds : Infinity) <
+                        (isFinite(b.real.seconds) ? b.real.seconds : Infinity)
                       ? 0
                       : 1;
                 return (
@@ -158,7 +217,7 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                     {r.per.map((p, i) => (
                       <td key={i} className="num">
                         <span className={i === winner ? 'gt-hi font-semibold' : ''}>
-                          {formatKillTime(p.burst.seconds)}
+                          {formatKillTime(p.real.seconds)}
                         </span>
                         <span className={`block text-xs font-sans ${VERDICT_CLASS[p.verdict]}`}>
                           {KILL_VERDICT_WORDS[p.verdict]}
@@ -176,13 +235,13 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
                 );
               }
               const p = r.per[0]!;
-              const stopped = [...new Set(p.burst.stopped.map(shortGun))];
+              const stopped = [...new Set(p.real.stopped.map(shortGun))];
               return (
                 <tr key={r.t.uuid} className={on ? 'is-on' : ''}>
                   {nameCell}
                   <td className={`font-semibold ${VERDICT_CLASS[p.verdict]}`}>{KILL_VERDICT_WORDS[p.verdict]}</td>
-                  <td className="num gt-hi">{formatKillTime(p.burst.seconds)}</td>
-                  <td className="num">{formatKillTime(p.sustained.seconds)}</td>
+                  <td className="num gt-hi">{formatKillTime(p.real.seconds)}</td>
+                  <td className="num">{formatKillTime(p.allHit.seconds)}</td>
                   <td className="text-sm gt-dim">{stopped.length ? stopped.join(', ') : '–'}</td>
                 </tr>
               );
@@ -201,23 +260,39 @@ export function KillTable({ loadouts, ships }: { loadouts: KillTableLoadout[]; s
           </span>
           <div className={`grid gap-6 ${two ? 'sm:grid-cols-2' : ''}`}>
             {sel.per.map((p, i) => (
-              <Breakdown key={i} title={two ? loadouts[i]!.name : null} t={sel.t} r={p.burst} />
+              <Breakdown key={i} title={two ? loadouts[i]!.name : null} t={sel.t} r={p.real} accuracy={accuracy} />
             ))}
           </div>
         </div>
       )}
       <p className="text-xs gt-dim leading-relaxed mt-3 mb-0">
-        Every shot hits, full power, no shield regen while under fire. Assumes shots at or below a ship&rsquo;s armour
-        deflection value do no hull damage; to be confirmed in game. A comparison, not a fight prediction.
+        Times assume {pct(accuracy)} of shots hit (change it above; &ldquo;Every shot hits&rdquo; is the best case).
+        Each gun fires at its burst rate until it overheats or empties its capacitor, then at its sustained rate.
+        Shields don&rsquo;t regenerate while under fire, and damage doesn&rsquo;t fall off with range. The
+        armour&rsquo;s health is counted as one extra pool worn down before the main hull; in game it&rsquo;s worn down
+        section by section, where the shots land. Shots at or below a ship&rsquo;s armour deflection value are assumed
+        to do no hull damage; to be confirmed in game. A comparison, not a fight prediction.
       </p>
     </section>
   );
 }
 
-function Breakdown({ title, t, r }: { title: string | null; t: GameToolsShip; r: KillResult }) {
+function Breakdown({
+  title,
+  t,
+  r,
+  accuracy,
+}: {
+  title: string | null;
+  t: GameToolsShip;
+  r: KillResult;
+  accuracy: number;
+}) {
+  const armour = t.armourHp ?? 0;
   return (
     <div className="flex flex-col gap-1.5">
       {title && <span className="gt-label gt-label-acc">{title}</span>}
+      <span className="text-sm gt-dim">At {pct(accuracy)} of shots hitting.</span>
       <span>
         Shields ({fmt(t.shieldHp)}){' '}
         {isFinite(r.shieldSeconds) ? (
@@ -225,18 +300,36 @@ function Breakdown({ title, t, r }: { title: string | null; t: GameToolsShip; r:
             'never need to drop: ballistic damage through them kills it first.'
           ) : (
             <>
-              down in <span className="gt-mono gt-hi">{formatKillTime(r.shieldSeconds)}</span> of burst fire.
+              down after <span className="gt-mono gt-hi">{formatKillTime(r.shieldSeconds)}</span>.
             </>
           )
         ) : (
           'never drop.'
         )}
       </span>
+      {armour > 0 && (
+        <span>
+          Armour ({fmt(armour)}, counted as one pool){' '}
+          {isFinite(r.armourSeconds) ? (
+            <>
+              gone after <span className="gt-mono gt-hi">{formatKillTime(r.armourSeconds)}</span>.
+            </>
+          ) : (
+            'never worn through.'
+          )}
+        </span>
+      )}
       <span>
         Each volley: <span className="gt-mono gt-hi">{fmt(r.volleyShield)}</span> to shields,{' '}
-        <span className="gt-mono gt-hi">{fmt(r.volleyThrough)}</span> to the hull through them,{' '}
-        <span className="gt-mono gt-hi">{fmt(r.volleyHull)}</span> to the hull once they&rsquo;re down.
+        <span className="gt-mono gt-hi">{fmt(r.volleyThrough)}</span> past them,{' '}
+        <span className="gt-mono gt-hi">{fmt(r.volleyHull)}</span> to armour and hull once they&rsquo;re down.
       </span>
+      {r.firstSlowdown != null && (
+        <span>
+          The first gun drops to its sustained rate after{' '}
+          <span className="gt-mono gt-hi">{formatKillTime(r.firstSlowdown)}</span> (overheat or empty capacitor).
+        </span>
+      )}
       <span>
         {r.stopped.length ? (
           <>

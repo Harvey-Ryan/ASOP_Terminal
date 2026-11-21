@@ -307,3 +307,50 @@ test('M80 cross-check: labels, distortion guns and the untagged Slayer', () => {
   assert.equal(isUnavailableGun(slayerCopy), true);
   assert.equal(isUnavailableGun(slayerNova), false);
 });
+
+// v1.60.0: accuracy, burst until overheat / capacitor empty, armour as a health pool.
+test('how long a gun keeps up its burst rate', async () => {
+  const { gunBurstSeconds } = await import('../dist/index.js');
+  assert.equal(gunBurstSeconds({ Heat: { TimeToOverheat: 15 } }, 500), 15); // ballistic: overheat
+  assert.equal(gunBurstSeconds({ Capacitor: { MaxAmmoLoad: 75 } }, 750), 6); // CF-337: 75 shots at 12.5/s
+  assert.equal(gunBurstSeconds({ Capacitor: { MaxAmmoLoad: 25 } }, 100), 15); // M5A
+  assert.equal(gunBurstSeconds({}, 600), null);
+});
+
+test('real fire: burst until the capacitor is empty, then sustained', () => {
+  const p = { ...panther, burstSeconds: 6 };
+  const burst = killTime([p, p, p], cutlass, 'burst');
+  const sustained = killTime([p, p, p], cutlass, 'sustained');
+  const real = killTime([p, p, p], cutlass, 'real');
+  assert.ok(
+    real.seconds > burst.seconds && real.seconds < sustained.seconds,
+    `${burst.seconds} < ${real.seconds} < ${sustained.seconds}`,
+  );
+  assert.equal(real.firstSlowdown, 6);
+  // By hand: 3 × 545.6 for 6 s on the 7,200 shield (9,820.8 > 7,200, so it drops at 4.4 s),
+  // then 3 × 545.6 × 0.6 on the 6,500 body until 6 s, then 3 × 278.9 × 0.6.
+  const tShield = 7200 / (3 * 545.6);
+  const bodyBy6 = (6 - tShield) * 3 * 545.6 * 0.6;
+  assert.equal(real.seconds.toFixed(3), (6 + (6500 - bodyBy6) / (3 * 278.9 * 0.6)).toFixed(3));
+});
+
+test('accuracy scales the time: 50% of shots take twice as long', () => {
+  const all = killTime([panther, panther, panther], cutlass, 'burst');
+  const half = killTime([panther, panther, panther], cutlass, 'burst', { accuracy: 0.5 });
+  assert.equal(half.seconds.toFixed(3), (all.seconds * 2).toFixed(3));
+  assert.equal(half.shieldDps.toFixed(1), (all.shieldDps / 2).toFixed(1));
+});
+
+test('armour health is worn down before the main body', () => {
+  const armoured = { ...cutlass, armourHp: 7290 };
+  const plain = killTime([panther, panther, panther], cutlass, 'burst');
+  const r = killTime([panther, panther, panther], armoured, 'burst');
+  const hull = 3 * 545.6 * 0.6;
+  assert.equal(r.armourSeconds.toFixed(3), (plain.shieldSeconds + 7290 / hull).toFixed(3));
+  assert.equal(r.seconds.toFixed(3), (plain.seconds + 7290 / hull).toFixed(3));
+  // Ballistic damage through the shields wears the armour first too.
+  const pred = killTime([predator, predator, predator], { ...warden, armourHp: 5000 }, 'burst');
+  const predPlain = killTime([predator, predator, predator], warden, 'burst');
+  assert.ok(pred.seconds > predPlain.seconds);
+  assert.ok(pred.armourSeconds < pred.seconds);
+});
