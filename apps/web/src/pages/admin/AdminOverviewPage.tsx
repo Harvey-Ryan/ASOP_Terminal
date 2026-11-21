@@ -176,11 +176,41 @@ const AUDIT_WORDS: Record<string, string> = {
   'missing-weapon': 'Gun missing from our page',
   'guessed-turret': 'Turret gun with no mount record',
   'role-differs': 'Who fires it disagrees with the files',
+  'no-seat': 'No seat recorded: counted as crew',
 };
+
+type AuditShips = NonNullable<Awaited<ReturnType<typeof adminApi.weaponAudit>>>['problems'];
+
+/** Ships whose issues have this severity (issues from before v1.64.1 have none: problems). */
+const bySeverity = (ships: AuditShips, severity: 'problem' | 'check'): AuditShips =>
+  ships
+    .map((p) => ({ ...p, issues: p.issues.filter((i) => (i.severity ?? 'problem') === severity) }))
+    .filter((p) => p.issues.length);
+
+function AuditList({ ships }: { ships: AuditShips }) {
+  return (
+    <ul className="flex flex-col gap-2 text-sm">
+      {ships.map((p) => (
+        <li key={p.className}>
+          <span className="font-medium">{p.name}</span>{' '}
+          <span className="text-xs text-muted-foreground">{p.className}</span>
+          <ul className="ml-4 list-disc text-muted-foreground">
+            {p.issues.map((i, k) => (
+              <li key={k}>
+                {AUDIT_WORDS[i.kind] ?? i.kind} · <span className="font-mono text-xs">{i.where}</span>: {i.detail}
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * Ship weapons check (v1.63.0): on every game-data build, each ship's guns as
  * we read them (who fires them, none missing) against the files' mount list.
+ * v1.64.1: "To confirm" lists turrets whose answer rests on a gap in the files.
  */
 function WeaponAuditSection() {
   const q = useQuery({
@@ -188,6 +218,7 @@ function WeaponAuditSection() {
     queryFn: adminApi.weaponAudit,
     refetchInterval: 5 * 60_000,
   });
+  const [showChecks, setShowChecks] = useState(false);
   const a = q.data;
   if (q.isError)
     return (
@@ -196,48 +227,60 @@ function WeaponAuditSection() {
       </Section>
     );
   if (q.isPending) return <Skeleton className="h-24" />;
+  const problems = a ? bySeverity(a.problems, 'problem') : [];
+  const checks = a ? bySeverity(a.problems, 'check') : [];
+  const checkCount = checks.reduce((t, p) => t + p.issues.length, 0);
+  const meta = a && (
+    <span className="text-muted-foreground">
+      {' '}
+      · {a.build ?? a.commit.slice(0, 7)} · checked {ago(a.checkedAt)}
+    </span>
+  );
   return (
     <Section title="Ship weapons check">
       {!a ? (
         <p className="text-sm text-muted-foreground">The ship data hasn't been built since the last restart yet.</p>
-      ) : !a.problems.length ? (
-        <p className="text-sm">
-          All {a.ships} ships agree with the game files
-          <span className="text-muted-foreground">
-            {' '}
-            · {a.build ?? a.commit.slice(0, 7)} · checked {ago(a.checkedAt)}
-          </span>
-        </p>
       ) : (
         <div className="flex flex-col gap-3">
-          <p className="text-sm">
-            {a.problems.length} of {a.ships} ships need a look
-            <span className="text-muted-foreground">
-              {' '}
-              · {a.build ?? a.commit.slice(0, 7)} · checked {ago(a.checkedAt)}
-            </span>
-          </p>
-          <ul className="flex flex-col gap-2 text-sm">
-            {a.problems.map((p) => (
-              <li key={p.className}>
-                <span className="font-medium">{p.name}</span>{' '}
-                <span className="text-xs text-muted-foreground">{p.className}</span>
-                <ul className="ml-4 list-disc text-muted-foreground">
-                  {p.issues.map((i, k) => (
-                    <li key={k}>
-                      {AUDIT_WORDS[i.kind] ?? i.kind} · <span className="font-mono text-xs">{i.where}</span>: {i.detail}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+          {!problems.length ? (
+            <p className="text-sm">
+              All {a.ships} ships agree with the game files{meta}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm">
+                {problems.length} of {a.ships} ships need a look{meta}
+              </p>
+              <AuditList ships={problems} />
+            </>
+          )}
+          {checks.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="self-start text-sm text-primary underline"
+                onClick={() => setShowChecks((v) => !v)}
+              >
+                {showChecks ? 'Hide' : 'Show'} {checkCount} turret{checkCount === 1 ? '' : 's'} on {checks.length} ship
+                {checks.length === 1 ? '' : 's'} to confirm in game
+              </button>
+              {showChecks && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    These agree with the files, but the files don&rsquo;t say who fires them, so they&rsquo;re counted
+                    as crew guns. If one is the pilot&rsquo;s, send a correction from its ship page.
+                  </p>
+                  <AuditList ships={checks} />
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
         Run on every new game build: who fires each gun (pilot, crew turret the pilot can take over, crew turret,
-        automatic) as the ship pages show it, checked against the game files&rsquo; own mount list. Changes are posted
-        to the admin feed.
+        automatic) as the ship pages show it, checked against the game files&rsquo; own mount list. Changes to the
+        problems are posted to the admin feed.
       </p>
     </Section>
   );

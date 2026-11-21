@@ -77,8 +77,16 @@ export interface AdminWeaponAuditDto {
   checkedAt: string;
   /** Ships checked. */
   ships: number;
-  /** Only ships with something to look at; empty = all agree. */
-  problems: { className: string; name: string; issues: { kind: string; where: string; detail: string }[] }[];
+  /**
+   * Only ships with something to look at; empty = all agree. Issues of
+   * severity `check` (v1.64.1) agree with the files but rest on a gap in
+   * them; only `problem` issues go to the admin feed.
+   */
+  problems: {
+    className: string;
+    name: string;
+    issues: { kind: string; severity?: 'problem' | 'check'; where: string; detail: string }[];
+  }[];
 }
 
 export interface AdminDownloadsDto {

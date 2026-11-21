@@ -77,7 +77,9 @@
 - Who fires each gun (v1.63.0): `shipGunSlots` matches every gun port to
   the game data's own mount list (`MountingPositions`, by port id
   `loadout.2.loadout.0…`) and sets `GunSlot.role` with `mountRole`: a pilot
-  seat operating it → `pilot`; point defence → `auto`; autonomous → `takeover`
+  seat operating it → `pilot`; a canard turret (`Turret.CanardTurret`) with
+  no seat recorded → `pilot` (v1.64.1: the Super Hornets' noses; confirmed in
+  game on the Mk II); point defence → `auto`; autonomous → `takeover`
   if slaveable, else `auto`; other turrets → `takeover` (pilot can slave it)
   or `crew`; gimbals and fixed mounts → `pilot`. No mount record (rocket
   pods, bomb racks, a few Kruger guns) → the old name rule, `roleSource:
@@ -99,7 +101,13 @@
   (`Weaponry.PilotDps` = guns on mounts not marked `IsPilotSlaveable: false`)
   disagrees with ours for a reason we haven't written down (`role-differs`;
   the two known reasons, a pilot seat on an unslaveable mount and point
-  defence, are left out). The API runs it on every ship-data build
+  defence, are left out). Since v1.64.1 each issue has a `severity`: those
+  are `problem`; `no-seat` (a remote, unslaveable turret with no seat
+  recorded, counted as crew only for lack of anything else) is `check`,
+  listed under "to confirm in game" on the admin page and never posted to the
+  feed (`feedProblems`). Shield HP counts the two active shields
+  (`ACTIVE_SHIELDS`, the files' shield pool): Erkul adds up every generator
+  (9,504 on the Super Hornet Mk II, ours 6,336); ours is right. The API runs it on every ship-data build
   (`Built.weaponAudit`), `lib/gameToolsAudit.ts` writes `gametools.weapons` to
   `AdminLog` when the list of problems changes (and once when it clears),
   which the bot posts to the admin feed, and Admin → Overview → Ship weapons

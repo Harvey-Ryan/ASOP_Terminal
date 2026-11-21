@@ -24,23 +24,34 @@ const stocked = (s) => shipGunSlots(s).filter((x) => x.stockGunUuid);
 // ── Control ships ───────────────────────────────────────────────────────────
 // What each control is known to carry in game, and what our reading must say.
 
-test('F7C-M Super Hornet Mk II: wing guns, a ball turret the pilot can take over, a crew nose turret', () => {
+test('F7C-M Super Hornet Mk II: wing guns and nose turret are the pilot\u2019s; the ball turret the pilot can take over', () => {
   // Reported missing from the ship page (v1.62.1): the ball turret's 2× S3
   // and the nose turret. The files: the ball turret is remote and pilot
-  // slaveable; the nose turret is remote and not slaveable (the co-pilot's).
+  // slaveable. The nose is a canard turret, remote, not slaveable, and lists
+  // no seat; the pilot fires it (confirmed in game, v1.64.1).
   const slots = shipGunSlots(ship('ANVL_Hornet_F7CM_Mk2'));
   const by = (g) => slots.filter((x) => x.group === g);
-  const wings = slots.filter((x) => x.role === 'pilot');
+  const wings = slots.filter((x) => /wing/.test(x.group));
   assert.equal(wings.length, 2);
-  assert.ok(wings.every((x) => x.maxSize === 4 && !x.turret));
+  assert.ok(wings.every((x) => x.role === 'pilot' && x.maxSize === 4 && !x.turret));
   const ball = by('hardpoint_weapon_center');
   assert.equal(ball.length, 2);
   assert.ok(ball.every((x) => x.role === 'takeover' && x.maxSize === 3 && x.turret && x.stockGunUuid));
   assert.equal(ball[0].groupName, 'Anvil F7C-M Mk II Ball Turret');
   const nose = by('hardpoint_weapon_nose');
   assert.equal(nose.length, 2);
-  assert.ok(nose.every((x) => x.role === 'crew' && x.maxSize === 3 && x.turret && x.stockGunUuid));
+  assert.ok(nose.every((x) => x.role === 'pilot' && x.maxSize === 3 && x.turret && x.stockGunUuid));
+  assert.deepEqual(roleCount(ship('ANVL_Hornet_F7CM_Mk2')), { pilot: 4, takeover: 2, crew: 0, auto: 0 });
   assert.ok(slots.every((x) => x.roleSource === 'files'));
+});
+
+test('canard turrets with no seat recorded are the pilot\u2019s; other seatless remote turrets stay crew', () => {
+  const canard = { MountType: 'Turret', TurretRole: 'Remote', IsPilotSlaveable: false };
+  assert.equal(mountRole(canard, 'Turret.CanardTurret'), 'pilot');
+  assert.equal(mountRole(canard, 'Turret.GunTurret'), 'crew');
+  assert.equal(mountRole(canard), 'crew');
+  // A seat that is recorded wins: a crew seat on a canard turret is crew.
+  assert.equal(mountRole({ ...canard, OperatingStations: [{ Kind: 'Crew' }] }, 'Turret.CanardTurret'), 'crew');
 });
 
 test('single-seat fighters: every gun is the pilot’s, turrets included', () => {
@@ -161,8 +172,21 @@ test('turret-only gun copies fit every turret mount, pilot-fired ones included',
 
 // ── The audit ───────────────────────────────────────────────────────────────
 
+const problemsOf = (s) => auditShipWeapons(s).issues.filter((i) => i.severity === 'problem');
+
 test('audit: every control ship agrees with the files', () => {
-  for (const s of allFixtures) assert.deepEqual(auditShipWeapons(s).issues, [], s.ClassName);
+  for (const s of allFixtures) assert.deepEqual(problemsOf(s), [], s.ClassName);
+});
+
+test('audit: seatless remote turrets counted as crew are listed to confirm, not as problems', () => {
+  // The Hercules A2's bridge turret: remote, not slaveable, no seat recorded.
+  const issues = auditShipWeapons(ship('CRUS_Starlifter_A2')).issues;
+  assert.deepEqual(
+    issues.map((i) => [i.kind, i.severity, i.where]),
+    [['no-seat', 'check', 'hardpoint_bridge_remote_turret']],
+  );
+  // The Super Hornet Mk II's nose isn't one any more (pilot by the canard rule).
+  assert.deepEqual(auditShipWeapons(ship('ANVL_Hornet_F7CM_Mk2')).issues, []);
 });
 
 test('audit: a gun the files list but we can’t find is reported', () => {
@@ -170,7 +194,7 @@ test('audit: a gun the files list but we can’t find is reported', () => {
   // Lose the nose turret from the loadout (keep its place so indices hold).
   const i = s.Loadout.findIndex((p) => p.HardpointName === 'hardpoint_weapon_nose');
   s.Loadout[i] = { HardpointName: 'hardpoint_weapon_nose' };
-  const issues = auditShipWeapons(s).issues;
+  const issues = problemsOf(s);
   assert.equal(issues.filter((x) => x.kind === 'missing-weapon').length, 2);
   assert.ok(issues.every((x) => x.where === 'hardpoint_weapon_nose'));
 });
@@ -178,7 +202,7 @@ test('audit: a gun the files list but we can’t find is reported', () => {
 test('audit: a turret gun without a mount record is reported as guessed', () => {
   const s = structuredClone(ship('ANVL_Hornet_F7CM_Mk2'));
   s.MountingPositions = s.MountingPositions.filter((m) => m.HardpointName !== 'hardpoint_weapon_center');
-  const issues = auditShipWeapons(s).issues;
+  const issues = problemsOf(s);
   assert.equal(issues.filter((x) => x.kind === 'guessed-turret').length, 2);
   // And the guess is the old one: crew, never counted.
   assert.ok(
@@ -193,7 +217,7 @@ test('audit: an unexplained disagreement with the files’ pilot rule is reporte
   const m = s.MountingPositions.find((x) => x.HardpointName === 'hardpoint_turret');
   // A manned turret the files would count as the pilot's (not marked unslaveable).
   delete m.IsPilotSlaveable;
-  const issues = auditShipWeapons(s).issues;
+  const issues = problemsOf(s);
   assert.equal(issues.length, 1);
   assert.equal(issues[0].kind, 'role-differs');
   assert.match(issues[0].detail, /crew turret/i);
@@ -202,7 +226,7 @@ test('audit: an unexplained disagreement with the files’ pilot rule is reporte
 test('audit: the deliberate differences aren’t reported', () => {
   // F8C: a pilot seat fires a turret marked not slaveable. Perseus: point defence.
   assert.deepEqual(auditShipWeapons(ship('ANVL_Lightning_F8C')).issues, []);
-  assert.deepEqual(auditShipWeapons(ship('RSI_Perseus')).issues, []);
+  assert.deepEqual(problemsOf(ship('RSI_Perseus')), []);
 });
 
 // ── Every ship (optional) ───────────────────────────────────────────────────
@@ -212,6 +236,7 @@ test('audit: every ship in SCUNPACKED_SHIPS', { skip: !process.env.SCUNPACKED_SH
   const all = JSON.parse(readFileSync(process.env.SCUNPACKED_SHIPS, 'utf8'));
   const bad = all
     .map(auditShipWeapons)
+    .map((a) => ({ ...a, issues: a.issues.filter((i) => i.severity === 'problem') }))
     .filter((a) => a.issues.length)
     .map((a) => `${a.name}: ${a.issues.map((i) => `${i.kind} ${i.where}`).join(', ')}`);
   assert.deepEqual(bad, []);
