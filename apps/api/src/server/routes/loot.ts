@@ -1889,6 +1889,37 @@ lootRouter.get('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, re
 
 // ── PATCH standalone session settings ─────────────────────────────────────────
 
+// ── DELETE standalone session (v1.60.1) ──────────────────────────────────────
+// An open session that's no longer wanted (a mistake, a test). Completed
+// sessions are loot history and stay. Items, assignments and queues go with it
+// (cascade); nothing is posted to Discord.
+
+lootRouter.delete('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
+  const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
+  const isManager = await assertGuildManager(req, guildId);
+  const session = await resolveStandaloneSession(sessionId, guildId);
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' } satisfies ApiResponse);
+    return;
+  }
+  if (!isManager) {
+    const dbUser = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    if (!dbUser || session.ownerId !== dbUser.discordId) {
+      res.status(403).json({ success: false, error: 'Forbidden' } satisfies ApiResponse);
+      return;
+    }
+  }
+  if (session.status !== 'OPEN') {
+    res.status(409).json({
+      success: false,
+      error: 'A completed session is loot history and can’t be deleted',
+    } satisfies ApiResponse);
+    return;
+  }
+  await prisma.lootSession.delete({ where: { id: session.id } });
+  res.json({ success: true } satisfies ApiResponse);
+});
+
 lootRouter.patch('/:guildId/loot/sessions/:sessionId', requireAuth, async (req, res) => {
   const { guildId, sessionId } = req.params as { guildId: string; sessionId: string };
   const isManager = await assertGuildManager(req, guildId);

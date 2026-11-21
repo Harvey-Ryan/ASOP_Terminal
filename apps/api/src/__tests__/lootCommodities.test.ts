@@ -159,3 +159,50 @@ describe('gear methods leave commodity lines alone', () => {
     expect(after.filter((a) => a.delivered).map((a) => a.id)).toEqual([pick.id]);
   });
 });
+
+describe('DELETE /loot/sessions/:sessionId (standalone)', () => {
+  async function standalone(status = 'OPEN') {
+    const guild = await createGuild();
+    const user = await createUser();
+    const agent = request.agent(app);
+    await agent.post('/test/login').send({ userId: user.id, managedGuildIds: [guild.guildId] });
+    const session = await prisma.lootSession.create({
+      data: {
+        guildId: guild.guildId,
+        name: 'TEST',
+        method: 'COMMODITY_DRAFT',
+        status,
+        participants: JSON.stringify(PEOPLE),
+      },
+    });
+    const item = await createLootItem(session.id, { name: 'Gold', quantity: 2, qualityLevel: 500 });
+    await prisma.lootAssignment.create({ data: { itemId: item.id, userId: '1001', username: 'Destrokk' } });
+    return { guild, session, item, agent };
+  }
+
+  it('deletes an open session with its items and assignments', async () => {
+    const { guild, session, item, agent } = await standalone();
+    const res = await agent.delete(`/api/guilds/${guild.guildId}/loot/sessions/${session.id}`);
+    expect(res.status).toBe(200);
+    expect(await prisma.lootSession.findUnique({ where: { id: session.id } })).toBeNull();
+    expect(await prisma.lootItem.findUnique({ where: { id: item.id } })).toBeNull();
+    expect(await prisma.lootAssignment.count({ where: { itemId: item.id } })).toBe(0);
+  });
+
+  it('keeps completed sessions (loot history)', async () => {
+    const { guild, session, agent } = await standalone('COMPLETED');
+    const res = await agent.delete(`/api/guilds/${guild.guildId}/loot/sessions/${session.id}`);
+    expect(res.status).toBe(409);
+    expect(await prisma.lootSession.findUnique({ where: { id: session.id } })).not.toBeNull();
+  });
+
+  it('refuses members who are neither an officer nor the owner', async () => {
+    const { guild, session } = await standalone();
+    const other = await createUser();
+    const agent = request.agent(app);
+    await agent.post('/test/login').send({ userId: other.id, managedGuildIds: [] });
+    const res = await agent.delete(`/api/guilds/${guild.guildId}/loot/sessions/${session.id}`);
+    expect([403, 404]).toContain(res.status);
+    expect(await prisma.lootSession.findUnique({ where: { id: session.id } })).not.toBeNull();
+  });
+});

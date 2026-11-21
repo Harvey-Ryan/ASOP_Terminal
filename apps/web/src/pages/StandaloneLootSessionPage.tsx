@@ -1,4 +1,4 @@
-import { canManageGuild } from '@dem/shared';
+import { canManageGuild, commodityShares } from '@dem/shared';
 import { itemSuggestions } from '@/api/catalog';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -180,7 +180,18 @@ function StandaloneItemRow({
             </p>
             <ItemInfoPopover name={item.name} />
           </div>
-          {isAssigned ? (
+          {isAssigned && item.assignments.length > 1 ? (
+            // Several winners (a commodity draft's units, v1.60.1): who got how many.
+            <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5 flex-wrap">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {commodityShares([{ ...item, qualityLevel: item.qualityLevel ?? 0 }])
+                .map((s) => {
+                  const n = s.lines.reduce((t, l) => t + l.count, 0);
+                  return `${resolveUsername(s.userId, s.username, currentUserId)}${n > 1 ? ` ×${n}` : ''}`;
+                })
+                .join(', ')}
+            </p>
+          ) : isAssigned ? (
             <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {resolveUsername(
@@ -189,7 +200,8 @@ function StandaloneItemRow({
                 currentUserId,
               )}
               {winner.rollValue != null && <span className="text-muted-foreground"> (rolled {winner.rollValue})</span>}
-              {winner.pickNumber != null && (
+              {/* Commodity units are numbered within their roll, not as draft picks. */}
+              {winner.pickNumber != null && session.method !== 'COMMODITY_DRAFT' && (
                 <span className="text-muted-foreground"> (pick #{winner.pickNumber + 1})</span>
               )}
             </p>
@@ -747,6 +759,12 @@ export function StandaloneLootSessionPage() {
   const toggleDeliveredMutation = useMutation({
     mutationFn: (assignmentId: string) => lootApi.toggleDeliveredStandalone(guildId!, sessionId!, assignmentId),
     onSuccess: invalidate,
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: () => lootApi.deleteStandalone(guildId!, sessionId!),
+    onSuccess: () => navigate(`/dashboard/servers/${guildId}/loot`),
+    onError: (err) => showError(err.message),
   });
 
   const completeMutation = useMutation({
@@ -1465,14 +1483,32 @@ export function StandaloneLootSessionPage() {
           {/* Complete */}
           {canManage && session.status === 'OPEN' && (
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)}
-                className="gap-1"
-              >
-                <Save className="h-4 w-4" />
-                Save & Exit
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/dashboard/servers/${guildId}/loot`)}
+                  className="gap-1"
+                >
+                  <Save className="h-4 w-4" />
+                  Save & Exit
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete "${session.name ?? 'this session'}"? Its items and who got them are removed, and nothing is posted to Discord.`,
+                      )
+                    )
+                      deleteSessionMutation.mutate();
+                  }}
+                  disabled={deleteSessionMutation.isPending}
+                  className="gap-1 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
               {(session.draftStarted || session.items.some((i) => i.assignments.length > 0)) &&
                 (completeConfirm ? (
                   <div className="flex items-center gap-2">
