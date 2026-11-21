@@ -99,7 +99,7 @@ export function DkpSettingsPage() {
               <ToggleSwitch
                 checked={form.dkpEnabled}
                 onChange={(v) => setField('dkpEnabled', v)}
-                label="DKP Module enabled"
+                label="DKP Module"
                 description={
                   form.dkpEnabled
                     ? 'Members can view the leaderboard and participate in auctions.'

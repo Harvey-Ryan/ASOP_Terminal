@@ -1602,9 +1602,14 @@ function EventCard({
       <div className="flex-1 px-4 py-3 min-w-0">
         <p className="font-semibold line-clamp-2 text-[21px] leading-tight">{event.name}</p>
         {/* Time + status visible only on mobile */}
-        <div className="sm:hidden flex items-center gap-3 mt-0.5 opacity-80">
-          <span className="text-[15px] font-medium">{time}</span>
-          {userRsvp && <span className="text-[13px] opacity-70">Rostered</span>}
+        {/* Full colour (it used to be faded to about half, hard to read on gold), and the time never wraps. */}
+        <div className="sm:hidden flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+          <span className="text-[15px] font-medium whitespace-nowrap">{time}</span>
+          {userRsvp && (
+            <span className="text-[12px] font-semibold uppercase tracking-wide border border-current rounded-sm px-1.5 leading-5">
+              Rostered
+            </span>
+          )}
         </div>
         {event.recurType && (
           <p className="text-[15px] opacity-60 line-clamp-2">

@@ -107,7 +107,7 @@ export function LootSettingsPage() {
               <ToggleSwitch
                 checked={form.lootEnabled}
                 onChange={(v) => setField('lootEnabled', v)}
-                label="Loot Module enabled"
+                label="Loot Module"
                 description={
                   form.lootEnabled
                     ? 'Members can create and participate in loot sessions.'
