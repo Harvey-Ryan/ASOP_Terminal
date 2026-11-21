@@ -966,3 +966,4 @@ export * from './combat.js';
 export * from './corrections.js';
 export * from './assistant.js';
 export * from './refinery.js';
+export * from './lootCommodities.js';

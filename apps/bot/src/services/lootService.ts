@@ -5,6 +5,14 @@ import { client } from '../client.js';
 // Planned pauses between Discord calls; not counted as slow by the scheduler (utils/pacing.ts).
 import { pacedSleep as sleep } from '../utils/pacing.js';
 import { getGuildDkpLabel } from '../utils/dkpLabel.js';
+import {
+  chunkBlocks,
+  commodityShareLabel,
+  commodityShares,
+  gearItemsLeft,
+  gearPickCount,
+  isCommodityItem,
+} from '@dem/shared';
 
 const LOOT_PICKER_ROLE = 'Loot Picker';
 
@@ -152,7 +160,7 @@ async function handleSnakeTurnNotification(
     draftOrder: string;
     guildId: string;
     skipCount: number;
-    items: Array<{ assignments: unknown[] }>;
+    items: Array<{ qualityLevel: number | null; assignments: unknown[] }>;
   },
   lootUrl: string,
   onDmFail: (nextPickerId: string, row: ActionRowBuilder<ButtonBuilder>) => Promise<void>,
@@ -160,8 +168,10 @@ async function handleSnakeTurnNotification(
   const draftOrder: string[] = JSON.parse(session.draftOrder);
   if (draftOrder.length === 0) return;
 
-  const allAssignmentCount = session.items.reduce((n, item) => n + item.assignments.length, 0);
-  const totalUnassigned = session.items.filter((i) => i.assignments.length === 0).length;
+  // Gear only: commodity lines go out by the commodity roll, not by picks (v1.60.1).
+  const allAssignmentCount = gearPickCount(session.items);
+  const totalUnassigned = gearItemsLeft(session.items);
+  const gearCount = session.items.filter((i) => !isCommodityItem(i)).length;
 
   const guild = await client.guilds.fetch(session.guildId).catch(() => null);
   if (!guild) return;
@@ -189,8 +199,8 @@ async function handleSnakeTurnNotification(
     }
   }
 
-  // If all items assigned, we're done — no DM needed (only exit when items actually exist)
-  if (session.items.length > 0 && totalUnassigned === 0) return;
+  // If all gear is assigned, we're done — no DM needed (only exit when gear actually exists)
+  if (gearCount > 0 && totalUnassigned === 0) return;
 
   const effectivePosition = allAssignmentCount + session.skipCount;
   const nextPickerId = getNextPicker(effectivePosition, draftOrder);
@@ -383,7 +393,8 @@ export async function notifyLootComplete(sessionId: string) {
       let suffix = '';
       if (e.rollValue != null) suffix = ` (rolled ${e.rollValue})`;
       else if (e.dkpSpent != null && e.dkpSpent > 0) suffix = ` (${e.dkpSpent} DKP)`;
-      else if (e.pickNumber != null) suffix = ` (pick #${e.pickNumber + 1})`;
+      // Commodity units are numbered within their own commodity's roll: not a draft pick.
+      else if (e.pickNumber != null && e.qualityLevel == null) suffix = ` (pick #${e.pickNumber + 1})`;
       return `• ${e.name}${ql}${ct}${suffix}`;
     });
 
@@ -481,47 +492,16 @@ export async function announceLootResults(sessionId: string) {
 
   const assignedItems = session.items.filter((i) => i.assignments.length > 0);
 
-  // Build results embed only when items were assigned
-  let embed: EmbedBuilder | null = null;
+  // Build the results only when items were assigned. Gear: one line per item
+  // and its winner. Commodities (lines with a QL, v1.60.1): one block per member
+  // with their units stacked, whatever the session's method, since an event can
+  // hand out gear by its method and commodities by the roll. Long results are
+  // split over several embeds (Discord: 4,096 characters per description).
+  const embeds: EmbedBuilder[] = [];
   if (assignedItems.length > 0) {
-    let description: string;
-
-    if (session.method === 'COMMODITY_DRAFT') {
-      type StackedItem = { name: string; qualityLevel: number | null; count: number; pickNumber: number | null };
-      const memberMap = new Map<string, { username: string; items: StackedItem[] }>();
-
-      for (const item of assignedItems) {
-        for (const a of item.assignments) {
-          if (!memberMap.has(a.userId)) memberMap.set(a.userId, { username: a.username, items: [] });
-          const member = memberMap.get(a.userId)!;
-          const key = `${item.name}__${item.qualityLevel ?? ''}`;
-          const existing = member.items.find((e) => `${e.name}__${e.qualityLevel ?? ''}` === key);
-          if (existing) {
-            existing.count += 1;
-          } else {
-            member.items.push({
-              name: item.name,
-              qualityLevel: item.qualityLevel ?? null,
-              count: 1,
-              pickNumber: a.pickNumber,
-            });
-          }
-        }
-      }
-
-      const sections: string[] = [];
-      for (const [, { username, items }] of memberMap) {
-        const itemLines = items.map((e) => {
-          const ql = e.qualityLevel != null ? ` QL ${e.qualityLevel}` : '';
-          const ct = e.count > 1 ? ` ×${e.count}` : '';
-          const pick = e.pickNumber != null ? ` (pick #${e.pickNumber + 1})` : '';
-          return `• ${e.name}${ql}${ct}${pick}`;
-        });
-        sections.push(`**${username}:**\n${itemLines.join('\n')}`);
-      }
-      description = sections.join('\n\n');
-    } else {
-      const lines = assignedItems.map((item) => {
+    const gearLines = assignedItems
+      .filter((item) => !isCommodityItem(item))
+      .map((item) => {
         const a = item.assignments[0]!;
         const qty = item.quantity > 1 ? ` ×${item.quantity}` : '';
         let suffix = '';
@@ -530,30 +510,41 @@ export async function announceLootResults(sessionId: string) {
         else if (a.pickNumber != null) suffix = ` *(pick #${a.pickNumber + 1})*`;
         return `**${item.name}${qty}** → <@${a.userId}>${suffix}`;
       });
-      description = lines.join('\n');
-    }
+    const commodityBlocks = commodityShares(assignedItems).map(
+      (share) => `**${share.username}:**\n${share.lines.map((l) => `• ${commodityShareLabel(l)}`).join('\n')}`,
+    );
+    const descriptions = [
+      ...chunkBlocks(gearLines, 4000, '\n'),
+      ...chunkBlocks(
+        commodityBlocks.length > 0 && gearLines.length > 0 ? [`__Commodities__`, ...commodityBlocks] : commodityBlocks,
+        4000,
+      ),
+    ];
 
     const methodLabel = session.method === 'DKP' ? `🪙 ${dkpLabel}` : (METHOD_LABELS[session.method] ?? session.method);
 
-    embed = new EmbedBuilder()
-      .setTitle(`🎁 Loot — ${label}`)
-      .setColor(0xf59e0b)
-      .setDescription(description)
-      .setFooter({ text: `Method: ${methodLabel}` })
-      .setTimestamp();
-
-    if (event && session.dkpAward > 0) {
-      const confirmedIds: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
-      embed.addFields({
-        name: `🪙 ${dkpLabel} Awarded`,
-        value: `+${session.dkpAward} ${dkpLabel} to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
-        inline: false,
-      });
-    }
+    descriptions.forEach((description, i) => {
+      const embed = new EmbedBuilder()
+        .setTitle((i === 0 ? `🎁 Loot — ${label}` : `🎁 Loot — ${label} (continued)`).slice(0, 256))
+        .setColor(0xf59e0b)
+        .setDescription(description);
+      if (i === descriptions.length - 1) {
+        embed.setFooter({ text: `Method: ${methodLabel}` }).setTimestamp();
+        if (event && session.dkpAward > 0) {
+          const confirmedIds: string[] = event.confirmedAttendees ? JSON.parse(event.confirmedAttendees) : [];
+          embed.addFields({
+            name: `🪙 ${dkpLabel} Awarded`,
+            value: `+${session.dkpAward} ${dkpLabel} to ${confirmedIds.length} attendee${confirmedIds.length !== 1 ? 's' : ''}`,
+            inline: false,
+          });
+        }
+      }
+      embeds.push(embed);
+    });
   }
 
   if (!event) {
-    if (embed) await postToLootChannel(session.guildId, embed);
+    for (const embed of embeds) await postToLootChannel(session.guildId, embed);
     return;
   }
 
@@ -564,7 +555,7 @@ export async function announceLootResults(sessionId: string) {
     const thread = await client.channels.fetch(event.threadId!);
     if (thread?.isThread()) {
       if (thread.archived) await thread.setArchived(false).catch(() => null);
-      if (embed) await thread.send({ embeds: [embed] });
+      for (const embed of embeds) await thread.send({ embeds: [embed] });
       if (holding) {
         // Discord would otherwise archive a quiet thread sooner; we close it ourselves.
         await thread.setAutoArchiveDuration(ThreadAutoArchiveDuration.OneWeek).catch(() => null);
@@ -576,7 +567,7 @@ export async function announceLootResults(sessionId: string) {
     console.error('[bot] Failed to post loot results:', err);
   }
 
-  if (embed) await postToAllianceThreads(session.eventId!, embed, undefined, holding);
+  for (const embed of embeds) await postToAllianceThreads(session.eventId!, embed, undefined, holding);
   if (!holding) {
     await prisma.lootSession
       .update({ where: { id: session.id }, data: { threadClosedAt: new Date() } })
