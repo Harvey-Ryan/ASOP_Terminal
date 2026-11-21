@@ -53,7 +53,7 @@
   (the share of shots hitting, burst then sustained fire, no shield regen, no
   range falloff, armour as one pool, the deflection reading still to be
   confirmed in game). Comparisons are computed from numbers, never written by AI.
-- Kill times closer to a fight (v1.60.0): `killTime(guns, ship, mode, { accuracy })`.
+- Kill times closer to a fight (v1.60.0, target stats and 45 s colours v1.61.0): `killTime(guns, ship, mode, { accuracy })`.
   Mode `real` fires each gun at its burst rate for `burstSeconds`
   (`gunBurstSeconds`: the files' `Heat.TimeToOverheat` for ballistics,
   capacitor shots ÷ rate of fire for energy guns; null = burst throughout),
