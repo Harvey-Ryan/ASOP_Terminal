@@ -114,7 +114,7 @@ export interface GunSlot {
   /** Who fires it (v1.63.0). Older data without it: `turret` ? crew : pilot. */
   role?: GunRole;
   /**
-   * `files` = the mount list says who fires it; `inferred` (v1.64.2) = a remote
+   * `files` = the mount list says who fires it; `inferred` (v1.65.1) = a remote
    * turret the files give no seat for, decided by the ship's seats (see
    * `turretSeats`); `guess` = no mount record, decided by part names.
    */
@@ -388,7 +388,7 @@ interface MountRecord {
 }
 
 /**
- * What the ship's seat list says about a turret (v1.64.2): `own` = a turret
+ * What the ship's seat list says about a turret (v1.65.1): `own` = a turret
  * seat named for it; `spare` = a turret seat no turret is named for, left
  * over for this one; `none` = no turret seat can be its; `shared` = fewer
  * spare seats than seatless turrets, so it's unclear which they work.
@@ -400,7 +400,7 @@ export type SeatEvidence = 'own' | 'spare' | 'none' | 'shared';
  * in this order: a pilot seat operating it → pilot; point defence → auto;
  * autonomous → takeover if the pilot can slave it, else auto; a remote turret
  * the pilot can't take over and that lists no seat → decided by `seat`
- * (v1.64.2, below); any other turret → takeover if slaveable, else crew;
+ * (v1.65.1, below); any other turret → takeover if slaveable, else crew;
  * gimbals and fixed mounts → pilot unless only crew seats operate them. Null
  * when the record says nothing useful (no mount type, not slaveable): the
  * caller guesses.
@@ -442,7 +442,7 @@ const seatIsFor = (seatHp: string, mountHp: string) => {
 
 /**
  * The seat evidence for every turret on a ship that lists no seat in the
- * mount list (v1.64.2), by mount PortId. Turret seats (Seating.Seats with
+ * mount list (v1.65.1), by mount PortId. Turret seats (Seating.Seats with
  * Role "Turret") named for a mount are that mount's. Seats named for no
  * mount are spare: they go first to seatless turrets the pilot can take over
  * (those always need a gunner), then to the seatless ones the pilot can't
@@ -604,7 +604,7 @@ function mirrorOf(m: MountRecord, records: readonly MountRecord[]): MountRecord 
  *   pilot seat firing a mount marked not slaveable (the F8C's turret, the
  *   F7A Mk II's, the Wildfire's centre gun: ours = pilot), and point defence
  *   (ours = automatic, never the pilot's).
- * - `inferred-unsure` (severity `check`, v1.64.2): a turret whose role was
+ * - `inferred-unsure` (severity `check`, v1.65.1): a turret whose role was
  *   inferred from the ship's seats (no seat in the mount list) where the
  *   evidence is weak: its mirror twin (Left ↔ Right) is marked differently
  *   (the Reliant Kore's wing tips), it was given a spare turret seat (one

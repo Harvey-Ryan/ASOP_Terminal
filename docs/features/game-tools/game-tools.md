@@ -80,7 +80,7 @@
   seat operating it → `pilot`; point defence → `auto`; autonomous → `takeover`
   if slaveable, else `auto`; other turrets → `takeover` (pilot can slave it)
   or `crew`; gimbals and fixed mounts → `pilot`. A remote turret the pilot
-  can't take over with no seat recorded (v1.64.2, `roleSource: 'inferred'`):
+  can't take over with no seat recorded (v1.65.1, `roleSource: 'inferred'`):
   in all 30 such turrets where the files do record a seat it's the pilot's,
   so it's `pilot` unless the ship's seat list (`Seating.Seats`, Role
   "Turret") has a seat for it: named for it (`turretSeats` → `own`:
@@ -108,7 +108,7 @@
   disagrees with ours for a reason we haven't written down (`role-differs`;
   the two known reasons, a pilot seat on an unslaveable mount and point
   defence, are left out). Since v1.64.1 each issue has a `severity`: those
-  are `problem`; `inferred-unsure` (v1.64.2: an inferred role on weak
+  are `problem`; `inferred-unsure` (v1.65.1: an inferred role on weak
   evidence: a mirror twin marked differently, as on the Reliant Kore, a
   spare seat, or more seatless turrets than spare seats) is `check`, listed
   under "to confirm in game" on the admin page and never posted to the feed

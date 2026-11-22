@@ -42,12 +42,12 @@ test('F7C-M Super Hornet Mk II: wing guns and nose turret are the pilot\u2019s; 
   assert.equal(nose.length, 2);
   assert.ok(nose.every((x) => x.role === 'pilot' && x.maxSize === 3 && x.turret && x.stockGunUuid));
   assert.deepEqual(roleCount(ship('ANVL_Hornet_F7CM_Mk2')), { pilot: 4, takeover: 2, crew: 0, auto: 0 });
-  // The nose is inferred from the seats (v1.64.2): no turret seat can be its.
+  // The nose is inferred from the seats (v1.65.1): no turret seat can be its.
   assert.deepEqual([...new Set(nose.map((x) => x.roleSource))], ['inferred']);
   assert.ok(slots.filter((x) => !nose.includes(x)).every((x) => x.roleSource === 'files'));
 });
 
-// ── Seatless remote turrets (v1.64.2) ───────────────────────────────────────
+// ── Seatless remote turrets (v1.65.1) ───────────────────────────────────────
 // A remote turret the pilot can't take over, with no seat in the mount list:
 // in all 30 such turrets where the files do record who fires it, it's the
 // pilot. So it's the pilot's unless the ship's seat list has a turret seat
