@@ -524,6 +524,7 @@ export function LoadoutCards({
     where: string;
     role: GunRole;
     guessed: boolean;
+    inferred: boolean;
     slots: number[];
   }[] = [];
   lo.slots.forEach((s, i) => {
@@ -539,6 +540,7 @@ export function LoadoutCards({
         where: humanHardpoint(id.split('/').pop() ?? id),
         role,
         guessed: s.roleSource === 'guess',
+        inferred: s.roleSource === 'inferred',
         slots: [i],
       });
   });
@@ -571,7 +573,16 @@ export function LoadoutCards({
               {m.sub} · size {s.minSize === s.maxSize ? s.maxSize : `${s.minSize}–${s.maxSize}`}
             </span>
             {slotRole(s) === 'pilot' && (
-              <span className="text-xs gt-dim">{roleFix(s.group ?? s.id, s.label, 'pilot', 'Fired by the pilot')}</span>
+              <span className="text-xs gt-dim">
+                {roleFix(
+                  s.group ?? s.id,
+                  s.label,
+                  'pilot',
+                  s.roleSource === 'inferred'
+                    ? 'Fired by the pilot (from the ship\u2019s seats)'
+                    : 'Fired by the pilot',
+                )}
+              </span>
             )}
           </div>
         )}
@@ -665,7 +676,8 @@ export function LoadoutCards({
                   </span>
                   <span className="text-xs gt-dim">
                     {roleFix(grp.id, grp.name, grp.role, GUN_ROLE_WORDS[grp.role])}
-                    {grp.guessed ? ' (by its name: no mount record)' : ''} ·{' '}
+                    {grp.guessed ? ' (by its name: no mount record)' : ''}
+                    {grp.inferred ? ' (from the ship\u2019s seats: none recorded for it)' : ''} ·{' '}
                     {counts ? <span className="gt-acc">counted</span> : 'not counted'}
                   </span>
                 </div>

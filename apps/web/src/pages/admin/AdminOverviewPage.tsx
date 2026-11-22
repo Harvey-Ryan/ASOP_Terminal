@@ -177,6 +177,7 @@ const AUDIT_WORDS: Record<string, string> = {
   'guessed-turret': 'Turret gun with no mount record',
   'role-differs': 'Who fires it disagrees with the files',
   'no-seat': 'No seat recorded: counted as crew',
+  'inferred-unsure': 'Who fires it inferred from weak evidence',
 };
 
 type AuditShips = NonNullable<Awaited<ReturnType<typeof adminApi.weaponAudit>>>['problems'];

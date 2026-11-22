@@ -67,6 +67,8 @@ for (const name of names) {
     Name: s.Name,
     Crew: s.Crew,
     PortTags: s.PortTags,
+    // Turret seats decide seatless remote turrets (v1.65.1, turretSeats).
+    Seating: { Seats: (s.Seating?.Seats ?? []).map((x) => ({ HardpointName: x.HardpointName, Role: x.Role })) },
     Weaponry: { PilotDps: s.Weaponry?.PilotDps ?? null },
     Loadout: (s.Loadout ?? []).map(trimPort),
     MountingPositions: (s.MountingPositions ?? [])
