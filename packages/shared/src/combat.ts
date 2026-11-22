@@ -113,8 +113,12 @@ export interface GunSlot {
   turret: boolean;
   /** Who fires it (v1.63.0). Older data without it: `turret` ? crew : pilot. */
   role?: GunRole;
-  /** `files` = from the game data's mount list; `guess` = no mount record, decided by part names. */
-  roleSource?: 'files' | 'guess';
+  /**
+   * `files` = the mount list says who fires it; `inferred` (v1.64.2) = a remote
+   * turret the files give no seat for, decided by the ship's seats (see
+   * `turretSeats`); `guess` = no mount record, decided by part names.
+   */
+  roleSource?: 'files' | 'inferred' | 'guess';
   /** The role comes from a live community correction (v1.64.0), not the files. */
   roleCorrected?: boolean;
   /** The turret or mount position the gun belongs to (its hardpoint), for grouping turret guns. */
@@ -384,34 +388,89 @@ interface MountRecord {
 }
 
 /**
- * Who fires the guns at a mount position (v1.63.0). Read from the game data,
- * in this order: a pilot seat operating it → pilot; a canard turret with no
- * seat recorded → pilot (v1.64.1, see below); point defence → auto;
- * autonomous → takeover if the pilot can slave it, else auto; any other
- * turret → takeover if slaveable, else crew; gimbals and fixed mounts →
- * pilot unless only crew seats operate them. Null when the record says
- * nothing useful (no mount type, not slaveable): the caller guesses.
- *
- * Canard turrets (`Turret.CanardTurret`, the Hornets' nose turrets) move with
- * the pilot's aim. Every one that lists a seat lists the pilot's (F7A Mk I and
- * Mk II); the F7C-M Super Hornets' list none, and the pilot fires them
- * (confirmed in game on the Mk II, v1.64.1). `portType` is the turret port's
- * Type from the loadout.
+ * What the ship's seat list says about a turret (v1.64.2): `own` = a turret
+ * seat named for it; `spare` = a turret seat no turret is named for, left
+ * over for this one; `none` = no turret seat can be its; `shared` = fewer
+ * spare seats than seatless turrets, so it's unclear which they work.
  */
-export function mountRole(m: MountRecord, portType?: string | null): GunRole | null {
+export type SeatEvidence = 'own' | 'spare' | 'none' | 'shared';
+
+/**
+ * Who fires the guns at a mount position (v1.63.0). Read from the game data,
+ * in this order: a pilot seat operating it → pilot; point defence → auto;
+ * autonomous → takeover if the pilot can slave it, else auto; a remote turret
+ * the pilot can't take over and that lists no seat → decided by `seat`
+ * (v1.64.2, below); any other turret → takeover if slaveable, else crew;
+ * gimbals and fixed mounts → pilot unless only crew seats operate them. Null
+ * when the record says nothing useful (no mount type, not slaveable): the
+ * caller guesses.
+ *
+ * Remote turrets the pilot can't take over: in every one where the files do
+ * record who fires it (30 of them: F7A and F8C turrets, Freelancer side
+ * cannons, Mustang noses, Starlancer pods…) it is the pilot, and none has a
+ * seat of its own. So one with no seat recorded is the pilot's, unless the
+ * ship's seat list has a turret seat for it (`own` or `spare`): the Hercules
+ * bridge turret and the Paladin's side turrets are crewed, the Lynx's and
+ * Ursa's turrets are worked from the passenger seat. Without `seat` (no seat
+ * list) it stays crew, as before.
+ */
+export function mountRole(m: MountRecord, seat?: SeatEvidence | null): GunRole | null {
   const kinds = new Set((m.OperatingStations ?? []).map((o) => String(o.Kind ?? '')));
   const type = m.MountType ?? null;
   const role = m.TurretRole ?? null;
   if (kinds.has('Pilot')) return 'pilot';
-  if (!kinds.size && String(portType ?? '').startsWith('Turret.CanardTurret')) return 'pilot';
   if (type === 'Turret' || role) {
     if (role === 'Pdc') return 'auto';
     if (role === 'Autonomous') return m.IsPilotSlaveable ? 'takeover' : 'auto';
+    if (role === 'Remote' && m.IsPilotSlaveable === false && !kinds.size && seat)
+      return seat === 'none' ? 'pilot' : 'crew';
     return m.IsPilotSlaveable ? 'takeover' : 'crew';
   }
   if (type === 'Gimbal' || type === 'Fixed') return kinds.size && !kinds.has('Pilot') ? 'crew' : 'pilot';
   if (m.IsPilotSlaveable) return 'takeover';
   return null;
+}
+
+const seatCore = (h: string) => h.toLowerCase().replace(/^hardpoint_/, '');
+
+/** A seat named for a mount: the same name, or the name with `seat_` before or `_seat` after it. */
+const seatIsFor = (seatHp: string, mountHp: string) => {
+  const s = seatCore(seatHp);
+  const m = seatCore(mountHp);
+  return s === m || s === `seat_${m}` || s === `${m}_seat`;
+};
+
+/**
+ * The seat evidence for every turret on a ship that lists no seat in the
+ * mount list (v1.64.2), by mount PortId. Turret seats (Seating.Seats with
+ * Role "Turret") named for a mount are that mount's. Seats named for no
+ * mount are spare: they go first to seatless turrets the pilot can take over
+ * (those always need a gunner), then to the seatless ones the pilot can't
+ * (the Lynx's passenger seat). Ships without a seat list give no evidence.
+ */
+export function turretSeats(ship: Json): Map<string, SeatEvidence> {
+  const out = new Map<string, SeatEvidence>();
+  const seats = ship.Seating?.Seats;
+  if (!Array.isArray(seats)) return out;
+  const turretSeatNames: string[] = seats
+    .filter((x: Json) => x?.Role === 'Turret' && x?.HardpointName)
+    .map((x: Json) => String(x.HardpointName));
+  const mounts = ((Array.isArray(ship.MountingPositions) ? ship.MountingPositions : []) as MountRecord[]).filter(
+    (m) => m.MountType === 'Turret' && m.PortId && m.HardpointName,
+  );
+  const spare = turretSeatNames.filter((x) => !mounts.some((m) => seatIsFor(x, m.HardpointName!)));
+  const seatless = mounts.filter(
+    (m) => !m.OperatingStations?.length && !turretSeatNames.some((x) => seatIsFor(x, m.HardpointName!)),
+  );
+  const left = spare.length - seatless.filter((m) => m.IsPilotSlaveable).length;
+  const unslaved = seatless.filter((m) => m.IsPilotSlaveable === false);
+  const forUnslaved: SeatEvidence = left <= 0 ? 'none' : left >= unslaved.length ? 'spare' : 'shared';
+  for (const m of mounts) {
+    if (m.OperatingStations?.length) continue;
+    if (turretSeatNames.some((x) => seatIsFor(x, m.HardpointName!))) out.set(m.PortId!, 'own');
+    else if (m.IsPilotSlaveable === false) out.set(m.PortId!, forUnslaved);
+  }
+  return out;
 }
 
 /**
@@ -426,6 +485,7 @@ export function shipGunSlots(ship: Json): GunSlot[] {
   const mounts = new Map<string, MountRecord>();
   for (const m of (Array.isArray(ship.MountingPositions) ? ship.MountingPositions : []) as MountRecord[])
     if (m.PortId) mounts.set(m.PortId, m);
+  const seats = turretSeats(ship);
   const slots: GunSlot[] = [];
   const walk = (
     ports: Json[] | undefined,
@@ -434,7 +494,7 @@ export function shipGunSlots(ship: Json): GunSlot[] {
     inTurret: boolean,
     mount: Json | null,
     offered: string[],
-    pos: { rec: MountRecord; name: string | null; id: string; type: string } | null,
+    pos: { rec: MountRecord; name: string | null; id: string } | null,
   ) => {
     (ports ?? []).forEach((p, i) => {
       const type = String(p.Type ?? '');
@@ -442,14 +502,21 @@ export function shipGunSlots(ship: Json): GunSlot[] {
       const here = [...path, String(p.HardpointName ?? '')];
       const portId = `${portPath ? `${portPath}.` : ''}loadout.${i}`;
       const rec = mounts.get(portId);
-      const posHere = rec ? { rec, name: str(p.Name), id: here.join('/'), type: String(p.Type ?? '') } : pos;
+      const posHere = rec ? { rec, name: str(p.Name), id: here.join('/') } : pos;
       const turretHere =
         inTurret ||
         type.startsWith('TurretBase') ||
         (/turret/i.test(String(p.Name ?? '')) && !/gimbal/i.test(String(p.Name ?? '')));
       if (type.startsWith('WeaponGun') || (types.includes('WeaponGun') && !type.startsWith('Turret'))) {
         const label = humanHardpoint(String((mount ?? p).HardpointName ?? p.HardpointName ?? ''));
-        const fromFiles = posHere ? mountRole(posHere.rec, posHere.type) : null;
+        const seat = posHere ? (seats.get(posHere.rec.PortId ?? '') ?? null) : null;
+        const fromFiles = posHere ? mountRole(posHere.rec, seat) : null;
+        const inferred =
+          !!fromFiles &&
+          !!seat &&
+          posHere!.rec.TurretRole === 'Remote' &&
+          posHere!.rec.IsPilotSlaveable === false &&
+          !posHere!.rec.OperatingStations?.length;
         const turret = turretHere || posHere?.rec.MountType === 'Turret';
         const role: GunRole = fromFiles ?? (turretHere ? 'crew' : 'pilot');
         slots.push({
@@ -459,7 +526,7 @@ export function shipGunSlots(ship: Json): GunSlot[] {
           maxSize: num(p.MaxSize) ?? 0,
           turret,
           role,
-          roleSource: fromFiles ? 'files' : 'guess',
+          roleSource: fromFiles ? (inferred ? 'inferred' : 'files') : 'guess',
           group: posHere?.id ?? here[0]!,
           port: portId,
           groupName: turret ? (posHere?.name ?? null) : null,
@@ -488,7 +555,7 @@ export function shipGunSlots(ship: Json): GunSlot[] {
 
 // ── Weapon audit (v1.63.0) ──────────────────────────────────────────────────
 
-export type WeaponAuditKind = 'missing-weapon' | 'guessed-turret' | 'role-differs' | 'no-seat';
+export type WeaponAuditKind = 'missing-weapon' | 'guessed-turret' | 'role-differs' | 'inferred-unsure';
 
 export interface WeaponAuditIssue {
   kind: WeaponAuditKind;
@@ -511,6 +578,19 @@ export interface ShipWeaponAudit {
 
 const isGunPayload = (p: { Type?: string }) => String(p.Type ?? '').startsWith('WeaponGun');
 
+/** The mount on the other side (Left ↔ Right in its hardpoint name), if there is one. */
+function mirrorOf(m: MountRecord, records: readonly MountRecord[]): MountRecord | null {
+  const hp = m.HardpointName ?? '';
+  const swap = (x: string) =>
+    x.replace(/left|right/gi, (w) => {
+      const to = /left/i.test(w) ? 'right' : 'left';
+      return w[0] === w[0]!.toUpperCase() ? to[0]!.toUpperCase() + to.slice(1) : to;
+    });
+  const other = swap(hp);
+  if (other === hp) return null;
+  return records.find((r) => r.HardpointName === other) ?? null;
+}
+
 /**
  * Checks our reading of a ship's guns against the game data's own mount list
  * (v1.63.0). What it reports:
@@ -524,11 +604,13 @@ const isGunPayload = (p: { Type?: string }) => String(p.Type ?? '').startsWith('
  *   pilot seat firing a mount marked not slaveable (the F8C's turret, the
  *   F7A Mk II's, the Wildfire's centre gun: ours = pilot), and point defence
  *   (ours = automatic, never the pilot's).
- * - `no-seat` (severity `check`, v1.64.1): a remote turret the pilot can't
- *   take over and that lists no seat at all, so we call it crew only because
- *   nothing says otherwise. That gap hid the Super Hornet Mk II's
- *   pilot-fired nose turret; the rest are worth confirming in game (and
- *   fixing with a correction if they're the pilot's).
+ * - `inferred-unsure` (severity `check`, v1.64.2): a turret whose role was
+ *   inferred from the ship's seats (no seat in the mount list) where the
+ *   evidence is weak: its mirror twin (Left ↔ Right) is marked differently
+ *   (the Reliant Kore's wing tips), it was given a spare turret seat (one
+ *   named for no turret, like the Heartseeker Mk I's co-pilot seat), or
+ *   there are fewer spare turret seats than seatless turrets. Worth
+ *   confirming in game.
  * No `problem` issues means our reading agrees with the files.
  */
 export function auditShipWeapons(ship: Json): ShipWeaponAudit {
@@ -536,6 +618,7 @@ export function auditShipWeapons(ship: Json): ShipWeaponAudit {
   const slots = shipGunSlots(ship);
   const byPort = new Map(slots.filter((x) => x.port).map((x) => [x.port!, x]));
   const records = (Array.isArray(ship.MountingPositions) ? ship.MountingPositions : []) as MountRecord[];
+  const seats = turretSeats(ship);
   for (const m of records) {
     const guns = (m.Payload ?? []).filter(isGunPayload);
     if (!guns.length) continue;
@@ -560,13 +643,26 @@ export function auditShipWeapons(ship: Json): ShipWeaponAudit {
         where,
         detail: `We say ${GUN_ROLE_WORDS[role].toLowerCase()}; the files count it as ${filesPilot ? '' : 'not '}the pilot's (${m.MountType ?? 'no mount type'}${m.TurretRole ? `, ${m.TurretRole}` : ''}).`,
       });
-    if (role === 'crew' && !m.OperatingStations?.length && m.TurretRole === 'Remote' && m.IsPilotSlaveable === false)
-      issues.push({
-        kind: 'no-seat',
-        severity: 'check',
-        where,
-        detail: 'A remote turret with no seat recorded: counted as a crew gun only because nothing says who fires it.',
-      });
+    const slot = guns.map((g) => (g.PortId ? byPort.get(g.PortId) : undefined)).find(Boolean);
+    if (slot?.roleSource === 'inferred') {
+      const twin = mirrorOf(m, records);
+      const evidence = seats.get(m.PortId ?? '');
+      const why =
+        evidence === 'shared'
+          ? 'fewer spare turret seats than turrets without one'
+          : evidence === 'spare'
+            ? 'only because a spare turret seat (named for no turret) is taken to be its gunner\u2019s'
+            : twin && (twin.IsPilotSlaveable !== m.IsPilotSlaveable || twin.TurretRole !== m.TurretRole)
+              ? `its twin ${twin.HardpointName} is marked ${twin.IsPilotSlaveable ? 'as one the pilot can take over' : 'differently'}`
+              : null;
+      if (why)
+        issues.push({
+          kind: 'inferred-unsure',
+          severity: 'check',
+          where,
+          detail: `No seat recorded; counted as ${GUN_ROLE_WORDS[slot.role ?? 'crew'].toLowerCase()} from the ship's seats, but ${why}.`,
+        });
+    }
   }
   for (const x of slots)
     if (x.roleSource === 'guess' && x.turret && x.stockGunUuid)

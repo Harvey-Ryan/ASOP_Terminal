@@ -77,11 +77,17 @@
 - Who fires each gun (v1.63.0): `shipGunSlots` matches every gun port to
   the game data's own mount list (`MountingPositions`, by port id
   `loadout.2.loadout.0…`) and sets `GunSlot.role` with `mountRole`: a pilot
-  seat operating it → `pilot`; a canard turret (`Turret.CanardTurret`) with
-  no seat recorded → `pilot` (v1.64.1: the Super Hornets' noses; confirmed in
-  game on the Mk II); point defence → `auto`; autonomous → `takeover`
+  seat operating it → `pilot`; point defence → `auto`; autonomous → `takeover`
   if slaveable, else `auto`; other turrets → `takeover` (pilot can slave it)
-  or `crew`; gimbals and fixed mounts → `pilot`. No mount record (rocket
+  or `crew`; gimbals and fixed mounts → `pilot`. A remote turret the pilot
+  can't take over with no seat recorded (v1.64.2, `roleSource: 'inferred'`):
+  in all 30 such turrets where the files do record a seat it's the pilot's,
+  so it's `pilot` unless the ship's seat list (`Seating.Seats`, Role
+  "Turret") has a seat for it: named for it (`turretSeats` → `own`:
+  Hercules bridge, Paladin sides) or a spare one named for no turret, after
+  spares go to seatless turrets the pilot can take over (`spare`: Lynx,
+  Heartseeker Mk I nose). This replaced the v1.64.1 canard rule (Super
+  Hornet noses, confirmed in game on the Mk II), which it covers. No mount record (rocket
   pods, bomb racks, a few Kruger guns) → the old name rule, `roleSource:
   'guess'`. Never decide it by part names again: that rule hid the F7C-M
   Mk II's ball and nose turrets and counted PDCs and door guns as pilot guns.
@@ -102,10 +108,11 @@
   disagrees with ours for a reason we haven't written down (`role-differs`;
   the two known reasons, a pilot seat on an unslaveable mount and point
   defence, are left out). Since v1.64.1 each issue has a `severity`: those
-  are `problem`; `no-seat` (a remote, unslaveable turret with no seat
-  recorded, counted as crew only for lack of anything else) is `check`,
-  listed under "to confirm in game" on the admin page and never posted to the
-  feed (`feedProblems`). Shield HP counts the two active shields
+  are `problem`; `inferred-unsure` (v1.64.2: an inferred role on weak
+  evidence: a mirror twin marked differently, as on the Reliant Kore, a
+  spare seat, or more seatless turrets than spare seats) is `check`, listed
+  under "to confirm in game" on the admin page and never posted to the feed
+  (`feedProblems`). Shield HP counts the two active shields
   (`ACTIVE_SHIELDS`, the files' shield pool): Erkul adds up every generator
   (9,504 on the Super Hornet Mk II, ours 6,336); ours is right. The API runs it on every ship-data build
   (`Built.weaponAudit`), `lib/gameToolsAudit.ts` writes `gametools.weapons` to

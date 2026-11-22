@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shipGunSlots, mountRole, slotRole, auditShipWeapons, gunFitsSlot } from '../dist/index.js';
+import { shipGunSlots, mountRole, slotRole, auditShipWeapons, gunFitsSlot, turretSeats } from '../dist/index.js';
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ships');
 const ship = (cls) => JSON.parse(readFileSync(join(dir, `combat-${cls.toLowerCase()}.json`), 'utf8'));
@@ -42,16 +42,105 @@ test('F7C-M Super Hornet Mk II: wing guns and nose turret are the pilot\u2019s; 
   assert.equal(nose.length, 2);
   assert.ok(nose.every((x) => x.role === 'pilot' && x.maxSize === 3 && x.turret && x.stockGunUuid));
   assert.deepEqual(roleCount(ship('ANVL_Hornet_F7CM_Mk2')), { pilot: 4, takeover: 2, crew: 0, auto: 0 });
-  assert.ok(slots.every((x) => x.roleSource === 'files'));
+  // The nose is inferred from the seats (v1.64.2): no turret seat can be its.
+  assert.deepEqual([...new Set(nose.map((x) => x.roleSource))], ['inferred']);
+  assert.ok(slots.filter((x) => !nose.includes(x)).every((x) => x.roleSource === 'files'));
 });
 
-test('canard turrets with no seat recorded are the pilot\u2019s; other seatless remote turrets stay crew', () => {
-  const canard = { MountType: 'Turret', TurretRole: 'Remote', IsPilotSlaveable: false };
-  assert.equal(mountRole(canard, 'Turret.CanardTurret'), 'pilot');
-  assert.equal(mountRole(canard, 'Turret.GunTurret'), 'crew');
-  assert.equal(mountRole(canard), 'crew');
-  // A seat that is recorded wins: a crew seat on a canard turret is crew.
-  assert.equal(mountRole({ ...canard, OperatingStations: [{ Kind: 'Crew' }] }, 'Turret.CanardTurret'), 'crew');
+// ── Seatless remote turrets (v1.64.2) ───────────────────────────────────────
+// A remote turret the pilot can't take over, with no seat in the mount list:
+// in all 30 such turrets where the files do record who fires it, it's the
+// pilot. So it's the pilot's unless the ship's seat list has a turret seat
+// for it. Each control below was checked against that evidence by hand.
+
+const groupRoles = (cls, match) => [
+  ...new Set(
+    shipGunSlots(ship(cls))
+      .filter((x) => match.test(x.group))
+      .map((x) => `${x.group.split('/').pop()}=${x.role}`),
+  ),
+];
+
+test('seatless remote turrets with no turret seat for them are the pilot\u2019s', () => {
+  // Starfarer side cannons: the Freelancer's mounts of the same name, and the
+  // same PC2 mount on the Starlancer, are pilot-fired; no seat is theirs.
+  for (const cls of ['MISC_Starfarer', 'MISC_Starfarer_Gemini'])
+    assert.deepEqual(groupRoles(cls, /sidecannon/), [
+      'hardpoint_sidecannon_right=pilot',
+      'hardpoint_sidecannon_left=pilot',
+    ]);
+  // Starlite: the pilot's is the only seat.
+  assert.deepEqual(groupRoles('MISC_Starlite', /turret/), ['hardpoint_turret=pilot']);
+  // Asgard / Valkyrie: "turret_pilot", and their turret seats are named for other turrets
+  // (the Valkyrie's two console seats go to its wing turrets, which always need a gunner).
+  assert.deepEqual(groupRoles('ANVL_Asgard', /turret_pilot/), ['hardpoint_turret_pilot=pilot']);
+  assert.deepEqual(groupRoles('ANVL_Valkyrie', /turret_pilot/), ['hardpoint_turret_pilot=pilot']);
+  assert.deepEqual(groupRoles('ANVL_Valkyrie', /weapon_wing/), [
+    'hardpoint_weapon_wing_left=takeover',
+    'hardpoint_weapon_wing_right=takeover',
+  ]);
+  // Paladin: the middle turret has no seat of its own.
+  assert.deepEqual(groupRoles('ANVL_Paladin', /remoteturret_middle/), ['hardpoint_remoteturret_middle=pilot']);
+  // Super Hornet Mk I: the co-pilot's turret seat works the ball turret, so the nose is the pilot's.
+  assert.deepEqual(groupRoles('ANVL_Hornet_F7CM', /gun_nose|gun_center/).sort(), [
+    'hardpoint_gun_center=takeover',
+    'hardpoint_gun_nose=pilot',
+  ]);
+});
+
+test('seatless remote turrets with a turret seat for them are crewed', () => {
+  // Hercules bridge turret: hardpoint_bridge_remote_turret_seat.
+  for (const cls of ['CRUS_Starlifter_A2', 'CRUS_Starlifter_M2'])
+    assert.deepEqual(groupRoles(cls, /bridge_remote_turret/), ['hardpoint_bridge_remote_turret=crew']);
+  // Paladin side turrets: hardpoint_seat_remoteturret_left / _right.
+  assert.deepEqual(groupRoles('ANVL_Paladin', /remoteturret_(left|right)/), [
+    'hardpoint_remoteturret_left=crew',
+    'hardpoint_remoteturret_right=crew',
+  ]);
+  // Lynx: the passenger seat is a turret seat named for no turret: the turret's gunner.
+  assert.deepEqual(groupRoles('RSI_Lynx', /turret_mount/), ['hardpoint_turret_mount=crew']);
+  // Heartseeker Mk I: no ball turret, so its co-pilot's turret seat is the nose's.
+  assert.deepEqual(groupRoles('ANVL_Hornet_F7CM_Heartseeker', /gun_nose/), ['hardpoint_gun_nose=crew']);
+});
+
+test('turretSeats: own, spare, none and shared', () => {
+  const ev = (cls) => Object.fromEntries([...turretSeats(ship(cls))].map(([, v], i) => [i, v]));
+  assert.ok(Object.values(ev('CRUS_Starlifter_A2')).includes('own'));
+  assert.deepEqual(Object.values(ev('RSI_Lynx')), ['spare']);
+  assert.deepEqual(Object.values(ev('MISC_Starlite')), ['none']);
+  // Two seatless unslaveable turrets and one spare seat: unclear which it works.
+  const shared = turretSeats({
+    Seating: { Seats: [{ Role: 'Turret', HardpointName: 'hardpoint_gunner' }] },
+    MountingPositions: [
+      {
+        PortId: 'loadout.0',
+        HardpointName: 'hardpoint_a',
+        MountType: 'Turret',
+        TurretRole: 'Remote',
+        IsPilotSlaveable: false,
+      },
+      {
+        PortId: 'loadout.1',
+        HardpointName: 'hardpoint_b',
+        MountType: 'Turret',
+        TurretRole: 'Remote',
+        IsPilotSlaveable: false,
+      },
+    ],
+  });
+  assert.deepEqual([...shared.values()], ['shared', 'shared']);
+  // No seat list: no evidence, and the turret stays crew as before.
+  assert.equal(turretSeats({ MountingPositions: [] }).size, 0);
+  const seatless = { MountType: 'Turret', TurretRole: 'Remote', IsPilotSlaveable: false };
+  assert.equal(mountRole(seatless), 'crew');
+  assert.equal(mountRole(seatless, 'none'), 'pilot');
+  assert.equal(mountRole(seatless, 'own'), 'crew');
+  assert.equal(mountRole(seatless, 'spare'), 'crew');
+  assert.equal(mountRole(seatless, 'shared'), 'crew');
+  // A recorded seat wins over the inference.
+  assert.equal(mountRole({ ...seatless, OperatingStations: [{ Kind: 'Crew' }] }, 'none'), 'crew');
+  // Slaveable turrets aren't affected.
+  assert.equal(mountRole({ ...seatless, IsPilotSlaveable: true }, 'none'), 'takeover');
 });
 
 test('single-seat fighters: every gun is the pilot’s, turrets included', () => {
@@ -178,17 +267,17 @@ test('audit: every control ship agrees with the files', () => {
   for (const s of allFixtures) assert.deepEqual(problemsOf(s), [], s.ClassName);
 });
 
-test('audit: seatless remote turrets counted as crew are listed to confirm, not as problems', () => {
-  // The Hercules A2's bridge turret: remote, not slaveable, no seat recorded.
-  const issues = auditShipWeapons(ship('CRUS_Starlifter_A2')).issues;
-  assert.deepEqual(
-    issues.map((i) => [i.kind, i.severity, i.where]),
-    [['no-seat', 'check', 'hardpoint_bridge_remote_turret']],
-  );
-  // The Super Hornet Mk II's nose isn't one any more (pilot by the canard rule).
-  assert.deepEqual(auditShipWeapons(ship('ANVL_Hornet_F7CM_Mk2')).issues, []);
+test('audit: weak inferences are listed to confirm, not as problems', () => {
+  const unsure = (cls) => auditShipWeapons(ship(cls)).issues.map((i) => [i.kind, i.severity, i.where]);
+  // Reliant Kore: inferred pilot, but its (empty) right-hand twin is one the pilot can take over.
+  assert.deepEqual(unsure('MISC_Reliant'), [['inferred-unsure', 'check', 'Hardpoint_Weapon_Wing_Tip_S3_Left']]);
+  // Heartseeker Mk I and Lynx: crewed only because of a spare turret seat.
+  assert.deepEqual(unsure('ANVL_Hornet_F7CM_Heartseeker'), [['inferred-unsure', 'check', 'hardpoint_gun_nose']]);
+  assert.deepEqual(unsure('RSI_Lynx'), [['inferred-unsure', 'check', 'hardpoint_turret_mount']]);
+  // Strong inferences aren't listed.
+  for (const cls of ['CRUS_Starlifter_A2', 'MISC_Starfarer', 'ANVL_Paladin', 'ANVL_Hornet_F7CM_Mk2'])
+    assert.deepEqual(unsure(cls), [], cls);
 });
-
 test('audit: a gun the files list but we can’t find is reported', () => {
   const s = structuredClone(ship('ANVL_Hornet_F7CM_Mk2'));
   // Lose the nose turret from the loadout (keep its place so indices hold).
